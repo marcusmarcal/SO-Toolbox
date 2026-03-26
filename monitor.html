@@ -29,6 +29,8 @@
         --green-dim: #004d26;
         --red: #ff3d5a;
         --red-dim: #4d0012;
+        --orange: #ff9100; /* NOVA COR: Laranja */
+        --orange-dim: #5e3a00; /* NOVA COR: Laranja Escuro */
         --yellow: #ffd740;
         --text: #c8d8e8;
         --text-dim: #506070;
@@ -367,7 +369,7 @@
       }
       td.publishers {
         text-align: center;
-      } /* Removido font-weight pois agora são ícones */
+      }
       td.status {
         text-align: center;
       }
@@ -375,7 +377,7 @@
       /* ── Ícones Luminosos de Publisher ─────────────────────────────── */
       .pub-icons-container {
         display: inline-flex;
-        gap: 8px; /* Espaço entre os dois ícones */
+        gap: 8px;
         align-items: center;
         justify-content: center;
       }
@@ -390,16 +392,33 @@
       /* Estado: Ativo (Verde Luminoso) */
       .pub-icon.active {
         background-color: var(--green);
-        box-shadow: 0 0 8px 1px rgba(0, 230, 118, 0.7); /* Efeito neon verde */
+        box-shadow: 0 0 8px 1px rgba(0, 230, 118, 0.7);
+      }
+
+      /* Estado: Atenção (Laranja Piscante) */
+      .pub-icon.warning {
+        background-color: var(--orange);
+        box-shadow: 0 0 10px 2px rgba(255, 145, 0, 0.8);
+        animation: pulse-orange 1.5s infinite; /* Adiciona um pulsar para chamar atenção */
+      }
+
+      @keyframes pulse-orange {
+        0% {
+          box-shadow: 0 0 8px 1px rgba(255, 145, 0, 0.6);
+        }
+        50% {
+          box-shadow: 0 0 12px 3px rgba(255, 145, 0, 0.9);
+        }
+        100% {
+          box-shadow: 0 0 8px 1px rgba(255, 145, 0, 0.6);
+        }
       }
 
       /* Estado: Inativo (Vermelho Escuro/Opaco) */
       .pub-icon.inactive {
-        background-color: var(
-          --red-dim
-        ); /* Fundo escuro para não parecer "ligado" */
-        border: 1px solid var(--red); /* Borda vermelha para indicar o problema */
-        box-shadow: none; /* Sem brilho */
+        background-color: var(--red-dim);
+        border: 1px solid var(--red);
+        box-shadow: none;
       }
 
       /* Estado: Erro/Carregando (Cinza) */
@@ -426,6 +445,10 @@
         background: var(--green-dim);
         color: var(--green);
       }
+      .badge.warning {
+        background: var(--orange-dim);
+        color: var(--orange);
+      } /* NOVO SELO */
       .badge.inactive {
         background: var(--red-dim);
         color: var(--red);
@@ -600,11 +623,9 @@
         setError("");
 
         try {
-          // Nota: Removida a validação de data.status === 'ok' pois o proxy
-          // retorna direto o JSON da Phenix, que pode não ter esse campo.
           const res = await fetch(`${PROXY}/channels`, { headers: headers() });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          await res.json(); // Apenas tenta parsear para ver se é JSON válido
+          await res.json();
         } catch (e) {
           setError(`Connection failed: ${e.message}`);
           btn.disabled = false;
@@ -663,9 +684,13 @@
         try {
           const res = await fetch(`${PROXY}/channels`, { headers: headers() });
           const data = await res.json();
-          // A API retorna { status: 'ok', channels: [...] } ou direto [...] dependendo da versão
+          // CORREÇÃO DA ORDEM ALFABÉTICA (ORDENAÇÃO NATURAL/NUMÉRICA)
           channels = (Array.isArray(data) ? data : data.channels || []).sort(
-            (a, b) => (a.name || "").localeCompare(b.name || "")
+            (a, b) =>
+              (a.name || "").localeCompare(b.name || "", undefined, {
+                numeric: true,
+                sensitivity: "base",
+              })
           );
         } catch (e) {
           setPulse(false);
@@ -727,13 +752,14 @@
           const count = state[ch.channelId];
           const isNew = !oldIds.has(ch.channelId);
           const isErr = count === "ERR";
-          const active = !isErr && count > 0;
 
           const tr = document.createElement("tr");
           if (isNew) tr.classList.add("row-new");
 
-          // --- NOVA LÓGICA DOS ÍCONES LUMINOSOS ---
+          // --- NOVA LÓGICA DE CORES E ÍCONES (TRÊS ESTADOS) ---
           let pubHtml;
+          let badgeHtml;
+
           if (isErr) {
             // Caso de erro na API: ícones cinzas
             pubHtml = `
@@ -742,16 +768,28 @@
           <div class="pub-icon loading"></div>
         </div>
       `;
+            badgeHtml = `<span class="badge error">⚠ Error</span>`;
           } else {
-            // Define a classe de cada ícone baseado no contador.
-            // Assumimos 2 como ideal (Primary + Backup).
             let icon1Class = "inactive";
             let icon2Class = "inactive";
+            let titleText = `${count} active publisher(s)`;
 
-            if (count >= 1) icon1Class = "active"; // Primary OK
-            if (count >= 2) icon2Class = "active"; // Backup OK
-
-            const titleText = `${count} active publisher(s)`;
+            if (count >= 2) {
+              // ESTADO VERDE: 2+ sources OK
+              icon1Class = "active";
+              icon2Class = "active";
+              badgeHtml = `<span class="badge active">✓ Healthy</span>`;
+            } else if (count === 1) {
+              // ESTADO LARANJA: Apenas 1 source OK
+              icon1Class = "warning"; // O primeiro ícone fica laranja piscante
+              icon2Class = "inactive";
+              badgeHtml = `<span class="badge warning">⚠ Warning (No Backup)</span>`;
+            } else {
+              // ESTADO VERMELHO: Nenhuma source OK (count === 0)
+              icon1Class = "inactive";
+              icon2Class = "inactive";
+              badgeHtml = `<span class="badge inactive">✗ Critical (No Source)</span>`;
+            }
 
             pubHtml = `
         <div class="pub-icons-container" title="${titleText}">
@@ -760,16 +798,7 @@
         </div>
       `;
           }
-          // ----------------------------------------
-
-          let badgeHtml;
-          if (isErr) {
-            badgeHtml = `<span class="badge error">⚠ Error</span>`;
-          } else if (active) {
-            badgeHtml = `<span class="badge active">✓ Source Active</span>`;
-          } else {
-            badgeHtml = `<span class="badge inactive">✗ No Source</span>`;
-          }
+          // ----------------------------------------------------
 
           tr.innerHTML = `
       <td class="channel-name" title="${esc(ch.channelId)}">${esc(
