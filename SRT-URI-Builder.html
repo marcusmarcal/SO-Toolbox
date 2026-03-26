@@ -808,9 +808,7 @@
           return;
         }
         // vlc:// protocol handler opens VLC on most OS
-        window.location.href = "vlc://open?url=" + uri.slice("srt://".length);
-        //print(window.location.href);
-        debug.print(window.location.href);
+        window.location.href = " " + uri.slice("srt://".length);
 
         // Fallback: also copy URI so user can paste manually
         navigator.clipboard.writeText(uri).catch(() => {});
