@@ -16,19 +16,35 @@
         --ok: #22c55e;
         --border: #1f2937;
       }
-      * { box-sizing: border-box; }
+      * {
+        box-sizing: border-box;
+      }
       body {
         margin: 0;
         font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu,
           Cantarell, Noto Sans, "Helvetica Neue", Arial, "Apple Color Emoji",
           "Segoe UI Emoji";
-        background: radial-gradient(1200px 600px at 10% -20%, #0b1020 0%, var(--bg) 60%),
+        background: radial-gradient(
+            1200px 600px at 10% -20%,
+            #0b1020 0%,
+            var(--bg) 60%
+          ),
           linear-gradient(160deg, #0b1020 0%, var(--bg) 60%);
         color: var(--text);
       }
-      header { padding: 28px 20px 8px; text-align: center; }
-      header h1 { margin: 0 0 6px; font-weight: 700; letter-spacing: 0.2px; }
-      header p  { margin: 0; color: var(--muted); }
+      header {
+        padding: 28px 20px 8px;
+        text-align: center;
+      }
+      header h1 {
+        margin: 0 0 6px;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+      }
+      header p {
+        margin: 0;
+        color: var(--muted);
+      }
 
       /* ENV status banner */
       #env-status {
@@ -46,9 +62,21 @@
         font-size: 12px;
         border: 1px solid;
       }
-      .env-banner.ok   { border-color: #14532d; background: rgba(34,197,94,0.12);  color: #86efac; }
-      .env-banner.warn { border-color: #7f1d1d; background: rgba(239,68,68,0.12);  color: #fca5a5; }
-      .env-banner.info { border-color: #1e3a5f; background: rgba(56,189,248,0.08); color: #7dd3fc; }
+      .env-banner.ok {
+        border-color: #14532d;
+        background: rgba(34, 197, 94, 0.12);
+        color: #86efac;
+      }
+      .env-banner.warn {
+        border-color: #7f1d1d;
+        background: rgba(239, 68, 68, 0.12);
+        color: #fca5a5;
+      }
+      .env-banner.info {
+        border-color: #1e3a5f;
+        background: rgba(56, 189, 248, 0.08);
+        color: #7dd3fc;
+      }
 
       main {
         max-width: 1100px;
@@ -58,110 +86,232 @@
         grid-template-columns: 1.2fr 0.8fr;
         gap: 18px;
       }
-      @media (max-width: 980px) { main { grid-template-columns: 1fr; } }
+      @media (max-width: 980px) {
+        main {
+          grid-template-columns: 1fr;
+        }
+      }
 
       .card {
-        background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0));
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.02),
+          rgba(255, 255, 255, 0)
+        );
         border: 1px solid var(--border);
         border-radius: 14px;
         padding: 16px;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35),
+          inset 0 1px 0 rgba(255, 255, 255, 0.04);
       }
-      .card h2 { margin: 4px 0 14px; font-size: 18px; color: #e2e8f0; }
+      .card h2 {
+        margin: 4px 0 14px;
+        font-size: 18px;
+        color: #e2e8f0;
+      }
 
-      form .row { display: grid; grid-template-columns: repeat(12,1fr); gap: 12px; }
-      form .field { grid-column: span 4; display: flex; flex-direction: column; }
-      form .field.span6  { grid-column: span 6; }
-      form .field.span8  { grid-column: span 8; }
-      form .field.span12 { grid-column: span 12; }
+      form .row {
+        display: grid;
+        grid-template-columns: repeat(12, 1fr);
+        gap: 12px;
+      }
+      form .field {
+        grid-column: span 4;
+        display: flex;
+        flex-direction: column;
+      }
+      form .field.span6 {
+        grid-column: span 6;
+      }
+      form .field.span8 {
+        grid-column: span 8;
+      }
+      form .field.span12 {
+        grid-column: span 12;
+      }
 
       label {
-        font-size: 12px; color: var(--muted);
+        font-size: 12px;
+        color: var(--muted);
         margin: 8px 0 6px;
-        display: flex; align-items: center; gap: 6px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
       }
-      input, select {
-        background: #0b1224; color: var(--text);
+      input,
+      select {
+        background: #0b1224;
+        color: var(--text);
         border: 1px solid var(--border);
-        border-radius: 10px; padding: 10px 12px;
-        outline: none; transition: 0.15s border, 0.15s box-shadow;
+        border-radius: 10px;
+        padding: 10px 12px;
+        outline: none;
+        transition: 0.15s border, 0.15s box-shadow;
       }
-      input:focus, select:focus {
+      input:focus,
+      select:focus {
         border-color: var(--accent);
-        box-shadow: 0 0 0 3px rgba(56,189,248,0.15);
+        box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
       }
       /* Passphrase loaded-from-env highlight */
       input.from-env {
-        border-color: rgba(34,197,94,0.5);
-        background: rgba(34,197,94,0.05);
+        border-color: rgba(34, 197, 94, 0.5);
+        background: rgba(34, 197, 94, 0.05);
       }
-      .hint { font-size: 11px; color: var(--muted); margin-top: 6px; }
+      .hint {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 6px;
+      }
 
-      .actions { display: flex; gap: 10px; margin-top: 14px; }
+      .actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 14px;
+      }
       button {
         appearance: none;
         border: 1px solid var(--border);
-        background: linear-gradient(180deg, rgba(56,189,248,0.18), rgba(56,189,248,0.06));
-        color: #d0f1ff; padding: 10px 14px; border-radius: 10px;
-        cursor: pointer; font-weight: 600; letter-spacing: 0.2px;
+        background: linear-gradient(
+          180deg,
+          rgba(56, 189, 248, 0.18),
+          rgba(56, 189, 248, 0.06)
+        );
+        color: #d0f1ff;
+        padding: 10px 14px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-weight: 600;
+        letter-spacing: 0.2px;
         transition: 0.15s transform, 0.15s background, 0.15s box-shadow;
-        box-shadow: 0 6px 18px rgba(2,132,199,0.25), inset 0 1px 0 rgba(255,255,255,0.08);
+        box-shadow: 0 6px 18px rgba(2, 132, 199, 0.25),
+          inset 0 1px 0 rgba(255, 255, 255, 0.08);
       }
       button:hover {
         transform: translateY(-1px);
-        box-shadow: 0 10px 22px rgba(2,132,199,0.35), inset 0 1px 0 rgba(255,255,255,0.08);
+        box-shadow: 0 10px 22px rgba(2, 132, 199, 0.35),
+          inset 0 1px 0 rgba(255, 255, 255, 0.08);
       }
-      .ghost { background: transparent; color: var(--text); }
+      .ghost {
+        background: transparent;
+        color: var(--text);
+      }
 
-      .output { display: flex; gap: 10px; align-items: stretch; }
+      .output {
+        display: flex;
+        gap: 10px;
+        align-items: stretch;
+      }
       .output input {
         flex: 1;
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-          "Liberation Mono","Courier New", monospace;
-        background: #0a0f1f; border: 1px solid var(--border);
+          "Liberation Mono", "Courier New", monospace;
+        background: #0a0f1f;
+        border: 1px solid var(--border);
       }
-      .small { font-size: 12px; color: var(--muted); margin-top: 8px; }
+      .small {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 8px;
+      }
 
       .pill {
-        display: inline-flex; gap: 8px; align-items: center;
-        background: #0b1224; border: 1px solid var(--border);
-        color: var(--muted); padding: 6px 10px; border-radius: 999px; font-size: 12px;
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        background: #0b1224;
+        border: 1px solid var(--border);
+        color: var(--muted);
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 12px;
       }
-      .ok   { color: #c6f6d5; border-color: #14532d; background: linear-gradient(180deg,rgba(34,197,94,0.2),rgba(34,197,94,0.06)); }
-      .warn { color: #fee2e2; border-color: #7f1d1d; background: linear-gradient(180deg,rgba(239,68,68,0.18),rgba(239,68,68,0.04)); }
-      .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-      @media (max-width: 520px) { .grid-2 { grid-template-columns: 1fr; } }
-      .help { color: var(--muted); font-size: 12px; }
+      .ok {
+        color: #c6f6d5;
+        border-color: #14532d;
+        background: linear-gradient(
+          180deg,
+          rgba(34, 197, 94, 0.2),
+          rgba(34, 197, 94, 0.06)
+        );
+      }
+      .warn {
+        color: #fee2e2;
+        border-color: #7f1d1d;
+        background: linear-gradient(
+          180deg,
+          rgba(239, 68, 68, 0.18),
+          rgba(239, 68, 68, 0.04)
+        );
+      }
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      @media (max-width: 520px) {
+        .grid-2 {
+          grid-template-columns: 1fr;
+        }
+      }
+      .help {
+        color: var(--muted);
+        font-size: 12px;
+      }
 
       details.advanced {
-        border: 1px dashed var(--border); border-radius: 12px;
-        padding: 8px 10px; background: rgba(255,255,255,0.02); margin-top: 16px;
+        border: 1px dashed var(--border);
+        border-radius: 12px;
+        padding: 8px 10px;
+        background: rgba(255, 255, 255, 0.02);
+        margin-top: 16px;
       }
-      details.advanced[open] { background: rgba(56,189,248,0.03); }
+      details.advanced[open] {
+        background: rgba(56, 189, 248, 0.03);
+      }
       details.advanced > summary {
-        list-style: none; cursor: pointer; user-select: none;
-        display: flex; align-items: center; gap: 8px;
-        color: #cbd5e1; font-weight: 600; margin: 4px 0 10px;
+        list-style: none;
+        cursor: pointer;
+        user-select: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #cbd5e1;
+        font-weight: 600;
+        margin: 4px 0 10px;
       }
-      details.advanced > summary::before { content: "▸"; color: #38bdf8; transition: transform 0.2s; }
-      details.advanced[open] > summary::before { transform: rotate(90deg); }
+      details.advanced > summary::before {
+        content: "▸";
+        color: #38bdf8;
+        transition: transform 0.2s;
+      }
+      details.advanced[open] > summary::before {
+        transform: rotate(90deg);
+      }
 
       /* Spinner */
       .spinner {
         display: inline-block;
-        width: 12px; height: 12px;
-        border: 2px solid rgba(56,189,248,0.3);
+        width: 12px;
+        height: 12px;
+        border: 2px solid rgba(56, 189, 248, 0.3);
         border-top-color: var(--accent);
         border-radius: 50%;
         animation: spin 0.7s linear infinite;
         flex-shrink: 0;
       }
-      @keyframes spin { to { transform: rotate(360deg); } }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
     </style>
   </head>
   <body>
     <header>
-      <img src="https://omsstats.wpenginepowered.com/wp-content/themes/orbit-media-bootstrap4/resources/images/logo.png" />
+      <img
+        src="https://omsstats.wpenginepowered.com/wp-content/themes/orbit-media-bootstrap4/resources/images/logo.png"
+      />
       <h1>Stats Perform SRT URI Generator</h1>
       <p>
         Fill out the fields below and copy the URI
@@ -198,7 +348,15 @@
 
             <div class="field span4">
               <label for="port">Port</label>
-              <input id="port" name="port" type="number" min="1" max="65535" placeholder="e.g., 5000" required />
+              <input
+                id="port"
+                name="port"
+                type="number"
+                min="1"
+                max="65535"
+                placeholder="e.g., 5000"
+                required
+              />
               <div class="hint">Required</div>
             </div>
 
@@ -213,14 +371,18 @@
             </div>
 
             <div class="field span6">
-              <label for="passphrase">Passphrase <span class="help">(optional)</span></label>
-              <div style="position:relative;display:flex;align-items:center;">
+              <label for="passphrase"
+                >Passphrase <span class="help">(optional)</span></label
+              >
+              <div
+                style="position: relative; display: flex; align-items: center"
+              >
                 <input
                   id="passphrase"
                   name="passphrase"
                   type="password"
                   placeholder="min. 10 characters for encryption"
-                  style="flex:1;padding-right:42px;"
+                  style="flex: 1; padding-right: 42px"
                   autocomplete="off"
                 />
                 <button
@@ -228,14 +390,27 @@
                   id="togglePassphrase"
                   title="Show / hide passphrase"
                   style="
-                    position:absolute;right:6px;
-                    background:transparent;border:none;box-shadow:none;
-                    color:var(--muted);cursor:pointer;padding:4px 6px;
-                    font-size:15px;line-height:1;transform:none;
+                    position: absolute;
+                    right: 6px;
+                    background: transparent;
+                    border: none;
+                    box-shadow: none;
+                    color: var(--muted);
+                    cursor: pointer;
+                    padding: 4px 6px;
+                    font-size: 15px;
+                    line-height: 1;
+                    transform: none;
                   "
-                >👁</button>
+                >
+                  👁
+                </button>
               </div>
-              <div id="passphrase-hint" class="hint" style="color: var(--danger)">
+              <div
+                id="passphrase-hint"
+                class="hint"
+                style="color: var(--danger)"
+              >
                 Internal passphrase in production, keep it safe!
               </div>
               <div class="hint">Enables encryption (AES) when defined</div>
@@ -255,14 +430,28 @@
               <div class="hint">AES key size (bytes): 16/24/32</div>
             </div>
             <div class="field span6">
-              <label for="streamid">streamid <span class="help">(optional)</span></label>
-              <input id="streamid" name="streamid" placeholder="e.g., publish/live/stream key=value" />
-              <div class="hint">Used by some ingest points for routing/authentication</div>
+              <label for="streamid"
+                >streamid <span class="help">(optional)</span></label
+              >
+              <input
+                id="streamid"
+                name="streamid"
+                placeholder="e.g., publish/live/stream key=value"
+              />
+              <div class="hint">
+                Used by some ingest points for routing/authentication
+              </div>
             </div>
             <div class="row" style="margin-top: 10px">
               <div class="field span4">
                 <label for="latency">latency (ms)</label>
-                <input id="latency" type="number" min="0" step="1" placeholder="e.g., 120" />
+                <input
+                  id="latency"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="e.g., 120"
+                />
               </div>
               <div class="field span4">
                 <label for="rcvlatency">rcvlatency (ms)</label>
@@ -275,12 +464,22 @@
 
               <div class="field span4">
                 <label for="maxbw">maxbw</label>
-                <input id="maxbw" type="text" placeholder="e.g., 0 (auto) or 10000000" />
+                <input
+                  id="maxbw"
+                  type="text"
+                  placeholder="e.g., 0 (auto) or 10000000"
+                />
                 <div class="hint">Maximum bandwidth (bps); 0 = auto</div>
               </div>
               <div class="field span4">
                 <label for="pkt_size">pkt_size (bytes)</label>
-                <input id="pkt_size" type="number" min="100" step="1" placeholder="e.g., 1316" />
+                <input
+                  id="pkt_size"
+                  type="number"
+                  min="100"
+                  step="1"
+                  placeholder="e.g., 1316"
+                />
               </div>
               <div class="field span4">
                 <label for="lossmaxttl">lossmaxttl</label>
@@ -302,7 +501,13 @@
 
               <div class="field span4">
                 <label for="conntimeo">conntimeo (ms)</label>
-                <input id="conntimeo" type="number" min="0" step="1" placeholder="connection timeout" />
+                <input
+                  id="conntimeo"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="connection timeout"
+                />
               </div>
               <div class="field span4">
                 <label for="ttl">ttl</label>
@@ -310,7 +515,14 @@
               </div>
               <div class="field span4">
                 <label for="tos">tos</label>
-                <input id="tos" type="number" min="0" max="255" step="1" placeholder="DSCP/TOS" />
+                <input
+                  id="tos"
+                  type="number"
+                  min="0"
+                  max="255"
+                  step="1"
+                  placeholder="DSCP/TOS"
+                />
               </div>
 
               <div class="field span4">
@@ -370,33 +582,51 @@
         <div class="output">
           <input id="uri" readonly placeholder="srt://host:port?options" />
         </div>
-        <div style="margin-top:10px;">
-          <button type="button" id="vlcBtn" style="
-            width:100%;
-            background: linear-gradient(180deg, rgba(255,140,0,0.22), rgba(255,140,0,0.08));
-            border-color: rgba(255,140,0,0.35);
-            color: #ffd580;
-            font-size: 14px;
-            padding: 11px 14px;
-          ">▶ Open in VLC</button>
+        <div style="margin-top: 10px">
+          <button
+            type="button"
+            id="vlcBtn"
+            style="
+              width: 100%;
+              background: linear-gradient(
+                180deg,
+                rgba(255, 140, 0, 0.22),
+                rgba(255, 140, 0, 0.08)
+              );
+              border-color: rgba(255, 140, 0, 0.35);
+              color: #ffd580;
+              font-size: 14px;
+              padding: 11px 14px;
+            "
+          >
+            ▶ Open in VLC
+          </button>
         </div>
         <div class="small" id="status"></div>
 
         <div style="margin-top: 18px">
-          <span class="pill">Tip: The URI updates automatically as you type</span>
+          <span class="pill"
+            >Tip: The URI updates automatically as you type</span
+          >
         </div>
 
         <div style="margin-top: 16px" class="grid-2">
           <div>
-            <h3 style="margin: 8px 0 6px; font-size: 14px; color: #cbd5e1">Format</h3>
+            <h3 style="margin: 8px 0 6px; font-size: 14px; color: #cbd5e1">
+              Format
+            </h3>
             <div class="help">
-              srt://&lt;host&gt;:&lt;port&gt;?mode=&lt;caller|listener|rendezvous&gt;&amp;passphrase=&lt;...&gt;&amp;pbkeylen=&lt;16|24|32&gt;&amp;latency=&lt;ms&gt; …
+              srt://&lt;host&gt;:&lt;port&gt;?mode=&lt;caller|listener|rendezvous&gt;&amp;passphrase=&lt;...&gt;&amp;pbkeylen=&lt;16|24|32&gt;&amp;latency=&lt;ms&gt;
+              …
             </div>
           </div>
           <div>
-            <h3 style="margin: 8px 0 6px; font-size: 14px; color: #cbd5e1">Compatibility</h3>
+            <h3 style="margin: 8px 0 6px; font-size: 14px; color: #cbd5e1">
+              Compatibility
+            </h3>
             <div class="help">
-              Fields left blank are omitted from the URI. Follows the standard SRT querystring format.
+              Fields left blank are omitted from the URI. Follows the standard
+              SRT querystring format.
             </div>
           </div>
         </div>
@@ -404,191 +634,239 @@
     </main>
 
     <script>
-    // ═══════════════════════════════════════════════════════════
-    //  .env loader
-    // ═══════════════════════════════════════════════════════════
-    async function loadEnv(path = '.env') {
-      const resp = await fetch(path, { cache: 'no-cache' });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const text = await resp.text();
-      const env = {};
-      for (const raw of text.split('\n')) {
-        const line = raw.trim();
-        if (!line || line.startsWith('#')) continue;
-        const eq = line.indexOf('=');
-        if (eq < 1) continue;
-        env[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
-      }
-      return env;
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    //  Apply config
-    // ═══════════════════════════════════════════════════════════
-    let _envPassphrase = '';
-
-    function applyConfig(env) {
-      const passEl = document.getElementById('passphrase');
-      if (env.SRT_PASSPHRASE) {
-        passEl.value = env.SRT_PASSPHRASE;
-        passEl.type  = 'password';   // keep masked when loaded from env
-        passEl.classList.add('from-env');
-        _envPassphrase = env.SRT_PASSPHRASE;
-        document.getElementById('passphrase-hint').textContent =
-          '🔒 Loaded from .env — keep that file secure!';
+      // ═══════════════════════════════════════════════════════════
+      //  .env loader
+      // ═══════════════════════════════════════════════════════════
+      async function loadEnv(path = ".env") {
+        const resp = await fetch(path, { cache: "no-cache" });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const text = await resp.text();
+        const env = {};
+        for (const raw of text.split("\n")) {
+          const line = raw.trim();
+          if (!line || line.startsWith("#")) continue;
+          const eq = line.indexOf("=");
+          if (eq < 1) continue;
+          env[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
+        }
+        return env;
       }
 
-      const datalist = document.getElementById('host-presets');
-      datalist.innerHTML = '';
-      const serverKeys = Object.keys(env)
-        .filter(k => /^SRT_SERVER_\d+$/.test(k))
-        .sort((a, b) => parseInt(a.replace('SRT_SERVER_',''),10) - parseInt(b.replace('SRT_SERVER_',''),10));
+      // ═══════════════════════════════════════════════════════════
+      //  Apply config
+      // ═══════════════════════════════════════════════════════════
+      let _envPassphrase = "";
 
-      for (const key of serverKeys) {
-        const parts = env[key].split('|');
-        const ip    = (parts[0] || '').trim();
-        const label = (parts[1] || ip).trim();
-        if (!ip) continue;
-        const opt = document.createElement('option');
-        opt.value = ip; opt.textContent = label;
-        datalist.appendChild(opt);
+      function applyConfig(env) {
+        const passEl = document.getElementById("passphrase");
+        if (env.SRT_PASSPHRASE) {
+          passEl.value = env.SRT_PASSPHRASE;
+          passEl.type = "password"; // keep masked when loaded from env
+          passEl.classList.add("from-env");
+          _envPassphrase = env.SRT_PASSPHRASE;
+          document.getElementById("passphrase-hint").textContent =
+            "🔒 Loaded from .env — keep that file secure!";
+        }
+
+        const datalist = document.getElementById("host-presets");
+        datalist.innerHTML = "";
+        const serverKeys = Object.keys(env)
+          .filter((k) => /^SRT_SERVER_\d+$/.test(k))
+          .sort(
+            (a, b) =>
+              parseInt(a.replace("SRT_SERVER_", ""), 10) -
+              parseInt(b.replace("SRT_SERVER_", ""), 10)
+          );
+
+        for (const key of serverKeys) {
+          const parts = env[key].split("|");
+          const ip = (parts[0] || "").trim();
+          const label = (parts[1] || ip).trim();
+          if (!ip) continue;
+          const opt = document.createElement("option");
+          opt.value = ip;
+          opt.textContent = label;
+          datalist.appendChild(opt);
+        }
+        return { serverCount: serverKeys.length };
       }
-      return { serverCount: serverKeys.length };
-    }
 
-    // ═══════════════════════════════════════════════════════════
-    //  Banner
-    // ═══════════════════════════════════════════════════════════
-    function showBanner(type, msg) {
-      const wrap   = document.getElementById('env-status');
-      const banner = document.getElementById('env-banner');
-      const msgEl  = document.getElementById('env-msg');
-      wrap.style.display = 'block';
-      banner.className   = `env-banner ${type}`;
-      const spinner = banner.querySelector('.spinner');
-      if (spinner) spinner.remove();
-      msgEl.textContent = msg;
-      if (type === 'ok') setTimeout(() => { wrap.style.display = 'none'; }, 4000);
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    //  URI builder
-    // ═══════════════════════════════════════════════════════════
-    const form     = document.getElementById('srt-form');
-    const uriEl    = document.getElementById('uri');
-    const statusEl = document.getElementById('status');
-    const hostEl   = document.getElementById('host');
-    const portEl   = document.getElementById('port');
-
-    const fields = [
-      'mode','streamid','passphrase','pbkeylen','latency',
-      'rcvlatency','peerlatency','maxbw','pkt_size','lossmaxttl',
-      'sndbuf','rcvbuf','linger','conntimeo','ttl','tos','mss',
-      'transtype','messageapi','tlpktdrop','nakreport','minversion',
-    ];
-
-    function buildURI() {
-      const host = (hostEl.value || '').trim();
-      const port = (portEl.value || '').trim();
-      let base = 'srt://';
-      if (host) base += encodeURIComponent(host);
-      if (port) base += (host ? ':' : '%3A') + encodeURIComponent(port);
-
-      const params = [];
-      for (const key of fields) {
-        const el = document.getElementById(key);
-        if (!el) continue;
-        const valRaw = (el.value || '').toString().trim();
-        if (valRaw === '') continue;
-        params.push(`${key}=${encodeURIComponent(valRaw)}`);
+      // ═══════════════════════════════════════════════════════════
+      //  Banner
+      // ═══════════════════════════════════════════════════════════
+      function showBanner(type, msg) {
+        const wrap = document.getElementById("env-status");
+        const banner = document.getElementById("env-banner");
+        const msgEl = document.getElementById("env-msg");
+        wrap.style.display = "block";
+        banner.className = `env-banner ${type}`;
+        const spinner = banner.querySelector(".spinner");
+        if (spinner) spinner.remove();
+        msgEl.textContent = msg;
+        if (type === "ok")
+          setTimeout(() => {
+            wrap.style.display = "none";
+          }, 4000);
       }
-      if (params.length) base += '?' + params.join('&');
-      uriEl.value = base;
-      return base;
-    }
 
-    form.addEventListener('input', buildURI);
+      // ═══════════════════════════════════════════════════════════
+      //  URI builder
+      // ═══════════════════════════════════════════════════════════
+      const form = document.getElementById("srt-form");
+      const uriEl = document.getElementById("uri");
+      const statusEl = document.getElementById("status");
+      const hostEl = document.getElementById("host");
+      const portEl = document.getElementById("port");
 
-    // ── Copy URI (submit button) ──────────────────────────────
-    form.addEventListener('submit', async e => {
-      e.preventDefault();
-      const uri = buildURI();
-      try {
-        await navigator.clipboard.writeText(uri);
-        statusEl.textContent = '✔ Copied to clipboard!';
-      } catch {
-        uriEl.focus(); uriEl.select();
-        const ok = document.execCommand && document.execCommand('copy');
-        statusEl.textContent = ok ? '✔ Copied!' : 'Could not copy automatically.';
+      const fields = [
+        "mode",
+        "streamid",
+        "passphrase",
+        "pbkeylen",
+        "latency",
+        "rcvlatency",
+        "peerlatency",
+        "maxbw",
+        "pkt_size",
+        "lossmaxttl",
+        "sndbuf",
+        "rcvbuf",
+        "linger",
+        "conntimeo",
+        "ttl",
+        "tos",
+        "mss",
+        "transtype",
+        "messageapi",
+        "tlpktdrop",
+        "nakreport",
+        "minversion",
+      ];
+
+      function buildURI() {
+        const host = (hostEl.value || "").trim();
+        const port = (portEl.value || "").trim();
+        let base = "srt://";
+        if (host) base += encodeURIComponent(host);
+        if (port) base += (host ? ":" : "%3A") + encodeURIComponent(port);
+
+        const params = [];
+        for (const key of fields) {
+          const el = document.getElementById(key);
+          if (!el) continue;
+          const valRaw = (el.value || "").toString().trim();
+          if (valRaw === "") continue;
+          params.push(`${key}=${encodeURIComponent(valRaw)}`);
+        }
+        if (params.length) base += "?" + params.join("&");
+        uriEl.value = base;
+        return base;
       }
-      setTimeout(() => { statusEl.textContent = ''; }, 2500);
-    });
 
-    // ── Clear ─────────────────────────────────────────────────
-    document.getElementById('resetBtn').addEventListener('click', () => {
-      form.reset();
-      const pass = document.getElementById('passphrase');
-      if (_envPassphrase) {
-        pass.value = _envPassphrase;
-        pass.type  = 'password';
-        pass.classList.add('from-env');
-      }
-      buildURI();
-    });
+      form.addEventListener("input", buildURI);
 
-    // ── Open in VLC ───────────────────────────────────────────
-    document.getElementById('vlcBtn').addEventListener('click', () => {
-      const uri = buildURI();
-      if (!uri || uri === 'srt://') {
-        statusEl.textContent = '⚠ Fill in at least Host and Port first.';
-        setTimeout(() => { statusEl.textContent = ''; }, 2500);
-        return;
-      }
-      // vlc:// protocol handler opens VLC on most OS
-      window.location.href = 'vlc://' + uri.slice('srt://'.length);
-      // Fallback: also copy URI so user can paste manually
-      navigator.clipboard.writeText(uri).catch(() => {});
-      statusEl.textContent = '▶ Opening VLC… (URI also copied)';
-      setTimeout(() => { statusEl.textContent = ''; }, 3000);
-    });
+      // ── Copy URI (submit button) ──────────────────────────────
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const uri = buildURI();
+        try {
+          await navigator.clipboard.writeText(uri);
+          statusEl.textContent = "✔ Copied to clipboard!";
+        } catch {
+          uriEl.focus();
+          uriEl.select();
+          const ok = document.execCommand && document.execCommand("copy");
+          statusEl.textContent = ok
+            ? "✔ Copied!"
+            : "Could not copy automatically.";
+        }
+        setTimeout(() => {
+          statusEl.textContent = "";
+        }, 2500);
+      });
 
-    // ── Passphrase toggle (eye button) ────────────────────────
-    document.getElementById('togglePassphrase').addEventListener('click', () => {
-      const pass = document.getElementById('passphrase');
-      pass.type = pass.type === 'password' ? 'text' : 'password';
-    });
-
-    // When user types manually in passphrase field, always show what they type
-    document.getElementById('passphrase').addEventListener('input', function () {
-      if (this.classList.contains('from-env') && this.value !== _envPassphrase) {
-        // User is editing — switch to visible text, drop env styling
-        this.classList.remove('from-env');
-        this.type = 'text';
-      }
-    });
-
-    // ═══════════════════════════════════════════════════════════
-    //  Boot
-    // ═══════════════════════════════════════════════════════════
-    document.getElementById('env-status').style.display = 'block';
-
-    loadEnv('.env')
-      .then(env => {
-        const { serverCount } = applyConfig(env);
-        showBanner('ok',
-          `✔ Config loaded — passphrase ${env.SRT_PASSPHRASE ? 'set' : 'not set'}, ` +
-          `${serverCount} server preset${serverCount !== 1 ? 's' : ''} loaded.`
-        );
-        buildURI();
-      })
-      .catch(() => {
-        showBanner('warn',
-          `⚠ .env not found. Serve via a web server and place a .env file in the same directory.`
-        );
+      // ── Clear ─────────────────────────────────────────────────
+      document.getElementById("resetBtn").addEventListener("click", () => {
+        form.reset();
+        const pass = document.getElementById("passphrase");
+        if (_envPassphrase) {
+          pass.value = _envPassphrase;
+          pass.type = "password";
+          pass.classList.add("from-env");
+        }
         buildURI();
       });
 
-    buildURI();
+      // ── Open in VLC ───────────────────────────────────────────
+      document.getElementById("vlcBtn").addEventListener("click", () => {
+        const uri = buildURI();
+        if (!uri || uri === "srt://") {
+          statusEl.textContent = "⚠ Fill in at least Host and Port first.";
+          setTimeout(() => {
+            statusEl.textContent = "";
+          }, 2500);
+          return;
+        }
+        // vlc:// protocol handler opens VLC on most OS
+        window.location.href = "vlc " + uri.slice("srt://".length);
+        // Fallback: also copy URI so user can paste manually
+        navigator.clipboard.writeText(uri).catch(() => {});
+        statusEl.textContent = "▶ Opening VLC… (URI also copied)";
+        setTimeout(() => {
+          statusEl.textContent = "";
+        }, 3000);
+      });
+
+      // ── Passphrase toggle (eye button) ────────────────────────
+      document
+        .getElementById("togglePassphrase")
+        .addEventListener("click", () => {
+          const pass = document.getElementById("passphrase");
+          pass.type = pass.type === "password" ? "text" : "password";
+        });
+
+      // When user types manually in passphrase field, always show what they type
+      document
+        .getElementById("passphrase")
+        .addEventListener("input", function () {
+          if (
+            this.classList.contains("from-env") &&
+            this.value !== _envPassphrase
+          ) {
+            // User is editing — switch to visible text, drop env styling
+            this.classList.remove("from-env");
+            this.type = "text";
+          }
+        });
+
+      // ═══════════════════════════════════════════════════════════
+      //  Boot
+      // ═══════════════════════════════════════════════════════════
+      document.getElementById("env-status").style.display = "block";
+
+      loadEnv(".env")
+        .then((env) => {
+          const { serverCount } = applyConfig(env);
+          showBanner(
+            "ok",
+            `✔ Config loaded — passphrase ${
+              env.SRT_PASSPHRASE ? "set" : "not set"
+            }, ` +
+              `${serverCount} server preset${
+                serverCount !== 1 ? "s" : ""
+              } loaded.`
+          );
+          buildURI();
+        })
+        .catch(() => {
+          showBanner(
+            "warn",
+            `⚠ .env not found. Serve via a web server and place a .env file in the same directory.`
+          );
+          buildURI();
+        });
+
+      buildURI();
     </script>
   </body>
 </html>
