@@ -799,23 +799,16 @@
 
       // ── Open in VLC ───────────────────────────────────────────
       document.getElementById("vlcBtn").addEventListener("click", () => {
-        const uri = buildURI();
+        const uri = buildURI(); // buildURI() já gera a URL srt completa
         if (!uri || uri === "srt://") {
-          statusEl.textContent = "⚠ Fill in at least Host and Port first.";
-          setTimeout(() => {
-            statusEl.textContent = "";
-          }, 2500);
+          statusEl.textContent = "⚠ Fill Host and Port first.";
+          setTimeout(() => (statusEl.textContent = ""), 2500);
           return;
         }
-        // vlc:// protocol handler opens VLC on most OS
-        window.location.href = " " + uri.slice("srt://".length);
-
-        // Fallback: also copy URI so user can paste manually
-        navigator.clipboard.writeText(uri).catch(() => {});
-        statusEl.textContent = "▶ Opening VLC… (URI also copied)";
-        setTimeout(() => {
-          statusEl.textContent = "";
-        }, 3000);
+        // Abre diretamente no VLC
+        window.location.href = uri;
+        statusEl.textContent = "▶ VLC should open with this stream!";
+        setTimeout(() => (statusEl.textContent = ""), 3000);
       });
 
       // ── Passphrase toggle (eye button) ────────────────────────
