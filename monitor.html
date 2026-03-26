@@ -508,35 +508,38 @@
         try {
           const res = await fetch(`${PROXY}/channels`, { headers: headers() });
           const data = await res.json();
-
-          // Alphanumeric Sort
           globalChannels = (
             Array.isArray(data) ? data : data.channels || []
           ).sort((a, b) =>
             a.name.localeCompare(b.name, undefined, { numeric: true })
           );
 
-          // Fetch counts
-          const counts = await Promise.all(
-            globalChannels.map(async (ch) => {
-              try {
-                const r = await fetch(
-                  `${PROXY}/publishers/count/${encodeURIComponent(
-                    ch.channelId
-                  )}`,
-                  { headers: headers() }
-                );
-                const txt = await r.text();
-                return { id: ch.channelId, count: parseInt(txt) || 0 };
-              } catch {
-                return { id: ch.channelId, count: 0 };
-              }
-            })
-          );
+          // PROCESSAMENTO EM LOTES (CHUNKS)
+          const chunkSize = 50; // Processa 50 por vez para não travar o proxy
+          for (let i = 0; i < globalChannels.map.length; i += chunkSize) {
+            const chunk = globalChannels.slice(i, i + chunkSize);
 
-          counts.forEach((c) => (globalState[c.id] = c.count));
+            await Promise.all(
+              chunk.map(async (ch) => {
+                try {
+                  const r = await fetch(
+                    `${PROXY}/publishers/count/${encodeURIComponent(
+                      ch.channelId
+                    )}`,
+                    { headers: headers() }
+                  );
+                  const txt = await r.text();
+                  globalState[ch.channelId] = parseInt(txt) || 0;
+                } catch {
+                  globalState[ch.channelId] = 0;
+                }
+              })
+            );
 
-          render();
+            // Atualiza a tabela parcialmente para o usuário ver progresso
+            render();
+          }
+
           updateStats();
           document.getElementById("last-update").textContent =
             new Date().toLocaleTimeString();
