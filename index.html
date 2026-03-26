@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SP SO Tool Hub</title>
+  <title>SP SO Web Toolbox</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet" />
@@ -12,17 +12,17 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:       #0a0a0f;
-      --surface:  #111118;
-      --card:     #161621;
-      --border:   #2a2a3a;
-      --accent:   #00ffc8;
-      --accent2:  #7b5ea7;
-      --text:     #e8e8f0;
-      --muted:    #6a6a8a;
-      --danger:   #ff4e6a;
-      --mono:     'Space Mono', monospace;
-      --display:  'Syne', sans-serif;
+      --bg:      #0a0a0f;
+      --surface: #111118;
+      --card:    #161621;
+      --border:  #2a2a3a;
+      --accent:  #00ffc8;
+      --accent2: #7b5ea7;
+      --text:    #e8e8f0;
+      --muted:   #6a6a8a;
+      --danger:  #ff4e6a;
+      --mono:    'Space Mono', monospace;
+      --display: 'Syne', sans-serif;
     }
 
     html, body {
@@ -33,7 +33,6 @@
       overflow: hidden;
     }
 
-    /* ── NOISE OVERLAY ── */
     body::before {
       content: '';
       position: fixed; inset: 0;
@@ -43,7 +42,6 @@
       opacity: 0.35;
     }
 
-    /* ── LAYOUT ── */
     #app {
       display: grid;
       grid-template-columns: 280px 1fr;
@@ -71,7 +69,6 @@
       flex-shrink: 0;
       animation: pulse-hex 3s ease-in-out infinite;
     }
-
     @keyframes pulse-hex {
       0%, 100% { filter: drop-shadow(0 0 4px var(--accent)); }
       50%       { filter: drop-shadow(0 0 12px var(--accent)); }
@@ -85,7 +82,6 @@
       text-transform: uppercase;
       color: var(--text);
     }
-
     #topbar h1 span { color: var(--accent); }
 
     #topbar .version {
@@ -98,6 +94,38 @@
       border-radius: 20px;
       margin-left: auto;
     }
+
+    /* ── ENV STATUS PILL (topbar) ── */
+    #env-pill {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      background: var(--card);
+      transition: all 0.3s;
+    }
+    #env-pill.ok   { border-color: rgba(0,255,200,0.4); color: #80ffdf; background: rgba(0,255,200,0.07); }
+    #env-pill.warn { border-color: rgba(255,78,106,0.4); color: #ffb3be; background: rgba(255,78,106,0.07); }
+    .pill-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      flex-shrink: 0;
+    }
+    .pill-spinner {
+      width: 8px; height: 8px;
+      border: 1.5px solid rgba(255,255,255,0.2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     /* ── SIDEBAR ── */
     #sidebar {
@@ -146,7 +174,6 @@
     .tools-list::-webkit-scrollbar-track { background: transparent; }
     .tools-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
-    /* ── CATEGORY ── */
     .category-label {
       font-family: var(--mono);
       font-size: 0.58rem;
@@ -156,7 +183,6 @@
       padding: 10px 10px 6px;
     }
 
-    /* ── TOOL ITEM ── */
     .tool-item {
       display: flex;
       align-items: center;
@@ -167,20 +193,16 @@
       border: 1px solid transparent;
       transition: background 0.15s, border-color 0.15s, transform 0.1s;
       margin-bottom: 2px;
-      position: relative;
     }
-
     .tool-item:hover {
       background: var(--card);
       border-color: var(--border);
       transform: translateX(3px);
     }
-
     .tool-item.active {
-      background: rgba(0, 255, 200, 0.07);
-      border-color: rgba(0, 255, 200, 0.3);
+      background: rgba(0,255,200,0.07);
+      border-color: rgba(0,255,200,0.3);
     }
-
     .tool-item.active .tool-icon { color: var(--accent); }
     .tool-item.active .tool-name { color: var(--accent); }
 
@@ -192,9 +214,7 @@
       color: var(--muted);
       transition: color 0.15s;
     }
-
     .tool-info { flex: 1; min-width: 0; }
-
     .tool-name {
       font-size: 0.8rem;
       font-weight: 600;
@@ -203,7 +223,6 @@
       text-overflow: ellipsis;
       transition: color 0.15s;
     }
-
     .tool-desc {
       font-family: var(--mono);
       font-size: 0.6rem;
@@ -213,7 +232,6 @@
       text-overflow: ellipsis;
       margin-top: 1px;
     }
-
     .tool-badge {
       font-family: var(--mono);
       font-size: 0.5rem;
@@ -224,8 +242,6 @@
       border: 1px solid rgba(123,94,167,0.3);
       flex-shrink: 0;
     }
-
-    /* ── OPEN BUTTON ── */
     .tool-open-btn {
       display: flex;
       align-items: center;
@@ -244,35 +260,16 @@
     .tool-item:hover .tool-open-btn { opacity: 1; }
     .tool-open-btn:hover { background: var(--accent); color: var(--bg); border-color: var(--accent); }
 
-    /* ── SIDEBAR FOOTER ── */
+    /* ── SIDEBAR FOOTER (count only, no add-tool button) ── */
     .sidebar-footer {
-      padding: 14px 20px;
+      padding: 10px 20px;
       border-top: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      gap: 8px;
     }
-
-    .add-tool-btn {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 7px;
-      padding: 8px;
-      background: transparent;
-      border: 1px dashed var(--border);
-      border-radius: 8px;
+    .sidebar-footer-info {
+      font-family: var(--mono);
+      font-size: 0.6rem;
       color: var(--muted);
-      font-family: var(--display);
-      font-size: 0.72rem;
-      cursor: pointer;
-      transition: border-color 0.2s, color 0.2s, background 0.2s;
-    }
-    .add-tool-btn:hover {
-      border-color: var(--accent);
-      color: var(--accent);
-      background: rgba(0,255,200,0.04);
+      text-align: center;
     }
 
     /* ── MAIN CONTENT ── */
@@ -318,18 +315,14 @@
       top: 1px;
       flex-shrink: 0;
     }
-
     .tab:hover { background: var(--card); color: var(--text); }
-
     .tab.active {
       background: var(--bg);
       color: var(--accent);
       border-color: var(--border);
       border-bottom-color: var(--bg);
     }
-
     .tab .tab-icon { font-size: 0.8rem; }
-
     .tab .tab-close {
       width: 14px; height: 14px;
       display: flex; align-items: center; justify-content: center;
@@ -340,27 +333,21 @@
     }
     .tab .tab-close:hover { background: rgba(255,78,106,0.2); color: var(--danger); }
 
-    /* ── IFRAME AREA ── */
+    /* ── FRAMES ── */
     #frames {
       flex: 1;
       position: relative;
       overflow: hidden;
     }
-
     .frame-wrapper {
       position: absolute;
       inset: 0;
       display: none;
     }
     .frame-wrapper.active { display: block; }
+    .frame-wrapper iframe { width: 100%; height: 100%; border: none; background: #fff; }
 
-    .frame-wrapper iframe {
-      width: 100%; height: 100%;
-      border: none;
-      background: #fff;
-    }
-
-    /* ── WELCOME SCREEN ── */
+    /* ── WELCOME ── */
     #welcome {
       position: absolute;
       inset: 0;
@@ -371,7 +358,6 @@
       gap: 24px;
       padding: 40px;
     }
-
     .welcome-glyph {
       width: 80px; height: 80px;
       background: linear-gradient(135deg, var(--accent), var(--accent2));
@@ -379,11 +365,7 @@
       animation: rotate-hex 8s linear infinite;
       filter: drop-shadow(0 0 20px rgba(0,255,200,0.3));
     }
-    @keyframes rotate-hex {
-      from { transform: rotate(0deg); }
-      to   { transform: rotate(360deg); }
-    }
-
+    @keyframes rotate-hex { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     .welcome-title {
       font-size: 2rem;
       font-weight: 800;
@@ -392,7 +374,6 @@
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
-
     .welcome-sub {
       font-family: var(--mono);
       font-size: 0.75rem;
@@ -401,7 +382,6 @@
       max-width: 360px;
       line-height: 1.7;
     }
-
     .welcome-cards {
       display: flex;
       gap: 12px;
@@ -409,7 +389,6 @@
       justify-content: center;
       margin-top: 8px;
     }
-
     .welcome-card {
       background: var(--card);
       border: 1px solid var(--border);
@@ -425,11 +404,11 @@
       background: rgba(0,255,200,0.05);
       transform: translateY(-3px);
     }
-    .welcome-card .wc-icon { font-size: 1.6rem; margin-bottom: 8px; }
-    .welcome-card .wc-name { font-size: 0.78rem; font-weight: 600; }
-    .welcome-card .wc-desc { font-family: var(--mono); font-size: 0.58rem; color: var(--muted); margin-top: 3px; }
+    .welcome-card .wc-icon  { font-size: 1.6rem; margin-bottom: 8px; }
+    .welcome-card .wc-name  { font-size: 0.78rem; font-weight: 600; }
+    .welcome-card .wc-desc  { font-family: var(--mono); font-size: 0.58rem; color: var(--muted); margin-top: 3px; }
 
-    /* ── LOADING SPINNER ── */
+    /* ── FRAME LOADING ── */
     .frame-loading {
       position: absolute;
       inset: 0;
@@ -446,7 +425,6 @@
       border-radius: 50%;
       animation: spin 0.7s linear infinite;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
 
     /* ── STATUS BAR ── */
     #statusbar {
@@ -468,95 +446,10 @@
     }
     #statusbar .sep { opacity: 0.4; }
 
-    /* Make room for statusbar */
     #app { padding-bottom: 22px; }
 
-    /* ── MODAL (Add Tool) ── */
-    #modal-overlay {
-      display: none;
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.7);
-      backdrop-filter: blur(4px);
-      z-index: 1000;
-      align-items: center;
-      justify-content: center;
-    }
-    #modal-overlay.show { display: flex; }
-
-    #modal {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 28px;
-      width: 420px;
-      max-width: 90vw;
-      animation: modal-in 0.2s ease;
-    }
-    @keyframes modal-in {
-      from { transform: scale(0.95); opacity: 0; }
-      to   { transform: scale(1);    opacity: 1; }
-    }
-
-    #modal h2 {
-      font-size: 1.1rem;
-      font-weight: 800;
-      margin-bottom: 6px;
-    }
-    #modal p {
-      font-family: var(--mono);
-      font-size: 0.65rem;
-      color: var(--muted);
-      margin-bottom: 20px;
-    }
-
-    .field { margin-bottom: 14px; }
-    .field label {
-      display: block;
-      font-family: var(--mono);
-      font-size: 0.6rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 6px;
-    }
-    .field input, .field select {
-      width: 100%;
-      background: var(--card);
-      border: 1px solid var(--border);
-      color: var(--text);
-      font-family: var(--mono);
-      font-size: 0.75rem;
-      padding: 9px 12px;
-      border-radius: 7px;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    .field input:focus, .field select:focus { border-color: var(--accent); }
-    .field select option { background: var(--card); }
-
-    .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
-
-    .btn {
-      flex: 1;
-      padding: 10px;
-      border-radius: 8px;
-      font-family: var(--display);
-      font-size: 0.78rem;
-      font-weight: 700;
-      cursor: pointer;
-      border: none;
-      transition: opacity 0.15s, transform 0.1s;
-    }
-    .btn:active { transform: scale(0.97); }
-    .btn-primary { background: var(--accent); color: var(--bg); }
-    .btn-primary:hover { opacity: 0.9; }
-    .btn-ghost { background: var(--card); border: 1px solid var(--border); color: var(--text); }
-    .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
-
-    /* ── HIDDEN ── */
     .hidden { display: none !important; }
 
-    /* ── TOOLTIP ── */
     [data-tip] { position: relative; }
     [data-tip]::after {
       content: attr(data-tip);
@@ -583,167 +476,111 @@
 
 <div id="app">
 
-  <!-- TOP BAR -->
   <header id="topbar">
     <div class="logo-mark"></div>
-    <h1>Tool<span>Hub</span></h1>
-    <span class="version">v1.0</span>
+    <h1>SP SO <span>Web Toolbox</span></h1>
+    <div id="env-pill">
+      <span class="pill-spinner"></span>
+      <span id="env-pill-text">Loading .env…</span>
+    </div>
+    <span class="version" id="app-version">v1.0</span>
   </header>
 
-  <!-- SIDEBAR -->
   <aside id="sidebar">
     <div class="sidebar-header">
       <div class="sidebar-label">Search Tools</div>
       <input id="search" type="text" placeholder="Filter tools…" autocomplete="off" />
     </div>
-
     <div class="tools-list" id="tools-list">
-      <!-- Populated by JS -->
+      <!-- populated from .env -->
     </div>
-
-    <!--<div class="sidebar-footer">
-      <button class="add-tool-btn" id="btn-add-tool">
-        <span>＋</span> Add Tool
-      </button>
+    <div class="sidebar-footer">
+      <div class="sidebar-footer-info" id="status-count">Loading…</div>
     </div>
-  </aside> -->
+  </aside>
 
-  <!-- MAIN -->
   <main id="content">
-    <!-- TAB BAR -->
-    <div id="tab-bar">
-      <!-- Tabs injected here -->
-    </div>
-
-    <!-- FRAMES -->
+    <div id="tab-bar"></div>
     <div id="frames">
-      <!-- Welcome -->
       <div id="welcome">
         <div class="welcome-glyph"></div>
         <h2 class="welcome-title">Select a Tool</h2>
-        <p class="welcome-sub">
-          Pick a tool from the sidebar to open it here, or click the cards below for quick access.
-        </p>
-        <div class="welcome-cards" id="welcome-cards">
-          <!-- Populated by JS -->
-        </div>
+        <p class="welcome-sub">Pick a tool from the sidebar to open it here.</p>
+        <div class="welcome-cards" id="welcome-cards"></div>
       </div>
     </div>
   </main>
 </div>
 
-<!-- STATUS BAR -->
 <div id="statusbar">
-  <span>● TOOL HUB</span>
+  <span>● SP SO WEB TOOLBOX</span>
   <span class="sep">|</span>
-  <span id="status-msg">Ready</span>
+  <span id="status-msg">Loading…</span>
   <span class="sep">|</span>
-  <span id="status-count">0 tools loaded</span>
-</div>
-
-<!-- ADD TOOL MODAL -->
-<div id="modal-overlay">
-  <div id="modal">
-    <h2>Add New Tool</h2>
-    <p>Register a local HTML file as a tool in the hub. File must be in the same directory as index.html.</p>
-    <div class="field">
-      <label>Tool Name</label>
-      <input id="new-name" type="text" placeholder="e.g. My Awesome Tool" />
-    </div>
-    <div class="field">
-      <label>HTML Filename</label>
-      <input id="new-file" type="text" placeholder="e.g. my-tool.html" />
-    </div>
-    <div class="field">
-      <label>Short Description</label>
-      <input id="new-desc" type="text" placeholder="e.g. Does something useful" />
-    </div>
-    <div class="field">
-      <label>Category</label>
-      <select id="new-cat">
-        <option value="Streaming">Streaming</option>
-        <option value="Utilities">Utilities</option>
-        <option value="Media">Media</option>
-        <option value="Network">Network</option>
-        <option value="Other">Other</option>
-      </select>
-    </div>
-    <div class="field">
-      <label>Icon (emoji)</label>
-      <input id="new-icon" type="text" placeholder="e.g. 🔧" maxlength="2" />
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" id="btn-modal-cancel">Cancel</button>
-      <button class="btn btn-primary" id="btn-modal-save">Add Tool</button>
-    </div>
-  </div>
+  <span id="status-count-bar">0 tools</span>
 </div>
 
 <script>
 $(function () {
 
-  /* ===================================================
-     TOOL REGISTRY — edit this array to add/remove tools
-     =================================================== */
-  const DEFAULT_TOOLS = [
-    {
-      id:       'srt-uri-builder',
-      name:     'SRT URI Builder',
-      file:     'SRT-URI-Builder.html',
-      desc:     'Build & encode SRT stream URLs',
-      category: 'Streaming',
-      icon:     '🔗',
-      badge:    'SRT'
-    },
-    {
-      id:       'rts-test-player',
-      name:     'RTS Test Player',
-      file:     'RTS-Test-Player.html',
-      desc:     'Test & monitor RTS streams live',
-      category: 'Streaming',
-      icon:     '📺',
-      badge:    'RTS'
+  // ═══════════════════════════════════════════════════
+  //  .env parser
+  // ═══════════════════════════════════════════════════
+  async function loadEnv (path = '.env') {
+    const resp = await fetch(path, { cache: 'no-cache' });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const text = await resp.text();
+    const env  = {};
+    for (const raw of text.split('\n')) {
+      const line = raw.trim();
+      if (!line || line.startsWith('#')) continue;
+      const eq = line.indexOf('=');
+      if (eq < 1) continue;
+      env[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
     }
-  ];
+    return env;
+  }
 
-  /* ===================================================
-     STATE
-     =================================================== */
-  let tools     = loadTools();
-  let tabs      = [];      // { id, toolId }
+  // ═══════════════════════════════════════════════════
+  //  Parse tools from env
+  //  TOOL_n=file.html|Name|Description|icon|Category|BADGE
+  // ═══════════════════════════════════════════════════
+  function parseTools (env) {
+    return Object.keys(env)
+      .filter(k => /^TOOL_\d+$/.test(k))
+      .sort((a, b) => parseInt(a.split('_')[1]) - parseInt(b.split('_')[1]))
+      .map(k => {
+        const parts = env[k].split('|');
+        const file  = (parts[0] || '').trim();
+        return {
+          id:       file.replace(/\.html$/i, '').toLowerCase(),
+          file:     file,
+          name:     (parts[1] || file).trim(),
+          desc:     (parts[2] || '').trim(),
+          icon:     (parts[3] || '🔧').trim(),
+          category: (parts[4] || 'Other').trim(),
+          badge:    (parts[5] || '').trim(),
+        };
+      })
+      .filter(t => t.file);
+  }
+
+  // ═══════════════════════════════════════════════════
+  //  State
+  // ═══════════════════════════════════════════════════
+  let tools     = [];
+  let tabs      = [];
   let activeTab = null;
 
-  /* ===================================================
-     PERSISTENCE
-     =================================================== */
-  function loadTools () {
-    try {
-      const saved = localStorage.getItem('toolhub_tools');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        // Merge defaults if not already present
-        const ids = parsed.map(t => t.id);
-        DEFAULT_TOOLS.forEach(d => { if (!ids.includes(d.id)) parsed.unshift(d); });
-        return parsed;
-      }
-    } catch (e) {}
-    return [...DEFAULT_TOOLS];
-  }
-
-  function saveTools () {
-    localStorage.setItem('toolhub_tools', JSON.stringify(tools));
-  }
-
-  /* ===================================================
-     RENDER SIDEBAR
-     =================================================== */
+  // ═══════════════════════════════════════════════════
+  //  Render sidebar
+  // ═══════════════════════════════════════════════════
   function renderSidebar (filter = '') {
     const $list = $('#tools-list').empty();
     const q     = filter.trim().toLowerCase();
+    const cats  = [...new Set(tools.map(t => t.category))];
 
-    const categories = [...new Set(tools.map(t => t.category))];
-
-    categories.forEach(cat => {
+    cats.forEach(cat => {
       const catTools = tools.filter(t =>
         t.category === cat &&
         (!q || t.name.toLowerCase().includes(q) || t.desc.toLowerCase().includes(q))
@@ -751,10 +588,9 @@ $(function () {
       if (!catTools.length) return;
 
       $list.append(`<div class="category-label">${cat}</div>`);
-
       catTools.forEach(tool => {
-        const isActive = tabs.find(tb => tb.toolId === tool.id && tb.id === activeTab);
-        const $item = $(`
+        const isActive = activeTab && tabs.find(tb => tb.toolId === tool.id && tb.id === activeTab);
+        $list.append(`
           <div class="tool-item ${isActive ? 'active' : ''}" data-tool-id="${tool.id}">
             <span class="tool-icon">${tool.icon}</span>
             <div class="tool-info">
@@ -762,10 +598,9 @@ $(function () {
               <div class="tool-desc">${tool.desc}</div>
             </div>
             ${tool.badge ? `<span class="tool-badge">${tool.badge}</span>` : ''}
-            <div class="tool-open-btn" data-tip="Open in new tab" data-tool-id="${tool.id}">⬡</div>
+            <div class="tool-open-btn" data-tip="Open in new tab" data-tool-id="${tool.id}">↗</div>
           </div>
         `);
-        $list.append($item);
       });
     });
 
@@ -773,12 +608,14 @@ $(function () {
       $list.append(`<div style="text-align:center;padding:30px;font-family:var(--mono);font-size:0.65rem;color:var(--muted)">No tools found</div>`);
     }
 
-    $('#status-count').text(`${tools.length} tool${tools.length !== 1 ? 's' : ''} loaded`);
+    const n = tools.length;
+    $('#status-count').text(`${n} tool${n !== 1 ? 's' : ''} loaded`);
+    $('#status-count-bar').text(`${n} tool${n !== 1 ? 's' : ''}`);
   }
 
-  /* ===================================================
-     RENDER WELCOME CARDS
-     =================================================== */
+  // ═══════════════════════════════════════════════════
+  //  Render welcome cards
+  // ═══════════════════════════════════════════════════
   function renderWelcomeCards () {
     const $wc = $('#welcome-cards').empty();
     tools.forEach(tool => {
@@ -792,43 +629,34 @@ $(function () {
     });
   }
 
-  /* ===================================================
-     TABS
-     =================================================== */
+  // ═══════════════════════════════════════════════════
+  //  Tabs
+  // ═══════════════════════════════════════════════════
   function openTab (toolId) {
     const tool = tools.find(t => t.id === toolId);
     if (!tool) return;
 
-    // Check if tab already exists
     const existing = tabs.find(tb => tb.toolId === toolId);
-    if (existing) {
-      activateTab(existing.id);
-      return;
-    }
+    if (existing) { activateTab(existing.id); return; }
 
-    const tabId  = 'tab-' + Date.now();
+    const tabId = 'tab-' + Date.now();
     tabs.push({ id: tabId, toolId });
 
-    // Create tab button
-    const $tab = $(`
+    $('#tab-bar').append(`
       <div class="tab" data-tab-id="${tabId}">
         <span class="tab-icon">${tool.icon}</span>
         <span class="tab-name">${tool.name}</span>
         <span class="tab-close" data-tab-id="${tabId}">✕</span>
       </div>
     `);
-    $('#tab-bar').append($tab);
 
-    // Create frame
     const $frame = $(`
       <div class="frame-wrapper" id="${tabId}">
         <div class="frame-loading"><div class="spinner"></div></div>
         <iframe src="${tool.file}" title="${tool.name}"></iframe>
       </div>
     `);
-    $frame.find('iframe').on('load', function () {
-      $frame.find('.frame-loading').fadeOut(200);
-    });
+    $frame.find('iframe').on('load', function () { $frame.find('.frame-loading').fadeOut(200); });
     $('#frames').append($frame);
 
     activateTab(tabId);
@@ -837,166 +665,112 @@ $(function () {
 
   function activateTab (tabId) {
     activeTab = tabId;
-
-    // Update tab buttons
     $('.tab').removeClass('active');
     $(`.tab[data-tab-id="${tabId}"]`).addClass('active');
-
-    // Update frames
     $('.frame-wrapper').removeClass('active');
     $(`#${tabId}`).addClass('active');
-
-    // Hide / show welcome
-    if (tabs.length > 0) {
-      $('#welcome').addClass('hidden');
-    }
-
+    if (tabs.length > 0) $('#welcome').addClass('hidden');
     renderSidebar($('#search').val());
-
-    // Scroll tab into view
     const $t = $(`.tab[data-tab-id="${tabId}"]`);
-    if ($t.length) {
-      $t[0].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
-    }
+    if ($t.length) $t[0].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
   }
 
   function closeTab (tabId) {
-    const idx   = tabs.findIndex(tb => tb.id === tabId);
+    const idx = tabs.findIndex(tb => tb.id === tabId);
     if (idx === -1) return;
-
     tabs.splice(idx, 1);
     $(`.tab[data-tab-id="${tabId}"]`).remove();
     $(`#${tabId}`).remove();
-
     if (tabs.length === 0) {
       activeTab = null;
       $('#welcome').removeClass('hidden');
       renderSidebar($('#search').val());
       setStatus('Ready');
     } else {
-      const newIdx = Math.min(idx, tabs.length - 1);
-      activateTab(tabs[newIdx].id);
+      activateTab(tabs[Math.min(idx, tabs.length - 1)].id);
     }
   }
 
-  /* ===================================================
-     STATUS BAR
-     =================================================== */
-  function setStatus (msg) {
-    $('#status-msg').text(msg);
-  }
+  function setStatus (msg) { $('#status-msg').text(msg); }
 
-  /* ===================================================
-     ADD TOOL MODAL
-     =================================================== */
-  function openModal () {
-    $('#new-name, #new-file, #new-desc, #new-icon').val('');
-    $('#new-cat').val('Other');
-    $('#new-icon').val('🔧');
-    $('#modal-overlay').addClass('show');
-  }
-
-  function closeModal () {
-    $('#modal-overlay').removeClass('show');
-  }
-
-  function saveTool () {
-    const name = $('#new-name').val().trim();
-    const file = $('#new-file').val().trim();
-    const desc = $('#new-desc').val().trim();
-    const cat  = $('#new-cat').val();
-    const icon = $('#new-icon').val().trim() || '🔧';
-
-    if (!name || !file) {
-      $('#new-name').css('border-color', !name ? 'var(--danger)' : '');
-      $('#new-file').css('border-color', !file ? 'var(--danger)' : '');
-      return;
-    }
-
-    const id = file.replace(/\.html$/i, '').toLowerCase().replace(/\s+/g, '-');
-
-    if (tools.find(t => t.id === id)) {
-      alert('A tool with this file already exists.');
-      return;
-    }
-
-    const tool = { id, name, file, desc: desc || 'No description', category: cat, icon, badge: '' };
-    tools.push(tool);
-    saveTools();
-    renderSidebar($('#search').val());
-    renderWelcomeCards();
-    closeModal();
-    setStatus(`Added: ${name}`);
-  }
-
-  /* ===================================================
-     EVENTS
-     =================================================== */
-
-  // Open tool from sidebar (click anywhere on item)
+  // ═══════════════════════════════════════════════════
+  //  Events
+  // ═══════════════════════════════════════════════════
   $(document).on('click', '.tool-item', function (e) {
-    if ($(e.target).hasClass('tool-open-btn') || $(e.target).closest('.tool-open-btn').length) return;
+    if ($(e.target).closest('.tool-open-btn').length) return;
     openTab($(this).data('toolId'));
   });
 
-  // Open tool in browser tab (open-btn)
   $(document).on('click', '.tool-open-btn', function (e) {
     e.stopPropagation();
-    const toolId = $(this).data('toolId');
-    const tool   = tools.find(t => t.id === toolId);
+    const tool = tools.find(t => t.id === $(this).data('toolId'));
     if (tool) window.open(tool.file, '_blank');
   });
 
-  // Click tab to activate
   $(document).on('click', '.tab', function (e) {
-    if ($(e.target).hasClass('tab-close') || $(e.target).closest('.tab-close').length) return;
+    if ($(e.target).closest('.tab-close').length) return;
     activateTab($(this).data('tabId'));
   });
 
-  // Close tab
   $(document).on('click', '.tab-close', function (e) {
     e.stopPropagation();
     closeTab($(this).data('tabId'));
   });
 
-  // Welcome cards
   $(document).on('click', '.welcome-card', function () {
     openTab($(this).data('toolId'));
   });
 
-  // Search
-  $('#search').on('input', function () {
-    renderSidebar($(this).val());
-  });
+  $('#search').on('input', function () { renderSidebar($(this).val()); });
 
-  // Add tool modal
-  $('#btn-add-tool').on('click', openModal);
-  $('#btn-modal-cancel').on('click', closeModal);
-  $('#btn-modal-save').on('click', saveTool);
-  $('#modal-overlay').on('click', function (e) {
-    if ($(e.target).is('#modal-overlay')) closeModal();
-  });
-
-  // Clear error highlight
-  $('#new-name, #new-file').on('input', function () {
-    $(this).css('border-color', '');
-  });
-
-  // Keyboard: Ctrl+W to close active tab, Escape to close modal
   $(document).on('keydown', function (e) {
-    if (e.key === 'Escape')              closeModal();
     if ((e.ctrlKey || e.metaKey) && e.key === 'w' && activeTab) {
       e.preventDefault();
       closeTab(activeTab);
     }
   });
 
-  /* ===================================================
-     INIT
-     =================================================== */
-  renderSidebar();
-  renderWelcomeCards();
-  setStatus('Ready');
+  // ═══════════════════════════════════════════════════
+  //  Boot — load .env then render
+  // ═══════════════════════════════════════════════════
+  loadEnv('.env')
+    .then(env => {
+      tools = parseTools(env);
+
+      // Update title & version from env
+      const title   = env.APP_TITLE   || 'SP SO Web Toolbox';
+      const version = env.APP_VERSION || '1.0';
+      document.title = title;
+      $('#app-version').text('v' + version);
+
+      renderSidebar();
+      renderWelcomeCards();
+      setStatus('Ready');
+
+      // ENV pill → ok
+      $('#env-pill')
+        .removeClass()
+        .addClass('ok')
+        .html(`<span class="pill-dot"></span><span>.env loaded — ${tools.length} tool${tools.length !== 1 ? 's' : ''}</span>`);
+    })
+    .catch(err => {
+      // No .env — show warning, render empty state
+      renderSidebar();
+      renderWelcomeCards();
+      setStatus('.env not found');
+
+      $('#env-pill')
+        .removeClass()
+        .addClass('warn')
+        .html(`<span class="pill-dot"></span><span>.env not found</span>`);
+
+      $('#tools-list').html(`
+        <div style="padding:20px;font-family:var(--mono);font-size:0.65rem;color:var(--muted);line-height:1.8">
+          <div style="color:#ffb3be;margin-bottom:8px">⚠ .env not loaded</div>
+          Serve this page via a web server and place a <code style="color:var(--accent)">.env</code> file in the same directory.
+        </div>
+      `);
+    });
 
 });
 </script>
