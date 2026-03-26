@@ -77,4 +77,4 @@ def get_publishers_count(channel_id):
 if __name__ == "__main__":
     print("PhenixRTS CORS Proxy running at http://localhost:5050")
     print("Open monitor.html in your browser.")
-    app.run(host="127.0.0.1", port=5050, debug=False)
+    app.run(host="0.0.0.0", port=5050, debug=False)
