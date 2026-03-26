@@ -214,12 +214,27 @@
 
             <div class="field span6">
               <label for="passphrase">Passphrase <span class="help">(optional)</span></label>
-              <input
-                id="passphrase"
-                name="passphrase"
-                type="text"
-                placeholder="min. 10 characters for encryption"
-              />
+              <div style="position:relative;display:flex;align-items:center;">
+                <input
+                  id="passphrase"
+                  name="passphrase"
+                  type="password"
+                  placeholder="min. 10 characters for encryption"
+                  style="flex:1;padding-right:42px;"
+                  autocomplete="off"
+                />
+                <button
+                  type="button"
+                  id="togglePassphrase"
+                  title="Show / hide passphrase"
+                  style="
+                    position:absolute;right:6px;
+                    background:transparent;border:none;box-shadow:none;
+                    color:var(--muted);cursor:pointer;padding:4px 6px;
+                    font-size:15px;line-height:1;transform:none;
+                  "
+                >👁</button>
+              </div>
               <div id="passphrase-hint" class="hint" style="color: var(--danger)">
                 Internal passphrase in production, keep it safe!
               </div>
@@ -344,7 +359,7 @@
           </details>
 
           <div class="actions">
-            <button type="submit">Generate URI</button>
+            <button type="submit" id="copyBtn">📋 Copy URI</button>
             <button type="button" class="ghost" id="resetBtn">Clear</button>
           </div>
         </form>
@@ -354,7 +369,16 @@
         <h2>Result</h2>
         <div class="output">
           <input id="uri" readonly placeholder="srt://host:port?options" />
-          <button id="copyBtn" title="Copy to clipboard">Copy</button>
+        </div>
+        <div style="margin-top:10px;">
+          <button type="button" id="vlcBtn" style="
+            width:100%;
+            background: linear-gradient(180deg, rgba(255,140,0,0.22), rgba(255,140,0,0.08));
+            border-color: rgba(255,140,0,0.35);
+            color: #ffd580;
+            font-size: 14px;
+            padding: 11px 14px;
+          ">▶ Open in VLC</button>
         </div>
         <div class="small" id="status"></div>
 
@@ -382,26 +406,18 @@
     <script>
     // ═══════════════════════════════════════════════════════════
     //  .env loader
-    //  Reads a plain-text .env file from the same directory.
-    //  Format supported:
-    //    KEY=value          (simple)
-    //    # comment lines    (ignored)
-    //    blank lines        (ignored)
     // ═══════════════════════════════════════════════════════════
     async function loadEnv(path = '.env') {
       const resp = await fetch(path, { cache: 'no-cache' });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const text = await resp.text();
-
       const env = {};
       for (const raw of text.split('\n')) {
         const line = raw.trim();
-        if (!line || line.startsWith('#')) continue;       // skip blanks & comments
+        if (!line || line.startsWith('#')) continue;
         const eq = line.indexOf('=');
         if (eq < 1) continue;
-        const key = line.slice(0, eq).trim();
-        const val = line.slice(eq + 1).trim();
-        env[key] = val;
+        env[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
       }
       return env;
     }
@@ -409,27 +425,24 @@
     // ═══════════════════════════════════════════════════════════
     //  Apply config
     // ═══════════════════════════════════════════════════════════
+    let _envPassphrase = '';
+
     function applyConfig(env) {
-      // 1. Passphrase
       const passEl = document.getElementById('passphrase');
       if (env.SRT_PASSPHRASE) {
         passEl.value = env.SRT_PASSPHRASE;
+        passEl.type  = 'password';   // keep masked when loaded from env
         passEl.classList.add('from-env');
+        _envPassphrase = env.SRT_PASSPHRASE;
         document.getElementById('passphrase-hint').textContent =
           '🔒 Loaded from .env — keep that file secure!';
       }
 
-      // 2. Server presets  (SRT_SERVER_n=IP|Label)
       const datalist = document.getElementById('host-presets');
-      datalist.innerHTML = '';   // clear any static entries
-
+      datalist.innerHTML = '';
       const serverKeys = Object.keys(env)
         .filter(k => /^SRT_SERVER_\d+$/.test(k))
-        .sort((a, b) => {
-          const na = parseInt(a.replace('SRT_SERVER_', ''), 10);
-          const nb = parseInt(b.replace('SRT_SERVER_', ''), 10);
-          return na - nb;
-        });
+        .sort((a, b) => parseInt(a.replace('SRT_SERVER_',''),10) - parseInt(b.replace('SRT_SERVER_',''),10));
 
       for (const key of serverKeys) {
         const parts = env[key].split('|');
@@ -437,16 +450,14 @@
         const label = (parts[1] || ip).trim();
         if (!ip) continue;
         const opt = document.createElement('option');
-        opt.value       = ip;
-        opt.textContent = label;   // shown as a hint next to the value
+        opt.value = ip; opt.textContent = label;
         datalist.appendChild(opt);
       }
-
       return { serverCount: serverKeys.length };
     }
 
     // ═══════════════════════════════════════════════════════════
-    //  Banner helpers
+    //  Banner
     // ═══════════════════════════════════════════════════════════
     function showBanner(type, msg) {
       const wrap   = document.getElementById('env-status');
@@ -454,47 +465,20 @@
       const msgEl  = document.getElementById('env-msg');
       wrap.style.display = 'block';
       banner.className   = `env-banner ${type}`;
-      // Remove spinner
       const spinner = banner.querySelector('.spinner');
       if (spinner) spinner.remove();
       msgEl.textContent = msg;
-      // Auto-hide ok banner after 4 s
       if (type === 'ok') setTimeout(() => { wrap.style.display = 'none'; }, 4000);
     }
 
     // ═══════════════════════════════════════════════════════════
-    //  Boot
+    //  URI builder
     // ═══════════════════════════════════════════════════════════
-    document.getElementById('env-status').style.display = 'block';
-
-    loadEnv('.env')
-      .then(env => {
-        const { serverCount } = applyConfig(env);
-        showBanner('ok',
-          `✔ Config loaded — passphrase ${env.SRT_PASSPHRASE ? 'set' : 'not set'}, ` +
-          `${serverCount} server preset${serverCount !== 1 ? 's' : ''} loaded.`
-        );
-        buildURI();
-      })
-      .catch(err => {
-        // .env missing or server not running — show a friendly warning
-        showBanner('warn',
-          `⚠ .env not found (${err.message}). ` +
-          `Serving via a web server? Place a .env file in the same directory. ` +
-          `Falling back to manual input.`
-        );
-        // No passphrase default — user types it manually
-        buildURI();
-      });
-
-    // ═══════════════════════════════════════════════════════════
-    //  URI builder (unchanged logic)
-    // ═══════════════════════════════════════════════════════════
-    const form   = document.getElementById('srt-form');
-    const uriEl  = document.getElementById('uri');
+    const form     = document.getElementById('srt-form');
+    const uriEl    = document.getElementById('uri');
     const statusEl = document.getElementById('status');
-    const hostEl = document.getElementById('host');
-    const portEl = document.getElementById('port');
+    const hostEl   = document.getElementById('host');
+    const portEl   = document.getElementById('port');
 
     const fields = [
       'mode','streamid','passphrase','pbkeylen','latency',
@@ -525,44 +509,84 @@
 
     form.addEventListener('input', buildURI);
 
-    form.addEventListener('submit', e => {
+    // ── Copy URI (submit button) ──────────────────────────────
+    form.addEventListener('submit', async e => {
       e.preventDefault();
-      buildURI(); uriEl.focus(); uriEl.select();
-      statusEl.textContent = 'URI generated.';
-      setTimeout(() => { statusEl.textContent = ''; }, 2000);
+      const uri = buildURI();
+      try {
+        await navigator.clipboard.writeText(uri);
+        statusEl.textContent = '✔ Copied to clipboard!';
+      } catch {
+        uriEl.focus(); uriEl.select();
+        const ok = document.execCommand && document.execCommand('copy');
+        statusEl.textContent = ok ? '✔ Copied!' : 'Could not copy automatically.';
+      }
+      setTimeout(() => { statusEl.textContent = ''; }, 2500);
     });
 
-    // Keep original passphrase loaded from env after reset
-    let _envPassphrase = '';
+    // ── Clear ─────────────────────────────────────────────────
     document.getElementById('resetBtn').addEventListener('click', () => {
       form.reset();
       const pass = document.getElementById('passphrase');
       if (_envPassphrase) {
         pass.value = _envPassphrase;
+        pass.type  = 'password';
         pass.classList.add('from-env');
       }
       buildURI();
     });
 
-    // Store env passphrase for reset
-    const _origApply = applyConfig;
-    // patch after first apply
-    document.addEventListener('envLoaded', e => { _envPassphrase = e.detail || ''; });
-
-    loadEnv('.env').then(env => { _envPassphrase = env.SRT_PASSPHRASE || ''; }).catch(() => {});
-
-    document.getElementById('copyBtn').addEventListener('click', async () => {
+    // ── Open in VLC ───────────────────────────────────────────
+    document.getElementById('vlcBtn').addEventListener('click', () => {
       const uri = buildURI();
-      try {
-        await navigator.clipboard.writeText(uri);
-        statusEl.textContent = 'Copied to clipboard!';
-      } catch {
-        uriEl.focus(); uriEl.select();
-        const ok = document.execCommand && document.execCommand('copy');
-        statusEl.textContent = ok ? 'Copied!' : 'Could not copy automatically.';
+      if (!uri || uri === 'srt://') {
+        statusEl.textContent = '⚠ Fill in at least Host and Port first.';
+        setTimeout(() => { statusEl.textContent = ''; }, 2500);
+        return;
       }
-      setTimeout(() => { statusEl.textContent = ''; }, 2500);
+      // vlc:// protocol handler opens VLC on most OS
+      window.location.href = 'vlc://' + uri.slice('srt://'.length);
+      // Fallback: also copy URI so user can paste manually
+      navigator.clipboard.writeText(uri).catch(() => {});
+      statusEl.textContent = '▶ Opening VLC… (URI also copied)';
+      setTimeout(() => { statusEl.textContent = ''; }, 3000);
     });
+
+    // ── Passphrase toggle (eye button) ────────────────────────
+    document.getElementById('togglePassphrase').addEventListener('click', () => {
+      const pass = document.getElementById('passphrase');
+      pass.type = pass.type === 'password' ? 'text' : 'password';
+    });
+
+    // When user types manually in passphrase field, always show what they type
+    document.getElementById('passphrase').addEventListener('input', function () {
+      if (this.classList.contains('from-env') && this.value !== _envPassphrase) {
+        // User is editing — switch to visible text, drop env styling
+        this.classList.remove('from-env');
+        this.type = 'text';
+      }
+    });
+
+    // ═══════════════════════════════════════════════════════════
+    //  Boot
+    // ═══════════════════════════════════════════════════════════
+    document.getElementById('env-status').style.display = 'block';
+
+    loadEnv('.env')
+      .then(env => {
+        const { serverCount } = applyConfig(env);
+        showBanner('ok',
+          `✔ Config loaded — passphrase ${env.SRT_PASSPHRASE ? 'set' : 'not set'}, ` +
+          `${serverCount} server preset${serverCount !== 1 ? 's' : ''} loaded.`
+        );
+        buildURI();
+      })
+      .catch(() => {
+        showBanner('warn',
+          `⚠ .env not found. Serve via a web server and place a .env file in the same directory.`
+        );
+        buildURI();
+      });
 
     buildURI();
     </script>
