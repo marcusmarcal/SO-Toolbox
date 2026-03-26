@@ -367,12 +367,49 @@
       }
       td.publishers {
         text-align: center;
-        font-weight: 600;
-      }
+      } /* Removido font-weight pois agora são ícones */
       td.status {
         text-align: center;
       }
 
+      /* ── Ícones Luminosos de Publisher ─────────────────────────────── */
+      .pub-icons-container {
+        display: inline-flex;
+        gap: 8px; /* Espaço entre os dois ícones */
+        align-items: center;
+        justify-content: center;
+      }
+
+      .pub-icon {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        transition: all 0.2s ease;
+      }
+
+      /* Estado: Ativo (Verde Luminoso) */
+      .pub-icon.active {
+        background-color: var(--green);
+        box-shadow: 0 0 8px 1px rgba(0, 230, 118, 0.7); /* Efeito neon verde */
+      }
+
+      /* Estado: Inativo (Vermelho Escuro/Opaco) */
+      .pub-icon.inactive {
+        background-color: var(
+          --red-dim
+        ); /* Fundo escuro para não parecer "ligado" */
+        border: 1px solid var(--red); /* Borda vermelha para indicar o problema */
+        box-shadow: none; /* Sem brilho */
+      }
+
+      /* Estado: Erro/Carregando (Cinza) */
+      .pub-icon.loading {
+        background-color: var(--bg3);
+        border: 1px solid var(--text-dim);
+        box-shadow: none;
+      }
+
+      /* ── Badges ───────────────────────────────────────────────────── */
       .badge {
         display: inline-flex;
         align-items: center;
@@ -400,16 +437,6 @@
       .badge.error {
         background: var(--red-dim);
         color: var(--red);
-      }
-
-      .pub-active {
-        color: var(--green);
-      }
-      .pub-inactive {
-        color: var(--red);
-      }
-      .pub-loading {
-        color: var(--text-dim);
       }
 
       /* Empty / loading state */
@@ -450,7 +477,6 @@
     </style>
   </head>
   <body>
-    <!-- ── LOGIN ──────────────────────────────────────────────────────── -->
     <div id="login-screen">
       <div class="login-card">
         <div class="login-logo">PhenixRTS</div>
@@ -465,12 +491,18 @@
               type="text"
               placeholder="your-app-id"
               autocomplete="off"
+              value="SEU_APP_ID"
             />
           </div>
         </div>
         <div class="field">
           <label>Password</label>
-          <input id="inp-password" type="password" placeholder="••••••••" />
+          <input
+            id="inp-password"
+            type="password"
+            placeholder="••••••••"
+            value="SUA_PASSWORD"
+          />
         </div>
         <div class="field">
           <label>Refresh interval (seconds)</label>
@@ -484,7 +516,6 @@
       </div>
     </div>
 
-    <!-- ── DASHBOARD ──────────────────────────────────────────────────── -->
     <div id="dashboard">
       <div class="topbar">
         <div class="topbar-left">
@@ -521,7 +552,7 @@
           <thead>
             <tr>
               <th>Channel</th>
-              <th class="center">Publishers</th>
+              <th class="center">Publishers (Primary/Backup)</th>
               <th class="center">Status</th>
             </tr>
           </thead>
@@ -535,6 +566,7 @@
     </div>
 
     <script>
+      // AJUSTE AQUI SEU ENDEREÇO HTTPS
       const PROXY = "https://10.11.220.11/phenix-proxy";
 
       let appId = "";
@@ -568,11 +600,11 @@
         setError("");
 
         try {
+          // Nota: Removida a validação de data.status === 'ok' pois o proxy
+          // retorna direto o JSON da Phenix, que pode não ter esse campo.
           const res = await fetch(`${PROXY}/channels`, { headers: headers() });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data = await res.json();
-          if (data.status !== "ok")
-            throw new Error(data.status || "Unknown error");
+          await res.json(); // Apenas tenta parsear para ver se é JSON válido
         } catch (e) {
           setError(`Connection failed: ${e.message}`);
           btn.disabled = false;
@@ -631,8 +663,9 @@
         try {
           const res = await fetch(`${PROXY}/channels`, { headers: headers() });
           const data = await res.json();
-          channels = (data.channels || []).sort((a, b) =>
-            (a.name || "").localeCompare(b.name || "")
+          // A API retorna { status: 'ok', channels: [...] } ou direto [...] dependendo da versão
+          channels = (Array.isArray(data) ? data : data.channels || []).sort(
+            (a, b) => (a.name || "").localeCompare(b.name || "")
           );
         } catch (e) {
           setPulse(false);
@@ -699,12 +732,35 @@
           const tr = document.createElement("tr");
           if (isNew) tr.classList.add("row-new");
 
-          const pubClass = isErr
-            ? "pub-loading"
-            : active
-            ? "pub-active"
-            : "pub-inactive";
-          const pubText = isErr ? "—" : count;
+          // --- NOVA LÓGICA DOS ÍCONES LUMINOSOS ---
+          let pubHtml;
+          if (isErr) {
+            // Caso de erro na API: ícones cinzas
+            pubHtml = `
+        <div class="pub-icons-container" title="Error fetching publishers">
+          <div class="pub-icon loading"></div>
+          <div class="pub-icon loading"></div>
+        </div>
+      `;
+          } else {
+            // Define a classe de cada ícone baseado no contador.
+            // Assumimos 2 como ideal (Primary + Backup).
+            let icon1Class = "inactive";
+            let icon2Class = "inactive";
+
+            if (count >= 1) icon1Class = "active"; // Primary OK
+            if (count >= 2) icon2Class = "active"; // Backup OK
+
+            const titleText = `${count} active publisher(s)`;
+
+            pubHtml = `
+        <div class="pub-icons-container" title="${titleText}">
+          <div class="pub-icon ${icon1Class}"></div>
+          <div class="pub-icon ${icon2Class}"></div>
+        </div>
+      `;
+          }
+          // ----------------------------------------
 
           let badgeHtml;
           if (isErr) {
@@ -719,7 +775,7 @@
       <td class="channel-name" title="${esc(ch.channelId)}">${esc(
             ch.name || "No name"
           )}</td>
-      <td class="publishers ${pubClass}">${pubText}</td>
+      <td class="publishers">${pubHtml}</td>
       <td class="status">${badgeHtml}</td>
     `;
           tbody.appendChild(tr);
@@ -728,8 +784,13 @@
 
       function updateStats(channels, state) {
         const total = channels.length;
-        const active = channels.filter((c) => state[c.channelId] > 0).length;
-        const offline = channels.filter((c) => state[c.channelId] === 0).length;
+        // Trata 'ERR' como 0 para estatísticas
+        const active = channels.filter(
+          (c) => (state[c.channelId] || 0) > 0
+        ).length;
+        const offline = channels.filter(
+          (c) => state[c.channelId] === 0 || state[c.channelId] === "ERR"
+        ).length;
 
         document.getElementById("stat-total").textContent = total;
         document.getElementById("stat-active").textContent = active;
