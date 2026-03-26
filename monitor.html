@@ -643,17 +643,39 @@
       }
 
       function disconnect() {
+        // 1. Stop all timers
         clearInterval(timer);
         clearInterval(countdown);
+
+        // 2. Reset data states
         prevState = {};
         knownIds = new Set();
+        appId = "";
+        password = "";
 
+        // 3. Clear the dashboard UI immediately
+        document.getElementById("stat-total").textContent = "—";
+        document.getElementById("stat-active").textContent = "—";
+        document.getElementById("stat-offline").textContent = "—";
+        document.getElementById("last-update").textContent = "—";
+        document.getElementById("next-refresh").textContent = "Refresh in —s";
+
+        // 4. Clear the table body so old channels vanish
+        const tbody = document.getElementById("table-body");
+        if (tbody) {
+          tbody.innerHTML =
+            '<tr><td colspan="3" class="table-message">Connecting...</td></tr>';
+        }
+
+        // 5. Switch back to login screen
         document.getElementById("dashboard").style.display = "none";
         document.getElementById("login-screen").style.display = "flex";
 
-        const btn = document.getElementById("btn-connect");
-        btn.disabled = false;
-        btn.textContent = "Connect";
+        const btn = document.querySelector(".login-card .btn");
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "Connect";
+        }
       }
 
       function setError(msg) {
