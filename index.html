@@ -602,12 +602,14 @@
         display: none;
         position: fixed;
         inset: 0;
-        background: rgba(0,0,0,0.6);
+        background: rgba(0, 0, 0, 0.6);
         z-index: 200;
         align-items: center;
         justify-content: center;
       }
-      #git-modal.open { display: flex; }
+      #git-modal.open {
+        display: flex;
+      }
       .git-card {
         background: var(--surface);
         border: 1px solid var(--border);
@@ -615,7 +617,7 @@
         padding: 1.5rem 2rem;
         width: 500px;
         max-width: 90vw;
-        box-shadow: 0 0 40px rgba(0,0,0,0.5);
+        box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
       }
       .git-card-title {
         font-family: var(--mono);
@@ -639,8 +641,12 @@
         margin-bottom: 1rem;
         line-height: 1.6;
       }
-      .git-output.ok  { color: #80ffdf; }
-      .git-output.err { color: #ffb3be; }
+      .git-output.ok {
+        color: #80ffdf;
+      }
+      .git-output.err {
+        color: #ffb3be;
+      }
       .git-close-btn {
         font-family: var(--mono);
         font-size: 0.65rem;
@@ -652,7 +658,10 @@
         cursor: pointer;
         transition: all 0.15s;
       }
-      .git-close-btn:hover { border-color: var(--accent); color: var(--accent); }
+      .git-close-btn:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
 
       .hidden {
         display: none !important;
@@ -694,7 +703,14 @@
           <span class="pill-spinner"></span>
           <span id="env-pill-text">Loading .env…</span>
         </div>
-        <button id="btn-git-pull" class="git-pull-btn" data-tip="Pull latest from Git" onclick="gitPull()">⟳ Update</button>
+        <button
+          id="btn-git-pull"
+          class="git-pull-btn"
+          data-tip="Pull latest from Git"
+          onclick="gitPull()"
+        >
+          ⟳ Update
+        </button>
         <span class="version" id="app-version">v1.0</span>
       </header>
 
@@ -751,22 +767,31 @@
     <script>
       const PROXY_URL = "https://10.11.220.11/phenix-proxy";
 
+      const TOKEN = "changeme"; // ou o valor real configurado no backend
+
       async function gitPull() {
-        const btn    = document.getElementById("btn-git-pull");
-        const modal  = document.getElementById("git-modal");
+        const btn = document.getElementById("btn-git-pull");
+        const modal = document.getElementById("git-modal");
         const output = document.getElementById("git-output");
 
         btn.classList.add("loading");
         btn.textContent = "⟳ Updating...";
         output.textContent = "Running git pull...";
-        output.className   = "git-output";
+        output.className = "git-output";
         modal.classList.add("open");
 
         try {
-          const res  = await fetch(`${PROXY_URL}/git-pull`, { method: "POST" });
+          const res = await fetch(`${PROXY_URL}/git-pull`, {
+            method: "POST",
+            headers: {
+              "X-Token": TOKEN,
+            },
+          });
+
           const data = await res.json();
           output.textContent = data.output || "(no output)";
           output.classList.add(data.success ? "ok" : "err");
+
           if (data.success) {
             setTimeout(() => location.reload(), 2000);
           }
@@ -788,10 +813,13 @@
         //  .env parser
         // ═══════════════════════════════════════════════════
         async function loadEnv() {
-          const resp = await fetch(`${PROXY_URL}/config`, { cache: "no-cache" });
+          const resp = await fetch(`${PROXY_URL}/config`, {
+            cache: "no-cache",
+          });
           if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
           const data = await resp.json();
-          if (data.status !== "ok") throw new Error(data.message || "Config error");
+          if (data.status !== "ok")
+            throw new Error(data.message || "Config error");
           return data.config;
         }
 
