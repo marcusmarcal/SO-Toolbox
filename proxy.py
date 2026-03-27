@@ -54,11 +54,11 @@ def git_pull():
         result = subprocess.run(
             ["git", "pull"],
             cwd=repo_dir,
-            capture_output=True,
-            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             timeout=30
         )
-        output = (result.stdout + result.stderr).strip()
+        output = (result.stdout.decode() + result.stderr.decode()).strip()
         success = result.returncode == 0
         return jsonify({"success": success, "output": output})
     except Exception as e:
