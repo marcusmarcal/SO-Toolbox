@@ -401,13 +401,15 @@
           <thead>
             <tr>
               <th>CHANNEL NAME</th>
+              <th>EVENT ID (ALIAS)</th>
+              <th>CREATED</th>
               <th style="text-align: center">PUBLISHERS (PRI/BCK)</th>
               <th style="text-align: center">STATUS</th>
             </tr>
           </thead>
           <tbody id="table-body">
             <tr>
-              <td colspan="3" class="table-message">Connecting...</td>
+              <td colspan="5" class="table-message">Connecting...</td>
             </tr>
           </tbody>
         </table>
@@ -593,7 +595,7 @@
         tbody.innerHTML = "";
         if (paginated.length === 0) {
           tbody.innerHTML =
-            '<tr><td colspan="3" class="table-message">No channels found matching criteria.</td></tr>';
+            '<tr><td colspan="5" class="table-message">No channels found matching criteria.</td></tr>';
           return;
         }
 
@@ -616,8 +618,13 @@
           }
 
           const tr = document.createElement("tr");
+          const createdDate = ch.created
+            ? new Date(ch.created).toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" })
+            : "—";
           tr.innerHTML = `
       <td style="color:#fff; font-weight:600;">${ch.name}</td>
+      <td style="color:var(--text-dim);">${ch.alias || "—"}</td>
+      <td style="color:var(--text-dim); white-space:nowrap;">${createdDate}</td>
       <td style="text-align:center"><div class="pub-icons-container">${icons}</div></td>
       <td style="text-align:center">${badge}</td>
     `;
