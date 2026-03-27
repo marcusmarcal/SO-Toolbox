@@ -7,9 +7,11 @@ from urllib.parse import quote
 app = Flask(__name__)
 CORS(app)
 
-# Usar Session melhora MUITO a performance para múltiplas requisições SABUGOOOO!!!
 session = requests.Session()
 PHENIX_BASE = "https://pcast.phenixrts.com"
+
+# 🔐 opcional: define um token simples para proteger o git-pull
+GIT_PULL_TOKEN = "changeme"  # mete isto via env em produção!!
 
 def make_auth_header(app_id, password):
     credentials = f"{app_id}:{password}"
@@ -24,7 +26,10 @@ def get_channels():
     try:
         resp = session.get(
             f"{PHENIX_BASE}/pcast/channels",
-            headers={"Authorization": make_auth_header(app_id, password), "Accept": "application/json"},
+            headers={
+                "Authorization": make_auth_header(app_id, password),
+                "Accept": "application/json"
+            },
             timeout=15
         )
         return Response(resp.content, status=resp.status_code, content_type="application/json")
@@ -39,7 +44,10 @@ def get_publishers_count(channel_id):
         encoded_id = quote(channel_id, safe="")
         resp = session.get(
             f"{PHENIX_BASE}/pcast/channel/{encoded_id}/publishers/count",
-            headers={"Authorization": make_auth_header(app_id, password), "Accept": "application/json"},
+            headers={
+                "Authorization": make_auth_header(app_id, password),
+                "Accept": "application/json"
+            },
             timeout=10
         )
         return Response(resp.text, status=resp.status_code, content_type="text/plain")
@@ -48,8 +56,6 @@ def get_publishers_count(channel_id):
 
 @app.route("/config", methods=["GET"])
 def get_config():
-    """Read .env from disk and return only safe UI config (tools, title, version).
-    Credentials and internal URLs are never exposed."""
     import os
     env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
     try:
@@ -59,19 +65,18 @@ def get_config():
                 line = raw.strip()
                 if not line or line.startswith("#"):
                     continue
-                eq = line.index("=") if "=" in line else -1
-                if eq < 1:
+                if "=" not in line:
                     continue
-                key = line[:eq].strip()
-                val = line[eq+1:].strip()
-                env[key] = val
+                key, val = line.split("=", 1)
+                env[key.strip()] = val.strip()
 
-        # Only expose safe keys — never passwords, URLs, tokens
         SAFE_PREFIXES = ("TOOL_", "SRT_SERVER_")
-        SAFE_KEYS     = ("APP_TITLE", "APP_VERSION", "SRT_PASSPHRASE")
+        SAFE_KEYS = ("APP_TITLE", "APP_VERSION", "SRT_PASSPHRASE")
 
-        safe = {k: v for k, v in env.items()
-                if k in SAFE_KEYS or any(k.startswith(p) for p in SAFE_PREFIXES)}
+        safe = {
+            k: v for k, v in env.items()
+            if k in SAFE_KEYS or any(k.startswith(p) for p in SAFE_PREFIXES)
+        }
 
         return jsonify({"status": "ok", "config": safe})
     except FileNotFoundError:
@@ -79,11 +84,17 @@ def get_config():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
-
+@app.route("/git-pull", methods=["POST"])
 def git_pull():
     import subprocess, os
+
+    # 🔐 proteção simples por header
+    token = request.headers.get("X-Token")
+    if GIT_PULL_TOKEN and token != GIT_PULL_TOKEN:
+        return jsonify({"success": False, "error": "Unauthorized"}), 401
+
     repo_dir = os.path.dirname(os.path.abspath(__file__))
+
     try:
         result = subprocess.run(
             ["git", "pull"],
@@ -92,13 +103,20 @@ def git_pull():
             stderr=subprocess.PIPE,
             timeout=30
         )
+
         output = (result.stdout.decode() + result.stderr.decode()).strip()
         success = result.returncode == 0
-        return jsonify({"success": success, "output": output})
-    except Exception as e:
-        return jsonify({"success": False, "output": str(e)}), 500
 
+        return jsonify({
+            "success": success,
+            "output": output
+        })
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "output": str(e)
+        }), 500
 
 if __name__ == "__main__":
-    # threaded=True permite lidar com várias requisições ao mesmo tempo
     app.run(host='0.0.0.0', port=5050, threaded=True)
