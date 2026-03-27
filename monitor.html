@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>RTS — Channel Health Monitor</title>
+    <title>PhenixRTS — Channel Health Monitor</title>
     <link
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@300;400;600&display=swap"
       rel="stylesheet"
@@ -290,7 +290,49 @@
         color: var(--red);
       }
 
-      .table-message {
+      .btn-sm.update:hover { border-color: var(--cyan); color: var(--cyan); }
+
+      /* ── Git Pull Modal ─────────────────────────────────────────── */
+      #git-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: #000a;
+        z-index: 100;
+        align-items: center;
+        justify-content: center;
+      }
+      #git-modal.open { display: flex; }
+      .git-card {
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 1.5rem 2rem;
+        width: 480px;
+        max-width: 90vw;
+      }
+      .git-card-title {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--cyan);
+        text-transform: uppercase;
+        margin-bottom: 1rem;
+      }
+      .git-output {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        padding: 0.8rem 1rem;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--text);
+        white-space: pre-wrap;
+        min-height: 60px;
+        margin-bottom: 1rem;
+      }
+      .git-output.ok  { color: var(--green); }
+      .git-output.err { color: var(--red); }
         padding: 50px;
         text-align: center;
         color: var(--text-dim);
@@ -301,7 +343,7 @@
   <body>
     <div id="login-screen">
       <div class="login-card">
-        <div class="login-title">RTS MONITOR</div>
+        <div class="login-title">PHENIX MONITOR</div>
         <div class="field">
           <label>App ID</label>
           <input id="inp-appid" type="text" placeholder="your-app-id" />
@@ -330,7 +372,7 @@
     <div id="dashboard">
       <div class="topbar">
         <div class="topbar-brand">
-          RTS SYSTEM MONITOR —
+          PHENIX SYSTEM MONITOR —
           <span id="sb-appid" style="color: var(--text-dim)"></span>
         </div>
         <div style="display: flex; gap: 20px; align-items: center">
@@ -342,6 +384,7 @@
             Critical: <span id="stat-offline" style="color: var(--red)">—</span>
           </div>
           <div id="pulse" class="idle"></div>
+          <button class="btn-sm" onclick="gitPull()">⟳ UPDATE</button>
           <button class="btn-sm" onclick="disconnect()">LOGOUT</button>
         </div>
       </div>
@@ -432,7 +475,38 @@
       </div>
     </div>
 
+    <!-- ── Git Pull Modal ──────────────────────────────────────────── -->
+    <div id="git-modal">
+      <div class="git-card">
+        <div class="git-card-title">⟳ Update from Git</div>
+        <div id="git-output" class="git-output">Running git pull...</div>
+        <button class="btn-sm" onclick="closeGitModal()">Close</button>
+      </div>
+    </div>
+
     <script>
+      async function gitPull() {
+        const modal  = document.getElementById("git-modal");
+        const output = document.getElementById("git-output");
+        output.textContent = "Running git pull...";
+        output.className   = "git-output";
+        modal.classList.add("open");
+
+        try {
+          const res  = await fetch(`${PROXY}/git-pull`, { method: "POST", headers: headers() });
+          const data = await res.json();
+          output.textContent = data.output || "(no output)";
+          output.classList.add(data.success ? "ok" : "err");
+        } catch (e) {
+          output.textContent = `Error: ${e.message}`;
+          output.classList.add("err");
+        }
+      }
+
+      function closeGitModal() {
+        document.getElementById("git-modal").classList.remove("open");
+      }
+
       const PROXY = "https://10.11.220.11/phenix-proxy";
 
       let appId, password, interval, timer, countdown;
@@ -610,7 +684,7 @@
           } else if (count === 1) {
             icons =
               '<div class="pub-icon warning"></div><div class="pub-icon inactive"></div>';
-            badge = '<span class="badge warning">Active - Single Feed</span>';
+            badge = '<span class="badge warning">No Backup</span>';
           } else {
             icons =
               '<div class="pub-icon inactive"></div><div class="pub-icon inactive"></div>';
@@ -619,10 +693,7 @@
 
           const tr = document.createElement("tr");
           const createdDate = ch.created
-            ? new Date(ch.created).toLocaleString("en-GB", {
-                dateStyle: "short",
-                timeStyle: "short",
-              })
+            ? new Date(ch.created).toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" })
             : "—";
           tr.innerHTML = `
       <td style="color:#fff; font-weight:600;">${ch.name}</td>

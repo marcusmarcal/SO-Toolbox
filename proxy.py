@@ -46,6 +46,25 @@ def get_publishers_count(channel_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 502
 
+@app.route("/git-pull", methods=["POST"])
+def git_pull():
+    import subprocess, os
+    repo_dir = os.path.dirname(os.path.abspath(__file__))
+    try:
+        result = subprocess.run(
+            ["git", "pull"],
+            cwd=repo_dir,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        output = (result.stdout + result.stderr).strip()
+        success = result.returncode == 0
+        return jsonify({"success": success, "output": output})
+    except Exception as e:
+        return jsonify({"success": False, "output": str(e)}), 500
+
+
 if __name__ == "__main__":
     # threaded=True permite lidar com várias requisições ao mesmo tempo
     app.run(host='0.0.0.0', port=5050, threaded=True)
