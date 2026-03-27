@@ -46,7 +46,41 @@ def get_publishers_count(channel_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 502
 
-@app.route("/git-pull", methods=["POST"])
+@app.route("/config", methods=["GET"])
+def get_config():
+    """Read .env from disk and return only safe UI config (tools, title, version).
+    Credentials and internal URLs are never exposed."""
+    import os
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    try:
+        env = {}
+        with open(env_path, "r") as f:
+            for raw in f:
+                line = raw.strip()
+                if not line or line.startswith("#"):
+                    continue
+                eq = line.index("=") if "=" in line else -1
+                if eq < 1:
+                    continue
+                key = line[:eq].strip()
+                val = line[eq+1:].strip()
+                env[key] = val
+
+        # Only expose safe keys — never passwords, URLs, tokens
+        SAFE_PREFIXES = ("TOOL_",)
+        SAFE_KEYS     = ("APP_TITLE", "APP_VERSION")
+
+        safe = {k: v for k, v in env.items()
+                if k in SAFE_KEYS or any(k.startswith(p) for p in SAFE_PREFIXES)}
+
+        return jsonify({"status": "ok", "config": safe})
+    except FileNotFoundError:
+        return jsonify({"status": "error", "message": ".env not found"}), 404
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+
 def git_pull():
     import subprocess, os
     repo_dir = os.path.dirname(os.path.abspath(__file__))
