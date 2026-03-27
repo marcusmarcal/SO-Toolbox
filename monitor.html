@@ -610,7 +610,7 @@
           } else if (count === 1) {
             icons =
               '<div class="pub-icon warning"></div><div class="pub-icon inactive"></div>';
-            badge = '<span class="badge warning">No Backup</span>';
+            badge = '<span class="badge warning">Active - Single Feed</span>';
           } else {
             icons =
               '<div class="pub-icon inactive"></div><div class="pub-icon inactive"></div>';
@@ -619,7 +619,10 @@
 
           const tr = document.createElement("tr");
           const createdDate = ch.created
-            ? new Date(ch.created).toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" })
+            ? new Date(ch.created).toLocaleString("en-GB", {
+                dateStyle: "short",
+                timeStyle: "short",
+              })
             : "—";
           tr.innerHTML = `
       <td style="color:#fff; font-weight:600;">${ch.name}</td>
