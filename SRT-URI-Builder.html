@@ -634,19 +634,14 @@
       // ═══════════════════════════════════════════════════════════
       //  .env loader
       // ═══════════════════════════════════════════════════════════
-      async function loadEnv(path = ".env") {
-        const resp = await fetch(path, { cache: "no-cache" });
+      const PROXY_URL = "https://10.11.220.11/phenix-proxy";
+
+      async function loadEnv() {
+        const resp = await fetch(`${PROXY_URL}/config`, { cache: "no-cache" });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const text = await resp.text();
-        const env = {};
-        for (const raw of text.split("\n")) {
-          const line = raw.trim();
-          if (!line || line.startsWith("#")) continue;
-          const eq = line.indexOf("=");
-          if (eq < 1) continue;
-          env[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
-        }
-        return env;
+        const data = await resp.json();
+        if (data.status !== "ok") throw new Error(data.message || "Config error");
+        return data.config;
       }
 
       // ═══════════════════════════════════════════════════════════
@@ -835,7 +830,7 @@
       // ═══════════════════════════════════════════════════════════
       document.getElementById("env-status").style.display = "block";
 
-      loadEnv(".env")
+      loadEnv()
         .then((env) => {
           const { serverCount } = applyConfig(env);
           showBanner(
@@ -850,10 +845,7 @@
           buildURI();
         })
         .catch(() => {
-          showBanner(
-            "warn",
-            `⚠ .env not found. Serve via a web server and place a .env file in the same directory.`
-          );
+          showBanner("warn", `⚠ Could not load config from proxy. Check that proxy.py is running.`);
           buildURI();
         });
 

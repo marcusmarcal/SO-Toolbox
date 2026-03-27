@@ -67,8 +67,8 @@ def get_config():
                 env[key] = val
 
         # Only expose safe keys — never passwords, URLs, tokens
-        SAFE_PREFIXES = ("TOOL_",)
-        SAFE_KEYS     = ("APP_TITLE", "APP_VERSION")
+        SAFE_PREFIXES = ("TOOL_", "SRT_SERVER_")
+        SAFE_KEYS     = ("APP_TITLE", "APP_VERSION", "SRT_PASSPHRASE")
 
         safe = {k: v for k, v in env.items()
                 if k in SAFE_KEYS or any(k.startswith(p) for p in SAFE_PREFIXES)}
