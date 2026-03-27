@@ -7,7 +7,7 @@ from urllib.parse import quote
 app = Flask(__name__)
 CORS(app)
 
-# Usar Session melhora MUITO a performance para múltiplas requisições
+# Usar Session melhora MUITO a performance para múltiplas requisições SABUGOOOO!!!
 session = requests.Session()
 PHENIX_BASE = "https://pcast.phenixrts.com"
 
