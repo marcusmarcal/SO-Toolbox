@@ -634,7 +634,7 @@
       // ═══════════════════════════════════════════════════════════
       //  .env loader
       // ═══════════════════════════════════════════════════════════
-      const PROXY_URL = "https://10.11.220.11/phenix-proxy";
+      const PROXY_URL = "/phenix-proxy";
 
       async function loadEnv() {
         const resp = await fetch(`${PROXY_URL}/config`, { cache: "no-cache" });

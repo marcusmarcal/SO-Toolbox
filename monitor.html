@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>RTS — Channels Health Monitor</title>
+    <title>PhenixRTS — Channel Health Monitor</title>
     <link
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@300;400;600&display=swap"
       rel="stylesheet"
@@ -343,7 +343,7 @@
   <body>
     <div id="login-screen">
       <div class="login-card">
-        <div class="login-title">RTS Channels Health Monitor</div>
+        <div class="login-title">PHENIX MONITOR</div>
         <div class="field">
           <label>App ID</label>
           <input id="inp-appid" type="text" placeholder="your-app-id" />
@@ -372,7 +372,7 @@
     <div id="dashboard">
       <div class="topbar">
         <div class="topbar-brand">
-          RTS Channels Health Monitor —
+          PHENIX SYSTEM MONITOR —
           <span id="sb-appid" style="color: var(--text-dim)"></span>
         </div>
         <div style="display: flex; gap: 20px; align-items: center">
@@ -384,7 +384,7 @@
             Critical: <span id="stat-offline" style="color: var(--red)">—</span>
           </div>
           <div id="pulse" class="idle"></div>
-          <!--<button class="btn-sm" onclick="gitPull()">⟳ UPDATE</button>-->
+          <button class="btn-sm" onclick="gitPull()">⟳ UPDATE</button>
           <button class="btn-sm" onclick="disconnect()">LOGOUT</button>
         </div>
       </div>
@@ -486,17 +486,14 @@
 
     <script>
       async function gitPull() {
-        const modal = document.getElementById("git-modal");
+        const modal  = document.getElementById("git-modal");
         const output = document.getElementById("git-output");
         output.textContent = "Running git pull...";
-        output.className = "git-output";
+        output.className   = "git-output";
         modal.classList.add("open");
 
         try {
-          const res = await fetch(`${PROXY}/git-pull`, {
-            method: "POST",
-            headers: headers(),
-          });
+          const res  = await fetch(`${PROXY}/git-pull`, { method: "POST", headers: headers() });
           const data = await res.json();
           output.textContent = data.output || "(no output)";
           output.classList.add(data.success ? "ok" : "err");
@@ -510,7 +507,7 @@
         document.getElementById("git-modal").classList.remove("open");
       }
 
-      const PROXY = "https://10.11.220.11/phenix-proxy";
+      const PROXY = "/phenix-proxy";
 
       let appId, password, interval, timer, countdown;
       let secondsLeft = 0;
@@ -687,7 +684,7 @@
           } else if (count === 1) {
             icons =
               '<div class="pub-icon warning"></div><div class="pub-icon inactive"></div>';
-            badge = '<span class="badge warning">Active - Single Feed</span>';
+            badge = '<span class="badge warning">No Backup</span>';
           } else {
             icons =
               '<div class="pub-icon inactive"></div><div class="pub-icon inactive"></div>';
@@ -696,10 +693,7 @@
 
           const tr = document.createElement("tr");
           const createdDate = ch.created
-            ? new Date(ch.created).toLocaleString("en-GB", {
-                dateStyle: "short",
-                timeStyle: "short",
-              })
+            ? new Date(ch.created).toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" })
             : "—";
           tr.innerHTML = `
       <td style="color:#fff; font-weight:600;">${ch.name}</td>
