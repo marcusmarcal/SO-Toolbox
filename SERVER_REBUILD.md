@@ -18,9 +18,6 @@ The application code lives in Git — this document covers everything that does 
 
 ```bash
 yum install nginx git python3 python3-pip -y
-```
-
-```bash
 pip3 install flask flask-cors requests
 ```
 
@@ -51,55 +48,28 @@ openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
 
 ## 5. nginx configuration
 
-File: `/etc/nginx/conf.d/default.conf`
-
-```nginx
-server {
-    listen 443 ssl;
-    server_name _;
-    root /opt/web;
-    index index.html;
-
-    ssl_certificate     /etc/nginx/ssl/selfsigned.crt;
-    ssl_certificate_key /etc/nginx/ssl/selfsigned.key;
-    ssl_protocols       TLSv1.2 TLSv1.3;
-    ssl_ciphers         HIGH:!aNULL:!MD5;
-
-    # Block direct access to .env
-    location = /.env {
-        deny all;
-        return 404;
-    }
-
-    # Reverse proxy to Flask (port 5050)
-    location /phenix-proxy/ {
-        proxy_pass http://127.0.0.1:5050/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_pass_request_body on;
-        proxy_pass_request_headers on;
-    }
-
-    # Serve static files
-    location / {
-        try_files $uri $uri/ =404;
-    }
-}
-
-# Redirect HTTP → HTTPS
-server {
-    listen 80;
-    server_name _;
-    return 301 https://$host$request_uri;
-}
-```
+Replace `/etc/nginx/nginx.conf` entirely with the clean version from the repo:
 
 ```bash
-nginx -t && nginx -s reload
-# or if starting fresh:
-systemctl enable nginx
-systemctl start nginx
+cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak   # backup just in case
+cp /opt/web/nginx.conf /etc/nginx/nginx.conf
+
+# Remove old conf.d/default.conf if it exists — everything is now in nginx.conf
+rm -f /etc/nginx/conf.d/default.conf
+
+nginx -t && systemctl enable nginx && systemctl start nginx
 ```
+
+The `nginx.conf` in the repo includes:
+
+- HTTPS on 443 (`default_server`) serving `/opt/web`
+- HTTP on 80 redirecting to HTTPS
+- `/phenix-proxy/` reverse-proxied to Flask on `127.0.0.1:5050`
+- `/.env` blocked (returns 404)
+- Includes `nginx_http_defaults.conf` for logging and proxy defaults
+
+> The old `nginx.conf` had legacy Id3as/perform.local upstreams and servers — all removed.
+> The useful `nginx_http_defaults.conf` is still included and must remain in `/etc/nginx/`.
 
 ---
 
@@ -127,7 +97,7 @@ SRT_SERVER_1=10.x.x.x|Server Name 1
 SRT_SERVER_2=10.x.x.x|Server Name 2
 
 # PhenixRTS credentials (used by monitor.html via proxy)
-# NOT exposed to browser — only read by proxy.py
+# NOT exposed to browser — only read server-side by proxy.py
 PHENIXRTS_APP_ID=your-app-id
 PHENIXRTS_PASSWORD=your-password
 ```
@@ -137,24 +107,27 @@ PHENIXRTS_PASSWORD=your-password
 
 ---
 
-## 7. Start the proxy
+## 7. Proxy as a systemd service
 
 ```bash
-cd /opt/web
-python3 proxy.py &
+cp /opt/web/phenix-proxy.service /etc/systemd/system/phenix-proxy.service
+
+systemctl daemon-reload
+systemctl enable phenix-proxy
+systemctl start phenix-proxy
 ```
 
-To keep it running after logout, use `nohup`:
+Check status and logs:
 
 ```bash
-nohup python3 proxy.py > /var/log/phenix-proxy.log 2>&1 &
+systemctl status phenix-proxy
+journalctl -u phenix-proxy -f
 ```
 
-To check if it's running:
+Restart after changes:
 
 ```bash
-ps aux | grep proxy.py
-curl -sk http://127.0.0.1:5050/config
+systemctl restart phenix-proxy
 ```
 
 ---
@@ -165,14 +138,14 @@ curl -sk http://127.0.0.1:5050/config
 # nginx serving HTTPS
 curl -sk https://localhost/ | head -5
 
-# Proxy reachable via nginx
+# Proxy config endpoint
 curl -sk https://localhost/phenix-proxy/config
 
 # Git pull endpoint
 curl -sk -X POST https://localhost/phenix-proxy/git-pull
 
-# .env is blocked
-curl -sk https://localhost/.env  # should return 404
+# .env is blocked (must return 404)
+curl -sk https://localhost/.env
 ```
 
 ---
@@ -182,20 +155,24 @@ curl -sk https://localhost/.env  # should return 404
 | What | Where | In Git? |
 |------|-------|---------|
 | App code (HTML, proxy.py) | `/opt/web/` | ✅ Yes |
+| nginx config | `/opt/web/nginx.conf` → `/etc/nginx/nginx.conf` | ✅ Yes |
+| systemd service file | `/opt/web/phenix-proxy.service` → `/etc/systemd/system/` | ✅ Yes |
 | `.env` (tools, credentials) | `/opt/web/.env` | ❌ No — create manually |
-| nginx config | `/etc/nginx/conf.d/default.conf` | ❌ No — see Section 5 |
 | SSL certificates | `/etc/nginx/ssl/` | ❌ No — generate manually |
-| Proxy logs | `/var/log/phenix-proxy.log` | ❌ No |
+| Proxy logs | `journalctl -u phenix-proxy` | ❌ No |
 
 ---
 
 ## 10. Quick rebuild checklist
 
-- [ ] Install packages (`nginx`, `python3`, `pip3`, `git`)
+- [ ] `yum install nginx git python3 python3-pip -y`
 - [ ] `pip3 install flask flask-cors requests`
-- [ ] Clone repo to `/opt/web`
-- [ ] Generate SSL certificate
-- [ ] Write nginx config → `nginx -t && systemctl start nginx`
+- [ ] `git clone https://github.com/marcusmarcal/SO-Toolbox.git /opt/web`
+- [ ] Generate SSL certificate into `/etc/nginx/ssl/`
+- [ ] `cp /opt/web/nginx.conf /etc/nginx/nginx.conf`
+- [ ] `rm -f /etc/nginx/conf.d/default.conf`
+- [ ] `nginx -t && systemctl enable nginx && systemctl start nginx`
 - [ ] Create `/opt/web/.env` with credentials and tool list
-- [ ] Start proxy: `nohup python3 proxy.py > /var/log/phenix-proxy.log 2>&1 &`
-- [ ] Verify with curl checks above
+- [ ] `cp /opt/web/phenix-proxy.service /etc/systemd/system/`
+- [ ] `systemctl daemon-reload && systemctl enable phenix-proxy && systemctl start phenix-proxy`
+- [ ] Verify with curl checks in Section 8
