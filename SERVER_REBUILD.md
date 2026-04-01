@@ -5,25 +5,30 @@ The application code lives in Git — this document covers everything that does 
 
 ---
 
-## 1. Requirements
+## 1. System packages
 
-- OS: CentOS / RHEL (tested on the MSP8050 environment)
-- Python 3.6+
-- nginx
-- git
-
----
-
-## 2. System packages
+### CentOS / RHEL
 
 ```bash
 yum install nginx git python3 python3-pip -y
 pip3 install flask flask-cors requests
 ```
 
+### Debian / Ubuntu (incl. WSL)
+
+```bash
+apt update
+apt install nginx git python3 python3-flask python3-requests -y
+apt install python3-pip -y
+pip3 install flask-cors --break-system-packages
+```
+
+> On newer Debian/Ubuntu, `flask` and `requests` are available via `apt` as
+> `python3-flask` and `python3-requests`. Use `apt` first to avoid pip conflicts.
+
 ---
 
-## 3. Clone the repository
+## 2. Clone the repository
 
 ```bash
 mkdir -p /opt/web
@@ -33,7 +38,7 @@ git clone https://github.com/marcusmarcal/SO-Toolbox.git .
 
 ---
 
-## 4. SSL certificate (self-signed)
+## 3. SSL certificate (self-signed)
 
 ```bash
 mkdir -p /etc/nginx/ssl
@@ -46,34 +51,44 @@ openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
 
 ---
 
-## 5. nginx configuration
+## 4. nginx configuration
 
-Replace `/etc/nginx/nginx.conf` entirely with the clean version from the repo:
+### CentOS / RHEL
+
+nginx uses `conf.d/` and a single `nginx.conf`. Replace it with the clean version from the repo:
 
 ```bash
-cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak   # backup just in case
+cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
 cp /opt/web/nginx.conf /etc/nginx/nginx.conf
-
-# Remove old conf.d/default.conf if it exists — everything is now in nginx.conf
 rm -f /etc/nginx/conf.d/default.conf
+nginx -t && systemctl enable nginx && systemctl start nginx
+```
+
+> `nginx.conf` includes `nginx_http_defaults.conf` — this file must exist in `/etc/nginx/`.
+> It is already present on the MSP machines. If missing, copy from `/opt/web/nginx_http_defaults.conf`.
+
+---
+
+### Debian / Ubuntu (incl. WSL)
+
+nginx uses `sites-enabled/`. Remove the default site and add ours:
+
+```bash
+# Remove Debian default site
+rm -f /etc/nginx/sites-enabled/default
+
+# Install SO-Toolbox site
+cp /opt/web/nginx-debian.conf /etc/nginx/sites-available/so-toolbox
+ln -s /etc/nginx/sites-available/so-toolbox /etc/nginx/sites-enabled/so-toolbox
 
 nginx -t && systemctl enable nginx && systemctl start nginx
 ```
 
-The `nginx.conf` in the repo includes:
-
-- HTTPS on 443 (`default_server`) serving `/opt/web`
-- HTTP on 80 redirecting to HTTPS
-- `/phenix-proxy/` reverse-proxied to Flask on `127.0.0.1:5050`
-- `/.env` blocked (returns 404)
-- Includes `nginx_http_defaults.conf` for logging and proxy defaults
-
-> The old `nginx.conf` had legacy Id3as/perform.local upstreams and servers — all removed.
-> The useful `nginx_http_defaults.conf` is still included and must remain in `/etc/nginx/`.
+> Do NOT replace `/etc/nginx/nginx.conf` on Debian — use `sites-available/` as above.
 
 ---
 
-## 6. .env file
+## 5. .env file
 
 Create `/opt/web/.env` — this file is NOT in Git (intentionally).
 
@@ -107,7 +122,7 @@ PHENIXRTS_PASSWORD=your-password
 
 ---
 
-## 7. Proxy as a systemd service
+## 6. Proxy as a systemd service
 
 ```bash
 cp /opt/web/phenix-proxy.service /etc/systemd/system/phenix-proxy.service
@@ -130,9 +145,14 @@ Restart after changes:
 systemctl restart phenix-proxy
 ```
 
+> **WSL note:** `systemctl` may not work on WSL1. Use WSL2, or start manually:
+> ```bash
+> cd /opt/web && python3 proxy.py &
+> ```
+
 ---
 
-## 8. Verify everything works
+## 7. Verify everything works
 
 ```bash
 # nginx serving HTTPS
@@ -150,12 +170,13 @@ curl -sk https://localhost/.env
 
 ---
 
-## 9. What lives where
+## 8. What lives where
 
 | What | Where | In Git? |
 |------|-------|---------|
 | App code (HTML, proxy.py) | `/opt/web/` | ✅ Yes |
-| nginx config | `/opt/web/nginx.conf` → `/etc/nginx/nginx.conf` | ✅ Yes |
+| nginx config (CentOS/RHEL) | `/opt/web/nginx.conf` → `/etc/nginx/nginx.conf` | ✅ Yes |
+| nginx config (Debian/Ubuntu) | `/opt/web/nginx-debian.conf` → `/etc/nginx/sites-available/so-toolbox` | ✅ Yes |
 | systemd service file | `/opt/web/phenix-proxy.service` → `/etc/systemd/system/` | ✅ Yes |
 | `.env` (tools, credentials) | `/opt/web/.env` | ❌ No — create manually |
 | SSL certificates | `/etc/nginx/ssl/` | ❌ No — generate manually |
@@ -163,16 +184,30 @@ curl -sk https://localhost/.env
 
 ---
 
-## 10. Quick rebuild checklist
+## 9. Quick rebuild checklist
 
+### CentOS / RHEL
 - [ ] `yum install nginx git python3 python3-pip -y`
 - [ ] `pip3 install flask flask-cors requests`
 - [ ] `git clone https://github.com/marcusmarcal/SO-Toolbox.git /opt/web`
 - [ ] Generate SSL certificate into `/etc/nginx/ssl/`
-- [ ] `cp /opt/web/nginx.conf /etc/nginx/nginx.conf`
-- [ ] `rm -f /etc/nginx/conf.d/default.conf`
+- [ ] `cp /opt/web/nginx.conf /etc/nginx/nginx.conf && rm -f /etc/nginx/conf.d/default.conf`
 - [ ] `nginx -t && systemctl enable nginx && systemctl start nginx`
-- [ ] Create `/opt/web/.env` with credentials and tool list
+- [ ] Create `/opt/web/.env`
 - [ ] `cp /opt/web/phenix-proxy.service /etc/systemd/system/`
 - [ ] `systemctl daemon-reload && systemctl enable phenix-proxy && systemctl start phenix-proxy`
-- [ ] Verify with curl checks in Section 8
+- [ ] Verify with curl checks in Section 7
+
+### Debian / Ubuntu / WSL
+- [ ] `apt update && apt install nginx git python3 python3-flask python3-requests -y`
+- [ ] `pip3 install flask-cors --break-system-packages`
+- [ ] `git clone https://github.com/marcusmarcal/SO-Toolbox.git /opt/web`
+- [ ] Generate SSL certificate into `/etc/nginx/ssl/`
+- [ ] `rm -f /etc/nginx/sites-enabled/default`
+- [ ] `cp /opt/web/nginx-debian.conf /etc/nginx/sites-available/so-toolbox`
+- [ ] `ln -s /etc/nginx/sites-available/so-toolbox /etc/nginx/sites-enabled/so-toolbox`
+- [ ] `nginx -t && systemctl enable nginx && systemctl start nginx`
+- [ ] Create `/opt/web/.env`
+- [ ] `cp /opt/web/phenix-proxy.service /etc/systemd/system/`
+- [ ] `systemctl daemon-reload && systemctl enable phenix-proxy && systemctl start phenix-proxy`
+- [ ] Verify with curl checks in Section 7
