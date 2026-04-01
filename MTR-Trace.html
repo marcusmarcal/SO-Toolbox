@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MTR — Network Trace</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Barlow:wght@300;400;600;700&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #080c10;
+    --bg2:      #0d1117;
+    --bg3:      #161b22;
+    --border:   #21262d;
+    --green:    #3fb950;
+    --green-dim:#1a3d20;
+    --cyan:     #58a6ff;
+    --yellow:   #e3b341;
+    --red:      #f85149;
+    --text:     #c9d1d9;
+    --muted:    #484f58;
+    --mono:     'JetBrains Mono', monospace;
+    --sans:     'Barlow', sans-serif;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+  }
+
+  .wrap {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+
+  /* ── Header ── */
+  .header {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1rem;
+  }
+  .header h1 {
+    font-family: var(--mono);
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.05em;
+  }
+  .header h1 span { color: var(--green); }
+  .header-sub {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+
+  /* ── Form card ── */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .form-row {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: flex-end;
+  }
+
+  .field { display: flex; flex-direction: column; gap: 0.35rem; }
+  .field.grow { flex: 1; min-width: 200px; }
+  .field.fixed-sm { width: 100px; }
+
+  label {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  input[type="text"],
+  input[type="number"] {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.55rem 0.75rem;
+    color: #fff;
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input:focus { border-color: var(--cyan); }
+
+  /* Toggle switch */
+  .toggle-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    user-select: none;
+  }
+  .toggle input { display: none; }
+  .toggle-track {
+    width: 34px;
+    height: 18px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    position: relative;
+    transition: background 0.2s, border-color 0.2s;
+    flex-shrink: 0;
+  }
+  .toggle-thumb {
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: transform 0.2s, background 0.2s;
+  }
+  .toggle input:checked ~ .toggle-track { background: var(--green-dim); border-color: var(--green); }
+  .toggle input:checked ~ .toggle-track .toggle-thumb { transform: translateX(16px); background: var(--green); }
+  .toggle-label {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--text);
+  }
+
+  /* Run button */
+  .btn-run {
+    background: var(--green);
+    color: #000;
+    border: none;
+    border-radius: 6px;
+    padding: 0.55rem 1.4rem;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    white-space: nowrap;
+    align-self: flex-end;
+  }
+  .btn-run:hover { opacity: 0.85; }
+  .btn-run:active { transform: scale(0.97); }
+  .btn-run:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+  /* ── Output ── */
+  .output-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+  }
+  .output-label {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+  .status-dot.running { background: var(--yellow); animation: blink 0.8s ease-in-out infinite; }
+  .status-dot.ok      { background: var(--green); animation: none; }
+  .status-dot.err     { background: var(--red);   animation: none; }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .btn-copy {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    padding: 0.3rem 0.7rem;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .btn-copy:hover { border-color: var(--cyan); color: var(--cyan); }
+  .btn-copy:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  #output {
+    width: 100%;
+    min-height: 320px;
+    resize: vertical;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    line-height: 1.7;
+    outline: none;
+    white-space: pre;
+    overflow: auto;
+  }
+
+  .hint {
+    margin-top: 0.6rem;
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <h1>MTR <span>//</span> Network Trace</h1>
+    <span class="header-sub">runs on the server — results reflect server-side routing</span>
+  </div>
+
+  <div class="card">
+    <div class="form-row">
+
+      <div class="field grow">
+        <label>Host / IP</label>
+        <input id="inp-host" type="text" placeholder="e.g. 8.8.8.8 or example.com" autocomplete="off" />
+      </div>
+
+      <div class="field fixed-sm">
+        <label>Packets</label>
+        <input id="inp-count" type="number" value="50" min="1" max="200" />
+      </div>
+
+      <div class="toggle-wrap">
+        <label>No DNS</label>
+        <label class="toggle">
+          <input type="checkbox" id="chk-nodns" />
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span class="toggle-label">Disable name resolution</span>
+        </label>
+      </div>
+
+      <button class="btn-run" id="btn-run" onclick="runMtr()">▶ Run MTR</button>
+
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="output-header">
+      <div class="output-label">
+        <span class="status-dot" id="status-dot"></span>
+        <span id="status-text">Ready</span>
+      </div>
+      <button class="btn-copy" id="btn-copy" onclick="copyOutput()" disabled>Copy</button>
+    </div>
+    <textarea id="output" readonly placeholder="MTR output will appear here..."></textarea>
+    <div class="hint">Output is plain text — select all and copy, or use the Copy button.</div>
+  </div>
+
+</div>
+
+<script>
+  const PROXY = "/phenix-proxy";
+
+  async function runMtr() {
+    const host   = document.getElementById("inp-host").value.trim();
+    const count  = parseInt(document.getElementById("inp-count").value) || 50;
+    const no_dns = document.getElementById("chk-nodns").checked;
+
+    if (!host) {
+      setStatus("err", "Please enter a host or IP.");
+      return;
+    }
+
+    const btn    = document.getElementById("btn-run");
+    const output = document.getElementById("output");
+    const copy   = document.getElementById("btn-copy");
+
+    btn.disabled  = true;
+    copy.disabled = true;
+    output.value  = "";
+    setStatus("running", `Running mtr to ${host} (${count} packets)...`);
+
+    try {
+      const res  = await fetch(`${PROXY}/mtr`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ host, count, no_dns })
+      });
+      const data = await res.json();
+      output.value = data.output || "(no output)";
+      setStatus(data.success ? "ok" : "err", data.success ? "Done" : "Error");
+      copy.disabled = false;
+    } catch (e) {
+      output.value = `Request failed: ${e.message}`;
+      setStatus("err", "Failed to reach proxy.");
+    }
+
+    btn.disabled = false;
+  }
+
+  function setStatus(type, msg) {
+    const dot  = document.getElementById("status-dot");
+    const text = document.getElementById("status-text");
+    dot.className  = "status-dot " + type;
+    text.textContent = msg;
+  }
+
+  async function copyOutput() {
+    const val = document.getElementById("output").value;
+    if (!val) return;
+    try {
+      await navigator.clipboard.writeText(val);
+    } catch {
+      document.getElementById("output").select();
+      document.execCommand("copy");
+    }
+    const btn = document.getElementById("btn-copy");
+    btn.textContent = "Copied!";
+    setTimeout(() => btn.textContent = "Copy", 2000);
+  }
+
+  // Allow Enter on host field
+  document.getElementById("inp-host").addEventListener("keydown", e => {
+    if (e.key === "Enter") runMtr();
+  });
+</script>
+</body>
+</html>

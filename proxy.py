@@ -7,11 +7,9 @@ from urllib.parse import quote
 app = Flask(__name__)
 CORS(app)
 
+# Usar Session melhora MUITO a performance para múltiplas requisições
 session = requests.Session()
 PHENIX_BASE = "https://pcast.phenixrts.com"
-
-# 🔐 opcional: define um token simples para proteger o git-pull
-GIT_PULL_TOKEN = "changeme"  # mete isto via env em produção!!
 
 def make_auth_header(app_id, password):
     credentials = f"{app_id}:{password}"
@@ -26,10 +24,7 @@ def get_channels():
     try:
         resp = session.get(
             f"{PHENIX_BASE}/pcast/channels",
-            headers={
-                "Authorization": make_auth_header(app_id, password),
-                "Accept": "application/json"
-            },
+            headers={"Authorization": make_auth_header(app_id, password), "Accept": "application/json"},
             timeout=15
         )
         return Response(resp.content, status=resp.status_code, content_type="application/json")
@@ -44,10 +39,7 @@ def get_publishers_count(channel_id):
         encoded_id = quote(channel_id, safe="")
         resp = session.get(
             f"{PHENIX_BASE}/pcast/channel/{encoded_id}/publishers/count",
-            headers={
-                "Authorization": make_auth_header(app_id, password),
-                "Accept": "application/json"
-            },
+            headers={"Authorization": make_auth_header(app_id, password), "Accept": "application/json"},
             timeout=10
         )
         return Response(resp.text, status=resp.status_code, content_type="text/plain")
@@ -56,6 +48,8 @@ def get_publishers_count(channel_id):
 
 @app.route("/config", methods=["GET"])
 def get_config():
+    """Read .env from disk and return only safe UI config (tools, title, version).
+    Credentials and internal URLs are never exposed."""
     import os
     env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
     try:
@@ -65,18 +59,19 @@ def get_config():
                 line = raw.strip()
                 if not line or line.startswith("#"):
                     continue
-                if "=" not in line:
+                eq = line.index("=") if "=" in line else -1
+                if eq < 1:
                     continue
-                key, val = line.split("=", 1)
-                env[key.strip()] = val.strip()
+                key = line[:eq].strip()
+                val = line[eq+1:].strip()
+                env[key] = val
 
+        # Only expose safe keys — never passwords, URLs, tokens
         SAFE_PREFIXES = ("TOOL_", "SRT_SERVER_")
-        SAFE_KEYS = ("APP_TITLE", "APP_VERSION", "SRT_PASSPHRASE")
+        SAFE_KEYS     = ("APP_TITLE", "APP_VERSION", "SRT_PASSPHRASE", "PROXY_URL")
 
-        safe = {
-            k: v for k, v in env.items()
-            if k in SAFE_KEYS or any(k.startswith(p) for p in SAFE_PREFIXES)
-        }
+        safe = {k: v for k, v in env.items()
+                if k in SAFE_KEYS or any(k.startswith(p) for p in SAFE_PREFIXES)}
 
         return jsonify({"status": "ok", "config": safe})
     except FileNotFoundError:
@@ -84,17 +79,11 @@ def get_config():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route("/git-pull", methods=["POST"])
+
+
 def git_pull():
     import subprocess, os
-
-    # 🔐 proteção simples por header
-    token = request.headers.get("X-Token")
-    if GIT_PULL_TOKEN and token != GIT_PULL_TOKEN:
-        return jsonify({"success": False, "error": "Unauthorized"}), 401
-
     repo_dir = os.path.dirname(os.path.abspath(__file__))
-
     try:
         result = subprocess.run(
             ["git", "pull"],
@@ -103,20 +92,50 @@ def git_pull():
             stderr=subprocess.PIPE,
             timeout=30
         )
-
         output = (result.stdout.decode() + result.stderr.decode()).strip()
         success = result.returncode == 0
-
-        return jsonify({
-            "success": success,
-            "output": output
-        })
-
+        return jsonify({"success": success, "output": output})
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "output": str(e)
-        }), 500
+        return jsonify({"success": False, "output": str(e)}), 500
+
+
+@app.route("/mtr", methods=["POST"])
+def run_mtr():
+    import subprocess
+    data   = request.get_json(silent=True) or {}
+    host   = (data.get("host") or "").strip()
+    count  = int(data.get("count") or 50)
+    no_dns = bool(data.get("no_dns", False))
+
+    if not host:
+        return jsonify({"success": False, "output": "Host is required."}), 400
+
+    count = max(1, min(count, 200))
+
+    cmd = ["mtr", "--report", "--report-cycles", str(count)]
+    if no_dns:
+        cmd.append("--no-dns")
+    cmd.append(host)
+
+    try:
+        result = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=count * 2 + 30
+        )
+        output = result.stdout.decode()
+        if result.returncode != 0:
+            output = result.stderr.decode() or output
+        return jsonify({"success": result.returncode == 0, "output": output})
+    except FileNotFoundError:
+        return jsonify({"success": False, "output": "mtr is not installed on this server.\nInstall it: apt install mtr-tiny  OR  yum install mtr"}), 500
+    except subprocess.TimeoutExpired:
+        return jsonify({"success": False, "output": "mtr timed out."}), 500
+    except Exception as e:
+        return jsonify({"success": False, "output": str(e)}), 500
+
 
 if __name__ == "__main__":
+    # threaded=True permite lidar com várias requisições ao mesmo tempo
     app.run(host='0.0.0.0', port=5050, threaded=True)
