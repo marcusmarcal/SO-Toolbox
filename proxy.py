@@ -81,6 +81,7 @@ def get_config():
 
 
 
+@app.route("/git-pull", methods=["POST"])
 def git_pull():
     import subprocess, os
     repo_dir = os.path.dirname(os.path.abspath(__file__))
@@ -99,41 +100,78 @@ def git_pull():
         return jsonify({"success": False, "output": str(e)}), 500
 
 
-@app.route("/mtr", methods=["POST"])
-def run_mtr():
+@app.route("/server-info", methods=["GET"])
+def server_info():
+    """Return local IPs and public IP for MTR header."""
     import subprocess
-    data   = request.get_json(silent=True) or {}
-    host   = (data.get("host") or "").strip()
-    count  = int(data.get("count") or 50)
-    no_dns = bool(data.get("no_dns", False))
+    info = {}
+
+    # Local IPs
+    try:
+        r = subprocess.run(["ip", "addr"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        info["ip_addr"] = r.stdout.decode()
+    except Exception as e:
+        info["ip_addr"] = str(e)
+
+    # Default route
+    try:
+        r = subprocess.run(["ip", "route", "show", "default"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        info["default_route"] = r.stdout.decode().strip()
+    except Exception as e:
+        info["default_route"] = str(e)
+
+    # Public IP
+    try:
+        r = requests.get("https://api.ipify.org", timeout=5)
+        info["public_ip"] = r.text.strip()
+    except Exception:
+        info["public_ip"] = "unavailable"
+
+    return jsonify(info)
+
+
+@app.route("/mtr/stream", methods=["GET"])
+def mtr_stream():
+    """Stream mtr output line by line using Server-Sent Events."""
+    import subprocess, shlex
+
+    host   = (request.args.get("host") or "").strip()
+    count  = max(1, min(int(request.args.get("count") or 50), 200))
+    no_dns = request.args.get("no_dns") == "1"
 
     if not host:
-        return jsonify({"success": False, "output": "Host is required."}), 400
+        def err():
+            yield "data: ERROR: Host is required.\n\n"
+            yield "data: __DONE__\n\n"
+        return Response(err(), content_type="text/event-stream")
 
-    count = max(1, min(count, 200))
-
-    cmd = ["mtr", "--report", "--report-cycles", str(count)]
+    cmd = ["mtr", "--report", "--report-cycles", str(count), "--report-wide"]
     if no_dns:
         cmd.append("--no-dns")
     cmd.append(host)
 
-    try:
-        result = subprocess.run(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=count * 2 + 30
-        )
-        output = result.stdout.decode()
-        if result.returncode != 0:
-            output = result.stderr.decode() or output
-        return jsonify({"success": result.returncode == 0, "output": output})
-    except FileNotFoundError:
-        return jsonify({"success": False, "output": "mtr is not installed on this server.\nInstall it: apt install mtr-tiny  OR  yum install mtr"}), 500
-    except subprocess.TimeoutExpired:
-        return jsonify({"success": False, "output": "mtr timed out."}), 500
-    except Exception as e:
-        return jsonify({"success": False, "output": str(e)}), 500
+    def generate():
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                bufsize=1
+            )
+            for raw in iter(proc.stdout.readline, b""):
+                line = raw.decode(errors="replace").rstrip()
+                if line:
+                    yield f"data: {line}\n\n"
+            proc.wait()
+        except FileNotFoundError:
+            yield "data: ERROR: mtr is not installed.\n\n"
+            yield "data: Install it: apt install mtr-tiny  OR  yum install mtr\n\n"
+        except Exception as e:
+            yield f"data: ERROR: {e}\n\n"
+        yield "data: __DONE__\n\n"
+
+    return Response(generate(), content_type="text/event-stream",
+                    headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"})
 
 
 if __name__ == "__main__":
