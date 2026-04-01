@@ -132,12 +132,21 @@ def server_info():
 
 @app.route("/mtr/stream", methods=["GET"])
 def mtr_stream():
-    """Stream mtr output line by line using Server-Sent Events."""
-    import subprocess, shlex
+    """Stream mtr output line by line using Server-Sent Events.
+    Supports two modes:
+      - packets: mtr --report --report-cycles N
+      - time:    mtr runs for N seconds via timeout command
+    At the end, saves a structured JSON summary to mtr-results/.
+    """
+    import subprocess, os, json, re, datetime
 
-    host   = (request.args.get("host") or "").strip()
-    count  = max(1, min(int(request.args.get("count") or 50), 200))
-    no_dns = request.args.get("no_dns") == "1"
+    host     = (request.args.get("host") or "").strip()
+    mode     = request.args.get("mode") or "packets"   # "packets" | "time"
+    count    = max(1, min(int(request.args.get("count") or 50), 500))
+    seconds  = max(10, min(int(request.args.get("seconds") or 60), 86400))
+    no_dns   = request.args.get("no_dns") == "1"
+    src_ip   = request.args.get("src_ip") or "unknown"
+    pub_ip   = request.args.get("pub_ip") or "unknown"
 
     if not host:
         def err():
@@ -145,12 +154,53 @@ def mtr_stream():
             yield "data: __DONE__\n\n"
         return Response(err(), content_type="text/event-stream")
 
-    cmd = ["mtr", "--report", "--report-cycles", str(count), "--report-wide"]
+    base_dir    = os.path.dirname(os.path.abspath(__file__))
+    results_dir = os.path.join(base_dir, "mtr-results")
+    os.makedirs(results_dir, exist_ok=True)
+
+    if mode == "time":
+        cmd = ["timeout", str(seconds),
+               "mtr", "--report-wide", "--interval", "1",
+               "--report-cycles", str(seconds)]
+    else:
+        cmd = ["mtr", "--report", "--report-wide",
+               "--report-cycles", str(count)]
+
     if no_dns:
         cmd.append("--no-dns")
     cmd.append(host)
 
+    def parse_mtr_output(lines):
+        """Parse mtr --report output into structured hops."""
+        hops = []
+        for line in lines:
+            # Match lines like: |-- 1.2.3.4   0.0%  50  1.2  2.3  0.8  5.1  0.6
+            m = re.match(
+                r'\s*\d+\.\s*[|`]-+\s*(\S+)\s+'   # hop num + host
+                r'([\d.]+)%\s+'                    # loss%
+                r'(\d+)\s+'                        # sent
+                r'([\d.]+)\s+'                     # last
+                r'([\d.]+)\s+'                     # avg
+                r'([\d.]+)\s+'                     # best
+                r'([\d.]+)',                        # worst
+                line
+            )
+            if m:
+                hops.append({
+                    "host":   m.group(1),
+                    "loss":   float(m.group(2)),
+                    "sent":   int(m.group(3)),
+                    "last":   float(m.group(4)),
+                    "avg":    float(m.group(5)),
+                    "best":   float(m.group(6)),
+                    "worst":  float(m.group(7)),
+                })
+        return hops
+
     def generate():
+        lines      = []
+        started_at = datetime.datetime.utcnow().isoformat() + "Z"
+
         try:
             proc = subprocess.Popen(
                 cmd,
@@ -160,18 +210,96 @@ def mtr_stream():
             )
             for raw in iter(proc.stdout.readline, b""):
                 line = raw.decode(errors="replace").rstrip()
+                lines.append(line)
                 if line:
                     yield f"data: {line}\n\n"
             proc.wait()
         except FileNotFoundError:
             yield "data: ERROR: mtr is not installed.\n\n"
-            yield "data: Install it: apt install mtr-tiny  OR  yum install mtr\n\n"
+            yield "data: Install: apt install mtr-tiny  OR  yum install mtr\n\n"
+            yield "data: __DONE__\n\n"
+            return
         except Exception as e:
             yield f"data: ERROR: {e}\n\n"
+            yield "data: __DONE__\n\n"
+            return
+
+        # Save JSON result
+        try:
+            hops       = parse_mtr_output(lines)
+            ended_at   = datetime.datetime.utcnow().isoformat() + "Z"
+            ts         = ended_at[:19].replace(":", "-").replace("T", "_")
+            safe_host  = re.sub(r"[^\w\.\-]", "_", host)
+            filename   = f"{ts}_{safe_host}.json"
+            filepath   = os.path.join(results_dir, filename)
+
+            result = {
+                "started_at":  started_at,
+                "ended_at":    ended_at,
+                "source_ip":   src_ip,
+                "public_ip":   pub_ip,
+                "destination": host,
+                "mode":        mode,
+                "packets":     count if mode == "packets" else None,
+                "duration_s":  seconds if mode == "time" else None,
+                "no_dns":      no_dns,
+                "hops":        hops,
+                "raw":         "\n".join(lines)
+            }
+
+            with open(filepath, "w") as f:
+                json.dump(result, f, indent=2)
+
+            yield f"data: \n\n"
+            yield f"data: ✔ Result saved to mtr-results/{filename}\n\n"
+        except Exception as e:
+            yield f"data: ⚠ Could not save result: {e}\n\n"
+
         yield "data: __DONE__\n\n"
 
     return Response(generate(), content_type="text/event-stream",
                     headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"})
+
+
+@app.route("/mtr/results", methods=["GET"])
+def mtr_results():
+    """List saved MTR result files."""
+    import os, json
+    base_dir    = os.path.dirname(os.path.abspath(__file__))
+    results_dir = os.path.join(base_dir, "mtr-results")
+    if not os.path.isdir(results_dir):
+        return jsonify([])
+    files = sorted(
+        [f for f in os.listdir(results_dir) if f.endswith(".json")],
+        reverse=True
+    )[:50]  # last 50
+    items = []
+    for f in files:
+        try:
+            with open(os.path.join(results_dir, f)) as fh:
+                d = json.load(fh)
+            items.append({
+                "file":        f,
+                "destination": d.get("destination"),
+                "started_at":  d.get("started_at"),
+                "mode":        d.get("mode"),
+                "packets":     d.get("packets"),
+                "duration_s":  d.get("duration_s"),
+                "hops":        len(d.get("hops", [])),
+            })
+        except Exception:
+            pass
+    return jsonify(items)
+
+
+@app.route("/mtr/results/<path:filename>", methods=["GET"])
+def mtr_result_file(filename):
+    """Download a specific MTR result JSON."""
+    import os
+    from flask import send_from_directory
+    base_dir    = os.path.dirname(os.path.abspath(__file__))
+    results_dir = os.path.join(base_dir, "mtr-results")
+    return send_from_directory(results_dir, filename, as_attachment=True)
 
 
 if __name__ == "__main__":

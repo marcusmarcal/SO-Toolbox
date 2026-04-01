@@ -24,247 +24,134 @@
     --sans:    'Barlow', sans-serif;
   }
 
-  html, body {
-    height: 100%;
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--sans);
-    font-size: 14px;
-    overflow: hidden;
-  }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; overflow: hidden; }
 
-  /* ── Full-height layout ── */
-  #app {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    padding: 1rem 1.25rem 1rem;
-    gap: 0.75rem;
-  }
+  #app { display: flex; flex-direction: column; height: 100vh; padding: 0.85rem 1.1rem 0.85rem; gap: 0.65rem; }
 
-  /* ── Header bar ── */
-  .topbar {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    flex-shrink: 0;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 0.75rem;
-  }
-  .topbar h1 {
-    font-family: var(--mono);
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: #fff;
-    letter-spacing: 0.05em;
-    white-space: nowrap;
-  }
+  /* ── Topbar ── */
+  .topbar { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; border-bottom: 1px solid var(--border); padding-bottom: 0.65rem; }
+  .topbar h1 { font-family: var(--mono); font-size: 0.9rem; font-weight: 700; color: #fff; white-space: nowrap; }
   .topbar h1 span { color: var(--green); }
-  .topbar-sub {
-    font-family: var(--mono);
-    font-size: 0.65rem;
-    color: var(--muted);
-    white-space: nowrap;
-  }
-
-  /* ── Server info pills ── */
-  .server-info {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-left: auto;
-  }
-  .info-pill {
-    font-family: var(--mono);
-    font-size: 0.65rem;
-    padding: 3px 8px;
-    border-radius: 4px;
-    border: 1px solid var(--border);
-    background: var(--bg3);
-    color: var(--muted);
-    white-space: nowrap;
-  }
+  .server-info { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-left: auto; }
+  .info-pill { font-family: var(--mono); font-size: 0.62rem; padding: 2px 7px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg3); color: var(--muted); white-space: nowrap; }
   .info-pill span { color: var(--cyan); }
 
-  /* ── Form row ── */
-  .form-row {
-    display: flex;
-    gap: 0.75rem;
-    align-items: flex-end;
-    flex-shrink: 0;
-    flex-wrap: wrap;
-  }
+  /* ── Form ── */
+  .form-row { display: flex; gap: 0.65rem; align-items: flex-end; flex-shrink: 0; flex-wrap: wrap; }
+  .field { display: flex; flex-direction: column; gap: 0.28rem; }
+  .field.grow { flex: 1; min-width: 180px; }
+  .field.w90  { width: 90px; }
+  .field.w75  { width: 75px; }
 
-  .field { display: flex; flex-direction: column; gap: 0.3rem; }
-  .field.grow { flex: 1; min-width: 200px; }
-  .field.w100 { width: 90px; }
+  label { font-family: var(--mono); font-size: 0.58rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
 
-  label {
-    font-family: var(--mono);
-    font-size: 0.6rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--muted);
+  input[type="text"], input[type="number"], select {
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 5px;
+    padding: 0.45rem 0.65rem; color: #fff; font-family: var(--mono); font-size: 0.82rem;
+    outline: none; transition: border-color 0.15s; width: 100%;
   }
+  input:focus, select:focus { border-color: var(--cyan); }
+  input:disabled, select:disabled { opacity: 0.35; cursor: not-allowed; }
 
-  input[type="text"],
-  input[type="number"] {
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 0.5rem 0.7rem;
-    color: #fff;
-    font-family: var(--mono);
-    font-size: 0.85rem;
-    outline: none;
-    transition: border-color 0.15s;
-    width: 100%;
-  }
-  input:focus { border-color: var(--cyan); }
+  /* Mode selector */
+  .mode-tabs { display: flex; border: 1px solid var(--border); border-radius: 5px; overflow: hidden; height: 34px; }
+  .mode-tab { flex: 1; background: var(--bg3); border: none; color: var(--muted); font-family: var(--mono); font-size: 0.7rem; font-weight: 700; cursor: pointer; transition: background 0.15s, color 0.15s; padding: 0 0.75rem; }
+  .mode-tab.active { background: var(--cyan); color: #000; }
 
   /* Toggle */
-  .toggle-wrap { display: flex; flex-direction: column; gap: 0.3rem; }
-  .toggle {
-    display: flex; align-items: center; gap: 0.45rem;
-    cursor: pointer; user-select: none;
-    height: 36px;
-  }
+  .toggle-wrap { display: flex; flex-direction: column; gap: 0.28rem; }
+  .toggle { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; user-select: none; height: 34px; }
   .toggle input { display: none; }
-  .toggle-track {
-    width: 32px; height: 17px;
-    background: var(--bg3);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    position: relative;
-    transition: background 0.2s, border-color 0.2s;
-    flex-shrink: 0;
-  }
-  .toggle-thumb {
-    position: absolute; top: 2px; left: 2px;
-    width: 11px; height: 11px;
-    border-radius: 50%;
-    background: var(--muted);
-    transition: transform 0.2s, background 0.2s;
-  }
+  .toggle-track { width: 30px; height: 16px; background: var(--bg3); border: 1px solid var(--border); border-radius: 999px; position: relative; transition: background 0.2s, border-color 0.2s; flex-shrink: 0; }
+  .toggle-thumb { position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--muted); transition: transform 0.2s, background 0.2s; }
   .toggle input:checked ~ .toggle-track { background: var(--green-d); border-color: var(--green); }
-  .toggle input:checked ~ .toggle-track .toggle-thumb { transform: translateX(15px); background: var(--green); }
-  .toggle-label { font-family: var(--mono); font-size: 0.72rem; color: var(--text); }
+  .toggle input:checked ~ .toggle-track .toggle-thumb { transform: translateX(14px); background: var(--green); }
+  .toggle-label { font-family: var(--mono); font-size: 0.7rem; color: var(--text); }
 
   /* Buttons */
-  .btn-run {
-    background: var(--green); color: #000;
-    border: none; border-radius: 6px;
-    padding: 0.5rem 1.2rem;
-    font-family: var(--mono); font-size: 0.78rem; font-weight: 700;
-    letter-spacing: 0.05em; cursor: pointer;
-    transition: opacity 0.15s, transform 0.1s;
-    white-space: nowrap; align-self: flex-end; height: 36px;
-  }
+  .btn-run { background: var(--green); color: #000; border: none; border-radius: 5px; padding: 0 1.1rem; font-family: var(--mono); font-size: 0.76rem; font-weight: 700; cursor: pointer; height: 34px; white-space: nowrap; align-self: flex-end; transition: opacity 0.15s; }
   .btn-run:hover { opacity: 0.85; }
-  .btn-run:active { transform: scale(0.97); }
-  .btn-run:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
-
-  .btn-stop {
-    background: transparent; color: var(--red);
-    border: 1px solid var(--red); border-radius: 6px;
-    padding: 0.5rem 1rem;
-    font-family: var(--mono); font-size: 0.78rem; font-weight: 700;
-    cursor: pointer; white-space: nowrap; height: 36px;
-    display: none; align-self: flex-end;
-    transition: background 0.15s;
-  }
-  .btn-stop:hover { background: rgba(248,81,73,0.1); }
+  .btn-run:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn-stop { background: transparent; color: var(--red); border: 1px solid var(--red); border-radius: 5px; padding: 0 0.9rem; font-family: var(--mono); font-size: 0.76rem; font-weight: 700; cursor: pointer; height: 34px; display: none; align-self: flex-end; }
   .btn-stop.visible { display: flex; align-items: center; }
 
-  /* ── Output area ── */
-  .output-wrap {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    overflow: hidden;
-  }
+  /* ── Main area: output + history side by side ── */
+  .main-area { flex: 1; display: flex; gap: 0.65rem; min-height: 0; }
 
-  .output-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.45rem 0.85rem;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-    background: var(--bg3);
-  }
-
-  .status-label {
-    display: flex; align-items: center; gap: 0.45rem;
-    font-family: var(--mono); font-size: 0.65rem; color: var(--muted);
-  }
-  .dot {
-    width: 7px; height: 7px; border-radius: 50%;
-    background: var(--muted); flex-shrink: 0;
-  }
+  /* Output */
+  .output-wrap { flex: 1; display: flex; flex-direction: column; min-height: 0; background: var(--bg2); border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+  .output-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 0.38rem 0.75rem; border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--bg3); }
+  .status-label { display: flex; align-items: center; gap: 0.4rem; font-family: var(--mono); font-size: 0.62rem; color: var(--muted); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
   .dot.running { background: var(--yellow); animation: blink 0.8s ease-in-out infinite; }
-  .dot.ok      { background: var(--green); animation: none; }
-  .dot.err     { background: var(--red);   animation: none; }
+  .dot.ok      { background: var(--green); }
+  .dot.err     { background: var(--red); }
   @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
-
-  .btn-copy {
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 4px; color: var(--muted);
-    font-family: var(--mono); font-size: 0.62rem; font-weight: 700;
-    letter-spacing: 0.08em; padding: 0.25rem 0.65rem;
-    cursor: pointer; transition: border-color 0.15s, color 0.15s;
-  }
+  .btn-copy { background: transparent; border: 1px solid var(--border); border-radius: 4px; color: var(--muted); font-family: var(--mono); font-size: 0.6rem; font-weight: 700; padding: 0.22rem 0.6rem; cursor: pointer; transition: border-color 0.15s, color 0.15s; }
   .btn-copy:hover { border-color: var(--cyan); color: var(--cyan); }
   .btn-copy:disabled { opacity: 0.3; cursor: not-allowed; }
+  #output { flex: 1; width: 100%; min-height: 0; resize: none; background: transparent; border: none; padding: 0.75rem 0.9rem; color: var(--text); font-family: var(--mono); font-size: 0.76rem; line-height: 1.7; outline: none; white-space: pre; overflow: auto; }
 
-  #output {
-    flex: 1;
-    width: 100%;
-    min-height: 0;
-    resize: none;
-    background: transparent;
-    border: none;
-    padding: 0.85rem 1rem;
-    color: var(--text);
-    font-family: var(--mono);
-    font-size: 0.78rem;
-    line-height: 1.7;
-    outline: none;
-    white-space: pre;
-    overflow: auto;
-  }
+  /* History panel */
+  .history-panel { width: 260px; flex-shrink: 0; display: flex; flex-direction: column; background: var(--bg2); border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+  .history-header { padding: 0.38rem 0.75rem; background: var(--bg3); border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); flex-shrink: 0; }
+  .history-list { flex: 1; overflow-y: auto; }
+  .history-list::-webkit-scrollbar { width: 4px; }
+  .history-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .history-item { padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.12s; }
+  .history-item:hover { background: var(--bg3); }
+  .hi-dest { font-family: var(--mono); font-size: 0.72rem; color: #fff; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hi-meta { font-family: var(--mono); font-size: 0.6rem; color: var(--muted); margin-top: 2px; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .hi-badge { background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-size: 0.58rem; }
+  .hi-dl { font-family: var(--mono); font-size: 0.6rem; color: var(--cyan); margin-top: 4px; text-decoration: none; display: inline-block; }
+  .hi-dl:hover { text-decoration: underline; }
+  .history-empty { padding: 1.5rem; text-align: center; font-family: var(--mono); font-size: 0.65rem; color: var(--muted); }
 </style>
 </head>
 <body>
 <div id="app">
 
-  <!-- Top bar -->
   <div class="topbar">
     <h1>MTR <span>//</span> Network Trace</h1>
-    <span class="topbar-sub">runs server-side</span>
     <div class="server-info">
-      <div class="info-pill">Source IP: <span id="pill-local">—</span></div>
-      <div class="info-pill">Public IP: <span id="pill-public">—</span></div>
-      <div class="info-pill">Gateway: <span id="pill-gw">—</span></div>
+      <div class="info-pill">Source: <span id="pill-local">…</span></div>
+      <div class="info-pill">Public: <span id="pill-public">…</span></div>
+      <div class="info-pill">Gateway: <span id="pill-gw">…</span></div>
     </div>
   </div>
 
-  <!-- Form -->
   <div class="form-row">
     <div class="field grow">
       <label>Destination Host / IP</label>
       <input id="inp-host" type="text" placeholder="e.g. 8.8.8.8 or example.com" autocomplete="off" />
     </div>
-    <div class="field w100">
-      <label>Packets</label>
-      <input id="inp-count" type="number" value="50" min="1" max="200" />
+
+    <div class="field">
+      <label>Mode</label>
+      <div class="mode-tabs">
+        <button class="mode-tab active" id="tab-packets" onclick="setMode('packets')">Packets</button>
+        <button class="mode-tab"        id="tab-time"    onclick="setMode('time')">Time</button>
+      </div>
     </div>
+
+    <div class="field w90" id="field-count">
+      <label>Packets</label>
+      <input id="inp-count" type="number" value="50" min="1" max="500" />
+    </div>
+
+    <div class="field w75" id="field-duration" style="display:none">
+      <label>Duration</label>
+      <input id="inp-duration" type="number" value="5" min="1" max="1440" />
+    </div>
+
+    <div class="field w75" id="field-unit" style="display:none">
+      <label>Unit</label>
+      <select id="sel-unit">
+        <option value="60">min</option>
+        <option value="3600">hours</option>
+      </select>
+    </div>
+
     <div class="toggle-wrap">
       <label>No DNS</label>
       <label class="toggle">
@@ -273,76 +160,106 @@
         <span class="toggle-label">Disable name resolution</span>
       </label>
     </div>
-    <button class="btn-run" id="btn-run" onclick="runMtr()">▶ Run MTR</button>
+
+    <button class="btn-run" id="btn-run" onclick="runMtr()">▶ Run</button>
     <button class="btn-stop" id="btn-stop" onclick="stopMtr()">■ Stop</button>
   </div>
 
-  <!-- Output -->
-  <div class="output-wrap">
-    <div class="output-toolbar">
-      <div class="status-label">
-        <span class="dot" id="dot"></span>
-        <span id="status-text">Ready</span>
+  <div class="main-area">
+    <div class="output-wrap">
+      <div class="output-toolbar">
+        <div class="status-label">
+          <span class="dot" id="dot"></span>
+          <span id="status-text">Ready</span>
+        </div>
+        <button class="btn-copy" id="btn-copy" onclick="copyOutput()" disabled>Copy</button>
       </div>
-      <button class="btn-copy" id="btn-copy" onclick="copyOutput()" disabled>Copy</button>
+      <textarea id="output" readonly placeholder="MTR output will appear here..."></textarea>
     </div>
-    <textarea id="output" readonly placeholder="MTR output will appear here..."></textarea>
+
+    <div class="history-panel">
+      <div class="history-header">History</div>
+      <div class="history-list" id="history-list">
+        <div class="history-empty">No results yet</div>
+      </div>
+    </div>
   </div>
 
 </div>
 
 <script>
   const PROXY = "/phenix-proxy";
-  let es = null; // EventSource
+  let es       = null;
+  let curMode  = "packets";
+  let localIp  = "—";
+  let publicIp = "—";
 
-  // ── Load server info on boot ─────────────────────────────────────
+  // ── Mode toggle ──────────────────────────────────────────────────
+  function setMode(m) {
+    curMode = m;
+    document.getElementById("tab-packets").classList.toggle("active", m === "packets");
+    document.getElementById("tab-time").classList.toggle("active",    m === "time");
+    document.getElementById("field-count").style.display    = m === "packets" ? "" : "none";
+    document.getElementById("field-duration").style.display = m === "time"    ? "" : "none";
+    document.getElementById("field-unit").style.display     = m === "time"    ? "" : "none";
+  }
+
+  // ── Server info ──────────────────────────────────────────────────
   async function loadServerInfo() {
     try {
       const res  = await fetch(`${PROXY}/server-info`);
       const data = await res.json();
 
-      // Primary non-loopback IP from ip addr output
-      const ipMatch = (data.ip_addr || "").match(/inet (\d+\.\d+\.\d+\.\d+)(?!.*127\.0\.0\.1)/g);
-      const localIp = ipMatch
-        ? ipMatch.map(s => s.replace("inet ", "")).filter(ip => !ip.startsWith("127."))[0] || "—"
-        : "—";
+      const ipMatches = (data.ip_addr || "").match(/inet (\d+\.\d+\.\d+\.\d+)/g) || [];
+      localIp = ipMatches.map(s => s.replace("inet ", "")).filter(ip => !ip.startsWith("127."))[0] || "—";
 
-      // Gateway from default route
       const gwMatch = (data.default_route || "").match(/via (\S+)/);
-      const gw = gwMatch ? gwMatch[1] : "—";
+      const gw      = gwMatch ? gwMatch[1] : "—";
+
+      publicIp = data.public_ip || "—";
 
       document.getElementById("pill-local").textContent  = localIp;
-      document.getElementById("pill-public").textContent = data.public_ip || "—";
+      document.getElementById("pill-public").textContent = publicIp;
       document.getElementById("pill-gw").textContent     = gw;
-    } catch (e) {
+    } catch {
       document.getElementById("pill-local").textContent = "unavailable";
     }
   }
 
-  // ── MTR streaming ────────────────────────────────────────────────
+  // ── Run MTR ──────────────────────────────────────────────────────
   function runMtr() {
-    const host   = document.getElementById("inp-host").value.trim();
-    const count  = parseInt(document.getElementById("inp-count").value) || 50;
-    const no_dns = document.getElementById("chk-nodns").checked ? "1" : "0";
-
+    const host = document.getElementById("inp-host").value.trim();
     if (!host) { setStatus("err", "Please enter a host or IP."); return; }
 
     if (es) { es.close(); es = null; }
 
-    const output = document.getElementById("output");
-    const localIp  = document.getElementById("pill-local").textContent;
-    const publicIp = document.getElementById("pill-public").textContent;
+    const no_dns = document.getElementById("chk-nodns").checked ? "1" : "0";
 
-    // Header block
-    const now = new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC";
+    let params;
+    if (curMode === "packets") {
+      const count = parseInt(document.getElementById("inp-count").value) || 50;
+      params = `host=${encodeURIComponent(host)}&mode=packets&count=${count}&no_dns=${no_dns}`;
+    } else {
+      const dur  = parseInt(document.getElementById("inp-duration").value) || 5;
+      const unit = parseInt(document.getElementById("sel-unit").value) || 60;
+      params = `host=${encodeURIComponent(host)}&mode=time&seconds=${dur * unit}&no_dns=${no_dns}`;
+    }
+    params += `&src_ip=${encodeURIComponent(localIp)}&pub_ip=${encodeURIComponent(publicIp)}`;
+
+    const output = document.getElementById("output");
+    const now    = new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC";
+    const modeStr = curMode === "packets"
+      ? `Packets   : ${document.getElementById("inp-count").value}`
+      : `Duration  : ${document.getElementById("inp-duration").value} ${document.getElementById("sel-unit").options[document.getElementById("sel-unit").selectedIndex].text}`;
+
     output.value = [
       `MTR Network Trace`,
       `==========================================`,
-      `Date      : ${now}`,
-      `Source    : ${localIp} (public: ${publicIp})`,
+      `Date       : ${now}`,
+      `Source     : ${localIp} (public: ${publicIp})`,
       `Destination: ${host}`,
-      `Packets   : ${count}`,
-      `DNS       : ${no_dns === "1" ? "disabled" : "enabled"}`,
+      modeStr,
+      `DNS        : ${no_dns === "1" ? "disabled" : "enabled"}`,
       `==========================================`,
       ``
     ].join("\n");
@@ -350,10 +267,9 @@
     document.getElementById("btn-run").disabled = true;
     document.getElementById("btn-stop").classList.add("visible");
     document.getElementById("btn-copy").disabled = true;
-    setStatus("running", `Tracing route to ${host}...`);
+    setStatus("running", `Tracing route to ${host}…`);
 
-    const url = `${PROXY}/mtr/stream?host=${encodeURIComponent(host)}&count=${count}&no_dns=${no_dns}`;
-    es = new EventSource(url);
+    es = new EventSource(`${PROXY}/mtr/stream?${params}`);
 
     es.onmessage = (e) => {
       if (e.data === "__DONE__") {
@@ -363,6 +279,7 @@
         document.getElementById("btn-run").disabled = false;
         document.getElementById("btn-stop").classList.remove("visible");
         document.getElementById("btn-copy").disabled = false;
+        loadHistory();
         return;
       }
       output.value += e.data + "\n";
@@ -370,6 +287,7 @@
     };
 
     es.onerror = () => {
+      if (!es) return;
       es.close(); es = null;
       setStatus("err", "Connection lost.");
       document.getElementById("btn-run").disabled = false;
@@ -385,8 +303,55 @@
     document.getElementById("btn-copy").disabled = false;
   }
 
+  // ── History ──────────────────────────────────────────────────────
+  async function loadHistory() {
+    try {
+      const res   = await fetch(`${PROXY}/mtr/results`);
+      const items = await res.json();
+      const list  = document.getElementById("history-list");
+
+      if (!items.length) {
+        list.innerHTML = '<div class="history-empty">No results yet</div>';
+        return;
+      }
+
+      list.innerHTML = items.map(item => {
+        const date = item.started_at ? item.started_at.slice(0, 16).replace("T", " ") : "—";
+        const mode = item.mode === "time"
+          ? `${item.duration_s}s`
+          : `${item.packets} pkts`;
+        return `
+          <div class="history-item" onclick="loadResult('${item.file}')">
+            <div class="hi-dest" title="${item.destination}">${item.destination}</div>
+            <div class="hi-meta">
+              <span>${date}</span>
+              <span class="hi-badge">${mode}</span>
+              <span class="hi-badge">${item.hops} hops</span>
+            </div>
+            <a class="hi-dl" href="${PROXY}/mtr/results/${encodeURIComponent(item.file)}" download onclick="event.stopPropagation()">⬇ JSON</a>
+          </div>`;
+      }).join("");
+    } catch (e) {
+      console.error("History load failed:", e);
+    }
+  }
+
+  async function loadResult(file) {
+    try {
+      const res  = await fetch(`${PROXY}/mtr/results/${encodeURIComponent(file)}`);
+      const blob = await res.blob();
+      const text = await blob.text();
+      const data = JSON.parse(text);
+      document.getElementById("output").value = data.raw || "(no raw output)";
+      setStatus("ok", `Loaded: ${file}`);
+    } catch (e) {
+      setStatus("err", "Failed to load result.");
+    }
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────
   function setStatus(type, msg) {
-    document.getElementById("dot").className        = "dot " + type;
+    document.getElementById("dot").className          = "dot " + type;
     document.getElementById("status-text").textContent = msg;
   }
 
@@ -405,6 +370,7 @@
   });
 
   loadServerInfo();
+  loadHistory();
 </script>
 </body>
 </html>
