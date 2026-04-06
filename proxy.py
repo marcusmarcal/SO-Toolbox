@@ -316,7 +316,7 @@ os.makedirs(INGEST_RESULTS_DIR, exist_ok=True)
 
 
 def _run_ingest(job_id, url, output_dir):
-    """Background thread: run analysis, then copy results to ingest-results/."""
+    """Background thread: run analysis, let script choose its own output dir."""
     log_lines = []
 
     def log(msg):
@@ -326,8 +326,12 @@ def _run_ingest(job_id, url, output_dir):
 
     try:
         log(f"Starting analysis for: {url}")
+
+        # Do NOT pass output_dir — let the script generate its own directory name.
+        # This avoids issues with the script behaving differently when given an
+        # external output path (perl -g flag, relative paths in generate-report.sh).
         result = subprocess.run(
-            ["run-ingest-analysis.sh", url, output_dir],
+            ["run-ingest-analysis.sh", url],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             timeout=600
@@ -339,53 +343,52 @@ def _run_ingest(job_id, url, output_dir):
         exit_code = result.returncode
         log(f"Script exited with code {exit_code}")
 
-        # The script writes to output_dir and creates a .zip next to it.
-        # Find the zip (same name as output_dir + .zip, or any .zip in parent).
-        saved_zip  = None
-        saved_dir  = None
-        parent     = os.path.dirname(output_dir)
-        zip_expect = output_dir + ".zip"
+        # Parse the actual output dir and zip from stdout
+        actual_dir = None
+        actual_zip = None
+        for line in stdout.splitlines():
+            if "Report location:" in line:
+                # "Report location: /tmp/.../index.html"
+                path = line.split("Report location:")[-1].strip()
+                actual_dir = os.path.dirname(path)
+            if "Archive location:" in line:
+                actual_zip = line.split("Archive location:")[-1].strip()
 
-        if os.path.isfile(zip_expect):
-            zip_path = zip_expect
-        else:
-            # Fallback: find any .zip in parent dir
-            zip_path = None
-            if os.path.isdir(parent):
-                for f in sorted(os.listdir(parent), reverse=True):
-                    if f.endswith(".zip"):
-                        zip_path = os.path.join(parent, f)
-                        break
+        log(f"Detected output dir: {actual_dir}")
+        log(f"Detected zip: {actual_zip}")
 
-        # Copy zip
-        if zip_path and os.path.isfile(zip_path):
-            dest = os.path.join(INGEST_RESULTS_DIR, os.path.basename(zip_path))
-            shutil.copy2(zip_path, dest)
-            saved_zip = os.path.basename(zip_path)
+        # Copy zip to ingest-results
+        saved_zip = None
+        if actual_zip and os.path.isfile(actual_zip):
+            dest = os.path.join(INGEST_RESULTS_DIR, os.path.basename(actual_zip))
+            shutil.copy2(actual_zip, dest)
+            saved_zip = os.path.basename(actual_zip)
             log(f"ZIP saved: {saved_zip}")
         else:
             log("WARNING: ZIP not found — check script output above.")
 
-        # Copy entire output directory (contains index.html + charts)
-        if os.path.isdir(output_dir):
-            dest_dir = os.path.join(INGEST_RESULTS_DIR, os.path.basename(output_dir))
+        # Copy entire output directory
+        saved_dir = None
+        if actual_dir and os.path.isdir(actual_dir):
+            dest_dir = os.path.join(INGEST_RESULTS_DIR, os.path.basename(actual_dir))
             if os.path.isdir(dest_dir):
                 shutil.rmtree(dest_dir)
-            shutil.copytree(output_dir, dest_dir)
-            saved_dir = os.path.basename(output_dir)
+            shutil.copytree(actual_dir, dest_dir)
+            saved_dir = os.path.basename(actual_dir)
             log(f"Report directory saved: {saved_dir}")
         else:
             log("WARNING: Output directory not found.")
 
         # Read summary from report.json
         summary = {}
-        json_report = os.path.join(output_dir, "report.json")
-        if os.path.isfile(json_report):
-            try:
-                with open(json_report) as f:
-                    summary = json.load(f)
-            except Exception:
-                pass
+        if actual_dir:
+            json_report = os.path.join(actual_dir, "report.json")
+            if os.path.isfile(json_report):
+                try:
+                    with open(json_report) as f:
+                        summary = json.load(f)
+                except Exception:
+                    pass
 
         with _ingest_lock:
             _ingest_jobs[job_id].update({
@@ -414,10 +417,7 @@ def ingest_run():
     if not url:
         return jsonify({"error": "url is required"}), 400
 
-    job_id     = str(uuid.uuid4())[:8]
-    ts         = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    safe_host  = re.sub(r"[^\w\-]", "_", url)[:40]
-    output_dir = f"/tmp/ingest-analyses/{ts}_{safe_host}"
+    job_id = str(uuid.uuid4())[:8]
 
     with _ingest_lock:
         _ingest_jobs[job_id] = {
@@ -427,13 +427,12 @@ def ingest_run():
             "started_at": datetime.datetime.utcnow().isoformat() + "Z",
             "ended_at":   None,
             "zip":        None,
-            "pdf":        None,
+            "dir":        None,
             "summary":    {},
             "log":        [],
-            "output_dir": output_dir,
         }
 
-    t = threading.Thread(target=_run_ingest, args=(job_id, url, output_dir), daemon=True)
+    t = threading.Thread(target=_run_ingest, args=(job_id, url, None), daemon=True)
     t.start()
 
     return jsonify({"job_id": job_id})
