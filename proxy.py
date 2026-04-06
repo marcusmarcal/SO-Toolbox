@@ -302,6 +302,179 @@ def mtr_result_file(filename):
     return send_from_directory(results_dir, filename, as_attachment=True)
 
 
+
+# ═══════════════════════════════════════════════════════════
+#  INGEST ANALYZER
+# ═══════════════════════════════════════════════════════════
+import threading, uuid, datetime, subprocess, os, json, re, shutil
+
+_ingest_jobs = {}   # job_id -> { status, started_at, url, output_dir, zip, pdf, log }
+_ingest_lock = threading.Lock()
+
+INGEST_RESULTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ingest-results")
+os.makedirs(INGEST_RESULTS_DIR, exist_ok=True)
+
+
+def _run_ingest(job_id, url, output_dir):
+    """Background thread: run analysis, then generate PDF."""
+    log_lines = []
+
+    def log(msg):
+        log_lines.append(msg)
+        with _ingest_lock:
+            _ingest_jobs[job_id]["log"] = list(log_lines)
+
+    try:
+        log(f"Starting analysis for: {url}")
+        result = subprocess.run(
+            ["run-ingest-analysis.sh", url, output_dir],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            timeout=600   # 10 min hard limit
+        )
+        stdout = result.stdout.decode(errors="replace")
+        for line in stdout.splitlines():
+            log(line)
+
+        exit_code = result.returncode
+        log(f"Script exited with code {exit_code}")
+
+        # Find zip produced by the script
+        zip_path = None
+        for f in os.listdir(os.path.dirname(output_dir)):
+            if f.endswith(".zip") and os.path.basename(output_dir) in f:
+                zip_path = os.path.join(os.path.dirname(output_dir), f)
+                break
+        # Also check output_dir itself
+        if not zip_path:
+            parent = os.path.dirname(output_dir)
+            for f in os.listdir(parent):
+                if f.endswith(".zip"):
+                    zip_path = os.path.join(parent, f)
+                    break
+
+        # Copy zip to ingest-results
+        saved_zip = None
+        if zip_path and os.path.isfile(zip_path):
+            dest = os.path.join(INGEST_RESULTS_DIR, os.path.basename(zip_path))
+            shutil.copy2(zip_path, dest)
+            saved_zip = os.path.basename(zip_path)
+            log(f"ZIP saved: {saved_zip}")
+
+        # Generate PDF from index.html using weasyprint
+        saved_pdf = None
+        html_report = os.path.join(output_dir, "index.html")
+        if os.path.isfile(html_report):
+            pdf_name = os.path.basename(output_dir) + ".pdf"
+            pdf_path = os.path.join(INGEST_RESULTS_DIR, pdf_name)
+            try:
+                pr = subprocess.run(
+                    ["weasyprint", html_report, pdf_path],
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=120
+                )
+                if pr.returncode == 0 and os.path.isfile(pdf_path):
+                    saved_pdf = pdf_name
+                    log(f"PDF saved: {saved_pdf}")
+                else:
+                    log(f"weasyprint failed: {pr.stdout.decode(errors='replace')}")
+            except FileNotFoundError:
+                log("weasyprint not installed — skipping PDF. Install: pip3 install weasyprint")
+            except Exception as e:
+                log(f"PDF error: {e}")
+
+        # Read summary from report.json if available
+        summary = {}
+        json_report = os.path.join(output_dir, "report.json")
+        if os.path.isfile(json_report):
+            try:
+                with open(json_report) as f:
+                    summary = json.load(f)
+            except Exception:
+                pass
+
+        with _ingest_lock:
+            _ingest_jobs[job_id].update({
+                "status":     "done" if exit_code in (0, 45) else "failed",
+                "exit_code":  exit_code,
+                "ended_at":   datetime.datetime.utcnow().isoformat() + "Z",
+                "zip":        saved_zip,
+                "pdf":        saved_pdf,
+                "summary":    summary,
+                "log":        log_lines,
+            })
+
+    except subprocess.TimeoutExpired:
+        with _ingest_lock:
+            _ingest_jobs[job_id].update({"status": "timeout", "log": log_lines})
+    except Exception as e:
+        log(f"ERROR: {e}")
+        with _ingest_lock:
+            _ingest_jobs[job_id].update({"status": "error", "log": log_lines})
+
+
+@app.route("/ingest/run", methods=["POST"])
+def ingest_run():
+    data = request.get_json(silent=True) or {}
+    url  = (data.get("url") or "").strip()
+    if not url:
+        return jsonify({"error": "url is required"}), 400
+
+    job_id     = str(uuid.uuid4())[:8]
+    ts         = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    safe_host  = re.sub(r"[^\w\-]", "_", url)[:40]
+    output_dir = f"/tmp/ingest-analyses/{ts}_{safe_host}"
+
+    with _ingest_lock:
+        _ingest_jobs[job_id] = {
+            "job_id":     job_id,
+            "status":     "running",
+            "url":        url,
+            "started_at": datetime.datetime.utcnow().isoformat() + "Z",
+            "ended_at":   None,
+            "zip":        None,
+            "pdf":        None,
+            "summary":    {},
+            "log":        [],
+            "output_dir": output_dir,
+        }
+
+    t = threading.Thread(target=_run_ingest, args=(job_id, url, output_dir), daemon=True)
+    t.start()
+
+    return jsonify({"job_id": job_id})
+
+
+@app.route("/ingest/status/<job_id>", methods=["GET"])
+def ingest_status(job_id):
+    with _ingest_lock:
+        job = _ingest_jobs.get(job_id)
+    if not job:
+        return jsonify({"error": "Job not found"}), 404
+    return jsonify(job)
+
+
+@app.route("/ingest/results", methods=["GET"])
+def ingest_results():
+    """List saved ingest results (ZIP + PDF pairs)."""
+    files = sorted(os.listdir(INGEST_RESULTS_DIR), reverse=True)
+    zips  = [f for f in files if f.endswith(".zip")]
+    items = []
+    for z in zips[:30]:
+        pdf = z.replace(".zip", ".pdf")
+        items.append({
+            "zip": z,
+            "pdf": pdf if pdf in files else None,
+            "name": z.replace(".zip", ""),
+        })
+    return jsonify(items)
+
+
+@app.route("/ingest/download/<path:filename>", methods=["GET"])
+def ingest_download(filename):
+    from flask import send_from_directory
+    return send_from_directory(INGEST_RESULTS_DIR, filename, as_attachment=True)
+
+
 if __name__ == "__main__":
     # threaded=True permite lidar com várias requisições ao mesmo tempo
     app.run(host='0.0.0.0', port=5050, threaded=True)
