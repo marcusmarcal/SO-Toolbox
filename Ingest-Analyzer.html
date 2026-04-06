@@ -46,6 +46,7 @@
     outline: none; transition: border-color 0.15s; width: 100%;
   }
   input:focus, select:focus { border-color: var(--cyan); }
+  input.from-env { border-color: rgba(63,185,80,0.5); background: rgba(63,185,80,0.05); }
 
   /* ── Buttons ── */
   .btn-run { background: var(--cyan); color: #000; border: none; border-radius: 5px; padding: 0 1.2rem; font-family: var(--mono); font-size: 0.76rem; font-weight: 700; cursor: pointer; height: 34px; white-space: nowrap; transition: opacity 0.15s; }
@@ -126,7 +127,8 @@
     <div class="form-row">
       <div class="field grow">
         <label>Host / IP</label>
-        <input id="srt-host" type="text" placeholder="e.g. ingest.example.com or 10.0.0.1" autocomplete="off" />
+        <input id="srt-host" type="text" placeholder="e.g. 10.0.0.1 or ingest.example.com" autocomplete="off" list="srt-local-presets" />
+        <datalist id="srt-local-presets"></datalist>
       </div>
       <div class="field w90">
         <label>Port</label>
@@ -233,6 +235,44 @@
   const PROXY  = "/phenix-proxy";
   let curType  = "srt";
   let pollTimer = null;
+
+  // ── Load config (SRT_LOCAL_* presets + passphrase) ───────────────
+  async function loadConfig() {
+    try {
+      const res  = await fetch(`${PROXY}/config`);
+      const data = await res.json();
+      const env  = data.config || {};
+
+      // Populate SRT local host presets
+      const datalist = document.getElementById("srt-local-presets");
+      datalist.innerHTML = "";
+      Object.keys(env)
+        .filter(k => /^SRT_LOCAL_\d+$/.test(k))
+        .sort((a, b) => parseInt(a.split("_")[2]) - parseInt(b.split("_")[2]))
+        .forEach(k => {
+          const parts = env[k].split("|");
+          const ip    = (parts[0] || "").trim();
+          const label = (parts[1] || ip).trim();
+          if (!ip) return;
+          const opt = document.createElement("option");
+          opt.value       = ip;
+          opt.textContent = label;
+          datalist.appendChild(opt);
+        });
+
+      // Pre-fill passphrase from env
+      if (env.SRT_PASSPHRASE) {
+        const passEl = document.getElementById("srt-pass");
+        passEl.value = env.SRT_PASSPHRASE;
+        passEl.classList.add("from-env");
+        passEl.addEventListener("input", function() {
+          this.classList.remove("from-env");
+        }, { once: true });
+      }
+    } catch (e) {
+      console.warn("Could not load config:", e);
+    }
+  }
 
   // ── Source type ──────────────────────────────────────────────────
   function setType(t) {
@@ -356,10 +396,10 @@
 
     dlRow.innerHTML = "";
     if (job.zip) {
-      dlRow.innerHTML += `<a class="btn-dl zip" href="${PROXY}/ingest/download/${encodeURIComponent(job.zip)}" download>⬇ ZIP (HTML+Charts)</a>`;
+      dlRow.innerHTML += `<a class="btn-dl zip" href="${PROXY}/ingest/download/${encodeURIComponent(job.zip)}" download>⬇ ZIP</a>`;
     }
-    if (job.pdf) {
-      dlRow.innerHTML += `<a class="btn-dl pdf" href="${PROXY}/ingest/download/${encodeURIComponent(job.pdf)}" download>⬇ PDF Report</a>`;
+    if (job.dir) {
+      dlRow.innerHTML += `<a class="btn-dl" href="${PROXY}/ingest/report/${encodeURIComponent(job.dir)}/index.html" target="_blank">↗ Open Report</a>`;
     }
     if (!job.zip && !job.pdf) {
       dlRow.innerHTML = `<span style="font-family:var(--mono);font-size:0.65rem;color:var(--muted)">No files saved — check log for errors.</span>`;
@@ -385,7 +425,7 @@
           <div class="hi-name" title="${item.name}">${item.name}</div>
           <div class="hi-links">
             <a class="hi-link" href="${PROXY}/ingest/download/${encodeURIComponent(item.zip)}" download>⬇ ZIP</a>
-            ${item.pdf ? `<a class="hi-link pdf" href="${PROXY}/ingest/download/${encodeURIComponent(item.pdf)}" download>⬇ PDF</a>` : ""}
+            ${item.dir ? `<a class="hi-link" href="${PROXY}/ingest/report/${encodeURIComponent(item.dir)}/index.html" target="_blank">↗ Report</a>` : ""}
           </div>
         </div>`).join("");
     } catch (e) {
@@ -411,6 +451,7 @@
     if (el) el.addEventListener("keydown", e => { if (e.key === "Enter") runAnalysis(); });
   });
 
+  loadConfig();
   loadHistory();
 </script>
 </body>

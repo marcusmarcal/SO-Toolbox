@@ -67,7 +67,7 @@ def get_config():
                 env[key] = val
 
         # Only expose safe keys — never passwords, URLs, tokens
-        SAFE_PREFIXES = ("TOOL_", "SRT_SERVER_")
+        SAFE_PREFIXES = ("TOOL_", "SRT_SERVER_", "SRT_LOCAL_")
         SAFE_KEYS     = ("APP_TITLE", "APP_VERSION", "SRT_PASSPHRASE", "PROXY_URL")
 
         safe = {k: v for k, v in env.items()
@@ -316,7 +316,7 @@ os.makedirs(INGEST_RESULTS_DIR, exist_ok=True)
 
 
 def _run_ingest(job_id, url, output_dir):
-    """Background thread: run analysis, then generate PDF."""
+    """Background thread: run analysis, then copy results to ingest-results/."""
     log_lines = []
 
     def log(msg):
@@ -330,7 +330,7 @@ def _run_ingest(job_id, url, output_dir):
             ["run-ingest-analysis.sh", url, output_dir],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            timeout=600   # 10 min hard limit
+            timeout=600
         )
         stdout = result.stdout.decode(errors="replace")
         for line in stdout.splitlines():
@@ -339,50 +339,45 @@ def _run_ingest(job_id, url, output_dir):
         exit_code = result.returncode
         log(f"Script exited with code {exit_code}")
 
-        # Find zip produced by the script
-        zip_path = None
-        for f in os.listdir(os.path.dirname(output_dir)):
-            if f.endswith(".zip") and os.path.basename(output_dir) in f:
-                zip_path = os.path.join(os.path.dirname(output_dir), f)
-                break
-        # Also check output_dir itself
-        if not zip_path:
-            parent = os.path.dirname(output_dir)
-            for f in os.listdir(parent):
-                if f.endswith(".zip"):
-                    zip_path = os.path.join(parent, f)
-                    break
+        # The script writes to output_dir and creates a .zip next to it.
+        # Find the zip (same name as output_dir + .zip, or any .zip in parent).
+        saved_zip  = None
+        saved_dir  = None
+        parent     = os.path.dirname(output_dir)
+        zip_expect = output_dir + ".zip"
 
-        # Copy zip to ingest-results
-        saved_zip = None
+        if os.path.isfile(zip_expect):
+            zip_path = zip_expect
+        else:
+            # Fallback: find any .zip in parent dir
+            zip_path = None
+            if os.path.isdir(parent):
+                for f in sorted(os.listdir(parent), reverse=True):
+                    if f.endswith(".zip"):
+                        zip_path = os.path.join(parent, f)
+                        break
+
+        # Copy zip
         if zip_path and os.path.isfile(zip_path):
             dest = os.path.join(INGEST_RESULTS_DIR, os.path.basename(zip_path))
             shutil.copy2(zip_path, dest)
             saved_zip = os.path.basename(zip_path)
             log(f"ZIP saved: {saved_zip}")
+        else:
+            log("WARNING: ZIP not found — check script output above.")
 
-        # Generate PDF from index.html using weasyprint
-        saved_pdf = None
-        html_report = os.path.join(output_dir, "index.html")
-        if os.path.isfile(html_report):
-            pdf_name = os.path.basename(output_dir) + ".pdf"
-            pdf_path = os.path.join(INGEST_RESULTS_DIR, pdf_name)
-            try:
-                pr = subprocess.run(
-                    ["weasyprint", html_report, pdf_path],
-                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=120
-                )
-                if pr.returncode == 0 and os.path.isfile(pdf_path):
-                    saved_pdf = pdf_name
-                    log(f"PDF saved: {saved_pdf}")
-                else:
-                    log(f"weasyprint failed: {pr.stdout.decode(errors='replace')}")
-            except FileNotFoundError:
-                log("weasyprint not installed — skipping PDF. Install: pip3 install weasyprint")
-            except Exception as e:
-                log(f"PDF error: {e}")
+        # Copy entire output directory (contains index.html + charts)
+        if os.path.isdir(output_dir):
+            dest_dir = os.path.join(INGEST_RESULTS_DIR, os.path.basename(output_dir))
+            if os.path.isdir(dest_dir):
+                shutil.rmtree(dest_dir)
+            shutil.copytree(output_dir, dest_dir)
+            saved_dir = os.path.basename(output_dir)
+            log(f"Report directory saved: {saved_dir}")
+        else:
+            log("WARNING: Output directory not found.")
 
-        # Read summary from report.json if available
+        # Read summary from report.json
         summary = {}
         json_report = os.path.join(output_dir, "report.json")
         if os.path.isfile(json_report):
@@ -394,13 +389,13 @@ def _run_ingest(job_id, url, output_dir):
 
         with _ingest_lock:
             _ingest_jobs[job_id].update({
-                "status":     "done" if exit_code in (0, 45) else "failed",
-                "exit_code":  exit_code,
-                "ended_at":   datetime.datetime.utcnow().isoformat() + "Z",
-                "zip":        saved_zip,
-                "pdf":        saved_pdf,
-                "summary":    summary,
-                "log":        log_lines,
+                "status":    "done" if exit_code in (0, 45) else "failed",
+                "exit_code": exit_code,
+                "ended_at":  datetime.datetime.utcnow().isoformat() + "Z",
+                "zip":       saved_zip,
+                "dir":       saved_dir,
+                "summary":   summary,
+                "log":       log_lines,
             })
 
     except subprocess.TimeoutExpired:
@@ -455,16 +450,17 @@ def ingest_status(job_id):
 
 @app.route("/ingest/results", methods=["GET"])
 def ingest_results():
-    """List saved ingest results (ZIP + PDF pairs)."""
-    files = sorted(os.listdir(INGEST_RESULTS_DIR), reverse=True)
-    zips  = [f for f in files if f.endswith(".zip")]
+    """List saved ingest results (ZIP + report dir)."""
+    files = set(os.listdir(INGEST_RESULTS_DIR))
+    zips  = sorted([f for f in files if f.endswith(".zip")], reverse=True)
     items = []
     for z in zips[:30]:
-        pdf = z.replace(".zip", ".pdf")
+        dirname = z.replace(".zip", "")
+        has_dir = dirname in files and os.path.isdir(os.path.join(INGEST_RESULTS_DIR, dirname))
         items.append({
-            "zip": z,
-            "pdf": pdf if pdf in files else None,
-            "name": z.replace(".zip", ""),
+            "zip":  z,
+            "dir":  dirname if has_dir else None,
+            "name": dirname,
         })
     return jsonify(items)
 
@@ -473,6 +469,17 @@ def ingest_results():
 def ingest_download(filename):
     from flask import send_from_directory
     return send_from_directory(INGEST_RESULTS_DIR, filename, as_attachment=True)
+
+
+@app.route("/ingest/report/<path:filepath>", methods=["GET"])
+def ingest_report_file(filepath):
+    """Serve files from inside a report directory (index.html, charts, etc.)."""
+    from flask import send_from_directory
+    parts    = filepath.split("/", 1)
+    dirname  = parts[0]
+    filename = parts[1] if len(parts) > 1 else "index.html"
+    report_dir = os.path.join(INGEST_RESULTS_DIR, dirname)
+    return send_from_directory(report_dir, filename)
 
 
 if __name__ == "__main__":
