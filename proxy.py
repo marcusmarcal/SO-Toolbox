@@ -158,10 +158,14 @@ def mtr_stream():
     results_dir = os.path.join(base_dir, "mtr-results")
     os.makedirs(results_dir, exist_ok=True)
 
+    # Both modes use --report-cycles to control duration.
+    # Time mode: 1 packet/second * N seconds = N cycles (no timeout needed).
+    # Packets mode: N cycles at default interval.
     if mode == "time":
-        cmd = ["timeout", str(seconds),
-               "mtr", "--report-wide", "--interval", "1",
-               "--report-cycles", str(seconds)]
+        cycles = seconds  # 1 cycle ≈ 1 second with --interval 1
+        cmd = ["mtr", "--report", "--report-wide",
+               "--interval", "1",
+               "--report-cycles", str(cycles)]
     else:
         cmd = ["mtr", "--report", "--report-wide",
                "--report-cycles", str(count)]
@@ -169,6 +173,9 @@ def mtr_stream():
     if no_dns:
         cmd.append("--no-dns")
     cmd.append(host)
+
+    # Total cycles for countdown
+    total_cycles = seconds if mode == "time" else count
 
     def parse_mtr_output(lines):
         """Parse mtr --report output into structured hops."""
@@ -198,6 +205,7 @@ def mtr_stream():
         return hops
 
     def generate():
+        import time as _time
         lines      = []
         started_at = datetime.datetime.utcnow().isoformat() + "Z"
 
@@ -208,12 +216,30 @@ def mtr_stream():
                 stderr=subprocess.STDOUT,
                 bufsize=1
             )
-            for raw in iter(proc.stdout.readline, b""):
-                line = raw.decode(errors="replace").rstrip()
+
+            # mtr --report only prints output at the END (not line by line).
+            # While waiting, send countdown ticks every second so the browser
+            # knows the process is alive and can show a countdown.
+            start_time   = _time.time()
+            interval     = 1  # seconds between proxy-generated progress events
+            last_tick    = start_time
+
+            while proc.poll() is None:
+                _time.sleep(0.2)
+                now = _time.time()
+                if now - last_tick >= interval:
+                    elapsed  = int(now - start_time)
+                    remaining = max(0, total_cycles - elapsed)
+                    yield f"data: __TICK__ {elapsed} {remaining}\n\n"
+                    last_tick = now
+
+            # Process finished — read all output
+            raw_out = proc.stdout.read()
+            for line in raw_out.decode(errors="replace").splitlines():
                 lines.append(line)
-                if line:
+                if line.strip():
                     yield f"data: {line}\n\n"
-            proc.wait()
+
         except FileNotFoundError:
             yield "data: ERROR: mtr is not installed.\n\n"
             yield "data: Install: apt install mtr-tiny  OR  yum install mtr\n\n"
