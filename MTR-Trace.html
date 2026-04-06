@@ -167,12 +167,27 @@
 
   <div class="main-area">
     <div class="output-wrap">
-      <div class="output-toolbar">
+      <div class="output-toolbar" id="output-toolbar">
         <div class="status-label">
           <span class="dot" id="dot"></span>
           <span id="status-text">Ready</span>
         </div>
         <button class="btn-copy" id="btn-copy" onclick="copyOutput()" disabled>Copy</button>
+      </div>
+      <!-- Progress bar — fills across the toolbar background -->
+      <div id="progress-bar" style="
+        height: 3px;
+        background: var(--border);
+        flex-shrink: 0;
+        position: relative;
+        overflow: hidden;
+      ">
+        <div id="progress-fill" style="
+          height: 100%;
+          width: 0%;
+          background: var(--yellow);
+          transition: width 0.8s linear, background 0.5s;
+        "></div>
       </div>
       <textarea id="output" readonly placeholder="MTR output will appear here..."></textarea>
     </div>
@@ -272,6 +287,7 @@
     document.getElementById("btn-run").disabled = true;
     document.getElementById("btn-stop").classList.add("visible");
     document.getElementById("btn-copy").disabled = true;
+    setProgress(0);
     setStatus("running", `Tracing route to ${host}…`);
 
     es = new EventSource(`${PROXY}/mtr/stream?${params}`);
@@ -282,7 +298,8 @@
         const parts     = e.data.split(" ");
         const elapsed   = parseInt(parts[1]) || 0;
         const remaining = parseInt(parts[2]) || 0;
-        const pct       = totalCycles > 0 ? Math.min(100, Math.round(elapsed / totalCycles * 100)) : 0;
+        const pct       = totalCycles > 0 ? Math.min(99, Math.round(elapsed / totalCycles * 100)) : 0;
+        setProgress(pct);
         if (curMode === "time") {
           const m = Math.floor(remaining / 60);
           const s = remaining % 60;
@@ -297,6 +314,7 @@
       if (e.data === "__DONE__") {
         es.close(); es = null;
         const failed = output.value.includes("ERROR");
+        setProgress(100, failed ? "err" : "ok");
         setStatus(failed ? "err" : "ok", failed ? "Error" : "Done");
         document.getElementById("btn-run").disabled = false;
         document.getElementById("btn-stop").classList.remove("visible");
@@ -319,6 +337,7 @@
 
   function stopMtr() {
     if (es) { es.close(); es = null; }
+    setProgress(0);
     setStatus("err", "Stopped by user.");
     document.getElementById("btn-run").disabled = false;
     document.getElementById("btn-stop").classList.remove("visible");
@@ -375,6 +394,20 @@
   function setStatus(type, msg) {
     document.getElementById("dot").className          = "dot " + type;
     document.getElementById("status-text").textContent = msg;
+  }
+
+  function setProgress(pct, state) {
+    const fill = document.getElementById("progress-fill");
+    fill.style.width = pct + "%";
+    if (state === "ok")  fill.style.background = "var(--green)";
+    else if (state === "err") fill.style.background = "var(--red)";
+    else {
+      // Colour shifts yellow → cyan as it progresses
+      const r = Math.round(227 - (227 - 88)  * pct / 100);
+      const g = Math.round(179 - (179 - 166) * pct / 100);
+      const b = Math.round(65  + (255 - 65)  * pct / 100);
+      fill.style.background = `rgb(${r},${g},${b})`;
+    }
   }
 
   async function copyOutput() {

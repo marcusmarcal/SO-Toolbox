@@ -217,21 +217,17 @@ def mtr_stream():
                 bufsize=1
             )
 
-            # mtr --report only prints output at the END (not line by line).
-            # While waiting, send countdown ticks every second so the browser
-            # knows the process is alive and can show a countdown.
-            start_time   = _time.time()
-            interval     = 1  # seconds between proxy-generated progress events
-            last_tick    = start_time
+            start_time = _time.time()
+            last_tick  = start_time
 
             while proc.poll() is None:
-                _time.sleep(0.2)
+                _time.sleep(0.25)
                 now = _time.time()
-                if now - last_tick >= interval:
-                    elapsed  = int(now - start_time)
+                if now - last_tick >= 1.0:
+                    elapsed   = int(now - start_time)
                     remaining = max(0, total_cycles - elapsed)
-                    yield f"data: __TICK__ {elapsed} {remaining}\n\n"
                     last_tick = now
+                    yield f"data: __TICK__ {elapsed} {remaining}\n\n"
 
             # Process finished — read all output
             raw_out = proc.stdout.read()
