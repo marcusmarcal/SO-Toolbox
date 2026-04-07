@@ -383,8 +383,36 @@
       const blob = await res.blob();
       const text = await blob.text();
       const data = JSON.parse(text);
-      document.getElementById("output").value = data.raw || "(no raw output)";
+
+      // Reconstruct the header from saved metadata
+      const date    = data.started_at ? data.started_at.replace("T", " ").slice(0, 19) + " UTC" : "—";
+      const src     = data.source_ip  || "—";
+      const pub     = data.public_ip  || "—";
+      const dest    = data.destination || "—";
+      const dns     = data.no_dns ? "disabled" : "enabled";
+      let modeStr;
+      if (data.mode === "time") {
+        const s = data.duration_s || 0;
+        modeStr = s >= 60 ? `Duration  : ${Math.round(s/60)}m (${s}s)` : `Duration  : ${s}s`;
+      } else {
+        modeStr = `Packets   : ${data.packets || "—"}`;
+      }
+
+      const header = [
+        `MTR Network Trace`,
+        `==========================================`,
+        `Date       : ${date}`,
+        `Source     : ${src} (public: ${pub})`,
+        `Destination: ${dest}`,
+        modeStr,
+        `DNS        : ${dns}`,
+        `==========================================`,
+        ``
+      ].join("\n");
+
+      document.getElementById("output").value = header + (data.raw || "(no output)");
       setStatus("ok", `Loaded: ${file}`);
+      setProgress(100, "ok");
     } catch (e) {
       setStatus("err", "Failed to load result.");
     }
