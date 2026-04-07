@@ -161,6 +161,12 @@
       </label>
     </div>
 
+    <div class="field grow" style="min-width:120px; max-width:180px">
+      <label>Tag <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+      <input id="inp-tag" type="text" placeholder="e.g. prod, nightly" autocomplete="off" list="tag-presets" />
+      <datalist id="tag-presets"></datalist>
+    </div>
+
     <button class="btn-run" id="btn-run" onclick="runMtr()">▶ Run</button>
     <button class="btn-stop" id="btn-stop" onclick="stopMtr()">■ Stop</button>
   </div>
@@ -193,7 +199,23 @@
     </div>
 
     <div class="history-panel">
-      <div class="history-header">History</div>
+      <div class="history-header">
+        <span>Running</span>
+        <button class="btn-refresh" onclick="loadRunning()">↻</button>
+      </div>
+      <div class="history-list" id="running-list">
+        <div class="history-empty">No active jobs</div>
+      </div>
+      <div class="history-header" style="border-top:1px solid var(--border)">
+        <span>History</span>
+        <div style="display:flex;gap:0.3rem;align-items:center">
+          <input id="tag-filter" type="text" placeholder="filter tag…" list="tag-presets-hist"
+            style="background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:0.6rem;padding:1px 5px;width:80px;outline:none"
+            oninput="loadHistory()" />
+          <datalist id="tag-presets-hist"></datalist>
+          <button class="btn-refresh" onclick="loadHistory()">↻</button>
+        </div>
+      </div>
       <div class="history-list" id="history-list">
         <div class="history-empty">No results yet</div>
       </div>
@@ -259,12 +281,14 @@
       const unit = parseInt(document.getElementById("sel-unit").value) || 60;
       params = `host=${encodeURIComponent(host)}&mode=time&seconds=${dur * unit}&no_dns=${no_dns}`;
     }
+    const tag    = document.getElementById("inp-tag").value.trim();
     let totalCycles = curMode === "packets"
       ? (parseInt(document.getElementById("inp-count").value) || 50)
       : (parseInt(document.getElementById("inp-duration").value) || 5) * (parseInt(document.getElementById("sel-unit").value) || 60);
 
     params += `&total_cycles=${totalCycles}`;
     params += `&src_ip=${encodeURIComponent(localIp)}&pub_ip=${encodeURIComponent(publicIp)}`;
+    if (tag) params += `&tag=${encodeURIComponent(tag)}`;
 
     const output = document.getElementById("output");
     const now    = new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC";
@@ -344,23 +368,62 @@
     document.getElementById("btn-copy").disabled = false;
   }
 
+  // ── Running jobs ─────────────────────────────────────────────────
+  async function loadRunning() {
+    try {
+      const res   = await fetch(`${PROXY}/mtr/running`);
+      const items = await res.json();
+      const list  = document.getElementById("running-list");
+      if (!items.length) {
+        list.innerHTML = '<div class="history-empty">No active jobs</div>';
+        return;
+      }
+      list.innerHTML = items.map(job => {
+        const pct = job.total_cycles > 0
+          ? Math.min(99, Math.round(job.elapsed / job.total_cycles * 100)) : 0;
+        const rem = job.remaining;
+        const remStr = rem >= 60 ? `${Math.floor(rem/60)}m ${rem%60}s` : `${rem}s`;
+        return `
+          <div class="history-item" style="cursor:default">
+            <div class="hi-dest" title="${job.destination}">⟳ ${job.destination}</div>
+            <div class="hi-meta">
+              <span>${pct}%</span>
+              <span class="hi-badge">${remStr} left</span>
+              ${job.tag ? `<span class="hi-badge" style="color:var(--cyan)">${job.tag}</span>` : ""}
+            </div>
+            <div style="height:2px;background:var(--border);border-radius:1px;margin-top:4px">
+              <div style="height:100%;width:${pct}%;background:var(--yellow);border-radius:1px;transition:width 1s"></div>
+            </div>
+          </div>`;
+      }).join("");
+    } catch (e) { console.error(e); }
+  }
+
   // ── History ──────────────────────────────────────────────────────
   async function loadHistory() {
     try {
-      const res   = await fetch(`${PROXY}/mtr/results`);
-      const items = await res.json();
-      const list  = document.getElementById("history-list");
+      const res      = await fetch(`${PROXY}/mtr/results`);
+      const items    = await res.json();
+      const list     = document.getElementById("history-list");
+      const filter   = (document.getElementById("tag-filter").value || "").toLowerCase().trim();
 
-      if (!items.length) {
-        list.innerHTML = '<div class="history-empty">No results yet</div>';
+      // Populate tag datalists
+      const allTags = [...new Set(items.map(i => i.tag).filter(Boolean))];
+      ["tag-presets", "tag-presets-hist"].forEach(id => {
+        const dl = document.getElementById(id);
+        if (dl) dl.innerHTML = allTags.map(t => `<option value="${t}">`).join("");
+      });
+
+      const filtered = filter ? items.filter(i => (i.tag || "").toLowerCase().includes(filter)) : items;
+
+      if (!filtered.length) {
+        list.innerHTML = '<div class="history-empty">No results found</div>';
         return;
       }
 
-      list.innerHTML = items.map(item => {
+      list.innerHTML = filtered.map(item => {
         const date = item.started_at ? item.started_at.slice(0, 16).replace("T", " ") : "—";
-        const mode = item.mode === "time"
-          ? `${item.duration_s}s`
-          : `${item.packets} pkts`;
+        const mode = item.mode === "time" ? `${item.duration_s}s` : `${item.packets} pkts`;
         return `
           <div class="history-item" onclick="loadResult('${item.file}')">
             <div class="hi-dest" title="${item.destination}">${item.destination}</div>
@@ -368,13 +431,12 @@
               <span>${date}</span>
               <span class="hi-badge">${mode}</span>
               <span class="hi-badge">${item.hops} hops</span>
+              ${item.tag ? `<span class="hi-badge" style="color:var(--cyan)">${item.tag}</span>` : ""}
             </div>
             <a class="hi-dl" href="${PROXY}/mtr/results/${encodeURIComponent(item.file)}" download onclick="event.stopPropagation()">⬇ JSON</a>
           </div>`;
       }).join("");
-    } catch (e) {
-      console.error("History load failed:", e);
-    }
+    } catch (e) { console.error("History load failed:", e); }
   }
 
   async function loadResult(file) {
@@ -453,7 +515,10 @@
   });
 
   loadServerInfo();
+  loadRunning();
   loadHistory();
+  // Auto-refresh running jobs every 10s
+  setInterval(() => { loadRunning(); if (!es) loadHistory(); }, 10000);
 </script>
 </body>
 </html>

@@ -132,21 +132,21 @@ def server_info():
 
 @app.route("/mtr/stream", methods=["GET"])
 def mtr_stream():
-    """Stream mtr output line by line using Server-Sent Events.
-    Supports two modes:
-      - packets: mtr --report --report-cycles N
-      - time:    mtr runs for N seconds via timeout command
-    At the end, saves a structured JSON summary to mtr-results/.
     """
-    import subprocess, os, json, re, datetime
+    Start an MTR job in a background thread (survives browser disconnect)
+    and stream SSE ticks to the browser while it runs.
+    Job state is saved to disk so it persists across proxy restarts.
+    """
+    import subprocess, os, json, re, datetime, time as _time, threading
 
     host     = (request.args.get("host") or "").strip()
-    mode     = request.args.get("mode") or "packets"   # "packets" | "time"
+    mode     = request.args.get("mode") or "packets"
     count    = max(1, min(int(request.args.get("count") or 50), 500))
     seconds  = max(10, min(int(request.args.get("seconds") or 60), 86400))
     no_dns   = request.args.get("no_dns") == "1"
     src_ip   = request.args.get("src_ip") or "unknown"
     pub_ip   = request.args.get("pub_ip") or "unknown"
+    tag      = (request.args.get("tag") or "").strip()
 
     if not host:
         def err():
@@ -158,143 +158,183 @@ def mtr_stream():
     results_dir = os.path.join(base_dir, "mtr-results")
     os.makedirs(results_dir, exist_ok=True)
 
-    # Both modes use --report-cycles to control duration.
-    # Time mode: 1 packet/second * N seconds = N cycles (no timeout needed).
-    # Packets mode: N cycles at default interval.
+    total_cycles = seconds if mode == "time" else count
+
     if mode == "time":
-        cycles = seconds  # 1 cycle ≈ 1 second with --interval 1
-        cmd = ["mtr", "--report", "--report-wide",
-               "--interval", "1",
-               "--report-cycles", str(cycles)]
+        cmd = ["mtr", "--report", "--report-wide", "--interval", "1",
+               "--report-cycles", str(seconds)]
     else:
         cmd = ["mtr", "--report", "--report-wide",
                "--report-cycles", str(count)]
-
     if no_dns:
         cmd.append("--no-dns")
     cmd.append(host)
 
-    # Total cycles for countdown
-    total_cycles = seconds if mode == "time" else count
+    started_at = datetime.datetime.utcnow().isoformat() + "Z"
+    ts         = started_at[:19].replace(":", "-").replace("T", "_")
+    safe_host  = re.sub(r"[^\w\.\-]", "_", host)
+    job_id     = f"{ts}_{safe_host}"
+    state_file = os.path.join(results_dir, f"{job_id}.running.json")
+    done_file  = os.path.join(results_dir, f"{job_id}.json")
+
+    # Write initial state to disk immediately
+    initial_state = {
+        "job_id": job_id, "status": "running",
+        "started_at": started_at, "ended_at": None,
+        "source_ip": src_ip, "public_ip": pub_ip,
+        "destination": host, "mode": mode,
+        "packets": count if mode == "packets" else None,
+        "duration_s": seconds if mode == "time" else None,
+        "no_dns": no_dns, "tag": tag,
+        "total_cycles": total_cycles,
+        "hops": [], "raw": ""
+    }
+    with open(state_file, "w") as f:
+        json.dump(initial_state, f)
 
     def parse_mtr_output(lines):
-        """Parse mtr --report output into structured hops."""
         hops = []
         for line in lines:
-            # Match lines like: |-- 1.2.3.4   0.0%  50  1.2  2.3  0.8  5.1  0.6
             m = re.match(
-                r'\s*\d+\.\s*[|`]-+\s*(\S+)\s+'   # hop num + host
-                r'([\d.]+)%\s+'                    # loss%
-                r'(\d+)\s+'                        # sent
-                r'([\d.]+)\s+'                     # last
-                r'([\d.]+)\s+'                     # avg
-                r'([\d.]+)\s+'                     # best
-                r'([\d.]+)',                        # worst
-                line
-            )
+                r'\s*\d+\.\s*[|`]-+\s*(\S+)\s+'
+                r'([\d.]+)%\s+(\d+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)',
+                line)
             if m:
                 hops.append({
-                    "host":   m.group(1),
-                    "loss":   float(m.group(2)),
-                    "sent":   int(m.group(3)),
-                    "last":   float(m.group(4)),
-                    "avg":    float(m.group(5)),
-                    "best":   float(m.group(6)),
-                    "worst":  float(m.group(7)),
+                    "host": m.group(1), "loss": float(m.group(2)),
+                    "sent": int(m.group(3)), "last": float(m.group(4)),
+                    "avg": float(m.group(5)), "best": float(m.group(6)),
+                    "worst": float(m.group(7)),
                 })
         return hops
 
-    def generate():
-        import time as _time
-        lines      = []
-        started_at = datetime.datetime.utcnow().isoformat() + "Z"
-
+    def run_background():
+        lines = []
         try:
-            proc = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                bufsize=1
-            )
-
-            start_time = _time.time()
-            last_tick  = start_time
-
-            while proc.poll() is None:
-                _time.sleep(0.25)
-                now = _time.time()
-                if now - last_tick >= 1.0:
-                    elapsed   = int(now - start_time)
-                    remaining = max(0, total_cycles - elapsed)
-                    last_tick = now
-                    yield f"data: __TICK__ {elapsed} {remaining}\n\n"
-
-            # Process finished — read all output
-            raw_out = proc.stdout.read()
+            # bufsize=0 avoids the Python 3.9 binary-mode line-buffer warning
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT, bufsize=0)
+            raw_out = proc.communicate()[0]
             for line in raw_out.decode(errors="replace").splitlines():
                 lines.append(line)
+        except Exception as e:
+            lines.append(f"ERROR: {e}")
+
+        ended_at = datetime.datetime.utcnow().isoformat() + "Z"
+        hops     = parse_mtr_output(lines)
+        result   = dict(initial_state)
+        result.update({
+            "status": "done", "ended_at": ended_at,
+            "hops": hops, "raw": "\n".join(lines)
+        })
+        with open(done_file, "w") as f:
+            json.dump(result, f, indent=2)
+        try:
+            os.remove(state_file)
+        except Exception:
+            pass
+
+    t = threading.Thread(target=run_background, daemon=True)
+    t.start()
+
+    def stream_ticks():
+        start = _time.time()
+        last  = start
+        # Stream ticks while job is running (state file exists)
+        while os.path.isfile(state_file):
+            _time.sleep(0.3)
+            now = _time.time()
+            if now - last >= 1.0:
+                elapsed   = int(now - start)
+                remaining = max(0, total_cycles - elapsed)
+                last = now
+                yield f"data: __TICK__ {elapsed} {remaining}\n\n"
+        # Job finished — stream the raw output lines
+        try:
+            with open(done_file) as f:
+                d = json.load(f)
+            for line in (d.get("raw") or "").splitlines():
                 if line.strip():
                     yield f"data: {line}\n\n"
-
-        except FileNotFoundError:
-            yield "data: ERROR: mtr is not installed.\n\n"
-            yield "data: Install: apt install mtr-tiny  OR  yum install mtr\n\n"
-            yield "data: __DONE__\n\n"
-            return
-        except Exception as e:
-            yield f"data: ERROR: {e}\n\n"
-            yield "data: __DONE__\n\n"
-            return
-
-        # Save JSON result
-        try:
-            hops       = parse_mtr_output(lines)
-            ended_at   = datetime.datetime.utcnow().isoformat() + "Z"
-            ts         = ended_at[:19].replace(":", "-").replace("T", "_")
-            safe_host  = re.sub(r"[^\w\.\-]", "_", host)
-            filename   = f"{ts}_{safe_host}.json"
-            filepath   = os.path.join(results_dir, filename)
-
-            result = {
-                "started_at":  started_at,
-                "ended_at":    ended_at,
-                "source_ip":   src_ip,
-                "public_ip":   pub_ip,
-                "destination": host,
-                "mode":        mode,
-                "packets":     count if mode == "packets" else None,
-                "duration_s":  seconds if mode == "time" else None,
-                "no_dns":      no_dns,
-                "hops":        hops,
-                "raw":         "\n".join(lines)
-            }
-
-            with open(filepath, "w") as f:
-                json.dump(result, f, indent=2)
-
             yield f"data: \n\n"
-            yield f"data: ✔ Result saved to mtr-results/{filename}\n\n"
+            yield f"data: ✔ Result saved to mtr-results/{job_id}.json\n\n"
         except Exception as e:
-            yield f"data: ⚠ Could not save result: {e}\n\n"
-
+            yield f"data: ⚠ Could not read result: {e}\n\n"
         yield "data: __DONE__\n\n"
 
-    return Response(generate(), content_type="text/event-stream",
+    return Response(stream_ticks(), content_type="text/event-stream",
                     headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"})
+
+
+@app.route("/mtr/running", methods=["GET"])
+def mtr_running():
+    """Return list of currently running MTR jobs (from .running.json files)."""
+    base_dir    = os.path.dirname(os.path.abspath(__file__))
+    results_dir = os.path.join(base_dir, "mtr-results")
+    if not os.path.isdir(results_dir):
+        return jsonify([])
+    items = []
+    for f in sorted(os.listdir(results_dir), reverse=True):
+        if not f.endswith(".running.json"):
+            continue
+        try:
+            with open(os.path.join(results_dir, f)) as fh:
+                d = json.load(fh)
+            elapsed = 0
+            try:
+                st = datetime.datetime.fromisoformat(d["started_at"].replace("Z",""))
+                elapsed = int((datetime.datetime.utcnow() - st).total_seconds())
+            except Exception:
+                pass
+            remaining = max(0, d.get("total_cycles", 0) - elapsed)
+            items.append({
+                "job_id":      d.get("job_id"),
+                "destination": d.get("destination"),
+                "started_at":  d.get("started_at"),
+                "mode":        d.get("mode"),
+                "tag":         d.get("tag", ""),
+                "elapsed":     elapsed,
+                "remaining":   remaining,
+                "total_cycles":d.get("total_cycles", 0),
+            })
+        except Exception:
+            pass
+    return jsonify(items)
+
+
+@app.route("/mtr/tag/<path:filename>", methods=["POST"])
+def mtr_set_tag(filename):
+    """Update the tag on a saved MTR result."""
+    base_dir    = os.path.dirname(os.path.abspath(__file__))
+    results_dir = os.path.join(base_dir, "mtr-results")
+    filepath    = os.path.join(results_dir, filename)
+    if not os.path.isfile(filepath):
+        return jsonify({"error": "File not found"}), 404
+    data = request.get_json(silent=True) or {}
+    tag  = (data.get("tag") or "").strip()
+    try:
+        with open(filepath) as f:
+            result = json.load(f)
+        result["tag"] = tag
+        with open(filepath, "w") as f:
+            json.dump(result, f, indent=2)
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/mtr/results", methods=["GET"])
 def mtr_results():
-    """List saved MTR result files."""
-    import os, json
+    """List saved MTR result files (completed only)."""
     base_dir    = os.path.dirname(os.path.abspath(__file__))
     results_dir = os.path.join(base_dir, "mtr-results")
     if not os.path.isdir(results_dir):
         return jsonify([])
     files = sorted(
-        [f for f in os.listdir(results_dir) if f.endswith(".json")],
+        [f for f in os.listdir(results_dir)
+         if f.endswith(".json") and not f.endswith(".running.json")],
         reverse=True
-    )[:50]  # last 50
+    )[:50]
     items = []
     for f in files:
         try:
@@ -308,10 +348,12 @@ def mtr_results():
                 "packets":     d.get("packets"),
                 "duration_s":  d.get("duration_s"),
                 "hops":        len(d.get("hops", [])),
+                "tag":         d.get("tag", ""),
             })
         except Exception:
             pass
     return jsonify(items)
+
 
 
 @app.route("/mtr/results/<path:filename>", methods=["GET"])
