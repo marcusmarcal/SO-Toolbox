@@ -886,7 +886,8 @@
           output.textContent = data.output || "(no output)";
           output.classList.add(data.success ? "ok" : "err");
           if (data.success) {
-            setTimeout(() => location.reload(), 2000);
+            output.textContent += "\n⏳ Waiting for proxy to restart...";
+            setTimeout(() => location.reload(), 7000);
           }
         } catch (e) {
           output.textContent = `Error: ${e.message}`;

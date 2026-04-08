@@ -95,29 +95,15 @@ def git_pull():
         )
         output = (result.stdout.decode() + result.stderr.decode()).strip()
         success = result.returncode == 0
+
+        # Schedule proxy restart after 3 seconds so response can be sent first
+        if success:
+            subprocess.Popen(["bash", "-c", "sleep 3 && systemctl restart phenix-proxy"])
+            output += "\n\n✔ Proxy restart scheduled in 3 seconds..."
+
         return jsonify({"success": success, "output": output})
     except Exception as e:
         return jsonify({"success": False, "output": str(e)}), 500
-
-@app.route("/restart-proxy", methods=["POST"])
-def restart_proxy():
-    import subprocess
-    from flask import jsonify
-
-    try:
-        subprocess.Popen([
-            "bash", "-c",
-            "sleep 2 && systemctl restart phenix-proxy"
-        ])
-        return jsonify({
-            "success": True,
-            "output": "Restart scheduled in 2 seconds."
-        })
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "output": str(e)
-        }), 500
 
 
 @app.route("/server-info", methods=["GET"])
@@ -408,12 +394,17 @@ def _run_ingest(job_id, url, output_dir):
         with _ingest_lock:
             _ingest_jobs[job_id]["log"] = list(log_lines)
 
-    try:
-        log(f"Starting analysis for: {url}")
+    # Get tag from job state
+    with _ingest_lock:
+        tag        = _ingest_jobs[job_id].get("tag", "")
+        started_at = _ingest_jobs[job_id].get("started_at", "")
 
-        # Do NOT pass output_dir — let the script generate its own directory name.
-        # This avoids issues with the script behaving differently when given an
-        # external output path (perl -g flag, relative paths in generate-report.sh).
+    # Clean URL for display (remove passphrase)
+    url_display = re.sub(r'[?&]passphrase=[^&]*', '', url).rstrip('?&')
+
+    try:
+        log(f"Starting analysis for: {url_display}")
+
         result = subprocess.run(
             ["run-ingest-analysis.sh", url],
             stdout=subprocess.PIPE,
@@ -432,7 +423,6 @@ def _run_ingest(job_id, url, output_dir):
         actual_zip = None
         for line in stdout.splitlines():
             if "Report location:" in line:
-                # "Report location: /tmp/.../index.html"
                 path = line.split("Report location:")[-1].strip()
                 actual_dir = os.path.dirname(path)
             if "Archive location:" in line:
@@ -474,11 +464,30 @@ def _run_ingest(job_id, url, output_dir):
                 except Exception:
                     pass
 
+        # Save meta.json with tag, url, timestamps into the result dir
+        ended_at = datetime.datetime.utcnow().isoformat() + "Z"
+        if saved_dir:
+            meta = {
+                "job_id":      job_id,
+                "url":         url_display,
+                "tag":         tag,
+                "started_at":  started_at,
+                "ended_at":    ended_at,
+                "exit_code":   exit_code,
+                "status":      "done" if exit_code in (0, 45) else "failed",
+            }
+            try:
+                with open(os.path.join(INGEST_RESULTS_DIR, saved_dir, "meta.json"), "w") as f:
+                    json.dump(meta, f, indent=2)
+                log("meta.json saved.")
+            except Exception as e:
+                log(f"WARNING: Could not save meta.json: {e}")
+
         with _ingest_lock:
             _ingest_jobs[job_id].update({
                 "status":    "done" if exit_code in (0, 45) else "failed",
                 "exit_code": exit_code,
-                "ended_at":  datetime.datetime.utcnow().isoformat() + "Z",
+                "ended_at":  ended_at,
                 "zip":       saved_zip,
                 "dir":       saved_dir,
                 "summary":   summary,
@@ -535,29 +544,55 @@ def ingest_status(job_id):
 
 @app.route("/ingest/results", methods=["GET"])
 def ingest_results():
-    """List saved ingest results (ZIP + report dir)."""
+    """List saved ingest results (ZIP + report dir), reading meta.json for tag/url/dates."""
     files = set(os.listdir(INGEST_RESULTS_DIR))
     zips  = sorted([f for f in files if f.endswith(".zip")], reverse=True)
     items = []
-    for z in zips[:30]:
+    for z in zips[:50]:
         dirname = z.replace(".zip", "")
         has_dir = dirname in files and os.path.isdir(os.path.join(INGEST_RESULTS_DIR, dirname))
-        # Try to read tag from the report.json inside the dir
-        tag = ""
+        meta = {}
         if has_dir:
-            rj = os.path.join(INGEST_RESULTS_DIR, dirname, "report.json")
-            try:
-                with open(rj) as f:
-                    tag = json.load(f).get("tag", "")
-            except Exception:
-                pass
+            meta_path = os.path.join(INGEST_RESULTS_DIR, dirname, "meta.json")
+            if os.path.isfile(meta_path):
+                try:
+                    with open(meta_path) as f:
+                        meta = json.load(f)
+                except Exception:
+                    pass
+            # Fallback: try report.json for tag
+            if not meta:
+                rj = os.path.join(INGEST_RESULTS_DIR, dirname, "report.json")
+                try:
+                    with open(rj) as f:
+                        meta = {"tag": json.load(f).get("tag", "")}
+                except Exception:
+                    pass
         items.append({
-            "zip":  z,
-            "dir":  dirname if has_dir else None,
-            "name": dirname,
-            "tag":  tag,
+            "zip":        z,
+            "dir":        dirname if has_dir else None,
+            "name":       dirname,
+            "tag":        meta.get("tag", ""),
+            "url":        meta.get("url", ""),
+            "started_at": meta.get("started_at", ""),
+            "ended_at":   meta.get("ended_at", ""),
+            "status":     meta.get("status", ""),
+            "exit_code":  meta.get("exit_code"),
         })
     return jsonify(items)
+
+
+@app.route("/ingest/report-txt/<path:dirname>", methods=["GET"])
+def ingest_report_txt(dirname):
+    """Return the report.txt content as plain text."""
+    from flask import send_from_directory
+    report_dir = os.path.join(INGEST_RESULTS_DIR, dirname)
+    txt_path   = os.path.join(report_dir, "report.txt")
+    if not os.path.isfile(txt_path):
+        return "report.txt not found", 404
+    with open(txt_path) as f:
+        return f.read(), 200, {"Content-Type": "text/plain; charset=utf-8"}
+
 
 
 @app.route("/ingest/download/<path:filename>", methods=["GET"])
