@@ -143,7 +143,7 @@
         </select>
       </div>
       <div class="field grow">
-        <label>Passphrase <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+        <label>Passphrase <span style="color:var(--muted);font-weight:400">(optional, SP internal already loaded)</span></label>
         <input id="srt-pass" type="password" placeholder="leave blank if none" autocomplete="off" />
       </div>
       <div class="field w90">
@@ -151,6 +151,13 @@
         <input id="srt-latency" type="number" placeholder="120" min="0" />
       </div>
       <button class="btn-run" id="btn-run" onclick="runAnalysis()">▶ Analyze</button>
+    </div>
+    <div class="form-row">
+      <div class="field grow" style="max-width:300px">
+        <label>Tag <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+        <input id="inp-tag" type="text" placeholder="e.g. test, JIRA-123, INC-456" autocomplete="off" list="ingest-tag-presets" />
+        <datalist id="ingest-tag-presets"></datalist>
+      </div>
     </div>
   </div>
 
@@ -323,7 +330,7 @@
       const res  = await fetch(`${PROXY}/ingest/run`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url })
+        body: JSON.stringify({ url, tag: document.getElementById("inp-tag").value.trim() })
       });
       const data = await res.json();
       if (!data.job_id) throw new Error(data.error || "No job_id returned");
@@ -420,9 +427,14 @@
         return;
       }
 
+      const allTags = [...new Set(items.map(i => i.tag).filter(Boolean))];
+      const dl = document.getElementById("ingest-tag-presets");
+      if (dl) dl.innerHTML = allTags.map(t => `<option value="${t}">`).join("");
+
       list.innerHTML = items.map(item => `
         <div class="history-item">
           <div class="hi-name" title="${item.name}">${item.name}</div>
+          ${item.tag ? `<div style="font-family:var(--mono);font-size:0.6rem;color:var(--cyan);margin-bottom:3px">${item.tag}</div>` : ""}
           <div class="hi-links">
             <a class="hi-link" href="${PROXY}/ingest/download/${encodeURIComponent(item.zip)}" download>⬇ ZIP</a>
             ${item.dir ? `<a class="hi-link" href="${PROXY}/ingest/report/${encodeURIComponent(item.dir)}/index.html" target="_blank">↗ Report</a>` : ""}

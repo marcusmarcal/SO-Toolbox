@@ -478,6 +478,7 @@ def _run_ingest(job_id, url, output_dir):
 def ingest_run():
     data = request.get_json(silent=True) or {}
     url  = (data.get("url") or "").strip()
+    tag  = (data.get("tag") or "").strip()
     if not url:
         return jsonify({"error": "url is required"}), 400
 
@@ -488,6 +489,7 @@ def ingest_run():
             "job_id":     job_id,
             "status":     "running",
             "url":        url,
+            "tag":        tag,
             "started_at": datetime.datetime.utcnow().isoformat() + "Z",
             "ended_at":   None,
             "zip":        None,
@@ -520,10 +522,20 @@ def ingest_results():
     for z in zips[:30]:
         dirname = z.replace(".zip", "")
         has_dir = dirname in files and os.path.isdir(os.path.join(INGEST_RESULTS_DIR, dirname))
+        # Try to read tag from the report.json inside the dir
+        tag = ""
+        if has_dir:
+            rj = os.path.join(INGEST_RESULTS_DIR, dirname, "report.json")
+            try:
+                with open(rj) as f:
+                    tag = json.load(f).get("tag", "")
+            except Exception:
+                pass
         items.append({
             "zip":  z,
             "dir":  dirname if has_dir else None,
             "name": dirname,
+            "tag":  tag,
         })
     return jsonify(items)
 

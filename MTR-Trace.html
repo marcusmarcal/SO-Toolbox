@@ -93,19 +93,22 @@
   #output { flex: 1; width: 100%; min-height: 0; resize: none; background: transparent; border: none; padding: 0.75rem 0.9rem; color: var(--text); font-family: var(--mono); font-size: 0.76rem; line-height: 1.7; outline: none; white-space: pre; overflow: auto; }
 
   /* History panel */
-  .history-panel { width: 260px; flex-shrink: 0; display: flex; flex-direction: column; background: var(--bg2); border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
-  .history-header { padding: 0.38rem 0.75rem; background: var(--bg3); border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); flex-shrink: 0; }
+  .history-panel { width: 320px; flex-shrink: 0; display: flex; flex-direction: column; background: var(--bg2); border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+  .history-header { padding: 0.45rem 0.85rem; background: var(--bg3); border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; }
+  .btn-refresh { background: transparent; border: none; color: var(--muted); font-family: var(--mono); font-size: 0.7rem; cursor: pointer; padding: 0; }
+  .btn-refresh:hover { color: var(--cyan); }
+  #running-list { max-height: 140px; overflow-y: auto; flex-shrink: 0; }
   .history-list { flex: 1; overflow-y: auto; }
   .history-list::-webkit-scrollbar { width: 4px; }
   .history-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-  .history-item { padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.12s; }
+  .history-item { padding: 0.6rem 0.85rem; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.12s; }
   .history-item:hover { background: var(--bg3); }
-  .hi-dest { font-family: var(--mono); font-size: 0.72rem; color: #fff; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .hi-meta { font-family: var(--mono); font-size: 0.6rem; color: var(--muted); margin-top: 2px; display: flex; gap: 0.5rem; flex-wrap: wrap; }
-  .hi-badge { background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-size: 0.58rem; }
-  .hi-dl { font-family: var(--mono); font-size: 0.6rem; color: var(--cyan); margin-top: 4px; text-decoration: none; display: inline-block; }
+  .hi-dest { font-family: var(--mono); font-size: 0.78rem; color: #fff; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hi-meta { font-family: var(--mono); font-size: 0.66rem; color: var(--muted); margin-top: 3px; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .hi-badge { background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 1px 6px; font-size: 0.63rem; }
+  .hi-dl { font-family: var(--mono); font-size: 0.65rem; color: var(--cyan); margin-top: 5px; text-decoration: none; display: inline-block; }
   .hi-dl:hover { text-decoration: underline; }
-  .history-empty { padding: 1.5rem; text-align: center; font-family: var(--mono); font-size: 0.65rem; color: var(--muted); }
+  .history-empty { padding: 1.5rem; text-align: center; font-family: var(--mono); font-size: 0.68rem; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -129,22 +132,22 @@
     <div class="field">
       <label>Mode</label>
       <div class="mode-tabs">
-        <button class="mode-tab active" id="tab-packets" onclick="setMode('packets')">Packets</button>
-        <button class="mode-tab"        id="tab-time"    onclick="setMode('time')">Time</button>
+        <button class="mode-tab"        id="tab-packets" onclick="setMode('packets')">Packets</button>
+        <button class="mode-tab active" id="tab-time"    onclick="setMode('time')">Time</button>
       </div>
     </div>
 
-    <div class="field w90" id="field-count">
+    <div class="field w90" id="field-count" style="display:none">
       <label>Packets</label>
       <input id="inp-count" type="number" value="50" min="1" max="500" />
     </div>
 
-    <div class="field w75" id="field-duration" style="display:none">
+    <div class="field w75" id="field-duration">
       <label>Duration</label>
       <input id="inp-duration" type="number" value="5" min="1" max="1440" />
     </div>
 
-    <div class="field w75" id="field-unit" style="display:none">
+    <div class="field w75" id="field-unit">
       <label>Unit</label>
       <select id="sel-unit">
         <option value="60">min</option>
@@ -163,7 +166,7 @@
 
     <div class="field grow" style="min-width:120px; max-width:180px">
       <label>Tag <span style="color:var(--muted);font-weight:400">(optional)</span></label>
-      <input id="inp-tag" type="text" placeholder="e.g. prod, nightly" autocomplete="off" list="tag-presets" />
+      <input id="inp-tag" type="text" placeholder="e.g. test, JIRA-123, INC-456" autocomplete="off" list="tag-presets" />
       <datalist id="tag-presets"></datalist>
     </div>
 
@@ -227,7 +230,7 @@
 <script>
   const PROXY = "/phenix-proxy";
   let es       = null;
-  let curMode  = "packets";
+  let curMode  = "time";
   let localIp  = "—";
   let publicIp = "—";
 
@@ -368,6 +371,17 @@
     document.getElementById("btn-copy").disabled = false;
   }
 
+  // ── Duration formatting ──────────────────────────────────────────
+  function formatDuration(seconds) {
+    if (!seconds) return "—";
+    if (seconds < 60)   return `${seconds}s`;
+    if (seconds < 3600) return `${Math.round(seconds/60)}min (${seconds}s)`;
+    const h = Math.floor(seconds / 3600);
+    const m = Math.round((seconds % 3600) / 60);
+    const label = h === 1 ? "1 hour" : `${h} hours`;
+    return m > 0 ? `${label} ${m}min (${seconds}s)` : `${label} (${seconds}s)`;
+  }
+
   // ── Running jobs ─────────────────────────────────────────────────
   async function loadRunning() {
     try {
@@ -423,7 +437,9 @@
 
       list.innerHTML = filtered.map(item => {
         const date = item.started_at ? item.started_at.slice(0, 16).replace("T", " ") : "—";
-        const mode = item.mode === "time" ? `${item.duration_s}s` : `${item.packets} pkts`;
+        const mode = item.mode === "time"
+          ? formatDuration(item.duration_s)
+          : `${item.packets} pkts`;
         return `
           <div class="history-item" onclick="loadResult('${item.file}')">
             <div class="hi-dest" title="${item.destination}">${item.destination}</div>
@@ -455,7 +471,7 @@
       let modeStr;
       if (data.mode === "time") {
         const s = data.duration_s || 0;
-        modeStr = s >= 60 ? `Duration  : ${Math.round(s/60)}m (${s}s)` : `Duration  : ${s}s`;
+        modeStr = `Duration  : ${formatDuration(s)}`;
       } else {
         modeStr = `Packets   : ${data.packets || "—"}`;
       }

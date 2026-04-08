@@ -597,6 +597,92 @@
         cursor: not-allowed;
       }
 
+      /* ── CHANGELOG MODAL ── */
+      #changelog-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.6);
+        z-index: 300;
+        align-items: center;
+        justify-content: center;
+      }
+      #changelog-modal.open { display: flex; }
+      .cl-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.5rem 2rem;
+        width: 560px;
+        max-width: 92vw;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: 0 0 60px rgba(0,0,0,0.6);
+      }
+      .cl-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.2rem;
+      }
+      .cl-title {
+        font-family: var(--mono);
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+      .cl-close {
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        padding: 3px 10px;
+        cursor: pointer;
+      }
+      .cl-close:hover { border-color: var(--accent); color: var(--accent); }
+      .cl-entry {
+        display: flex;
+        gap: 1rem;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid var(--border);
+        align-items: baseline;
+      }
+      .cl-entry:last-child { border-bottom: none; }
+      .cl-version {
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        font-weight: 700;
+        color: var(--accent);
+        white-space: nowrap;
+        min-width: 50px;
+      }
+      .cl-date {
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        color: var(--muted);
+        white-space: nowrap;
+        min-width: 80px;
+      }
+      .cl-desc {
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        color: var(--text);
+        line-height: 1.5;
+      }
+
+      #topbar .version {
+        cursor: pointer;
+        transition: border-color 0.2s, color 0.2s;
+      }
+      #topbar .version:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
       /* ── GIT PULL MODAL ── */
       #git-modal {
         display: none;
@@ -695,7 +781,7 @@
           <span id="env-pill-text">Loading .env…</span>
         </div>
         <button id="btn-git-pull" class="git-pull-btn" data-tip="Pull latest from Git" onclick="gitPull()">⟳ Update</button>
-        <span class="version" id="app-version">v1.0</span>
+        <span class="version" id="app-version" onclick="openChangelog()" title="Click to see changelog">v2.0.0</span>
       </header>
 
       <aside id="sidebar">
@@ -731,6 +817,27 @@
       </main>
     </div>
 
+    <!-- ── Changelog Modal ──────────────────────────────────── -->
+    <div id="changelog-modal">
+      <div class="cl-card">
+        <div class="cl-header">
+          <div class="cl-title">SP SO Web Toolbox — Changelog</div>
+          <button class="cl-close" onclick="closeChangelog()">Close</button>
+        </div>
+        <div class="cl-entry"><div class="cl-version">v2.0.0</div><div class="cl-date">2026-04-07</div><div class="cl-desc">MTR background jobs with disk persistence, tag filtering, running jobs panel; Ingest Analyzer tags; bufsize streaming fix; progress bar with countdown</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.9.0</div><div class="cl-date">2026-04-06</div><div class="cl-desc">Ingest Analyzer: background jobs, ZIP copy, HTML report served via proxy, SRT_LOCAL presets</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.8.0</div><div class="cl-date">2026-04-06</div><div class="cl-desc">MTR time mode fix using cycles, SSE tick countdown, progress bar with colour shift</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.7.0</div><div class="cl-date">2026-04-01</div><div class="cl-desc">MTR Network Trace tool with SSE streaming, server info, history</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.6.0</div><div class="cl-date">2026-04-01</div><div class="cl-desc">RMG RTS Multiview Dashboard launcher; Ingest Analyzer tool</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.5.2</div><div class="cl-date">2026-04-01</div><div class="cl-desc">nginx proxy_buffering off for SSE; per-distro nginx configs (CentOS + Debian)</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.5.1</div><div class="cl-date">2026-03-31</div><div class="cl-desc">Config loaded via proxy instead of public .env; SRT_PASSPHRASE secured</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.5.0</div><div class="cl-date">2026-03-27</div><div class="cl-desc">Git Pull button in index with auto-reload; proxy as systemd service</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.4.0</div><div class="cl-date">2026-03-27</div><div class="cl-desc">Lazy redraw — only update screen on state changes</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.3.0</div><div class="cl-date">2026-03-27</div><div class="cl-desc">Channel Monitor UI switched from rich to curses</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.0.0</div><div class="cl-date">2026-03-25</div><div class="cl-desc">Initial release — PhenixRTS Channel Health Monitor, SRT URI Builder</div></div>
+      </div>
+    </div>
+
     <!-- ── Git Pull Modal ──────────────────────────────── -->
     <div id="git-modal">
       <div class="git-card">
@@ -749,6 +856,17 @@
     </div>
 
     <script>
+      function openChangelog() {
+        document.getElementById("changelog-modal").classList.add("open");
+      }
+      function closeChangelog() {
+        document.getElementById("changelog-modal").classList.remove("open");
+      }
+      // Close on backdrop click
+      document.getElementById("changelog-modal").addEventListener("click", function(e) {
+        if (e.target === this) closeChangelog();
+      });
+
       const PROXY_URL = "/phenix-proxy";
 
       async function gitPull() {
@@ -1021,7 +1139,7 @@
             // Update title & version from env
             const title = env.APP_TITLE || "SP SO Web Toolbox";
             document.title = title;
-            $("#app-version").text("v1.5.0");
+            $("#app-version").text("v2.0.0");
 
             renderSidebar();
             renderWelcomeCards();
