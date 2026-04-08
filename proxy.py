@@ -101,21 +101,23 @@ def git_pull():
 
 @app.route("/restart-proxy", methods=["POST"])
 def restart_proxy():
-    import subprocess, os
-    repo_dir = os.path.dirname(os.path.abspath(__file__))
+    import subprocess
+    from flask import jsonify
+
     try:
-        result = subprocess.run(
-            ["systemctl", "restart", "phenix-proxy"],
-            cwd=repo_dir,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=30
-        )
-        output = (result.stdout.decode() + result.stderr.decode()).strip()
-        success = result.returncode == 0
-        return jsonify({"success": success, "output": output})
+        subprocess.Popen([
+            "bash", "-c",
+            "sleep 2 && systemctl restart phenix-proxy"
+        ])
+        return jsonify({
+            "success": True,
+            "output": "Restart scheduled in 2 seconds."
+        })
     except Exception as e:
-        return jsonify({"success": False, "output": str(e)}), 500
+        return jsonify({
+            "success": False,
+            "output": str(e)
+        }), 500
 
 
 @app.route("/server-info", methods=["GET"])
