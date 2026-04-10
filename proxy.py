@@ -143,9 +143,12 @@ def server_info():
 @app.route("/mtr/stream", methods=["GET"])
 def mtr_stream():
     """
-    Start an MTR job in a background thread (survives browser disconnect)
-    and stream SSE ticks to the browser while it runs.
-    Job state is saved to disk so it persists across proxy restarts.
+    Two-process approach:
+    1. Background thread runs mtr --report for the final result (saved to disk).
+    2. SSE stream runs a separate mtr --report-cycles 1 --interval 1 in a loop,
+       yielding one full report snapshot per cycle so the browser sees live updates.
+    Reconnecting just attaches a new streaming process — the background job
+    continues independently and is NOT duplicated.
     """
     import subprocess, os, json, re, datetime, time as _time, threading
 
@@ -170,16 +173,6 @@ def mtr_stream():
 
     total_cycles = seconds if mode == "time" else count
 
-    if mode == "time":
-        cmd = ["mtr", "--report", "--report-wide", "--interval", "1",
-               "--report-cycles", str(seconds)]
-    else:
-        cmd = ["mtr", "--report", "--report-wide",
-               "--report-cycles", str(count)]
-    if no_dns:
-        cmd.append("--no-dns")
-    cmd.append(host)
-
     started_at = datetime.datetime.utcnow().isoformat() + "Z"
     ts         = started_at[:19].replace(":", "-").replace("T", "_")
     safe_host  = re.sub(r"[^\w\.\-]", "_", host)
@@ -187,20 +180,32 @@ def mtr_stream():
     state_file = os.path.join(results_dir, f"{job_id}.running.json")
     done_file  = os.path.join(results_dir, f"{job_id}.json")
 
-    # Write initial state to disk immediately
-    initial_state = {
-        "job_id": job_id, "status": "running",
-        "started_at": started_at, "ended_at": None,
-        "source_ip": src_ip, "public_ip": pub_ip,
-        "destination": host, "mode": mode,
-        "packets": count if mode == "packets" else None,
-        "duration_s": seconds if mode == "time" else None,
-        "no_dns": no_dns, "tag": tag,
-        "total_cycles": total_cycles,
-        "hops": [], "raw": ""
-    }
-    with open(state_file, "w") as f:
-        json.dump(initial_state, f)
+    # ── Only start background job if it's not already running ────────
+    is_new_job = not os.path.isfile(state_file)
+
+    if is_new_job:
+        initial_state = {
+            "job_id": job_id, "status": "running",
+            "started_at": started_at, "ended_at": None,
+            "source_ip": src_ip, "public_ip": pub_ip,
+            "destination": host, "mode": mode,
+            "packets": count if mode == "packets" else None,
+            "duration_s": seconds if mode == "time" else None,
+            "no_dns": no_dns, "tag": tag,
+            "total_cycles": total_cycles,
+            "hops": [], "raw": ""
+        }
+        with open(state_file, "w") as f:
+            json.dump(initial_state, f)
+    else:
+        # Reconnecting — read existing state for metadata
+        try:
+            with open(state_file) as f:
+                initial_state = json.load(f)
+            tag          = initial_state.get("tag", tag)
+            total_cycles = initial_state.get("total_cycles", total_cycles)
+        except Exception:
+            initial_state = {}
 
     def parse_mtr_output(lines):
         hops = []
@@ -218,11 +223,21 @@ def mtr_stream():
                 })
         return hops
 
+    # ── Background thread: runs full mtr --report, saves result ──────
     def run_background():
+        if mode == "time":
+            bg_cmd = ["mtr", "--report", "--report-wide", "--interval", "1",
+                      "--report-cycles", str(seconds)]
+        else:
+            bg_cmd = ["mtr", "--report", "--report-wide",
+                      "--report-cycles", str(count)]
+        if no_dns:
+            bg_cmd.append("--no-dns")
+        bg_cmd.append(host)
+
         lines = []
         try:
-            # bufsize=0 avoids the Python 3.9 binary-mode line-buffer warning
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+            proc = subprocess.Popen(bg_cmd, stdout=subprocess.PIPE,
                                     stderr=subprocess.STDOUT, bufsize=0)
             raw_out = proc.communicate()[0]
             for line in raw_out.decode(errors="replace").splitlines():
@@ -244,36 +259,112 @@ def mtr_stream():
         except Exception:
             pass
 
-    t = threading.Thread(target=run_background, daemon=True)
-    t.start()
+    if is_new_job:
+        t = threading.Thread(target=run_background, daemon=True)
+        t.start()
 
-    def stream_ticks():
-        start = _time.time()
-        last  = start
-        # Stream ticks while job is running (state file exists)
+    # ── SSE stream: runs mtr with 1 cycle at a time for live output ──
+    def stream_live():
+        start     = _time.time()
+        last_tick = start
+        cycle     = 0
+
+        # Live streaming command: 1 cycle per run, repeated
+        live_cmd_base = ["mtr", "--report", "--report-wide",
+                         "--report-cycles", "1"]
+        if no_dns:
+            live_cmd_base.append("--no-dns")
+        live_cmd_base.append(host)
+
         while os.path.isfile(state_file):
-            _time.sleep(0.3)
-            now = _time.time()
-            if now - last >= 1.0:
-                elapsed   = int(now - start)
-                remaining = max(0, total_cycles - elapsed)
-                last = now
-                yield f"data: __TICK__ {elapsed} {remaining}\n\n"
-        # Job finished — stream the raw output lines
+            elapsed   = int(_time.time() - start)
+            remaining = max(0, total_cycles - elapsed)
+
+            # Run one mtr cycle
+            try:
+                r = subprocess.run(live_cmd_base, stdout=subprocess.PIPE,
+                                   stderr=subprocess.STDOUT, bufsize=0,
+                                   timeout=15)
+                out = r.stdout.decode(errors="replace").strip()
+                if out:
+                    cycle += 1
+                    # Send cycle header tick
+                    yield f"data: __TICK__ {elapsed} {remaining}\n\n"
+                    # Send each output line
+                    for line in out.splitlines():
+                        if line.strip():
+                            yield f"data: {line}\n\n"
+                    yield f"data: ---\n\n"  # cycle separator
+            except Exception:
+                _time.sleep(1)
+
+            # If mode=packets and we've done enough cycles, stop streaming
+            if mode == "packets" and cycle >= count:
+                break
+
+        # Job finished — stream the final result
         try:
             with open(done_file) as f:
                 d = json.load(f)
+            yield f"data: \n\n"
+            yield f"data: ==========================================\n\n"
+            yield f"data: Final Report:\n\n"
             for line in (d.get("raw") or "").splitlines():
                 if line.strip():
                     yield f"data: {line}\n\n"
-            yield f"data: \n\n"
-            yield f"data: ✔ Result saved to mtr-results/{job_id}.json\n\n"
+            yield f"data: ✔ Result saved: {job_id}.json\n\n"
         except Exception as e:
             yield f"data: ⚠ Could not read result: {e}\n\n"
+
         yield "data: __DONE__\n\n"
 
-    return Response(stream_ticks(), content_type="text/event-stream",
+    return Response(stream_live(), content_type="text/event-stream",
                     headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"})
+
+
+@app.route("/mtr/kill/<job_id>", methods=["POST"])
+def mtr_kill(job_id):
+    """Kill a running MTR job by removing its state file and killing mtr processes."""
+    import subprocess as sp
+    base_dir    = os.path.dirname(os.path.abspath(__file__))
+    results_dir = os.path.join(base_dir, "mtr-results")
+    state_file  = os.path.join(results_dir, f"{job_id}.running.json")
+
+    if not os.path.isfile(state_file):
+        return jsonify({"error": "Job not found or already finished"}), 404
+
+    try:
+        # Read destination to kill specific mtr process
+        with open(state_file) as f:
+            d = json.load(f)
+        dest = d.get("destination", "")
+
+        # Remove state file — this stops stream_live loop
+        os.remove(state_file)
+
+        # Best-effort kill of mtr processes for this host
+        if dest:
+            sp.run(["pkill", "-f", f"mtr.*{dest}"], capture_output=True)
+
+        return jsonify({"success": True, "output": f"Job {job_id} killed."})
+    except Exception as e:
+        return jsonify({"success": False, "output": str(e)}), 500
+
+
+@app.route("/mtr/delete/<path:filename>", methods=["DELETE"])
+def mtr_delete(filename):
+    """Delete a completed MTR result JSON file."""
+    base_dir    = os.path.dirname(os.path.abspath(__file__))
+    results_dir = os.path.join(base_dir, "mtr-results")
+    filepath    = os.path.join(results_dir, filename)
+    if not os.path.isfile(filepath):
+        return jsonify({"error": "File not found"}), 404
+    try:
+        os.remove(filepath)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 
 
 @app.route("/mtr/running", methods=["GET"])
