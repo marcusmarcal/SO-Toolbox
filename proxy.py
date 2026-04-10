@@ -95,13 +95,17 @@ def git_pull():
         )
         output = (result.stdout.decode() + result.stderr.decode()).strip()
         success = result.returncode == 0
-
-        # Schedule proxy restart after 3 seconds so response can be sent first
-        if success:
-            subprocess.Popen(["bash", "-c", "sleep 3 && systemctl restart phenix-proxy"])
-            output += "\n\n✔ Proxy restart scheduled in 3 seconds..."
-
         return jsonify({"success": success, "output": output})
+    except Exception as e:
+        return jsonify({"success": False, "output": str(e)}), 500
+
+
+@app.route("/restart-proxy", methods=["POST"])
+def restart_proxy():
+    import subprocess
+    try:
+        subprocess.Popen(["bash", "-c", "sleep 2 && systemctl restart phenix-proxy"])
+        return jsonify({"success": True, "output": "Proxy restart scheduled in 2 seconds."})
     except Exception as e:
         return jsonify({"success": False, "output": str(e)}), 500
 

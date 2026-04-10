@@ -85,21 +85,22 @@
   .btn-dl.pdf:hover { border-color: var(--red); color: var(--red); }
 
   /* History panel */
-  .history-panel { width: 300px; flex-shrink: 0; display: flex; flex-direction: column; background: var(--bg2); border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+  .history-panel { width: 380px; flex-shrink: 0; display: flex; flex-direction: column; background: var(--bg2); border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
   .history-header { padding: 0.42rem 0.75rem; background: var(--bg3); border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; }
   .btn-refresh { background: transparent; border: none; color: var(--muted); font-family: var(--mono); font-size: 0.68rem; cursor: pointer; padding: 0; }
   .btn-refresh:hover { color: var(--cyan); }
   .history-list { flex: 1; overflow-y: auto; }
   .history-list::-webkit-scrollbar { width: 4px; }
   .history-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-  .history-item { padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.12s; }
+  .history-item { padding: 0.65rem 0.85rem; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.12s; }
   .history-item:hover { background: var(--bg3); }
-  .hi-name { font-family: var(--mono); font-size: 0.72rem; color: #fff; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
-  .hi-meta { font-family: var(--mono); font-size: 0.62rem; color: var(--muted); margin-bottom: 4px; }
+  .hi-name { font-family: var(--mono); font-size: 0.85rem; color: #fff; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+  .hi-url  { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
+  .hi-meta { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); margin-bottom: 5px; }
   .hi-links { display: flex; gap: 0.4rem; flex-wrap: wrap; }
-  .hi-link { font-family: var(--mono); font-size: 0.62rem; color: var(--cyan); text-decoration: none; border: 1px solid var(--border); border-radius: 3px; padding: 1px 6px; }
+  .hi-link { font-family: var(--mono); font-size: 0.65rem; color: var(--cyan); text-decoration: none; border: 1px solid var(--border); border-radius: 3px; padding: 2px 8px; }
   .hi-link:hover { border-color: var(--cyan); }
-  .history-empty { padding: 1.5rem; text-align: center; font-family: var(--mono); font-size: 0.65rem; color: var(--muted); }
+  .history-empty { padding: 1.5rem; text-align: center; font-family: var(--mono); font-size: 0.72rem; color: var(--muted); }
 
   /* Progress bar */
   #progress-bar { height: 3px; background: var(--border); flex-shrink: 0; }
@@ -155,17 +156,12 @@
         <label>Port</label>
         <input id="srt-port" type="number" placeholder="9000" min="1" max="65535" />
       </div>
-      <div class="field w120">
-        <label>Mode</label>
-        <select id="srt-mode">
-          <option value="caller">caller</option>
-          <option value="listener">listener</option>
-          <option value="rendezvous">rendezvous</option>
-        </select>
-      </div>
       <div class="field grow">
         <label>Passphrase <span style="color:var(--muted);font-weight:400">(optional, SP internal already loaded)</span></label>
-        <input id="srt-pass" type="password" placeholder="leave blank if none" autocomplete="off" />
+        <!-- type="text" with autocomplete=new-password prevents browser save prompts -->
+        <input id="srt-pass" type="text" placeholder="leave blank if none"
+          autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false"
+          style="-webkit-text-security: disc; font-family: var(--mono)" />
       </div>
       <div class="field w90">
         <label>Latency ms</label>
@@ -176,7 +172,7 @@
     <div class="form-row">
       <div class="field grow" style="max-width:300px">
         <label>Tag <span style="color:var(--muted);font-weight:400">(optional)</span></label>
-        <input id="inp-tag" type="text" placeholder="e.g. test, JIRA-123, INC-456" autocomplete="off" list="ingest-tag-presets" />
+        <input id="inp-tag" type="text" placeholder="e.g. Test, VIDENG-1234, INC2345678" autocomplete="off" list="ingest-tag-presets" />
         <datalist id="ingest-tag-presets"></datalist>
       </div>
     </div>
@@ -248,14 +244,23 @@
     </div>
 
     <div class="history-panel">
-      <div class="history-header">
-        History
-        <div style="display:flex;gap:0.3rem;align-items:center">
+      <div class="history-header" style="flex-direction:column;gap:0.4rem;padding:0.5rem 0.75rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;width:100%">
+          <span>History</span>
+          <button class="btn-refresh" onclick="loadHistory()">↻</button>
+        </div>
+        <div style="display:flex;gap:0.4rem;width:100%">
+          <input id="search-filter" type="text" placeholder="search host, port…"
+            style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:0.62rem;padding:2px 6px;outline:none"
+            oninput="loadHistory()" />
+          <select id="server-filter" onchange="loadHistory()"
+            style="background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:0.62rem;padding:2px 4px;outline:none;max-width:110px">
+            <option value="">All servers</option>
+          </select>
           <input id="tag-filter" type="text" placeholder="tag…" list="ingest-tag-filter-list"
-            style="background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:0.6rem;padding:1px 5px;width:70px;outline:none"
+            style="width:70px;background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:0.62rem;padding:2px 6px;outline:none"
             oninput="loadHistory()" />
           <datalist id="ingest-tag-filter-list"></datalist>
-          <button class="btn-refresh" onclick="loadHistory()">↻</button>
         </div>
       </div>
       <div class="history-list" id="history-list">
@@ -285,6 +290,7 @@
   const PROXY  = "/phenix-proxy";
   let curType  = "srt";
   let pollTimer = null;
+  let _serverPresets = {}; // ip -> label map from SRT_LOCAL_*
 
   // ── Load config (SRT_LOCAL_* presets + passphrase) ───────────────
   async function loadConfig() {
@@ -296,6 +302,7 @@
       // Populate SRT local host presets
       const datalist = document.getElementById("srt-local-presets");
       datalist.innerHTML = "";
+      _serverPresets = {};
       Object.keys(env)
         .filter(k => /^SRT_LOCAL_\d+$/.test(k))
         .sort((a, b) => parseInt(a.split("_")[2]) - parseInt(b.split("_")[2]))
@@ -304,11 +311,21 @@
           const ip    = (parts[0] || "").trim();
           const label = (parts[1] || ip).trim();
           if (!ip) return;
+          _serverPresets[ip] = label;
           const opt = document.createElement("option");
           opt.value       = ip;
           opt.textContent = label;
           datalist.appendChild(opt);
         });
+
+      // Populate server filter dropdown
+      const sf = document.getElementById("server-filter");
+      if (sf) {
+        sf.innerHTML = '<option value="">All servers</option>';
+        Object.entries(_serverPresets).forEach(([ip, label]) => {
+          sf.innerHTML += `<option value="${ip}">${label}</option>`;
+        });
+      }
 
       // Pre-fill passphrase from env
       if (env.SRT_PASSPHRASE) {
@@ -339,11 +356,10 @@
     if (curType === "srt") {
       const host    = document.getElementById("srt-host").value.trim();
       const port    = document.getElementById("srt-port").value.trim();
-      const mode    = document.getElementById("srt-mode").value;
       const pass    = document.getElementById("srt-pass").value.trim();
       const latency = document.getElementById("srt-latency").value.trim();
       if (!host || !port) return null;
-      let url = `srt://${host}:${port}?mode=${mode}`;
+      let url = `srt://${host}:${port}?mode=caller`;
       if (pass)    url += `&passphrase=${encodeURIComponent(pass)}`;
       if (latency) url += `&latency=${latency}`;
       return url;
@@ -462,12 +478,24 @@
   }
 
   // ── History ──────────────────────────────────────────────────────
+  function resolveServerName(url) {
+    // Extract host:port from srt://host:port?... or any URL
+    const m = url.match(/(?:srt|rtmp|udp):\/\/[@]?([^:/?]+):?(\d+)?/);
+    if (!m) return { name: url, sub: "" };
+    const ip   = m[1];
+    const port = m[2] || "";
+    const label = _serverPresets[ip] || ip;
+    return { name: label, sub: port ? `${ip}:${port}` : ip };
+  }
+
   async function loadHistory() {
     try {
       const res    = await fetch(`${PROXY}/ingest/results`);
       const items  = await res.json();
       const list   = document.getElementById("history-list");
-      const filter = (document.getElementById("tag-filter").value || "").toLowerCase().trim();
+      const search = (document.getElementById("search-filter").value || "").toLowerCase().trim();
+      const server = (document.getElementById("server-filter").value || "").trim();
+      const tag    = (document.getElementById("tag-filter").value || "").toLowerCase().trim();
 
       // Populate tag datalists
       const allTags = [...new Set(items.map(i => i.tag).filter(Boolean))];
@@ -476,9 +504,13 @@
         if (dl) dl.innerHTML = allTags.map(t => `<option value="${t}">`).join("");
       });
 
-      const filtered = filter
-        ? items.filter(i => (i.tag || "").toLowerCase().includes(filter))
-        : items;
+      const filtered = items.filter(item => {
+        const url = (item.url || item.name || "").toLowerCase();
+        if (search && !url.includes(search)) return false;
+        if (server && !url.includes(server.toLowerCase())) return false;
+        if (tag    && !(item.tag || "").toLowerCase().includes(tag)) return false;
+        return true;
+      });
 
       if (!filtered.length) {
         list.innerHTML = '<div class="history-empty">No results found</div>';
@@ -486,18 +518,21 @@
       }
 
       list.innerHTML = filtered.map(item => {
+        const { name, sub } = resolveServerName(item.url || item.name || "");
         const date = item.started_at ? item.started_at.slice(0,16).replace("T"," ") : "";
-        const statusBadge = item.status === "done"
-          ? `<span style="color:var(--green)">✓</span>`
+        const statusDot = item.status === "done"
+          ? `<span style="color:var(--green)">✓</span> `
           : item.status === "failed"
-          ? `<span style="color:var(--red)">✗</span>`
+          ? `<span style="color:var(--red)">✗</span> `
           : "";
+        const safeItem = JSON.stringify(item).replace(/"/g, "&quot;");
         return `
-        <div class="history-item" onclick="openResult(${JSON.stringify(item).replace(/"/g,'&quot;')})">
-          <div class="hi-name" title="${item.url || item.name}">${statusBadge} ${item.url || item.name}</div>
-          <div class="hi-meta">${date}${item.tag ? ` · <span style="color:var(--cyan)">${item.tag}</span>` : ""}</div>
+        <div class="history-item" onclick="openResult(${safeItem})">
+          <div class="hi-name">${statusDot}${name}</div>
+          <div class="hi-url">${sub}${item.tag ? ` · <span style="color:var(--cyan)">${item.tag}</span>` : ""}</div>
+          <div class="hi-meta">${date}</div>
           <div class="hi-links">
-            <span class="hi-link" onclick="event.stopPropagation();openResult(${JSON.stringify(item).replace(/"/g,'&quot;')})">📋 View</span>
+            <span class="hi-link" onclick="event.stopPropagation();openResult(${safeItem})">📋 View</span>
             <a class="hi-link" href="${PROXY}/ingest/download/${encodeURIComponent(item.zip)}" download onclick="event.stopPropagation()">⬇ ZIP</a>
             ${item.dir ? `<a class="hi-link" href="${PROXY}/ingest/report/${encodeURIComponent(item.dir)}/index.html" target="_blank" onclick="event.stopPropagation()">↗ HTML</a>` : ""}
           </div>

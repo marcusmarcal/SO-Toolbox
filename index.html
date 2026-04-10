@@ -781,6 +781,7 @@
           <span id="env-pill-text">Loading .env…</span>
         </div>
         <button id="btn-git-pull" class="git-pull-btn" data-tip="Pull latest from Git" onclick="gitPull()">⟳ Update</button>
+        <button class="git-pull-btn" data-tip="Restart proxy service" onclick="openRestartConfirm()" style="border-color:rgba(255,78,106,0.4);color:#ffb3be;">⏻ Restart Proxy</button>
         <span class="version" id="app-version" onclick="openChangelog()" title="Click to see changelog">v2.0.0</span>
       </header>
 
@@ -847,6 +848,23 @@
       </div>
     </div>
 
+    <!-- ── Restart Confirm Modal ──────────────────────────── -->
+    <div id="restart-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:300;align-items:center;justify-content:center;">
+      <div class="git-card" style="max-width:420px">
+        <div class="git-card-title" style="color:#ffb3be">⏻ Restart Proxy Service</div>
+        <div style="font-family:var(--mono);font-size:0.72rem;color:var(--text);line-height:1.7;margin-bottom:1rem">
+          ⚠ Restarting the proxy will <strong style="color:#ffb3be">immediately terminate</strong> all running background jobs:<br><br>
+          <span style="color:var(--muted)">• MTR traces in progress<br>• Ingest analyses in progress</span><br><br>
+          Are you sure you want to continue?
+        </div>
+        <div style="display:flex;gap:0.5rem">
+          <button onclick="confirmRestart()" style="background:#ff4e6a;border:none;border-radius:6px;color:#fff;font-family:var(--mono);font-size:0.7rem;font-weight:700;padding:6px 16px;cursor:pointer">Yes, Restart</button>
+          <button onclick="closeRestartConfirm()" class="git-close-btn">Cancel</button>
+        </div>
+        <div id="restart-output" style="display:none;margin-top:1rem" class="git-output"></div>
+      </div>
+    </div>
+
     <div id="statusbar">
       <span>● SP SO WEB TOOLBOX</span>
       <span class="sep">|</span>
@@ -886,8 +904,7 @@
           output.textContent = data.output || "(no output)";
           output.classList.add(data.success ? "ok" : "err");
           if (data.success) {
-            output.textContent += "\n⏳ Waiting for proxy to restart...";
-            setTimeout(() => location.reload(), 7000);
+            output.textContent += "\n\n✔ Done. Use ⏻ Restart Proxy to apply changes.";
           }
         } catch (e) {
           output.textContent = `Error: ${e.message}`;
@@ -900,6 +917,36 @@
 
       function closeGitModal() {
         document.getElementById("git-modal").classList.remove("open");
+      }
+
+      function openRestartConfirm() {
+        const m = document.getElementById("restart-modal");
+        document.getElementById("restart-output").style.display = "none";
+        m.style.display = "flex";
+      }
+
+      function closeRestartConfirm() {
+        document.getElementById("restart-modal").style.display = "none";
+      }
+
+      async function confirmRestart() {
+        const out = document.getElementById("restart-output");
+        out.style.display = "block";
+        out.className = "git-output";
+        out.textContent = "Restarting proxy...";
+        try {
+          const res  = await fetch(`${PROXY_URL}/restart-proxy`, { method: "POST" });
+          const data = await res.json();
+          out.textContent = data.output || "(no output)";
+          out.classList.add(data.success ? "ok" : "err");
+          if (data.success) {
+            out.textContent += "\n\n⏳ Reloading in 6 seconds...";
+            setTimeout(() => location.reload(), 6000);
+          }
+        } catch (e) {
+          out.textContent = `Error: ${e.message}`;
+          out.classList.add("err");
+        }
       }
 
       $(function () {
