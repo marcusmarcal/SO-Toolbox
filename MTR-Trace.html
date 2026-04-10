@@ -1,1063 +1,686 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MTR — Network Trace</title>
-    <link
-      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Barlow:wght@300;400;600;700&display=swap"
-      rel="stylesheet"
-    />
-    <style>
-      *,
-      *::before,
-      *::after {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MTR — Network Trace</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Barlow:wght@300;400;600;700&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-      :root {
-        --bg: #080c10;
-        --bg2: #0d1117;
-        --bg3: #161b22;
-        --border: #21262d;
-        --green: #3fb950;
-        --green-d: #1a3d20;
-        --cyan: #58a6ff;
-        --yellow: #e3b341;
-        --red: #f85149;
-        --text: #c9d1d9;
-        --muted: #484f58;
-        --mono: "JetBrains Mono", monospace;
-        --sans: "Barlow", sans-serif;
-      }
+  :root {
+    --bg:      #080c10;
+    --bg2:     #0d1117;
+    --bg3:     #161b22;
+    --border:  #21262d;
+    --green:   #3fb950;
+    --green-d: #1a3d20;
+    --cyan:    #58a6ff;
+    --yellow:  #e3b341;
+    --red:     #f85149;
+    --text:    #c9d1d9;
+    --muted:   #484f58;
+    --mono:    'JetBrains Mono', monospace;
+    --sans:    'Barlow', sans-serif;
+  }
 
-      html,
-      body {
-        height: 100%;
-        background: var(--bg);
-        color: var(--text);
-        font-family: var(--sans);
-        font-size: 14px;
-        overflow: hidden;
-      }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; overflow: hidden; }
+  #app { display: flex; flex-direction: column; height: 100vh; padding: 0.85rem 1.1rem 0.85rem; gap: 0.65rem; }
 
-      #app {
-        display: flex;
-        flex-direction: column;
-        height: 100vh;
-        padding: 0.85rem 1.1rem 0.85rem;
-        gap: 0.65rem;
-      }
+  /* ── Topbar ── */
+  .topbar { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; border-bottom: 1px solid var(--border); padding-bottom: 0.65rem; }
+  .topbar h1 { font-family: var(--mono); font-size: 0.9rem; font-weight: 700; color: #fff; white-space: nowrap; }
+  .topbar h1 span { color: var(--green); }
+  .server-info { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-left: auto; }
+  .info-pill { font-family: var(--mono); font-size: 0.62rem; padding: 2px 7px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg3); color: var(--muted); white-space: nowrap; }
+  .info-pill span { color: var(--cyan); }
 
-      /* ── Topbar ── */
-      .topbar {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        flex-shrink: 0;
-        border-bottom: 1px solid var(--border);
-        padding-bottom: 0.65rem;
-      }
-      .topbar h1 {
-        font-family: var(--mono);
-        font-size: 0.9rem;
-        font-weight: 700;
-        color: #fff;
-        white-space: nowrap;
-      }
-      .topbar h1 span {
-        color: var(--green);
-      }
-      .server-info {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.4rem;
-        margin-left: auto;
-      }
-      .info-pill {
-        font-family: var(--mono);
-        font-size: 0.62rem;
-        padding: 2px 7px;
-        border-radius: 4px;
-        border: 1px solid var(--border);
-        background: var(--bg3);
-        color: var(--muted);
-        white-space: nowrap;
-      }
-      .info-pill span {
-        color: var(--cyan);
-      }
+  /* ── Form ── */
+  .form-row { display: flex; gap: 0.65rem; align-items: flex-end; flex-shrink: 0; flex-wrap: wrap; }
+  .field { display: flex; flex-direction: column; gap: 0.28rem; }
+  .field.grow { flex: 1; min-width: 180px; }
+  .field.w90  { width: 90px; }
+  .field.w75  { width: 75px; }
+  label { font-family: var(--mono); font-size: 0.58rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  input[type="text"], input[type="number"], select {
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 5px;
+    padding: 0.45rem 0.65rem; color: #fff; font-family: var(--mono); font-size: 0.82rem;
+    outline: none; transition: border-color 0.15s; width: 100%;
+  }
+  input:focus, select:focus { border-color: var(--cyan); }
+  input:disabled, select:disabled { opacity: 0.35; cursor: not-allowed; }
 
-      /* ── Form ── */
-      .form-row {
-        display: flex;
-        gap: 0.65rem;
-        align-items: flex-end;
-        flex-shrink: 0;
-        flex-wrap: wrap;
-      }
-      .field {
-        display: flex;
-        flex-direction: column;
-        gap: 0.28rem;
-      }
-      .field.grow {
-        flex: 1;
-        min-width: 180px;
-      }
-      .field.w90 {
-        width: 90px;
-      }
-      .field.w75 {
-        width: 75px;
-      }
+  /* Mode selector — Time left, Packets right */
+  .mode-tabs { display: flex; border: 1px solid var(--border); border-radius: 5px; overflow: hidden; height: 34px; }
+  .mode-tab { flex: 1; background: var(--bg3); border: none; color: var(--muted); font-family: var(--mono); font-size: 0.7rem; font-weight: 700; cursor: pointer; transition: background 0.15s, color 0.15s; padding: 0 0.75rem; }
+  .mode-tab.active { background: var(--cyan); color: #000; }
 
-      label {
-        font-family: var(--mono);
-        font-size: 0.58rem;
-        font-weight: 700;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: var(--muted);
-      }
+  /* Toggle */
+  .toggle-wrap { display: flex; flex-direction: column; gap: 0.28rem; }
+  .toggle { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; user-select: none; height: 34px; }
+  .toggle input { display: none; }
+  .toggle-track { width: 30px; height: 16px; background: var(--bg3); border: 1px solid var(--border); border-radius: 999px; position: relative; transition: background 0.2s, border-color 0.2s; flex-shrink: 0; }
+  .toggle-thumb { position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--muted); transition: transform 0.2s, background 0.2s; }
+  .toggle input:checked ~ .toggle-track { background: var(--green-d); border-color: var(--green); }
+  .toggle input:checked ~ .toggle-track .toggle-thumb { transform: translateX(14px); background: var(--green); }
+  .toggle-label { font-family: var(--mono); font-size: 0.7rem; color: var(--text); }
 
-      input[type="text"],
-      input[type="number"],
-      select {
-        background: var(--bg3);
-        border: 1px solid var(--border);
-        border-radius: 5px;
-        padding: 0.45rem 0.65rem;
-        color: #fff;
-        font-family: var(--mono);
-        font-size: 0.82rem;
-        outline: none;
-        transition: border-color 0.15s;
-        width: 100%;
-      }
-      input:focus,
-      select:focus {
-        border-color: var(--cyan);
-      }
-      input:disabled,
-      select:disabled {
-        opacity: 0.35;
-        cursor: not-allowed;
-      }
+  /* Buttons */
+  .btn-run { background: var(--green); color: #000; border: none; border-radius: 5px; padding: 0 1.1rem; font-family: var(--mono); font-size: 0.76rem; font-weight: 700; cursor: pointer; height: 34px; white-space: nowrap; align-self: flex-end; transition: opacity 0.15s; }
+  .btn-run:hover { opacity: 0.85; }
+  .btn-run:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn-stop { background: transparent; color: var(--red); border: 1px solid var(--red); border-radius: 5px; padding: 0 0.9rem; font-family: var(--mono); font-size: 0.76rem; font-weight: 700; cursor: pointer; height: 34px; display: none; align-self: flex-end; }
+  .btn-stop.visible { display: flex; align-items: center; }
 
-      /* Mode selector */
-      .mode-tabs {
-        display: flex;
-        border: 1px solid var(--border);
-        border-radius: 5px;
-        overflow: hidden;
-        height: 34px;
-      }
-      .mode-tab {
-        flex: 1;
-        background: var(--bg3);
-        border: none;
-        color: var(--muted);
-        font-family: var(--mono);
-        font-size: 0.7rem;
-        font-weight: 700;
-        cursor: pointer;
-        transition: background 0.15s, color 0.15s;
-        padding: 0 0.75rem;
-      }
-      .mode-tab.active {
-        background: var(--cyan);
-        color: #000;
-      }
+  /* ── Main area ── */
+  .main-area { flex: 1; display: flex; gap: 0.65rem; min-height: 0; }
 
-      /* Toggle */
-      .toggle-wrap {
-        display: flex;
-        flex-direction: column;
-        gap: 0.28rem;
-      }
-      .toggle {
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-        cursor: pointer;
-        user-select: none;
-        height: 34px;
-      }
-      .toggle input {
-        display: none;
-      }
-      .toggle-track {
-        width: 30px;
-        height: 16px;
-        background: var(--bg3);
-        border: 1px solid var(--border);
-        border-radius: 999px;
-        position: relative;
-        transition: background 0.2s, border-color 0.2s;
-        flex-shrink: 0;
-      }
-      .toggle-thumb {
-        position: absolute;
-        top: 2px;
-        left: 2px;
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        background: var(--muted);
-        transition: transform 0.2s, background 0.2s;
-      }
-      .toggle input:checked ~ .toggle-track {
-        background: var(--green-d);
-        border-color: var(--green);
-      }
-      .toggle input:checked ~ .toggle-track .toggle-thumb {
-        transform: translateX(14px);
-        background: var(--green);
-      }
-      .toggle-label {
-        font-family: var(--mono);
-        font-size: 0.7rem;
-        color: var(--text);
-      }
+  /* Output */
+  .output-wrap { flex: 1; display: flex; flex-direction: column; min-height: 0; background: var(--bg2); border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+  .output-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 0.38rem 0.75rem; border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--bg3); }
+  .status-label { display: flex; align-items: center; gap: 0.4rem; font-family: var(--mono); font-size: 0.62rem; color: var(--muted); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+  .dot.running { background: var(--yellow); animation: blink 0.8s ease-in-out infinite; }
+  .dot.ok  { background: var(--green); animation: none; }
+  .dot.err { background: var(--red);   animation: none; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .btn-copy { background: transparent; border: 1px solid var(--border); border-radius: 4px; color: var(--muted); font-family: var(--mono); font-size: 0.6rem; font-weight: 700; padding: 0.22rem 0.7rem; cursor: pointer; transition: border-color 0.15s, color 0.15s; }
+  .btn-copy:hover { border-color: var(--cyan); color: var(--cyan); }
+  /* Note: copy button is never disabled — always available */
+  #output { flex: 1; width: 100%; min-height: 0; resize: none; background: transparent; border: none; padding: 0.75rem 0.9rem; color: var(--text); font-family: var(--mono); font-size: 0.76rem; line-height: 1.7; outline: none; white-space: pre; overflow: auto; }
 
-      /* Buttons */
-      .btn-run {
-        background: var(--green);
-        color: #000;
-        border: none;
-        border-radius: 5px;
-        padding: 0 1.1rem;
-        font-family: var(--mono);
-        font-size: 0.76rem;
-        font-weight: 700;
-        cursor: pointer;
-        height: 34px;
-        white-space: nowrap;
-        align-self: flex-end;
-        transition: opacity 0.15s;
-      }
-      .btn-run:hover {
-        opacity: 0.85;
-      }
-      .btn-run:disabled {
-        opacity: 0.35;
-        cursor: not-allowed;
-      }
-      .btn-stop {
-        background: transparent;
-        color: var(--red);
-        border: 1px solid var(--red);
-        border-radius: 5px;
-        padding: 0 0.9rem;
-        font-family: var(--mono);
-        font-size: 0.76rem;
-        font-weight: 700;
-        cursor: pointer;
-        height: 34px;
-        display: none;
-        align-self: flex-end;
-      }
-      .btn-stop.visible {
-        display: flex;
-        align-items: center;
-      }
+  /* Progress bar */
+  #progress-bar { height: 3px; background: var(--border); flex-shrink: 0; overflow: hidden; }
+  #progress-fill { height: 100%; width: 0%; background: var(--yellow); transition: width 0.8s linear, background 0.5s; }
 
-      /* ── Main area: output + history side by side ── */
-      .main-area {
-        flex: 1;
-        display: flex;
-        gap: 0.65rem;
-        min-height: 0;
-      }
+  /* ── History panel ── */
+  .history-panel { width: 370px; flex-shrink: 0; display: flex; flex-direction: column; background: var(--bg2); border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+  .history-header { padding: 0.45rem 0.75rem; background: var(--bg3); border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 0.66rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 0.3rem; }
+  .btn-refresh { background: transparent; border: none; color: var(--muted); font-family: var(--mono); font-size: 0.7rem; cursor: pointer; padding: 0; flex-shrink: 0; }
+  .btn-refresh:hover { color: var(--cyan); }
 
-      /* Output */
-      .output-wrap {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        min-height: 0;
-        background: var(--bg2);
-        border: 1px solid var(--border);
-        border-radius: 7px;
-        overflow: hidden;
-      }
-      .output-toolbar {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0.38rem 0.75rem;
-        border-bottom: 1px solid var(--border);
-        flex-shrink: 0;
-        background: var(--bg3);
-      }
-      .status-label {
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-        font-family: var(--mono);
-        font-size: 0.62rem;
-        color: var(--muted);
-      }
-      .dot {
-        width: 7px;
-        height: 7px;
-        border-radius: 50%;
-        background: var(--muted);
-        flex-shrink: 0;
-      }
-      .dot.running {
-        background: var(--yellow);
-        animation: blink 0.8s ease-in-out infinite;
-      }
-      .dot.ok {
-        background: var(--green);
-      }
-      .dot.err {
-        background: var(--red);
-      }
-      @keyframes blink {
-        0%,
-        100% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.3;
-        }
-      }
-      .btn-copy {
-        background: transparent;
-        border: 1px solid var(--border);
-        border-radius: 4px;
-        color: var(--muted);
-        font-family: var(--mono);
-        font-size: 0.6rem;
-        font-weight: 700;
-        padding: 0.22rem 0.6rem;
-        cursor: pointer;
-        transition: border-color 0.15s, color 0.15s;
-      }
-      .btn-copy:hover {
-        border-color: var(--cyan);
-        color: var(--cyan);
-      }
-      .btn-copy:disabled {
-        opacity: 0.3;
-        cursor: not-allowed;
-      }
-      #output {
-        flex: 1;
-        width: 100%;
-        min-height: 0;
-        resize: none;
-        background: transparent;
-        border: none;
-        padding: 0.75rem 0.9rem;
-        color: var(--text);
-        font-family: var(--mono);
-        font-size: 0.76rem;
-        line-height: 1.7;
-        outline: none;
-        white-space: pre;
-        overflow: auto;
-      }
+  /* Running section — max 2 items high */
+  #running-list { max-height: 128px; overflow-y: auto; flex-shrink: 0; border-bottom: 1px solid var(--border); }
 
-      /* History panel */
-      .history-panel {
-        width: 320px;
-        flex-shrink: 0;
-        display: flex;
-        flex-direction: column;
-        background: var(--bg2);
-        border: 1px solid var(--border);
-        border-radius: 7px;
-        overflow: hidden;
-      }
-      .history-header {
-        padding: 0.45rem 0.85rem;
-        background: var(--bg3);
-        border-bottom: 1px solid var(--border);
-        font-family: var(--mono);
-        font-size: 0.68rem;
-        font-weight: 700;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: var(--muted);
-        flex-shrink: 0;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-      .btn-refresh {
-        background: transparent;
-        border: none;
-        color: var(--muted);
-        font-family: var(--mono);
-        font-size: 0.7rem;
-        cursor: pointer;
-        padding: 0;
-      }
-      .btn-refresh:hover {
-        color: var(--cyan);
-      }
-      #running-list {
-        max-height: 140px;
-        overflow-y: auto;
-        flex-shrink: 0;
-      }
-      .history-list {
-        flex: 1;
-        overflow-y: auto;
-      }
-      .history-list::-webkit-scrollbar {
-        width: 4px;
-      }
-      .history-list::-webkit-scrollbar-thumb {
-        background: var(--border);
-        border-radius: 2px;
-      }
-      .history-item {
-        padding: 0.6rem 0.85rem;
-        border-bottom: 1px solid var(--border);
-        cursor: pointer;
-        transition: background 0.12s;
-      }
-      .history-item:hover {
-        background: var(--bg3);
-      }
-      .hi-dest {
-        font-family: var(--mono);
-        font-size: 0.78rem;
-        color: #fff;
-        font-weight: 600;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .hi-meta {
-        font-family: var(--mono);
-        font-size: 0.66rem;
-        color: var(--muted);
-        margin-top: 3px;
-        display: flex;
-        gap: 0.5rem;
-        flex-wrap: wrap;
-      }
-      .hi-badge {
-        background: var(--bg);
-        border: 1px solid var(--border);
-        border-radius: 3px;
-        padding: 1px 6px;
-        font-size: 0.63rem;
-      }
-      .hi-dl {
-        font-family: var(--mono);
-        font-size: 0.65rem;
-        color: var(--cyan);
-        margin-top: 5px;
-        text-decoration: none;
-        display: inline-block;
-      }
-      .hi-dl:hover {
-        text-decoration: underline;
-      }
-      .history-empty {
-        padding: 1.5rem;
-        text-align: center;
-        font-family: var(--mono);
-        font-size: 0.68rem;
-        color: var(--muted);
-      }
-    </style>
-  </head>
-  <body>
-    <div id="app">
-      <div class="topbar">
-        <h1>MTR <span>//</span> Network Trace</h1>
-        <div class="server-info">
-          <div class="info-pill">Source: <span id="pill-local">…</span></div>
-          <div class="info-pill">Public: <span id="pill-public">…</span></div>
-          <div class="info-pill">Gateway: <span id="pill-gw">…</span></div>
-        </div>
-      </div>
+  /* History filters row */
+  .hist-filters { display: flex; gap: 0.3rem; padding: 0.35rem 0.75rem; background: var(--bg3); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .hist-filters input {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 3px;
+    color: var(--text); font-family: var(--mono); font-size: 0.62rem;
+    padding: 2px 6px; outline: none; transition: border-color 0.15s;
+  }
+  .hist-filters input:focus { border-color: var(--cyan); }
+  .hist-filters input.f-search { flex: 1; }
+  .hist-filters input.f-date   { width: 88px; }
+  .hist-filters input.f-tag    { width: 72px; }
 
-      <div class="form-row">
-        <div class="field grow">
-          <label>Destination Host / IP</label>
-          <input
-            id="inp-host"
-            type="text"
-            placeholder="e.g. 8.8.8.8 or example.com"
-            autocomplete="off"
-          />
-        </div>
+  .history-list { flex: 1; overflow-y: auto; }
+  .history-list::-webkit-scrollbar { width: 4px; }
+  .history-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .history-item { padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.12s; }
+  .history-item:hover { background: var(--bg3); }
+  .hi-dest { font-family: var(--mono); font-size: 0.76rem; color: #fff; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hi-date { font-family: var(--mono); font-size: 0.62rem; color: var(--muted); margin-top: 1px; }
+  .hi-meta { font-family: var(--mono); font-size: 0.63rem; color: var(--muted); margin-top: 3px; display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
+  .hi-badge { background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-size: 0.6rem; }
+  .hi-dl { font-family: var(--mono); font-size: 0.62rem; color: var(--cyan); margin-top: 4px; text-decoration: none; display: inline-block; }
+  .hi-dl:hover { text-decoration: underline; }
+  .history-empty { padding: 1.5rem; text-align: center; font-family: var(--mono); font-size: 0.66rem; color: var(--muted); }
 
-        <div class="field">
-          <label>Mode</label>
-          <div class="mode-tabs">
-            <button
-              class="mode-tab"
-              id="tab-packets"
-              onclick="setMode('packets')"
-            >
-              Packets
-            </button>
-            <button
-              class="mode-tab active"
-              id="tab-time"
-              onclick="setMode('time')"
-            >
-              Time
-            </button>
-          </div>
-        </div>
+  /* Running item clickable */
+  .running-item { padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.12s; }
+  .running-item:hover { background: var(--bg3); }
+</style>
+</head>
+<body>
+<div id="app">
 
-        <div class="field w90" id="field-count" style="display: none">
-          <label>Packets</label>
-          <input id="inp-count" type="number" value="50" min="1" max="500" />
-        </div>
+  <div class="topbar">
+    <h1>MTR <span>//</span> Network Trace</h1>
+    <div class="server-info">
+      <div class="info-pill">Source: <span id="pill-local">…</span></div>
+      <div class="info-pill">Public: <span id="pill-public">…</span></div>
+      <div class="info-pill">Gateway: <span id="pill-gw">…</span></div>
+    </div>
+  </div>
 
-        <div class="field w75" id="field-duration">
-          <label>Duration</label>
-          <input id="inp-duration" type="number" value="5" min="1" max="1440" />
-        </div>
+  <div class="form-row">
+    <div class="field grow">
+      <label>Destination Host / IP</label>
+      <input id="inp-host" type="text" placeholder="e.g. 8.8.8.8 or example.com" autocomplete="off" />
+    </div>
 
-        <div class="field w75" id="field-unit">
-          <label>Unit</label>
-          <select id="sel-unit">
-            <option value="60">min</option>
-            <option value="3600">hours</option>
-          </select>
-        </div>
-
-        <div class="toggle-wrap">
-          <label>No DNS</label>
-          <label class="toggle">
-            <input type="checkbox" id="chk-nodns" />
-            <span class="toggle-track"><span class="toggle-thumb"></span></span>
-            <span class="toggle-label">Disable name resolution</span>
-          </label>
-        </div>
-
-        <div class="field grow" style="min-width: 120px; max-width: 180px">
-          <label
-            >Tag
-            <span style="color: var(--muted); font-weight: 400"
-              >(optional)</span
-            ></label
-          >
-          <input
-            id="inp-tag"
-            type="text"
-            placeholder="e.g. Test, VIDENG-1234, INC2345678"
-            autocomplete="off"
-            list="tag-presets"
-          />
-          <datalist id="tag-presets"></datalist>
-        </div>
-
-        <button class="btn-run" id="btn-run" onclick="runMtr()">▶ Run</button>
-        <button class="btn-stop" id="btn-stop" onclick="stopMtr()">
-          ■ Stop
-        </button>
-      </div>
-
-      <div class="main-area">
-        <div class="output-wrap">
-          <div class="output-toolbar" id="output-toolbar">
-            <div class="status-label">
-              <span class="dot" id="dot"></span>
-              <span id="status-text">Ready</span>
-            </div>
-            <button
-              class="btn-copy"
-              id="btn-copy"
-              onclick="copyOutput()"
-              disabled
-            >
-              Copy
-            </button>
-          </div>
-          <!-- Progress bar — fills across the toolbar background -->
-          <div
-            id="progress-bar"
-            style="
-              height: 3px;
-              background: var(--border);
-              flex-shrink: 0;
-              position: relative;
-              overflow: hidden;
-            "
-          >
-            <div
-              id="progress-fill"
-              style="
-                height: 100%;
-                width: 0%;
-                background: var(--yellow);
-                transition: width 0.8s linear, background 0.5s;
-              "
-            ></div>
-          </div>
-          <textarea
-            id="output"
-            readonly
-            placeholder="MTR output will appear here..."
-          ></textarea>
-        </div>
-
-        <div class="history-panel">
-          <div class="history-header">
-            <span>Running</span>
-            <button class="btn-refresh" onclick="loadRunning()">↻</button>
-          </div>
-          <div class="history-list" id="running-list">
-            <div class="history-empty">No active jobs</div>
-          </div>
-          <div
-            class="history-header"
-            style="border-top: 1px solid var(--border)"
-          >
-            <span>History</span>
-            <div style="display: flex; gap: 0.3rem; align-items: center">
-              <input
-                id="tag-filter"
-                type="text"
-                placeholder="filter tag…"
-                list="tag-presets-hist"
-                style="
-                  background: var(--bg);
-                  border: 1px solid var(--border);
-                  border-radius: 3px;
-                  color: var(--text);
-                  font-family: var(--mono);
-                  font-size: 0.6rem;
-                  padding: 1px 5px;
-                  width: 80px;
-                  outline: none;
-                "
-                oninput="loadHistory()"
-              />
-              <datalist id="tag-presets-hist"></datalist>
-              <button class="btn-refresh" onclick="loadHistory()">↻</button>
-            </div>
-          </div>
-          <div class="history-list" id="history-list">
-            <div class="history-empty">No results yet</div>
-          </div>
-        </div>
+    <div class="field">
+      <label>Mode</label>
+      <div class="mode-tabs">
+        <button class="mode-tab active" id="tab-time"    onclick="setMode('time')">Time</button>
+        <button class="mode-tab"        id="tab-packets" onclick="setMode('packets')">Packets</button>
       </div>
     </div>
 
-    <script>
-      const PROXY = "/phenix-proxy";
-      let es = null;
-      let curMode = "time";
-      let localIp = "—";
-      let publicIp = "—";
+    <div class="field w75" id="field-duration">
+      <label>Duration</label>
+      <input id="inp-duration" type="number" value="5" min="1" max="1440" />
+    </div>
 
-      // ── Mode toggle ──────────────────────────────────────────────────
-      function setMode(m) {
-        curMode = m;
-        document
-          .getElementById("tab-packets")
-          .classList.toggle("active", m === "packets");
-        document
-          .getElementById("tab-time")
-          .classList.toggle("active", m === "time");
-        document.getElementById("field-count").style.display =
-          m === "packets" ? "" : "none";
-        document.getElementById("field-duration").style.display =
-          m === "time" ? "" : "none";
-        document.getElementById("field-unit").style.display =
-          m === "time" ? "" : "none";
-      }
+    <div class="field w75" id="field-unit">
+      <label>Unit</label>
+      <select id="sel-unit">
+        <option value="60">min</option>
+        <option value="3600">hours</option>
+      </select>
+    </div>
 
-      // ── Server info ──────────────────────────────────────────────────
-      async function loadServerInfo() {
-        try {
-          const res = await fetch(`${PROXY}/server-info`);
-          const data = await res.json();
+    <div class="field w90" id="field-count" style="display:none">
+      <label>Packets</label>
+      <input id="inp-count" type="number" value="50" min="1" max="500" />
+    </div>
 
-          const ipMatches =
-            (data.ip_addr || "").match(/inet (\d+\.\d+\.\d+\.\d+)/g) || [];
-          localIp =
-            ipMatches
-              .map((s) => s.replace("inet ", ""))
-              .filter((ip) => !ip.startsWith("127."))[0] || "—";
+    <div class="toggle-wrap">
+      <label>No DNS</label>
+      <label class="toggle">
+        <input type="checkbox" id="chk-nodns" />
+        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        <span class="toggle-label">Disable</span>
+      </label>
+    </div>
 
-          const gwMatch = (data.default_route || "").match(/via (\S+)/);
-          const gw = gwMatch ? gwMatch[1] : "—";
+    <div class="field grow" style="min-width:140px; max-width:200px">
+      <label>Tags <span style="color:var(--muted);font-weight:400">(comma separated)</span></label>
+      <input id="inp-tag" type="text" placeholder="test, JIRA-123, INC-456" autocomplete="off" list="tag-presets" />
+      <datalist id="tag-presets"></datalist>
+    </div>
 
-          publicIp = data.public_ip || "—";
+    <button class="btn-run" id="btn-run" onclick="runMtr()">▶ Run</button>
+    <button class="btn-stop" id="btn-stop" onclick="stopMtr()">■ Stop</button>
+  </div>
 
-          document.getElementById("pill-local").textContent = localIp;
-          document.getElementById("pill-public").textContent = publicIp;
-          document.getElementById("pill-gw").textContent = gw;
-        } catch {
-          document.getElementById("pill-local").textContent = "unavailable";
-        }
-      }
+  <div class="main-area">
+    <div class="output-wrap">
+      <div class="output-toolbar">
+        <div class="status-label">
+          <span class="dot" id="dot"></span>
+          <span id="status-text">Ready</span>
+        </div>
+        <button class="btn-copy" id="btn-copy" onclick="copyOutput()">Copy</button>
+      </div>
+      <div id="progress-bar"><div id="progress-fill"></div></div>
+      <textarea id="output" readonly placeholder="MTR output will appear here..."></textarea>
+    </div>
 
-      // ── Run MTR ──────────────────────────────────────────────────────
-      function runMtr() {
-        const host = document.getElementById("inp-host").value.trim();
-        if (!host) {
-          setStatus("err", "Please enter a host or IP.");
-          return;
-        }
+    <div class="history-panel">
+      <!-- Running jobs -->
+      <div class="history-header">
+        <span>Running</span>
+        <button class="btn-refresh" onclick="loadRunning()">↻</button>
+      </div>
+      <div id="running-list">
+        <div class="history-empty">No active jobs</div>
+      </div>
 
-        if (es) {
-          es.close();
-          es = null;
-        }
+      <!-- History header + filters -->
+      <div class="history-header" style="border-top:1px solid var(--border); flex-direction:column; align-items:stretch; gap:0.35rem; padding:0.45rem 0.75rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span>History</span>
+          <button class="btn-refresh" onclick="loadHistory()">↻</button>
+        </div>
+        <div class="hist-filters" style="padding:0;background:transparent;">
+          <input class="f-search" id="hist-search" type="text" placeholder="search host…" oninput="loadHistory()" />
+          <input class="f-date"   id="hist-date"   type="date" oninput="loadHistory()" title="Filter by date" />
+          <input class="f-tag"    id="hist-tag"    type="text" placeholder="tag…" list="tag-presets-hist" oninput="loadHistory()" />
+          <datalist id="tag-presets-hist"></datalist>
+        </div>
+      </div>
+      <div class="history-list" id="history-list">
+        <div class="history-empty">No results yet</div>
+      </div>
+    </div>
+  </div>
 
-        const no_dns = document.getElementById("chk-nodns").checked ? "1" : "0";
+</div>
 
-        let params;
-        if (curMode === "packets") {
-          const count =
-            parseInt(document.getElementById("inp-count").value) || 50;
-          params = `host=${encodeURIComponent(
-            host
-          )}&mode=packets&count=${count}&no_dns=${no_dns}`;
+<script>
+  const PROXY  = "/phenix-proxy";
+  let es        = null;
+  let curMode   = "time";
+  let localIp   = "—";
+  let publicIp  = "—";
+  let _jobStart = null; // wall-clock start for real duration
+
+  // ── Mode toggle — Time left, Packets right ────────────────────────
+  function setMode(m) {
+    curMode = m;
+    document.getElementById("tab-time").classList.toggle("active",    m === "time");
+    document.getElementById("tab-packets").classList.toggle("active", m === "packets");
+    document.getElementById("field-duration").style.display = m === "time"    ? "" : "none";
+    document.getElementById("field-unit").style.display     = m === "time"    ? "" : "none";
+    document.getElementById("field-count").style.display    = m === "packets" ? "" : "none";
+  }
+
+  // ── Server info ──────────────────────────────────────────────────
+  async function loadServerInfo() {
+    try {
+      const res  = await fetch(`${PROXY}/server-info`);
+      const data = await res.json();
+      const ipMatches = (data.ip_addr || "").match(/inet (\d+\.\d+\.\d+\.\d+)/g) || [];
+      localIp  = ipMatches.map(s => s.replace("inet ", "")).filter(ip => !ip.startsWith("127."))[0] || "—";
+      publicIp = data.public_ip || "—";
+      const gwMatch = (data.default_route || "").match(/via (\S+)/);
+      document.getElementById("pill-local").textContent  = localIp;
+      document.getElementById("pill-public").textContent = publicIp;
+      document.getElementById("pill-gw").textContent     = gwMatch ? gwMatch[1] : "—";
+    } catch {
+      document.getElementById("pill-local").textContent = "unavailable";
+    }
+  }
+
+  // ── Tags — split by comma ─────────────────────────────────────────
+  function parseTags(raw) {
+    return (raw || "").split(",").map(t => t.trim()).filter(Boolean);
+  }
+
+  // ── Run MTR ──────────────────────────────────────────────────────
+  function runMtr() {
+    const host = document.getElementById("inp-host").value.trim();
+    if (!host) { setStatus("err", "Please enter a host or IP."); return; }
+
+    if (es) { es.close(); es = null; }
+
+    const no_dns  = document.getElementById("chk-nodns").checked ? "1" : "0";
+    const tagRaw  = document.getElementById("inp-tag").value.trim();
+    const tags    = parseTags(tagRaw); // array of individual tags
+
+    let params, totalCycles;
+    if (curMode === "packets") {
+      const count  = parseInt(document.getElementById("inp-count").value) || 50;
+      totalCycles  = count;
+      params = `host=${encodeURIComponent(host)}&mode=packets&count=${count}&no_dns=${no_dns}`;
+    } else {
+      const dur    = parseInt(document.getElementById("inp-duration").value) || 5;
+      const unit   = parseInt(document.getElementById("sel-unit").value) || 60;
+      totalCycles  = dur * unit;
+      params = `host=${encodeURIComponent(host)}&mode=time&seconds=${totalCycles}&no_dns=${no_dns}`;
+    }
+    params += `&total_cycles=${totalCycles}`;
+    params += `&src_ip=${encodeURIComponent(localIp)}&pub_ip=${encodeURIComponent(publicIp)}`;
+    if (tags.length) params += `&tag=${encodeURIComponent(tags.join(", "))}`;
+
+    _jobStart = Date.now();
+
+    const now = new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC";
+    const modeStr = curMode === "packets"
+      ? `Packets (requested): ${document.getElementById("inp-count").value}`
+      : `Duration (requested): ${document.getElementById("inp-duration").value} ${document.getElementById("sel-unit").options[document.getElementById("sel-unit").selectedIndex].text}`;
+    const tagsStr = tags.length ? `Tags       : ${tags.join(", ")}` : null;
+
+    const headerLines = [
+      `MTR Network Trace`,
+      `==========================================`,
+      `Date Start : ${now}`,
+      `Source     : ${localIp} (public: ${publicIp})`,
+      `Destination: ${host}`,
+      modeStr,
+      `DNS        : ${no_dns === "1" ? "disabled" : "enabled"}`,
+    ];
+    if (tagsStr) headerLines.push(tagsStr);
+    headerLines.push(`==========================================`, ``);
+
+    const output = document.getElementById("output");
+    output.value = headerLines.join("\n");
+
+    document.getElementById("btn-run").disabled = true;
+    document.getElementById("btn-stop").classList.add("visible");
+    setProgress(0);
+    setStatus("running", `Tracing route to ${host}…`);
+
+    es = new EventSource(`${PROXY}/mtr/stream?${params}`);
+
+    es.onmessage = (e) => {
+      if (e.data.startsWith("__TICK__")) {
+        const parts     = e.data.split(" ");
+        const elapsed   = parseInt(parts[1]) || 0;
+        const remaining = parseInt(parts[2]) || 0;
+        const pct       = totalCycles > 0 ? Math.min(99, Math.round(elapsed / totalCycles * 100)) : 0;
+        setProgress(pct);
+        if (curMode === "time") {
+          const m = Math.floor(remaining / 60);
+          const s = remaining % 60;
+          setStatus("running", `Running… ${pct}% — ${m > 0 ? `${m}m ${s}s` : `${s}s`} remaining`);
         } else {
-          const dur =
-            parseInt(document.getElementById("inp-duration").value) || 5;
-          const unit =
-            parseInt(document.getElementById("sel-unit").value) || 60;
-          params = `host=${encodeURIComponent(host)}&mode=time&seconds=${
-            dur * unit
-          }&no_dns=${no_dns}`;
+          setStatus("running", `Running… ${pct}% (${elapsed}/${totalCycles} packets)`);
         }
-        const tag = document.getElementById("inp-tag").value.trim();
-        let totalCycles =
-          curMode === "packets"
-            ? parseInt(document.getElementById("inp-count").value) || 50
-            : (parseInt(document.getElementById("inp-duration").value) || 5) *
-              (parseInt(document.getElementById("sel-unit").value) || 60);
-
-        params += `&total_cycles=${totalCycles}`;
-        params += `&src_ip=${encodeURIComponent(
-          localIp
-        )}&pub_ip=${encodeURIComponent(publicIp)}`;
-        if (tag) params += `&tag=${encodeURIComponent(tag)}`;
-
-        const output = document.getElementById("output");
-        const now =
-          new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC";
-        const modeStr =
-          curMode === "packets"
-            ? `Packets   : ${document.getElementById("inp-count").value}`
-            : `Duration  : ${document.getElementById("inp-duration").value} ${
-                document.getElementById("sel-unit").options[
-                  document.getElementById("sel-unit").selectedIndex
-                ].text
-              }`;
-
-        output.value = [
-          `MTR Network Trace`,
-          `==========================================`,
-          `Date       : ${now}`,
-          `Source     : ${localIp} (public: ${publicIp})`,
-          `Destination: ${host}`,
-          modeStr,
-          `DNS        : ${no_dns === "1" ? "disabled" : "enabled"}`,
-          `==========================================`,
-          ``,
-        ].join("\n");
-
-        document.getElementById("btn-run").disabled = true;
-        document.getElementById("btn-stop").classList.add("visible");
-        document.getElementById("btn-copy").disabled = true;
-        setProgress(0);
-        setStatus("running", `Tracing route to ${host}…`);
-
-        es = new EventSource(`${PROXY}/mtr/stream?${params}`);
-
-        es.onmessage = (e) => {
-          // Progress tick from proxy — show countdown, don't add to output
-          if (e.data.startsWith("__TICK__")) {
-            const parts = e.data.split(" ");
-            const elapsed = parseInt(parts[1]) || 0;
-            const remaining = parseInt(parts[2]) || 0;
-            const pct =
-              totalCycles > 0
-                ? Math.min(99, Math.round((elapsed / totalCycles) * 100))
-                : 0;
-            setProgress(pct);
-            if (curMode === "time") {
-              const m = Math.floor(remaining / 60);
-              const s = remaining % 60;
-              const timeStr = m > 0 ? `${m}m ${s}s` : `${s}s`;
-              setStatus("running", `Running… ${pct}% — ${timeStr} remaining`);
-            } else {
-              setStatus(
-                "running",
-                `Running… ${pct}% (${elapsed}/${totalCycles} packets)`
-              );
-            }
-            return;
-          }
-
-          if (e.data === "__DONE__") {
-            es.close();
-            es = null;
-            const failed = output.value.includes("ERROR");
-            setProgress(100, failed ? "err" : "ok");
-            setStatus(failed ? "err" : "ok", failed ? "Error" : "Done");
-            document.getElementById("btn-run").disabled = false;
-            document.getElementById("btn-stop").classList.remove("visible");
-            document.getElementById("btn-copy").disabled = false;
-            loadHistory();
-            return;
-          }
-          output.value += e.data + "\n";
-          output.scrollTop = output.scrollHeight;
-        };
-
-        es.onerror = () => {
-          if (!es) return;
-          es.close();
-          es = null;
-          setStatus("err", "Connection lost.");
-          document.getElementById("btn-run").disabled = false;
-          document.getElementById("btn-stop").classList.remove("visible");
-        };
+        return;
       }
 
-      function stopMtr() {
-        if (es) {
-          es.close();
-          es = null;
+      if (e.data === "__DONE__") {
+        es.close(); es = null;
+
+        // Append real duration to output
+        if (_jobStart) {
+          const ms      = Date.now() - _jobStart;
+          const hh      = String(Math.floor(ms / 3600000)).padStart(2, "0");
+          const mm      = String(Math.floor((ms % 3600000) / 60000)).padStart(2, "0");
+          const ss      = String(Math.floor((ms % 60000) / 1000)).padStart(2, "0");
+          const endTime = new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC";
+          output.value += `\n==========================================`;
+          output.value += `\nDate End   : ${endTime}`;
+          output.value += `\nDuration (actual): ${hh}:${mm}:${ss}`;
+          output.value += `\n==========================================\n`;
         }
-        setProgress(0);
-        setStatus("err", "Stopped by user.");
+
+        const failed = output.value.includes("ERROR");
+        setProgress(100, failed ? "err" : "ok");
+        setStatus(failed ? "err" : "ok", failed ? "Error" : "Done");
         document.getElementById("btn-run").disabled = false;
         document.getElementById("btn-stop").classList.remove("visible");
-        document.getElementById("btn-copy").disabled = false;
+        loadHistory();
+        return;
       }
+      output.value += e.data + "\n";
+      output.scrollTop = output.scrollHeight;
+    };
 
-      // ── Duration formatting ──────────────────────────────────────────
-      function formatDuration(seconds) {
-        if (!seconds) return "—";
-        if (seconds < 60) return `${seconds}s`;
-        if (seconds < 3600)
-          return `${Math.round(seconds / 60)}min (${seconds}s)`;
-        const h = Math.floor(seconds / 3600);
-        const m = Math.round((seconds % 3600) / 60);
-        const label = h === 1 ? "1 hour" : `${h} hours`;
-        return m > 0
-          ? `${label} ${m}min (${seconds}s)`
-          : `${label} (${seconds}s)`;
+    es.onerror = () => {
+      if (!es) return;
+      es.close(); es = null;
+      setStatus("err", "Connection lost.");
+      document.getElementById("btn-run").disabled = false;
+      document.getElementById("btn-stop").classList.remove("visible");
+    };
+  }
+
+  function stopMtr() {
+    if (es) { es.close(); es = null; }
+    setProgress(0);
+    setStatus("err", "Stopped by user.");
+    document.getElementById("btn-run").disabled = false;
+    document.getElementById("btn-stop").classList.remove("visible");
+  }
+
+  // ── Duration formatting ───────────────────────────────────────────
+  function formatDuration(seconds) {
+    if (!seconds && seconds !== 0) return "—";
+    if (seconds < 60)   return `${seconds}s`;
+    if (seconds < 3600) {
+      const m = Math.floor(seconds / 60), s = seconds % 60;
+      return s > 0 ? `${m}min ${s}s (${seconds}s)` : `${m}min (${seconds}s)`;
+    }
+    const h = Math.floor(seconds / 3600);
+    const m = Math.round((seconds % 3600) / 60);
+    const label = h === 1 ? "1 hour" : `${h} hours`;
+    return m > 0 ? `${label} ${m}min (${seconds}s)` : `${label} (${seconds}s)`;
+  }
+
+  function secsToHMS(seconds) {
+    if (!seconds) return "—";
+    const hh = String(Math.floor(seconds / 3600)).padStart(2, "0");
+    const mm = String(Math.floor((seconds % 3600) / 60)).padStart(2, "0");
+    const ss = String(seconds % 60).padStart(2, "0");
+    return `${hh}:${mm}:${ss}`;
+  }
+
+  // ── Running jobs — clickable to reconnect SSE ─────────────────────
+  async function loadRunning() {
+    try {
+      const res   = await fetch(`${PROXY}/mtr/running`);
+      const items = await res.json();
+      const list  = document.getElementById("running-list");
+      if (!items.length) {
+        list.innerHTML = '<div class="history-empty">No active jobs</div>';
+        return;
       }
-
-      // ── Running jobs ─────────────────────────────────────────────────
-      async function loadRunning() {
-        try {
-          const res = await fetch(`${PROXY}/mtr/running`);
-          const items = await res.json();
-          const list = document.getElementById("running-list");
-          if (!items.length) {
-            list.innerHTML = '<div class="history-empty">No active jobs</div>';
-            return;
-          }
-          list.innerHTML = items
-            .map((job) => {
-              const pct =
-                job.total_cycles > 0
-                  ? Math.min(
-                      99,
-                      Math.round((job.elapsed / job.total_cycles) * 100)
-                    )
-                  : 0;
-              const rem = job.remaining;
-              const remStr =
-                rem >= 60 ? `${Math.floor(rem / 60)}m ${rem % 60}s` : `${rem}s`;
-              return `
-          <div class="history-item" style="cursor:default">
-            <div class="hi-dest" title="${job.destination}">⟳ ${
-                job.destination
-              }</div>
+      list.innerHTML = items.map(job => {
+        const pct    = job.total_cycles > 0 ? Math.min(99, Math.round(job.elapsed / job.total_cycles * 100)) : 0;
+        const rem    = job.remaining;
+        const remStr = rem >= 60 ? `${Math.floor(rem/60)}m ${rem%60}s` : `${rem}s`;
+        const tags   = parseTags(job.tag || "");
+        return `
+          <div class="running-item" onclick="reconnectJob(${JSON.stringify(job).replace(/"/g,'&quot;')})">
+            <div class="hi-dest" title="${job.destination}">⟳ ${job.destination}</div>
             <div class="hi-meta">
               <span>${pct}%</span>
               <span class="hi-badge">${remStr} left</span>
-              ${
-                job.tag
-                  ? `<span class="hi-badge" style="color:var(--cyan)">${job.tag}</span>`
-                  : ""
-              }
+              ${tags.map(t => `<span class="hi-badge" style="color:var(--cyan)">${t}</span>`).join("")}
             </div>
-            <div style="height:2px;background:var(--border);border-radius:1px;margin-top:4px">
+            <div style="height:2px;background:var(--border);border-radius:1px;margin-top:5px">
               <div style="height:100%;width:${pct}%;background:var(--yellow);border-radius:1px;transition:width 1s"></div>
             </div>
           </div>`;
-            })
-            .join("");
-        } catch (e) {
-          console.error(e);
+      }).join("");
+    } catch (e) { console.error(e); }
+  }
+
+  // Reconnect SSE to a running job when clicking it
+  function reconnectJob(job) {
+    if (es) { es.close(); es = null; }
+
+    const no_dns     = job.no_dns ? "1" : "0";
+    const totalCycles = job.total_cycles || 0;
+    const tags        = parseTags(job.tag || "");
+
+    const output = document.getElementById("output");
+    output.value = [
+      `MTR Network Trace — Reconnecting to running job`,
+      `==========================================`,
+      `Date Start : ${(job.started_at || "").replace("T"," ").slice(0,19)} UTC`,
+      `Source     : ${job.source_ip || "—"} (public: ${job.public_ip || "—"})`,
+      `Destination: ${job.destination}`,
+      job.mode === "time" ? `Duration (requested): ${formatDuration(job.duration_s)}` : `Packets: ${job.packets}`,
+      `DNS        : ${no_dns === "1" ? "disabled" : "enabled"}`,
+      tags.length ? `Tags       : ${tags.join(", ")}` : null,
+      `==========================================`,
+      ``,
+    ].filter(v => v !== null).join("\n");
+
+    document.getElementById("btn-run").disabled = true;
+    document.getElementById("btn-stop").classList.add("visible");
+    setProgress(Math.min(99, Math.round(job.elapsed / Math.max(1, totalCycles) * 100)));
+    setStatus("running", `Reconnected — tracing route to ${job.destination}…`);
+
+    _jobStart = Date.now() - (job.elapsed * 1000);
+
+    let params = `host=${encodeURIComponent(job.destination)}&mode=${job.mode}`;
+    if (job.mode === "time") params += `&seconds=${job.duration_s || totalCycles}`;
+    else params += `&count=${job.packets || totalCycles}`;
+    params += `&no_dns=${no_dns}&total_cycles=${totalCycles}`;
+    params += `&src_ip=${encodeURIComponent(job.source_ip||"")}&pub_ip=${encodeURIComponent(job.public_ip||"")}`;
+    if (job.tag) params += `&tag=${encodeURIComponent(job.tag)}`;
+
+    es = new EventSource(`${PROXY}/mtr/stream?${params}`);
+
+    es.onmessage = (e) => {
+      if (e.data.startsWith("__TICK__")) {
+        const parts     = e.data.split(" ");
+        const elapsed   = parseInt(parts[1]) || 0;
+        const remaining = parseInt(parts[2]) || 0;
+        const pct = totalCycles > 0 ? Math.min(99, Math.round(elapsed / totalCycles * 100)) : 0;
+        setProgress(pct);
+        const m = Math.floor(remaining / 60), s = remaining % 60;
+        setStatus("running", `Running… ${pct}% — ${m > 0 ? `${m}m ${s}s` : `${s}s`} remaining`);
+        return;
+      }
+      if (e.data === "__DONE__") {
+        es.close(); es = null;
+        if (_jobStart) {
+          const ms  = Date.now() - _jobStart;
+          const hh  = String(Math.floor(ms / 3600000)).padStart(2,"0");
+          const mm  = String(Math.floor((ms%3600000)/60000)).padStart(2,"0");
+          const ss  = String(Math.floor((ms%60000)/1000)).padStart(2,"0");
+          const end = new Date().toISOString().replace("T"," ").slice(0,19)+" UTC";
+          output.value += `\n==========================================\nDate End   : ${end}\nDuration (actual): ${hh}:${mm}:${ss}\n==========================================\n`;
         }
+        const failed = output.value.includes("ERROR");
+        setProgress(100, failed ? "err" : "ok");
+        setStatus(failed ? "err" : "ok", failed ? "Error" : "Done");
+        document.getElementById("btn-run").disabled = false;
+        document.getElementById("btn-stop").classList.remove("visible");
+        loadHistory();
+        return;
       }
+      output.value += e.data + "\n";
+      output.scrollTop = output.scrollHeight;
+    };
+    es.onerror = () => {
+      if (!es) return;
+      es.close(); es = null;
+      setStatus("err", "Connection lost.");
+      document.getElementById("btn-run").disabled = false;
+      document.getElementById("btn-stop").classList.remove("visible");
+    };
+  }
 
-      // ── History ──────────────────────────────────────────────────────
-      async function loadHistory() {
-        try {
-          const res = await fetch(`${PROXY}/mtr/results`);
-          const items = await res.json();
-          const list = document.getElementById("history-list");
-          const filter = (document.getElementById("tag-filter").value || "")
-            .toLowerCase()
-            .trim();
+  // ── History ──────────────────────────────────────────────────────
+  async function loadHistory() {
+    try {
+      const res    = await fetch(`${PROXY}/mtr/results`);
+      const items  = await res.json();
+      const list   = document.getElementById("history-list");
+      const search = (document.getElementById("hist-search").value || "").toLowerCase().trim();
+      const date   = (document.getElementById("hist-date").value   || "").trim();
+      const tag    = (document.getElementById("hist-tag").value    || "").toLowerCase().trim();
 
-          // Populate tag datalists
-          const allTags = [...new Set(items.map((i) => i.tag).filter(Boolean))];
-          ["tag-presets", "tag-presets-hist"].forEach((id) => {
-            const dl = document.getElementById(id);
-            if (dl)
-              dl.innerHTML = allTags
-                .map((t) => `<option value="${t}">`)
-                .join("");
-          });
-
-          const filtered = filter
-            ? items.filter((i) => (i.tag || "").toLowerCase().includes(filter))
-            : items;
-
-          if (!filtered.length) {
-            list.innerHTML =
-              '<div class="history-empty">No results found</div>';
-            return;
-          }
-
-          list.innerHTML = filtered
-            .map((item) => {
-              const date = item.started_at
-                ? item.started_at.slice(0, 16).replace("T", " ")
-                : "—";
-              const mode =
-                item.mode === "time"
-                  ? formatDuration(item.duration_s)
-                  : `${item.packets} pkts`;
-              return `
-          <div class="history-item" onclick="loadResult('${item.file}')">
-            <div class="hi-dest" title="${item.destination}">${
-                item.destination
-              }</div>
-            <div class="hi-meta">
-              <span>${date}</span>
-              <span class="hi-badge">${mode}</span>
-              <span class="hi-badge">${item.hops} hops</span>
-              ${
-                item.tag
-                  ? `<span class="hi-badge" style="color:var(--cyan)">${item.tag}</span>`
-                  : ""
-              }
-            </div>
-            <a class="hi-dl" href="${PROXY}/mtr/results/${encodeURIComponent(
-                item.file
-              )}" download onclick="event.stopPropagation()">⬇ JSON</a>
-          </div>`;
-            })
-            .join("");
-        } catch (e) {
-          console.error("History load failed:", e);
-        }
-      }
-
-      async function loadResult(file) {
-        try {
-          const res = await fetch(
-            `${PROXY}/mtr/results/${encodeURIComponent(file)}`
-          );
-          const blob = await res.blob();
-          const text = await blob.text();
-          const data = JSON.parse(text);
-
-          // Reconstruct the header from saved metadata
-          const date = data.started_at
-            ? data.started_at.replace("T", " ").slice(0, 19) + " UTC"
-            : "—";
-          const src = data.source_ip || "—";
-          const pub = data.public_ip || "—";
-          const dest = data.destination || "—";
-          const dns = data.no_dns ? "disabled" : "enabled";
-          let modeStr;
-          if (data.mode === "time") {
-            const s = data.duration_s || 0;
-            modeStr = `Duration  : ${formatDuration(s)}`;
-          } else {
-            modeStr = `Packets   : ${data.packets || "—"}`;
-          }
-
-          const header = [
-            `MTR Network Trace`,
-            `==========================================`,
-            `Date       : ${date}`,
-            `Source     : ${src} (public: ${pub})`,
-            `Destination: ${dest}`,
-            modeStr,
-            `DNS        : ${dns}`,
-            `==========================================`,
-            ``,
-          ].join("\n");
-
-          document.getElementById("output").value =
-            header + (data.raw || "(no output)");
-          setStatus("ok", `Loaded: ${file}`);
-          setProgress(100, "ok");
-        } catch (e) {
-          setStatus("err", "Failed to load result.");
-        }
-      }
-
-      // ── Helpers ──────────────────────────────────────────────────────
-      function setStatus(type, msg) {
-        document.getElementById("dot").className = "dot " + type;
-        document.getElementById("status-text").textContent = msg;
-      }
-
-      function setProgress(pct, state) {
-        const fill = document.getElementById("progress-fill");
-        fill.style.width = pct + "%";
-        if (state === "ok") fill.style.background = "var(--green)";
-        else if (state === "err") fill.style.background = "var(--red)";
-        else {
-          // Colour shifts yellow → cyan as it progresses
-          const r = Math.round(227 - ((227 - 88) * pct) / 100);
-          const g = Math.round(179 - ((179 - 166) * pct) / 100);
-          const b = Math.round(65 + ((255 - 65) * pct) / 100);
-          fill.style.background = `rgb(${r},${g},${b})`;
-        }
-      }
-
-      async function copyOutput() {
-        const val = document.getElementById("output").value;
-        if (!val) return;
-        try {
-          await navigator.clipboard.writeText(val);
-        } catch {
-          document.getElementById("output").select();
-          document.execCommand("copy");
-        }
-        const btn = document.getElementById("btn-copy");
-        btn.textContent = "Copied!";
-        setTimeout(() => (btn.textContent = "Copy"), 2000);
-      }
-
-      document.getElementById("inp-host").addEventListener("keydown", (e) => {
-        if (e.key === "Enter") runMtr();
+      // Populate tag datalists
+      const allTags = [...new Set(
+        items.flatMap(i => parseTags(i.tag || "")).filter(Boolean)
+      )];
+      ["tag-presets", "tag-presets-hist"].forEach(id => {
+        const dl = document.getElementById(id);
+        if (dl) dl.innerHTML = allTags.map(t => `<option value="${t}">`).join("");
       });
 
-      loadServerInfo();
-      loadRunning();
-      loadHistory();
-      // Auto-refresh running jobs every 10s
-      setInterval(() => {
-        loadRunning();
-        if (!es) loadHistory();
-      }, 10000);
-    </script>
-  </body>
+      const filtered = items.filter(item => {
+        const dest = (item.destination || "").toLowerCase();
+        if (search && !dest.includes(search)) return false;
+        if (date   && !(item.started_at || "").startsWith(date)) return false;
+        if (tag) {
+          const itemTags = parseTags(item.tag || "").map(t => t.toLowerCase());
+          if (!itemTags.some(t => t.includes(tag))) return false;
+        }
+        return true;
+      });
+
+      if (!filtered.length) {
+        list.innerHTML = '<div class="history-empty">No results found</div>';
+        return;
+      }
+
+      list.innerHTML = filtered.map(item => {
+        const date    = item.started_at ? item.started_at.slice(0, 16).replace("T", " ") : "—";
+        const endDate = item.ended_at   ? item.ended_at.slice(0, 16).replace("T", " ")   : null;
+        const mode    = item.mode === "time" ? formatDuration(item.duration_s) : `${item.packets} pkts`;
+        const tags    = parseTags(item.tag || "");
+
+        // Real duration
+        let realDur = "";
+        if (item.started_at && item.ended_at) {
+          const ms = new Date(item.ended_at) - new Date(item.started_at);
+          const s  = Math.round(ms / 1000);
+          realDur  = secsToHMS(s);
+        }
+
+        return `
+          <div class="history-item" onclick="loadResult('${item.file}')">
+            <div class="hi-dest" title="${item.destination}">${item.destination}</div>
+            <div class="hi-date">Start: ${date}${endDate ? ` · End: ${endDate}` : ""}</div>
+            <div class="hi-meta">
+              <span class="hi-badge">${mode}</span>
+              ${realDur ? `<span class="hi-badge">⏱ ${realDur}</span>` : ""}
+              <span class="hi-badge">${item.hops} hops</span>
+              ${tags.map(t => `<span class="hi-badge" style="color:var(--cyan)">${t}</span>`).join("")}
+            </div>
+            <a class="hi-dl" href="${PROXY}/mtr/results/${encodeURIComponent(item.file)}" download onclick="event.stopPropagation()">⬇ JSON</a>
+          </div>`;
+      }).join("");
+    } catch (e) { console.error("History load failed:", e); }
+  }
+
+  async function loadResult(file) {
+    try {
+      const res  = await fetch(`${PROXY}/mtr/results/${encodeURIComponent(file)}`);
+      const blob = await res.blob();
+      const text = await blob.text();
+      const data = JSON.parse(text);
+
+      const startDate = data.started_at ? data.started_at.replace("T", " ").slice(0, 19) + " UTC" : "—";
+      const endDate   = data.ended_at   ? data.ended_at.replace("T", " ").slice(0, 19)   + " UTC" : "—";
+      const tags      = parseTags(data.tag || "");
+
+      // Real duration
+      let realDur = "—";
+      if (data.started_at && data.ended_at) {
+        const ms = new Date(data.ended_at) - new Date(data.started_at);
+        const s  = Math.round(ms / 1000);
+        realDur  = secsToHMS(s);
+      }
+
+      let modeStr;
+      if (data.mode === "time") {
+        modeStr = `Duration (requested): ${formatDuration(data.duration_s)}`;
+      } else {
+        modeStr = `Packets   : ${data.packets || "—"}`;
+      }
+
+      const headerLines = [
+        `MTR Network Trace`,
+        `==========================================`,
+        `Date Start : ${startDate}`,
+        `Date End   : ${endDate}`,
+        `Duration (actual): ${realDur}`,
+        `Source     : ${data.source_ip || "—"} (public: ${data.public_ip || "—"})`,
+        `Destination: ${data.destination || "—"}`,
+        modeStr,
+        `DNS        : ${data.no_dns ? "disabled" : "enabled"}`,
+        tags.length ? `Tags       : ${tags.join(", ")}` : null,
+        `==========================================`,
+        ``,
+      ].filter(v => v !== null).join("\n");
+
+      document.getElementById("output").value = headerLines + (data.raw || "(no output)");
+      setStatus("ok", `Loaded: ${file}`);
+      setProgress(100, "ok");
+    } catch (e) {
+      setStatus("err", "Failed to load result.");
+    }
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────
+  function setStatus(type, msg) {
+    document.getElementById("dot").className           = "dot " + type;
+    document.getElementById("status-text").textContent = msg;
+  }
+
+  function setProgress(pct, state) {
+    const fill = document.getElementById("progress-fill");
+    fill.style.width = pct + "%";
+    if (state === "ok")       fill.style.background = "var(--green)";
+    else if (state === "err") fill.style.background = "var(--red)";
+    else {
+      const r = Math.round(227 - (227 - 88)  * pct / 100);
+      const g = Math.round(179 - (179 - 166) * pct / 100);
+      const b = Math.round(65  + (255 - 65)  * pct / 100);
+      fill.style.background = `rgb(${r},${g},${b})`;
+    }
+  }
+
+  async function copyOutput() {
+    const val = document.getElementById("output").value;
+    if (!val || val === document.getElementById("output").placeholder) return;
+    try { await navigator.clipboard.writeText(val); }
+    catch { document.getElementById("output").select(); document.execCommand("copy"); }
+    const btn = document.getElementById("btn-copy");
+    const orig = btn.textContent;
+    btn.textContent = "Copied!";
+    setTimeout(() => btn.textContent = orig, 2000);
+  }
+
+  document.getElementById("inp-host").addEventListener("keydown", e => {
+    if (e.key === "Enter") runMtr();
+  });
+
+  loadServerInfo();
+  loadRunning();
+  loadHistory();
+  setInterval(() => { loadRunning(); if (!es) loadHistory(); }, 10000);
+</script>
+</body>
 </html>

@@ -99,6 +99,7 @@ PHENIXRTS_PASSWORD=your-password
 
 | Version | Date       | Changes |
 |---------|------------|---------|
+| 2.1.0   | 2026-04-10 | MTR: wider history, date/search/tag filters, multi-tag (comma separated), Date End + actual HH:MM:SS duration, running job reconnect, Time mode left, copy button fix |
 | 2.0.0   | 2026-04-07 | MTR background jobs with disk persistence, tags, running panel; Ingest Analyzer tags; bufsize fix; progress bar with countdown |
 | 1.9.0   | 2026-04-06 | Ingest Analyzer: background jobs, ZIP copy, HTML report served via proxy; SRT_LOCAL presets |
 | 1.8.0   | 2026-04-06 | MTR: time mode fix (cycles instead of timeout), SSE tick countdown, progress bar |
@@ -113,7 +114,7 @@ PHENIXRTS_PASSWORD=your-password
 | 1.1.0   | 2026-03-25 | Full English translation + rich GUI |
 | 1.0.0   | 2026-03-25 | Initial PhenixRTS Channel Health Monitor |
 
-**Current Version: 2.0.0**
+**Current Version: 2.1.0**
 
 ---
 
