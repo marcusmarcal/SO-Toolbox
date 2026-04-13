@@ -1,641 +1,1316 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Ingest Analyzer</title>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Barlow:wght@300;400;600;700&display=swap" rel="stylesheet" />
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg:      #080c10; --bg2: #0d1117; --bg3: #161b22;
-    --border:  #21262d;
-    --green:   #3fb950; --green-d: #1a3d20;
-    --cyan:    #58a6ff; --yellow: #e3b341;
-    --red:     #f85149; --purple: #bc8cff;
-    --text:    #c9d1d9; --muted: #484f58;
-    --mono:    'JetBrains Mono', monospace;
-    --sans:    'Barlow', sans-serif;
-  }
-  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; overflow: hidden; }
-  #app { display: flex; flex-direction: column; height: 100vh; padding: 0.85rem 1.1rem; gap: 0.65rem; }
-
-  /* ── Topbar ── */
-  .topbar { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; border-bottom: 1px solid var(--border); padding-bottom: 0.65rem; }
-  .topbar h1 { font-family: var(--mono); font-size: 0.9rem; font-weight: 700; color: #fff; white-space: nowrap; }
-  .topbar h1 span { color: var(--cyan); }
-  .topbar-sub { font-family: var(--mono); font-size: 0.62rem; color: var(--muted); }
-
-  /* ── Source type tabs ── */
-  .type-tabs { display: flex; border: 1px solid var(--border); border-radius: 5px; overflow: hidden; height: 32px; flex-shrink: 0; align-self: flex-start; }
-  .type-tab { background: var(--bg3); border: none; color: var(--muted); font-family: var(--mono); font-size: 0.68rem; font-weight: 700; cursor: pointer; padding: 0 1rem; transition: background 0.15s, color 0.15s; white-space: nowrap; }
-  .type-tab.active { background: var(--cyan); color: #000; }
-
-  /* ── Form panels ── */
-  .form-panel { display: none; flex-direction: column; gap: 0.6rem; flex-shrink: 0; }
-  .form-panel.active { display: flex; }
-  .form-row { display: flex; gap: 0.65rem; align-items: flex-end; flex-wrap: wrap; }
-  .field { display: flex; flex-direction: column; gap: 0.28rem; }
-  .field.grow { flex: 1; min-width: 160px; }
-  .field.w90  { width: 90px; }
-  .field.w120 { width: 120px; }
-  label { font-family: var(--mono); font-size: 0.58rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
-  input[type="text"], input[type="number"], input[type="password"], select {
-    background: var(--bg3); border: 1px solid var(--border); border-radius: 5px;
-    padding: 0.45rem 0.65rem; color: #fff; font-family: var(--mono); font-size: 0.82rem;
-    outline: none; transition: border-color 0.15s; width: 100%;
-  }
-  input:focus, select:focus { border-color: var(--cyan); }
-  input.from-env { border-color: rgba(63,185,80,0.5); background: rgba(63,185,80,0.05); }
-
-  /* ── Buttons ── */
-  .btn-run { background: var(--cyan); color: #000; border: none; border-radius: 5px; padding: 0 1.2rem; font-family: var(--mono); font-size: 0.76rem; font-weight: 700; cursor: pointer; height: 34px; white-space: nowrap; transition: opacity 0.15s; }
-  .btn-run:hover { opacity: 0.85; }
-  .btn-run:disabled { opacity: 0.35; cursor: not-allowed; }
-
-  /* ── Main area ── */
-  .main-area { flex: 1; display: flex; gap: 0.65rem; min-height: 0; }
-
-  /* Status / log panel */
-  .status-wrap { flex: 1; display: flex; flex-direction: column; min-height: 0; background: var(--bg2); border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
-  .panel-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 0.38rem 0.75rem; background: var(--bg3); border-bottom: 1px solid var(--border); flex-shrink: 0; }
-  .status-label { display: flex; align-items: center; gap: 0.4rem; font-family: var(--mono); font-size: 0.62rem; color: var(--muted); }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
-  .dot.running { background: var(--yellow); animation: blink 0.9s ease-in-out infinite; }
-  .dot.done    { background: var(--green); }
-  .dot.failed  { background: var(--red); }
-  .dot.timeout { background: var(--red); }
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
-
-  #log-output { flex: 1; overflow-y: auto; padding: 0.75rem 0.9rem; font-family: var(--mono); font-size: 0.72rem; line-height: 1.7; color: var(--text); white-space: pre-wrap; }
-  #log-output::-webkit-scrollbar { width: 4px; }
-  #log-output::-webkit-scrollbar-thumb { background: var(--border); }
-
-  /* Result summary */
-  #result-summary { display: none; padding: 0.75rem 0.9rem; border-top: 1px solid var(--border); flex-shrink: 0; }
-  .result-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
-  .result-badge { font-family: var(--mono); font-size: 0.65rem; padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg3); }
-  .result-badge.pass { border-color: var(--green); color: var(--green); background: var(--green-d); }
-  .result-badge.fail { border-color: var(--red);   color: var(--red);   background: #2d0a0a; }
-  .result-badge.warn { border-color: var(--yellow); color: var(--yellow); background: #2d2200; }
-  .dl-row { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
-  .btn-dl { font-family: var(--mono); font-size: 0.68rem; font-weight: 700; padding: 4px 12px; border-radius: 5px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 0.3rem; transition: border-color 0.15s, color 0.15s; }
-  .btn-dl:hover { border-color: var(--cyan); color: var(--cyan); }
-  .btn-dl.zip:hover { border-color: var(--yellow); color: var(--yellow); }
-  .btn-dl.pdf:hover { border-color: var(--red); color: var(--red); }
-
-  /* History panel */
-  .history-panel { width: 380px; flex-shrink: 0; display: flex; flex-direction: column; background: var(--bg2); border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
-  .history-header { padding: 0.42rem 0.75rem; background: var(--bg3); border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; }
-  .btn-refresh { background: transparent; border: none; color: var(--muted); font-family: var(--mono); font-size: 0.68rem; cursor: pointer; padding: 0; }
-  .btn-refresh:hover { color: var(--cyan); }
-  .history-list { flex: 1; overflow-y: auto; }
-  .history-list::-webkit-scrollbar { width: 4px; }
-  .history-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-  .history-item { padding: 0.65rem 0.85rem; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.12s; }
-  .history-item:hover { background: var(--bg3); }
-  .hi-name { font-family: var(--mono); font-size: 0.85rem; color: #fff; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
-  .hi-url  { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
-  .hi-meta { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); margin-bottom: 5px; }
-  .hi-links { display: flex; gap: 0.4rem; flex-wrap: wrap; }
-  .hi-link { font-family: var(--mono); font-size: 0.65rem; color: var(--cyan); text-decoration: none; border: 1px solid var(--border); border-radius: 3px; padding: 2px 8px; }
-  .hi-link:hover { border-color: var(--cyan); }
-  .history-empty { padding: 1.5rem; text-align: center; font-family: var(--mono); font-size: 0.72rem; color: var(--muted); }
-
-  /* Progress bar */
-  #progress-bar { height: 3px; background: var(--border); flex-shrink: 0; }
-  #progress-fill { height: 100%; width: 0%; background: var(--yellow); transition: width 1s linear, background 0.5s; }
-
-  /* Result viewer modal */
-  #result-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; align-items: center; justify-content: center; }
-  #result-modal.open { display: flex; }
-  .result-modal-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; width: 860px; max-width: 95vw; max-height: 88vh; display: flex; flex-direction: column; box-shadow: 0 0 60px rgba(0,0,0,0.6); overflow: hidden; }
-  .result-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 1rem; background: var(--bg3); border-bottom: 1px solid var(--border); flex-shrink: 0; }
-  .result-modal-title { font-family: var(--mono); font-size: 0.72rem; font-weight: 700; color: var(--cyan); }
-  .result-modal-close { background: transparent; border: 1px solid var(--border); border-radius: 4px; color: var(--muted); font-family: var(--mono); font-size: 0.65rem; padding: 2px 10px; cursor: pointer; }
-  .result-modal-close:hover { border-color: var(--red); color: var(--red); }
-  .result-modal-meta { padding: 0.6rem 1rem; background: var(--bg); border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 0.68rem; color: var(--muted); flex-shrink: 0; display: flex; gap: 1.5rem; flex-wrap: wrap; }
-  .result-modal-meta span { color: var(--text); }
-  .result-modal-body { flex: 1; overflow-y: auto; padding: 0.85rem 1rem; }
-  #result-txt { font-family: var(--mono); font-size: 0.73rem; line-height: 1.7; color: var(--text); white-space: pre-wrap; }
-  #result-txt .pass { color: var(--green); }
-  #result-txt .fail { color: var(--red); }
-  #result-txt .warn { color: var(--yellow); }
-  .result-modal-actions { padding: 0.5rem 1rem; border-top: 1px solid var(--border); display: flex; gap: 0.5rem; flex-shrink: 0; background: var(--bg3); }
-
-  /* Exit code meanings */
-  .exit-hint { font-family: var(--mono); font-size: 0.6rem; color: var(--muted); margin-top: 0.3rem; }
-</style>
-</head>
-<body>
-<div id="app">
-
-  <div class="topbar">
-    <h1>Ingest <span>//</span> Analyzer</h1>
-    <span class="topbar-sub">runs run-ingest-analysis.sh on the server — ~2 min analysis</span>
-  </div>
-
-  <!-- Source type selector -->
-  <div class="type-tabs">
-    <button class="type-tab active" onclick="setType('srt')">SRT</button>
-    <button class="type-tab"       onclick="setType('rtmp')">RTMP</button>
-    <button class="type-tab"       onclick="setType('udp')">UDP</button>
-    <button class="type-tab"       onclick="setType('url')">Custom URL</button>
-    <button class="type-tab"       onclick="setType('file')">File .ts</button>
-  </div>
-
-  <!-- SRT form -->
-  <div class="form-panel active" id="panel-srt">
-    <div class="form-row">
-      <div class="field grow">
-        <label>Host / IP</label>
-        <input id="srt-host" type="text" placeholder="e.g. 10.0.0.1 or ingest.example.com" autocomplete="off" list="srt-local-presets" />
-        <datalist id="srt-local-presets"></datalist>
-      </div>
-      <div class="field w90">
-        <label>Port</label>
-        <input id="srt-port" type="number" placeholder="9000" min="1" max="65535" />
-      </div>
-      <div class="field grow">
-        <label>Passphrase <span style="color:var(--muted);font-weight:400">(optional, SP internal already loaded)</span></label>
-        <!-- type="text" with autocomplete=new-password prevents browser save prompts -->
-        <input id="srt-pass" type="text" placeholder="leave blank if none"
-          autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false"
-          style="-webkit-text-security: disc; font-family: var(--mono)" />
-      </div>
-      <div class="field w90">
-        <label>Latency ms</label>
-        <input id="srt-latency" type="number" placeholder="120" min="0" />
-      </div>
-      <button class="btn-run" id="btn-run" onclick="runAnalysis()">▶ Analyze</button>
-    </div>
-    <div class="form-row">
-      <div class="field grow" style="max-width:300px">
-        <label>Tag <span style="color:var(--muted);font-weight:400">(optional)</span></label>
-        <input id="inp-tag" type="text" placeholder="e.g. Test, VIDENG-1234, INC2345678" autocomplete="off" list="ingest-tag-presets" />
-        <datalist id="ingest-tag-presets"></datalist>
-      </div>
-    </div>
-  </div>
-
-  <!-- RTMP form -->
-  <div class="form-panel" id="panel-rtmp">
-    <div class="form-row">
-      <div class="field grow">
-        <label>RTMP URL</label>
-        <input id="rtmp-url" type="text" placeholder="rtmp://host/app/stream" autocomplete="off" />
-      </div>
-      <button class="btn-run" onclick="runAnalysis()">▶ Analyze</button>
-    </div>
-  </div>
-
-  <!-- UDP form -->
-  <div class="form-panel" id="panel-udp">
-    <div class="form-row">
-      <div class="field grow">
-        <label>UDP URL</label>
-        <input id="udp-url" type="text" placeholder="udp://@239.0.0.1:1234" autocomplete="off" />
-      </div>
-      <button class="btn-run" onclick="runAnalysis()">▶ Analyze</button>
-    </div>
-  </div>
-
-  <!-- Custom URL form -->
-  <div class="form-panel" id="panel-url">
-    <div class="form-row">
-      <div class="field grow">
-        <label>Any URL or .env path</label>
-        <input id="custom-url" type="text" placeholder="srt://... or /usr/local/etc/srt-listener/config.env" autocomplete="off" />
-      </div>
-      <button class="btn-run" onclick="runAnalysis()">▶ Analyze</button>
-    </div>
-  </div>
-
-  <!-- File form -->
-  <div class="form-panel" id="panel-file">
-    <div class="form-row">
-      <div class="field grow">
-        <label>MPEG-TS file path (server-side)</label>
-        <input id="file-path" type="text" placeholder="/path/to/recording.ts" autocomplete="off" />
-      </div>
-      <button class="btn-run" onclick="runAnalysis()">▶ Analyze</button>
-    </div>
-  </div>
-
-  <!-- Main area -->
-  <div class="main-area">
-
-    <div class="status-wrap">
-      <div class="panel-toolbar">
-        <div class="status-label">
-          <span class="dot" id="dot"></span>
-          <span id="status-text">Ready — fill in the source details and click Analyze</span>
-        </div>
-      </div>
-      <div id="progress-bar"><div id="progress-fill"></div></div>
-      <div id="log-output">
-        <span style="color:var(--muted)">Output will appear here when analysis starts...</span>
-      </div>
-      <div id="result-summary">
-        <div class="result-row" id="result-badges"></div>
-        <div class="exit-hint" id="exit-hint"></div>
-        <div class="dl-row" id="dl-row"></div>
-      </div>
-    </div>
-
-    <div class="history-panel">
-      <div class="history-header" style="flex-direction:column;gap:0.4rem;padding:0.5rem 0.75rem">
-        <div style="display:flex;justify-content:space-between;align-items:center;width:100%">
-          <span>History</span>
-          <button class="btn-refresh" onclick="loadHistory()">↻</button>
-        </div>
-        <div style="display:flex;gap:0.4rem;width:100%">
-          <input id="search-filter" type="text" placeholder="search host, port…"
-            style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:0.62rem;padding:2px 6px;outline:none"
-            oninput="loadHistory()" />
-          <select id="server-filter" onchange="loadHistory()"
-            style="background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:0.62rem;padding:2px 4px;outline:none;max-width:110px">
-            <option value="">All servers</option>
-          </select>
-          <input id="tag-filter" type="text" placeholder="tag…" list="ingest-tag-filter-list"
-            style="width:70px;background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:0.62rem;padding:2px 6px;outline:none"
-            oninput="loadHistory()" />
-          <datalist id="ingest-tag-filter-list"></datalist>
-        </div>
-      </div>
-      <div class="history-list" id="history-list">
-        <div class="history-empty">No results yet</div>
-      </div>
-    </div>
-
-  </div>
-</div>
-
-<!-- ── Result viewer modal ─────────────────────────────── -->
-<div id="result-modal">
-  <div class="result-modal-card">
-    <div class="result-modal-header">
-      <div class="result-modal-title" id="modal-title">Ingest Analysis Result</div>
-      <button class="result-modal-close" onclick="closeResultModal()">✕ Close</button>
-    </div>
-    <div class="result-modal-meta" id="modal-meta"></div>
-    <div class="result-modal-body">
-      <pre id="result-txt">Loading...</pre>
-    </div>
-    <div class="result-modal-actions" id="modal-actions"></div>
-  </div>
-</div>
-
-<script>
-  const PROXY  = "/phenix-proxy";
-  let curType  = "srt";
-  let pollTimer = null;
-  let _serverPresets = {}; // ip -> label map from SRT_LOCAL_*
-
-  // ── Load config (SRT_LOCAL_* presets + passphrase) ───────────────
-  async function loadConfig() {
-    try {
-      const res  = await fetch(`${PROXY}/config`);
-      const data = await res.json();
-      const env  = data.config || {};
-
-      // Populate SRT local host presets
-      const datalist = document.getElementById("srt-local-presets");
-      datalist.innerHTML = "";
-      _serverPresets = {};
-      Object.keys(env)
-        .filter(k => /^SRT_LOCAL_\d+$/.test(k))
-        .sort((a, b) => parseInt(a.split("_")[2]) - parseInt(b.split("_")[2]))
-        .forEach(k => {
-          const parts = env[k].split("|");
-          const ip    = (parts[0] || "").trim();
-          const label = (parts[1] || ip).trim();
-          if (!ip) return;
-          _serverPresets[ip] = label;
-          const opt = document.createElement("option");
-          opt.value       = ip;
-          opt.textContent = label;
-          datalist.appendChild(opt);
-        });
-
-      // Populate server filter dropdown
-      const sf = document.getElementById("server-filter");
-      if (sf) {
-        sf.innerHTML = '<option value="">All servers</option>';
-        Object.entries(_serverPresets).forEach(([ip, label]) => {
-          sf.innerHTML += `<option value="${ip}">${label}</option>`;
-        });
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ingest Analyzer</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Barlow:wght@300;400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      :root {
+        --bg: #080c10;
+        --bg2: #0d1117;
+        --bg3: #161b22;
+        --border: #21262d;
+        --green: #3fb950;
+        --green-d: #1a3d20;
+        --cyan: #58a6ff;
+        --yellow: #e3b341;
+        --red: #f85149;
+        --purple: #bc8cff;
+        --text: #c9d1d9;
+        --muted: #484f58;
+        --mono: "JetBrains Mono", monospace;
+        --sans: "Barlow", sans-serif;
+      }
+      html,
+      body {
+        height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        font-size: 14px;
+        overflow: hidden;
+      }
+      #app {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        padding: 0.85rem 1.1rem;
+        gap: 0.65rem;
       }
 
-      // Pre-fill passphrase from env
-      if (env.SRT_PASSPHRASE) {
-        const passEl = document.getElementById("srt-pass");
-        passEl.value = env.SRT_PASSPHRASE;
-        passEl.classList.add("from-env");
-        passEl.addEventListener("input", function() {
-          this.classList.remove("from-env");
-        }, { once: true });
+      /* ── Topbar ── */
+      .topbar {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-shrink: 0;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 0.65rem;
       }
-    } catch (e) {
-      console.warn("Could not load config:", e);
-    }
-  }
+      .topbar h1 {
+        font-family: var(--mono);
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #fff;
+        white-space: nowrap;
+      }
+      .topbar h1 span {
+        color: var(--cyan);
+      }
+      .topbar-sub {
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        color: var(--muted);
+      }
 
-  // ── Source type ──────────────────────────────────────────────────
-  function setType(t) {
-    curType = t;
-    document.querySelectorAll(".type-tab").forEach((el, i) => {
-      el.classList.toggle("active", ["srt","rtmp","udp","url","file"][i] === t);
-    });
-    document.querySelectorAll(".form-panel").forEach(el => el.classList.remove("active"));
-    document.getElementById(`panel-${t}`).classList.add("active");
-  }
+      /* ── Source type tabs ── */
+      .type-tabs {
+        display: flex;
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        overflow: hidden;
+        height: 32px;
+        flex-shrink: 0;
+        align-self: flex-start;
+      }
+      .type-tab {
+        background: var(--bg3);
+        border: none;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        font-weight: 700;
+        cursor: pointer;
+        padding: 0 1rem;
+        transition: background 0.15s, color 0.15s;
+        white-space: nowrap;
+      }
+      .type-tab.active {
+        background: var(--cyan);
+        color: #000;
+      }
 
-  // ── Build URL from form ──────────────────────────────────────────
-  function buildUrl() {
-    if (curType === "srt") {
-      const host    = document.getElementById("srt-host").value.trim();
-      const port    = document.getElementById("srt-port").value.trim();
-      const pass    = document.getElementById("srt-pass").value.trim();
-      const latency = document.getElementById("srt-latency").value.trim();
-      if (!host || !port) return null;
-      let url = `srt://${host}:${port}?mode=caller`;
-      if (pass)    url += `&passphrase=${encodeURIComponent(pass)}`;
-      if (latency) url += `&latency=${latency}`;
-      return url;
-    }
-    if (curType === "rtmp")   return document.getElementById("rtmp-url").value.trim() || null;
-    if (curType === "udp")    return document.getElementById("udp-url").value.trim()  || null;
-    if (curType === "url")    return document.getElementById("custom-url").value.trim() || null;
-    if (curType === "file")   return document.getElementById("file-path").value.trim() || null;
-    return null;
-  }
+      /* ── Form panels ── */
+      .form-panel {
+        display: none;
+        flex-direction: column;
+        gap: 0.6rem;
+        flex-shrink: 0;
+      }
+      .form-panel.active {
+        display: flex;
+      }
+      .form-row {
+        display: flex;
+        gap: 0.65rem;
+        align-items: flex-end;
+        flex-wrap: wrap;
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.28rem;
+      }
+      .field.grow {
+        flex: 1;
+        min-width: 160px;
+      }
+      .field.w90 {
+        width: 90px;
+      }
+      .field.w120 {
+        width: 120px;
+      }
+      label {
+        font-family: var(--mono);
+        font-size: 0.58rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      input[type="text"],
+      input[type="number"],
+      input[type="password"],
+      select {
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        padding: 0.45rem 0.65rem;
+        color: #fff;
+        font-family: var(--mono);
+        font-size: 0.82rem;
+        outline: none;
+        transition: border-color 0.15s;
+        width: 100%;
+      }
+      input:focus,
+      select:focus {
+        border-color: var(--cyan);
+      }
+      input.from-env {
+        border-color: rgba(63, 185, 80, 0.5);
+        background: rgba(63, 185, 80, 0.05);
+      }
 
-  // ── Run analysis ─────────────────────────────────────────────────
-  async function runAnalysis() {
-    const url = buildUrl();
-    if (!url) { setStatus("failed", "Please fill in the required fields."); return; }
+      /* ── Buttons ── */
+      .btn-run {
+        background: var(--cyan);
+        color: #000;
+        border: none;
+        border-radius: 5px;
+        padding: 0 1.2rem;
+        font-family: var(--mono);
+        font-size: 0.76rem;
+        font-weight: 700;
+        cursor: pointer;
+        height: 34px;
+        white-space: nowrap;
+        transition: opacity 0.15s;
+      }
+      .btn-run:hover {
+        opacity: 0.85;
+      }
+      .btn-run:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
 
-    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      /* ── Main area ── */
+      .main-area {
+        flex: 1;
+        display: flex;
+        gap: 0.65rem;
+        min-height: 0;
+      }
 
-    document.querySelectorAll(".btn-run").forEach(b => b.disabled = true);
-    document.getElementById("result-summary").style.display = "none";
-    document.getElementById("log-output").textContent = "";
-    resetProgress();
-    startProgressPulse();
-    setStatus("running", `Starting analysis for: ${url}`);
-    appendLog(`URL: ${url}\nLaunching run-ingest-analysis.sh on server...\n`);
-
-    let jobId;
-    try {
-      const res  = await fetch(`${PROXY}/ingest/run`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, tag: document.getElementById("inp-tag").value.trim() })
-      });
-      const data = await res.json();
-      if (!data.job_id) throw new Error(data.error || "No job_id returned");
-      jobId = data.job_id;
-      appendLog(`Job started: ${jobId}\nThe script runs for ~2 minutes. Please wait...\n`);
-    } catch (e) {
-      setStatus("failed", `Failed to start: ${e.message}`);
-      document.querySelectorAll(".btn-run").forEach(b => b.disabled = false);
-      return;
-    }
-
-    // Poll every 5 seconds
-    pollTimer = setInterval(async () => {
-      try {
-        const res  = await fetch(`${PROXY}/ingest/status/${jobId}`);
-        const job  = await res.json();
-
-        // Show log lines
-        const logEl = document.getElementById("log-output");
-        logEl.textContent = (job.log || []).join("\n");
-        logEl.scrollTop   = logEl.scrollHeight;
-
-        if (job.status !== "running") {
-          clearInterval(pollTimer); pollTimer = null;
-          document.querySelectorAll(".btn-run").forEach(b => b.disabled = false);
-          finishProgress(job.status === "done");
-          showResult(job);
-          loadHistory();
+      /* Status / log panel */
+      .status-wrap {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        overflow: hidden;
+      }
+      .panel-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.38rem 0.75rem;
+        background: var(--bg3);
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+      .status-label {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        color: var(--muted);
+      }
+      .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--muted);
+        flex-shrink: 0;
+      }
+      .dot.running {
+        background: var(--yellow);
+        animation: blink 0.9s ease-in-out infinite;
+      }
+      .dot.done {
+        background: var(--green);
+      }
+      .dot.failed {
+        background: var(--red);
+      }
+      .dot.timeout {
+        background: var(--red);
+      }
+      @keyframes blink {
+        0%,
+        100% {
+          opacity: 1;
         }
-      } catch (e) {
-        // Network hiccup — keep polling
-      }
-    }, 5000);
-  }
-
-  // ── Show result ──────────────────────────────────────────────────
-  function showResult(job) {
-    const exitCode = job.exit_code;
-    const exitMeanings = {
-      0:  { label: "ALL PASSED",  cls: "pass" },
-      45: { label: "WARNINGS",    cls: "warn" },
-      50: { label: "TESTS FAILED",cls: "fail" },
-      2:  { label: "TIMEOUT / UNREACHABLE", cls: "fail" },
-    };
-    const meaning = exitMeanings[exitCode] || { label: `EXIT ${exitCode}`, cls: "fail" };
-
-    const statusMap = { done: "done", failed: "failed", timeout: "timeout", error: "failed" };
-    setStatus(statusMap[job.status] || "failed",
-      job.status === "done"    ? "Analysis complete" :
-      job.status === "timeout" ? "Script timed out"  : "Analysis failed");
-
-    const badges  = document.getElementById("result-badges");
-    const hint    = document.getElementById("exit-hint");
-    const dlRow   = document.getElementById("dl-row");
-
-    badges.innerHTML = `<span class="result-badge ${meaning.cls}">${meaning.label}</span>`;
-
-    // Add summary badges from report.json if available
-    const s = job.summary || {};
-    if (s.video_codec) badges.innerHTML += `<span class="result-badge">Video: ${s.video_codec}</span>`;
-    if (s.audio_codec) badges.innerHTML += `<span class="result-badge">Audio: ${s.audio_codec}</span>`;
-    if (s.resolution)  badges.innerHTML += `<span class="result-badge">${s.resolution}</span>`;
-    if (s.fps)         badges.innerHTML += `<span class="result-badge">${s.fps} fps</span>`;
-
-    hint.textContent = {
-      0:  "Exit 0 — All validation checks passed.",
-      45: "Exit 45 — Some warnings but no failures.",
-      50: "Exit 50 — One or more validation checks failed.",
-      2:  "Exit 2  — ffprobe timed out or stream unreachable.",
-    }[exitCode] || `Exit code: ${exitCode}`;
-
-    dlRow.innerHTML = "";
-    if (job.zip) {
-      dlRow.innerHTML += `<a class="btn-dl zip" href="${PROXY}/ingest/download/${encodeURIComponent(job.zip)}" download>⬇ ZIP</a>`;
-    }
-    if (job.dir) {
-      dlRow.innerHTML += `<a class="btn-dl" href="${PROXY}/ingest/report/${encodeURIComponent(job.dir)}/index.html" target="_blank">↗ Open Report</a>`;
-    }
-    if (!job.zip && !job.pdf) {
-      dlRow.innerHTML = `<span style="font-family:var(--mono);font-size:0.65rem;color:var(--muted)">No files saved — check log for errors.</span>`;
-    }
-
-    document.getElementById("result-summary").style.display = "block";
-  }
-
-  // ── History ──────────────────────────────────────────────────────
-  function resolveServerName(url) {
-    // Extract host:port from srt://host:port?... or any URL
-    const m = url.match(/(?:srt|rtmp|udp):\/\/[@]?([^:/?]+):?(\d+)?/);
-    if (!m) return { name: url, sub: "" };
-    const ip   = m[1];
-    const port = m[2] || "";
-    const label = _serverPresets[ip] || ip;
-    return { name: label, sub: port ? `${ip}:${port}` : ip };
-  }
-
-  async function loadHistory() {
-    try {
-      const res    = await fetch(`${PROXY}/ingest/results`);
-      const items  = await res.json();
-      const list   = document.getElementById("history-list");
-      const search = (document.getElementById("search-filter").value || "").toLowerCase().trim();
-      const server = (document.getElementById("server-filter").value || "").trim();
-      const tag    = (document.getElementById("tag-filter").value || "").toLowerCase().trim();
-
-      // Populate tag datalists
-      const allTags = [...new Set(items.map(i => i.tag).filter(Boolean))];
-      ["ingest-tag-presets", "ingest-tag-filter-list"].forEach(id => {
-        const dl = document.getElementById(id);
-        if (dl) dl.innerHTML = allTags.map(t => `<option value="${t}">`).join("");
-      });
-
-      const filtered = items.filter(item => {
-        const url = (item.url || item.name || "").toLowerCase();
-        if (search && !url.includes(search)) return false;
-        if (server && !url.includes(server.toLowerCase())) return false;
-        if (tag    && !(item.tag || "").toLowerCase().includes(tag)) return false;
-        return true;
-      });
-
-      if (!filtered.length) {
-        list.innerHTML = '<div class="history-empty">No results found</div>';
-        return;
+        50% {
+          opacity: 0.3;
+        }
       }
 
-      list.innerHTML = filtered.map(item => {
-        const { name, sub } = resolveServerName(item.url || item.name || "");
-        const date = item.started_at ? item.started_at.slice(0,16).replace("T"," ") : "";
-        const statusDot = item.status === "done"
-          ? `<span style="color:var(--green)">✓</span> `
-          : item.status === "failed"
-          ? `<span style="color:var(--red)">✗</span> `
-          : "";
-        const safeItem = JSON.stringify(item).replace(/"/g, "&quot;");
-        return `
+      #log-output {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0.75rem 0.9rem;
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        line-height: 1.7;
+        color: var(--text);
+        white-space: pre-wrap;
+      }
+      #log-output::-webkit-scrollbar {
+        width: 4px;
+      }
+      #log-output::-webkit-scrollbar-thumb {
+        background: var(--border);
+      }
+
+      /* Result summary */
+      #result-summary {
+        display: none;
+        padding: 0.75rem 0.9rem;
+        border-top: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+      .result-row {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.5rem;
+      }
+      .result-badge {
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        padding: 3px 8px;
+        border-radius: 4px;
+        border: 1px solid var(--border);
+        background: var(--bg3);
+      }
+      .result-badge.pass {
+        border-color: var(--green);
+        color: var(--green);
+        background: var(--green-d);
+      }
+      .result-badge.fail {
+        border-color: var(--red);
+        color: var(--red);
+        background: #2d0a0a;
+      }
+      .result-badge.warn {
+        border-color: var(--yellow);
+        color: var(--yellow);
+        background: #2d2200;
+      }
+      .dl-row {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+      }
+      .btn-dl {
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        font-weight: 700;
+        padding: 4px 12px;
+        border-radius: 5px;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        transition: border-color 0.15s, color 0.15s;
+      }
+      .btn-dl:hover {
+        border-color: var(--cyan);
+        color: var(--cyan);
+      }
+      .btn-dl.zip:hover {
+        border-color: var(--yellow);
+        color: var(--yellow);
+      }
+      .btn-dl.pdf:hover {
+        border-color: var(--red);
+        color: var(--red);
+      }
+
+      /* History panel */
+      .history-panel {
+        width: 380px;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        overflow: hidden;
+      }
+      .history-header {
+        padding: 0.42rem 0.75rem;
+        background: var(--bg3);
+        border-bottom: 1px solid var(--border);
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+        flex-shrink: 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.4rem;
+      }
+      .btn-refresh {
+        background: transparent;
+        border: none;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        cursor: pointer;
+        padding: 0;
+      }
+      .btn-refresh:hover {
+        color: var(--cyan);
+      }
+      .history-list {
+        flex: 1;
+        overflow-y: auto;
+      }
+      .history-list::-webkit-scrollbar {
+        width: 4px;
+      }
+      .history-list::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 2px;
+      }
+      .history-item {
+        padding: 0.65rem 0.85rem;
+        border-bottom: 1px solid var(--border);
+        cursor: pointer;
+        transition: background 0.12s;
+      }
+      .history-item:hover {
+        background: var(--bg3);
+      }
+      .hi-name {
+        font-family: var(--mono);
+        font-size: 0.85rem;
+        color: #fff;
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 2px;
+      }
+      .hi-url {
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 4px;
+      }
+      .hi-meta {
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        color: var(--muted);
+        margin-bottom: 5px;
+      }
+      .hi-links {
+        display: flex;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+      }
+      .hi-link {
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        color: var(--cyan);
+        text-decoration: none;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        padding: 2px 8px;
+      }
+      .hi-link:hover {
+        border-color: var(--cyan);
+      }
+      .history-empty {
+        padding: 1.5rem;
+        text-align: center;
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        color: var(--muted);
+      }
+
+      /* Progress bar */
+      #progress-bar {
+        height: 3px;
+        background: var(--border);
+        flex-shrink: 0;
+      }
+      #progress-fill {
+        height: 100%;
+        width: 0%;
+        background: var(--yellow);
+        transition: width 1s linear, background 0.5s;
+      }
+
+      /* Result viewer modal */
+      #result-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 200;
+        align-items: center;
+        justify-content: center;
+      }
+      #result-modal.open {
+        display: flex;
+      }
+      .result-modal-card {
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        width: 860px;
+        max-width: 95vw;
+        max-height: 88vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 0 60px rgba(0, 0, 0, 0.6);
+        overflow: hidden;
+      }
+      .result-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.6rem 1rem;
+        background: var(--bg3);
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+      .result-modal-title {
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: var(--cyan);
+      }
+      .result-modal-close {
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        padding: 2px 10px;
+        cursor: pointer;
+      }
+      .result-modal-close:hover {
+        border-color: var(--red);
+        color: var(--red);
+      }
+      .result-modal-meta {
+        padding: 0.6rem 1rem;
+        background: var(--bg);
+        border-bottom: 1px solid var(--border);
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        color: var(--muted);
+        flex-shrink: 0;
+        display: flex;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+      }
+      .result-modal-meta span {
+        color: var(--text);
+      }
+      .result-modal-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0.85rem 1rem;
+      }
+      #result-txt {
+        font-family: var(--mono);
+        font-size: 0.73rem;
+        line-height: 1.7;
+        color: var(--text);
+        white-space: pre-wrap;
+      }
+      #result-txt .pass {
+        color: var(--green);
+      }
+      #result-txt .fail {
+        color: var(--red);
+      }
+      #result-txt .warn {
+        color: var(--yellow);
+      }
+      .result-modal-actions {
+        padding: 0.5rem 1rem;
+        border-top: 1px solid var(--border);
+        display: flex;
+        gap: 0.5rem;
+        flex-shrink: 0;
+        background: var(--bg3);
+      }
+
+      /* Exit code meanings */
+      .exit-hint {
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        color: var(--muted);
+        margin-top: 0.3rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div class="topbar">
+        <h1>Ingest <span>//</span> Analyzer</h1>
+        <span class="topbar-sub"
+          >runs run-ingest-analysis.sh on the server — ~2 min analysis</span
+        >
+      </div>
+
+      <!-- Source type selector -->
+      <div class="type-tabs">
+        <button class="type-tab active" onclick="setType('srt')">SRT</button>
+        <button class="type-tab" onclick="setType('rtmp')">RTMP</button>
+        <button class="type-tab" onclick="setType('udp')">UDP</button>
+        <button class="type-tab" onclick="setType('url')">Custom URL</button>
+        <button class="type-tab" onclick="setType('file')">File .ts</button>
+      </div>
+
+      <!-- SRT form -->
+      <div class="form-panel active" id="panel-srt">
+        <div class="form-row">
+          <div class="field grow">
+            <label>Host / IP</label>
+            <input
+              id="srt-host"
+              type="text"
+              placeholder="e.g. 10.0.0.1 or ingest.example.com"
+              autocomplete="off"
+              list="srt-local-presets"
+            />
+            <datalist id="srt-local-presets"></datalist>
+          </div>
+          <div class="field w90">
+            <label>Port</label>
+            <input
+              id="srt-port"
+              type="number"
+              placeholder="9000"
+              min="1"
+              max="65535"
+            />
+          </div>
+          <div class="field grow">
+            <label
+              >Passphrase
+              <span style="color: var(--muted); font-weight: 400"
+                >(optional, SP internal already loaded)</span
+              ></label
+            >
+            <!-- type="text" with autocomplete=new-password prevents browser save prompts -->
+            <input
+              id="srt-pass"
+              type="text"
+              placeholder="leave blank if none"
+              autocomplete="new-password"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+              style="-webkit-text-security: disc; font-family: var(--mono)"
+            />
+          </div>
+          <div class="field w90">
+            <label>Latency ms</label>
+            <input id="srt-latency" type="number" placeholder="120" min="0" />
+          </div>
+          <button class="btn-run" id="btn-run" onclick="runAnalysis()">
+            ▶ Analyze
+          </button>
+        </div>
+        <div class="form-row">
+          <div class="field grow" style="max-width: 300px">
+            <label
+              >Tag
+              <span style="color: var(--muted); font-weight: 400"
+                >(optional)</span
+              ></label
+            >
+            <input
+              id="inp-tag"
+              type="text"
+              placeholder="e.g. Test, VIDENG-1234, INC2345678"
+              autocomplete="off"
+              list="ingest-tag-presets"
+            />
+            <datalist id="ingest-tag-presets"></datalist>
+          </div>
+        </div>
+      </div>
+
+      <!-- RTMP form -->
+      <div class="form-panel" id="panel-rtmp">
+        <div class="form-row">
+          <div class="field grow">
+            <label>RTMP URL</label>
+            <input
+              id="rtmp-url"
+              type="text"
+              placeholder="rtmp://host/app/stream"
+              autocomplete="off"
+            />
+          </div>
+          <button class="btn-run" onclick="runAnalysis()">▶ Analyze</button>
+        </div>
+      </div>
+
+      <!-- UDP form -->
+      <div class="form-panel" id="panel-udp">
+        <div class="form-row">
+          <div class="field grow">
+            <label>UDP URL</label>
+            <input
+              id="udp-url"
+              type="text"
+              placeholder="udp://@239.0.0.1:1234"
+              autocomplete="off"
+            />
+          </div>
+          <button class="btn-run" onclick="runAnalysis()">▶ Analyze</button>
+        </div>
+      </div>
+
+      <!-- Custom URL form -->
+      <div class="form-panel" id="panel-url">
+        <div class="form-row">
+          <div class="field grow">
+            <label>Any URL or .env path</label>
+            <input
+              id="custom-url"
+              type="text"
+              placeholder="srt://... or /usr/local/etc/srt-listener/config.env"
+              autocomplete="off"
+            />
+          </div>
+          <button class="btn-run" onclick="runAnalysis()">▶ Analyze</button>
+        </div>
+      </div>
+
+      <!-- File form -->
+      <div class="form-panel" id="panel-file">
+        <div class="form-row">
+          <div class="field grow">
+            <label>MPEG-TS file path (server-side)</label>
+            <input
+              id="file-path"
+              type="text"
+              placeholder="/path/to/recording.ts"
+              autocomplete="off"
+            />
+          </div>
+          <button class="btn-run" onclick="runAnalysis()">▶ Analyze</button>
+        </div>
+      </div>
+
+      <!-- Main area -->
+      <div class="main-area">
+        <div class="status-wrap">
+          <div class="panel-toolbar">
+            <div class="status-label">
+              <span class="dot" id="dot"></span>
+              <span id="status-text"
+                >Ready — fill in the source details and click Analyze</span
+              >
+            </div>
+          </div>
+          <div id="progress-bar"><div id="progress-fill"></div></div>
+          <div id="log-output">
+            <span style="color: var(--muted)"
+              >Output will appear here when analysis starts...</span
+            >
+          </div>
+          <div id="result-summary">
+            <div class="result-row" id="result-badges"></div>
+            <div class="exit-hint" id="exit-hint"></div>
+            <div class="dl-row" id="dl-row"></div>
+          </div>
+        </div>
+
+        <div class="history-panel">
+          <div
+            class="history-header"
+            style="flex-direction: column; gap: 0.4rem; padding: 0.5rem 0.75rem"
+          >
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                width: 100%;
+              "
+            >
+              <span>History</span>
+              <button class="btn-refresh" onclick="loadHistory()">↻</button>
+            </div>
+            <div style="display: flex; gap: 0.4rem; width: 100%">
+              <input
+                id="search-filter"
+                type="text"
+                placeholder="search host, port…"
+                style="
+                  flex: 1;
+                  background: var(--bg);
+                  border: 1px solid var(--border);
+                  border-radius: 3px;
+                  color: var(--text);
+                  font-family: var(--mono);
+                  font-size: 0.62rem;
+                  padding: 2px 6px;
+                  outline: none;
+                "
+                oninput="loadHistory()"
+              />
+              <select
+                id="server-filter"
+                onchange="loadHistory()"
+                style="
+                  background: var(--bg);
+                  border: 1px solid var(--border);
+                  border-radius: 3px;
+                  color: var(--text);
+                  font-family: var(--mono);
+                  font-size: 0.62rem;
+                  padding: 2px 4px;
+                  outline: none;
+                  max-width: 110px;
+                "
+              >
+                <option value="">All servers</option>
+              </select>
+              <input
+                id="tag-filter"
+                type="text"
+                placeholder="tag…"
+                list="ingest-tag-filter-list"
+                style="
+                  width: 70px;
+                  background: var(--bg);
+                  border: 1px solid var(--border);
+                  border-radius: 3px;
+                  color: var(--text);
+                  font-family: var(--mono);
+                  font-size: 0.62rem;
+                  padding: 2px 6px;
+                  outline: none;
+                "
+                oninput="loadHistory()"
+              />
+              <datalist id="ingest-tag-filter-list"></datalist>
+            </div>
+          </div>
+          <div class="history-list" id="history-list">
+            <div class="history-empty">No results yet</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Result viewer modal ─────────────────────────────── -->
+    <div id="result-modal">
+      <div class="result-modal-card">
+        <div class="result-modal-header">
+          <div class="result-modal-title" id="modal-title">
+            Ingest Analysis Result
+          </div>
+          <button class="result-modal-close" onclick="closeResultModal()">
+            ✕ Close
+          </button>
+        </div>
+        <div class="result-modal-meta" id="modal-meta"></div>
+        <div class="result-modal-body">
+          <pre id="result-txt">Loading...</pre>
+        </div>
+        <div class="result-modal-actions" id="modal-actions"></div>
+      </div>
+    </div>
+
+    <script>
+      const PROXY = "/so-proxy";
+      let curType = "srt";
+      let pollTimer = null;
+      let _serverPresets = {}; // ip -> label map from SRT_LOCAL_*
+
+      // ── Load config (SRT_LOCAL_* presets + passphrase) ───────────────
+      async function loadConfig() {
+        try {
+          const res = await fetch(`${PROXY}/config`);
+          const data = await res.json();
+          const env = data.config || {};
+
+          // Populate SRT local host presets
+          const datalist = document.getElementById("srt-local-presets");
+          datalist.innerHTML = "";
+          _serverPresets = {};
+          Object.keys(env)
+            .filter((k) => /^SRT_LOCAL_\d+$/.test(k))
+            .sort(
+              (a, b) => parseInt(a.split("_")[2]) - parseInt(b.split("_")[2])
+            )
+            .forEach((k) => {
+              const parts = env[k].split("|");
+              const ip = (parts[0] || "").trim();
+              const label = (parts[1] || ip).trim();
+              if (!ip) return;
+              _serverPresets[ip] = label;
+              const opt = document.createElement("option");
+              opt.value = ip;
+              opt.textContent = label;
+              datalist.appendChild(opt);
+            });
+
+          // Populate server filter dropdown
+          const sf = document.getElementById("server-filter");
+          if (sf) {
+            sf.innerHTML = '<option value="">All servers</option>';
+            Object.entries(_serverPresets).forEach(([ip, label]) => {
+              sf.innerHTML += `<option value="${ip}">${label}</option>`;
+            });
+          }
+
+          // Pre-fill passphrase from env
+          if (env.SRT_PASSPHRASE) {
+            const passEl = document.getElementById("srt-pass");
+            passEl.value = env.SRT_PASSPHRASE;
+            passEl.classList.add("from-env");
+            passEl.addEventListener(
+              "input",
+              function () {
+                this.classList.remove("from-env");
+              },
+              { once: true }
+            );
+          }
+        } catch (e) {
+          console.warn("Could not load config:", e);
+        }
+      }
+
+      // ── Source type ──────────────────────────────────────────────────
+      function setType(t) {
+        curType = t;
+        document.querySelectorAll(".type-tab").forEach((el, i) => {
+          el.classList.toggle(
+            "active",
+            ["srt", "rtmp", "udp", "url", "file"][i] === t
+          );
+        });
+        document
+          .querySelectorAll(".form-panel")
+          .forEach((el) => el.classList.remove("active"));
+        document.getElementById(`panel-${t}`).classList.add("active");
+      }
+
+      // ── Build URL from form ──────────────────────────────────────────
+      function buildUrl() {
+        if (curType === "srt") {
+          const host = document.getElementById("srt-host").value.trim();
+          const port = document.getElementById("srt-port").value.trim();
+          const pass = document.getElementById("srt-pass").value.trim();
+          const latency = document.getElementById("srt-latency").value.trim();
+          if (!host || !port) return null;
+          let url = `srt://${host}:${port}?mode=caller`;
+          if (pass) url += `&passphrase=${encodeURIComponent(pass)}`;
+          if (latency) url += `&latency=${latency}`;
+          return url;
+        }
+        if (curType === "rtmp")
+          return document.getElementById("rtmp-url").value.trim() || null;
+        if (curType === "udp")
+          return document.getElementById("udp-url").value.trim() || null;
+        if (curType === "url")
+          return document.getElementById("custom-url").value.trim() || null;
+        if (curType === "file")
+          return document.getElementById("file-path").value.trim() || null;
+        return null;
+      }
+
+      // ── Run analysis ─────────────────────────────────────────────────
+      async function runAnalysis() {
+        const url = buildUrl();
+        if (!url) {
+          setStatus("failed", "Please fill in the required fields.");
+          return;
+        }
+
+        if (pollTimer) {
+          clearInterval(pollTimer);
+          pollTimer = null;
+        }
+
+        document
+          .querySelectorAll(".btn-run")
+          .forEach((b) => (b.disabled = true));
+        document.getElementById("result-summary").style.display = "none";
+        document.getElementById("log-output").textContent = "";
+        resetProgress();
+        startProgressPulse();
+        setStatus("running", `Starting analysis for: ${url}`);
+        appendLog(
+          `URL: ${url}\nLaunching run-ingest-analysis.sh on server...\n`
+        );
+
+        let jobId;
+        try {
+          const res = await fetch(`${PROXY}/ingest/run`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              url,
+              tag: document.getElementById("inp-tag").value.trim(),
+            }),
+          });
+          const data = await res.json();
+          if (!data.job_id) throw new Error(data.error || "No job_id returned");
+          jobId = data.job_id;
+          appendLog(
+            `Job started: ${jobId}\nThe script runs for ~2 minutes. Please wait...\n`
+          );
+        } catch (e) {
+          setStatus("failed", `Failed to start: ${e.message}`);
+          document
+            .querySelectorAll(".btn-run")
+            .forEach((b) => (b.disabled = false));
+          return;
+        }
+
+        // Poll every 5 seconds
+        pollTimer = setInterval(async () => {
+          try {
+            const res = await fetch(`${PROXY}/ingest/status/${jobId}`);
+            const job = await res.json();
+
+            // Show log lines
+            const logEl = document.getElementById("log-output");
+            logEl.textContent = (job.log || []).join("\n");
+            logEl.scrollTop = logEl.scrollHeight;
+
+            if (job.status !== "running") {
+              clearInterval(pollTimer);
+              pollTimer = null;
+              document
+                .querySelectorAll(".btn-run")
+                .forEach((b) => (b.disabled = false));
+              finishProgress(job.status === "done");
+              showResult(job);
+              loadHistory();
+            }
+          } catch (e) {
+            // Network hiccup — keep polling
+          }
+        }, 5000);
+      }
+
+      // ── Show result ──────────────────────────────────────────────────
+      function showResult(job) {
+        const exitCode = job.exit_code;
+        const exitMeanings = {
+          0: { label: "ALL PASSED", cls: "pass" },
+          45: { label: "WARNINGS", cls: "warn" },
+          50: { label: "TESTS FAILED", cls: "fail" },
+          2: { label: "TIMEOUT / UNREACHABLE", cls: "fail" },
+        };
+        const meaning = exitMeanings[exitCode] || {
+          label: `EXIT ${exitCode}`,
+          cls: "fail",
+        };
+
+        const statusMap = {
+          done: "done",
+          failed: "failed",
+          timeout: "timeout",
+          error: "failed",
+        };
+        setStatus(
+          statusMap[job.status] || "failed",
+          job.status === "done"
+            ? "Analysis complete"
+            : job.status === "timeout"
+            ? "Script timed out"
+            : "Analysis failed"
+        );
+
+        const badges = document.getElementById("result-badges");
+        const hint = document.getElementById("exit-hint");
+        const dlRow = document.getElementById("dl-row");
+
+        badges.innerHTML = `<span class="result-badge ${meaning.cls}">${meaning.label}</span>`;
+
+        // Add summary badges from report.json if available
+        const s = job.summary || {};
+        if (s.video_codec)
+          badges.innerHTML += `<span class="result-badge">Video: ${s.video_codec}</span>`;
+        if (s.audio_codec)
+          badges.innerHTML += `<span class="result-badge">Audio: ${s.audio_codec}</span>`;
+        if (s.resolution)
+          badges.innerHTML += `<span class="result-badge">${s.resolution}</span>`;
+        if (s.fps)
+          badges.innerHTML += `<span class="result-badge">${s.fps} fps</span>`;
+
+        hint.textContent =
+          {
+            0: "Exit 0 — All validation checks passed.",
+            45: "Exit 45 — Some warnings but no failures.",
+            50: "Exit 50 — One or more validation checks failed.",
+            2: "Exit 2  — ffprobe timed out or stream unreachable.",
+          }[exitCode] || `Exit code: ${exitCode}`;
+
+        dlRow.innerHTML = "";
+        if (job.zip) {
+          dlRow.innerHTML += `<a class="btn-dl zip" href="${PROXY}/ingest/download/${encodeURIComponent(
+            job.zip
+          )}" download>⬇ ZIP</a>`;
+        }
+        if (job.dir) {
+          dlRow.innerHTML += `<a class="btn-dl" href="${PROXY}/ingest/report/${encodeURIComponent(
+            job.dir
+          )}/index.html" target="_blank">↗ Open Report</a>`;
+        }
+        if (!job.zip && !job.pdf) {
+          dlRow.innerHTML = `<span style="font-family:var(--mono);font-size:0.65rem;color:var(--muted)">No files saved — check log for errors.</span>`;
+        }
+
+        document.getElementById("result-summary").style.display = "block";
+      }
+
+      // ── History ──────────────────────────────────────────────────────
+      function resolveServerName(url) {
+        // Extract host:port from srt://host:port?... or any URL
+        const m = url.match(/(?:srt|rtmp|udp):\/\/[@]?([^:/?]+):?(\d+)?/);
+        if (!m) return { name: url, sub: "" };
+        const ip = m[1];
+        const port = m[2] || "";
+        const label = _serverPresets[ip] || ip;
+        return { name: label, sub: port ? `${ip}:${port}` : ip };
+      }
+
+      async function loadHistory() {
+        try {
+          const res = await fetch(`${PROXY}/ingest/results`);
+          const items = await res.json();
+          const list = document.getElementById("history-list");
+          const search = (document.getElementById("search-filter").value || "")
+            .toLowerCase()
+            .trim();
+          const server = (
+            document.getElementById("server-filter").value || ""
+          ).trim();
+          const tag = (document.getElementById("tag-filter").value || "")
+            .toLowerCase()
+            .trim();
+
+          // Populate tag datalists
+          const allTags = [...new Set(items.map((i) => i.tag).filter(Boolean))];
+          ["ingest-tag-presets", "ingest-tag-filter-list"].forEach((id) => {
+            const dl = document.getElementById(id);
+            if (dl)
+              dl.innerHTML = allTags
+                .map((t) => `<option value="${t}">`)
+                .join("");
+          });
+
+          const filtered = items.filter((item) => {
+            const url = (item.url || item.name || "").toLowerCase();
+            if (search && !url.includes(search)) return false;
+            if (server && !url.includes(server.toLowerCase())) return false;
+            if (tag && !(item.tag || "").toLowerCase().includes(tag))
+              return false;
+            return true;
+          });
+
+          if (!filtered.length) {
+            list.innerHTML =
+              '<div class="history-empty">No results found</div>';
+            return;
+          }
+
+          list.innerHTML = filtered
+            .map((item) => {
+              const { name, sub } = resolveServerName(
+                item.url || item.name || ""
+              );
+              const date = item.started_at
+                ? item.started_at.slice(0, 16).replace("T", " ")
+                : "";
+              const statusDot =
+                item.status === "done"
+                  ? `<span style="color:var(--green)">✓</span> `
+                  : item.status === "failed"
+                  ? `<span style="color:var(--red)">✗</span> `
+                  : "";
+              const safeItem = JSON.stringify(item).replace(/"/g, "&quot;");
+              return `
         <div class="history-item" onclick="openResult(${safeItem})">
           <div class="hi-name">${statusDot}${name}</div>
-          <div class="hi-url">${sub}${item.tag ? ` · <span style="color:var(--cyan)">${item.tag}</span>` : ""}</div>
+          <div class="hi-url">${sub}${
+                item.tag
+                  ? ` · <span style="color:var(--cyan)">${item.tag}</span>`
+                  : ""
+              }</div>
           <div class="hi-meta">${date}</div>
           <div class="hi-links">
             <span class="hi-link" onclick="event.stopPropagation();openResult(${safeItem})">📋 View</span>
-            <a class="hi-link" href="${PROXY}/ingest/download/${encodeURIComponent(item.zip)}" download onclick="event.stopPropagation()">⬇ ZIP</a>
-            ${item.dir ? `<a class="hi-link" href="${PROXY}/ingest/report/${encodeURIComponent(item.dir)}/index.html" target="_blank" onclick="event.stopPropagation()">↗ HTML</a>` : ""}
+            <a class="hi-link" href="${PROXY}/ingest/download/${encodeURIComponent(
+                item.zip
+              )}" download onclick="event.stopPropagation()">⬇ ZIP</a>
+            ${
+              item.dir
+                ? `<a class="hi-link" href="${PROXY}/ingest/report/${encodeURIComponent(
+                    item.dir
+                  )}/index.html" target="_blank" onclick="event.stopPropagation()">↗ HTML</a>`
+                : ""
+            }
           </div>
         </div>`;
-      }).join("");
-    } catch (e) {
-      console.error("History load error:", e);
-    }
-  }
+            })
+            .join("");
+        } catch (e) {
+          console.error("History load error:", e);
+        }
+      }
 
-  // ── Result viewer modal ───────────────────────────────────────────
-  async function openResult(item) {
-    const modal   = document.getElementById("result-modal");
-    const title   = document.getElementById("modal-title");
-    const meta    = document.getElementById("modal-meta");
-    const txt     = document.getElementById("result-txt");
-    const actions = document.getElementById("modal-actions");
+      // ── Result viewer modal ───────────────────────────────────────────
+      async function openResult(item) {
+        const modal = document.getElementById("result-modal");
+        const title = document.getElementById("modal-title");
+        const meta = document.getElementById("modal-meta");
+        const txt = document.getElementById("result-txt");
+        const actions = document.getElementById("modal-actions");
 
-    title.textContent = item.url || item.name;
-    meta.innerHTML = [
-      item.started_at ? `Date: <span>${item.started_at.slice(0,19).replace("T"," ")} UTC</span>` : "",
-      item.tag        ? `Tag: <span style="color:var(--cyan)">${item.tag}</span>` : "",
-      item.status     ? `Status: <span>${item.status}</span>` : "",
-    ].filter(Boolean).join(" &nbsp;·&nbsp; ");
+        title.textContent = item.url || item.name;
+        meta.innerHTML = [
+          item.started_at
+            ? `Date: <span>${item.started_at
+                .slice(0, 19)
+                .replace("T", " ")} UTC</span>`
+            : "",
+          item.tag
+            ? `Tag: <span style="color:var(--cyan)">${item.tag}</span>`
+            : "",
+          item.status ? `Status: <span>${item.status}</span>` : "",
+        ]
+          .filter(Boolean)
+          .join(" &nbsp;·&nbsp; ");
 
-    actions.innerHTML = `
-      ${item.zip ? `<a class="btn-dl zip" href="${PROXY}/ingest/download/${encodeURIComponent(item.zip)}" download>⬇ ZIP</a>` : ""}
-      ${item.dir ? `<a class="btn-dl" href="${PROXY}/ingest/report/${encodeURIComponent(item.dir)}/index.html" target="_blank">↗ Full HTML Report</a>` : ""}
+        actions.innerHTML = `
+      ${
+        item.zip
+          ? `<a class="btn-dl zip" href="${PROXY}/ingest/download/${encodeURIComponent(
+              item.zip
+            )}" download>⬇ ZIP</a>`
+          : ""
+      }
+      ${
+        item.dir
+          ? `<a class="btn-dl" href="${PROXY}/ingest/report/${encodeURIComponent(
+              item.dir
+            )}/index.html" target="_blank">↗ Full HTML Report</a>`
+          : ""
+      }
     `;
 
-    txt.textContent = "Loading report.txt...";
-    modal.classList.add("open");
+        txt.textContent = "Loading report.txt...";
+        modal.classList.add("open");
 
-    if (item.dir) {
-      try {
-        const res  = await fetch(`${PROXY}/ingest/report-txt/${encodeURIComponent(item.dir)}`);
-        const text = await res.text();
-        // Colorise PASS/FAIL/WARN
-        txt.innerHTML = text
-          .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
-          .replace(/\[PASS\]/g, '<span class="pass">[PASS]</span>')
-          .replace(/\[FAIL\]/g, '<span class="fail">[FAIL]</span>')
-          .replace(/\[WARN\]/g, '<span class="warn">[WARN]</span>');
-      } catch (e) {
-        txt.textContent = `Could not load report.txt: ${e.message}`;
+        if (item.dir) {
+          try {
+            const res = await fetch(
+              `${PROXY}/ingest/report-txt/${encodeURIComponent(item.dir)}`
+            );
+            const text = await res.text();
+            // Colorise PASS/FAIL/WARN
+            txt.innerHTML = text
+              .replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;")
+              .replace(/\[PASS\]/g, '<span class="pass">[PASS]</span>')
+              .replace(/\[FAIL\]/g, '<span class="fail">[FAIL]</span>')
+              .replace(/\[WARN\]/g, '<span class="warn">[WARN]</span>');
+          } catch (e) {
+            txt.textContent = `Could not load report.txt: ${e.message}`;
+          }
+        } else {
+          txt.textContent = "Report directory not available.";
+        }
       }
-    } else {
-      txt.textContent = "Report directory not available.";
-    }
-  }
 
-  function closeResultModal() {
-    document.getElementById("result-modal").classList.remove("open");
-  }
-  document.getElementById("result-modal").addEventListener("click", function(e) {
-    if (e.target === this) closeResultModal();
-  });
+      function closeResultModal() {
+        document.getElementById("result-modal").classList.remove("open");
+      }
+      document
+        .getElementById("result-modal")
+        .addEventListener("click", function (e) {
+          if (e.target === this) closeResultModal();
+        });
 
-  // ── Progress bar ─────────────────────────────────────────────────
-  let _progressTimer = null;
-  function startProgressPulse() {
-    let pct = 0;
-    const fill = document.getElementById("progress-fill");
-    fill.style.background = "var(--yellow)";
-    _progressTimer = setInterval(() => {
-      // Asymptotic fill — approaches 95% but never reaches 100 until done
-      pct = pct + (95 - pct) * 0.015;
-      fill.style.width = pct + "%";
-    }, 1000);
-  }
-  function finishProgress(success) {
-    clearInterval(_progressTimer);
-    const fill = document.getElementById("progress-fill");
-    fill.style.width = "100%";
-    fill.style.background = success ? "var(--green)" : "var(--red)";
-  }
-  function resetProgress() {
-    clearInterval(_progressTimer);
-    const fill = document.getElementById("progress-fill");
-    fill.style.width = "0%";
-    fill.style.background = "var(--yellow)";
-  }
+      // ── Progress bar ─────────────────────────────────────────────────
+      let _progressTimer = null;
+      function startProgressPulse() {
+        let pct = 0;
+        const fill = document.getElementById("progress-fill");
+        fill.style.background = "var(--yellow)";
+        _progressTimer = setInterval(() => {
+          // Asymptotic fill — approaches 95% but never reaches 100 until done
+          pct = pct + (95 - pct) * 0.015;
+          fill.style.width = pct + "%";
+        }, 1000);
+      }
+      function finishProgress(success) {
+        clearInterval(_progressTimer);
+        const fill = document.getElementById("progress-fill");
+        fill.style.width = "100%";
+        fill.style.background = success ? "var(--green)" : "var(--red)";
+      }
+      function resetProgress() {
+        clearInterval(_progressTimer);
+        const fill = document.getElementById("progress-fill");
+        fill.style.width = "0%";
+        fill.style.background = "var(--yellow)";
+      }
 
-  // ── Helpers ──────────────────────────────────────────────────────
-  function setStatus(type, msg) {
-    document.getElementById("dot").className          = "dot " + type;
-    document.getElementById("status-text").textContent = msg;
-  }
+      // ── Helpers ──────────────────────────────────────────────────────
+      function setStatus(type, msg) {
+        document.getElementById("dot").className = "dot " + type;
+        document.getElementById("status-text").textContent = msg;
+      }
 
-  function appendLog(msg) {
-    const el = document.getElementById("log-output");
-    el.textContent += msg;
-    el.scrollTop    = el.scrollHeight;
-  }
+      function appendLog(msg) {
+        const el = document.getElementById("log-output");
+        el.textContent += msg;
+        el.scrollTop = el.scrollHeight;
+      }
 
-  // Enter key on single-field panels
-  ["rtmp-url","udp-url","custom-url","file-path"].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener("keydown", e => { if (e.key === "Enter") runAnalysis(); });
-  });
+      // Enter key on single-field panels
+      ["rtmp-url", "udp-url", "custom-url", "file-path"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el)
+          el.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") runAnalysis();
+          });
+      });
 
-  loadConfig();
-  loadHistory();
-</script>
-</body>
+      loadConfig();
+      loadHistory();
+    </script>
+  </body>
 </html>
