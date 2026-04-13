@@ -108,6 +108,10 @@ TOOL_2=SRT-URI-Builder.html|SRT URI Builder|Build SRT connection strings|🔗|St
 
 # SRT Builder config
 SRT_PASSPHRASE=your-passphrase-here
+
+# Admin password for sensitive actions (restart proxy, kill/delete MTR jobs)
+# Leave blank to disable password protection
+ADMIN_PASSWORD=your-admin-password-here
 SRT_SERVER_1=10.x.x.x|Server Name 1
 SRT_SERVER_2=10.x.x.x|Server Name 2
 
@@ -125,24 +129,24 @@ PHENIXRTS_PASSWORD=your-password
 ## 6. Proxy as a systemd service
 
 ```bash
-cp /opt/web/phenix-proxy.service /etc/systemd/system/phenix-proxy.service
+cp /opt/web/so-proxy.service /etc/systemd/system/so-proxy.service
 
 systemctl daemon-reload
-systemctl enable phenix-proxy
-systemctl start phenix-proxy
+systemctl enable so-proxy
+systemctl start so-proxy
 ```
 
 Check status and logs:
 
 ```bash
-systemctl status phenix-proxy
-journalctl -u phenix-proxy -f
+systemctl status so-proxy
+journalctl -u so-proxy -f
 ```
 
 Restart after changes:
 
 ```bash
-systemctl restart phenix-proxy
+systemctl restart so-proxy
 ```
 
 > **WSL note:** `systemctl` may not work on WSL1. Use WSL2, or start manually:
@@ -159,10 +163,10 @@ systemctl restart phenix-proxy
 curl -sk https://localhost/ | head -5
 
 # Proxy config endpoint
-curl -sk https://localhost/phenix-proxy/config
+curl -sk https://localhost/so-proxy/config
 
 # Git pull endpoint
-curl -sk -X POST https://localhost/phenix-proxy/git-pull
+curl -sk -X POST https://localhost/so-proxy/git-pull
 
 # .env is blocked (must return 404)
 curl -sk https://localhost/.env
@@ -177,10 +181,10 @@ curl -sk https://localhost/.env
 | App code (HTML, proxy.py) | `/opt/web/` | ✅ Yes |
 | nginx config (CentOS/RHEL) | `/opt/web/nginx.conf` → `/etc/nginx/nginx.conf` | ✅ Yes |
 | nginx config (Debian/Ubuntu) | `/opt/web/nginx-debian.conf` → `/etc/nginx/sites-available/so-toolbox` | ✅ Yes |
-| systemd service file | `/opt/web/phenix-proxy.service` → `/etc/systemd/system/` | ✅ Yes |
+| systemd service file | `/opt/web/so-proxy.service` → `/etc/systemd/system/` | ✅ Yes |
 | `.env` (tools, credentials) | `/opt/web/.env` | ❌ No — create manually |
 | SSL certificates | `/etc/nginx/ssl/` | ❌ No — generate manually |
-| Proxy logs | `journalctl -u phenix-proxy` | ❌ No |
+| Proxy logs | `journalctl -u so-proxy` | ❌ No |
 
 ---
 
@@ -194,8 +198,8 @@ curl -sk https://localhost/.env
 - [ ] `cp /opt/web/nginx.conf /etc/nginx/nginx.conf && rm -f /etc/nginx/conf.d/default.conf`
 - [ ] `nginx -t && systemctl enable nginx && systemctl start nginx`
 - [ ] Create `/opt/web/.env`
-- [ ] `cp /opt/web/phenix-proxy.service /etc/systemd/system/`
-- [ ] `systemctl daemon-reload && systemctl enable phenix-proxy && systemctl start phenix-proxy`
+- [ ] `cp /opt/web/so-proxy.service /etc/systemd/system/`
+- [ ] `systemctl daemon-reload && systemctl enable so-proxy && systemctl start so-proxy`
 - [ ] Verify with curl checks in Section 7
 
 ### Debian / Ubuntu / WSL
@@ -208,6 +212,6 @@ curl -sk https://localhost/.env
 - [ ] `ln -s /etc/nginx/sites-available/so-toolbox /etc/nginx/sites-enabled/so-toolbox`
 - [ ] `nginx -t && systemctl enable nginx && systemctl start nginx`
 - [ ] Create `/opt/web/.env`
-- [ ] `cp /opt/web/phenix-proxy.service /etc/systemd/system/`
-- [ ] `systemctl daemon-reload && systemctl enable phenix-proxy && systemctl start phenix-proxy`
+- [ ] `cp /opt/web/so-proxy.service /etc/systemd/system/`
+- [ ] `systemctl daemon-reload && systemctl enable so-proxy && systemctl start so-proxy`
 - [ ] Verify with curl checks in Section 7

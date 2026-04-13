@@ -1,0 +1,17 @@
+[Unit]
+Description=SO-Toolbox Proxy
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/web
+Environment="PATH=/root/perl5/perlbrew/perls/perl-5.38.2/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=/usr/bin/python3 /opt/web/proxy.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

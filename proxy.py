@@ -73,12 +73,42 @@ def get_config():
         safe = {k: v for k, v in env.items()
                 if k in SAFE_KEYS or any(k.startswith(p) for p in SAFE_PREFIXES)}
 
+        # Expose whether admin password is configured (not the password itself)
+        safe["HAS_ADMIN_PASSWORD"] = "true" if env.get("ADMIN_PASSWORD", "").strip() else "false"
+
         return jsonify({"status": "ok", "config": safe})
     except FileNotFoundError:
         return jsonify({"status": "error", "message": ".env not found"}), 404
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
+
+def _get_admin_password():
+    """Read ADMIN_PASSWORD from .env. Returns None if not set."""
+    import os
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    try:
+        with open(env_path) as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("ADMIN_PASSWORD="):
+                    return line.split("=", 1)[1].strip()
+    except Exception:
+        pass
+    return None
+
+
+def _check_password(req):
+    """Validate X-Admin-Password header against ADMIN_PASSWORD in .env.
+    Returns (ok: bool, error_response or None)."""
+    required = _get_admin_password()
+    if not required:
+        return True, None  # No password set — allow all
+    provided = req.headers.get("X-Admin-Password", "")
+    if provided == required:
+        return True, None
+    return False, (jsonify({"success": False, "output": "❌ Invalid admin password."}), 403)
 
 
 @app.route("/git-pull", methods=["POST"])
@@ -103,8 +133,11 @@ def git_pull():
 @app.route("/restart-proxy", methods=["POST"])
 def restart_proxy():
     import subprocess
+    ok, err = _check_password(request)
+    if not ok:
+        return err
     try:
-        subprocess.Popen(["bash", "-c", "sleep 2 && systemctl restart phenix-proxy"])
+        subprocess.Popen(["bash", "-c", "sleep 2 && systemctl restart so-proxy"])
         return jsonify({"success": True, "output": "Proxy restart scheduled in 2 seconds."})
     except Exception as e:
         return jsonify({"success": False, "output": str(e)}), 500
@@ -263,69 +296,44 @@ def mtr_stream():
         t = threading.Thread(target=run_background, daemon=True)
         t.start()
 
-    # ── SSE stream: runs mtr with 1 cycle at a time for live output ──
-    def stream_live():
-        start     = _time.time()
-        last_tick = start
-        cycle     = 0
-
-        # Live streaming command: 1 cycle per run, repeated
-        live_cmd_base = ["mtr", "--report", "--report-wide",
-                         "--report-cycles", "1"]
-        if no_dns:
-            live_cmd_base.append("--no-dns")
-        live_cmd_base.append(host)
-
+    # ── SSE stream: tick countdown while background job runs ──────────
+    def stream_ticks():
+        start = _time.time()
+        last  = start
         while os.path.isfile(state_file):
-            elapsed   = int(_time.time() - start)
-            remaining = max(0, total_cycles - elapsed)
-
-            # Run one mtr cycle
-            try:
-                r = subprocess.run(live_cmd_base, stdout=subprocess.PIPE,
-                                   stderr=subprocess.STDOUT, bufsize=0,
-                                   timeout=15)
-                out = r.stdout.decode(errors="replace").strip()
-                if out:
-                    cycle += 1
-                    # Send cycle header tick
-                    yield f"data: __TICK__ {elapsed} {remaining}\n\n"
-                    # Send each output line
-                    for line in out.splitlines():
-                        if line.strip():
-                            yield f"data: {line}\n\n"
-                    yield f"data: ---\n\n"  # cycle separator
-            except Exception:
-                _time.sleep(1)
-
-            # If mode=packets and we've done enough cycles, stop streaming
-            if mode == "packets" and cycle >= count:
-                break
-
+            _time.sleep(0.3)
+            now = _time.time()
+            if now - last >= 1.0:
+                elapsed   = int(now - start)
+                remaining = max(0, total_cycles - elapsed)
+                last = now
+                yield f"data: __TICK__ {elapsed} {remaining}\n\n"
         # Job finished — stream the final result
         try:
             with open(done_file) as f:
                 d = json.load(f)
             yield f"data: \n\n"
-            yield f"data: ==========================================\n\n"
-            yield f"data: Final Report:\n\n"
             for line in (d.get("raw") or "").splitlines():
                 if line.strip():
                     yield f"data: {line}\n\n"
+            yield f"data: \n\n"
             yield f"data: ✔ Result saved: {job_id}.json\n\n"
         except Exception as e:
             yield f"data: ⚠ Could not read result: {e}\n\n"
-
         yield "data: __DONE__\n\n"
 
-    return Response(stream_live(), content_type="text/event-stream",
+    return Response(stream_ticks(), content_type="text/event-stream",
                     headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"})
 
 
 @app.route("/mtr/kill/<job_id>", methods=["POST"])
 def mtr_kill(job_id):
-    """Kill a running MTR job by removing its state file and killing mtr processes."""
+    """Kill a running MTR job. Requires admin password if set."""
     import subprocess as sp
+    ok, err = _check_password(request)
+    if not ok:
+        return err
+
     base_dir    = os.path.dirname(os.path.abspath(__file__))
     results_dir = os.path.join(base_dir, "mtr-results")
     state_file  = os.path.join(results_dir, f"{job_id}.running.json")
@@ -334,18 +342,12 @@ def mtr_kill(job_id):
         return jsonify({"error": "Job not found or already finished"}), 404
 
     try:
-        # Read destination to kill specific mtr process
         with open(state_file) as f:
             d = json.load(f)
         dest = d.get("destination", "")
-
-        # Remove state file — this stops stream_live loop
         os.remove(state_file)
-
-        # Best-effort kill of mtr processes for this host
         if dest:
-            sp.run(["pkill", "-f", f"mtr.*{dest}"], capture_output=True)
-
+            sp.run(["pkill", "-f", f"mtr.*{dest}"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         return jsonify({"success": True, "output": f"Job {job_id} killed."})
     except Exception as e:
         return jsonify({"success": False, "output": str(e)}), 500
@@ -353,7 +355,11 @@ def mtr_kill(job_id):
 
 @app.route("/mtr/delete/<path:filename>", methods=["DELETE"])
 def mtr_delete(filename):
-    """Delete a completed MTR result JSON file."""
+    """Delete a completed MTR result JSON file. Requires admin password if set."""
+    ok, err = _check_password(request)
+    if not ok:
+        return err
+
     base_dir    = os.path.dirname(os.path.abspath(__file__))
     results_dir = os.path.join(base_dir, "mtr-results")
     filepath    = os.path.join(results_dir, filename)

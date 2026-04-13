@@ -13,13 +13,13 @@ index.html              — Main shell (sidebar, tabs, welcome screen, git updat
 proxy.py                — Flask CORS proxy: serves config, PhenixRTS API, MTR, Ingest Analyzer
 nginx.conf              — Clean nginx config (CentOS/RHEL)
 nginx-debian.conf       — nginx site config (Debian/Ubuntu/WSL)
-phenix-proxy.service    — systemd service for the proxy
+so-proxy.service    — systemd service for the proxy
 .env                    — Tool registry and credentials (not committed to Git)
 mtr-results/            — Saved MTR trace results (JSON, persisted on disk)
 ingest-results/         — Saved Ingest Analyzer results (ZIP + report directory)
 ```
 
-The proxy runs on `localhost:5050` and is exposed through nginx at `/phenix-proxy/`. The `.env` file is blocked from direct browser access — only the proxy reads it and exposes safe keys via `/phenix-proxy/config`.
+The proxy runs on `localhost:5050` and is exposed through nginx at `/so-proxy/`. The `.env` file is blocked from direct browser access — only the proxy reads it and exposes safe keys via `/so-proxy/config`.
 
 ---
 
@@ -77,21 +77,21 @@ PHENIXRTS_PASSWORD=your-password
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/phenix-proxy/config` | GET | Safe config from `.env` (tools, presets, passphrase) |
-| `/phenix-proxy/channels` | GET | PhenixRTS channel list |
-| `/phenix-proxy/publishers/count/<id>` | GET | Publisher count for a channel |
-| `/phenix-proxy/git-pull` | POST | Run `git pull` on the server |
-| `/phenix-proxy/server-info` | GET | Local IPs, gateway, public IP |
-| `/phenix-proxy/mtr/stream` | GET | SSE stream for MTR trace |
-| `/phenix-proxy/mtr/running` | GET | List of running MTR jobs |
-| `/phenix-proxy/mtr/results` | GET | List of completed MTR results |
-| `/phenix-proxy/mtr/results/<file>` | GET | Download MTR result JSON |
-| `/phenix-proxy/mtr/tag/<file>` | POST | Update tag on a result |
-| `/phenix-proxy/ingest/run` | POST | Start an ingest analysis job |
-| `/phenix-proxy/ingest/status/<id>` | GET | Poll job status |
-| `/phenix-proxy/ingest/results` | GET | List saved ingest results |
-| `/phenix-proxy/ingest/report/<dir>/<file>` | GET | Serve report file (HTML/charts) |
-| `/phenix-proxy/ingest/download/<file>` | GET | Download ZIP |
+| `/so-proxy/config` | GET | Safe config from `.env` (tools, presets, passphrase) |
+| `/so-proxy/channels` | GET | PhenixRTS channel list |
+| `/so-proxy/publishers/count/<id>` | GET | Publisher count for a channel |
+| `/so-proxy/git-pull` | POST | Run `git pull` on the server |
+| `/so-proxy/server-info` | GET | Local IPs, gateway, public IP |
+| `/so-proxy/mtr/stream` | GET | SSE stream for MTR trace |
+| `/so-proxy/mtr/running` | GET | List of running MTR jobs |
+| `/so-proxy/mtr/results` | GET | List of completed MTR results |
+| `/so-proxy/mtr/results/<file>` | GET | Download MTR result JSON |
+| `/so-proxy/mtr/tag/<file>` | POST | Update tag on a result |
+| `/so-proxy/ingest/run` | POST | Start an ingest analysis job |
+| `/so-proxy/ingest/status/<id>` | GET | Poll job status |
+| `/so-proxy/ingest/results` | GET | List saved ingest results |
+| `/so-proxy/ingest/report/<dir>/<file>` | GET | Serve report file (HTML/charts) |
+| `/so-proxy/ingest/download/<file>` | GET | Download ZIP |
 
 ---
 
@@ -99,7 +99,8 @@ PHENIXRTS_PASSWORD=your-password
 
 | Version | Date       | Changes |
 |---------|------------|---------|
-| 2.2.0   | 2026-04-10 | MTR: live output per cycle, kill/delete with confirmation, date picker filter, reconnect fix (no job duplication), Watch button |
+| 2.3.0   | 2026-04-13 | Proxy renamed to so-proxy; ADMIN_PASSWORD for sensitive actions; MTR host sanity check, no Watch/duplication; README modal in index |
+| 2.2.0   | 2026-04-10 | MTR kill/delete with confirmation, date picker filter, history panels |
 | 2.1.0   | 2026-04-10 | MTR: history filters, multi-tag, Date End + HH:MM:SS duration, Time mode left, copy fix |
 | 2.0.0   | 2026-04-07 | MTR background jobs with disk persistence, tags, running panel; Ingest Analyzer tags; bufsize fix; progress bar with countdown |
 | 1.9.0   | 2026-04-06 | Ingest Analyzer: background jobs, ZIP copy, HTML report served via proxy; SRT_LOCAL presets |
@@ -115,7 +116,7 @@ PHENIXRTS_PASSWORD=your-password
 | 1.1.0   | 2026-03-25 | Full English translation + rich GUI |
 | 1.0.0   | 2026-03-25 | Initial PhenixRTS Channel Health Monitor |
 
-**Current Version: 2.2.0**
+**Current Version: 2.3.0**
 
 ---
 
@@ -124,7 +125,7 @@ PHENIXRTS_PASSWORD=your-password
 - The proxy executes `git pull` in its own directory when the Update button is clicked. The page reloads automatically after a successful pull. The proxy process itself must be restarted manually if `proxy.py` changes.
 - MTR jobs run as background daemon threads and survive browser disconnects. State is written to `mtr-results/*.running.json` while running and renamed to `*.json` on completion.
 - The Ingest Analyzer requires `run-ingest-analysis.sh` and its dependencies (`ffprobe`, `perl >= 5.36`, `gnuplot`, `jq`, `bc`) to be installed on the server.
-- `generate-report.sh` must use perl >= 5.36 for the `-g` flag. If using perlbrew, ensure the correct perl path is set in `phenix-proxy.service`.
+- `generate-report.sh` must use perl >= 5.36 for the `-g` flag. If using perlbrew, ensure the correct perl path is set in `so-proxy.service`.
 
 ## License
 
