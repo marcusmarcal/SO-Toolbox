@@ -634,13 +634,14 @@
       // ═══════════════════════════════════════════════════════════
       //  .env loader
       // ═══════════════════════════════════════════════════════════
-      const PROXY_URL = "/phenix-proxy";
+      const PROXY_URL = "/so-proxy";
 
       async function loadEnv() {
         const resp = await fetch(`${PROXY_URL}/config`, { cache: "no-cache" });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json();
-        if (data.status !== "ok") throw new Error(data.message || "Config error");
+        if (data.status !== "ok")
+          throw new Error(data.message || "Config error");
         return data.config;
       }
 
@@ -845,7 +846,10 @@
           buildURI();
         })
         .catch(() => {
-          showBanner("warn", `⚠ Could not load config from proxy. Check that proxy.py is running.`);
+          showBanner(
+            "warn",
+            `⚠ Could not load config from proxy. Check that proxy.py is running.`
+          );
           buildURI();
         });
 

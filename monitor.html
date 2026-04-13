@@ -486,14 +486,17 @@
 
     <script>
       async function gitPull() {
-        const modal  = document.getElementById("git-modal");
+        const modal = document.getElementById("git-modal");
         const output = document.getElementById("git-output");
         output.textContent = "Running git pull...";
-        output.className   = "git-output";
+        output.className = "git-output";
         modal.classList.add("open");
 
         try {
-          const res  = await fetch(`${PROXY}/git-pull`, { method: "POST", headers: headers() });
+          const res = await fetch(`${PROXY}/git-pull`, {
+            method: "POST",
+            headers: headers(),
+          });
           const data = await res.json();
           output.textContent = data.output || "(no output)";
           output.classList.add(data.success ? "ok" : "err");
@@ -507,7 +510,7 @@
         document.getElementById("git-modal").classList.remove("open");
       }
 
-      const PROXY = "/phenix-proxy";
+      const PROXY = "/so-proxy";
 
       let appId, password, interval, timer, countdown;
       let secondsLeft = 0;
@@ -693,7 +696,10 @@
 
           const tr = document.createElement("tr");
           const createdDate = ch.created
-            ? new Date(ch.created).toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" })
+            ? new Date(ch.created).toLocaleString("en-GB", {
+                dateStyle: "short",
+                timeStyle: "short",
+              })
             : "—";
           tr.innerHTML = `
       <td style="color:#fff; font-weight:600;">${ch.name}</td>
