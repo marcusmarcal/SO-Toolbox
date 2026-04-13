@@ -265,7 +265,7 @@ def mtr_stream():
             bg_cmd = ["mtr", "--report", "--report-wide", "-z",
                       "--report-cycles", str(count)]
         if no_dns:
-            bg_cmd.append("-u --no-dns")
+            bg_cmd.append("--no-dns")
         bg_cmd.append(host)
 
         lines = []
