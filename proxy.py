@@ -262,7 +262,7 @@ def mtr_stream():
             bg_cmd = ["mtr", "--report", "--report-wide", "--interval", "1", "-z", "-u", "-P", "53"
                       "--report-cycles", str(seconds)]
         else:
-            bg_cmd = ["mtr", "--report", "--report-wide", "-z", "-u", "-P", "53"
+            bg_cmd = ["mtr", "--report", "--report-wide", "-z", "-u", "-P", "53", 
                       "--report-cycles", str(count)]
         if no_dns:
             bg_cmd.append("--no-dns")
