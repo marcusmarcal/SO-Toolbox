@@ -259,13 +259,13 @@ def mtr_stream():
     # ── Background thread: runs full mtr --report, saves result ──────
     def run_background():
         if mode == "time":
-            bg_cmd = ["mtr", "--report", "--report-wide", "--interval", "1",
+            bg_cmd = ["mtr", "--report", "--report-wide", "--interval", "1", "-z",
                       "--report-cycles", str(seconds)]
         else:
-            bg_cmd = ["mtr", "--report", "--report-wide",
+            bg_cmd = ["mtr", "--report", "--report-wide", "-z",
                       "--report-cycles", str(count)]
         if no_dns:
-            bg_cmd.append("--no-dns")
+            bg_cmd.append("-u --no-dns")
         bg_cmd.append(host)
 
         lines = []
