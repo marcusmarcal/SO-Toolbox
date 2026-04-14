@@ -1,1473 +1,605 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MTR — Network Trace</title>
-    <link
-      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Barlow:wght@300;400;600;700&display=swap"
-      rel="stylesheet"
-    />
-    <style>
-      *,
-      *::before,
-      *::after {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
-      :root {
-        --bg: #080c10;
-        --bg2: #0d1117;
-        --bg3: #161b22;
-        --border: #21262d;
-        --green: #3fb950;
-        --green-d: #1a3d20;
-        --cyan: #58a6ff;
-        --yellow: #e3b341;
-        --red: #f85149;
-        --text: #c9d1d9;
-        --muted: #484f58;
-        --mono: "JetBrains Mono", monospace;
-        --sans: "Barlow", sans-serif;
-      }
-      html,
-      body {
-        height: 100%;
-        background: var(--bg);
-        color: var(--text);
-        font-family: var(--sans);
-        font-size: 14px;
-        overflow: hidden;
-      }
-      #app {
-        display: flex;
-        flex-direction: column;
-        height: 100vh;
-        padding: 0.85rem 1.1rem;
-        gap: 0.65rem;
-      }
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MTR — Network Trace</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Barlow:wght@300;400;600;700&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:#080c10; --bg2:#0d1117; --bg3:#161b22; --border:#21262d;
+    --green:#3fb950; --green-d:#1a3d20; --cyan:#58a6ff;
+    --yellow:#e3b341; --red:#f85149; --text:#c9d1d9; --muted:#484f58;
+    --mono:'JetBrains Mono',monospace; --sans:'Barlow',sans-serif;
+  }
+  html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;overflow:hidden}
+  #app{display:flex;flex-direction:column;height:100vh;padding:.85rem 1.1rem;gap:.65rem}
 
-      .topbar {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        flex-shrink: 0;
-        border-bottom: 1px solid var(--border);
-        padding-bottom: 0.65rem;
-      }
-      .topbar h1 {
-        font-family: var(--mono);
-        font-size: 0.9rem;
-        font-weight: 700;
-        color: #fff;
-        white-space: nowrap;
-      }
-      .topbar h1 span {
-        color: var(--green);
-      }
-      .server-info {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.4rem;
-        margin-left: auto;
-      }
-      .info-pill {
-        font-family: var(--mono);
-        font-size: 0.62rem;
-        padding: 2px 7px;
-        border-radius: 4px;
-        border: 1px solid var(--border);
-        background: var(--bg3);
-        color: var(--muted);
-        white-space: nowrap;
-      }
-      .info-pill span {
-        color: var(--cyan);
-      }
+  .topbar{display:flex;align-items:center;gap:.75rem;flex-shrink:0;border-bottom:1px solid var(--border);padding-bottom:.65rem}
+  .topbar h1{font-family:var(--mono);font-size:.9rem;font-weight:700;color:#fff;white-space:nowrap}
+  .topbar h1 span{color:var(--green)}
+  .server-info{display:flex;flex-wrap:wrap;gap:.4rem;margin-left:auto}
+  .info-pill{font-family:var(--mono);font-size:.62rem;padding:2px 7px;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--muted);white-space:nowrap}
+  .info-pill span{color:var(--cyan)}
 
-      .form-row {
-        display: flex;
-        gap: 0.65rem;
-        align-items: flex-end;
-        flex-shrink: 0;
-        flex-wrap: wrap;
-      }
-      .field {
-        display: flex;
-        flex-direction: column;
-        gap: 0.28rem;
-      }
-      .field.grow {
-        flex: 1;
-        min-width: 180px;
-      }
-      .field.w90 {
-        width: 90px;
-      }
-      .field.w75 {
-        width: 75px;
-      }
-      label {
-        font-family: var(--mono);
-        font-size: 0.58rem;
-        font-weight: 700;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: var(--muted);
-      }
-      input[type="text"],
-      input[type="number"],
-      select {
-        background: var(--bg3);
-        border: 1px solid var(--border);
-        border-radius: 5px;
-        padding: 0.45rem 0.65rem;
-        color: #fff;
-        font-family: var(--mono);
-        font-size: 0.82rem;
-        outline: none;
-        transition: border-color 0.15s;
-        width: 100%;
-      }
-      input:focus,
-      select:focus {
-        border-color: var(--cyan);
-      }
-      input.invalid {
-        border-color: var(--red) !important;
-      }
-      .field-hint {
-        font-family: var(--mono);
-        font-size: 0.6rem;
-        color: var(--red);
-        margin-top: 2px;
-        min-height: 0.9em;
-      }
+  .form-row{display:flex;gap:.65rem;align-items:flex-end;flex-shrink:0;flex-wrap:wrap}
+  .field{display:flex;flex-direction:column;gap:.28rem}
+  .field.grow{flex:1;min-width:180px} .field.w90{width:90px} .field.w75{width:75px}
+  label{font-family:var(--mono);font-size:.58rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  input[type="text"],input[type="number"],select{background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:.45rem .65rem;color:#fff;font-family:var(--mono);font-size:.82rem;outline:none;transition:border-color .15s;width:100%}
+  input:focus,select:focus{border-color:var(--cyan)}
+  input.invalid{border-color:var(--red)!important}
+  .field-hint{font-family:var(--mono);font-size:.6rem;color:var(--red);margin-top:2px;min-height:.9em}
 
-      .mode-tabs {
-        display: flex;
-        border: 1px solid var(--border);
-        border-radius: 5px;
-        overflow: hidden;
-        height: 34px;
-      }
-      .mode-tab {
-        flex: 1;
-        background: var(--bg3);
-        border: none;
-        color: var(--muted);
-        font-family: var(--mono);
-        font-size: 0.7rem;
-        font-weight: 700;
-        cursor: pointer;
-        transition: background 0.15s, color 0.15s;
-        padding: 0 0.75rem;
-      }
-      .mode-tab.active {
-        background: var(--cyan);
-        color: #000;
-      }
+  .mode-tabs{display:flex;border:1px solid var(--border);border-radius:5px;overflow:hidden;height:34px}
+  .mode-tab{flex:1;background:var(--bg3);border:none;color:var(--muted);font-family:var(--mono);font-size:.7rem;font-weight:700;cursor:pointer;transition:background .15s,color .15s;padding:0 .75rem}
+  .mode-tab.active{background:var(--cyan);color:#000}
 
-      .toggle-wrap {
-        display: flex;
-        flex-direction: column;
-        gap: 0.28rem;
-      }
-      .toggle {
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-        cursor: pointer;
-        user-select: none;
-        height: 34px;
-      }
-      .toggle input {
-        display: none;
-      }
-      .toggle-track {
-        width: 30px;
-        height: 16px;
-        background: var(--bg3);
-        border: 1px solid var(--border);
-        border-radius: 999px;
-        position: relative;
-        transition: background 0.2s, border-color 0.2s;
-        flex-shrink: 0;
-      }
-      .toggle-thumb {
-        position: absolute;
-        top: 2px;
-        left: 2px;
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        background: var(--muted);
-        transition: transform 0.2s, background 0.2s;
-      }
-      .toggle input:checked ~ .toggle-track {
-        background: var(--green-d);
-        border-color: var(--green);
-      }
-      .toggle input:checked ~ .toggle-track .toggle-thumb {
-        transform: translateX(14px);
-        background: var(--green);
-      }
-      .toggle-label {
-        font-family: var(--mono);
-        font-size: 0.7rem;
-        color: var(--text);
-      }
+  .toggle-wrap{display:flex;flex-direction:column;gap:.28rem}
+  .toggle{display:flex;align-items:center;gap:.4rem;cursor:pointer;user-select:none;height:34px}
+  .toggle input{display:none}
+  .toggle-track{width:30px;height:16px;background:var(--bg3);border:1px solid var(--border);border-radius:999px;position:relative;transition:background .2s,border-color .2s;flex-shrink:0}
+  .toggle-thumb{position:absolute;top:2px;left:2px;width:10px;height:10px;border-radius:50%;background:var(--muted);transition:transform .2s,background .2s}
+  .toggle input:checked~.toggle-track{background:var(--green-d);border-color:var(--green)}
+  .toggle input:checked~.toggle-track .toggle-thumb{transform:translateX(14px);background:var(--green)}
+  .toggle-label{font-family:var(--mono);font-size:.7rem;color:var(--text)}
 
-      .btn-run {
-        background: var(--green);
-        color: #000;
-        border: none;
-        border-radius: 5px;
-        padding: 0 1.1rem;
-        font-family: var(--mono);
-        font-size: 0.76rem;
-        font-weight: 700;
-        cursor: pointer;
-        height: 34px;
-        white-space: nowrap;
-        align-self: flex-end;
-        transition: opacity 0.15s;
-      }
-      .btn-run:hover {
-        opacity: 0.85;
-      }
-      .btn-run:disabled {
-        opacity: 0.35;
-        cursor: not-allowed;
-      }
-      .btn-stop {
-        background: transparent;
-        color: var(--red);
-        border: 1px solid var(--red);
-        border-radius: 5px;
-        padding: 0 0.9rem;
-        font-family: var(--mono);
-        font-size: 0.76rem;
-        font-weight: 700;
-        cursor: pointer;
-        height: 34px;
-        display: none;
-        align-self: flex-end;
-      }
-      .btn-stop.visible {
-        display: flex;
-        align-items: center;
-      }
+  .btn-run{background:var(--green);color:#000;border:none;border-radius:5px;padding:0 1.1rem;font-family:var(--mono);font-size:.76rem;font-weight:700;cursor:pointer;height:34px;white-space:nowrap;align-self:flex-end;transition:opacity .15s}
+  .btn-run:hover{opacity:.85} .btn-run:disabled{opacity:.35;cursor:not-allowed}
+  .btn-stop{background:transparent;color:var(--red);border:1px solid var(--red);border-radius:5px;padding:0 .9rem;font-family:var(--mono);font-size:.76rem;font-weight:700;cursor:pointer;height:34px;display:none;align-self:flex-end}
+  .btn-stop.visible{display:flex;align-items:center}
 
-      .main-area {
-        flex: 1;
-        display: flex;
-        gap: 0.65rem;
-        min-height: 0;
-      }
-      .output-wrap {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        min-height: 0;
-        background: var(--bg2);
-        border: 1px solid var(--border);
-        border-radius: 7px;
-        overflow: hidden;
-      }
-      .output-toolbar {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0.38rem 0.75rem;
-        border-bottom: 1px solid var(--border);
-        flex-shrink: 0;
-        background: var(--bg3);
-      }
-      .status-label {
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-        font-family: var(--mono);
-        font-size: 0.62rem;
-        color: var(--muted);
-      }
-      .dot {
-        width: 7px;
-        height: 7px;
-        border-radius: 50%;
-        background: var(--muted);
-        flex-shrink: 0;
-      }
-      .dot.running {
-        background: var(--yellow);
-        animation: blink 0.8s ease-in-out infinite;
-      }
-      .dot.ok {
-        background: var(--green);
-        animation: none;
-      }
-      .dot.err {
-        background: var(--red);
-        animation: none;
-      }
-      @keyframes blink {
-        0%,
-        100% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.3;
-        }
-      }
-      .btn-copy {
-        background: transparent;
-        border: 1px solid var(--border);
-        border-radius: 4px;
-        color: var(--muted);
-        font-family: var(--mono);
-        font-size: 0.6rem;
-        font-weight: 700;
-        padding: 0.22rem 0.7rem;
-        cursor: pointer;
-        transition: border-color 0.15s, color 0.15s;
-      }
-      .btn-copy:hover {
-        border-color: var(--cyan);
-        color: var(--cyan);
-      }
-      #progress-bar {
-        height: 3px;
-        background: var(--border);
-        flex-shrink: 0;
-        overflow: hidden;
-      }
-      #progress-fill {
-        height: 100%;
-        width: 0%;
-        background: var(--yellow);
-        transition: width 0.8s linear, background 0.5s;
-      }
-      #output {
-        flex: 1;
-        width: 100%;
-        min-height: 0;
-        resize: none;
-        background: transparent;
-        border: none;
-        padding: 0.75rem 0.9rem;
-        color: var(--text);
-        font-family: var(--mono);
-        font-size: 0.76rem;
-        line-height: 1.7;
-        outline: none;
-        white-space: pre;
-        overflow: auto;
-      }
+  .main-area{flex:1;display:flex;gap:.65rem;min-height:0}
+  .output-wrap{flex:1;display:flex;flex-direction:column;min-height:0;background:var(--bg2);border:1px solid var(--border);border-radius:7px;overflow:hidden}
+  .output-toolbar{display:flex;align-items:center;justify-content:space-between;padding:.38rem .75rem;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg3)}
+  .status-label{display:flex;align-items:center;gap:.4rem;font-family:var(--mono);font-size:.62rem;color:var(--muted)}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0}
+  .dot.running{background:var(--yellow);animation:blink .8s ease-in-out infinite}
+  .dot.ok{background:var(--green);animation:none} .dot.err{background:var(--red);animation:none}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+  .btn-copy{background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--muted);font-family:var(--mono);font-size:.6rem;font-weight:700;padding:.22rem .7rem;cursor:pointer;transition:border-color .15s,color .15s}
+  .btn-copy:hover{border-color:var(--cyan);color:var(--cyan)}
+  #progress-bar{height:3px;background:var(--border);flex-shrink:0;overflow:hidden}
+  #progress-fill{height:100%;width:0%;background:var(--yellow);transition:width .8s linear,background .5s}
+  #output{flex:1;width:100%;min-height:0;resize:none;background:transparent;border:none;padding:.75rem .9rem;color:var(--text);font-family:var(--mono);font-size:.76rem;line-height:1.7;outline:none;white-space:pre;overflow:auto}
 
-      .history-panel {
-        width: 380px;
-        flex-shrink: 0;
-        display: flex;
-        flex-direction: column;
-        background: var(--bg2);
-        border: 1px solid var(--border);
-        border-radius: 7px;
-        overflow: hidden;
-      }
-      .history-header {
-        padding: 0.42rem 0.75rem;
-        background: var(--bg3);
-        border-bottom: 1px solid var(--border);
-        font-family: var(--mono);
-        font-size: 0.66rem;
-        font-weight: 700;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: var(--muted);
-        flex-shrink: 0;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 0.3rem;
-      }
-      .btn-sm-icon {
-        background: transparent;
-        border: none;
-        color: var(--muted);
-        font-family: var(--mono);
-        font-size: 0.72rem;
-        cursor: pointer;
-        padding: 0;
-        flex-shrink: 0;
-      }
-      .btn-sm-icon:hover {
-        color: var(--cyan);
-      }
-      #running-list {
-        max-height: 120px;
-        overflow-y: auto;
-        flex-shrink: 0;
-        border-bottom: 1px solid var(--border);
-      }
-      .hist-filters {
-        display: flex;
-        gap: 0.3rem;
-        padding: 0.35rem 0.75rem;
-        background: var(--bg3);
-        border-bottom: 1px solid var(--border);
-        flex-shrink: 0;
-        align-items: center;
-      }
-      .hist-filters input,
-      .hist-filters input[type="date"] {
-        background: var(--bg);
-        border: 1px solid var(--border);
-        border-radius: 3px;
-        color: var(--text);
-        font-family: var(--mono);
-        font-size: 0.62rem;
-        padding: 2px 5px;
-        outline: none;
-        transition: border-color 0.15s;
-        color-scheme: dark;
-      }
-      .hist-filters input:focus {
-        border-color: var(--cyan);
-      }
-      .hist-filters input.f-search {
-        flex: 1;
-      }
-      .hist-filters input.f-date {
-        width: 110px;
-      }
-      .hist-filters input.f-tag {
-        width: 68px;
-      }
-      .history-list {
-        flex: 1;
-        overflow-y: auto;
-      }
-      .history-list::-webkit-scrollbar {
-        width: 4px;
-      }
-      .history-list::-webkit-scrollbar-thumb {
-        background: var(--border);
-        border-radius: 2px;
-      }
-      .history-item {
-        padding: 0.55rem 0.75rem;
-        border-bottom: 1px solid var(--border);
-        cursor: pointer;
-        transition: background 0.12s;
-      }
-      .history-item:hover {
-        background: var(--bg3);
-      }
-      .hi-dest {
-        font-family: var(--mono);
-        font-size: 0.76rem;
-        color: #fff;
-        font-weight: 600;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .hi-date {
-        font-family: var(--mono);
-        font-size: 0.62rem;
-        color: var(--muted);
-        margin-top: 1px;
-      }
-      .hi-meta {
-        font-family: var(--mono);
-        font-size: 0.63rem;
-        color: var(--muted);
-        margin-top: 3px;
-        display: flex;
-        gap: 0.4rem;
-        flex-wrap: wrap;
-        align-items: center;
-      }
-      .hi-badge {
-        background: var(--bg);
-        border: 1px solid var(--border);
-        border-radius: 3px;
-        padding: 1px 5px;
-        font-size: 0.6rem;
-      }
-      .hi-actions {
-        display: flex;
-        gap: 0.4rem;
-        margin-top: 5px;
-        align-items: center;
-      }
-      .hi-dl {
-        font-family: var(--mono);
-        font-size: 0.62rem;
-        color: var(--cyan);
-        text-decoration: none;
-      }
-      .hi-dl:hover {
-        text-decoration: underline;
-      }
-      .hi-del {
-        font-family: var(--mono);
-        font-size: 0.62rem;
-        color: var(--muted);
-        background: transparent;
-        border: none;
-        cursor: pointer;
-        padding: 0;
-      }
-      .hi-del:hover {
-        color: var(--red);
-      }
-      .history-empty {
-        padding: 1.5rem;
-        text-align: center;
-        font-family: var(--mono);
-        font-size: 0.66rem;
-        color: var(--muted);
-      }
-      .running-item {
-        padding: 0.55rem 0.75rem;
-        border-bottom: 1px solid var(--border);
-      }
-      .ri-actions {
-        display: flex;
-        gap: 0.4rem;
-        margin-top: 4px;
-      }
-      .ri-btn {
-        font-family: var(--mono);
-        font-size: 0.62rem;
-        background: transparent;
-        border: 1px solid var(--border);
-        border-radius: 3px;
-        padding: 1px 7px;
-        cursor: pointer;
-        color: var(--muted);
-      }
-      .ri-btn:hover {
-        border-color: var(--cyan);
-        color: var(--cyan);
-      }
-      .ri-btn.kill:hover {
-        border-color: var(--red);
-        color: var(--red);
-      }
+  .history-panel{width:380px;flex-shrink:0;display:flex;flex-direction:column;background:var(--bg2);border:1px solid var(--border);border-radius:7px;overflow:hidden}
+  .history-header{padding:.42rem .75rem;background:var(--bg3);border-bottom:1px solid var(--border);font-family:var(--mono);font-size:.66rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);flex-shrink:0;display:flex;justify-content:space-between;align-items:center;gap:.3rem}
+  .btn-sm-icon{background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:.72rem;cursor:pointer;padding:0;flex-shrink:0}
+  .btn-sm-icon:hover{color:var(--cyan)}
+  #running-list{max-height:120px;overflow-y:auto;flex-shrink:0;border-bottom:1px solid var(--border)}
+  .hist-filters{display:flex;gap:.3rem;padding:.35rem .75rem;background:var(--bg3);border-bottom:1px solid var(--border);flex-shrink:0;align-items:center}
+  .hist-filters input,.hist-filters input[type="date"]{background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:.62rem;padding:2px 5px;outline:none;transition:border-color .15s;color-scheme:dark}
+  .hist-filters input:focus{border-color:var(--cyan)}
+  .hist-filters input.f-search{flex:1} .hist-filters input.f-date{width:110px} .hist-filters input.f-tag{width:68px}
+  .history-list{flex:1;overflow-y:auto}
+  .history-list::-webkit-scrollbar{width:4px}
+  .history-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+  .history-item{padding:.55rem .75rem;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s}
+  .history-item:hover{background:var(--bg3)}
+  .hi-dest{font-family:var(--mono);font-size:.76rem;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hi-date{font-family:var(--mono);font-size:.62rem;color:var(--muted);margin-top:1px}
+  .hi-meta{font-family:var(--mono);font-size:.63rem;color:var(--muted);margin-top:3px;display:flex;gap:.4rem;flex-wrap:wrap;align-items:center}
+  .hi-badge{background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-size:.6rem}
+  .hi-actions{display:flex;gap:.4rem;margin-top:5px;align-items:center}
+  .hi-dl{font-family:var(--mono);font-size:.62rem;color:var(--cyan);text-decoration:none}
+  .hi-dl:hover{text-decoration:underline}
+  .hi-del{font-family:var(--mono);font-size:.62rem;color:var(--muted);background:transparent;border:none;cursor:pointer;padding:0}
+  .hi-del:hover{color:var(--red)}
+  .history-empty{padding:1.5rem;text-align:center;font-family:var(--mono);font-size:.66rem;color:var(--muted)}
+  .running-item{padding:.55rem .75rem;border-bottom:1px solid var(--border)}
+  .ri-actions{display:flex;gap:.4rem;margin-top:4px}
+  .ri-btn{font-family:var(--mono);font-size:.62rem;background:transparent;border:1px solid var(--border);border-radius:3px;padding:1px 7px;cursor:pointer;color:var(--muted)}
+  .ri-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+  .ri-btn.kill:hover{border-color:var(--red);color:var(--red)}
 
-      /* Modals */
-      .modal-overlay {
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.65);
-        z-index: 300;
-        align-items: center;
-        justify-content: center;
-      }
-      .modal-overlay.open {
-        display: flex;
-      }
-      .modal-card {
-        background: var(--bg2);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 1.5rem 2rem;
-        width: 420px;
-        max-width: 92vw;
-        box-shadow: 0 0 50px rgba(0, 0, 0, 0.6);
-      }
-      .modal-title {
-        font-family: var(--mono);
-        font-size: 0.72rem;
-        font-weight: 700;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: var(--red);
-        margin-bottom: 0.8rem;
-      }
-      .modal-body {
-        font-family: var(--mono);
-        font-size: 0.72rem;
-        color: var(--text);
-        line-height: 1.7;
-        margin-bottom: 1rem;
-      }
-      .modal-actions {
-        display: flex;
-        gap: 0.5rem;
-        align-items: center;
-        flex-wrap: wrap;
-      }
-      .modal-pw {
-        background: var(--bg3);
-        border: 1px solid var(--border);
-        border-radius: 4px;
-        color: #fff;
-        font-family: var(--mono);
-        font-size: 0.75rem;
-        padding: 4px 10px;
-        outline: none;
-        width: 160px;
-        transition: border-color 0.15s;
-      }
-      .modal-pw:focus {
-        border-color: var(--cyan);
-      }
-      .modal-pw.error {
-        border-color: var(--red);
-      }
-      .btn-danger {
-        background: var(--red);
-        border: none;
-        border-radius: 5px;
-        color: #fff;
-        font-family: var(--mono);
-        font-size: 0.7rem;
-        font-weight: 700;
-        padding: 5px 16px;
-        cursor: pointer;
-      }
-      .btn-cancel {
-        background: transparent;
-        border: 1px solid var(--border);
-        border-radius: 5px;
-        color: var(--muted);
-        font-family: var(--mono);
-        font-size: 0.7rem;
-        padding: 5px 14px;
-        cursor: pointer;
-      }
-      .btn-cancel:hover {
-        border-color: var(--cyan);
-        color: var(--cyan);
-      }
-      .modal-err {
-        font-family: var(--mono);
-        font-size: 0.65rem;
-        color: var(--red);
-        margin-top: 0.4rem;
-        min-height: 1em;
-        width: 100%;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="app">
-      <div class="topbar">
-        <h1>MTR <span>//</span> Network Trace</h1>
-        <div class="server-info">
-          <div class="info-pill">Source: <span id="pill-local">…</span></div>
-          <div class="info-pill">Public: <span id="pill-public">…</span></div>
-          <div class="info-pill">Gateway: <span id="pill-gw">…</span></div>
-        </div>
-      </div>
+  /* Modals */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:300;align-items:center;justify-content:center}
+  .modal-overlay.open{display:flex}
+  .modal-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:1.5rem 2rem;width:420px;max-width:92vw;box-shadow:0 0 50px rgba(0,0,0,.6)}
+  .modal-title{font-family:var(--mono);font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--red);margin-bottom:.8rem}
+  .modal-body{font-family:var(--mono);font-size:.72rem;color:var(--text);line-height:1.7;margin-bottom:1rem}
+  .modal-actions{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+  .modal-pw{background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:#fff;font-family:var(--mono);font-size:.75rem;padding:4px 10px;outline:none;width:160px;transition:border-color .15s}
+  .modal-pw:focus{border-color:var(--cyan)}
+  .modal-pw.error{border-color:var(--red)}
+  .btn-danger{background:var(--red);border:none;border-radius:5px;color:#fff;font-family:var(--mono);font-size:.7rem;font-weight:700;padding:5px 16px;cursor:pointer}
+  .btn-cancel{background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-family:var(--mono);font-size:.7rem;padding:5px 14px;cursor:pointer}
+  .btn-cancel:hover{border-color:var(--cyan);color:var(--cyan)}
+  .modal-err{font-family:var(--mono);font-size:.65rem;color:var(--red);margin-top:.4rem;min-height:1em;width:100%}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <h1>MTR <span>//</span> Network Trace</h1>
+    <div class="server-info">
+      <div class="info-pill">Source: <span id="pill-local">…</span></div>
+      <div class="info-pill">Public: <span id="pill-public">…</span></div>
+      <div class="info-pill">Gateway: <span id="pill-gw">…</span></div>
+    </div>
+  </div>
 
-      <div class="form-row">
-        <div class="field grow">
-          <label>Destination Host / IP</label>
-          <input
-            id="inp-host"
-            type="text"
-            placeholder="e.g. 8.8.8.8 or example.com"
-            autocomplete="off"
-            oninput="validateHost()"
-          />
-          <div class="field-hint" id="host-hint"></div>
-        </div>
-        <div class="field">
-          <label>Mode</label>
-          <div class="mode-tabs">
-            <button
-              class="mode-tab active"
-              id="tab-time"
-              onclick="setMode('time')"
-            >
-              Time
-            </button>
-            <button
-              class="mode-tab"
-              id="tab-packets"
-              onclick="setMode('packets')"
-            >
-              Packets
-            </button>
-          </div>
-        </div>
-        <div class="field w75" id="field-duration">
-          <label>Duration</label>
-          <input id="inp-duration" type="number" value="5" min="1" max="1440" />
-        </div>
-        <div class="field w75" id="field-unit">
-          <label>Unit</label>
-          <select id="sel-unit">
-            <option value="60">min</option>
-            <option value="3600">hours</option>
-          </select>
-        </div>
-        <div class="field w90" id="field-count" style="display: none">
-          <label>Packets</label>
-          <input id="inp-count" type="number" value="50" min="1" max="500" />
-        </div>
-        <div class="toggle-wrap">
-          <label>No DNS</label>
-          <label class="toggle">
-            <input type="checkbox" id="chk-nodns" />
-            <span class="toggle-track"><span class="toggle-thumb"></span></span>
-            <span class="toggle-label">Disable</span>
-          </label>
-        </div>
-        <div class="field grow" style="min-width: 140px; max-width: 200px">
-          <label
-            >Tags
-            <span style="color: var(--muted); font-weight: 400"
-              >(comma separated)</span
-            ></label
-          >
-          <input
-            id="inp-tag"
-            type="text"
-            placeholder="test, JIRA-123, INC-456"
-            autocomplete="off"
-            list="tag-presets"
-          />
-          <datalist id="tag-presets"></datalist>
-        </div>
-        <button class="btn-run" id="btn-run" onclick="runMtr()">▶ Run</button>
-        <button class="btn-stop" id="btn-stop" onclick="stopMtr()">
-          ■ Stop
-        </button>
-      </div>
-
-      <div class="main-area">
-        <div class="output-wrap">
-          <div class="output-toolbar">
-            <div class="status-label">
-              <span class="dot" id="dot"></span
-              ><span id="status-text">Ready</span>
-            </div>
-            <button class="btn-copy" onclick="copyOutput()">Copy</button>
-          </div>
-          <div id="progress-bar"><div id="progress-fill"></div></div>
-          <textarea
-            id="output"
-            readonly
-            placeholder="MTR output will appear here..."
-          ></textarea>
-        </div>
-
-        <div class="history-panel">
-          <div class="history-header">
-            <span>Running</span>
-            <button class="btn-sm-icon" onclick="loadRunning()">↻</button>
-          </div>
-          <div id="running-list">
-            <div class="history-empty">No active jobs</div>
-          </div>
-
-          <div
-            class="history-header"
-            style="
-              border-top: 1px solid var(--border);
-              flex-direction: column;
-              align-items: stretch;
-              gap: 0.35rem;
-              padding: 0.45rem 0.75rem;
-            "
-          >
-            <div
-              style="
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-              "
-            >
-              <span>History</span>
-              <button class="btn-sm-icon" onclick="loadHistory()">↻</button>
-            </div>
-            <div class="hist-filters">
-              <input
-                class="f-search"
-                id="hist-search"
-                type="text"
-                placeholder="host…"
-                oninput="loadHistory()"
-              />
-              <input
-                class="f-date"
-                id="hist-date"
-                type="date"
-                oninput="loadHistory()"
-                title="Filter by date"
-              />
-              <input
-                class="f-tag"
-                id="hist-tag"
-                type="text"
-                placeholder="tag…"
-                list="tag-presets-hist"
-                oninput="loadHistory()"
-              />
-              <datalist id="tag-presets-hist"></datalist>
-            </div>
-          </div>
-          <div class="history-list" id="history-list">
-            <div class="history-empty">No results yet</div>
-          </div>
-        </div>
+  <div class="form-row">
+    <div class="field grow">
+      <label>Destination Host / IP</label>
+      <input id="inp-host" type="text" placeholder="e.g. 8.8.8.8 or example.com" autocomplete="off" oninput="validateHost()" />
+      <div class="field-hint" id="host-hint"></div>
+    </div>
+    <div class="field">
+      <label>Mode</label>
+      <div class="mode-tabs">
+        <button class="mode-tab active" id="tab-time"    onclick="setMode('time')">Time</button>
+        <button class="mode-tab"        id="tab-packets" onclick="setMode('packets')">Packets</button>
       </div>
     </div>
+    <div class="field w75" id="field-duration">
+      <label>Duration</label>
+      <input id="inp-duration" type="number" value="5" min="1" max="1440" />
+    </div>
+    <div class="field w75" id="field-unit">
+      <label>Unit</label>
+      <select id="sel-unit"><option value="60">min</option><option value="3600">hours</option></select>
+    </div>
+    <div class="field w90" id="field-count" style="display:none">
+      <label>Packets</label>
+      <input id="inp-count" type="number" value="50" min="1" max="500" />
+    </div>
+    <div class="toggle-wrap">
+      <label>No DNS</label>
+      <label class="toggle">
+        <input type="checkbox" id="chk-nodns" />
+        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        <span class="toggle-label">Disable</span>
+      </label>
+    </div>
+    <div class="toggle-wrap">
+      <label>Protocol</label>
+      <label class="toggle">
+        <input type="checkbox" id="chk-udp" />
+        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        <span class="toggle-label" id="lbl-proto">ICMP</span>
+      </label>
+    </div>
+    <div class="toggle-wrap">
+      <label>Geo info</label>
+      <label class="toggle">
+        <input type="checkbox" id="chk-asn" />
+        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        <span class="toggle-label" id="lbl-geo">Country</span>
+      </label>
+    </div>
+    <div class="field grow" style="min-width:140px;max-width:200px">
+      <label>Tags <span style="color:var(--muted);font-weight:400">(comma separated)</span></label>
+      <input id="inp-tag" type="text" placeholder="test, JIRA-123, INC-456" autocomplete="off" list="tag-presets" />
+      <datalist id="tag-presets"></datalist>
+    </div>
+    <button class="btn-run" id="btn-run" onclick="runMtr()">▶ Run</button>
+    <button class="btn-stop" id="btn-stop" onclick="stopMtr()">■ Stop</button>
+  </div>
 
-    <!-- Kill confirm modal -->
-    <div class="modal-overlay" id="kill-modal">
-      <div class="modal-card">
-        <div class="modal-title">⚠ Kill Running Job</div>
-        <div class="modal-body">
-          Terminate MTR trace for
-          <strong id="kill-dest" style="color: var(--cyan)"></strong>?<br />The
-          job cannot be recovered.
-        </div>
-        <div class="modal-actions">
-          <button class="btn-danger" onclick="confirmKill()">Yes, Kill</button>
-          <button class="btn-cancel" onclick="closeModal('kill-modal')">
-            Cancel
-          </button>
-          <input
-            class="modal-pw"
-            id="kill-pw"
-            type="password"
-            placeholder="admin password…"
-            style="display: none"
-          />
-          <div class="modal-err" id="kill-err"></div>
-        </div>
+  <div class="main-area">
+    <div class="output-wrap">
+      <div class="output-toolbar">
+        <div class="status-label"><span class="dot" id="dot"></span><span id="status-text">Ready</span></div>
+        <button class="btn-copy" onclick="copyOutput()">Copy</button>
       </div>
+      <div id="progress-bar"><div id="progress-fill"></div></div>
+      <textarea id="output" readonly placeholder="MTR output will appear here..."></textarea>
     </div>
 
-    <!-- Delete confirm modal -->
-    <div class="modal-overlay" id="delete-modal">
-      <div class="modal-card">
-        <div class="modal-title">⚠ Delete Result</div>
-        <div class="modal-body">
-          Permanently delete
-          <strong id="delete-name" style="color: var(--cyan)"></strong
-          >?<br />This action is
-          <strong style="color: var(--red)">irreversible</strong>.
+    <div class="history-panel">
+      <div class="history-header">
+        <span>Running</span>
+        <button class="btn-sm-icon" onclick="loadRunning()">↻</button>
+      </div>
+      <div id="running-list"><div class="history-empty">No active jobs</div></div>
+
+      <div class="history-header" style="border-top:1px solid var(--border);flex-direction:column;align-items:stretch;gap:.35rem;padding:.45rem .75rem">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span>History</span>
+          <button class="btn-sm-icon" onclick="loadHistory()">↻</button>
         </div>
-        <div class="modal-actions">
-          <button class="btn-danger" onclick="confirmDelete()">
-            Yes, Delete
-          </button>
-          <button class="btn-cancel" onclick="closeModal('delete-modal')">
-            Cancel
-          </button>
-          <input
-            class="modal-pw"
-            id="delete-pw"
-            type="password"
-            placeholder="admin password…"
-            style="display: none"
-          />
-          <div class="modal-err" id="delete-err"></div>
+        <div class="hist-filters">
+          <input class="f-search" id="hist-search" type="text" placeholder="host…"  oninput="loadHistory()" />
+          <input class="f-date"   id="hist-date"   type="date"                       oninput="loadHistory()" title="Filter by date" />
+          <input class="f-tag"    id="hist-tag"    type="text" placeholder="tag…"   list="tag-presets-hist" oninput="loadHistory()" />
+          <datalist id="tag-presets-hist"></datalist>
         </div>
       </div>
+      <div class="history-list" id="history-list"><div class="history-empty">No results yet</div></div>
     </div>
+  </div>
+</div>
 
-    <script>
-      const PROXY = "/so-proxy";
-      let es = null,
-        curMode = "time",
-        localIp = "—",
-        publicIp = "—",
-        _jobStart = null;
-      let _pendingKillJob = null,
-        _pendingDeleteFile = null;
-      let _hasAdminPw = false;
+<!-- Kill confirm modal -->
+<div class="modal-overlay" id="kill-modal">
+  <div class="modal-card">
+    <div class="modal-title">⚠ Kill Running Job</div>
+    <div class="modal-body">Terminate MTR trace for <strong id="kill-dest" style="color:var(--cyan)"></strong>?<br>The job cannot be recovered.</div>
+    <div class="modal-actions">
+      <button class="btn-danger" onclick="confirmKill()">Yes, Kill</button>
+      <button class="btn-cancel" onclick="closeModal('kill-modal')">Cancel</button>
+      <input class="modal-pw" id="kill-pw" type="password" placeholder="admin password…" style="display:none" />
+      <div class="modal-err" id="kill-err"></div>
+    </div>
+  </div>
+</div>
 
-      // ── Boot: load config to check if admin password is set ──────────
-      async function loadConfig() {
-        try {
-          const res = await fetch(`${PROXY}/config`);
-          const data = await res.json();
-          _hasAdminPw = (data.config || {}).HAS_ADMIN_PASSWORD === "true";
-        } catch {}
+<!-- Delete confirm modal -->
+<div class="modal-overlay" id="delete-modal">
+  <div class="modal-card">
+    <div class="modal-title">⚠ Delete Result</div>
+    <div class="modal-body">Permanently delete <strong id="delete-name" style="color:var(--cyan)"></strong>?<br>This action is <strong style="color:var(--red)">irreversible</strong>.</div>
+    <div class="modal-actions">
+      <button class="btn-danger" onclick="confirmDelete()">Yes, Delete</button>
+      <button class="btn-cancel" onclick="closeModal('delete-modal')">Cancel</button>
+      <input class="modal-pw" id="delete-pw" type="password" placeholder="admin password…" style="display:none" />
+      <div class="modal-err" id="delete-err"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const PROXY = "/so-proxy";
+  let es = null, curMode = "time", localIp = "—", publicIp = "—", _jobStart = null;
+  let _pendingKillJob = null, _pendingDeleteFile = null;
+  let _hasAdminPw = false;
+
+  // ── Boot: load config to check if admin password is set ──────────
+  async function loadConfig() {
+    try {
+      const res  = await fetch(`${PROXY}/config`);
+      const data = await res.json();
+      _hasAdminPw = (data.config || {}).HAS_ADMIN_PASSWORD === "true";
+    } catch {}
+  }
+
+  function setMode(m) {
+    curMode = m;
+    document.getElementById("tab-time").classList.toggle("active",    m === "time");
+    document.getElementById("tab-packets").classList.toggle("active", m === "packets");
+    document.getElementById("field-duration").style.display = m === "time"    ? "" : "none";
+    document.getElementById("field-unit").style.display     = m === "time"    ? "" : "none";
+    document.getElementById("field-count").style.display    = m === "packets" ? "" : "none";
+  }
+
+  async function loadServerInfo() {
+    try {
+      const res  = await fetch(`${PROXY}/server-info`);
+      const data = await res.json();
+      const ips  = (data.ip_addr || "").match(/inet (\d+\.\d+\.\d+\.\d+)/g) || [];
+      localIp    = ips.map(s => s.replace("inet ","")).filter(ip => !ip.startsWith("127."))[0] || "—";
+      publicIp   = data.public_ip || "—";
+      const gw   = (data.default_route || "").match(/via (\S+)/);
+      document.getElementById("pill-local").textContent  = localIp;
+      document.getElementById("pill-public").textContent = publicIp;
+      document.getElementById("pill-gw").textContent     = gw ? gw[1] : "—";
+    } catch { document.getElementById("pill-local").textContent = "unavailable"; }
+  }
+
+  // ── Toggle label updates ─────────────────────────────────────────
+  document.getElementById("chk-udp").addEventListener("change", function() {
+    document.getElementById("lbl-proto").textContent = this.checked ? "UDP 53" : "ICMP";
+  });
+  document.getElementById("chk-asn").addEventListener("change", function() {
+    document.getElementById("lbl-geo").textContent = this.checked ? "ASN" : "Country";
+  });
+
+  function parseTags(raw) { return (raw||"").split(",").map(t=>t.trim()).filter(Boolean); }
+
+  // ── Host sanity check ─────────────────────────────────────────────
+  function validateHost() {
+    const val   = document.getElementById("inp-host").value.trim();
+    const hint  = document.getElementById("host-hint");
+    const input = document.getElementById("inp-host");
+    let msg = "";
+
+    if (!val) { hint.textContent = ""; input.classList.remove("invalid"); return true; }
+
+    // Common mistakes
+    if (val.includes("://"))       msg = "Remove the protocol (e.g. use 8.8.8.8, not srt://8.8.8.8)";
+    else if (val.endsWith(":"))    msg = "Remove the trailing colon";
+    else if (/:\d+$/.test(val))    msg = "Remove the port — MTR only needs the host/IP";
+    else if (val.includes(" "))    msg = "Host cannot contain spaces";
+    else if (val.includes("?"))    msg = "Remove URL parameters — only host/IP allowed";
+    else if (val.includes("/"))    msg = "Remove the path — only host/IP allowed";
+
+    hint.textContent = msg;
+    input.classList.toggle("invalid", !!msg);
+    return !msg;
+  }
+
+  // ── Run MTR ──────────────────────────────────────────────────────
+  function runMtr() {
+    if (!validateHost()) return;
+    const host = document.getElementById("inp-host").value.trim();
+    if (!host) { setStatus("err", "Please enter a host or IP."); return; }
+    if (es) { es.close(); es = null; }
+
+    const no_dns = document.getElementById("chk-nodns").checked ? "1" : "0";
+    const proto  = document.getElementById("chk-udp").checked ? "udp53" : "icmp";
+    const geo    = document.getElementById("chk-asn").checked  ? "asn"   : "country";
+    const tags   = parseTags(document.getElementById("inp-tag").value);
+    let params, totalCycles;
+
+    if (curMode === "packets") {
+      const count = parseInt(document.getElementById("inp-count").value) || 50;
+      totalCycles = count;
+      params = `host=${encodeURIComponent(host)}&mode=packets&count=${count}&no_dns=${no_dns}`;
+    } else {
+      const dur = parseInt(document.getElementById("inp-duration").value) || 5;
+      const unit= parseInt(document.getElementById("sel-unit").value) || 60;
+      totalCycles = dur * unit;
+      params = `host=${encodeURIComponent(host)}&mode=time&seconds=${totalCycles}&no_dns=${no_dns}`;
+    }
+    params += `&total_cycles=${totalCycles}&src_ip=${encodeURIComponent(localIp)}&pub_ip=${encodeURIComponent(publicIp)}`;
+    params += `&proto=${proto}&geo=${geo}`;
+    if (tags.length) params += `&tag=${encodeURIComponent(tags.join(", "))}`;
+
+    _jobStart = Date.now();
+    const now = new Date().toISOString().replace("T"," ").slice(0,19)+" UTC";
+    const modeStr = curMode==="packets"
+      ? `Packets (requested): ${document.getElementById("inp-count").value}`
+      : `Duration (requested): ${document.getElementById("inp-duration").value} ${document.getElementById("sel-unit").options[document.getElementById("sel-unit").selectedIndex].text}`;
+
+    const hdr = [`MTR Network Trace`,`==========================================`,
+      `Date Start : ${now}`,`Source     : ${localIp} (public: ${publicIp})`,
+      `Destination: ${host}`, modeStr,
+      `Protocol   : ${proto === "udp53" ? "UDP port 53" : "ICMP"}`,
+      `Geo info   : ${geo === "asn" ? "ASN" : "Country Code"}`,
+      `DNS        : ${no_dns==="1"?"disabled":"enabled"}`,
+      ...(tags.length ? [`Tags       : ${tags.join(", ")}`] : []),
+      `==========================================`,``].join("\n");
+
+    document.getElementById("output").value = hdr;
+    document.getElementById("btn-run").disabled = true;
+    document.getElementById("btn-stop").classList.add("visible");
+    setProgress(0); setStatus("running", `Starting MTR to ${host}…`);
+
+    es = new EventSource(`${PROXY}/mtr/stream?${params}`);
+    es.onmessage = (e) => {
+      if (e.data.startsWith("__TICK__")) {
+        const [,el,rem] = e.data.split(" ");
+        const elapsed = parseInt(el)||0, remaining = parseInt(rem)||0;
+        const pct = totalCycles>0 ? Math.min(99,Math.round(elapsed/totalCycles*100)) : 0;
+        setProgress(pct);
+        const m=Math.floor(remaining/60), s=remaining%60;
+        setStatus("running", `Running… ${pct}% — ${m>0?`${m}m ${s}s`:`${s}s`} remaining`);
+        return;
       }
-
-      function setMode(m) {
-        curMode = m;
-        document
-          .getElementById("tab-time")
-          .classList.toggle("active", m === "time");
-        document
-          .getElementById("tab-packets")
-          .classList.toggle("active", m === "packets");
-        document.getElementById("field-duration").style.display =
-          m === "time" ? "" : "none";
-        document.getElementById("field-unit").style.display =
-          m === "time" ? "" : "none";
-        document.getElementById("field-count").style.display =
-          m === "packets" ? "" : "none";
-      }
-
-      async function loadServerInfo() {
-        try {
-          const res = await fetch(`${PROXY}/server-info`);
-          const data = await res.json();
-          const ips =
-            (data.ip_addr || "").match(/inet (\d+\.\d+\.\d+\.\d+)/g) || [];
-          localIp =
-            ips
-              .map((s) => s.replace("inet ", ""))
-              .filter((ip) => !ip.startsWith("127."))[0] || "—";
-          publicIp = data.public_ip || "—";
-          const gw = (data.default_route || "").match(/via (\S+)/);
-          document.getElementById("pill-local").textContent = localIp;
-          document.getElementById("pill-public").textContent = publicIp;
-          document.getElementById("pill-gw").textContent = gw ? gw[1] : "—";
-        } catch {
-          document.getElementById("pill-local").textContent = "unavailable";
+      if (e.data === "__DONE__") {
+        es.close(); es=null;
+        if (_jobStart) {
+          const ms=Date.now()-_jobStart;
+          const hh=String(Math.floor(ms/3600000)).padStart(2,"0");
+          const mm=String(Math.floor((ms%3600000)/60000)).padStart(2,"0");
+          const ss=String(Math.floor((ms%60000)/1000)).padStart(2,"0");
+          const end=new Date().toISOString().replace("T"," ").slice(0,19)+" UTC";
+          const out=document.getElementById("output");
+          out.value+=`\n==========================================\nDate End   : ${end}\nDuration (actual): ${hh}:${mm}:${ss}\n==========================================\n`;
         }
-      }
-
-      function parseTags(raw) {
-        return (raw || "")
-          .split(",")
-          .map((t) => t.trim())
-          .filter(Boolean);
-      }
-
-      // ── Host sanity check ─────────────────────────────────────────────
-      function validateHost() {
-        const val = document.getElementById("inp-host").value.trim();
-        const hint = document.getElementById("host-hint");
-        const input = document.getElementById("inp-host");
-        let msg = "";
-
-        if (!val) {
-          hint.textContent = "";
-          input.classList.remove("invalid");
-          return true;
-        }
-
-        // Common mistakes
-        if (val.includes("://"))
-          msg = "Remove the protocol (e.g. use 8.8.8.8, not srt://8.8.8.8)";
-        else if (val.endsWith(":")) msg = "Remove the trailing colon";
-        else if (/:\d+$/.test(val))
-          msg = "Remove the port — MTR only needs the host/IP";
-        else if (val.includes(" ")) msg = "Host cannot contain spaces";
-        else if (val.includes("?"))
-          msg = "Remove URL parameters — only host/IP allowed";
-        else if (val.includes("/"))
-          msg = "Remove the path — only host/IP allowed";
-
-        hint.textContent = msg;
-        input.classList.toggle("invalid", !!msg);
-        return !msg;
-      }
-
-      // ── Run MTR ──────────────────────────────────────────────────────
-      function runMtr() {
-        if (!validateHost()) return;
-        const host = document.getElementById("inp-host").value.trim();
-        if (!host) {
-          setStatus("err", "Please enter a host or IP.");
-          return;
-        }
-        if (es) {
-          es.close();
-          es = null;
-        }
-
-        const no_dns = document.getElementById("chk-nodns").checked ? "1" : "0";
-        const tags = parseTags(document.getElementById("inp-tag").value);
-        let params, totalCycles;
-
-        if (curMode === "packets") {
-          const count =
-            parseInt(document.getElementById("inp-count").value) || 50;
-          totalCycles = count;
-          params = `host=${encodeURIComponent(
-            host
-          )}&mode=packets&count=${count}&no_dns=${no_dns}`;
-        } else {
-          const dur =
-            parseInt(document.getElementById("inp-duration").value) || 5;
-          const unit =
-            parseInt(document.getElementById("sel-unit").value) || 60;
-          totalCycles = dur * unit;
-          params = `host=${encodeURIComponent(
-            host
-          )}&mode=time&seconds=${totalCycles}&no_dns=${no_dns}`;
-        }
-        params += `&total_cycles=${totalCycles}&src_ip=${encodeURIComponent(
-          localIp
-        )}&pub_ip=${encodeURIComponent(publicIp)}`;
-        if (tags.length)
-          params += `&tag=${encodeURIComponent(tags.join(", "))}`;
-
-        _jobStart = Date.now();
-        const now =
-          new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC";
-        const modeStr =
-          curMode === "packets"
-            ? `Packets (requested): ${
-                document.getElementById("inp-count").value
-              }`
-            : `Duration (requested): ${
-                document.getElementById("inp-duration").value
-              } ${
-                document.getElementById("sel-unit").options[
-                  document.getElementById("sel-unit").selectedIndex
-                ].text
-              }`;
-
-        const hdr = [
-          `MTR Network Trace`,
-          `==========================================`,
-          `Date Start : ${now}`,
-          `Source     : ${localIp} (public: ${publicIp})`,
-          `Destination: ${host}`,
-          modeStr,
-          `DNS        : ${no_dns === "1" ? "disabled" : "enabled"}`,
-          ...(tags.length ? [`Tags       : ${tags.join(", ")}`] : []),
-          `==========================================`,
-          ``,
-        ].join("\n");
-
-        document.getElementById("output").value = hdr;
-        document.getElementById("btn-run").disabled = true;
-        document.getElementById("btn-stop").classList.add("visible");
-        setProgress(0);
-        setStatus("running", `Starting MTR to ${host}…`);
-
-        es = new EventSource(`${PROXY}/mtr/stream?${params}`);
-        es.onmessage = (e) => {
-          if (e.data.startsWith("__TICK__")) {
-            const [, el, rem] = e.data.split(" ");
-            const elapsed = parseInt(el) || 0,
-              remaining = parseInt(rem) || 0;
-            const pct =
-              totalCycles > 0
-                ? Math.min(99, Math.round((elapsed / totalCycles) * 100))
-                : 0;
-            setProgress(pct);
-            const m = Math.floor(remaining / 60),
-              s = remaining % 60;
-            setStatus(
-              "running",
-              `Running… ${pct}% — ${m > 0 ? `${m}m ${s}s` : `${s}s`} remaining`
-            );
-            return;
-          }
-          if (e.data === "__DONE__") {
-            es.close();
-            es = null;
-            if (_jobStart) {
-              const ms = Date.now() - _jobStart;
-              const hh = String(Math.floor(ms / 3600000)).padStart(2, "0");
-              const mm = String(Math.floor((ms % 3600000) / 60000)).padStart(
-                2,
-                "0"
-              );
-              const ss = String(Math.floor((ms % 60000) / 1000)).padStart(
-                2,
-                "0"
-              );
-              const end =
-                new Date().toISOString().replace("T", " ").slice(0, 19) +
-                " UTC";
-              const out = document.getElementById("output");
-              out.value += `\n==========================================\nDate End   : ${end}\nDuration (actual): ${hh}:${mm}:${ss}\n==========================================\n`;
-            }
-            const failed = document
-              .getElementById("output")
-              .value.includes("ERROR");
-            setProgress(100, failed ? "err" : "ok");
-            setStatus(failed ? "err" : "ok", failed ? "Error" : "Done");
-            document.getElementById("btn-run").disabled = false;
-            document.getElementById("btn-stop").classList.remove("visible");
-            loadHistory();
-            loadRunning();
-            return;
-          }
-          const out = document.getElementById("output");
-          out.value += e.data + "\n";
-          out.scrollTop = out.scrollHeight;
-        };
-        es.onerror = () => {
-          if (!es) return;
-          es.close();
-          es = null;
-          setStatus("err", "Connection lost.");
-          document.getElementById("btn-run").disabled = false;
-          document.getElementById("btn-stop").classList.remove("visible");
-        };
-      }
-
-      function stopMtr() {
-        if (es) {
-          es.close();
-          es = null;
-        }
-        setProgress(0);
-        setStatus("err", "Disconnected (background job may still run).");
-        document.getElementById("btn-run").disabled = false;
+        const failed=document.getElementById("output").value.includes("ERROR");
+        setProgress(100,failed?"err":"ok");
+        setStatus(failed?"err":"ok",failed?"Error":"Done");
+        document.getElementById("btn-run").disabled=false;
         document.getElementById("btn-stop").classList.remove("visible");
+        loadHistory(); loadRunning(); return;
       }
+      const out=document.getElementById("output");
+      out.value+=e.data+"\n"; out.scrollTop=out.scrollHeight;
+    };
+    es.onerror=()=>{ if(!es)return; es.close();es=null; setStatus("err","Connection lost."); document.getElementById("btn-run").disabled=false; document.getElementById("btn-stop").classList.remove("visible"); };
+  }
 
-      // ── Running jobs (no Watch button) ───────────────────────────────
-      async function loadRunning() {
-        try {
-          const res = await fetch(`${PROXY}/mtr/running`);
-          const items = await res.json();
-          const list = document.getElementById("running-list");
-          if (!items.length) {
-            list.innerHTML = '<div class="history-empty">No active jobs</div>';
-            return;
-          }
-          list.innerHTML = items
-            .map((job) => {
-              const pct =
-                job.total_cycles > 0
-                  ? Math.min(
-                      99,
-                      Math.round((job.elapsed / job.total_cycles) * 100)
-                    )
-                  : 0;
-              const rem = job.remaining;
-              const remStr =
-                rem >= 60 ? `${Math.floor(rem / 60)}m ${rem % 60}s` : `${rem}s`;
-              const tags = parseTags(job.tag || "");
-              const safeJob = JSON.stringify(job).replace(/"/g, "&quot;");
-              return `<div class="running-item">
+  function stopMtr() {
+    if(es){es.close();es=null;}
+    setProgress(0); setStatus("err","Disconnected (background job may still run).");
+    document.getElementById("btn-run").disabled=false;
+    document.getElementById("btn-stop").classList.remove("visible");
+  }
+
+  // ── Running jobs (no Watch button) ───────────────────────────────
+  async function loadRunning() {
+    try {
+      const res=await fetch(`${PROXY}/mtr/running`);
+      const items=await res.json();
+      const list=document.getElementById("running-list");
+      if(!items.length){list.innerHTML='<div class="history-empty">No active jobs</div>';return;}
+      list.innerHTML=items.map(job=>{
+        const pct=job.total_cycles>0?Math.min(99,Math.round(job.elapsed/job.total_cycles*100)):0;
+        const rem=job.remaining;
+        const remStr=rem>=60?`${Math.floor(rem/60)}m ${rem%60}s`:`${rem}s`;
+        const tags=parseTags(job.tag||"");
+        const safeJob=JSON.stringify(job).replace(/"/g,"&quot;");
+        return `<div class="running-item">
           <div class="hi-dest">${job.destination}</div>
-          <div class="hi-meta"><span>${pct}%</span><span class="hi-badge">${remStr} left</span>${tags
-                .map(
-                  (t) =>
-                    `<span class="hi-badge" style="color:var(--cyan)">${t}</span>`
-                )
-                .join("")}</div>
+          <div class="hi-meta"><span>${pct}%</span><span class="hi-badge">${remStr} left</span>${tags.map(t=>`<span class="hi-badge" style="color:var(--cyan)">${t}</span>`).join("")}</div>
           <div style="height:2px;background:var(--border);border-radius:1px;margin:4px 0"><div style="height:100%;width:${pct}%;background:var(--yellow);border-radius:1px;transition:width 1s"></div></div>
           <div class="ri-actions"><button class="ri-btn kill" onclick="openKillModal(${safeJob})">✕ Kill</button></div>
         </div>`;
-            })
-            .join("");
-        } catch (e) {
-          console.error(e);
-        }
+      }).join("");
+    } catch(e){console.error(e);}
+  }
+
+  // ── Password modal helpers ────────────────────────────────────────
+  function pwHeaders(pwVal) {
+    const h = { "Content-Type": "application/json" };
+    if (_hasAdminPw && pwVal) h["X-Admin-Password"] = pwVal;
+    return h;
+  }
+
+  function openModal(id) { document.getElementById(id).classList.add("open"); }
+  function closeModal(id) {
+    document.getElementById(id).classList.remove("open");
+    const pw  = document.getElementById(id.replace("-modal","-pw"));
+    const err = document.getElementById(id.replace("-modal","-err"));
+    if(pw)  { pw.value=""; pw.classList.remove("error"); }
+    if(err) err.textContent="";
+  }
+
+  // ── Kill ─────────────────────────────────────────────────────────
+  function openKillModal(job) {
+    _pendingKillJob = job;
+    document.getElementById("kill-dest").textContent = job.destination;
+    const pwEl = document.getElementById("kill-pw");
+    pwEl.style.display = _hasAdminPw ? "" : "none";
+    openModal("kill-modal");
+  }
+  async function confirmKill() {
+    if(!_pendingKillJob)return;
+    const job=_pendingKillJob;
+    const pw=document.getElementById("kill-pw").value;
+    const errEl=document.getElementById("kill-err");
+    errEl.textContent="";
+    try {
+      const res=await fetch(`${PROXY}/mtr/kill/${encodeURIComponent(job.job_id)}`,{method:"POST",headers:pwHeaders(pw)});
+      const data=await res.json();
+      if(!data.success && res.status===403){
+        document.getElementById("kill-pw").classList.add("error");
+        errEl.textContent="❌ Invalid password";
+        return;
       }
+      closeModal("kill-modal"); _pendingKillJob=null;
+      if(es){es.close();es=null;}
+      setStatus("err",`Job killed: ${job.destination}`); setProgress(0);
+      setTimeout(()=>{loadRunning();loadHistory();},800);
+    } catch(e){errEl.textContent=`Error: ${e.message}`;}
+  }
 
-      // ── Password modal helpers ────────────────────────────────────────
-      function pwHeaders(pwVal) {
-        const h = { "Content-Type": "application/json" };
-        if (_hasAdminPw && pwVal) h["X-Admin-Password"] = pwVal;
-        return h;
+  // ── Delete ───────────────────────────────────────────────────────
+  function openDeleteModal(file) {
+    _pendingDeleteFile=file;
+    document.getElementById("delete-name").textContent=file;
+    const pwEl=document.getElementById("delete-pw");
+    pwEl.style.display=_hasAdminPw?"":"none";
+    openModal("delete-modal");
+  }
+  async function confirmDelete() {
+    if(!_pendingDeleteFile)return;
+    const file=_pendingDeleteFile;
+    const pw=document.getElementById("delete-pw").value;
+    const errEl=document.getElementById("delete-err");
+    errEl.textContent="";
+    try {
+      const res=await fetch(`${PROXY}/mtr/delete/${encodeURIComponent(file)}`,{method:"DELETE",headers:pwHeaders(pw)});
+      const data=await res.json();
+      if(!data.success && res.status===403){
+        document.getElementById("delete-pw").classList.add("error");
+        errEl.textContent="❌ Invalid password";
+        return;
       }
+      closeModal("delete-modal"); _pendingDeleteFile=null;
+      loadHistory();
+    } catch(e){errEl.textContent=`Error: ${e.message}`;}
+  }
 
-      function openModal(id) {
-        document.getElementById(id).classList.add("open");
-      }
-      function closeModal(id) {
-        document.getElementById(id).classList.remove("open");
-        const pw = document.getElementById(id.replace("-modal", "-pw"));
-        const err = document.getElementById(id.replace("-modal", "-err"));
-        if (pw) {
-          pw.value = "";
-          pw.classList.remove("error");
-        }
-        if (err) err.textContent = "";
-      }
+  // ── History ──────────────────────────────────────────────────────
+  async function loadHistory() {
+    try {
+      const res=await fetch(`${PROXY}/mtr/results`);
+      const items=await res.json();
+      const list=document.getElementById("history-list");
+      const search=(document.getElementById("hist-search").value||"").toLowerCase().trim();
+      const date=(document.getElementById("hist-date").value||"").trim();
+      const tag=(document.getElementById("hist-tag").value||"").toLowerCase().trim();
 
-      // ── Kill ─────────────────────────────────────────────────────────
-      function openKillModal(job) {
-        _pendingKillJob = job;
-        document.getElementById("kill-dest").textContent = job.destination;
-        const pwEl = document.getElementById("kill-pw");
-        pwEl.style.display = _hasAdminPw ? "" : "none";
-        openModal("kill-modal");
-      }
-      async function confirmKill() {
-        if (!_pendingKillJob) return;
-        const job = _pendingKillJob;
-        const pw = document.getElementById("kill-pw").value;
-        const errEl = document.getElementById("kill-err");
-        errEl.textContent = "";
-        try {
-          const res = await fetch(
-            `${PROXY}/mtr/kill/${encodeURIComponent(job.job_id)}`,
-            { method: "POST", headers: pwHeaders(pw) }
-          );
-          const data = await res.json();
-          if (!data.success && res.status === 403) {
-            document.getElementById("kill-pw").classList.add("error");
-            errEl.textContent = "❌ Invalid password";
-            return;
-          }
-          closeModal("kill-modal");
-          _pendingKillJob = null;
-          if (es) {
-            es.close();
-            es = null;
-          }
-          setStatus("err", `Job killed: ${job.destination}`);
-          setProgress(0);
-          setTimeout(() => {
-            loadRunning();
-            loadHistory();
-          }, 800);
-        } catch (e) {
-          errEl.textContent = `Error: ${e.message}`;
-        }
-      }
+      const allTags=[...new Set(items.flatMap(i=>parseTags(i.tag||"")))];
+      ["tag-presets","tag-presets-hist"].forEach(id=>{
+        const dl=document.getElementById(id);
+        if(dl)dl.innerHTML=allTags.map(t=>`<option value="${t}">`).join("");
+      });
 
-      // ── Delete ───────────────────────────────────────────────────────
-      function openDeleteModal(file) {
-        _pendingDeleteFile = file;
-        document.getElementById("delete-name").textContent = file;
-        const pwEl = document.getElementById("delete-pw");
-        pwEl.style.display = _hasAdminPw ? "" : "none";
-        openModal("delete-modal");
-      }
-      async function confirmDelete() {
-        if (!_pendingDeleteFile) return;
-        const file = _pendingDeleteFile;
-        const pw = document.getElementById("delete-pw").value;
-        const errEl = document.getElementById("delete-err");
-        errEl.textContent = "";
-        try {
-          const res = await fetch(
-            `${PROXY}/mtr/delete/${encodeURIComponent(file)}`,
-            { method: "DELETE", headers: pwHeaders(pw) }
-          );
-          const data = await res.json();
-          if (!data.success && res.status === 403) {
-            document.getElementById("delete-pw").classList.add("error");
-            errEl.textContent = "❌ Invalid password";
-            return;
-          }
-          closeModal("delete-modal");
-          _pendingDeleteFile = null;
-          loadHistory();
-        } catch (e) {
-          errEl.textContent = `Error: ${e.message}`;
-        }
-      }
+      const filtered=items.filter(item=>{
+        const dest=(item.destination||"").toLowerCase();
+        if(search&&!dest.includes(search))return false;
+        if(date&&!(item.started_at||"").startsWith(date))return false;
+        if(tag){const its=parseTags(item.tag||"").map(t=>t.toLowerCase());if(!its.some(t=>t.includes(tag)))return false;}
+        return true;
+      });
 
-      // ── History ──────────────────────────────────────────────────────
-      async function loadHistory() {
-        try {
-          const res = await fetch(`${PROXY}/mtr/results`);
-          const items = await res.json();
-          const list = document.getElementById("history-list");
-          const search = (document.getElementById("hist-search").value || "")
-            .toLowerCase()
-            .trim();
-          const date = (
-            document.getElementById("hist-date").value || ""
-          ).trim();
-          const tag = (document.getElementById("hist-tag").value || "")
-            .toLowerCase()
-            .trim();
+      if(!filtered.length){list.innerHTML='<div class="history-empty">No results found</div>';return;}
 
-          const allTags = [
-            ...new Set(items.flatMap((i) => parseTags(i.tag || ""))),
-          ];
-          ["tag-presets", "tag-presets-hist"].forEach((id) => {
-            const dl = document.getElementById(id);
-            if (dl)
-              dl.innerHTML = allTags
-                .map((t) => `<option value="${t}">`)
-                .join("");
-          });
-
-          const filtered = items.filter((item) => {
-            const dest = (item.destination || "").toLowerCase();
-            if (search && !dest.includes(search)) return false;
-            if (date && !(item.started_at || "").startsWith(date)) return false;
-            if (tag) {
-              const its = parseTags(item.tag || "").map((t) => t.toLowerCase());
-              if (!its.some((t) => t.includes(tag))) return false;
-            }
-            return true;
-          });
-
-          if (!filtered.length) {
-            list.innerHTML =
-              '<div class="history-empty">No results found</div>';
-            return;
-          }
-
-          list.innerHTML = filtered
-            .map((item) => {
-              const s = item.started_at
-                ? item.started_at.slice(0, 16).replace("T", " ")
-                : "—";
-              const e = item.ended_at
-                ? item.ended_at.slice(0, 16).replace("T", " ")
-                : null;
-              const mode =
-                item.mode === "time"
-                  ? formatDuration(item.duration_s)
-                  : `${item.packets} pkts`;
-              const tags = parseTags(item.tag || "");
-              let realDur = "";
-              if (item.started_at && item.ended_at)
-                realDur = secsToHMS(
-                  Math.round(
-                    (new Date(item.ended_at) - new Date(item.started_at)) / 1000
-                  )
-                );
-              return `<div class="history-item" onclick="loadResult('${
-                item.file
-              }')">
+      list.innerHTML=filtered.map(item=>{
+        const s=item.started_at?item.started_at.slice(0,16).replace("T"," "):"—";
+        const e=item.ended_at?item.ended_at.slice(0,16).replace("T"," "):null;
+        const mode=item.mode==="time"?formatDuration(item.duration_s):`${item.packets} pkts`;
+        const tags=parseTags(item.tag||"");
+        const protoLabel = item.proto === "udp53" ? "UDP 53" : "ICMP";
+        const geoLabel   = item.geo   === "asn"   ? "ASN"    : "Country";
+        let realDur="";
+        if(item.started_at&&item.ended_at)realDur=secsToHMS(Math.round((new Date(item.ended_at)-new Date(item.started_at))/1000));
+        return `<div class="history-item" onclick="loadResult('${item.file}')">
           <div class="hi-dest">${item.destination}</div>
-          <div class="hi-date">Start: ${s}${e ? ` · End: ${e}` : ""}</div>
-          <div class="hi-meta"><span class="hi-badge">${mode}</span>${
-                realDur ? `<span class="hi-badge">⏱ ${realDur}</span>` : ""
-              }<span class="hi-badge">${item.hops} hops</span>${tags
-                .map(
-                  (t) =>
-                    `<span class="hi-badge" style="color:var(--cyan)">${t}</span>`
-                )
-                .join("")}</div>
+          <div class="hi-date">Start: ${s}${e?` · End: ${e}`:""}</div>
+          <div class="hi-meta"><span class="hi-badge">${mode}</span>${realDur?`<span class="hi-badge">⏱ ${realDur}</span>`:""}<span class="hi-badge">${item.hops} hops</span><span class="hi-badge">${protoLabel}</span><span class="hi-badge">${geoLabel}</span>${tags.map(t=>`<span class="hi-badge" style="color:var(--cyan)">${t}</span>`).join("")}</div>
           <div class="hi-actions">
-            <a class="hi-dl" href="${PROXY}/mtr/results/${encodeURIComponent(
-                item.file
-              )}" download onclick="event.stopPropagation()">⬇ JSON</a>
-            <button class="hi-del" onclick="event.stopPropagation();openDeleteModal('${
-              item.file
-            }')" title="Delete">🗑 Delete</button>
+            <a class="hi-dl" href="${PROXY}/mtr/results/${encodeURIComponent(item.file)}" download onclick="event.stopPropagation()">⬇ JSON</a>
+            <button class="hi-del" onclick="event.stopPropagation();openDeleteModal('${item.file}')" title="Delete">🗑 Delete</button>
           </div>
         </div>`;
-            })
-            .join("");
-        } catch (e) {
-          console.error(e);
-        }
-      }
+      }).join("");
+    } catch(e){console.error(e);}
+  }
 
-      async function loadResult(file) {
-        try {
-          const res = await fetch(
-            `${PROXY}/mtr/results/${encodeURIComponent(file)}`
-          );
-          const data = await res.json();
-          const s = data.started_at
-            ? data.started_at.replace("T", " ").slice(0, 19) + " UTC"
-            : "—";
-          const e = data.ended_at
-            ? data.ended_at.replace("T", " ").slice(0, 19) + " UTC"
-            : "—";
-          const tags = parseTags(data.tag || "");
-          let rd = "—";
-          if (data.started_at && data.ended_at)
-            rd = secsToHMS(
-              Math.round(
-                (new Date(data.ended_at) - new Date(data.started_at)) / 1000
-              )
-            );
-          const modeStr =
-            data.mode === "time"
-              ? `Duration (requested): ${formatDuration(data.duration_s)}`
-              : `Packets   : ${data.packets || "—"}`;
-          const hdr = [
-            `MTR Network Trace`,
-            `==========================================`,
-            `Date Start : ${s}`,
-            `Date End   : ${e}`,
-            `Duration (actual): ${rd}`,
-            `Source     : ${data.source_ip || "—"} (public: ${
-              data.public_ip || "—"
-            })`,
-            `Destination: ${data.destination || "—"}`,
-            modeStr,
-            `DNS        : ${data.no_dns ? "disabled" : "enabled"}`,
-            ...(tags.length ? [`Tags       : ${tags.join(", ")}`] : []),
-            `==========================================`,
-            ``,
-          ].join("\n");
-          document.getElementById("output").value =
-            hdr + (data.raw || "(no output)");
-          setStatus("ok", `Loaded: ${file}`);
-          setProgress(100, "ok");
-        } catch (e) {
-          setStatus("err", "Failed to load result.");
-        }
-      }
+  async function loadResult(file) {
+    try {
+      const res=await fetch(`${PROXY}/mtr/results/${encodeURIComponent(file)}`);
+      const data=await res.json();
+      const s=data.started_at?data.started_at.replace("T"," ").slice(0,19)+" UTC":"—";
+      const e=data.ended_at?data.ended_at.replace("T"," ").slice(0,19)+" UTC":"—";
+      const tags=parseTags(data.tag||"");
+      let rd="—";
+      if(data.started_at&&data.ended_at)rd=secsToHMS(Math.round((new Date(data.ended_at)-new Date(data.started_at))/1000));
+      const modeStr=data.mode==="time"?`Duration (requested): ${formatDuration(data.duration_s)}`:`Packets   : ${data.packets||"—"}`;
+      const protoLabel = data.proto === "udp53" ? "UDP port 53" : "ICMP";
+      const geoLabel   = data.geo   === "asn"   ? "ASN"         : "Country Code";
+      const hdr=[`MTR Network Trace`,`==========================================`,
+        `Date Start : ${s}`,`Date End   : ${e}`,`Duration (actual): ${rd}`,
+        `Source     : ${data.source_ip||"—"} (public: ${data.public_ip||"—"})`,
+        `Destination: ${data.destination||"—"}`, modeStr,
+        `Protocol   : ${protoLabel}`,
+        `Geo info   : ${geoLabel}`,
+        `DNS        : ${data.no_dns?"disabled":"enabled"}`,
+        ...(tags.length?[`Tags       : ${tags.join(", ")}`]:[]),
+        `==========================================`,``].join("\n");
+      document.getElementById("output").value=hdr+(data.raw||"(no output)");
+      setStatus("ok",`Loaded: ${file}`); setProgress(100,"ok");
+    } catch(e){setStatus("err","Failed to load result.");}
+  }
 
-      function formatDuration(s) {
-        if (!s && s !== 0) return "—";
-        if (s < 60) return `${s}s`;
-        if (s < 3600) {
-          const m = Math.floor(s / 60),
-            r = s % 60;
-          return r ? `${m}min ${r}s` : `${m}min`;
-        }
-        const h = Math.floor(s / 3600),
-          m = Math.round((s % 3600) / 60);
-        return m ? `${h}h ${m}min` : `${h}h`;
-      }
-      function secsToHMS(s) {
-        if (!s) return "—";
-        return `${String(Math.floor(s / 3600)).padStart(2, "0")}:${String(
-          Math.floor((s % 3600) / 60)
-        ).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
-      }
+  function formatDuration(s) {
+    if(!s&&s!==0)return"—";
+    if(s<60)return`${s}s`;
+    if(s<3600){const m=Math.floor(s/60),r=s%60;return r?`${m}min ${r}s`:`${m}min`;}
+    const h=Math.floor(s/3600),m=Math.round((s%3600)/60);
+    return m?`${h}h ${m}min`:`${h}h`;
+  }
+  function secsToHMS(s){if(!s)return"—";return`${String(Math.floor(s/3600)).padStart(2,"0")}:${String(Math.floor((s%3600)/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;}
 
-      function setStatus(t, m) {
-        document.getElementById("dot").className = "dot " + t;
-        document.getElementById("status-text").textContent = m;
-      }
-      function setProgress(p, s) {
-        const f = document.getElementById("progress-fill");
-        f.style.width = p + "%";
-        if (s === "ok") f.style.background = "var(--green)";
-        else if (s === "err") f.style.background = "var(--red)";
-        else {
-          const r = Math.round(227 - (139 * p) / 100),
-            g = Math.round(179 - (13 * p) / 100),
-            b = Math.round(65 + (190 * p) / 100);
-          f.style.background = `rgb(${r},${g},${b})`;
-        }
-      }
-      async function copyOutput() {
-        const v = document.getElementById("output").value;
-        if (!v) return;
-        try {
-          await navigator.clipboard.writeText(v);
-        } catch {
-          document.getElementById("output").select();
-          document.execCommand("copy");
-        }
-        const btn = document.querySelector(".btn-copy");
-        btn.textContent = "Copied!";
-        setTimeout(() => (btn.textContent = "Copy"), 2000);
-      }
+  function setStatus(t,m){document.getElementById("dot").className="dot "+t;document.getElementById("status-text").textContent=m;}
+  function setProgress(p,s){
+    const f=document.getElementById("progress-fill");f.style.width=p+"%";
+    if(s==="ok")f.style.background="var(--green)";
+    else if(s==="err")f.style.background="var(--red)";
+    else{const r=Math.round(227-139*p/100),g=Math.round(179-13*p/100),b=Math.round(65+190*p/100);f.style.background=`rgb(${r},${g},${b})`;}
+  }
+  async function copyOutput(){
+    const v=document.getElementById("output").value;if(!v)return;
+    try{await navigator.clipboard.writeText(v);}catch{document.getElementById("output").select();document.execCommand("copy");}
+    const btn=document.querySelector(".btn-copy");btn.textContent="Copied!";setTimeout(()=>btn.textContent="Copy",2000);
+  }
 
-      // Close modals on backdrop click
-      ["kill-modal", "delete-modal"].forEach((id) => {
-        document.getElementById(id).addEventListener("click", function (e) {
-          if (e.target === this) closeModal(id);
-        });
-      });
+  // Close modals on backdrop click
+  ["kill-modal","delete-modal"].forEach(id=>{
+    document.getElementById(id).addEventListener("click",function(e){if(e.target===this)closeModal(id);});
+  });
 
-      document.getElementById("inp-host").addEventListener("keydown", (e) => {
-        if (e.key === "Enter") runMtr();
-      });
+  document.getElementById("inp-host").addEventListener("keydown",e=>{if(e.key==="Enter")runMtr();});
 
-      loadConfig();
-      loadServerInfo();
-      loadRunning();
-      loadHistory();
-      setInterval(() => {
-        loadRunning();
-        if (!es) loadHistory();
-      }, 10000);
-    </script>
-  </body>
+  loadConfig(); loadServerInfo(); loadRunning(); loadHistory();
+  setInterval(()=>{loadRunning();if(!es)loadHistory();},10000);
+</script>
+</body>
 </html>

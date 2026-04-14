@@ -190,6 +190,8 @@ def mtr_stream():
     count    = max(1, min(int(request.args.get("count") or 50), 500))
     seconds  = max(10, min(int(request.args.get("seconds") or 60), 86400))
     no_dns   = request.args.get("no_dns") == "1"
+    proto    = request.args.get("proto") or "icmp"    # "icmp" | "udp53"
+    geo      = request.args.get("geo")   or "country" # "country" | "asn"
     src_ip   = request.args.get("src_ip") or "unknown"
     pub_ip   = request.args.get("pub_ip") or "unknown"
     tag      = (request.args.get("tag") or "").strip()
@@ -224,7 +226,7 @@ def mtr_stream():
             "destination": host, "mode": mode,
             "packets": count if mode == "packets" else None,
             "duration_s": seconds if mode == "time" else None,
-            "no_dns": no_dns, "tag": tag,
+            "no_dns": no_dns, "proto": proto, "geo": geo, "tag": tag,
             "total_cycles": total_cycles,
             "hops": [], "raw": ""
         }
@@ -259,11 +261,22 @@ def mtr_stream():
     # ── Background thread: runs full mtr --report, saves result ──────
     def run_background():
         if mode == "time":
-            bg_cmd = ["mtr", "--report", "--report-wide", "--interval", "1", "-z", "-u", "-P", "53", 
+            bg_cmd = ["mtr", "--report", "--report-wide", "--interval", "1",
                       "--report-cycles", str(seconds)]
         else:
-            bg_cmd = ["mtr", "--report", "--report-wide", "-z", "-u", "-P", "53", 
+            bg_cmd = ["mtr", "--report", "--report-wide",
                       "--report-cycles", str(count)]
+        # Always show IPs alongside names
+        bg_cmd.append("-b")
+        # Protocol
+        if proto == "udp53":
+            bg_cmd += ["-u", "-P", "53"]
+        # Geo annotation
+        if geo == "asn":
+            bg_cmd.append("-z")
+        else:
+            bg_cmd.append("-y")
+            bg_cmd.append("2")
         if no_dns:
             bg_cmd.append("--no-dns")
         bg_cmd.append(host)
@@ -405,6 +418,8 @@ def mtr_running():
                 "duration_s":  d.get("duration_s"),
                 "packets":     d.get("packets"),
                 "no_dns":      d.get("no_dns", False),
+                "proto":       d.get("proto", "icmp"),
+                "geo":         d.get("geo", "country"),
                 "elapsed":     elapsed,
                 "remaining":   remaining,
                 "total_cycles":d.get("total_cycles", 0),
@@ -462,6 +477,8 @@ def mtr_results():
                 "duration_s":  d.get("duration_s"),
                 "hops":        len(d.get("hops", [])),
                 "tag":         d.get("tag", ""),
+                "proto":       d.get("proto", "icmp"),
+                "geo":         d.get("geo", "country"),
             })
         except Exception:
             pass

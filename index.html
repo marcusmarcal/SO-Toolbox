@@ -783,7 +783,7 @@
         <button id="btn-git-pull" class="git-pull-btn" data-tip="Pull latest from Git" onclick="gitPull()">⟳ Update</button>
         <button class="git-pull-btn" data-tip="Restart proxy service" onclick="openRestartConfirm()" style="border-color:rgba(255,78,106,0.4);color:#ffb3be;">⏻ Restart Proxy</button>
         <button class="git-pull-btn" data-tip="View README" onclick="openReadme()" style="border-color:rgba(88,166,255,0.4);color:var(--accent);">📖 README</button>
-        <span class="version" id="app-version" onclick="openChangelog()" title="Click to see changelog">v2.3.0</span>
+        <span class="version" id="app-version" onclick="openChangelog()" title="Click to see changelog">v2.4.0</span>
       </header>
 
       <aside id="sidebar">
@@ -826,7 +826,8 @@
           <div class="cl-title">SP SO Web Toolbox — Changelog</div>
           <button class="cl-close" onclick="closeChangelog()">Close</button>
         </div>
-        <div class="cl-entry"><div class="cl-version">v2.3.0</div><div class="cl-date">2026-04-13</div><div class="cl-desc">Proxy renamed to so-proxy; ADMIN_PASSWORD for sensitive actions (restart, kill, delete); MTR host sanity check, no Watch/live duplication; README modal in index</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.4.0</div><div class="cl-date">2026-04-14</div><div class="cl-desc">MTR: ICMP/UDP-53 toggle, Country/ASN geo toggle, -b flag (always show IPs), proto+geo shown in header and history</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.3.0</div><div class="cl-date">2026-04-13</div><div class="cl-desc">Proxy renamed to so-proxy; ADMIN_PASSWORD for sensitive actions; MTR host sanity check, no Watch/live duplication; README modal in index</div></div>
         <div class="cl-entry"><div class="cl-version">v2.2.0</div><div class="cl-date">2026-04-10</div><div class="cl-desc">MTR kill/delete with confirmation, date picker filter, history/running panels</div></div>
         <div class="cl-entry"><div class="cl-version">v2.1.0</div><div class="cl-date">2026-04-10</div><div class="cl-desc">MTR: wider history panel, date/search/tag filters, multi-tag, Date End + actual HH:MM:SS, Time mode left, copy button fix</div></div>
         <div class="cl-entry"><div class="cl-version">v2.0.0</div><div class="cl-date">2026-04-07</div><div class="cl-desc">MTR background jobs with disk persistence, tag filtering, running jobs panel; Ingest Analyzer tags; bufsize streaming fix; progress bar with countdown</div></div>
@@ -1235,7 +1236,7 @@
             // Update title & version from env
             const title = env.APP_TITLE || "SP SO Web Toolbox";
             document.title = title;
-            $("#app-version").text("v2.3.0");
+            $("#app-version").text("v2.4.0");
 
             renderSidebar();
             renderWelcomeCards();
