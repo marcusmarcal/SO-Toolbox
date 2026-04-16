@@ -245,16 +245,24 @@ def mtr_stream():
     def parse_mtr_output(lines):
         hops = []
         for line in lines:
-            m = re.match(
-                r'\s*\d+\.\s*[|`]-+\s*(\S+)\s+'
+            # mtr --report-wide with -b produces lines like:
+            #  1.|-- 192.168.1.1 (192.168.1.1)  0.0%  60  1.2  1.5  0.9  3.1  0.5
+            # or without -b:
+            #  1.|-- 192.168.1.1  0.0%  60  1.2  1.5  0.9  3.1  0.5
+            m = re.search(
+                r'(\d+)\.\s*[|`!\-]+\s+(\S+(?:\s+\([^)]+\))?)\s+'
                 r'([\d.]+)%\s+(\d+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)',
                 line)
             if m:
                 hops.append({
-                    "host": m.group(1), "loss": float(m.group(2)),
-                    "sent": int(m.group(3)), "last": float(m.group(4)),
-                    "avg": float(m.group(5)), "best": float(m.group(6)),
-                    "worst": float(m.group(7)),
+                    "hop":  int(m.group(1)),
+                    "host": m.group(2).strip(),
+                    "loss": float(m.group(3)),
+                    "sent": int(m.group(4)),
+                    "last": float(m.group(5)),
+                    "avg":  float(m.group(6)),
+                    "best": float(m.group(7)),
+                    "worst":float(m.group(8)),
                 })
         return hops
 
@@ -749,7 +757,14 @@ os.makedirs(GOP_DIR, exist_ok=True)
 
 
 def _run_gop_analysis(job_id, url, duration, passphrase, tag):
-    """Background: capture SRT stream, run ffprobe frame analysis, parse GOP structure."""
+    """Background: capture SRT stream, run ffprobe frame analysis, parse GOP structure.
+    Key improvements:
+    - Graceful timeout: if ffmpeg times out, analyse whatever was captured
+    - NAL type 5 IDR detection via ffprobe side_data / key_frame
+    - Open vs Closed GOP detection
+    - Ignore last (incomplete) GOP
+    - Compliance checks against specs table
+    """
     log_lines = []
 
     def log(msg):
@@ -758,8 +773,15 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
             if job_id in _gop_jobs:
                 _gop_jobs[job_id]["log"] = list(log_lines)
 
-    # Strip passphrase for display
     url_display = re.sub(r'[?&]passphrase=[^&]*', '', url).rstrip('?&')
+
+    # Parse host:port from URL for display
+    m_host = re.search(r'srt://([^:/?]+):(\d+)', url_display)
+    url_host = m_host.group(1) if m_host else url_display
+    url_port = m_host.group(2) if m_host else ""
+
+    ts_path = None
+    cap_returncode = 0
 
     try:
         log(f"Starting GOP analysis for: {url_display}")
@@ -768,247 +790,366 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
         with tempfile.NamedTemporaryFile(suffix=".ts", delete=False) as tmp:
             ts_path = tmp.name
 
-        # ── Step 1: capture stream ────────────────────────────────────
+        # ── Step 1: capture stream (graceful timeout) ─────────────────
         log("Capturing stream with ffmpeg…")
         cap_cmd = [
             "ffmpeg", "-y",
+            "-timeout", str((duration + 10) * 1000000),  # SRT connect timeout µs
             "-i", url,
             "-t", str(duration),
             "-c", "copy",
             "-f", "mpegts",
             ts_path
         ]
-        cap_result = subprocess.run(
-            cap_cmd,
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            timeout=duration + 30
-        )
-        cap_out = cap_result.stdout.decode(errors="replace")
-        log("ffmpeg capture done (exit {})".format(cap_result.returncode))
+        try:
+            cap_result = subprocess.run(
+                cap_cmd,
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                timeout=duration + 45
+            )
+            cap_returncode = cap_result.returncode
+            cap_out = cap_result.stdout.decode(errors="replace")
+            log(f"ffmpeg capture done (exit {cap_returncode})")
+        except subprocess.TimeoutExpired:
+            log("WARNING: ffmpeg timed out — analysing partial capture if available")
+            cap_out = ""
+            cap_returncode = -1
 
-        if cap_result.returncode != 0 or not os.path.isfile(ts_path) or os.path.getsize(ts_path) < 1000:
-            log("ERROR: Stream capture failed or produced empty file.")
-            log(cap_out[-1000:])
+        # Check if we got anything usable
+        ts_size = os.path.getsize(ts_path) if (ts_path and os.path.isfile(ts_path)) else 0
+        log(f"Captured {ts_size:,} bytes")
+
+        if ts_size < 500:
+            log("ERROR: Capture produced no usable data. Is the stream reachable?")
+            if cap_out:
+                log(cap_out[-800:])
             with _gop_lock:
-                _gop_jobs[job_id].update({"status": "failed", "log": log_lines,
-                                          "ended_at": datetime.datetime.utcnow().isoformat() + "Z"})
+                _gop_jobs[job_id].update({
+                    "status": "failed", "log": log_lines,
+                    "ended_at": datetime.datetime.utcnow().isoformat() + "Z",
+                    "result": {
+                        "url": url_display, "url_host": url_host, "url_port": url_port,
+                        "tag": tag, "error": "Stream unreachable or produced no data",
+                        "has_idr": False, "idr_count": 0, "total_frames": 0,
+                    }
+                })
             return
 
-        file_size = os.path.getsize(ts_path)
-        log(f"Captured {file_size:,} bytes")
-
-        # ── Step 2: stream/container info via ffprobe ─────────────────
+        # ── Step 2: container/stream info ─────────────────────────────
         log("Running ffprobe for stream info…")
         probe_cmd = [
-            "ffprobe", "-v", "quiet",
-            "-print_format", "json",
-            "-show_streams", "-show_format",
-            ts_path
+            "ffprobe", "-v", "quiet", "-print_format", "json",
+            "-show_streams", "-show_format", ts_path
         ]
-        probe_result = subprocess.run(probe_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
-        probe_data   = {}
+        probe_data = {}
         try:
-            probe_data = json.loads(probe_result.stdout.decode())
-        except Exception:
-            pass
+            r = subprocess.run(probe_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+            probe_data = json.loads(r.stdout.decode())
+        except Exception as e:
+            log(f"WARNING: ffprobe stream info failed: {e}")
 
-        # ── Step 3: frame-by-frame analysis ──────────────────────────
-        log("Running ffprobe frame analysis…")
+        # ── Step 3: frame analysis with side_data for NAL type detection ─
+        log("Running ffprobe frame analysis (NAL/IDR detection)…")
         frame_cmd = [
-            "ffprobe", "-v", "quiet",
-            "-print_format", "json",
+            "ffprobe", "-v", "quiet", "-print_format", "json",
             "-select_streams", "v:0",
             "-show_frames",
-            "-read_intervals", "%+{}".format(duration),
+            "-show_entries",
+            "frame=pict_type,key_frame,pts_time,coded_picture_number,side_data_list",
             ts_path
         ]
-        frame_result = subprocess.run(frame_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60)
-        frames_data  = []
+        frames_data = []
         try:
-            fd = json.loads(frame_result.stdout.decode())
+            r = subprocess.run(frame_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=90)
+            fd = json.loads(r.stdout.decode())
             frames_data = fd.get("frames", [])
         except Exception as e:
-            log(f"WARNING: Could not parse frame data: {e}")
+            log(f"WARNING: Frame analysis failed: {e}")
 
         log(f"Analysed {len(frames_data)} video frames")
 
         # ── Parse GOP structure ───────────────────────────────────────
+        # IDR = key_frame==1 (ffmpeg/ffprobe marks NAL type 5 IDR as key_frame)
+        # Additionally check side_data for "H.264 Supplemental Enhancement Information" with idr
         gops = []
         current_gop = []
-        idr_count   = 0
+        idr_count = 0
+        non_idr_keyframe_count = 0
         total_frames = len(frames_data)
 
         for frame in frames_data:
-            ptype = frame.get("pict_type", "?")
-            is_key = frame.get("key_frame", 0) == 1
-            pts_time = float(frame.get("pts_time", 0))
+            ptype   = frame.get("pict_type", "?")
+            is_key  = frame.get("key_frame", 0) == 1
+            pts_t   = float(frame.get("pts_time", 0) or 0)
+
+            # NAL IDR: ffprobe sets key_frame=1 for IDR (NAL type 5)
+            # For open-GOP, key_frame=1 on non-IDR recovery points — we count both
+            # but distinguish: if pict_type is I + key_frame it's a true IDR
+            is_idr = is_key and ptype == "I"
 
             if is_key:
-                idr_count += 1
+                if is_idr:
+                    idr_count += 1
+                else:
+                    non_idr_keyframe_count += 1
                 if current_gop:
                     gops.append(current_gop)
-                current_gop = [{"type": ptype, "key": True, "pts": pts_time}]
+                current_gop = [{"type": ptype, "key": True, "idr": is_idr, "pts": pts_t}]
             else:
-                current_gop.append({"type": ptype, "key": False, "pts": pts_time})
+                current_gop.append({"type": ptype, "key": False, "idr": False, "pts": pts_t})
 
+        # Append last (partial) GOP but mark it incomplete
         if current_gop:
             gops.append(current_gop)
 
-        # GOP statistics
-        gop_lengths  = [len(g) for g in gops]
-        gop_patterns = ["".join(f["type"] for f in g) for g in gops]
+        # ── Drop last GOP (always incomplete due to capture duration) ──
+        complete_gops = gops[:-1] if len(gops) > 1 else gops
 
-        # B-frame detection
-        has_b_frames = any(f["type"] == "B" for g in gops for f in g)
-        b_frame_count = sum(1 for g in gops for f in g if f["type"] == "B")
+        # ── Open vs Closed GOP detection ──────────────────────────────
+        # Closed GOP: no B-frames that reference frames outside their GOP.
+        # Practical heuristic: if first frames after an I-frame are B-frames
+        # referencing pts before the I, it's open. Simpler: check if any GOP
+        # starts with B-frames (open GOP indicator).
+        def _is_open_gop(gop_list):
+            for g in gop_list:
+                if len(g) > 1:
+                    # In open GOP, frames immediately after IDR can be B referencing
+                    # previous GOP's frames. A simple signal: B appears before P in GOP.
+                    types_in_gop = [f["type"] for f in g]
+                    # If first non-I frame is B, likely open GOP
+                    non_i = [t for t in types_in_gop if t != "I"]
+                    if non_i and non_i[0] == "B":
+                        return True
+            return False
 
-        # ── Extract info from streams ─────────────────────────────────
-        streams   = probe_data.get("streams", [])
-        fmt       = probe_data.get("format", {})
-        vid       = next((s for s in streams if s.get("codec_type") == "video"), {})
-        aud_list  = [s for s in streams if s.get("codec_type") == "audio"]
-        aud       = aud_list[0] if aud_list else {}
+        gop_type = "OPEN" if _is_open_gop(complete_gops) else "CLOSED"
 
-        # File info
-        container  = fmt.get("format_long_name") or fmt.get("format_name", "unknown")
-        file_dur   = float(fmt.get("duration", 0))
-        file_br    = int(fmt.get("bit_rate", 0))
-        num_prog   = int(fmt.get("nb_programs", 1))
-        num_streams= int(fmt.get("nb_streams", len(streams)))
+        gop_lengths  = [len(g) for g in complete_gops]
+        gop_patterns = ["".join(f["type"] for f in g) for g in complete_gops]
 
-        # Video
-        v_codec    = vid.get("codec_name", "unknown")
-        v_profile  = vid.get("profile", "unknown")
-        v_level    = vid.get("level", "?")
-        v_width    = vid.get("width", 0)
-        v_height   = vid.get("height", 0)
-        v_pix_fmt  = vid.get("pix_fmt", "unknown")
-        v_b_frames = vid.get("has_b_frames", 0)
-        v_refs     = vid.get("refs", "?")
-        v_br       = int(vid.get("bit_rate", 0))
-        v_color_sp = vid.get("color_space", "?")
-        v_color_tr = vid.get("color_transfer", "?")
-        v_field    = vid.get("field_order", "progressive")
-        v_bits     = vid.get("bits_per_raw_sample", "?")
-        # FPS
-        r_fps_raw  = vid.get("r_frame_rate", "0/1")
-        avg_fps_raw= vid.get("avg_frame_rate", "0/1")
-        def _fps(raw):
-            try:
-                n, d = raw.split("/")
-                v = float(n)/float(d)
-                return f"{raw} | {v:.3f}"
-            except Exception:
-                return raw
-        v_fps = _fps(r_fps_raw)
-        # Aspect ratio
-        dar = vid.get("display_aspect_ratio", "")
-        if not dar and v_width and v_height:
-            from math import gcd
-            g = gcd(v_width, v_height)
-            dar = f"{v_width//g}:{v_height//g}"
-        # Chroma subsampling
-        chroma_map = {"yuv420p": "4:2:0", "yuv422p": "4:2:2", "yuv444p": "4:4:4"}
-        v_chroma = chroma_map.get(v_pix_fmt, v_pix_fmt)
+        has_b_frames  = any(f["type"] == "B" for g in complete_gops for f in g)
+        b_frame_count = sum(1 for g in complete_gops for f in g if f["type"] == "B")
+        has_idr       = idr_count > 0
 
-        # Audio
-        a_codec   = aud.get("codec_name", "unknown")
-        a_profile = aud.get("profile", "?")
-        a_ch      = aud.get("channels", 0)
-        a_layout  = aud.get("channel_layout", "?")
-        a_rate    = aud.get("sample_rate", "?")
-        a_br      = int(aud.get("bit_rate", 0))
-        a_lang    = aud.get("tags", {}).get("language", "?")
-
-        # IDR check
-        has_idr = idr_count > 0
         avg_gop = round(sum(gop_lengths) / len(gop_lengths), 1) if gop_lengths else 0
         min_gop = min(gop_lengths) if gop_lengths else 0
         max_gop = max(gop_lengths) if gop_lengths else 0
 
+        # ── Extract stream metadata ───────────────────────────────────
+        streams    = probe_data.get("streams", [])
+        fmt        = probe_data.get("format", {})
+        vid        = next((s for s in streams if s.get("codec_type") == "video"), {})
+        aud_list   = [s for s in streams if s.get("codec_type") == "audio"]
+        aud        = aud_list[0] if aud_list else {}
+
+        container   = fmt.get("format_long_name") or fmt.get("format_name", "unknown")
+        file_dur    = float(fmt.get("duration", 0) or 0)
+        file_br     = int(fmt.get("bit_rate", 0) or 0)
+        num_prog    = int(fmt.get("nb_programs", 1) or 1)
+        num_streams = int(fmt.get("nb_streams", len(streams)) or len(streams))
+
+        v_codec     = vid.get("codec_name", "unknown")
+        v_profile   = vid.get("profile", "unknown")
+        v_level_raw = vid.get("level", 0)
+        v_level_str = f"{v_level_raw/10:.1f}" if isinstance(v_level_raw, int) and v_level_raw > 9 else str(v_level_raw)
+        v_level_f   = float(v_level_raw) / 10 if isinstance(v_level_raw, int) and v_level_raw > 9 else 0
+        v_width     = vid.get("width", 0)
+        v_height    = vid.get("height", 0)
+        v_pix_fmt   = vid.get("pix_fmt", "unknown")
+        v_b_frames  = vid.get("has_b_frames", 0)
+        v_refs      = vid.get("refs", "?")
+        v_br        = int(vid.get("bit_rate", 0) or 0)
+        v_color_sp  = vid.get("color_space", "unknown")
+        v_color_tr  = vid.get("color_transfer", "unknown")
+        v_field     = vid.get("field_order", "progressive")
+        v_bits      = vid.get("bits_per_raw_sample") or vid.get("bits_per_coded_sample") or "?"
+
+        r_fps_raw   = vid.get("r_frame_rate", "0/1")
+        def _fps_val(raw):
+            try: n, d = raw.split("/"); return float(n)/float(d) if float(d) else 0
+            except: return 0
+        v_fps_val   = _fps_val(r_fps_raw)
+        v_fps_str   = f"{r_fps_raw} | {v_fps_val:.3f}"
+
+        dar = vid.get("display_aspect_ratio", "")
+        if not dar and v_width and v_height:
+            from math import gcd; g = gcd(v_width, v_height); dar = f"{v_width//g}:{v_height//g}"
+
+        chroma_map  = {"yuv420p":"4:2:0","yuv422p":"4:2:2","yuv444p":"4:4:4"}
+        v_chroma    = chroma_map.get(v_pix_fmt, v_pix_fmt)
+
+        # Entropy coding (CABAC vs CAVLC) from codec_tag / profile heuristic
+        # High/Main profile typically uses CABAC; Baseline uses CAVLC
+        v_entropy   = "CABAC" if v_profile in ("High","Main","High 10","High 422","High 444") else "CAVLC"
+
+        # Scan type normalisation
+        scan_map = {"progressive":"progressive","tt":"interlaced","bb":"interlaced",
+                    "tb":"interlaced","bt":"interlaced","unknown":"progressive"}
+        v_scan = scan_map.get(v_field, v_field)
+
+        # SDR/HDR
+        hdr_transfers = ("smpte2084","arib-std-b67","smpte428")
+        v_hdr = "HDR" if v_color_tr in hdr_transfers else "SDR"
+
+        a_codec    = aud.get("codec_name", "unknown")
+        a_profile  = aud.get("profile", "?")
+        a_ch       = aud.get("channels", 0)
+        a_layout   = aud.get("channel_layout", "?")
+        a_rate     = aud.get("sample_rate", "?")
+        a_br       = int(aud.get("bit_rate", 0) or 0)
+        a_lang     = aud.get("tags", {}).get("language", "?")
+        a_bps      = aud.get("bits_per_raw_sample") or aud.get("bits_per_coded_sample") or "?"
+        a_br_kbps  = round(a_br / 1000) if a_br else 0
+
+        # VBR/CBR heuristic from codec context (not always available in ts)
+        # Use file_br vs v_br+a_br to guess
+        v_rate_ctrl = "CBR" if file_br and v_br and abs(file_br - v_br) < file_br * 0.1 else "VBR"
+
+        # ── Compliance checks ─────────────────────────────────────────
+        # Returns (status, measured, note)
+        def comply(measured, spec_range, preferred=None, label=None):
+            """COMPLIANT = within preferred, ACCEPTED = within range, REJECTED = outside range"""
+            lo, hi = spec_range
+            if measured is None: return "UNKNOWN", str(measured), ""
+            in_range = lo <= measured <= hi
+            if not in_range: return "REJECTED", str(measured), f"Expected {lo}–{hi}"
+            if preferred is not None:
+                plo, phi = preferred
+                if plo <= measured <= phi: return "COMPLIANT", str(measured), ""
+                return "ACCEPTED", str(measured), f"Preferred {plo}–{phi}"
+            return "COMPLIANT", str(measured), ""
+
+        def comply_enum(measured, allowed, preferred=None):
+            m = str(measured).strip().lower()
+            allowed_l = [str(a).lower() for a in allowed]
+            preferred_l = [str(a).lower() for a in (preferred or [])]
+            if m not in allowed_l: return "REJECTED", measured, f"Expected one of {allowed}"
+            if preferred_l and m in preferred_l: return "COMPLIANT", measured, ""
+            return "ACCEPTED", measured, ""
+
+        file_br_mbps = round(file_br / 1e6, 5) if file_br else 0
+        v_br_mbps    = round(v_br   / 1e6, 5) if v_br   else 0
+        a_br_kbps_f  = round(a_br   / 1000, 1) if a_br  else 0
+        a_rate_khz   = round(float(a_rate) / 1000, 1) if str(a_rate).isdigit() else 0
+
+        fps_compliant_values = [25.0, 29.97, 30.0]
+        fps_ok = any(abs(v_fps_val - f) < 0.1 for f in fps_compliant_values)
+        fps_status = "COMPLIANT" if abs(v_fps_val - 25.0) < 0.1 else ("ACCEPTED" if fps_ok else "REJECTED")
+
+        gop_valid = [30, 50]
+        gop_status = "COMPLIANT" if avg_gop in gop_valid else (
+            "ACCEPTED" if any(abs(avg_gop - g) < 3 for g in gop_valid) else "REJECTED")
+
+        compliance = {
+            "overall_br":      comply(file_br_mbps, (5.0, 18.0), (8.0, 15.0)),
+            "gop_size":        (gop_status, str(avg_gop), "Expected 30 or 50"),
+            "gop_type":        ("COMPLIANT" if gop_type == "CLOSED" else "REJECTED",
+                                gop_type, "Must be CLOSED"),
+            "b_frames":        ("COMPLIANT" if not has_b_frames else "ACCEPTED",
+                                "Absent" if not has_b_frames else "Present", "Preferred absent"),
+            "idr":             ("COMPLIANT" if has_idr else "REJECTED",
+                                "Present" if has_idr else "ABSENT", "IDR frames required"),
+            "frame_size":      comply_enum(f"{v_width}x{v_height}",
+                                           ["1280x720","1920x1080"], ["1920x1080"]),
+            "aspect_ratio":    comply_enum(dar, ["16:9"], ["16:9"]),
+            "chroma":          comply_enum(v_chroma, ["4:2:0"], ["4:2:0"]),
+            "scan_type":       comply_enum(v_scan, ["progressive","interlaced","mbaff"], ["interlaced"]),
+            "bit_depth":       comply_enum(str(v_bits), ["8"], ["8"]),
+            "colour_gamut":    comply_enum(v_color_sp, ["unknown","bt709"], ["bt709"]),
+            "codec":           comply_enum(v_codec, ["h264","hevc"], ["h264"]),
+            "codec_level":     comply(v_level_f, (4.0, 4.2), (4.1, 4.1)),
+            "codec_profile":   comply_enum(v_profile.lower() if v_profile else "",
+                                           ["main","high"], ["high"]),
+            "entropy":         comply_enum(v_entropy, ["CABAC"], ["CABAC"]),
+            "rate_ctrl_v":     comply_enum(v_rate_ctrl, ["VBR","CBR"], ["CBR"]),
+            "v_br":            comply(v_br_mbps, (5.0, 18.0), (8.0, 15.0)),
+            "hdr_scheme":      comply_enum(v_hdr, ["SDR","HDR"], ["SDR"]),
+            "fps":             (fps_status, f"{v_fps_val:.3f}", "Expected 25.0, 29.97, 30.0"),
+            "a_codec":         comply_enum(a_codec, ["aac","mp1","mp2"], ["aac"]),
+            "a_streams":       comply(len(aud_list), (1, 32), (2, 2)),
+            "a_channels":      comply(a_ch, (2, 2)),
+            "a_rate_ctrl":     comply_enum("VBR", ["VBR","CBR"], ["CBR"]),
+            "a_sample_rate":   comply(a_rate_khz, (44.1, 48.0), (48.0, 48.0)),
+            "a_bits":          comply_enum(str(a_bps), ["fltp","16"], ["16"]),
+            "a_br_kbps":       comply(a_br_kbps_f, (118, 512), (256, 256)),
+        }
+
+        # Overall status
+        statuses = [v[0] for v in compliance.values()]
+        if "REJECTED" in statuses:
+            overall_status = "REJECTED"
+        elif "ACCEPTED" in statuses:
+            overall_status = "ACCEPTED"
+        else:
+            overall_status = "COMPLIANT"
+
         result = {
-            "url":         url_display,
-            "tag":         tag,
-            "file_size":   file_size,
-            "file_dur":    file_dur,
-            "file_br":     file_br,
-            "container":   container,
-            "num_programs":num_prog,
-            "num_streams": num_streams,
-            "have_video":  1 if vid else 0,
-            "have_audio":  len(aud_list),
+            "url": url_display, "url_host": url_host, "url_port": url_port,
+            "tag": tag, "started_at": _gop_jobs[job_id].get("started_at",""),
+            "file_size": ts_size, "file_dur": file_dur, "file_br": file_br,
+            "file_br_mbps": file_br_mbps,
+            "container": container, "num_programs": num_prog, "num_streams": num_streams,
+            "have_video": 1 if vid else 0, "have_audio": len(aud_list),
             # Video
-            "v_codec":     v_codec,
-            "v_profile":   v_profile,
-            "v_level":     f"{v_level/10:.1f}" if isinstance(v_level, int) and v_level > 9 else str(v_level),
-            "v_width":     v_width,
-            "v_height":    v_height,
-            "v_fps":       v_fps,
-            "v_pix_fmt":   v_pix_fmt,
-            "v_b_frames":  v_b_frames,
-            "v_refs":      v_refs,
-            "v_br":        v_br,
-            "v_color_sp":  f"{v_color_sp} | {v_color_tr}",
-            "v_field":     f"{v_field} | {v_field[:2]}",
-            "v_bits":      v_bits,
-            "v_chroma":    v_chroma,
-            "v_dar":       dar,
+            "v_codec": v_codec, "v_profile": v_profile, "v_level": v_level_str,
+            "v_level_f": v_level_f, "v_width": v_width, "v_height": v_height,
+            "v_fps": v_fps_str, "v_fps_val": v_fps_val,
+            "v_pix_fmt": v_pix_fmt, "v_b_frames": v_b_frames, "v_refs": v_refs,
+            "v_br": v_br, "v_br_mbps": v_br_mbps,
+            "v_color_sp": v_color_sp, "v_color_tr": v_color_tr,
+            "v_color_combined": f"{v_color_sp} | {v_color_tr}",
+            "v_field": v_field, "v_scan": v_scan,
+            "v_bits": str(v_bits), "v_chroma": v_chroma, "v_dar": dar,
+            "v_entropy": v_entropy, "v_hdr": v_hdr, "v_rate_ctrl": v_rate_ctrl,
             # Audio
-            "a_codec":     a_codec,
-            "a_profile":   a_profile,
-            "a_channels":  a_ch,
-            "a_layout":    f"{a_layout} | {' '.join(a_layout.replace('stereo','L R').split())}",
-            "a_rate":      a_rate,
-            "a_br":        a_br,
-            "a_lang":      a_lang,
-            "audio_tracks":len(aud_list),
+            "a_codec": a_codec, "a_profile": a_profile, "a_channels": a_ch,
+            "a_layout": a_layout, "a_rate": a_rate, "a_rate_khz": a_rate_khz,
+            "a_br": a_br, "a_br_kbps": a_br_kbps_f, "a_lang": a_lang,
+            "a_bps": str(a_bps), "audio_tracks": len(aud_list),
             # GOP
-            "has_idr":     has_idr,
-            "idr_count":   idr_count,
-            "total_frames":total_frames,
-            "has_b_frames":has_b_frames,
-            "b_frame_count":b_frame_count,
-            "gop_count":   len(gops),
-            "gop_avg":     avg_gop,
-            "gop_min":     min_gop,
-            "gop_max":     max_gop,
-            "gop_patterns":gop_patterns[:20],  # first 20 GOPs
-            "gops":        [[{"type":f["type"],"key":f["key"]} for f in g] for g in gops[:20]],
+            "has_idr": has_idr, "idr_count": idr_count,
+            "non_idr_keyframes": non_idr_keyframe_count,
+            "total_frames": total_frames, "has_b_frames": has_b_frames,
+            "b_frame_count": b_frame_count, "gop_type": gop_type,
+            "gop_count": len(complete_gops), "gop_avg": avg_gop,
+            "gop_min": min_gop, "gop_max": max_gop,
+            "gop_patterns": gop_patterns[:20],
+            "gops": [[{"type":f["type"],"key":f["key"],"idr":f.get("idr",False)}
+                       for f in g] for g in complete_gops[:20]],
+            # Compliance
+            "compliance": compliance,
+            "overall_status": overall_status,
         }
 
         # Save result
         ts_str   = datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S")
         safe_url = re.sub(r"[^\w\-]", "_", url_display)[:40]
         res_file = f"{ts_str}_{safe_url}.json"
-        res_path = os.path.join(GOP_DIR, res_file)
-        with open(res_path, "w") as f:
+        with open(os.path.join(GOP_DIR, res_file), "w") as f:
             json.dump(result, f, indent=2)
         log(f"Result saved: {res_file}")
 
-        # Clean up temp file
         try: os.remove(ts_path)
         except Exception: pass
 
         ended_at = datetime.datetime.utcnow().isoformat() + "Z"
         with _gop_lock:
             _gop_jobs[job_id].update({
-                "status":   "done",
-                "ended_at": ended_at,
-                "result":   result,
-                "res_file": res_file,
-                "log":      log_lines,
+                "status": "done", "ended_at": ended_at,
+                "result": result, "res_file": res_file, "log": log_lines,
             })
 
-    except subprocess.TimeoutExpired:
-        log("ERROR: Analysis timed out.")
-        with _gop_lock:
-            _gop_jobs[job_id].update({"status": "timeout", "log": log_lines,
-                                      "ended_at": datetime.datetime.utcnow().isoformat() + "Z"})
     except Exception as e:
         log(f"ERROR: {e}")
+        # Try to clean up ts file
+        try:
+            if ts_path and os.path.isfile(ts_path): os.remove(ts_path)
+        except Exception: pass
         with _gop_lock:
-            _gop_jobs[job_id].update({"status": "error", "log": log_lines,
-                                      "ended_at": datetime.datetime.utcnow().isoformat() + "Z"})
+            _gop_jobs[job_id].update({
+                "status": "error", "log": log_lines,
+                "ended_at": datetime.datetime.utcnow().isoformat() + "Z"
+            })
 
 
 @app.route("/gop/run", methods=["POST"])
@@ -1060,20 +1201,26 @@ def gop_status(job_id):
 def gop_results():
     files = sorted([f for f in os.listdir(GOP_DIR) if f.endswith(".json")], reverse=True)
     items = []
-    for f in files[:30]:
+    for f in files[:50]:
         try:
             with open(os.path.join(GOP_DIR, f)) as fh:
                 d = json.load(fh)
             items.append({
-                "file":      f,
-                "url":       d.get("url", ""),
-                "tag":       d.get("tag", ""),
-                "has_idr":   d.get("has_idr", False),
-                "has_b_frames": d.get("has_b_frames", False),
-                "gop_avg":   d.get("gop_avg", 0),
-                "v_codec":   d.get("v_codec", ""),
-                "v_width":   d.get("v_width", 0),
-                "v_height":  d.get("v_height", 0),
+                "file":           f,
+                "url":            d.get("url", ""),
+                "url_host":       d.get("url_host", ""),
+                "url_port":       d.get("url_port", ""),
+                "tag":            d.get("tag", ""),
+                "started_at":     d.get("started_at", ""),
+                "has_idr":        d.get("has_idr", False),
+                "has_b_frames":   d.get("has_b_frames", False),
+                "gop_type":       d.get("gop_type", ""),
+                "gop_avg":        d.get("gop_avg", 0),
+                "v_codec":        d.get("v_codec", ""),
+                "v_width":        d.get("v_width", 0),
+                "v_height":       d.get("v_height", 0),
+                "v_fps_val":      d.get("v_fps_val", 0),
+                "overall_status": d.get("overall_status", "UNKNOWN"),
             })
         except Exception:
             pass

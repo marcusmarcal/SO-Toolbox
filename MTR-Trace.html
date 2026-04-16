@@ -209,6 +209,25 @@
         </div>
       </div>
       <div class="history-list" id="history-list"><div class="history-empty">No results yet</div></div>
+      <!-- Bulk delete bar -->
+      <div id="mtr-bulk-bar" style="display:none;padding:.32rem .65rem;background:var(--bg3);border-top:1px solid var(--border);justify-content:space-between;align-items:center;flex-shrink:0">
+        <span id="mtr-bulk-count" style="font-family:var(--mono);font-size:.62rem;color:var(--muted)">0 selected</span>
+        <button onclick="openMtrBulkDeleteModal()" style="background:transparent;border:1px solid var(--border);border-radius:3px;color:var(--muted);font-family:var(--mono);font-size:.62rem;padding:2px 8px;cursor:pointer" onmouseover="this.style.color='var(--red)';this.style.borderColor='var(--red)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">🗑 Delete selected</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bulk delete modal -->
+<div class="modal-overlay" id="mtr-bulk-del-modal">
+  <div class="modal-card">
+    <div class="modal-title">⚠ Delete Results</div>
+    <div class="modal-body">Permanently delete <strong id="mtr-bulk-del-count" style="color:var(--red)">0</strong> selected result(s)?<br>This is <strong style="color:var(--red)">irreversible</strong>.</div>
+    <div class="modal-actions">
+      <button class="btn-danger" onclick="confirmMtrBulkDelete()">Yes, Delete</button>
+      <button class="btn-cancel" onclick="document.getElementById('mtr-bulk-del-modal').classList.remove('open')">Cancel</button>
+      <input class="modal-pw" id="mtr-bulk-pw" type="password" placeholder="admin password…" style="display:none" />
+      <div class="modal-err" id="mtr-bulk-err"></div>
     </div>
   </div>
 </div>
@@ -530,13 +549,17 @@
         const geoLabel   = item.geo   === "asn"   ? "ASN"    : "Country";
         let realDur="";
         if(item.started_at&&item.ended_at)realDur=secsToHMS(Math.round((new Date(item.ended_at)-new Date(item.started_at))/1000));
-        return `<div class="history-item" onclick="loadResult('${item.file}')">
-          <div class="hi-dest">${item.destination}</div>
-          <div class="hi-date">Start: ${s}${e?` · End: ${e}`:""}</div>
-          <div class="hi-meta"><span class="hi-badge">${mode}</span>${realDur?`<span class="hi-badge">⏱ ${realDur}</span>`:""}<span class="hi-badge">${item.hops} hops</span><span class="hi-badge">${protoLabel}</span><span class="hi-badge">${geoLabel}</span>${tags.map(t=>`<span class="hi-badge" style="color:var(--cyan)">${t}</span>`).join("")}</div>
-          <div class="hi-actions">
-            <a class="hi-dl" href="${PROXY}/mtr/results/${encodeURIComponent(item.file)}" download onclick="event.stopPropagation()">⬇ JSON</a>
-            <button class="hi-del" onclick="event.stopPropagation();openDeleteModal('${item.file}')" title="Delete">🗑 Delete</button>
+        const sf = item.file.replace(/'/g,"\\'");
+        return `<div class="history-item" style="display:flex;gap:.4rem;align-items:flex-start;cursor:default">
+          <input type="checkbox" data-file="${item.file}" onchange="updateMtrBulkBar()" onclick="event.stopPropagation()" style="margin-top:3px;flex-shrink:0;cursor:pointer;accent-color:var(--cyan)" />
+          <div style="flex:1;min-width:0" onclick="loadResult('${sf}');event.stopPropagation()">
+            <div class="hi-dest">${item.destination}</div>
+            <div class="hi-date">Start: ${s}${e?` · End: ${e}`:""}</div>
+            <div class="hi-meta"><span class="hi-badge">${mode}</span>${realDur?`<span class="hi-badge">⏱ ${realDur}</span>`:""}<span class="hi-badge">${item.hops} hops</span><span class="hi-badge">${protoLabel}</span><span class="hi-badge">${geoLabel}</span>${tags.map(t=>`<span class="hi-badge" style="color:var(--cyan)">${t}</span>`).join("")}</div>
+            <div class="hi-actions">
+              <a class="hi-dl" href="${PROXY}/mtr/results/${encodeURIComponent(item.file)}" download onclick="event.stopPropagation()">⬇ JSON</a>
+              <button class="hi-del" onclick="event.stopPropagation();openDeleteModal('${sf}')" title="Delete">🗑 Del</button>
+            </div>
           </div>
         </div>`;
       }).join("");
@@ -595,6 +618,42 @@
   ["kill-modal","delete-modal"].forEach(id=>{
     document.getElementById(id).addEventListener("click",function(e){if(e.target===this)closeModal(id);});
   });
+
+  // ── MTR Bulk delete ───────────────────────────────────────────────
+  function updateMtrBulkBar() {
+    const checked=[...document.querySelectorAll("#history-list input[type=checkbox]:checked")];
+    const bar=document.getElementById("mtr-bulk-bar");
+    document.getElementById("mtr-bulk-count").textContent=`${checked.length} selected`;
+    bar.style.display=checked.length>0?"flex":"none";
+  }
+  function openMtrBulkDeleteModal() {
+    const checked=[...document.querySelectorAll("#history-list input[type=checkbox]:checked")];
+    if(!checked.length)return;
+    document.getElementById("mtr-bulk-del-count").textContent=checked.length;
+    document.getElementById("mtr-bulk-pw").style.display=_hasAdminPw?"":"none";
+    document.getElementById("mtr-bulk-pw").value="";
+    document.getElementById("mtr-bulk-err").textContent="";
+    document.getElementById("mtr-bulk-del-modal").classList.add("open");
+  }
+  async function confirmMtrBulkDelete() {
+    const checked=[...document.querySelectorAll("#history-list input[type=checkbox]:checked")];
+    const files=checked.map(cb=>cb.dataset.file);
+    const pw=document.getElementById("mtr-bulk-pw").value;
+    const errEl=document.getElementById("mtr-bulk-err");
+    errEl.textContent="";
+    const headers={};
+    if(_hasAdminPw&&pw)headers["X-Admin-Password"]=pw;
+    for(const file of files){
+      try{
+        const res=await fetch(`${PROXY}/mtr/delete/${encodeURIComponent(file)}`,{method:"DELETE",headers});
+        if(res.status===403){errEl.textContent="❌ Invalid password";return;}
+      }catch(e){errEl.textContent=`Error: ${e.message}`;return;}
+    }
+    document.getElementById("mtr-bulk-del-modal").classList.remove("open");
+    document.getElementById("mtr-bulk-bar").style.display="none";
+    loadHistory();
+  }
+  document.getElementById("mtr-bulk-del-modal").addEventListener("click",function(e){if(e.target===this)this.classList.remove("open");});
 
   document.getElementById("inp-host").addEventListener("keydown",e=>{if(e.key==="Enter")runMtr();});
 

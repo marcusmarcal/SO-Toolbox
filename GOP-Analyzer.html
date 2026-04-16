@@ -8,144 +8,164 @@
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --bg:      #080c10; --bg2: #0d1117; --bg3: #161b22;
-    --border:  #21262d;
-    --green:   #3fb950; --green-d: #1a3d20;
-    --cyan:    #58a6ff; --cyan-d: #0d2035;
-    --yellow:  #e3b341; --yellow-d: #2d2200;
-    --red:     #f85149; --red-d: #2d0a0a;
-    --purple:  #bc8cff; --purple-d: #1e1035;
-    --orange:  #f0883e;
-    --text:    #c9d1d9; --muted: #484f58;
-    --mono:    'JetBrains Mono', monospace;
-    --sans:    'Barlow', sans-serif;
+    --bg:#080c10; --bg2:#0d1117; --bg3:#161b22; --border:#21262d;
+    --green:#3fb950; --green-d:#1a3d20;
+    --cyan:#58a6ff; --cyan-d:#0d2035;
+    --yellow:#e3b341; --yellow-d:#2d2200;
+    --red:#f85149; --red-d:#2d0a0a;
+    --purple:#bc8cff; --purple-d:#1e1035;
+    --orange:#f0883e;
+    --text:#c9d1d9; --muted:#484f58;
+    --mono:'JetBrains Mono',monospace; --sans:'Barlow',sans-serif;
   }
-  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; overflow: hidden; }
-  #app { display: flex; flex-direction: column; height: 100vh; padding: .85rem 1.1rem; gap: .65rem; }
+  html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;overflow:hidden}
+  #app{display:flex;flex-direction:column;height:100vh;padding:.85rem 1.1rem;gap:.65rem}
 
-  /* ── Topbar ── */
-  .topbar { display: flex; align-items: center; gap: .75rem; flex-shrink: 0; border-bottom: 1px solid var(--border); padding-bottom: .65rem; }
-  .topbar h1 { font-family: var(--mono); font-size: .9rem; font-weight: 700; color: #fff; white-space: nowrap; }
-  .topbar h1 span { color: var(--purple); }
-  .topbar-sub { font-family: var(--mono); font-size: .62rem; color: var(--muted); }
+  .topbar{display:flex;align-items:center;gap:.75rem;flex-shrink:0;border-bottom:1px solid var(--border);padding-bottom:.65rem}
+  .topbar h1{font-family:var(--mono);font-size:.9rem;font-weight:700;color:#fff;white-space:nowrap}
+  .topbar h1 span{color:var(--purple)}
+  .topbar-sub{font-family:var(--mono);font-size:.62rem;color:var(--muted)}
 
-  /* ── Form ── */
-  .form-row { display: flex; gap: .65rem; align-items: flex-end; flex-shrink: 0; flex-wrap: wrap; }
-  .field { display: flex; flex-direction: column; gap: .28rem; }
-  .field.grow { flex: 1; min-width: 180px; }
-  .field.w90 { width: 90px; } .field.w120 { width: 120px; } .field.w200 { width: 200px; }
-  label { font-family: var(--mono); font-size: .58rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
-  input[type="text"], input[type="number"], input[type="password"], select {
-    background: var(--bg3); border: 1px solid var(--border); border-radius: 5px;
-    padding: .45rem .65rem; color: #fff; font-family: var(--mono); font-size: .82rem;
-    outline: none; transition: border-color .15s; width: 100%;
-  }
-  input:focus, select:focus { border-color: var(--purple); }
-  input.from-env { border-color: rgba(63,185,80,.5); background: rgba(63,185,80,.05); }
-  .btn-run { background: var(--purple); color: #000; border: none; border-radius: 5px; padding: 0 1.2rem; font-family: var(--mono); font-size: .76rem; font-weight: 700; cursor: pointer; height: 34px; white-space: nowrap; align-self: flex-end; transition: opacity .15s; }
-  .btn-run:hover { opacity: .85; } .btn-run:disabled { opacity: .35; cursor: not-allowed; }
+  .form-row{display:flex;gap:.65rem;align-items:flex-end;flex-shrink:0;flex-wrap:wrap}
+  .field{display:flex;flex-direction:column;gap:.28rem}
+  .field.grow{flex:1;min-width:140px} .field.w90{width:90px} .field.w120{width:120px} .field.w180{width:180px}
+  label{font-family:var(--mono);font-size:.58rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  input[type="text"],input[type="number"],input[type="password"],select{
+    background:var(--bg3);border:1px solid var(--border);border-radius:5px;
+    padding:.45rem .65rem;color:#fff;font-family:var(--mono);font-size:.82rem;
+    outline:none;transition:border-color .15s;width:100%}
+  input:focus,select:focus{border-color:var(--purple)}
+  input.from-env{border-color:rgba(63,185,80,.5);background:rgba(63,185,80,.05)}
+  .btn-run{background:var(--purple);color:#000;border:none;border-radius:5px;padding:0 1.2rem;font-family:var(--mono);font-size:.76rem;font-weight:700;cursor:pointer;height:34px;white-space:nowrap;align-self:flex-end;transition:opacity .15s}
+  .btn-run:hover{opacity:.85} .btn-run:disabled{opacity:.35;cursor:not-allowed}
 
-  /* ── Main layout ── */
-  .main-area { flex: 1; display: flex; gap: .65rem; min-height: 0; }
+  .main-area{flex:1;display:flex;gap:.65rem;min-height:0}
 
-  /* ── Left: result panel ── */
-  .result-panel { flex: 1; display: flex; flex-direction: column; min-height: 0; gap: .5rem; overflow-y: auto; }
-  .result-panel::-webkit-scrollbar { width: 4px; }
-  .result-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  /* Result panel */
+  .result-panel{flex:1;display:flex;flex-direction:column;min-height:0;gap:.5rem;overflow-y:auto}
+  .result-panel::-webkit-scrollbar{width:4px}
+  .result-panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 
-  /* Status bar */
-  .status-bar { display: flex; align-items: center; gap: .5rem; padding: .38rem .75rem; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; flex-shrink: 0; }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
-  .dot.running { background: var(--yellow); animation: blink .8s ease-in-out infinite; }
-  .dot.ok { background: var(--green); } .dot.err { background: var(--red); }
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
-  .status-text { font-family: var(--mono); font-size: .65rem; color: var(--muted); flex: 1; }
-  #progress-bar { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; width: 120px; flex-shrink: 0; }
-  #progress-fill { height: 100%; width: 0%; background: var(--purple); transition: width 1s linear; }
+  .status-bar{display:flex;align-items:center;gap:.5rem;padding:.38rem .75rem;background:var(--bg3);border:1px solid var(--border);border-radius:6px;flex-shrink:0}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex-shrink:0}
+  .dot.running{background:var(--yellow);animation:blink .8s ease-in-out infinite}
+  .dot.ok{background:var(--green)} .dot.err{background:var(--red)}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+  .status-text{font-family:var(--mono);font-size:.65rem;color:var(--muted);flex:1}
+  #progress-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden;width:120px;flex-shrink:0}
+  #progress-fill{height:100%;width:0%;background:var(--purple);transition:width 1s linear}
 
-  /* Cards */
-  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 7px; overflow: hidden; flex-shrink: 0; }
-  .card-title { font-family: var(--mono); font-size: .6rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding: .4rem .75rem; background: var(--bg3); border-bottom: 1px solid var(--border); }
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:7px;overflow:hidden;flex-shrink:0}
+  .card-title{font-family:var(--mono);font-size:.6rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:.4rem .75rem;background:var(--bg3);border-bottom:1px solid var(--border)}
 
-  /* Info table — like the reference screenshot */
-  .info-table { width: 100%; }
-  .info-row { display: flex; align-items: baseline; padding: .28rem .75rem; border-bottom: 1px solid rgba(255,255,255,.03); font-family: var(--mono); font-size: .72rem; }
-  .info-row:last-child { border-bottom: none; }
-  .info-row.section { background: var(--bg3); }
-  .info-key { color: var(--muted); flex: 0 0 200px; white-space: nowrap; }
-  .info-val { color: var(--text); flex: 1; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .info-val.green { color: var(--green); }
-  .info-val.red   { color: var(--red); }
-  .info-val.yellow{ color: var(--yellow); }
-  .info-val.cyan  { color: var(--cyan); }
-  .info-val.purple{ color: var(--purple); }
+  /* Compliance table */
+  .ctable{width:100%;border-collapse:collapse}
+  .ctable th{font-family:var(--mono);font-size:.6rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:.35rem .75rem;text-align:left;border-bottom:1px solid var(--border);background:var(--bg3)}
+  .ctable th:last-child,.ctable td:last-child{text-align:right}
+  .ctable td{font-family:var(--mono);font-size:.69rem;padding:.3rem .75rem;border-bottom:1px solid rgba(255,255,255,.03);vertical-align:middle}
+  .ctable tr:last-child td{border-bottom:none}
+  .ctable tr:hover td{background:rgba(255,255,255,.02)}
+  .ctable .section-hdr td{background:var(--bg3);color:var(--muted);font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;padding:.25rem .75rem}
+  .status-pill{display:inline-flex;align-items:center;padding:1px 7px;border-radius:3px;font-family:var(--mono);font-size:.62rem;font-weight:700;white-space:nowrap}
+  .status-pill.COMPLIANT{background:var(--green-d);color:var(--green);border:1px solid var(--green)}
+  .status-pill.ACCEPTED{background:var(--yellow-d);color:var(--yellow);border:1px solid var(--yellow)}
+  .status-pill.REJECTED{background:var(--red-d);color:var(--red);border:1px solid var(--red)}
+  .status-pill.UNKNOWN{background:var(--bg3);color:var(--muted);border:1px solid var(--border)}
 
   /* IDR badge */
-  .idr-badge { display: inline-flex; align-items: center; gap: .4rem; padding: .6rem 1rem; border-radius: 6px; font-family: var(--mono); font-size: .8rem; font-weight: 700; }
-  .idr-badge.pass { background: var(--green-d); border: 1px solid var(--green); color: var(--green); }
-  .idr-badge.fail { background: var(--red-d);   border: 1px solid var(--red);   color: var(--red); }
+  .idr-badge{display:inline-flex;align-items:center;gap:.4rem;padding:.55rem 1rem;border-radius:6px;font-family:var(--mono);font-size:.8rem;font-weight:700}
+  .idr-badge.pass{background:var(--green-d);border:1px solid var(--green);color:var(--green)}
+  .idr-badge.fail{background:var(--red-d);border:1px solid var(--red);color:var(--red)}
 
   /* GOP visualizer */
-  .gop-viz { padding: .6rem .75rem .75rem; display: flex; flex-direction: column; gap: .5rem; }
-  .gop-row { display: flex; align-items: center; gap: .3rem; flex-wrap: wrap; }
-  .gop-label { font-family: var(--mono); font-size: .6rem; color: var(--muted); width: 52px; flex-shrink: 0; }
-  .gop-frames { display: flex; gap: 2px; flex-wrap: wrap; }
-  .gop-frame { width: 14px; height: 22px; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: .52rem; font-weight: 700; cursor: default; transition: transform .1s; flex-shrink: 0; }
-  .gop-frame:hover { transform: scaleY(1.2); }
-  .gop-frame.I { background: var(--green);  color: #000; }
-  .gop-frame.P { background: var(--cyan);   color: #000; }
-  .gop-frame.B { background: var(--yellow); color: #000; }
-  .gop-frame.S { background: var(--purple); color: #000; }
-  .gop-frame.? { background: var(--muted);  color: #000; }
-  .gop-pattern { font-family: var(--mono); font-size: .65rem; color: var(--muted); margin-left: 4px; }
-  .gop-stats { display: flex; gap: 1rem; flex-wrap: wrap; padding: .5rem .75rem; background: var(--bg3); border-top: 1px solid var(--border); }
-  .gop-stat { font-family: var(--mono); font-size: .68rem; }
-  .gop-stat span { color: var(--purple); font-weight: 700; }
+  .gop-viz{padding:.6rem .75rem .75rem;display:flex;flex-direction:column;gap:.45rem}
+  .gop-row{display:flex;align-items:center;gap:.3rem;flex-wrap:wrap}
+  .gop-label{font-family:var(--mono);font-size:.6rem;color:var(--muted);width:52px;flex-shrink:0}
+  .gop-frames{display:flex;gap:2px;flex-wrap:wrap}
+  .gop-frame{width:13px;height:20px;border-radius:2px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:.5rem;font-weight:700;cursor:default;transition:transform .1s;flex-shrink:0}
+  .gop-frame:hover{transform:scaleY(1.2)}
+  .gop-frame.I{background:var(--green);color:#000} .gop-frame.IDR{background:var(--green);color:#000;box-shadow:0 0 3px var(--green)}
+  .gop-frame.P{background:var(--cyan);color:#000} .gop-frame.B{background:var(--yellow);color:#000}
+  .gop-frame.S{background:var(--purple);color:#000} .gop-frame.Q{background:var(--muted);color:#000}
+  .gop-pattern{font-family:var(--mono);font-size:.62rem;color:var(--muted);margin-left:4px}
+  .gop-stats-bar{display:flex;gap:1rem;flex-wrap:wrap;padding:.45rem .75rem;background:var(--bg3);border-top:1px solid var(--border)}
+  .gop-stat{font-family:var(--mono);font-size:.66rem}
+  .gop-stat span{color:var(--purple);font-weight:700}
+  .legend{display:flex;gap:.75rem;padding:.4rem .75rem;flex-wrap:wrap}
+  .leg-item{display:flex;align-items:center;gap:.3rem;font-family:var(--mono);font-size:.62rem;color:var(--muted)}
+  .leg-dot{width:10px;height:10px;border-radius:2px}
 
-  /* Log panel */
-  #log-output { flex: 1; overflow-y: auto; padding: .65rem .75rem; font-family: var(--mono); font-size: .68rem; line-height: 1.7; color: var(--muted); white-space: pre-wrap; min-height: 80px; max-height: 180px; }
-  #log-output::-webkit-scrollbar { width: 4px; }
-  #log-output::-webkit-scrollbar-thumb { background: var(--border); }
+  /* Log */
+  #log-output{flex:1;overflow-y:auto;padding:.65rem .75rem;font-family:var(--mono);font-size:.67rem;line-height:1.7;color:var(--muted);white-space:pre-wrap;min-height:80px;max-height:200px}
+  #log-output::-webkit-scrollbar{width:4px}
+  #log-output::-webkit-scrollbar-thumb{background:var(--border)}
 
-  /* Legend */
-  .legend { display: flex; gap: .75rem; padding: .4rem .75rem; flex-wrap: wrap; }
-  .leg-item { display: flex; align-items: center; gap: .3rem; font-family: var(--mono); font-size: .62rem; color: var(--muted); }
-  .leg-dot { width: 10px; height: 10px; border-radius: 2px; }
+  /* Info grid */
+  .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+  @media(max-width:900px){.info-grid{grid-template-columns:1fr}}
+  .info-row{display:flex;align-items:baseline;padding:.28rem .75rem;border-bottom:1px solid rgba(255,255,255,.03);font-family:var(--mono);font-size:.7rem}
+  .info-row:last-child{border-bottom:none}
+  .info-key{color:var(--muted);flex:0 0 190px;white-space:nowrap}
+  .info-val{color:var(--text);flex:1;text-align:right}
+  .info-val.green{color:var(--green)} .info-val.red{color:var(--red)}
+  .info-val.yellow{color:var(--yellow)} .info-val.cyan{color:var(--cyan)}
+  .info-val.purple{color:var(--purple)}
 
-  /* ── Right: history panel ── */
-  .history-panel { width: 300px; flex-shrink: 0; display: flex; flex-direction: column; background: var(--bg2); border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
-  .history-header { padding: .42rem .75rem; background: var(--bg3); border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: .65rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
-  .btn-sm { background: transparent; border: none; color: var(--muted); font-family: var(--mono); font-size: .7rem; cursor: pointer; padding: 0; }
-  .btn-sm:hover { color: var(--cyan); }
-  .history-list { flex: 1; overflow-y: auto; }
-  .history-list::-webkit-scrollbar { width: 4px; }
-  .history-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-  .hist-item { padding: .55rem .75rem; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .12s; }
-  .hist-item:hover { background: var(--bg3); }
-  .hi-dest { font-family: var(--mono); font-size: .72rem; color: #fff; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .hi-sub  { font-family: var(--mono); font-size: .6rem; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .hi-badges { display: flex; gap: .3rem; margin-top: 4px; flex-wrap: wrap; }
-  .hi-badge { font-family: var(--mono); font-size: .58rem; padding: 1px 5px; border-radius: 3px; border: 1px solid var(--border); background: var(--bg); }
-  .hi-badge.idr-ok { color: var(--green); border-color: var(--green); background: var(--green-d); }
-  .hi-badge.idr-fail { color: var(--red); border-color: var(--red); background: var(--red-d); }
-  .hist-empty { padding: 1.5rem; text-align: center; font-family: var(--mono); font-size: .65rem; color: var(--muted); }
+  /* Placeholder */
+  .placeholder{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:.5rem;flex:1;opacity:.3}
+  .placeholder p{font-family:var(--mono);font-size:.72rem;color:var(--muted)}
 
-  /* Empty/placeholder state */
-  .placeholder { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: .5rem; flex: 1; opacity: .3; }
-  .placeholder svg { width: 48px; height: 48px; }
-  .placeholder p { font-family: var(--mono); font-size: .72rem; color: var(--muted); }
+  /* History panel */
+  .history-panel{width:320px;flex-shrink:0;display:flex;flex-direction:column;background:var(--bg2);border:1px solid var(--border);border-radius:7px;overflow:hidden}
+  .history-header{padding:.42rem .75rem;background:var(--bg3);border-bottom:1px solid var(--border);font-family:var(--mono);font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+  .hist-filters{display:flex;gap:.25rem;padding:.32rem .5rem;background:var(--bg3);border-bottom:1px solid var(--border);flex-shrink:0;align-items:center;flex-wrap:wrap}
+  .hist-filters input,.hist-filters input[type="date"]{background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:.6rem;padding:2px 5px;outline:none;transition:border-color .15s;color-scheme:dark}
+  .hist-filters input:focus{border-color:var(--purple)}
+  .hist-filters input.f-search{flex:1;min-width:50px} .hist-filters input.f-date{width:100px} .hist-filters input.f-tag{width:60px}
+  .btn-sm{background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:.7rem;cursor:pointer;padding:0;flex-shrink:0}
+  .btn-sm:hover{color:var(--cyan)}
+  .history-list{flex:1;overflow-y:auto}
+  .history-list::-webkit-scrollbar{width:4px}
+  .history-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+  .hist-item{padding:.55rem .65rem;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;display:flex;gap:.4rem;align-items:flex-start}
+  .hist-item:hover{background:var(--bg3)}
+  .hist-item-cb{margin-top:3px;flex-shrink:0;cursor:pointer;accent-color:var(--purple)}
+  .hist-item-body{flex:1;min-width:0}
+  .hi-dest{font-family:var(--mono);font-size:.74rem;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hi-sub{font-family:var(--mono);font-size:.6rem;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hi-badges{display:flex;gap:.25rem;margin-top:4px;flex-wrap:wrap}
+  .hi-badge{font-family:var(--mono);font-size:.57rem;padding:1px 5px;border-radius:3px;border:1px solid var(--border);background:var(--bg)}
+  .hi-badge.compliant{color:var(--green);border-color:var(--green);background:var(--green-d)}
+  .hi-badge.accepted{color:var(--yellow);border-color:var(--yellow);background:var(--yellow-d)}
+  .hi-badge.rejected{color:var(--red);border-color:var(--red);background:var(--red-d)}
+  .hist-empty{padding:1.5rem;text-align:center;font-family:var(--mono);font-size:.65rem;color:var(--muted)}
+  .hist-bulk-bar{padding:.32rem .6rem;background:var(--bg3);border-top:1px solid var(--border);display:none;justify-content:space-between;align-items:center;flex-shrink:0}
+  .hist-bulk-bar.visible{display:flex}
+  .hist-bulk-txt{font-family:var(--mono);font-size:.62rem;color:var(--muted)}
+  .btn-bulk-del{background:transparent;border:1px solid var(--border);border-radius:3px;color:var(--muted);font-family:var(--mono);font-size:.62rem;padding:2px 8px;cursor:pointer}
+  .btn-bulk-del:hover{border-color:var(--red);color:var(--red)}
 
-  /* Two-column info layout for larger screens */
-  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
-  @media (max-width: 900px) { .info-grid { grid-template-columns: 1fr; } }
+  /* Modal */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:300;align-items:center;justify-content:center}
+  .modal-overlay.open{display:flex}
+  .modal-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:1.5rem 2rem;width:420px;max-width:92vw;box-shadow:0 0 50px rgba(0,0,0,.6)}
+  .modal-title{font-family:var(--mono);font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--red);margin-bottom:.8rem}
+  .modal-body{font-family:var(--mono);font-size:.72rem;color:var(--text);line-height:1.7;margin-bottom:1rem}
+  .modal-actions{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+  .modal-pw{background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:#fff;font-family:var(--mono);font-size:.75rem;padding:4px 10px;outline:none;width:160px;transition:border-color .15s}
+  .modal-pw:focus{border-color:var(--purple)}
+  .modal-pw.error{border-color:var(--red)}
+  .btn-danger{background:var(--red);border:none;border-radius:5px;color:#fff;font-family:var(--mono);font-size:.7rem;font-weight:700;padding:5px 16px;cursor:pointer}
+  .btn-cancel{background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-family:var(--mono);font-size:.7rem;padding:5px 14px;cursor:pointer}
+  .btn-cancel:hover{border-color:var(--cyan);color:var(--cyan)}
+  .modal-err{font-family:var(--mono);font-size:.65rem;color:var(--red);margin-top:.4rem;min-height:1em;width:100%}
 </style>
 </head>
 <body>
 <div id="app">
-
   <div class="topbar">
     <h1>GOP <span>//</span> Analyzer</h1>
-    <span class="topbar-sub">captures 30s SRT stream · ffprobe frame analysis · IDR / GOP structure</span>
+    <span class="topbar-sub">SRT stream capture · ffprobe NAL/IDR · GOP structure · compliance check</span>
   </div>
 
   <div class="form-row">
@@ -162,7 +182,7 @@
       <label>Latency ms</label>
       <input id="inp-latency" type="number" placeholder="120" min="0" />
     </div>
-    <div class="field w200">
+    <div class="field w180">
       <label>Passphrase <span style="color:var(--muted);font-weight:400">(optional)</span></label>
       <input id="inp-pass" type="text" placeholder="leave blank if none"
         autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false"
@@ -176,7 +196,7 @@
         <option value="60">60 seconds</option>
       </select>
     </div>
-    <div class="field w200">
+    <div class="field w180">
       <label>Tag <span style="color:var(--muted);font-weight:400">(optional)</span></label>
       <input id="inp-tag" type="text" placeholder="e.g. test, JIRA-123" autocomplete="off" list="tag-presets" />
       <datalist id="tag-presets"></datalist>
@@ -187,16 +207,14 @@
   <div class="main-area">
     <!-- Result panel -->
     <div class="result-panel" id="result-panel">
-      <!-- Status bar always visible -->
-      <div class="status-bar" id="status-bar">
+      <div class="status-bar">
         <span class="dot" id="dot"></span>
-        <span class="status-text" id="status-text">Ready — fill in the SRT details and click Analyze</span>
+        <span class="status-text" id="status-text">Ready — fill in SRT details and click Analyze</span>
         <div id="progress-bar"><div id="progress-fill"></div></div>
       </div>
 
-      <!-- Placeholder -->
       <div class="placeholder" id="placeholder">
-        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
           <rect x="2" y="8" width="44" height="32" rx="3" stroke="#484f58" stroke-width="2"/>
           <rect x="7"  y="15" width="6" height="18" rx="1" fill="#3fb950"/>
           <rect x="16" y="20" width="6" height="13" rx="1" fill="#58a6ff"/>
@@ -206,43 +224,57 @@
         <p>No analysis yet</p>
       </div>
 
-      <!-- Log (shown while running) -->
       <div class="card" id="log-card" style="display:none">
         <div class="card-title">Analysis Log</div>
         <div id="log-output"></div>
       </div>
 
-      <!-- Results (shown when done) -->
       <div id="results-content" style="display:none">
-
-        <!-- IDR check + summary -->
+        <!-- IDR + overall status -->
         <div class="card">
-          <div class="card-title">IDR / Key Frame Check</div>
+          <div class="card-title">Stream Check</div>
           <div style="padding:.65rem .75rem;display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
             <div class="idr-badge" id="idr-badge">…</div>
-            <div style="font-family:var(--mono);font-size:.68rem;color:var(--muted);line-height:1.8" id="idr-detail">…</div>
+            <div style="font-family:var(--mono);font-size:.68rem;color:var(--muted);line-height:1.9" id="idr-detail">…</div>
+            <div style="margin-left:auto" id="overall-badge"></div>
           </div>
+        </div>
+
+        <!-- Compliance table -->
+        <div class="card">
+          <div class="card-title">Compliance — RAG Status</div>
+          <table class="ctable" id="compliance-table">
+            <thead>
+              <tr>
+                <th>Element</th>
+                <th>Specification</th>
+                <th>Measured</th>
+                <th>Result</th>
+              </tr>
+            </thead>
+            <tbody id="compliance-body"></tbody>
+          </table>
         </div>
 
         <!-- Stream info -->
         <div class="info-grid">
           <div class="card">
             <div class="card-title">Container / File</div>
-            <div class="info-table" id="tbl-container"></div>
+            <div id="tbl-container"></div>
           </div>
           <div class="card">
             <div class="card-title">Video Stream [V]</div>
-            <div class="info-table" id="tbl-video"></div>
+            <div id="tbl-video"></div>
           </div>
         </div>
         <div class="info-grid">
           <div class="card">
             <div class="card-title">Audio Stream [A]</div>
-            <div class="info-table" id="tbl-audio"></div>
+            <div id="tbl-audio"></div>
           </div>
           <div class="card">
             <div class="card-title">GOP Statistics</div>
-            <div class="info-table" id="tbl-gop-stats"></div>
+            <div id="tbl-gop-stats"></div>
           </div>
         </div>
 
@@ -250,16 +282,16 @@
         <div class="card">
           <div class="card-title">GOP Structure Visualizer</div>
           <div class="legend">
-            <div class="leg-item"><div class="leg-dot" style="background:var(--green)"></div>I — Intra (IDR/key)</div>
+            <div class="leg-item"><div class="leg-dot" style="background:var(--green)"></div>I — IDR/Intra</div>
             <div class="leg-item"><div class="leg-dot" style="background:var(--cyan)"></div>P — Predicted</div>
             <div class="leg-item"><div class="leg-dot" style="background:var(--yellow)"></div>B — Bi-directional</div>
             <div class="leg-item"><div class="leg-dot" style="background:var(--purple)"></div>S — other</div>
+            <span style="font-family:var(--mono);font-size:.6rem;color:var(--muted);margin-left:auto">Last GOP excluded (incomplete)</span>
           </div>
           <div class="gop-viz" id="gop-viz"></div>
-          <div class="gop-stats" id="gop-stats-bar"></div>
+          <div class="gop-stats-bar" id="gop-stats-bar"></div>
         </div>
-
-      </div><!-- /results-content -->
+      </div>
     </div>
 
     <!-- History panel -->
@@ -268,318 +300,486 @@
         History
         <button class="btn-sm" onclick="loadHistory()">↻</button>
       </div>
+      <div class="hist-filters">
+        <input class="f-search" id="hist-search" type="text"  placeholder="host/port…" oninput="loadHistory()" />
+        <input class="f-date"   id="hist-date"   type="date"                           oninput="loadHistory()" title="Filter by date" />
+        <input class="f-tag"    id="hist-tag"    type="text"  placeholder="tag…"       list="hist-tag-list" oninput="loadHistory()" />
+        <datalist id="hist-tag-list"></datalist>
+      </div>
       <div class="history-list" id="history-list">
         <div class="hist-empty">No analyses yet</div>
       </div>
+      <div class="hist-bulk-bar" id="bulk-bar">
+        <span class="hist-bulk-txt" id="bulk-count">0 selected</span>
+        <button class="btn-bulk-del" onclick="openBulkDeleteModal()">🗑 Delete selected</button>
+      </div>
     </div>
   </div>
-
 </div>
+
+<!-- Delete modal -->
+<div class="modal-overlay" id="delete-modal">
+  <div class="modal-card">
+    <div class="modal-title">⚠ Delete Results</div>
+    <div class="modal-body" id="delete-modal-body">Permanently delete selected results?<br>This action is <strong style="color:var(--red)">irreversible</strong>.</div>
+    <div class="modal-actions">
+      <button class="btn-danger" onclick="confirmDelete()">Yes, Delete</button>
+      <button class="btn-cancel" onclick="closeDeleteModal()">Cancel</button>
+      <input class="modal-pw" id="delete-pw" type="password" placeholder="admin password…" style="display:none" />
+      <div class="modal-err" id="delete-err"></div>
+    </div>
+  </div>
+</div>
+
 <script>
-  const PROXY = "/so-proxy";
-  let pollTimer = null;
-  let _progTimer = null;
-  let _srtPresets = {};
+const PROXY = "/so-proxy";
+let pollTimer = null, _progTimer = null;
+let _srtPresets = {}, _hasAdminPw = false;
+let _pendingDeleteFiles = [];
 
-  // ── Boot ─────────────────────────────────────────────────────────
-  async function loadConfig() {
-    try {
-      const res  = await fetch(`${PROXY}/config`);
-      const data = await res.json();
-      const env  = data.config || {};
+// ── Boot ─────────────────────────────────────────────────────────
+async function loadConfig() {
+  try {
+    const res = await fetch(`${PROXY}/config`);
+    const d   = await res.json();
+    const env = d.config || {};
+    _hasAdminPw = env.HAS_ADMIN_PASSWORD === "true";
 
-      // SRT_LOCAL_* presets → host datalist
-      const dl = document.getElementById("srt-host-presets");
-      dl.innerHTML = "";
-      _srtPresets = {};
-      Object.keys(env).filter(k => /^SRT_LOCAL_\d+$/.test(k))
-        .sort((a,b) => parseInt(a.split("_")[2]) - parseInt(b.split("_")[2]))
-        .forEach(k => {
-          const [ip, label] = env[k].split("|").map(s => s.trim());
-          if (!ip) return;
-          _srtPresets[ip] = label || ip;
-          const opt = document.createElement("option");
-          opt.value = ip; opt.textContent = label || ip;
-          dl.appendChild(opt);
-        });
-
-      // Pre-fill passphrase
-      if (env.SRT_PASSPHRASE) {
-        const el = document.getElementById("inp-pass");
-        el.value = env.SRT_PASSPHRASE;
-        el.classList.add("from-env");
-        el.addEventListener("input", function() { this.classList.remove("from-env"); }, { once: true });
-      }
-    } catch(e) { console.warn("Config load failed:", e); }
-  }
-
-  // ── Run analysis ─────────────────────────────────────────────────
-  async function runAnalysis() {
-    const host = document.getElementById("inp-host").value.trim();
-    const port = document.getElementById("inp-port").value.trim();
-    const lat  = document.getElementById("inp-latency").value.trim();
-    const pass = document.getElementById("inp-pass").value.trim();
-    const dur  = parseInt(document.getElementById("inp-dur").value) || 30;
-    const tag  = document.getElementById("inp-tag").value.trim();
-
-    if (!host || !port) { setStatus("err", "Host and Port are required."); return; }
-
-    // Build SRT URL
-    let url = `srt://${host}:${port}?mode=caller`;
-    if (lat)  url += `&latency=${lat}`;
-    // passphrase injected server-side
-
-    document.getElementById("btn-run").disabled = true;
-    document.getElementById("placeholder").style.display = "none";
-    document.getElementById("results-content").style.display = "none";
-    document.getElementById("log-card").style.display = "";
-    document.getElementById("log-output").textContent = "";
-    startProgress(dur);
-    setStatus("running", `Capturing ${dur}s from ${host}:${port}…`);
-
-    try {
-      const res  = await fetch(`${PROXY}/gop/run`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, duration: dur, passphrase: pass, tag })
+    const dl = document.getElementById("srt-host-presets");
+    dl.innerHTML = "";
+    _srtPresets = {};
+    Object.keys(env).filter(k => /^SRT_LOCAL_\d+$/.test(k))
+      .sort((a,b) => parseInt(a.split("_")[2]) - parseInt(b.split("_")[2]))
+      .forEach(k => {
+        const [ip, label] = env[k].split("|").map(s => s.trim());
+        if (!ip) return;
+        _srtPresets[ip] = label || ip;
+        const opt = document.createElement("option");
+        opt.value = ip; opt.textContent = `${label || ip} (${ip})`;
+        dl.appendChild(opt);
       });
-      const data = await res.json();
-      if (!data.job_id) throw new Error(data.error || "No job_id returned");
-      pollStatus(data.job_id, dur);
-    } catch(e) {
-      setStatus("err", `Error: ${e.message}`);
+
+    if (env.SRT_PASSPHRASE) {
+      const el = document.getElementById("inp-pass");
+      el.value = env.SRT_PASSPHRASE;
+      el.classList.add("from-env");
+      el.addEventListener("input", function(){ this.classList.remove("from-env"); }, { once: true });
+    }
+  } catch(e) { console.warn(e); }
+}
+
+// ── Run ───────────────────────────────────────────────────────────
+async function runAnalysis() {
+  const host = document.getElementById("inp-host").value.trim();
+  const port = document.getElementById("inp-port").value.trim();
+  const lat  = document.getElementById("inp-latency").value.trim();
+  const pass = document.getElementById("inp-pass").value.trim();
+  const dur  = parseInt(document.getElementById("inp-dur").value) || 30;
+  const tag  = document.getElementById("inp-tag").value.trim();
+
+  if (!host || !port) { setStatus("err","Host and Port are required."); return; }
+
+  let url = `srt://${host}:${port}?mode=caller`;
+  if (lat) url += `&latency=${lat}`;
+
+  document.getElementById("btn-run").disabled = true;
+  document.getElementById("placeholder").style.display = "none";
+  document.getElementById("results-content").style.display = "none";
+  document.getElementById("log-card").style.display = "";
+  document.getElementById("log-output").textContent = "";
+  startProgress(dur);
+  setStatus("running", `Capturing ${dur}s from ${host}:${port}…`);
+
+  try {
+    const res  = await fetch(`${PROXY}/gop/run`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, duration: dur, passphrase: pass, tag })
+    });
+    const data = await res.json();
+    if (!data.job_id) throw new Error(data.error || "No job_id");
+    pollStatus(data.job_id, dur, host, port);
+  } catch(e) {
+    setStatus("err", `Error: ${e.message}`);
+    document.getElementById("btn-run").disabled = false;
+    stopProgress(false);
+  }
+}
+
+function pollStatus(job_id, dur, host, port) {
+  clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    try {
+      const res = await fetch(`${PROXY}/gop/status/${job_id}`);
+      const job = await res.json();
+      const logEl = document.getElementById("log-output");
+      logEl.textContent = (job.log || []).join("\n");
+      logEl.scrollTop = logEl.scrollHeight;
+
+      if (job.status === "running") return;
+      clearInterval(pollTimer); pollTimer = null;
+      stopProgress(job.status === "done");
       document.getElementById("btn-run").disabled = false;
-      stopProgress(false);
+
+      if (job.status === "done" && job.result) {
+        renderResult(job.result);
+        setStatus("ok", `Done — ${host}:${port}`);
+        loadHistory();
+      } else if (job.result && job.result.error) {
+        // Partial result (stream unreachable)
+        setStatus("err", `Capture failed: ${job.result.error}`);
+      } else {
+        setStatus("err", `Analysis ${job.status}. Check log above.`);
+      }
+    } catch(e) { console.error(e); }
+  }, 1500);
+}
+
+// ── Render result ─────────────────────────────────────────────────
+function renderResult(r) {
+  document.getElementById("results-content").style.display = "";
+  document.getElementById("log-card").style.display = "none";
+  document.getElementById("placeholder").style.display = "none";
+
+  // IDR check
+  const idrBadge = document.getElementById("idr-badge");
+  if (r.has_idr) {
+    idrBadge.className = "idr-badge pass";
+    idrBadge.innerHTML = `✓ IDR Frames Present`;
+  } else {
+    idrBadge.className = "idr-badge fail";
+    idrBadge.innerHTML = `✗ No IDR Frames (NAL type 5)`;
+  }
+
+  const gop_type_color = r.gop_type === "CLOSED" ? "var(--green)" : "var(--yellow)";
+  document.getElementById("idr-detail").innerHTML = [
+    `IDR count: <strong style="color:${r.has_idr?'var(--green)':'var(--red)'}">${r.idr_count}</strong>`,
+    `Non-IDR keyframes: <strong>${r.non_idr_keyframes || 0}</strong>`,
+    `GOP type: <strong style="color:${gop_type_color}">${r.gop_type || "—"}</strong>`,
+    `B-frames: <strong style="color:${r.has_b_frames?'var(--yellow)':'var(--green)'}">` +
+      `${r.has_b_frames?'YES ('+r.b_frame_count+')':'No'}</strong>`,
+    `Total frames: <strong>${r.total_frames}</strong>`,
+  ].join("  ·  ");
+
+  // Overall badge
+  const os = r.overall_status || "UNKNOWN";
+  document.getElementById("overall-badge").innerHTML =
+    `<span class="status-pill ${os}" style="font-size:.72rem;padding:3px 12px">${os}</span>`;
+
+  // Compliance table
+  renderComplianceTable(r);
+
+  // Container
+  infoRows("tbl-container", [
+    ["Container",          r.container, "cyan"],
+    ["File Size",          r.file_size  ? fmtBytes(r.file_size) : "—"],
+    ["Duration",           r.file_dur   ? r.file_dur.toFixed(3)+"s" : "—"],
+    ["File Bitrate",       r.file_br    ? fmtBps(r.file_br)  : "—"],
+    ["Num programs",       r.num_programs],
+    ["Num streams",        r.num_streams],
+    ["Have Video",         r.have_video],
+    ["Have Audio",         r.have_audio],
+  ]);
+
+  const vfpsCol = r.v_fps_val > 30 ? "red" : r.v_fps_val > 25 ? "yellow" : "green";
+  // Video
+  infoRows("tbl-video", [
+    ["[V] Codec",           (r.v_codec||"?").toUpperCase() + " | " + (r.v_codec||"?"), "green"],
+    ["[V] Codec Profile",   r.v_profile, r.v_profile==="High"?"yellow":""],
+    ["[V] Codec Level",     r.v_level],
+    ["[V] Width",           r.v_width],
+    ["[V] Height",          r.v_height],
+    ["[V] Aspect Ratio",    r.v_dar||"—"],
+    ["[V] B Frames",        r.v_b_frames, r.v_b_frames>0?"yellow":"green"],
+    ["[V] Reference Frames",r.v_refs],
+    ["[V] FPS",             r.v_fps, vfpsCol],
+    ["[V] Field Order",     r.v_field],
+    ["[V] Pixel Format",    r.v_pix_fmt],
+    ["[V] Color Space",     r.v_color_combined||"—"],
+    ["[V] Bits per Sample", r.v_bits],
+    ["[V] ChromaSubSample", r.v_chroma],
+    ["[V] Bitrate",         r.v_br ? fmtBps(r.v_br) : "—"],
+    ["[V] Entropy",         r.v_entropy||"—"],
+    ["[V] Scan Type",       r.v_scan||"—"],
+    ["[V] HDR/SDR",         r.v_hdr||"SDR"],
+  ]);
+
+  // Audio
+  infoRows("tbl-audio", [
+    ["[A] Codec",          (r.a_codec||"?").toUpperCase(), r.a_codec==="aac"?"green":"yellow"],
+    ["[A] Profile",        r.a_profile],
+    ["[A] Channels",       r.a_channels],
+    ["[A] Layout",         r.a_layout],
+    ["[A] Sampling Rate",  r.a_rate ? r.a_rate+" Hz" : "—"],
+    ["[A] Bitrate",        r.a_br ? fmtBps(r.a_br) : "—"],
+    ["[A] Bits per Sample",r.a_bps],
+    ["[A] Language",       r.a_lang],
+    ["[A] Audio Tracks",   r.audio_tracks, r.audio_tracks>2?"yellow":""],
+  ]);
+
+  // GOP stats
+  infoRows("tbl-gop-stats", [
+    ["IDR frames",         r.idr_count, r.has_idr?"green":"red"],
+    ["GOP type",           r.gop_type, r.gop_type==="CLOSED"?"green":"yellow"],
+    ["Total GOPs (complete)",r.gop_count],
+    ["GOP avg size",       r.gop_avg+" frames"],
+    ["GOP min size",       r.gop_min+" frames"],
+    ["GOP max size",       r.gop_max+" frames"],
+    ["Has B-frames",       r.has_b_frames?"YES":"No", r.has_b_frames?"yellow":"green"],
+    ["B-frame count",      r.b_frame_count],
+    ["Total frames",       r.total_frames],
+  ]);
+
+  // GOP viz
+  renderGopViz(r.gops||[], r.gop_patterns||[]);
+}
+
+function renderComplianceTable(r) {
+  const c = r.compliance || {};
+  const spec = {
+    "overall_br":    ["Overall Bitrate (Mbps)",      "5.0–18.0 (8.0–15.0)"],
+    "idr":           ["IDR Frames",                  "Required"],
+    "gop_size":      ["GOP Size",                    "30, 50"],
+    "gop_type":      ["GOP Type",                    "CLOSED"],
+    "b_frames":      ["B-Frames",                    "Absent (preferred)"],
+    "frame_size":    ["Frame Size",                  "1280×720, 1920×1080"],
+    "aspect_ratio":  ["Aspect Ratio",                "16:9"],
+    "chroma":        ["Chroma Subsampling",           "4:2:0"],
+    "scan_type":     ["Scan Type",                   "progressive / interlaced"],
+    "bit_depth":     ["Bit Depth",                   "8"],
+    "colour_gamut":  ["Colour Gamut",                "bt709"],
+    "codec":         ["Coding Algorithm",             "AVC H.264"],
+    "codec_level":   ["CODEC Level",                 "4.0–4.2"],
+    "codec_profile": ["CODEC Profile",               "Main, High"],
+    "entropy":       ["Entropy",                     "CABAC"],
+    "rate_ctrl_v":   ["Rate Control (Video)",        "VBR, CBR"],
+    "v_br":          ["Video Bitrate (Mbps)",        "5.0–18.0 (8.0–15.0)"],
+    "hdr_scheme":    ["SDR/HDR Scheme",              "SDR"],
+    "fps":           ["Frame Rate",                  "25.0, 29.97, 30.0"],
+    "a_codec":       ["Audio Coding",                "AAC-LC, MP1, MP2"],
+    "a_streams":     ["Audio Streams",               "1–32"],
+    "a_channels":    ["Audio Channels",              "2"],
+    "a_rate_ctrl":   ["Audio Rate Control",          "VBR, CBR"],
+    "a_sample_rate": ["Sample Rate (kHz)",           "44.1–48.0"],
+    "a_bits":        ["Audio Bits per Sample",       "FLTP, 16"],
+    "a_br_kbps":     ["Audio Bitrate (Kbps)",       "118–512"],
+  };
+
+  const sections = {
+    "MEDIA PROFILE": ["overall_br"],
+    "VIDEO": ["idr","gop_size","gop_type","b_frames","frame_size","aspect_ratio","chroma","scan_type","bit_depth","colour_gamut","codec","codec_level","codec_profile","entropy","rate_ctrl_v","v_br","hdr_scheme","fps"],
+    "AUDIO": ["a_codec","a_streams","a_channels","a_rate_ctrl","a_sample_rate","a_bits","a_br_kbps"],
+  };
+
+  let html = "";
+  for (const [section, keys] of Object.entries(sections)) {
+    html += `<tr class="section-hdr"><td colspan="4">${section}</td></tr>`;
+    for (const key of keys) {
+      const info = spec[key] || [key, "—"];
+      const [status, measured, note] = c[key] || ["UNKNOWN","—",""];
+      html += `<tr>
+        <td>${info[0]}</td>
+        <td style="color:var(--muted)">${info[1]}</td>
+        <td>${measured}${note ? ` <span style="color:var(--muted);font-size:.58rem">(${note})</span>` : ""}</td>
+        <td><span class="status-pill ${status}">${status}</span></td>
+      </tr>`;
     }
   }
+  document.getElementById("compliance-body").innerHTML = html;
+}
 
-  function pollStatus(job_id, dur) {
-    clearInterval(pollTimer);
-    pollTimer = setInterval(async () => {
-      try {
-        const res  = await fetch(`${PROXY}/gop/status/${job_id}`);
-        const job  = await res.json();
+function infoRows(id, rows) {
+  document.getElementById(id).innerHTML = rows.map(([k,v,cls]) =>
+    `<div class="info-row"><span class="info-key">${k}</span><span class="info-val ${cls||""}">${v??'—'}</span></div>`
+  ).join("");
+}
 
-        // Update log
-        const logEl = document.getElementById("log-output");
-        logEl.textContent = (job.log || []).join("\n");
-        logEl.scrollTop = logEl.scrollHeight;
-
-        if (job.status === "running") return;
-
-        clearInterval(pollTimer); pollTimer = null;
-        stopProgress(job.status === "done");
-        document.getElementById("btn-run").disabled = false;
-
-        if (job.status === "done" && job.result) {
-          renderResult(job.result);
-          setStatus("ok", `Analysis complete for ${job.result.url}`);
-          loadHistory();
-        } else {
-          setStatus("err", `Analysis ${job.status}. Check log above.`);
-        }
-      } catch(e) { console.error(e); }
-    }, 1500);
+function renderGopViz(gops, patterns) {
+  const el = document.getElementById("gop-viz");
+  if (!gops.length) {
+    el.innerHTML = '<div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);padding:.5rem">No GOP data (stream may lack IDR frames)</div>';
+    document.getElementById("gop-stats-bar").innerHTML = "";
+    return;
   }
-
-  // ── Render result ────────────────────────────────────────────────
-  function renderResult(r) {
-    document.getElementById("results-content").style.display = "";
-    document.getElementById("log-card").style.display = "none";
-
-    // IDR check
-    const idrBadge = document.getElementById("idr-badge");
-    if (r.has_idr) {
-      idrBadge.className = "idr-badge pass";
-      idrBadge.textContent = `✓ IDR Frames Present`;
-    } else {
-      idrBadge.className = "idr-badge fail";
-      idrBadge.textContent = `✗ No IDR Frames Detected`;
-    }
-    document.getElementById("idr-detail").innerHTML = [
-      `IDR / Key frames found: <strong style="color:${r.has_idr?'var(--green)':'var(--red)'}">${r.idr_count}</strong>`,
-      `Total video frames analysed: <strong>${r.total_frames}</strong>`,
-      `B-frames: <strong style="color:${r.has_b_frames?'var(--yellow)':'var(--green)'}">` +
-        `${r.has_b_frames ? 'YES (' + r.b_frame_count + ' frames)' : 'No'}</strong>`,
-      `GOPs detected: <strong>${r.gop_count}</strong>`,
-    ].join("<br>");
-
-    // Container table
-    tableRows("tbl-container", [
-      ["File",               r.res_file || "—", "muted"],
-      ["Container",          r.container, "cyan"],
-      ["File Size",          r.file_size ? fmtBytes(r.file_size) : "—"],
-      ["File Duration",      r.file_dur  ? r.file_dur.toFixed(3) + "s" : "—"],
-      ["File Bitrate",       r.file_br   ? fmtBps(r.file_br) : "—"],
-      ["Number of programs", r.num_programs],
-      ["Number of streams",  r.num_streams],
-      ["Have Video",         r.have_video],
-      ["Have Audio",         r.have_audio],
-    ]);
-
-    // Video table
-    tableRows("tbl-video", [
-      ["[V] Codec",          (r.v_codec||"?").toUpperCase() + " | " + (r.v_codec||"?"), "green"],
-      ["[V] Codec Profile",  r.v_profile, r.v_profile === "High" ? "yellow" : ""],
-      ["[V] Codec Level",    r.v_level],
-      ["[V] Width",          r.v_width],
-      ["[V] Height",         r.v_height],
-      ["[V] Aspect Ratio",   r.v_dar || "—"],
-      ["[V] B Frames",       r.v_b_frames, r.v_b_frames > 0 ? "yellow" : "green"],
-      ["[V] Reference Frames", r.v_refs],
-      ["[V] FPS",            r.v_fps],
-      ["[V] Field Order",    r.v_field],
-      ["[V] Pixel Format",   r.v_pix_fmt],
-      ["[V] Color Space",    r.v_color_sp],
-      ["[V] Bits per Sample",r.v_bits],
-      ["[V] ChromaSubSample",r.v_chroma],
-      ["[V] Bitrate",        r.v_br ? fmtBps(r.v_br) : "—"],
-    ]);
-
-    // Audio table
-    const audioRows = [
-      ["[A] Codec",          (r.a_codec||"?").toUpperCase(), r.a_codec === "aac" ? "green" : "yellow"],
-      ["[A] Profile",        r.a_profile],
-      ["[A] Channels",       r.a_channels],
-      ["[A] Layout",         r.a_layout],
-      ["[A] Sampling Rate",  r.a_rate ? r.a_rate + " Hz" : "—"],
-      ["[A] Bitrate",        r.a_br ? fmtBps(r.a_br) : "—"],
-      ["[A] Language",       r.a_lang],
-      ["[A] Total Audio Tracks", r.audio_tracks, r.audio_tracks > 2 ? "yellow" : ""],
-    ];
-    tableRows("tbl-audio", audioRows);
-
-    // GOP stats table
-    tableRows("tbl-gop-stats", [
-      ["IDR / Key frames",   r.idr_count, r.has_idr ? "green" : "red"],
-      ["Total GOPs",         r.gop_count],
-      ["GOP size avg",       r.gop_avg + " frames"],
-      ["GOP size min",       r.gop_min + " frames"],
-      ["GOP size max",       r.gop_max + " frames"],
-      ["Has B-frames",       r.has_b_frames ? "YES" : "No", r.has_b_frames ? "yellow" : "green"],
-      ["B-frame count",      r.b_frame_count],
-      ["Total frames",       r.total_frames],
-    ]);
-
-    // GOP visualizer
-    renderGopViz(r.gops || [], r.gop_patterns || []);
-  }
-
-  function tableRows(id, rows) {
-    const el = document.getElementById(id);
-    el.innerHTML = rows.map(([key, val, cls]) => {
-      const c = cls ? ` class="info-val ${cls}"` : ` class="info-val"`;
-      return `<div class="info-row"><span class="info-key">${key}</span><span${c}>${val ?? "—"}</span></div>`;
+  el.innerHTML = gops.map((frames, i) => {
+    const frameHtml = frames.map(f => {
+      const cls = f.idr ? "IDR" : ["I","P","B"].includes(f.type) ? f.type : "S";
+      return `<div class="gop-frame ${cls}" title="${f.idr?"IDR":""}${f.type} frame">${f.type}</div>`;
     }).join("");
-  }
+    const pat = patterns[i] || frames.map(f=>f.type).join("");
+    const short = pat.length > 28 ? pat.slice(0,26)+"…" : pat;
+    return `<div class="gop-row">
+      <div class="gop-label">GOP ${i+1}</div>
+      <div class="gop-frames">${frameHtml}</div>
+      <div class="gop-pattern">${short} (${frames.length}f)</div>
+    </div>`;
+  }).join("");
 
-  function renderGopViz(gops, patterns) {
-    const el = document.getElementById("gop-viz");
-    if (!gops.length) { el.innerHTML = '<div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);padding:.5rem">No GOP data available</div>'; return; }
+  const all    = gops.flat();
+  const iCount = all.filter(f=>f.key).length;
+  const pCount = all.filter(f=>f.type==="P").length;
+  const bCount = all.filter(f=>f.type==="B").length;
+  const avg    = (gops.map(g=>g.length).reduce((a,b)=>a+b,0)/gops.length).toFixed(1);
+  document.getElementById("gop-stats-bar").innerHTML = [
+    `GOPs: <span>${gops.length}</span>`,
+    `Avg: <span>${avg}f</span>`,
+    `I: <span style="color:var(--green)">${iCount}</span>`,
+    `P: <span style="color:var(--cyan)">${pCount}</span>`,
+    `B: <span style="color:var(--yellow)">${bCount}</span>`,
+  ].map(s=>`<div class="gop-stat">${s}</div>`).join("");
+}
 
-    el.innerHTML = gops.map((frames, i) => {
-      const frameHtml = frames.map(f => {
-        const cls = ["I","P","B"].includes(f.type) ? f.type : "S";
-        const title = f.key ? "Key/IDR frame" : `${f.type} frame`;
-        return `<div class="gop-frame ${cls}" title="${title}">${f.type}</div>`;
-      }).join("");
-      const pattern = patterns[i] || frames.map(f=>f.type).join("");
-      const shortPat = pattern.length > 30 ? pattern.slice(0,28)+"…" : pattern;
-      return `<div class="gop-row">
-        <div class="gop-label">GOP ${i+1}</div>
-        <div class="gop-frames">${frameHtml}</div>
-        <div class="gop-pattern">${shortPat} (${frames.length}f)</div>
+// ── History ───────────────────────────────────────────────────────
+async function loadHistory() {
+  try {
+    const res   = await fetch(`${PROXY}/gop/results`);
+    const items = await res.json();
+    const list  = document.getElementById("history-list");
+    const search= (document.getElementById("hist-search").value||"").toLowerCase();
+    const date  = (document.getElementById("hist-date").value||"").trim();
+    const tag   = (document.getElementById("hist-tag").value||"").toLowerCase();
+
+    // Populate tag datalist
+    const allTags = [...new Set(items.map(i=>i.tag).filter(Boolean))];
+    document.getElementById("hist-tag-list").innerHTML = allTags.map(t=>`<option value="${t}">`).join("");
+
+    const filtered = items.filter(item => {
+      const hostStr  = resolveHost(item.url_host) + ":" + item.url_port;
+      const combined = (hostStr + " " + (item.tag||"") + " " + (item.url||"")).toLowerCase();
+      if (search && !combined.includes(search)) return false;
+      if (date   && !(item.started_at||"").startsWith(date)) return false;
+      if (tag    && !(item.tag||"").toLowerCase().includes(tag)) return false;
+      return true;
+    });
+
+    if (!filtered.length) { list.innerHTML='<div class="hist-empty">No analyses found</div>'; return; }
+
+    list.innerHTML = filtered.map(item => {
+      const serverName = resolveHost(item.url_host);
+      const port       = item.url_port || "?";
+      const statusCls  = (item.overall_status||"").toLowerCase();
+      const idrCls     = item.has_idr ? "compliant" : "rejected";
+      const gopTypeCls = item.gop_type === "CLOSED" ? "compliant" : "accepted";
+      const fpsCls     = (item.v_fps_val||0) > 30 ? "rejected" : "";
+      const fpsStr     = item.v_fps_val ? item.v_fps_val.toFixed(3)+" fps" : "";
+      const res        = item.v_width ? `${item.v_width}×${item.v_height}` : "";
+      const safeFile   = JSON.stringify(item.file).replace(/"/g,"&quot;");
+
+      return `<div class="hist-item" id="hist-${item.file.replace(/\./g,'_')}">
+        <input type="checkbox" class="hist-item-cb" data-file="${item.file}" onchange="updateBulkBar()" />
+        <div class="hist-item-body" onclick="loadResult('${item.file}');event.stopPropagation()">
+          <div class="hi-dest">${serverName}:${port}</div>
+          <div class="hi-sub">${item.url_host} · ${item.v_codec||"?"} · ${item.tag||""}</div>
+          <div class="hi-badges">
+            <span class="hi-badge ${idrCls}">${item.has_idr?"✓ IDR":"✗ No IDR"}</span>
+            <span class="hi-badge ${gopTypeCls}">${item.gop_type||"?"}</span>
+            ${res ? `<span class="hi-badge">${res}</span>` : ""}
+            ${fpsStr ? `<span class="hi-badge ${fpsCls}">${fpsStr}</span>` : ""}
+            ${item.overall_status ? `<span class="hi-badge ${statusCls}">${item.overall_status}</span>` : ""}
+          </div>
+        </div>
       </div>`;
     }).join("");
+  } catch(e) { console.error(e); }
+}
 
-    // Stats bar
-    const allLengths = gops.map(g => g.length);
-    const avg = (allLengths.reduce((a,b)=>a+b,0)/allLengths.length).toFixed(1);
-    const bCount = gops.flat().filter(f=>f.type==="B").length;
-    const iCount = gops.flat().filter(f=>f.key).length;
-    const pCount = gops.flat().filter(f=>f.type==="P").length;
-    document.getElementById("gop-stats-bar").innerHTML = [
-      `GOPs shown: <span>${gops.length}</span>`,
-      `Avg size: <span>${avg} frames</span>`,
-      `I frames: <span style="color:var(--green)">${iCount}</span>`,
-      `P frames: <span style="color:var(--cyan)">${pCount}</span>`,
-      `B frames: <span style="color:var(--yellow)">${bCount}</span>`,
-    ].map(s=>`<div class="gop-stat">${s}</div>`).join("");
-  }
+function resolveHost(ip) {
+  return _srtPresets[ip] || ip || "—";
+}
 
-  // ── History ──────────────────────────────────────────────────────
-  async function loadHistory() {
+async function loadResult(file) {
+  try {
+    const res  = await fetch(`${PROXY}/gop/result/${encodeURIComponent(file)}`);
+    const data = await res.json();
+    document.getElementById("placeholder").style.display = "none";
+    document.getElementById("log-card").style.display = "none";
+    renderResult(data);
+    setStatus("ok", `Loaded: ${file}`);
+  } catch(e) { setStatus("err","Failed to load result."); }
+}
+
+// ── Bulk delete ───────────────────────────────────────────────────
+function updateBulkBar() {
+  const checked = [...document.querySelectorAll(".hist-item-cb:checked")];
+  const bar     = document.getElementById("bulk-bar");
+  document.getElementById("bulk-count").textContent = `${checked.length} selected`;
+  bar.classList.toggle("visible", checked.length > 0);
+}
+
+function openBulkDeleteModal() {
+  const checked = [...document.querySelectorAll(".hist-item-cb:checked")];
+  _pendingDeleteFiles = checked.map(cb => cb.dataset.file);
+  if (!_pendingDeleteFiles.length) return;
+  document.getElementById("delete-modal-body").innerHTML =
+    `Permanently delete <strong style="color:var(--red)">${_pendingDeleteFiles.length}</strong> result(s)?<br>This action is <strong style="color:var(--red)">irreversible</strong>.`;
+  document.getElementById("delete-pw").value = "";
+  document.getElementById("delete-pw").style.display = _hasAdminPw ? "" : "none";
+  document.getElementById("delete-err").textContent = "";
+  document.getElementById("delete-modal").classList.add("open");
+}
+
+function closeDeleteModal() {
+  document.getElementById("delete-modal").classList.remove("open");
+  _pendingDeleteFiles = [];
+}
+
+async function confirmDelete() {
+  const pw    = document.getElementById("delete-pw").value;
+  const errEl = document.getElementById("delete-err");
+  errEl.textContent = "";
+  const headers = {};
+  if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
+
+  let anyFailed = false;
+  for (const file of _pendingDeleteFiles) {
     try {
-      const res   = await fetch(`${PROXY}/gop/results`);
-      const items = await res.json();
-      const list  = document.getElementById("history-list");
-
-      // Populate tag datalist
-      const allTags = [...new Set(items.map(i=>i.tag).filter(Boolean))];
-      const dl = document.getElementById("tag-presets");
-      dl.innerHTML = allTags.map(t=>`<option value="${t}">`).join("");
-
-      if (!items.length) { list.innerHTML='<div class="hist-empty">No analyses yet</div>'; return; }
-
-      list.innerHTML = items.map(item => {
-        const host = (item.url||"").replace(/^srt:\/\//,"").split("?")[0];
-        const idrCls = item.has_idr ? "idr-ok" : "idr-fail";
-        const idrTxt = item.has_idr ? "✓ IDR" : "✗ No IDR";
-        const res    = `${item.v_width||"?"}×${item.v_height||"?"}`;
-        const bTxt   = item.has_b_frames ? "B-frames" : "No B";
-        return `<div class="hist-item" onclick="loadResult('${item.file}')">
-          <div class="hi-dest" title="${item.url}">${host}</div>
-          <div class="hi-sub">${item.v_codec||"?"} · GOP avg ${item.gop_avg}f${item.tag ? ' · ' + item.tag : ''}</div>
-          <div class="hi-badges">
-            <span class="hi-badge ${idrCls}">${idrTxt}</span>
-            <span class="hi-badge">${res}</span>
-            <span class="hi-badge" style="${item.has_b_frames?'color:var(--yellow)':''}">${bTxt}</span>
-          </div>
-        </div>`;
-      }).join("");
-    } catch(e) { console.error(e); }
-  }
-
-  async function loadResult(file) {
-    try {
-      const res  = await fetch(`${PROXY}/gop/result/${encodeURIComponent(file)}`);
+      const res  = await fetch(`${PROXY}/gop/delete/${encodeURIComponent(file)}`,
+                               { method:"DELETE", headers });
       const data = await res.json();
-      document.getElementById("placeholder").style.display = "none";
-      document.getElementById("log-card").style.display = "none";
-      renderResult(data);
-      setStatus("ok", `Loaded: ${file}`);
-    } catch(e) { setStatus("err", "Failed to load result."); }
+      if (res.status === 403) {
+        document.getElementById("delete-pw").classList.add("error");
+        errEl.textContent = "❌ Invalid password";
+        return;
+      }
+      if (!data.success) anyFailed = true;
+    } catch(e) { anyFailed = true; }
   }
 
-  // ── Progress ─────────────────────────────────────────────────────
-  function startProgress(dur) {
-    clearInterval(_progTimer);
-    let pct = 0;
-    const fill = document.getElementById("progress-fill");
-    fill.style.background = "var(--purple)";
-    _progTimer = setInterval(() => {
-      pct = pct + (95 - pct) * (1.2 / dur);
-      fill.style.width = Math.min(pct, 95) + "%";
-    }, 1000);
-  }
-  function stopProgress(ok) {
-    clearInterval(_progTimer);
-    const fill = document.getElementById("progress-fill");
-    fill.style.width = "100%";
-    fill.style.background = ok ? "var(--green)" : "var(--red)";
-    setTimeout(() => { fill.style.width = "0%"; fill.style.background = "var(--purple)"; }, 2000);
-  }
-
-  // ── Helpers ──────────────────────────────────────────────────────
-  function setStatus(type, msg) {
-    document.getElementById("dot").className           = "dot " + (type === "running" ? "running" : type === "ok" ? "ok" : "err");
-    document.getElementById("status-text").textContent = msg;
-  }
-  function fmtBytes(b) { if(b>1e9)return(b/1e9).toFixed(2)+"GB"; if(b>1e6)return(b/1e6).toFixed(1)+"MB"; return(b/1e3).toFixed(1)+"KB"; }
-  function fmtBps(b)   { if(b>1e6)return(b/1e6).toFixed(2)+" Mbps"; if(b>1e3)return(b/1e3).toFixed(0)+" Kbps"; return b+" bps"; }
-
-  loadConfig();
+  closeDeleteModal();
+  document.getElementById("bulk-bar").classList.remove("visible");
+  if (anyFailed) setStatus("err","Some files could not be deleted.");
   loadHistory();
+}
+
+// ── Progress ─────────────────────────────────────────────────────
+function startProgress(dur) {
+  clearInterval(_progTimer);
+  let pct = 0;
+  const fill = document.getElementById("progress-fill");
+  fill.style.background = "var(--purple)";
+  _progTimer = setInterval(() => {
+    pct = pct + (95 - pct) * (1.2 / dur);
+    fill.style.width = Math.min(pct, 95) + "%";
+  }, 1000);
+}
+function stopProgress(ok) {
+  clearInterval(_progTimer);
+  const fill = document.getElementById("progress-fill");
+  fill.style.width = "100%";
+  fill.style.background = ok ? "var(--green)" : "var(--red)";
+  setTimeout(() => { fill.style.width = "0%"; fill.style.background = "var(--purple)"; }, 2500);
+}
+
+function setStatus(t, m) {
+  document.getElementById("dot").className = "dot " + (t==="running"?"running":t==="ok"?"ok":"err");
+  document.getElementById("status-text").textContent = m;
+}
+function fmtBytes(b) { return b>1e9?(b/1e9).toFixed(2)+"GB":b>1e6?(b/1e6).toFixed(1)+"MB":(b/1e3).toFixed(0)+"KB"; }
+function fmtBps(b)   { return b>1e6?(b/1e6).toFixed(2)+" Mbps":b>1e3?(b/1e3).toFixed(0)+" Kbps":b+" bps"; }
+
+document.getElementById("delete-modal").addEventListener("click", function(e){ if(e.target===this)closeDeleteModal(); });
+
+loadConfig();
+loadHistory();
 </script>
 </body>
 </html>
