@@ -1,6 +1,6 @@
 import base64
 import requests
-from flask import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify, Response, send_from_directory
 from flask_cors import CORS
 from urllib.parse import quote
 
@@ -734,6 +734,370 @@ def ingest_report_file(filepath):
     filename = parts[1] if len(parts) > 1 else "index.html"
     report_dir = os.path.join(INGEST_RESULTS_DIR, dirname)
     return send_from_directory(report_dir, filename)
+
+
+
+# ═══════════════════════════════════════════════════════════
+#  GOP ANALYZER
+# ═══════════════════════════════════════════════════════════
+import tempfile
+
+_gop_jobs  = {}
+_gop_lock  = threading.Lock()
+GOP_DIR    = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gop-results")
+os.makedirs(GOP_DIR, exist_ok=True)
+
+
+def _run_gop_analysis(job_id, url, duration, passphrase, tag):
+    """Background: capture SRT stream, run ffprobe frame analysis, parse GOP structure."""
+    log_lines = []
+
+    def log(msg):
+        log_lines.append(msg)
+        with _gop_lock:
+            if job_id in _gop_jobs:
+                _gop_jobs[job_id]["log"] = list(log_lines)
+
+    # Strip passphrase for display
+    url_display = re.sub(r'[?&]passphrase=[^&]*', '', url).rstrip('?&')
+
+    try:
+        log(f"Starting GOP analysis for: {url_display}")
+        log(f"Capture duration: {duration}s")
+
+        with tempfile.NamedTemporaryFile(suffix=".ts", delete=False) as tmp:
+            ts_path = tmp.name
+
+        # ── Step 1: capture stream ────────────────────────────────────
+        log("Capturing stream with ffmpeg…")
+        cap_cmd = [
+            "ffmpeg", "-y",
+            "-i", url,
+            "-t", str(duration),
+            "-c", "copy",
+            "-f", "mpegts",
+            ts_path
+        ]
+        cap_result = subprocess.run(
+            cap_cmd,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            timeout=duration + 30
+        )
+        cap_out = cap_result.stdout.decode(errors="replace")
+        log("ffmpeg capture done (exit {})".format(cap_result.returncode))
+
+        if cap_result.returncode != 0 or not os.path.isfile(ts_path) or os.path.getsize(ts_path) < 1000:
+            log("ERROR: Stream capture failed or produced empty file.")
+            log(cap_out[-1000:])
+            with _gop_lock:
+                _gop_jobs[job_id].update({"status": "failed", "log": log_lines,
+                                          "ended_at": datetime.datetime.utcnow().isoformat() + "Z"})
+            return
+
+        file_size = os.path.getsize(ts_path)
+        log(f"Captured {file_size:,} bytes")
+
+        # ── Step 2: stream/container info via ffprobe ─────────────────
+        log("Running ffprobe for stream info…")
+        probe_cmd = [
+            "ffprobe", "-v", "quiet",
+            "-print_format", "json",
+            "-show_streams", "-show_format",
+            ts_path
+        ]
+        probe_result = subprocess.run(probe_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+        probe_data   = {}
+        try:
+            probe_data = json.loads(probe_result.stdout.decode())
+        except Exception:
+            pass
+
+        # ── Step 3: frame-by-frame analysis ──────────────────────────
+        log("Running ffprobe frame analysis…")
+        frame_cmd = [
+            "ffprobe", "-v", "quiet",
+            "-print_format", "json",
+            "-select_streams", "v:0",
+            "-show_frames",
+            "-read_intervals", "%+{}".format(duration),
+            ts_path
+        ]
+        frame_result = subprocess.run(frame_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60)
+        frames_data  = []
+        try:
+            fd = json.loads(frame_result.stdout.decode())
+            frames_data = fd.get("frames", [])
+        except Exception as e:
+            log(f"WARNING: Could not parse frame data: {e}")
+
+        log(f"Analysed {len(frames_data)} video frames")
+
+        # ── Parse GOP structure ───────────────────────────────────────
+        gops = []
+        current_gop = []
+        idr_count   = 0
+        total_frames = len(frames_data)
+
+        for frame in frames_data:
+            ptype = frame.get("pict_type", "?")
+            is_key = frame.get("key_frame", 0) == 1
+            pts_time = float(frame.get("pts_time", 0))
+
+            if is_key:
+                idr_count += 1
+                if current_gop:
+                    gops.append(current_gop)
+                current_gop = [{"type": ptype, "key": True, "pts": pts_time}]
+            else:
+                current_gop.append({"type": ptype, "key": False, "pts": pts_time})
+
+        if current_gop:
+            gops.append(current_gop)
+
+        # GOP statistics
+        gop_lengths  = [len(g) for g in gops]
+        gop_patterns = ["".join(f["type"] for f in g) for g in gops]
+
+        # B-frame detection
+        has_b_frames = any(f["type"] == "B" for g in gops for f in g)
+        b_frame_count = sum(1 for g in gops for f in g if f["type"] == "B")
+
+        # ── Extract info from streams ─────────────────────────────────
+        streams   = probe_data.get("streams", [])
+        fmt       = probe_data.get("format", {})
+        vid       = next((s for s in streams if s.get("codec_type") == "video"), {})
+        aud_list  = [s for s in streams if s.get("codec_type") == "audio"]
+        aud       = aud_list[0] if aud_list else {}
+
+        # File info
+        container  = fmt.get("format_long_name") or fmt.get("format_name", "unknown")
+        file_dur   = float(fmt.get("duration", 0))
+        file_br    = int(fmt.get("bit_rate", 0))
+        num_prog   = int(fmt.get("nb_programs", 1))
+        num_streams= int(fmt.get("nb_streams", len(streams)))
+
+        # Video
+        v_codec    = vid.get("codec_name", "unknown")
+        v_profile  = vid.get("profile", "unknown")
+        v_level    = vid.get("level", "?")
+        v_width    = vid.get("width", 0)
+        v_height   = vid.get("height", 0)
+        v_pix_fmt  = vid.get("pix_fmt", "unknown")
+        v_b_frames = vid.get("has_b_frames", 0)
+        v_refs     = vid.get("refs", "?")
+        v_br       = int(vid.get("bit_rate", 0))
+        v_color_sp = vid.get("color_space", "?")
+        v_color_tr = vid.get("color_transfer", "?")
+        v_field    = vid.get("field_order", "progressive")
+        v_bits     = vid.get("bits_per_raw_sample", "?")
+        # FPS
+        r_fps_raw  = vid.get("r_frame_rate", "0/1")
+        avg_fps_raw= vid.get("avg_frame_rate", "0/1")
+        def _fps(raw):
+            try:
+                n, d = raw.split("/")
+                v = float(n)/float(d)
+                return f"{raw} | {v:.3f}"
+            except Exception:
+                return raw
+        v_fps = _fps(r_fps_raw)
+        # Aspect ratio
+        dar = vid.get("display_aspect_ratio", "")
+        if not dar and v_width and v_height:
+            from math import gcd
+            g = gcd(v_width, v_height)
+            dar = f"{v_width//g}:{v_height//g}"
+        # Chroma subsampling
+        chroma_map = {"yuv420p": "4:2:0", "yuv422p": "4:2:2", "yuv444p": "4:4:4"}
+        v_chroma = chroma_map.get(v_pix_fmt, v_pix_fmt)
+
+        # Audio
+        a_codec   = aud.get("codec_name", "unknown")
+        a_profile = aud.get("profile", "?")
+        a_ch      = aud.get("channels", 0)
+        a_layout  = aud.get("channel_layout", "?")
+        a_rate    = aud.get("sample_rate", "?")
+        a_br      = int(aud.get("bit_rate", 0))
+        a_lang    = aud.get("tags", {}).get("language", "?")
+
+        # IDR check
+        has_idr = idr_count > 0
+        avg_gop = round(sum(gop_lengths) / len(gop_lengths), 1) if gop_lengths else 0
+        min_gop = min(gop_lengths) if gop_lengths else 0
+        max_gop = max(gop_lengths) if gop_lengths else 0
+
+        result = {
+            "url":         url_display,
+            "tag":         tag,
+            "file_size":   file_size,
+            "file_dur":    file_dur,
+            "file_br":     file_br,
+            "container":   container,
+            "num_programs":num_prog,
+            "num_streams": num_streams,
+            "have_video":  1 if vid else 0,
+            "have_audio":  len(aud_list),
+            # Video
+            "v_codec":     v_codec,
+            "v_profile":   v_profile,
+            "v_level":     f"{v_level/10:.1f}" if isinstance(v_level, int) and v_level > 9 else str(v_level),
+            "v_width":     v_width,
+            "v_height":    v_height,
+            "v_fps":       v_fps,
+            "v_pix_fmt":   v_pix_fmt,
+            "v_b_frames":  v_b_frames,
+            "v_refs":      v_refs,
+            "v_br":        v_br,
+            "v_color_sp":  f"{v_color_sp} | {v_color_tr}",
+            "v_field":     f"{v_field} | {v_field[:2]}",
+            "v_bits":      v_bits,
+            "v_chroma":    v_chroma,
+            "v_dar":       dar,
+            # Audio
+            "a_codec":     a_codec,
+            "a_profile":   a_profile,
+            "a_channels":  a_ch,
+            "a_layout":    f"{a_layout} | {' '.join(a_layout.replace('stereo','L R').split())}",
+            "a_rate":      a_rate,
+            "a_br":        a_br,
+            "a_lang":      a_lang,
+            "audio_tracks":len(aud_list),
+            # GOP
+            "has_idr":     has_idr,
+            "idr_count":   idr_count,
+            "total_frames":total_frames,
+            "has_b_frames":has_b_frames,
+            "b_frame_count":b_frame_count,
+            "gop_count":   len(gops),
+            "gop_avg":     avg_gop,
+            "gop_min":     min_gop,
+            "gop_max":     max_gop,
+            "gop_patterns":gop_patterns[:20],  # first 20 GOPs
+            "gops":        [[{"type":f["type"],"key":f["key"]} for f in g] for g in gops[:20]],
+        }
+
+        # Save result
+        ts_str   = datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        safe_url = re.sub(r"[^\w\-]", "_", url_display)[:40]
+        res_file = f"{ts_str}_{safe_url}.json"
+        res_path = os.path.join(GOP_DIR, res_file)
+        with open(res_path, "w") as f:
+            json.dump(result, f, indent=2)
+        log(f"Result saved: {res_file}")
+
+        # Clean up temp file
+        try: os.remove(ts_path)
+        except Exception: pass
+
+        ended_at = datetime.datetime.utcnow().isoformat() + "Z"
+        with _gop_lock:
+            _gop_jobs[job_id].update({
+                "status":   "done",
+                "ended_at": ended_at,
+                "result":   result,
+                "res_file": res_file,
+                "log":      log_lines,
+            })
+
+    except subprocess.TimeoutExpired:
+        log("ERROR: Analysis timed out.")
+        with _gop_lock:
+            _gop_jobs[job_id].update({"status": "timeout", "log": log_lines,
+                                      "ended_at": datetime.datetime.utcnow().isoformat() + "Z"})
+    except Exception as e:
+        log(f"ERROR: {e}")
+        with _gop_lock:
+            _gop_jobs[job_id].update({"status": "error", "log": log_lines,
+                                      "ended_at": datetime.datetime.utcnow().isoformat() + "Z"})
+
+
+@app.route("/gop/run", methods=["POST"])
+def gop_run():
+    data       = request.get_json(silent=True) or {}
+    url        = (data.get("url") or "").strip()
+    duration   = min(int(data.get("duration") or 30), 120)
+    passphrase = (data.get("passphrase") or "").strip()
+    tag        = (data.get("tag") or "").strip()
+    if not url:
+        return jsonify({"error": "url is required"}), 400
+
+    # Inject passphrase into SRT URL if provided and not already there
+    if passphrase and "passphrase=" not in url:
+        sep = "&" if "?" in url else "?"
+        url = f"{url}{sep}passphrase={passphrase}"
+
+    job_id = str(uuid.uuid4())[:8]
+    started_at = datetime.datetime.utcnow().isoformat() + "Z"
+
+    with _gop_lock:
+        _gop_jobs[job_id] = {
+            "job_id":     job_id,
+            "status":     "running",
+            "started_at": started_at,
+            "ended_at":   None,
+            "url":        re.sub(r'[?&]passphrase=[^&]*', '', url).rstrip('?&'),
+            "tag":        tag,
+            "result":     None,
+            "log":        [],
+        }
+
+    t = threading.Thread(target=_run_gop_analysis,
+                         args=(job_id, url, duration, passphrase, tag), daemon=True)
+    t.start()
+    return jsonify({"job_id": job_id})
+
+
+@app.route("/gop/status/<job_id>", methods=["GET"])
+def gop_status(job_id):
+    with _gop_lock:
+        job = _gop_jobs.get(job_id)
+    if not job:
+        return jsonify({"error": "Job not found"}), 404
+    return jsonify(job)
+
+
+@app.route("/gop/results", methods=["GET"])
+def gop_results():
+    files = sorted([f for f in os.listdir(GOP_DIR) if f.endswith(".json")], reverse=True)
+    items = []
+    for f in files[:30]:
+        try:
+            with open(os.path.join(GOP_DIR, f)) as fh:
+                d = json.load(fh)
+            items.append({
+                "file":      f,
+                "url":       d.get("url", ""),
+                "tag":       d.get("tag", ""),
+                "has_idr":   d.get("has_idr", False),
+                "has_b_frames": d.get("has_b_frames", False),
+                "gop_avg":   d.get("gop_avg", 0),
+                "v_codec":   d.get("v_codec", ""),
+                "v_width":   d.get("v_width", 0),
+                "v_height":  d.get("v_height", 0),
+            })
+        except Exception:
+            pass
+    return jsonify(items)
+
+
+@app.route("/gop/result/<path:filename>", methods=["GET"])
+def gop_result_file(filename):
+    return send_from_directory(GOP_DIR, filename)
+
+
+@app.route("/gop/delete/<path:filename>", methods=["DELETE"])
+def gop_delete(filename):
+    ok, err = _check_password(request)
+    if not ok:
+        return err
+    filepath = os.path.join(GOP_DIR, filename)
+    if not os.path.isfile(filepath):
+        return jsonify({"error": "File not found"}), 404
+    try:
+        os.remove(filepath)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 if __name__ == "__main__":

@@ -99,7 +99,8 @@ PHENIXRTS_PASSWORD=your-password
 
 | Version | Date       | Changes |
 |---------|------------|---------|
-| 2.4.0   | 2026-04-14 | MTR: ICMP/UDP-53 protocol toggle, Country/ASN geo toggle, -b flag (IPs alongside names), proto+geo in header and history |
+| 2.5.0   | 2026-04-14 | New: GOP Analyzer — SRT capture, IDR detection, GOP structure visualizer (I/P/B/S), full stream info |
+| 2.4.0   | 2026-04-14 | MTR: ICMP/UDP-53 toggle, Country/ASN geo, -b flag |
 | 2.3.0   | 2026-04-13 | Proxy renamed to so-proxy; ADMIN_PASSWORD; MTR host sanity check; README modal |
 | 2.2.0   | 2026-04-10 | MTR kill/delete with confirmation, date picker filter, history panels |
 | 2.1.0   | 2026-04-10 | MTR: history filters, multi-tag, Date End + HH:MM:SS duration, Time mode left, copy fix |
@@ -117,7 +118,7 @@ PHENIXRTS_PASSWORD=your-password
 | 1.1.0   | 2026-03-25 | Full English translation + rich GUI |
 | 1.0.0   | 2026-03-25 | Initial PhenixRTS Channel Health Monitor |
 
-**Current Version: 2.4.0**
+**Current Version: 2.5.0**
 
 ---
 

@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GOP Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Barlow:wght@300;400;600;700&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:      #080c10; --bg2: #0d1117; --bg3: #161b22;
+    --border:  #21262d;
+    --green:   #3fb950; --green-d: #1a3d20;
+    --cyan:    #58a6ff; --cyan-d: #0d2035;
+    --yellow:  #e3b341; --yellow-d: #2d2200;
+    --red:     #f85149; --red-d: #2d0a0a;
+    --purple:  #bc8cff; --purple-d: #1e1035;
+    --orange:  #f0883e;
+    --text:    #c9d1d9; --muted: #484f58;
+    --mono:    'JetBrains Mono', monospace;
+    --sans:    'Barlow', sans-serif;
+  }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; overflow: hidden; }
+  #app { display: flex; flex-direction: column; height: 100vh; padding: .85rem 1.1rem; gap: .65rem; }
+
+  /* ── Topbar ── */
+  .topbar { display: flex; align-items: center; gap: .75rem; flex-shrink: 0; border-bottom: 1px solid var(--border); padding-bottom: .65rem; }
+  .topbar h1 { font-family: var(--mono); font-size: .9rem; font-weight: 700; color: #fff; white-space: nowrap; }
+  .topbar h1 span { color: var(--purple); }
+  .topbar-sub { font-family: var(--mono); font-size: .62rem; color: var(--muted); }
+
+  /* ── Form ── */
+  .form-row { display: flex; gap: .65rem; align-items: flex-end; flex-shrink: 0; flex-wrap: wrap; }
+  .field { display: flex; flex-direction: column; gap: .28rem; }
+  .field.grow { flex: 1; min-width: 180px; }
+  .field.w90 { width: 90px; } .field.w120 { width: 120px; } .field.w200 { width: 200px; }
+  label { font-family: var(--mono); font-size: .58rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  input[type="text"], input[type="number"], input[type="password"], select {
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 5px;
+    padding: .45rem .65rem; color: #fff; font-family: var(--mono); font-size: .82rem;
+    outline: none; transition: border-color .15s; width: 100%;
+  }
+  input:focus, select:focus { border-color: var(--purple); }
+  input.from-env { border-color: rgba(63,185,80,.5); background: rgba(63,185,80,.05); }
+  .btn-run { background: var(--purple); color: #000; border: none; border-radius: 5px; padding: 0 1.2rem; font-family: var(--mono); font-size: .76rem; font-weight: 700; cursor: pointer; height: 34px; white-space: nowrap; align-self: flex-end; transition: opacity .15s; }
+  .btn-run:hover { opacity: .85; } .btn-run:disabled { opacity: .35; cursor: not-allowed; }
+
+  /* ── Main layout ── */
+  .main-area { flex: 1; display: flex; gap: .65rem; min-height: 0; }
+
+  /* ── Left: result panel ── */
+  .result-panel { flex: 1; display: flex; flex-direction: column; min-height: 0; gap: .5rem; overflow-y: auto; }
+  .result-panel::-webkit-scrollbar { width: 4px; }
+  .result-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* Status bar */
+  .status-bar { display: flex; align-items: center; gap: .5rem; padding: .38rem .75rem; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; flex-shrink: 0; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+  .dot.running { background: var(--yellow); animation: blink .8s ease-in-out infinite; }
+  .dot.ok { background: var(--green); } .dot.err { background: var(--red); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .status-text { font-family: var(--mono); font-size: .65rem; color: var(--muted); flex: 1; }
+  #progress-bar { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; width: 120px; flex-shrink: 0; }
+  #progress-fill { height: 100%; width: 0%; background: var(--purple); transition: width 1s linear; }
+
+  /* Cards */
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 7px; overflow: hidden; flex-shrink: 0; }
+  .card-title { font-family: var(--mono); font-size: .6rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding: .4rem .75rem; background: var(--bg3); border-bottom: 1px solid var(--border); }
+
+  /* Info table — like the reference screenshot */
+  .info-table { width: 100%; }
+  .info-row { display: flex; align-items: baseline; padding: .28rem .75rem; border-bottom: 1px solid rgba(255,255,255,.03); font-family: var(--mono); font-size: .72rem; }
+  .info-row:last-child { border-bottom: none; }
+  .info-row.section { background: var(--bg3); }
+  .info-key { color: var(--muted); flex: 0 0 200px; white-space: nowrap; }
+  .info-val { color: var(--text); flex: 1; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .info-val.green { color: var(--green); }
+  .info-val.red   { color: var(--red); }
+  .info-val.yellow{ color: var(--yellow); }
+  .info-val.cyan  { color: var(--cyan); }
+  .info-val.purple{ color: var(--purple); }
+
+  /* IDR badge */
+  .idr-badge { display: inline-flex; align-items: center; gap: .4rem; padding: .6rem 1rem; border-radius: 6px; font-family: var(--mono); font-size: .8rem; font-weight: 700; }
+  .idr-badge.pass { background: var(--green-d); border: 1px solid var(--green); color: var(--green); }
+  .idr-badge.fail { background: var(--red-d);   border: 1px solid var(--red);   color: var(--red); }
+
+  /* GOP visualizer */
+  .gop-viz { padding: .6rem .75rem .75rem; display: flex; flex-direction: column; gap: .5rem; }
+  .gop-row { display: flex; align-items: center; gap: .3rem; flex-wrap: wrap; }
+  .gop-label { font-family: var(--mono); font-size: .6rem; color: var(--muted); width: 52px; flex-shrink: 0; }
+  .gop-frames { display: flex; gap: 2px; flex-wrap: wrap; }
+  .gop-frame { width: 14px; height: 22px; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: .52rem; font-weight: 700; cursor: default; transition: transform .1s; flex-shrink: 0; }
+  .gop-frame:hover { transform: scaleY(1.2); }
+  .gop-frame.I { background: var(--green);  color: #000; }
+  .gop-frame.P { background: var(--cyan);   color: #000; }
+  .gop-frame.B { background: var(--yellow); color: #000; }
+  .gop-frame.S { background: var(--purple); color: #000; }
+  .gop-frame.? { background: var(--muted);  color: #000; }
+  .gop-pattern { font-family: var(--mono); font-size: .65rem; color: var(--muted); margin-left: 4px; }
+  .gop-stats { display: flex; gap: 1rem; flex-wrap: wrap; padding: .5rem .75rem; background: var(--bg3); border-top: 1px solid var(--border); }
+  .gop-stat { font-family: var(--mono); font-size: .68rem; }
+  .gop-stat span { color: var(--purple); font-weight: 700; }
+
+  /* Log panel */
+  #log-output { flex: 1; overflow-y: auto; padding: .65rem .75rem; font-family: var(--mono); font-size: .68rem; line-height: 1.7; color: var(--muted); white-space: pre-wrap; min-height: 80px; max-height: 180px; }
+  #log-output::-webkit-scrollbar { width: 4px; }
+  #log-output::-webkit-scrollbar-thumb { background: var(--border); }
+
+  /* Legend */
+  .legend { display: flex; gap: .75rem; padding: .4rem .75rem; flex-wrap: wrap; }
+  .leg-item { display: flex; align-items: center; gap: .3rem; font-family: var(--mono); font-size: .62rem; color: var(--muted); }
+  .leg-dot { width: 10px; height: 10px; border-radius: 2px; }
+
+  /* ── Right: history panel ── */
+  .history-panel { width: 300px; flex-shrink: 0; display: flex; flex-direction: column; background: var(--bg2); border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+  .history-header { padding: .42rem .75rem; background: var(--bg3); border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: .65rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+  .btn-sm { background: transparent; border: none; color: var(--muted); font-family: var(--mono); font-size: .7rem; cursor: pointer; padding: 0; }
+  .btn-sm:hover { color: var(--cyan); }
+  .history-list { flex: 1; overflow-y: auto; }
+  .history-list::-webkit-scrollbar { width: 4px; }
+  .history-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .hist-item { padding: .55rem .75rem; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .12s; }
+  .hist-item:hover { background: var(--bg3); }
+  .hi-dest { font-family: var(--mono); font-size: .72rem; color: #fff; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hi-sub  { font-family: var(--mono); font-size: .6rem; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hi-badges { display: flex; gap: .3rem; margin-top: 4px; flex-wrap: wrap; }
+  .hi-badge { font-family: var(--mono); font-size: .58rem; padding: 1px 5px; border-radius: 3px; border: 1px solid var(--border); background: var(--bg); }
+  .hi-badge.idr-ok { color: var(--green); border-color: var(--green); background: var(--green-d); }
+  .hi-badge.idr-fail { color: var(--red); border-color: var(--red); background: var(--red-d); }
+  .hist-empty { padding: 1.5rem; text-align: center; font-family: var(--mono); font-size: .65rem; color: var(--muted); }
+
+  /* Empty/placeholder state */
+  .placeholder { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: .5rem; flex: 1; opacity: .3; }
+  .placeholder svg { width: 48px; height: 48px; }
+  .placeholder p { font-family: var(--mono); font-size: .72rem; color: var(--muted); }
+
+  /* Two-column info layout for larger screens */
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+  @media (max-width: 900px) { .info-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="topbar">
+    <h1>GOP <span>//</span> Analyzer</h1>
+    <span class="topbar-sub">captures 30s SRT stream · ffprobe frame analysis · IDR / GOP structure</span>
+  </div>
+
+  <div class="form-row">
+    <div class="field grow">
+      <label>Host / IP</label>
+      <input id="inp-host" type="text" placeholder="10.0.0.1" autocomplete="off" list="srt-host-presets" />
+      <datalist id="srt-host-presets"></datalist>
+    </div>
+    <div class="field w90">
+      <label>Port</label>
+      <input id="inp-port" type="number" placeholder="9000" min="1" max="65535" />
+    </div>
+    <div class="field w90">
+      <label>Latency ms</label>
+      <input id="inp-latency" type="number" placeholder="120" min="0" />
+    </div>
+    <div class="field w200">
+      <label>Passphrase <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+      <input id="inp-pass" type="text" placeholder="leave blank if none"
+        autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false"
+        style="-webkit-text-security:disc;font-family:var(--mono)" />
+    </div>
+    <div class="field w120">
+      <label>Duration</label>
+      <select id="inp-dur">
+        <option value="15">15 seconds</option>
+        <option value="30" selected>30 seconds</option>
+        <option value="60">60 seconds</option>
+      </select>
+    </div>
+    <div class="field w200">
+      <label>Tag <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+      <input id="inp-tag" type="text" placeholder="e.g. test, JIRA-123" autocomplete="off" list="tag-presets" />
+      <datalist id="tag-presets"></datalist>
+    </div>
+    <button class="btn-run" id="btn-run" onclick="runAnalysis()">▶ Analyze</button>
+  </div>
+
+  <div class="main-area">
+    <!-- Result panel -->
+    <div class="result-panel" id="result-panel">
+      <!-- Status bar always visible -->
+      <div class="status-bar" id="status-bar">
+        <span class="dot" id="dot"></span>
+        <span class="status-text" id="status-text">Ready — fill in the SRT details and click Analyze</span>
+        <div id="progress-bar"><div id="progress-fill"></div></div>
+      </div>
+
+      <!-- Placeholder -->
+      <div class="placeholder" id="placeholder">
+        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="2" y="8" width="44" height="32" rx="3" stroke="#484f58" stroke-width="2"/>
+          <rect x="7"  y="15" width="6" height="18" rx="1" fill="#3fb950"/>
+          <rect x="16" y="20" width="6" height="13" rx="1" fill="#58a6ff"/>
+          <rect x="25" y="23" width="6" height="10" rx="1" fill="#e3b341"/>
+          <rect x="34" y="20" width="6" height="13" rx="1" fill="#58a6ff"/>
+        </svg>
+        <p>No analysis yet</p>
+      </div>
+
+      <!-- Log (shown while running) -->
+      <div class="card" id="log-card" style="display:none">
+        <div class="card-title">Analysis Log</div>
+        <div id="log-output"></div>
+      </div>
+
+      <!-- Results (shown when done) -->
+      <div id="results-content" style="display:none">
+
+        <!-- IDR check + summary -->
+        <div class="card">
+          <div class="card-title">IDR / Key Frame Check</div>
+          <div style="padding:.65rem .75rem;display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
+            <div class="idr-badge" id="idr-badge">…</div>
+            <div style="font-family:var(--mono);font-size:.68rem;color:var(--muted);line-height:1.8" id="idr-detail">…</div>
+          </div>
+        </div>
+
+        <!-- Stream info -->
+        <div class="info-grid">
+          <div class="card">
+            <div class="card-title">Container / File</div>
+            <div class="info-table" id="tbl-container"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Video Stream [V]</div>
+            <div class="info-table" id="tbl-video"></div>
+          </div>
+        </div>
+        <div class="info-grid">
+          <div class="card">
+            <div class="card-title">Audio Stream [A]</div>
+            <div class="info-table" id="tbl-audio"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">GOP Statistics</div>
+            <div class="info-table" id="tbl-gop-stats"></div>
+          </div>
+        </div>
+
+        <!-- GOP visualizer -->
+        <div class="card">
+          <div class="card-title">GOP Structure Visualizer</div>
+          <div class="legend">
+            <div class="leg-item"><div class="leg-dot" style="background:var(--green)"></div>I — Intra (IDR/key)</div>
+            <div class="leg-item"><div class="leg-dot" style="background:var(--cyan)"></div>P — Predicted</div>
+            <div class="leg-item"><div class="leg-dot" style="background:var(--yellow)"></div>B — Bi-directional</div>
+            <div class="leg-item"><div class="leg-dot" style="background:var(--purple)"></div>S — other</div>
+          </div>
+          <div class="gop-viz" id="gop-viz"></div>
+          <div class="gop-stats" id="gop-stats-bar"></div>
+        </div>
+
+      </div><!-- /results-content -->
+    </div>
+
+    <!-- History panel -->
+    <div class="history-panel">
+      <div class="history-header">
+        History
+        <button class="btn-sm" onclick="loadHistory()">↻</button>
+      </div>
+      <div class="history-list" id="history-list">
+        <div class="hist-empty">No analyses yet</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script>
+  const PROXY = "/so-proxy";
+  let pollTimer = null;
+  let _progTimer = null;
+  let _srtPresets = {};
+
+  // ── Boot ─────────────────────────────────────────────────────────
+  async function loadConfig() {
+    try {
+      const res  = await fetch(`${PROXY}/config`);
+      const data = await res.json();
+      const env  = data.config || {};
+
+      // SRT_LOCAL_* presets → host datalist
+      const dl = document.getElementById("srt-host-presets");
+      dl.innerHTML = "";
+      _srtPresets = {};
+      Object.keys(env).filter(k => /^SRT_LOCAL_\d+$/.test(k))
+        .sort((a,b) => parseInt(a.split("_")[2]) - parseInt(b.split("_")[2]))
+        .forEach(k => {
+          const [ip, label] = env[k].split("|").map(s => s.trim());
+          if (!ip) return;
+          _srtPresets[ip] = label || ip;
+          const opt = document.createElement("option");
+          opt.value = ip; opt.textContent = label || ip;
+          dl.appendChild(opt);
+        });
+
+      // Pre-fill passphrase
+      if (env.SRT_PASSPHRASE) {
+        const el = document.getElementById("inp-pass");
+        el.value = env.SRT_PASSPHRASE;
+        el.classList.add("from-env");
+        el.addEventListener("input", function() { this.classList.remove("from-env"); }, { once: true });
+      }
+    } catch(e) { console.warn("Config load failed:", e); }
+  }
+
+  // ── Run analysis ─────────────────────────────────────────────────
+  async function runAnalysis() {
+    const host = document.getElementById("inp-host").value.trim();
+    const port = document.getElementById("inp-port").value.trim();
+    const lat  = document.getElementById("inp-latency").value.trim();
+    const pass = document.getElementById("inp-pass").value.trim();
+    const dur  = parseInt(document.getElementById("inp-dur").value) || 30;
+    const tag  = document.getElementById("inp-tag").value.trim();
+
+    if (!host || !port) { setStatus("err", "Host and Port are required."); return; }
+
+    // Build SRT URL
+    let url = `srt://${host}:${port}?mode=caller`;
+    if (lat)  url += `&latency=${lat}`;
+    // passphrase injected server-side
+
+    document.getElementById("btn-run").disabled = true;
+    document.getElementById("placeholder").style.display = "none";
+    document.getElementById("results-content").style.display = "none";
+    document.getElementById("log-card").style.display = "";
+    document.getElementById("log-output").textContent = "";
+    startProgress(dur);
+    setStatus("running", `Capturing ${dur}s from ${host}:${port}…`);
+
+    try {
+      const res  = await fetch(`${PROXY}/gop/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, duration: dur, passphrase: pass, tag })
+      });
+      const data = await res.json();
+      if (!data.job_id) throw new Error(data.error || "No job_id returned");
+      pollStatus(data.job_id, dur);
+    } catch(e) {
+      setStatus("err", `Error: ${e.message}`);
+      document.getElementById("btn-run").disabled = false;
+      stopProgress(false);
+    }
+  }
+
+  function pollStatus(job_id, dur) {
+    clearInterval(pollTimer);
+    pollTimer = setInterval(async () => {
+      try {
+        const res  = await fetch(`${PROXY}/gop/status/${job_id}`);
+        const job  = await res.json();
+
+        // Update log
+        const logEl = document.getElementById("log-output");
+        logEl.textContent = (job.log || []).join("\n");
+        logEl.scrollTop = logEl.scrollHeight;
+
+        if (job.status === "running") return;
+
+        clearInterval(pollTimer); pollTimer = null;
+        stopProgress(job.status === "done");
+        document.getElementById("btn-run").disabled = false;
+
+        if (job.status === "done" && job.result) {
+          renderResult(job.result);
+          setStatus("ok", `Analysis complete for ${job.result.url}`);
+          loadHistory();
+        } else {
+          setStatus("err", `Analysis ${job.status}. Check log above.`);
+        }
+      } catch(e) { console.error(e); }
+    }, 1500);
+  }
+
+  // ── Render result ────────────────────────────────────────────────
+  function renderResult(r) {
+    document.getElementById("results-content").style.display = "";
+    document.getElementById("log-card").style.display = "none";
+
+    // IDR check
+    const idrBadge = document.getElementById("idr-badge");
+    if (r.has_idr) {
+      idrBadge.className = "idr-badge pass";
+      idrBadge.textContent = `✓ IDR Frames Present`;
+    } else {
+      idrBadge.className = "idr-badge fail";
+      idrBadge.textContent = `✗ No IDR Frames Detected`;
+    }
+    document.getElementById("idr-detail").innerHTML = [
+      `IDR / Key frames found: <strong style="color:${r.has_idr?'var(--green)':'var(--red)'}">${r.idr_count}</strong>`,
+      `Total video frames analysed: <strong>${r.total_frames}</strong>`,
+      `B-frames: <strong style="color:${r.has_b_frames?'var(--yellow)':'var(--green)'}">` +
+        `${r.has_b_frames ? 'YES (' + r.b_frame_count + ' frames)' : 'No'}</strong>`,
+      `GOPs detected: <strong>${r.gop_count}</strong>`,
+    ].join("<br>");
+
+    // Container table
+    tableRows("tbl-container", [
+      ["File",               r.res_file || "—", "muted"],
+      ["Container",          r.container, "cyan"],
+      ["File Size",          r.file_size ? fmtBytes(r.file_size) : "—"],
+      ["File Duration",      r.file_dur  ? r.file_dur.toFixed(3) + "s" : "—"],
+      ["File Bitrate",       r.file_br   ? fmtBps(r.file_br) : "—"],
+      ["Number of programs", r.num_programs],
+      ["Number of streams",  r.num_streams],
+      ["Have Video",         r.have_video],
+      ["Have Audio",         r.have_audio],
+    ]);
+
+    // Video table
+    tableRows("tbl-video", [
+      ["[V] Codec",          (r.v_codec||"?").toUpperCase() + " | " + (r.v_codec||"?"), "green"],
+      ["[V] Codec Profile",  r.v_profile, r.v_profile === "High" ? "yellow" : ""],
+      ["[V] Codec Level",    r.v_level],
+      ["[V] Width",          r.v_width],
+      ["[V] Height",         r.v_height],
+      ["[V] Aspect Ratio",   r.v_dar || "—"],
+      ["[V] B Frames",       r.v_b_frames, r.v_b_frames > 0 ? "yellow" : "green"],
+      ["[V] Reference Frames", r.v_refs],
+      ["[V] FPS",            r.v_fps],
+      ["[V] Field Order",    r.v_field],
+      ["[V] Pixel Format",   r.v_pix_fmt],
+      ["[V] Color Space",    r.v_color_sp],
+      ["[V] Bits per Sample",r.v_bits],
+      ["[V] ChromaSubSample",r.v_chroma],
+      ["[V] Bitrate",        r.v_br ? fmtBps(r.v_br) : "—"],
+    ]);
+
+    // Audio table
+    const audioRows = [
+      ["[A] Codec",          (r.a_codec||"?").toUpperCase(), r.a_codec === "aac" ? "green" : "yellow"],
+      ["[A] Profile",        r.a_profile],
+      ["[A] Channels",       r.a_channels],
+      ["[A] Layout",         r.a_layout],
+      ["[A] Sampling Rate",  r.a_rate ? r.a_rate + " Hz" : "—"],
+      ["[A] Bitrate",        r.a_br ? fmtBps(r.a_br) : "—"],
+      ["[A] Language",       r.a_lang],
+      ["[A] Total Audio Tracks", r.audio_tracks, r.audio_tracks > 2 ? "yellow" : ""],
+    ];
+    tableRows("tbl-audio", audioRows);
+
+    // GOP stats table
+    tableRows("tbl-gop-stats", [
+      ["IDR / Key frames",   r.idr_count, r.has_idr ? "green" : "red"],
+      ["Total GOPs",         r.gop_count],
+      ["GOP size avg",       r.gop_avg + " frames"],
+      ["GOP size min",       r.gop_min + " frames"],
+      ["GOP size max",       r.gop_max + " frames"],
+      ["Has B-frames",       r.has_b_frames ? "YES" : "No", r.has_b_frames ? "yellow" : "green"],
+      ["B-frame count",      r.b_frame_count],
+      ["Total frames",       r.total_frames],
+    ]);
+
+    // GOP visualizer
+    renderGopViz(r.gops || [], r.gop_patterns || []);
+  }
+
+  function tableRows(id, rows) {
+    const el = document.getElementById(id);
+    el.innerHTML = rows.map(([key, val, cls]) => {
+      const c = cls ? ` class="info-val ${cls}"` : ` class="info-val"`;
+      return `<div class="info-row"><span class="info-key">${key}</span><span${c}>${val ?? "—"}</span></div>`;
+    }).join("");
+  }
+
+  function renderGopViz(gops, patterns) {
+    const el = document.getElementById("gop-viz");
+    if (!gops.length) { el.innerHTML = '<div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);padding:.5rem">No GOP data available</div>'; return; }
+
+    el.innerHTML = gops.map((frames, i) => {
+      const frameHtml = frames.map(f => {
+        const cls = ["I","P","B"].includes(f.type) ? f.type : "S";
+        const title = f.key ? "Key/IDR frame" : `${f.type} frame`;
+        return `<div class="gop-frame ${cls}" title="${title}">${f.type}</div>`;
+      }).join("");
+      const pattern = patterns[i] || frames.map(f=>f.type).join("");
+      const shortPat = pattern.length > 30 ? pattern.slice(0,28)+"…" : pattern;
+      return `<div class="gop-row">
+        <div class="gop-label">GOP ${i+1}</div>
+        <div class="gop-frames">${frameHtml}</div>
+        <div class="gop-pattern">${shortPat} (${frames.length}f)</div>
+      </div>`;
+    }).join("");
+
+    // Stats bar
+    const allLengths = gops.map(g => g.length);
+    const avg = (allLengths.reduce((a,b)=>a+b,0)/allLengths.length).toFixed(1);
+    const bCount = gops.flat().filter(f=>f.type==="B").length;
+    const iCount = gops.flat().filter(f=>f.key).length;
+    const pCount = gops.flat().filter(f=>f.type==="P").length;
+    document.getElementById("gop-stats-bar").innerHTML = [
+      `GOPs shown: <span>${gops.length}</span>`,
+      `Avg size: <span>${avg} frames</span>`,
+      `I frames: <span style="color:var(--green)">${iCount}</span>`,
+      `P frames: <span style="color:var(--cyan)">${pCount}</span>`,
+      `B frames: <span style="color:var(--yellow)">${bCount}</span>`,
+    ].map(s=>`<div class="gop-stat">${s}</div>`).join("");
+  }
+
+  // ── History ──────────────────────────────────────────────────────
+  async function loadHistory() {
+    try {
+      const res   = await fetch(`${PROXY}/gop/results`);
+      const items = await res.json();
+      const list  = document.getElementById("history-list");
+
+      // Populate tag datalist
+      const allTags = [...new Set(items.map(i=>i.tag).filter(Boolean))];
+      const dl = document.getElementById("tag-presets");
+      dl.innerHTML = allTags.map(t=>`<option value="${t}">`).join("");
+
+      if (!items.length) { list.innerHTML='<div class="hist-empty">No analyses yet</div>'; return; }
+
+      list.innerHTML = items.map(item => {
+        const host = (item.url||"").replace(/^srt:\/\//,"").split("?")[0];
+        const idrCls = item.has_idr ? "idr-ok" : "idr-fail";
+        const idrTxt = item.has_idr ? "✓ IDR" : "✗ No IDR";
+        const res    = `${item.v_width||"?"}×${item.v_height||"?"}`;
+        const bTxt   = item.has_b_frames ? "B-frames" : "No B";
+        return `<div class="hist-item" onclick="loadResult('${item.file}')">
+          <div class="hi-dest" title="${item.url}">${host}</div>
+          <div class="hi-sub">${item.v_codec||"?"} · GOP avg ${item.gop_avg}f${item.tag ? ' · ' + item.tag : ''}</div>
+          <div class="hi-badges">
+            <span class="hi-badge ${idrCls}">${idrTxt}</span>
+            <span class="hi-badge">${res}</span>
+            <span class="hi-badge" style="${item.has_b_frames?'color:var(--yellow)':''}">${bTxt}</span>
+          </div>
+        </div>`;
+      }).join("");
+    } catch(e) { console.error(e); }
+  }
+
+  async function loadResult(file) {
+    try {
+      const res  = await fetch(`${PROXY}/gop/result/${encodeURIComponent(file)}`);
+      const data = await res.json();
+      document.getElementById("placeholder").style.display = "none";
+      document.getElementById("log-card").style.display = "none";
+      renderResult(data);
+      setStatus("ok", `Loaded: ${file}`);
+    } catch(e) { setStatus("err", "Failed to load result."); }
+  }
+
+  // ── Progress ─────────────────────────────────────────────────────
+  function startProgress(dur) {
+    clearInterval(_progTimer);
+    let pct = 0;
+    const fill = document.getElementById("progress-fill");
+    fill.style.background = "var(--purple)";
+    _progTimer = setInterval(() => {
+      pct = pct + (95 - pct) * (1.2 / dur);
+      fill.style.width = Math.min(pct, 95) + "%";
+    }, 1000);
+  }
+  function stopProgress(ok) {
+    clearInterval(_progTimer);
+    const fill = document.getElementById("progress-fill");
+    fill.style.width = "100%";
+    fill.style.background = ok ? "var(--green)" : "var(--red)";
+    setTimeout(() => { fill.style.width = "0%"; fill.style.background = "var(--purple)"; }, 2000);
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────
+  function setStatus(type, msg) {
+    document.getElementById("dot").className           = "dot " + (type === "running" ? "running" : type === "ok" ? "ok" : "err");
+    document.getElementById("status-text").textContent = msg;
+  }
+  function fmtBytes(b) { if(b>1e9)return(b/1e9).toFixed(2)+"GB"; if(b>1e6)return(b/1e6).toFixed(1)+"MB"; return(b/1e3).toFixed(1)+"KB"; }
+  function fmtBps(b)   { if(b>1e6)return(b/1e6).toFixed(2)+" Mbps"; if(b>1e3)return(b/1e3).toFixed(0)+" Kbps"; return b+" bps"; }
+
+  loadConfig();
+  loadHistory();
+</script>
+</body>
+</html>
