@@ -958,7 +958,17 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
         v_pix_fmt   = vid.get("pix_fmt", "unknown")
         v_b_frames  = vid.get("has_b_frames", 0)
         v_refs      = vid.get("refs", "?")
-        v_br        = int(vid.get("bit_rate", 0) or 0)
+        v_br_raw    = vid.get("bit_rate")
+        v_br        = int(v_br_raw or 0)
+        # If stream-level bitrate not available (common in MPEG-TS), estimate from format
+        # Subtract estimated audio from total file bitrate
+        a_br_raw    = aud.get("bit_rate")
+        a_br        = int(a_br_raw or 0)
+        if v_br == 0 and file_br:
+            a_br_est = a_br if a_br else 192000 * len(aud_list)
+            v_br = max(0, file_br - a_br_est)
+        if a_br == 0 and file_br and v_br:
+            a_br = max(0, file_br - v_br)
         v_color_sp  = vid.get("color_space", "unknown")
         v_color_tr  = vid.get("color_transfer", "unknown")
         v_field     = vid.get("field_order", "progressive")
@@ -996,9 +1006,15 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
         a_ch       = aud.get("channels", 0)
         a_layout   = aud.get("channel_layout", "?")
         a_rate     = aud.get("sample_rate", "?")
-        a_br       = int(aud.get("bit_rate", 0) or 0)
         a_lang     = aud.get("tags", {}).get("language", "?")
-        a_bps      = aud.get("bits_per_raw_sample") or aud.get("bits_per_coded_sample") or "?"
+        # Audio bits per sample: AAC uses float (fltp), ffprobe reports 0 → normalise
+        a_bps_raw  = aud.get("bits_per_raw_sample") or aud.get("bits_per_coded_sample")
+        if a_bps_raw and int(a_bps_raw) > 0:
+            a_bps  = str(int(a_bps_raw))
+        elif a_codec in ("aac", "mp3", "mp2", "mp1", "opus", "vorbis"):
+            a_bps  = "FLTP"   # float planar — correct for AAC-LC
+        else:
+            a_bps  = "?"
         a_br_kbps  = round(a_br / 1000) if a_br else 0
 
         # VBR/CBR heuristic from codec context (not always available in ts)
@@ -1070,7 +1086,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
             "a_channels":      comply(a_ch, (2, 2)),
             "a_rate_ctrl":     comply_enum("VBR", ["VBR","CBR"], ["CBR"]),
             "a_sample_rate":   comply(a_rate_khz, (44.1, 48.0), (48.0, 48.0)),
-            "a_bits":          comply_enum(str(a_bps), ["fltp","16"], ["16"]),
+            "a_bits":          comply_enum(a_bps.lower(), ["fltp","16","s16"], ["16","fltp"]),
             "a_br_kbps":       comply(a_br_kbps_f, (118, 512), (256, 256)),
         }
 

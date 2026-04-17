@@ -783,7 +783,7 @@
         <button id="btn-git-pull" class="git-pull-btn" data-tip="Pull latest from Git" onclick="gitPull()">⟳ Update</button>
         <button class="git-pull-btn" data-tip="Restart proxy service" onclick="openRestartConfirm()" style="border-color:rgba(255,78,106,0.4);color:#ffb3be;">⏻ Restart Proxy</button>
         <button class="git-pull-btn" data-tip="View README" onclick="openReadme()" style="border-color:rgba(88,166,255,0.4);color:var(--accent);">📖 README</button>
-        <span class="version" id="app-version" onclick="openChangelog()" title="Click to see changelog">v2.6.0</span>
+        <span class="version" id="app-version" onclick="openChangelog()" title="Click to see changelog">v2.6.2</span>
       </header>
 
       <aside id="sidebar">
@@ -826,7 +826,9 @@
           <div class="cl-title">SP SO Web Toolbox — Changelog</div>
           <button class="cl-close" onclick="closeChangelog()">Close</button>
         </div>
-        <div class="cl-entry"><div class="cl-version">v2.6.0</div><div class="cl-date">2026-04-16</div><div class="cl-desc">GOP: graceful timeout, NAL/IDR detection, open/closed GOP, compliance RAG table, FPS flag, host labels, date/tag filters, bulk delete; MTR: hops fix (-b regex), bulk multi-select delete</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.6.2</div><div class="cl-date">2026-04-16</div><div class="cl-desc">GOP: larger fonts throughout, GOP avg hero number, history: GOP badge fix, tag comma-split, server dropdown filter (two-row), bitrate fallback from format, AAC bits=FLTP</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.6.1</div><div class="cl-date">2026-04-16</div><div class="cl-desc">GOP: bitrate fix, AAC FLTP, GOP badge prefix, tag split, server filter</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.6.0</div><div class="cl-date">2026-04-16</div><div class="cl-desc">GOP: graceful timeout, NAL/IDR, open/closed GOP, compliance RAG table, FPS flag, host labels, filters, bulk delete; MTR: hops fix, bulk delete</div></div>
         <div class="cl-entry"><div class="cl-version">v2.5.0</div><div class="cl-date">2026-04-14</div><div class="cl-desc">New: GOP Analyzer — SRT stream capture, IDR/GOP visualizer, stream info, compliance checks</div></div>
         <div class="cl-entry"><div class="cl-version">v2.4.0</div><div class="cl-date">2026-04-14</div><div class="cl-desc">MTR: ICMP/UDP-53 toggle, Country/ASN geo toggle, -b flag, proto+geo in header and history</div></div>
         <div class="cl-entry"><div class="cl-version">v2.3.0</div><div class="cl-date">2026-04-13</div><div class="cl-desc">Proxy renamed to so-proxy; ADMIN_PASSWORD for sensitive actions; MTR host sanity check, no Watch/live duplication; README modal in index</div></div>
@@ -1238,7 +1240,7 @@
             // Update title & version from env
             const title = env.APP_TITLE || "SP SO Web Toolbox";
             document.title = title;
-            $("#app-version").text("v2.6.0");
+            $("#app-version").text("v2.6.2");
 
             renderSidebar();
             renderWelcomeCards();

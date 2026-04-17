@@ -99,7 +99,9 @@ PHENIXRTS_PASSWORD=your-password
 
 | Version | Date       | Changes |
 |---------|------------|---------|
-| 2.6.0   | 2026-04-16 | GOP: graceful timeout, NAL/IDR, open/closed GOP, compliance RAG table, FPS flag >30 red, host labels, date/tag filters, bulk delete; MTR: hops fix, bulk multi-select delete |
+| 2.6.2   | 2026-04-16 | GOP: larger fonts, GOP avg hero number, history badge/tag/server-filter fixes, bitrate fallback, AAC FLTP |
+| 2.6.1   | 2026-04-16 | GOP: bitrate fallback, AAC FLTP, GOP badge, tag split, server filter |
+| 2.6.0   | 2026-04-16 | GOP compliance RAG, graceful timeout, NAL/IDR, open/closed GOP, FPS flag; MTR hops fix, bulk delete |
 | 2.5.0   | 2026-04-14 | New: GOP Analyzer — SRT capture, IDR detection, GOP structure visualizer (I/P/B/S), full stream info |
 | 2.4.0   | 2026-04-14 | MTR: ICMP/UDP-53 toggle, Country/ASN geo, -b flag |
 | 2.3.0   | 2026-04-13 | Proxy renamed to so-proxy; ADMIN_PASSWORD; MTR host sanity check; README modal |
@@ -119,7 +121,7 @@ PHENIXRTS_PASSWORD=your-password
 | 1.1.0   | 2026-03-25 | Full English translation + rich GUI |
 | 1.0.0   | 2026-03-25 | Initial PhenixRTS Channel Health Monitor |
 
-**Current Version: 2.6.0**
+**Current Version: 2.6.2**
 
 ---
 
