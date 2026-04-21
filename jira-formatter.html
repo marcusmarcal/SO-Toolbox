@@ -591,6 +591,12 @@
       out.openedDate = m ? m[0] : out.openedDate.split("\n")[0];
     }
 
+    // Post-process: strip everything from "Related Links" onwards in Additional Info
+    if (out.additional) {
+      const cutoff = out.additional.search(/related links/i);
+      if (cutoff !== -1) out.additional = out.additional.slice(0, cutoff).trim();
+    }
+
     return out;
   }
 
