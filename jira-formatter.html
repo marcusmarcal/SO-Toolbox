@@ -450,6 +450,14 @@
           <!-- fields -->
           <div class="fields-grid">
             <div class="field-card accent-border">
+              <div class="fc-label">Request Number</div>
+              <div class="fc-value mono" id="out-ritm">—</div>
+            </div>
+            <div class="field-card">
+              <div class="fc-label">Request Date / Time</div>
+              <div class="fc-value mono" id="out-opened">—</div>
+            </div>
+            <div class="field-card accent-border">
               <div class="fc-label">Requested For</div>
               <div class="fc-value" id="out-requested">—</div>
             </div>
@@ -479,6 +487,7 @@
                 <label class="option-item"><input type="checkbox" name="wf" value="Data collection - no TrickPlay" /><label>Data collection - no TrickPlay</label></label>
                 <label class="option-item"><input type="checkbox" name="wf" value="Data collection - ExAmino" /><label>Data collection - ExAmino</label></label>
                 <label class="option-item"><input type="checkbox" name="wf" value="Gamelens" /><label>Gamelens</label></label>
+                <label class="option-item"><input type="checkbox" name="wf" value="SRT Connectivity Only Check" /><label>SRT Connectivity Only Check</label></label>
                 <label class="option-item"><input type="checkbox" name="wf" value="Other (please specify in Additional Information form)" /><label>Other (please specify in Additional Information form)</label></label>
               </div>
             </div>
@@ -524,6 +533,8 @@
 
 <script>
   const FIELD_DEFS = [
+    { key: "ritm",       label: "Number" },
+    { key: "openedDate", label: "Opened" },
     { key: "sport",      label: "Sport/Rights/League/Competition/Single Event details" },
     { key: "requested",  label: "Requested for" },
     { key: "provider",   label: "Provider Name" },
@@ -623,6 +634,8 @@
 
   function renderFormatted(data) {
     document.getElementById("out-sport").textContent = data.sport || "Unknown Event";
+    setField("out-ritm",       data.ritm);
+    setField("out-opened",     data.openedDate);
     setField("out-requested",  data.requested);
     setField("out-provider",   data.provider);
     setField("out-contacts",   data.contacts, "email");
@@ -666,6 +679,14 @@
     </tr>
   </thead>
   <tbody>
+    <tr style="background:#f9f9f9;">
+      <td style="padding:8px 14px;font-weight:bold;color:#444;width:36%;border-bottom:1px solid #e0e0e0;">Request Number</td>
+      <td style="padding:8px 14px;color:#111;border-bottom:1px solid #e0e0e0;font-family:monospace;">${escHtml(orNA(data.ritm))}</td>
+    </tr>
+    <tr>
+      <td style="padding:8px 14px;font-weight:bold;color:#444;border-bottom:1px solid #e0e0e0;">Request Date / Time</td>
+      <td style="padding:8px 14px;color:#111;border-bottom:1px solid #e0e0e0;">🕐 ${escHtml(orNA(data.openedDate))}</td>
+    </tr>
     <tr style="background:#f9f9f9;">
       <td style="padding:8px 14px;font-weight:bold;color:#444;width:36%;border-bottom:1px solid #e0e0e0;">Requested For</td>
       <td style="padding:8px 14px;color:#111;border-bottom:1px solid #e0e0e0;">${escHtml(orNA(data.requested))}</td>
