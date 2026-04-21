@@ -564,7 +564,9 @@
       const norm = normalise(trimmed);
       const matched = FIELD_DEFS.find(fd => normalise(fd.label) === norm);
       if (matched) {
+        // Reset on re-occurrence so the last (cleanest) section wins
         currentKey = matched.key;
+        result[currentKey] = [];
       } else if (trimmed.toLowerCase() === "variables") {
         currentKey = null;
       } else if (currentKey) {
@@ -576,6 +578,19 @@
     FIELD_DEFS.forEach(fd => {
       out[fd.key] = result[fd.key].join("\n").trim();
     });
+
+    // Post-process: extract only the RITM number (e.g. RITM0327117)
+    if (out.ritm) {
+      const m = out.ritm.match(/RITM\d+/i);
+      out.ritm = m ? m[0] : out.ritm.split(/\s/)[0];
+    }
+
+    // Post-process: extract only the datetime (DD-MM-YYYY HH:MM:SS)
+    if (out.openedDate) {
+      const m = out.openedDate.match(/\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2}/);
+      out.openedDate = m ? m[0] : out.openedDate.split("\n")[0];
+    }
+
     return out;
   }
 
