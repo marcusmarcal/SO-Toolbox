@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jira Ticket Formatter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0a0a0f;
+      --surface: #111118;
+      --card:    #161621;
+      --border:  #2a2a3a;
+      --accent:  #00ffc8;
+      --accent2: #7b5ea7;
+      --text:    #e8e8f0;
+      --muted:   #6a6a8a;
+      --danger:  #ff4e6a;
+      --mono:    "Space Mono", monospace;
+      --display: "Syne", sans-serif;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--display);
+      overflow: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0.35;
+    }
+
+    #app {
+      display: grid;
+      grid-template-rows: 50px 1fr;
+      height: 100vh;
+      padding-bottom: 22px;
+    }
+
+    /* ── TOPBAR ── */
+    #topbar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 20px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    #topbar .logo-icon { font-size: 1.2rem; }
+    #topbar h1 {
+      font-family: var(--display);
+      font-weight: 800;
+      font-size: 1rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    #topbar h1 span { color: var(--accent); }
+    #topbar .badge {
+      font-family: var(--mono);
+      font-size: 0.55rem;
+      padding: 2px 8px;
+      border-radius: 20px;
+      border: 1px solid rgba(123,94,167,0.4);
+      color: #b89cd4;
+      background: rgba(123,94,167,0.1);
+    }
+
+    /* ── MAIN LAYOUT ── */
+    #main {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      overflow: hidden;
+    }
+
+    /* ── PANELS ── */
+    .panel {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-right: 1px solid var(--border);
+    }
+    .panel:last-child { border-right: none; }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .panel-title {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .panel-title span { color: var(--accent); margin-right: 6px; }
+
+    .panel-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+    .panel-body::-webkit-scrollbar { width: 4px; }
+    .panel-body::-webkit-scrollbar-track { background: transparent; }
+    .panel-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* ── INPUT TEXTAREA ── */
+    #raw-input {
+      width: 100%;
+      height: 100%;
+      min-height: 200px;
+      resize: none;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      line-height: 1.75;
+      caret-color: var(--accent);
+    }
+    #raw-input::placeholder { color: var(--muted); }
+
+    /* ── BUTTONS ── */
+    .btn {
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      padding: 5px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(0,255,200,0.07); }
+    .btn.primary {
+      border-color: rgba(0,255,200,0.5);
+      color: var(--accent);
+      background: rgba(0,255,200,0.08);
+    }
+    .btn.primary:hover { background: rgba(0,255,200,0.15); }
+    .btn.copy-ok { border-color: rgba(0,255,200,0.8); color: var(--accent); }
+    .btn-row { display: flex; gap: 8px; align-items: center; }
+
+    /* ── EMPTY STATE ── */
+    #empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 12px;
+      color: var(--muted);
+      text-align: center;
+    }
+    #empty-state .es-icon { font-size: 2.2rem; opacity: 0.4; }
+    #empty-state p {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      line-height: 1.7;
+      max-width: 240px;
+    }
+
+    /* ── FORMATTED OUTPUT ── */
+    #formatted-output { display: none; }
+
+    .ticket-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .ticket-icon {
+      width: 38px;
+      height: 38px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      clip-path: polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+      flex-shrink: 0;
+      filter: drop-shadow(0 0 8px rgba(0,255,200,0.3));
+    }
+    .ticket-meta { flex: 1; }
+    .ticket-meta .tm-label {
+      font-family: var(--mono);
+      font-size: 0.55rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .ticket-meta .tm-title {
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--text);
+      margin-top: 2px;
+    }
+
+    .fields-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .field-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      transition: border-color 0.2s;
+    }
+    .field-card:hover { border-color: rgba(0,255,200,0.25); }
+    .field-card.full-width { grid-column: 1 / -1; }
+    .field-card.accent-border {
+      border-color: rgba(0,255,200,0.2);
+      background: rgba(0,255,200,0.03);
+    }
+    .fc-label {
+      font-family: var(--mono);
+      font-size: 0.52rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }
+    .fc-value {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.5;
+      word-break: break-word;
+    }
+    .fc-value.mono {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      font-weight: 400;
+    }
+    .fc-value.empty {
+      color: var(--muted);
+      font-style: italic;
+      font-size: 0.7rem;
+    }
+    .fc-value .email-line {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 0;
+    }
+    .fc-value .email-line::before {
+      content: "✉";
+      font-size: 0.6rem;
+      color: var(--accent);
+      opacity: 0.7;
+    }
+    .date-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0,255,200,0.08);
+      border: 1px solid rgba(0,255,200,0.2);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--accent);
+    }
+
+    /* ── WORKFLOW CHECKBOXES ── */
+    .option-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 2px;
+    }
+    .option-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 5px;
+      transition: background 0.15s;
+    }
+    .option-item:hover { background: rgba(255,255,255,0.04); }
+    .option-item input[type="checkbox"],
+    .option-item input[type="radio"] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border: 1.5px solid var(--muted);
+      border-radius: 3px;
+      background: transparent;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.15s;
+      position: relative;
+    }
+    .option-item input[type="radio"] {
+      border-radius: 50%;
+    }
+    .option-item input[type="checkbox"]:checked,
+    .option-item input[type="radio"]:checked {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+    .option-item input[type="checkbox"]:checked::after {
+      content: "";
+      position: absolute;
+      left: 3px;
+      top: 1px;
+      width: 5px;
+      height: 8px;
+      border: 2px solid #000;
+      border-top: none;
+      border-left: none;
+      transform: rotate(45deg);
+    }
+    .option-item input[type="radio"]:checked::after {
+      content: "";
+      position: absolute;
+      left: 3px;
+      top: 3px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #000;
+    }
+    .option-item label {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--text);
+      cursor: pointer;
+      line-height: 1.4;
+    }
+    .option-item input:checked + label {
+      color: var(--accent);
+    }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed;
+      bottom: 28px;
+      right: 24px;
+      background: var(--card);
+      border: 1px solid rgba(0,255,200,0.4);
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      padding: 8px 16px;
+      border-radius: 8px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+      z-index: 9000;
+    }
+    #toast.show { opacity: 1; }
+
+    /* ── STATUS BAR ── */
+    #statusbar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 22px;
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 20px;
+      z-index: 100;
+    }
+    #statusbar span {
+      font-family: var(--mono);
+      font-size: 0.58rem;
+      color: var(--bg);
+      font-weight: 700;
+    }
+    #statusbar .sep { opacity: 0.4; }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <header id="topbar">
+    <span class="logo-icon">🎟️</span>
+    <h1>Jira Ticket <span>Formatter</span></h1>
+    <span class="badge">SP SO Toolbox</span>
+  </header>
+
+  <div id="main">
+
+    <!-- ── LEFT: INPUT ── -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title"><span>01</span> Paste Raw Ticket Text</div>
+        <div class="btn-row">
+          <button class="btn" onclick="clearAll()">✕ Clear</button>
+          <button class="btn primary" onclick="formatTicket()">⚡ Format</button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <textarea id="raw-input" placeholder="Paste the raw ticket text here…" oninput="autoFormat()"></textarea>
+      </div>
+    </div>
+
+    <!-- ── RIGHT: OUTPUT ── -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title"><span>02</span> Formatted Output</div>
+        <div class="btn-row" id="output-btns" style="display:none">
+          <button class="btn primary" id="btn-copy-html" onclick="copyJiraHtml()">📋 Copy for Jira</button>
+        </div>
+      </div>
+      <div class="panel-body">
+
+        <div id="empty-state">
+          <div class="es-icon">📋</div>
+          <p>Paste your raw ticket text on the left and click <strong style="color:var(--accent)">Format</strong> — or just start typing.</p>
+        </div>
+
+        <div id="formatted-output">
+          <!-- ticket header -->
+          <div class="ticket-header">
+            <div class="ticket-icon"></div>
+            <div class="ticket-meta">
+              <div class="tm-label">Ticket Overview</div>
+              <div class="tm-title" id="out-sport">—</div>
+            </div>
+          </div>
+
+          <!-- fields -->
+          <div class="fields-grid">
+            <div class="field-card accent-border">
+              <div class="fc-label">Requested For</div>
+              <div class="fc-value" id="out-requested">—</div>
+            </div>
+            <div class="field-card">
+              <div class="fc-label">Provider Name</div>
+              <div class="fc-value" id="out-provider">—</div>
+            </div>
+            <div class="field-card full-width">
+              <div class="fc-label">Provider Contact Details</div>
+              <div class="fc-value mono" id="out-contacts">—</div>
+            </div>
+            <div class="field-card">
+              <div class="fc-label">First / Single Live Event Date</div>
+              <div class="fc-value" id="out-first-date">—</div>
+            </div>
+            <div class="field-card">
+              <div class="fc-label">Last Live Event Date</div>
+              <div class="fc-value" id="out-last-date">—</div>
+            </div>
+
+            <!-- VIDEO WORKFLOWS — always shown as checkboxes -->
+            <div class="field-card full-width">
+              <div class="fc-label">Video Workflows Required for Testing</div>
+              <div class="option-list" id="workflows-list">
+                <label class="option-item"><input type="checkbox" name="wf" value="Watch and Bet live streaming" /><label>Watch and Bet live streaming</label></label>
+                <label class="option-item"><input type="checkbox" name="wf" value="Data collection - with TrickPlay" /><label>Data collection - with TrickPlay</label></label>
+                <label class="option-item"><input type="checkbox" name="wf" value="Data collection - no TrickPlay" /><label>Data collection - no TrickPlay</label></label>
+                <label class="option-item"><input type="checkbox" name="wf" value="Data collection - ExAmino" /><label>Data collection - ExAmino</label></label>
+                <label class="option-item"><input type="checkbox" name="wf" value="Gamelens" /><label>Gamelens</label></label>
+                <label class="option-item"><input type="checkbox" name="wf" value="Other (please specify in Additional Information form)" /><label>Other (please specify in Additional Information form)</label></label>
+              </div>
+            </div>
+
+            <!-- CHANNELS ALLOCATION — always shown as radio buttons -->
+            <div class="field-card full-width">
+              <div class="fc-label">Channels Allocation</div>
+              <div class="option-list" id="channels-list">
+                <label class="option-item"><input type="radio" name="ch" value="ADHOC(s)" /><label>ADHOC(s)</label></label>
+                <label class="option-item"><input type="radio" name="ch" value="New channel(s) to be created (please inform how many are needed on the additional information)" /><label>New channel(s) to be created (please inform how many are needed on the additional information)</label></label>
+                <label class="option-item"><input type="radio" name="ch" value="Channels already created (please inform the acronym on the additional information)" /><label>Channels already created (please inform the acronym on the additional information)</label></label>
+              </div>
+            </div>
+
+            <div class="field-card">
+              <div class="fc-label">Mail Chain</div>
+              <div class="fc-value" id="out-mail">—</div>
+            </div>
+            <div class="field-card">
+              <div class="fc-label">Encoder(s) Used</div>
+              <div class="fc-value" id="out-encoder">—</div>
+            </div>
+            <div class="field-card full-width accent-border">
+              <div class="fc-label">Additional Information</div>
+              <div class="fc-value" id="out-additional">—</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toast">✔ Copied to clipboard!</div>
+
+<div id="statusbar">
+  <span>● JIRA TICKET FORMATTER</span>
+  <span class="sep">|</span>
+  <span id="status-msg">Ready — paste and format</span>
+</div>
+
+<script>
+  const FIELD_DEFS = [
+    { key: "sport",      label: "Sport/Rights/League/Competition/Single Event details" },
+    { key: "requested",  label: "Requested for" },
+    { key: "provider",   label: "Provider Name" },
+    { key: "contacts",   label: "Provider Contact Details" },
+    { key: "firstDate",  label: "First / Single Live Event Date" },
+    { key: "lastDate",   label: "Last Live Event Date" },
+    { key: "workflows",  label: "Please select the video workflows that will be required for testing" },
+    { key: "channels",   label: "Channels Allocation" },
+    { key: "mail",       label: "Mail Chain" },
+    { key: "encoder",    label: "Encoder(s) used" },
+    { key: "additional", label: "Additional Information" },
+  ];
+
+  function normalise(s) {
+    return s.replace(/\s+/g, " ").trim().toLowerCase();
+  }
+
+  function parseRaw(raw) {
+    const lines = raw.split(/\r?\n/).map(l => l.trimEnd());
+    const result = {};
+    FIELD_DEFS.forEach(fd => { result[fd.key] = []; });
+    let currentKey = null;
+
+    for (let i = 0; i < lines.length; i++) {
+      const trimmed = lines[i].trim();
+      if (!trimmed) continue;
+      const norm = normalise(trimmed);
+      const matched = FIELD_DEFS.find(fd => normalise(fd.label) === norm);
+      if (matched) {
+        currentKey = matched.key;
+      } else if (trimmed.toLowerCase() === "variables") {
+        currentKey = null;
+      } else if (currentKey) {
+        result[currentKey].push(trimmed);
+      }
+    }
+
+    const out = {};
+    FIELD_DEFS.forEach(fd => {
+      out[fd.key] = result[fd.key].join("\n").trim();
+    });
+    return out;
+  }
+
+  function escHtml(s) {
+    return s
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function setField(id, value, type = "text") {
+    const el = document.getElementById(id);
+    if (!value || value.trim() === "" || value.trim().toLowerCase() === "n/a") {
+      el.innerHTML = type === "email"
+        ? '<span class="empty">No contacts provided</span>'
+        : `<span class="empty">${value && value.toLowerCase() === "n/a" ? "N/A" : "Not specified"}</span>`;
+      return;
+    }
+    if (type === "email") {
+      const lines = value.split("\n").filter(l => l.trim());
+      el.innerHTML = lines.map(l =>
+        `<div class="email-line">${escHtml(l.trim())}</div>`
+      ).join("");
+    } else if (type === "date") {
+      el.innerHTML = `<span class="date-badge">📅 ${escHtml(value)}</span>`;
+    } else {
+      el.textContent = value;
+    }
+  }
+
+  // Pre-check workflow/channel checkboxes based on parsed text
+  function applyParsedSelections(data) {
+    // Workflows: uncheck all first
+    document.querySelectorAll('input[name="wf"]').forEach(cb => {
+      cb.checked = false;
+    });
+    // Channels: uncheck all first
+    document.querySelectorAll('input[name="ch"]').forEach(rb => {
+      rb.checked = false;
+    });
+
+    if (data.workflows && data.workflows.trim()) {
+      const wfText = data.workflows.toLowerCase();
+      document.querySelectorAll('input[name="wf"]').forEach(cb => {
+        if (wfText.includes(cb.value.toLowerCase())) cb.checked = true;
+      });
+    }
+    if (data.channels && data.channels.trim()) {
+      const chText = data.channels.toLowerCase();
+      document.querySelectorAll('input[name="ch"]').forEach(rb => {
+        if (chText.includes(rb.value.toLowerCase())) rb.checked = true;
+      });
+    }
+  }
+
+  function renderFormatted(data) {
+    document.getElementById("out-sport").textContent = data.sport || "Unknown Event";
+    setField("out-requested",  data.requested);
+    setField("out-provider",   data.provider);
+    setField("out-contacts",   data.contacts, "email");
+    setField("out-first-date", data.firstDate, "date");
+    setField("out-last-date",  data.lastDate,  "date");
+    setField("out-mail",       data.mail);
+    setField("out-encoder",    data.encoder);
+    setField("out-additional", data.additional);
+    applyParsedSelections(data);
+  }
+
+  // Build a clean, readable HTML table for pasting into Jira
+  function buildJiraHtml(data) {
+    const orNA = v => (v && v.trim()) ? v.trim() : "N/A";
+
+    // Contacts as <ul>
+    const contactLines = data.contacts
+      ? data.contacts.split("\n").filter(l => l.trim())
+          .map(l => `<li>${escHtml(l.trim())}</li>`).join("")
+      : "<li>N/A</li>";
+
+    // Workflows: only include checked items
+    const selectedWf = [...document.querySelectorAll('input[name="wf"]:checked')]
+      .map(cb => cb.value);
+    const wfRows = selectedWf.length
+      ? selectedWf.map(label => `<li>✅ ${escHtml(label)}</li>`).join("")
+      : "<li><em>None selected</em></li>";
+
+    // Channels: only include the selected radio
+    const selectedCh = document.querySelector('input[name="ch"]:checked');
+    const chRows = selectedCh
+      ? `<li>🔵 ${escHtml(selectedCh.value)}</li>`
+      : "<li><em>None selected</em></li>";
+
+    return `<table style="border-collapse:collapse;width:100%;font-family:Arial,Helvetica,sans-serif;font-size:13px;">
+  <thead>
+    <tr style="background:#0a3d2e;color:#00c896;">
+      <th colspan="2" style="padding:10px 14px;text-align:left;font-size:15px;letter-spacing:0.03em;">
+        🎟️ ${escHtml(data.sport || "Ticket Details")}
+      </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr style="background:#f9f9f9;">
+      <td style="padding:8px 14px;font-weight:bold;color:#444;width:36%;border-bottom:1px solid #e0e0e0;">Requested For</td>
+      <td style="padding:8px 14px;color:#111;border-bottom:1px solid #e0e0e0;">${escHtml(orNA(data.requested))}</td>
+    </tr>
+    <tr>
+      <td style="padding:8px 14px;font-weight:bold;color:#444;border-bottom:1px solid #e0e0e0;">Provider Name</td>
+      <td style="padding:8px 14px;color:#111;border-bottom:1px solid #e0e0e0;">${escHtml(orNA(data.provider))}</td>
+    </tr>
+    <tr style="background:#f9f9f9;">
+      <td style="padding:8px 14px;font-weight:bold;color:#444;vertical-align:top;border-bottom:1px solid #e0e0e0;">Provider Contact Details</td>
+      <td style="padding:8px 14px;color:#111;border-bottom:1px solid #e0e0e0;"><ul style="margin:0;padding-left:18px;">${contactLines}</ul></td>
+    </tr>
+    <tr>
+      <td style="padding:8px 14px;font-weight:bold;color:#444;border-bottom:1px solid #e0e0e0;">Sport / Rights / League</td>
+      <td style="padding:8px 14px;color:#111;border-bottom:1px solid #e0e0e0;">${escHtml(orNA(data.sport))}</td>
+    </tr>
+    <tr style="background:#f9f9f9;">
+      <td style="padding:8px 14px;font-weight:bold;color:#444;border-bottom:1px solid #e0e0e0;">First / Single Live Event Date</td>
+      <td style="padding:8px 14px;color:#111;border-bottom:1px solid #e0e0e0;">📅 ${escHtml(orNA(data.firstDate))}</td>
+    </tr>
+    <tr>
+      <td style="padding:8px 14px;font-weight:bold;color:#444;border-bottom:1px solid #e0e0e0;">Last Live Event Date</td>
+      <td style="padding:8px 14px;color:#111;border-bottom:1px solid #e0e0e0;">📅 ${escHtml(orNA(data.lastDate))}</td>
+    </tr>
+    <tr style="background:#f9f9f9;">
+      <td style="padding:8px 14px;font-weight:bold;color:#444;vertical-align:top;border-bottom:1px solid #e0e0e0;">Video Workflows Required</td>
+      <td style="padding:8px 14px;color:#111;border-bottom:1px solid #e0e0e0;"><ul style="margin:0;padding-left:18px;list-style:none;">${wfRows}</ul></td>
+    </tr>
+    <tr>
+      <td style="padding:8px 14px;font-weight:bold;color:#444;vertical-align:top;border-bottom:1px solid #e0e0e0;">Channels Allocation</td>
+      <td style="padding:8px 14px;color:#111;border-bottom:1px solid #e0e0e0;"><ul style="margin:0;padding-left:18px;list-style:none;">${chRows}</ul></td>
+    </tr>
+    <tr style="background:#f9f9f9;">
+      <td style="padding:8px 14px;font-weight:bold;color:#444;border-bottom:1px solid #e0e0e0;">Mail Chain</td>
+      <td style="padding:8px 14px;color:#111;border-bottom:1px solid #e0e0e0;">${escHtml(orNA(data.mail))}</td>
+    </tr>
+    <tr>
+      <td style="padding:8px 14px;font-weight:bold;color:#444;border-bottom:1px solid #e0e0e0;">Encoder(s) Used</td>
+      <td style="padding:8px 14px;color:#111;border-bottom:1px solid #e0e0e0;">${escHtml(orNA(data.encoder))}</td>
+    </tr>
+    <tr style="background:#eaf9f4;">
+      <td style="padding:8px 14px;font-weight:bold;color:#444;vertical-align:top;">Additional Information</td>
+      <td style="padding:8px 14px;color:#111;">${escHtml(orNA(data.additional)).replace(/\n/g,"<br>")}</td>
+    </tr>
+  </tbody>
+</table>`;
+  }
+
+  // Store last parsed data globally so copy always works
+  let _lastData = null;
+
+  function formatTicket() {
+    const raw = document.getElementById("raw-input").value;
+    if (!raw.trim()) {
+      setStatus("⚠ Nothing to format — paste some text first");
+      return;
+    }
+    _lastData = parseRaw(raw);
+    renderFormatted(_lastData);
+
+    document.getElementById("empty-state").style.display = "none";
+    document.getElementById("formatted-output").style.display = "block";
+    document.getElementById("output-btns").style.display = "flex";
+    setStatus("✔ Formatted — select workflows/channels then copy for Jira");
+  }
+
+  function autoFormat() {
+    const raw = document.getElementById("raw-input").value;
+    if (raw.length > 30) formatTicket();
+  }
+
+  function clearAll() {
+    document.getElementById("raw-input").value = "";
+    document.getElementById("empty-state").style.display = "flex";
+    document.getElementById("formatted-output").style.display = "none";
+    document.getElementById("output-btns").style.display = "none";
+    _lastData = null;
+    setStatus("Cleared");
+  }
+
+  async function copyJiraHtml() {
+    if (!_lastData) { setStatus("⚠ Format a ticket first"); return; }
+
+    const html = buildJiraHtml(_lastData);
+
+    try {
+      // Copy as rich HTML so it pastes formatted in Jira
+      const blob = new Blob([html], { type: "text/html" });
+      await navigator.clipboard.write([
+        new ClipboardItem({ "text/html": blob })
+      ]);
+      showToast("✔ Copied! Paste directly into Jira description.");
+      setStatus("✔ Rich HTML copied — paste into Jira description field");
+    } catch (e) {
+      // Fallback: copy plain HTML source
+      try {
+        await navigator.clipboard.writeText(html);
+        showToast("✔ HTML source copied (switch Jira to HTML mode to paste)");
+        setStatus("✔ HTML source copied");
+      } catch (e2) {
+        const ta = document.createElement("textarea");
+        ta.value = html;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        showToast("✔ Copied (fallback)");
+      }
+    }
+
+    const btn = document.getElementById("btn-copy-html");
+    btn.textContent = "✔ Copied!";
+    btn.classList.add("copy-ok");
+    setTimeout(() => {
+      btn.textContent = "📋 Copy for Jira";
+      btn.classList.remove("copy-ok");
+    }, 2200);
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 3000);
+  }
+
+  function setStatus(msg) {
+    document.getElementById("status-msg").textContent = msg;
+  }
+
+  document.getElementById("raw-input").addEventListener("keydown", function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      e.preventDefault();
+      formatTicket();
+    }
+  });
+</script>
+</body>
+</html>
