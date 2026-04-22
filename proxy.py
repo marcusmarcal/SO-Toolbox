@@ -974,6 +974,11 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
         v_field     = vid.get("field_order", "progressive")
         v_bits      = vid.get("bits_per_raw_sample") or vid.get("bits_per_coded_sample") or "?"
 
+        # Scan type normalisation — must be defined before FPS and HDR logic
+        scan_map = {"progressive":"progressive","tt":"interlaced","bb":"interlaced",
+                    "tb":"interlaced","bt":"interlaced","unknown":"progressive"}
+        v_scan = scan_map.get(v_field, v_field)
+
         r_fps_raw   = vid.get("r_frame_rate", "0/1")
         def _fps_val(raw):
             try: n, d = raw.split("/"); return float(n)/float(d) if float(d) else 0
@@ -984,7 +989,10 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
         v_fps_for_compliance = v_fps_val
         if v_scan == "interlaced" and v_fps_val > 0:
             v_fps_for_compliance = v_fps_val / 2  # 50 fields → 25 frames
-        v_fps_str = f"{r_fps_raw} | {v_fps_val:.3f} ({'interlaced, ' + str(v_fps_for_compliance) + ' fps effective' if v_scan == 'interlaced' else ''})"
+        v_fps_str = f"{r_fps_raw} | {v_fps_val:.3f}" + (
+            f" (interlaced, {v_fps_for_compliance:.3f} fps effective)"
+            if v_scan == "interlaced" else ""
+        )
 
         dar = vid.get("display_aspect_ratio", "")
         if not dar and v_width and v_height:
@@ -995,11 +1003,6 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
 
         # Entropy coding (CABAC vs CAVLC) from profile heuristic
         v_entropy   = "CABAC" if v_profile in ("High","Main","High 10","High 422","High 444") else "CAVLC"
-
-        # Scan type normalisation
-        scan_map = {"progressive":"progressive","tt":"interlaced","bb":"interlaced",
-                    "tb":"interlaced","bt":"interlaced","unknown":"progressive"}
-        v_scan = scan_map.get(v_field, v_field)
 
         # SDR/HDR — arib-std-b67 (HLG) on interlaced broadcast streams is heritage,
         # not true HDR content. Treat as SDR unless progressive.
