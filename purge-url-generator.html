@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>URLs for Akamai Purge Generator · SP SO Web Toolbox</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        background: #0f1117;
+        color: #e2e8f0;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        min-height: 100vh;
+        padding: 32px 16px 64px;
+      }
+
+      header {
+        text-align: center;
+        margin-bottom: 36px;
+      }
+      header .badge {
+        display: inline-block;
+        background: #1e293b;
+        border: 1px solid #334155;
+        color: #94a3b8;
+        font-size: 11px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        padding: 4px 12px;
+        border-radius: 20px;
+        margin-bottom: 12px;
+      }
+      header h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      header p {
+        color: #64748b;
+        margin-top: 6px;
+        font-size: 0.9rem;
+      }
+
+      .card {
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 14px;
+        padding: 28px;
+        max-width: 780px;
+        margin: 0 auto 24px;
+      }
+      .card h2 {
+        font-size: 0.85rem;
+        font-weight: 600;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: #64748b;
+        margin-bottom: 18px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .card h2 span.icon {
+        font-size: 1rem;
+      }
+
+      .form-row {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        flex: 1;
+        min-width: 180px;
+      }
+      label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #94a3b8;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+      }
+
+      input[type="month"],
+      textarea {
+        background: #0f1117;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        color: #e2e8f0;
+        font-family: inherit;
+        font-size: 0.9rem;
+        padding: 10px 14px;
+        width: 100%;
+        transition: border-color 0.2s;
+        outline: none;
+      }
+      input[type="month"]:focus,
+      textarea:focus {
+        border-color: #38bdf8;
+      }
+      input[type="month"]::-webkit-calendar-picker-indicator {
+        filter: invert(0.6) sepia(1) saturate(3) hue-rotate(170deg);
+        cursor: pointer;
+      }
+      textarea {
+        resize: vertical;
+        min-height: 80px;
+        line-height: 1.5;
+      }
+
+      .btn-generate {
+        margin-top: 20px;
+        width: 100%;
+        padding: 13px;
+        background: linear-gradient(135deg, #0ea5e9, #6366f1);
+        border: none;
+        border-radius: 9px;
+        color: #fff;
+        font-size: 0.95rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+        transition: opacity 0.2s, transform 0.1s;
+      }
+      .btn-generate:hover {
+        opacity: 0.88;
+      }
+      .btn-generate:active {
+        transform: scale(0.99);
+      }
+
+      /* Results */
+      #results-card {
+        display: none;
+      }
+
+      .results-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .results-header h2 {
+        margin-bottom: 0;
+      }
+      .btn-copy-all {
+        background: #0f4c75;
+        border: 1px solid #0ea5e9;
+        border-radius: 7px;
+        color: #38bdf8;
+        cursor: pointer;
+        font-size: 0.8rem;
+        font-weight: 600;
+        padding: 7px 14px;
+        transition: background 0.2s;
+        letter-spacing: 0.4px;
+      }
+      .btn-copy-all:hover {
+        background: #0ea5e9;
+        color: #fff;
+      }
+
+      .url-group {
+        margin-bottom: 20px;
+      }
+      .url-group-title {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #6366f1;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+      }
+      .url-item {
+        display: flex;
+        align-items: center;
+        background: #0f1117;
+        border: 1px solid #1e3a5f;
+        border-radius: 7px;
+        padding: 10px 12px;
+        gap: 10px;
+        margin-bottom: 6px;
+      }
+      .url-item.cdn {
+        border-left: 3px solid #38bdf8;
+      }
+      .url-item.akamai {
+        border-left: 3px solid #818cf8;
+      }
+
+      .url-text {
+        flex: 1;
+        font-size: 0.78rem;
+        font-family: "Consolas", "Courier New", monospace;
+        color: #cbd5e1;
+        word-break: break-all;
+        line-height: 1.5;
+      }
+      .url-item .tag {
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.8px;
+        padding: 2px 7px;
+        border-radius: 4px;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      .tag.cdn {
+        background: #0e3a5c;
+        color: #38bdf8;
+      }
+      .tag.akamai {
+        background: #2d2060;
+        color: #818cf8;
+      }
+
+      .btn-copy-url {
+        background: transparent;
+        border: 1px solid #334155;
+        border-radius: 6px;
+        color: #64748b;
+        cursor: pointer;
+        font-size: 0.75rem;
+        padding: 5px 9px;
+        transition: all 0.2s;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      .btn-copy-url:hover {
+        border-color: #38bdf8;
+        color: #38bdf8;
+      }
+      .btn-copy-url.copied {
+        border-color: #22c55e;
+        color: #22c55e;
+      }
+
+      .divider {
+        border: none;
+        border-top: 1px solid #1e293b;
+        margin: 16px 0;
+      }
+
+      .count-badge {
+        display: inline-block;
+        background: #1e3a5f;
+        color: #38bdf8;
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 20px;
+        margin-left: 8px;
+      }
+
+      /* Empty / error state */
+      .empty-state {
+        text-align: center;
+        color: #475569;
+        font-size: 0.85rem;
+        padding: 20px 0 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="badge">SP SO Web Toolbox</div>
+      <h1>🔗 URLs for Purge Generator</h1>
+      <p>Generate CDN &amp; Akamai purge URLs from event IDs</p>
+    </header>
+
+    <!-- Input Card -->
+    <div class="card">
+      <h2><span class="icon">⚙️</span> Configuration</h2>
+
+      <div class="form-row">
+        <div class="form-group" style="max-width: 200px">
+          <label for="month-picker">Month / Year</label>
+          <input type="month" id="month-picker" />
+        </div>
+        <div class="form-group">
+          <label for="ids-input"
+            >Event IDs
+            <span
+              style="
+                font-weight: 400;
+                color: #475569;
+                text-transform: none;
+                letter-spacing: 0;
+              "
+              >(comma-separated)</span
+            ></label
+          >
+          <textarea
+            id="ids-input"
+            placeholder="e.g. 12345678, 87654321, 11223344"
+          ></textarea>
+        </div>
+      </div>
+
+      <button class="btn-generate" onclick="generateURLs()">
+        ⚡ Generate URLs
+      </button>
+    </div>
+
+    <!-- Results Card -->
+    <div class="card" id="results-card">
+      <div class="results-header">
+        <h2>
+          <span class="icon">📋</span> Generated URLs
+          <span class="count-badge" id="url-count">0</span>
+        </h2>
+        <button class="btn-copy-all" onclick="copyAll()">⎘ Copy All</button>
+      </div>
+      <div id="results-list"></div>
+    </div>
+
+    <script>
+      // Pre-fill current month
+      (function () {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, "0");
+        document.getElementById("month-picker").value = `${y}-${m}`;
+      })();
+
+      function generateURLs() {
+        const monthVal = document.getElementById("month-picker").value; // YYYY-MM
+        const idsRaw = document.getElementById("ids-input").value.trim();
+
+        if (!monthVal) {
+          alert("Please select a month and year.");
+          return;
+        }
+        if (!idsRaw) {
+          alert("Please enter at least one Event ID.");
+          return;
+        }
+
+        const [year, month] = monthVal.split("-");
+        const ids = idsRaw
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+
+        if (ids.length === 0) {
+          alert("No valid IDs found. Separate them with commas.");
+          return;
+        }
+
+        const list = document.getElementById("results-list");
+        list.innerHTML = "";
+
+        ids.forEach((id, idx) => {
+          const cdnUrl = `http://rukarchive.vod.dc.video.performgroup.com/processed/mp4/${year}_${month}/${id}.mp4`;
+          const akamaiUrl = `https://rukvodsec-a.akamaihd.net/processed/mp4/${year}_${month}/${id}.mp4`;
+
+          if (idx > 0) {
+            const hr = document.createElement("hr");
+            hr.className = "divider";
+            list.appendChild(hr);
+          }
+
+          const group = document.createElement("div");
+          group.className = "url-group";
+          group.innerHTML = `
+        <div class="url-group-title">Event ID: ${escHtml(id)}</div>
+        <div class="url-item cdn">
+          <span class="tag cdn">CDN</span>
+          <span class="url-text">${escHtml(cdnUrl)}</span>
+          <button class="btn-copy-url" onclick="copySingle(this, ${JSON.stringify(
+            cdnUrl
+          )})">⎘ Copy</button>
+        </div>
+        <div class="url-item akamai">
+          <span class="tag akamai">Akamai</span>
+          <span class="url-text">${escHtml(akamaiUrl)}</span>
+          <button class="btn-copy-url" onclick="copySingle(this, ${JSON.stringify(
+            akamaiUrl
+          )})">⎘ Copy</button>
+        </div>
+      `;
+          list.appendChild(group);
+        });
+
+        document.getElementById("url-count").textContent = ids.length * 2;
+        const card = document.getElementById("results-card");
+        card.style.display = "block";
+        card.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+      function copySingle(btn, url) {
+        navigator.clipboard.writeText(url).then(() => {
+          const orig = btn.textContent;
+          btn.textContent = "✓ Copied!";
+          btn.classList.add("copied");
+          setTimeout(() => {
+            btn.textContent = orig;
+            btn.classList.remove("copied");
+          }, 1800);
+        });
+      }
+
+      function copyAll() {
+        const spans = document.querySelectorAll("#results-list .url-text");
+        const all = Array.from(spans)
+          .map((s) => s.textContent.trim())
+          .join("\n");
+        navigator.clipboard.writeText(all).then(() => {
+          const btn = document.querySelector(".btn-copy-all");
+          const orig = btn.textContent;
+          btn.textContent = "✓ All Copied!";
+          setTimeout(() => {
+            btn.textContent = orig;
+          }, 1800);
+        });
+      }
+
+      function escHtml(str) {
+        return str
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+    </script>
+  </body>
+</html>
