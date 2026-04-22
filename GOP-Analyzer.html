@@ -252,13 +252,22 @@
       </div>
 
       <div id="results-content" style="display:none">
-        <!-- IDR + overall status -->
+        <!-- IDR + overall status + actions -->
         <div class="card">
           <div class="card-title">Stream Check</div>
-          <div style="padding:.65rem .75rem;display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
+          <div style="padding:.65rem .85rem;display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
             <div class="idr-badge" id="idr-badge">…</div>
-            <div style="font-family:var(--mono);font-size:.68rem;color:var(--muted);line-height:1.9" id="idr-detail">…</div>
-            <div style="margin-left:auto" id="overall-badge"></div>
+            <div style="font-family:var(--mono);font-size:.72rem;color:var(--muted);line-height:1.9" id="idr-detail">…</div>
+            <div style="margin-left:auto;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+              <div id="overall-badge"></div>
+              <button id="btn-override" onclick="openOverrideModal()" style="background:transparent;border:1px solid var(--yellow);border-radius:5px;color:var(--yellow);font-family:var(--mono);font-size:.7rem;font-weight:700;padding:4px 12px;cursor:pointer;transition:opacity .15s" title="Manually accept this result with justification">⚡ Override</button>
+              <button id="btn-report" onclick="generateReport()" style="background:var(--cyan);border:none;border-radius:5px;color:#000;font-family:var(--mono);font-size:.7rem;font-weight:700;padding:4px 12px;cursor:pointer;transition:opacity .15s" title="Generate email report">📋 Generate Report</button>
+            </div>
+          </div>
+          <!-- Override notice (hidden until override applied) -->
+          <div id="override-notice" style="display:none;padding:.5rem .85rem;background:rgba(227,179,65,.08);border-top:1px solid rgba(227,179,65,.3)">
+            <span style="font-family:var(--mono);font-size:.72rem;color:var(--yellow)">⚡ OVERRIDE APPLIED — </span>
+            <span id="override-reason-display" style="font-family:var(--mono);font-size:.72rem;color:var(--text)"></span>
           </div>
         </div>
 
@@ -349,6 +358,60 @@
         <span class="hist-bulk-txt" id="bulk-count">0 selected</span>
         <button class="btn-bulk-del" onclick="openBulkDeleteModal()">🗑 Delete selected</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Override modal -->
+<div class="modal-overlay" id="override-modal">
+  <div class="modal-card">
+    <div class="modal-title" style="color:var(--yellow)">⚡ Manual Override</div>
+    <div class="modal-body">
+      Override the compliance result and mark this stream as <strong style="color:var(--green)">ACCEPTED</strong>.<br><br>
+      This does <strong>not</strong> change the individual test results — it adds an override flag with your justification to the overall status.
+    </div>
+    <div style="margin-bottom:1rem">
+      <label style="font-family:var(--mono);font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:.4rem">Justification (required)</label>
+      <textarea id="override-reason" rows="3" placeholder="e.g. Interlaced 50i confirmed by supplier — FPS compliance waived per ops agreement"
+        style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:#fff;font-family:var(--mono);font-size:.78rem;padding:.5rem .65rem;outline:none;resize:vertical;transition:border-color .15s"
+        onfocus="this.style.borderColor='var(--yellow)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+      <div id="override-reason-err" style="font-family:var(--mono);font-size:.65rem;color:var(--red);margin-top:.3rem;min-height:1em"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-danger" style="background:var(--yellow);color:#000" onclick="confirmOverride()">Apply Override</button>
+      <button class="btn-cancel" onclick="closeOverrideModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Override detail popup (click on override badge) -->
+<div class="modal-overlay" id="override-detail-modal">
+  <div class="modal-card">
+    <div class="modal-title" style="color:var(--yellow)">⚡ Override Details</div>
+    <div class="modal-body">
+      <div style="margin-bottom:.5rem"><strong>Status:</strong> <span style="color:var(--green)">ACCEPTED (Override)</span></div>
+      <div><strong>Justification:</strong></div>
+      <div id="override-detail-reason" style="margin-top:.4rem;padding:.6rem;background:var(--bg3);border-radius:5px;font-family:var(--mono);font-size:.78rem;line-height:1.7;color:var(--text)"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="document.getElementById('override-detail-modal').classList.remove('open')">Close</button>
+      <button onclick="resetOverride()" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-family:var(--mono);font-size:.7rem;padding:5px 14px;cursor:pointer">Remove Override</button>
+    </div>
+  </div>
+</div>
+
+<!-- Report modal -->
+<div class="modal-overlay" id="report-modal">
+  <div class="modal-card" style="width:680px;max-width:95vw">
+    <div class="modal-title" style="color:var(--cyan)">📋 Generated Report</div>
+    <div style="font-family:var(--mono);font-size:.7rem;color:var(--muted);margin-bottom:.75rem">Ready to copy and paste into an email body.</div>
+    <textarea id="report-text" rows="22" readonly
+      style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:var(--mono);font-size:.72rem;padding:.6rem .8rem;outline:none;resize:vertical;line-height:1.7"
+      onclick="this.select()"></textarea>
+    <div class="modal-actions" style="margin-top:.8rem">
+      <button class="btn-danger" style="background:var(--cyan);color:#000" onclick="copyReport()">📋 Copy to Clipboard</button>
+      <button class="btn-cancel" onclick="document.getElementById('report-modal').classList.remove('open')">Close</button>
+      <span id="report-copy-ok" style="font-family:var(--mono);font-size:.68rem;color:var(--green);display:none">✓ Copied!</span>
     </div>
   </div>
 </div>
@@ -484,6 +547,15 @@ function pollStatus(job_id, dur, host, port) {
 
 // ── Render result ─────────────────────────────────────────────────
 function renderResult(r) {
+  _currentResult = r;
+  _overrideReason = null;
+  // Reset override UI
+  document.getElementById("override-notice").style.display = "none";
+  document.getElementById("btn-override").textContent = "⚡ Override";
+  document.getElementById("btn-override").style.borderColor = "var(--yellow)";
+  document.getElementById("btn-override").style.color = "var(--yellow)";
+  document.getElementById("btn-override").onclick = openOverrideModal;
+
   document.getElementById("results-content").style.display = "";
   document.getElementById("log-card").style.display = "none";
   document.getElementById("placeholder").style.display = "none";
@@ -528,7 +600,14 @@ function renderResult(r) {
     ["Have Audio",         r.have_audio],
   ]);
 
-  const vfpsCol = r.v_fps_val > 30 ? "red" : r.v_fps_val > 25 ? "yellow" : "green";
+  const vfpsCol = (r.v_fps_compliance || r.v_fps_val) > 30.5 ? "red"
+                : r.v_scan === "interlaced" ? "yellow" : "green";
+  const fpsDisplay = r.v_scan === "interlaced" && r.v_fps_val > 30
+    ? `${r.v_fps} → ${(r.v_fps_compliance||r.v_fps_val/2).toFixed(3)} fps effective (interlaced)`
+    : r.v_fps;
+
+  const aCodecDisplay = r.a_codec_display || (r.a_codec||"?").toUpperCase();
+  const aCodecCol = aCodecDisplay.startsWith("AAC") || ["MP1","MP2","MP3"].includes(aCodecDisplay) ? "green" : "yellow";
   // Video
   infoRows("tbl-video", [
     ["[V] Codec",           (r.v_codec||"?").toUpperCase() + " | " + (r.v_codec||"?"), "green"],
@@ -539,7 +618,7 @@ function renderResult(r) {
     ["[V] Aspect Ratio",    r.v_dar||"—"],
     ["[V] B Frames",        r.v_b_frames, r.v_b_frames>0?"yellow":"green"],
     ["[V] Reference Frames",r.v_refs],
-    ["[V] FPS",             r.v_fps, vfpsCol],
+    ["[V] FPS",             fpsDisplay, vfpsCol],
     ["[V] Field Order",     r.v_field],
     ["[V] Pixel Format",    r.v_pix_fmt],
     ["[V] Color Space",     r.v_color_combined||"—"],
@@ -551,17 +630,15 @@ function renderResult(r) {
     ["[V] HDR/SDR",         r.v_hdr||"SDR"],
   ]);
 
-  // Audio
   infoRows("tbl-audio", [
-    ["[A] Codec",          (r.a_codec||"?").toUpperCase(), r.a_codec==="aac"?"green":"yellow"],
-    ["[A] Profile",        r.a_profile],
+    ["[A] Codec",          aCodecDisplay, aCodecCol],
     ["[A] Channels",       r.a_channels],
     ["[A] Layout",         r.a_layout],
     ["[A] Sampling Rate",  r.a_rate ? r.a_rate+" Hz" : "—"],
     ["[A] Bitrate",        r.a_br ? fmtBps(r.a_br) : "—"],
     ["[A] Bits per Sample",r.a_bps],
     ["[A] Language",       r.a_lang],
-    ["[A] Audio Tracks",   r.audio_tracks, r.audio_tracks>2?"yellow":""],
+    ["[A] Audio Tracks",   r.audio_tracks, r.audio_tracks > 2 ? "yellow" : ""],
   ]);
 
   // GOP stats info rows
@@ -854,6 +931,156 @@ function fmtBytes(b) { return b>1e9?(b/1e9).toFixed(2)+"GB":b>1e6?(b/1e6).toFixe
 function fmtBps(b)   { return b>1e6?(b/1e6).toFixed(2)+" Mbps":b>1e3?(b/1e3).toFixed(0)+" Kbps":b+" bps"; }
 
 document.getElementById("delete-modal").addEventListener("click", function(e){ if(e.target===this)closeDeleteModal(); });
+
+// ── Override ──────────────────────────────────────────────────────
+let _currentResult = null;
+let _overrideReason = null;
+
+function openOverrideModal() {
+  document.getElementById("override-reason").value = _overrideReason || "";
+  document.getElementById("override-reason-err").textContent = "";
+  document.getElementById("override-modal").classList.add("open");
+  setTimeout(() => document.getElementById("override-reason").focus(), 100);
+}
+function closeOverrideModal() {
+  document.getElementById("override-modal").classList.remove("open");
+}
+function confirmOverride() {
+  const reason = document.getElementById("override-reason").value.trim();
+  if (!reason) {
+    document.getElementById("override-reason-err").textContent = "Justification is required.";
+    return;
+  }
+  _overrideReason = reason;
+  closeOverrideModal();
+  applyOverride(reason);
+}
+function applyOverride(reason) {
+  // Update overall badge to ACCEPTED + OVERRIDE
+  document.getElementById("overall-badge").innerHTML =
+    `<span class="status-pill" style="background:rgba(227,179,65,.15);color:var(--yellow);border:1px solid var(--yellow);font-size:.72rem;padding:3px 12px;cursor:pointer" onclick="document.getElementById('override-detail-modal').classList.add('open')">⚡ ACCEPTED (Override) ℹ</span>`;
+  // Show override notice
+  document.getElementById("override-reason-display").textContent = reason;
+  document.getElementById("override-notice").style.display = "";
+  // Populate detail modal
+  document.getElementById("override-detail-reason").textContent = reason;
+  // Update btn
+  document.getElementById("btn-override").textContent = "⚡ Override ℹ";
+  document.getElementById("btn-override").style.borderColor = "var(--green)";
+  document.getElementById("btn-override").style.color = "var(--green)";
+  document.getElementById("btn-override").onclick = () => document.getElementById("override-detail-modal").classList.add("open");
+}
+function resetOverride() {
+  _overrideReason = null;
+  document.getElementById("override-detail-modal").classList.remove("open");
+  document.getElementById("override-notice").style.display = "none";
+  document.getElementById("btn-override").textContent = "⚡ Override";
+  document.getElementById("btn-override").style.borderColor = "var(--yellow)";
+  document.getElementById("btn-override").style.color = "var(--yellow)";
+  document.getElementById("btn-override").onclick = openOverrideModal;
+  // Re-render overall badge from result
+  if (_currentResult) {
+    const os = _currentResult.overall_status || "UNKNOWN";
+    document.getElementById("overall-badge").innerHTML =
+      `<span class="status-pill ${os}" style="font-size:.72rem;padding:3px 12px">${os}</span>`;
+  }
+}
+
+// ── Generate Report ───────────────────────────────────────────────
+function generateReport() {
+  if (!_currentResult) return;
+  const r = _currentResult;
+  const now = new Date().toISOString().replace("T"," ").slice(0,19) + " UTC";
+  const testDate = (r.started_at||"").replace("T"," ").slice(0,19) + " UTC";
+  const serverName = resolveHost(r.url_host) || r.url_host;
+  const port = r.url_port || "?";
+  const tags = (r.tag||"").split(",").map(t=>t.trim()).filter(Boolean).join(", ");
+  const overallStatus = _overrideReason
+    ? `ACCEPTED (Override — ${_overrideReason})`
+    : (r.overall_status || "UNKNOWN");
+
+  const c = r.compliance || {};
+  const statusLine = (key) => {
+    const [s, m, note] = c[key] || ["—","—",""];
+    return `${s.padEnd(12)} ${m}${note ? " ("+note+")" : ""}`;
+  };
+
+  const fps_eff = r.v_fps_compliance || (r.v_scan === "interlaced" ? r.v_fps_val/2 : r.v_fps_val);
+  const aCodecDisplay = r.a_codec_display || (r.a_codec||"?").toUpperCase();
+
+  const sep = "─".repeat(60);
+  const lines = [
+    `SP SO Web Toolbox — GOP Analyzer Report`,
+    `Generated   : ${now}`,
+    `Test Date   : ${testDate}`,
+    ``,
+    `STREAM`,
+    `Source      : ${r.url}`,
+    `Server      : ${serverName} (${r.url_host})`,
+    `Port        : ${port}`,
+    `Tags        : ${tags || "—"}`,
+    ``,
+    `OVERALL RESULT: ${overallStatus}`,
+    sep,
+    ``,
+    `ELEMENT                      SPEC                   MEASURED        RESULT`,
+    sep,
+    `MEDIA PROFILE`,
+    `Overall Bitrate (Mbps)       5.0–18.0 (8.0–15.0)    ${String(r.file_br_mbps||"—").padEnd(15)} ${c.overall_br?.[0]||"—"}`,
+    ``,
+    `VIDEO`,
+    `GOP Size                     30, 50                  ${String(r.gop_avg||"—").padEnd(15)} ${c.gop_size?.[0]||"—"}`,
+    `GOP Type                     CLOSED                  ${String(r.gop_type||"—").padEnd(15)} ${c.gop_type?.[0]||"—"}`,
+    `B-Frames                     Absent (preferred)      ${String(r.has_b_frames?"Present":"Absent").padEnd(15)} ${c.b_frames?.[0]||"—"}`,
+    `IDR Frames                   Required                ${String(r.has_idr?"Present":"ABSENT").padEnd(15)} ${c.idr?.[0]||"—"}`,
+    `Frame Size                   1920×1080               ${String(r.v_width+"x"+r.v_height).padEnd(15)} ${c.frame_size?.[0]||"—"}`,
+    `Aspect Ratio                 16:9                    ${String(r.v_dar||"—").padEnd(15)} ${c.aspect_ratio?.[0]||"—"}`,
+    `Chroma Subsampling           4:2:0                   ${String(r.v_chroma||"—").padEnd(15)} ${c.chroma?.[0]||"—"}`,
+    `Scan Type                    progressive/interlaced  ${String(r.v_scan||"—").padEnd(15)} ${c.scan_type?.[0]||"—"}`,
+    `Bit Depth                    8                       ${String(r.v_bits||"—").padEnd(15)} ${c.bit_depth?.[0]||"—"}`,
+    `Colour Gamut                 bt709                   ${String(r.v_color_sp||"—").padEnd(15)} ${c.colour_gamut?.[0]||"—"}`,
+    `Coding Algorithm             AVC H.264               ${String((r.v_codec||"?").toUpperCase()).padEnd(15)} ${c.codec?.[0]||"—"}`,
+    `CODEC Level                  4.0–4.2                 ${String(r.v_level||"—").padEnd(15)} ${c.codec_level?.[0]||"—"}`,
+    `CODEC Profile                Main, High              ${String(r.v_profile||"—").padEnd(15)} ${c.codec_profile?.[0]||"—"}`,
+    `Entropy                      CABAC                   ${String(r.v_entropy||"—").padEnd(15)} ${c.entropy?.[0]||"—"}`,
+    `Rate Control                 VBR, CBR                ${String(r.v_rate_ctrl||"—").padEnd(15)} ${c.rate_ctrl_v?.[0]||"—"}`,
+    `Video Bitrate (Mbps)         5.0–18.0 (8.0–15.0)    ${String(r.v_br_mbps||"—").padEnd(15)} ${c.v_br?.[0]||"—"}`,
+    `SDR/HDR Scheme               SDR                     ${String(r.v_hdr||"—").padEnd(15)} ${c.hdr_scheme?.[0]||"—"}`,
+    `Frame Rate                   25.0, 29.97, 30.0       ${String(fps_eff.toFixed(3)+(r.v_scan==="interlaced"?" (50i→25fps)":"")).padEnd(15)} ${c.fps?.[0]||"—"}`,
+    ``,
+    `AUDIO`,
+    `Coding Algorithm             AAC-LC, MP1, MP2        ${String(aCodecDisplay).padEnd(15)} ${c.a_codec?.[0]||"—"}`,
+    `Audio Streams                1–32 (2)                ${String(r.audio_tracks||"—").padEnd(15)} ${c.a_streams?.[0]||"—"}`,
+    `Audio Channels               2                       ${String(r.a_channels||"—").padEnd(15)} ${c.a_channels?.[0]||"—"}`,
+    `Sample Rate (kHz)            44.1–48.0               ${String(r.a_rate_khz||"—").padEnd(15)} ${c.a_sample_rate?.[0]||"—"}`,
+    `Bits per Sample              FLTP, 16                ${String(r.a_bps||"—").padEnd(15)} ${c.a_bits?.[0]||"—"}`,
+    `Audio Bitrate (Kbps)         118–512                 ${String(r.a_br_kbps||"—").padEnd(15)} ${c.a_br_kbps?.[0]||"—"}`,
+    sep,
+    ``,
+    _overrideReason ? `⚡ OVERRIDE: ${_overrideReason}` : "",
+    ``,
+    `Generated by SP SO Web Toolbox — GOP Analyzer`,
+    `This is a pre-validation assurance report and does not constitute a formal compliance certification.`,
+  ].filter(l => l !== undefined);
+
+  document.getElementById("report-text").value = lines.join("\n");
+  document.getElementById("report-modal").classList.add("open");
+}
+
+async function copyReport() {
+  const text = document.getElementById("report-text").value;
+  try { await navigator.clipboard.writeText(text); }
+  catch { document.getElementById("report-text").select(); document.execCommand("copy"); }
+  const ok = document.getElementById("report-copy-ok");
+  ok.style.display = "";
+  setTimeout(() => ok.style.display = "none", 2500);
+}
+
+// Close modals on backdrop
+["override-modal","override-detail-modal","report-modal"].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener("click", function(e){ if(e.target===this) this.classList.remove("open"); });
+});
 
 loadConfig();
 loadHistory();

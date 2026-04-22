@@ -99,7 +99,8 @@ PHENIXRTS_PASSWORD=your-password
 
 | Version | Date       | Changes |
 |---------|------------|---------|
-| 2.6.2   | 2026-04-16 | GOP: larger fonts, GOP avg hero number, history badge/tag/server-filter fixes, bitrate fallback, AAC FLTP |
+| 2.6.3   | 2026-04-21 | GOP: fix 50i→25fps (interlaced), HLG/arib-std-b67 as SDR, AAC-LC display, audio tracks via -show_programs; Generate Report; Override with justification |
+| 2.6.2   | 2026-04-16 | GOP: larger fonts, GOP avg hero, history filters, bitrate fallback, AAC FLTP |
 | 2.6.1   | 2026-04-16 | GOP: bitrate fallback, AAC FLTP, GOP badge, tag split, server filter |
 | 2.6.0   | 2026-04-16 | GOP compliance RAG, graceful timeout, NAL/IDR, open/closed GOP, FPS flag; MTR hops fix, bulk delete |
 | 2.5.0   | 2026-04-14 | New: GOP Analyzer — SRT capture, IDR detection, GOP structure visualizer (I/P/B/S), full stream info |
@@ -121,7 +122,7 @@ PHENIXRTS_PASSWORD=your-password
 | 1.1.0   | 2026-03-25 | Full English translation + rich GUI |
 | 1.0.0   | 2026-03-25 | Initial PhenixRTS Channel Health Monitor |
 
-**Current Version: 2.6.2**
+**Current Version: 2.6.3**
 
 ---
 

@@ -783,7 +783,7 @@
         <button id="btn-git-pull" class="git-pull-btn" data-tip="Pull latest from Git" onclick="gitPull()">⟳ Update</button>
         <button class="git-pull-btn" data-tip="Restart proxy service" onclick="openRestartConfirm()" style="border-color:rgba(255,78,106,0.4);color:#ffb3be;">⏻ Restart Proxy</button>
         <button class="git-pull-btn" data-tip="View README" onclick="openReadme()" style="border-color:rgba(88,166,255,0.4);color:var(--accent);">📖 README</button>
-        <span class="version" id="app-version" onclick="openChangelog()" title="Click to see changelog">v2.6.2</span>
+        <span class="version" id="app-version" onclick="openChangelog()" title="Click to see changelog">v2.6.3</span>
       </header>
 
       <aside id="sidebar">
@@ -826,8 +826,8 @@
           <div class="cl-title">SP SO Web Toolbox — Changelog</div>
           <button class="cl-close" onclick="closeChangelog()">Close</button>
         </div>
-        <div class="cl-entry"><div class="cl-version">v2.6.2</div><div class="cl-date">2026-04-16</div><div class="cl-desc">GOP: larger fonts throughout, GOP avg hero number, history: GOP badge fix, tag comma-split, server dropdown filter (two-row), bitrate fallback from format, AAC bits=FLTP</div></div>
-        <div class="cl-entry"><div class="cl-version">v2.6.1</div><div class="cl-date">2026-04-16</div><div class="cl-desc">GOP: bitrate fix, AAC FLTP, GOP badge prefix, tag split, server filter</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.6.3</div><div class="cl-date">2026-04-21</div><div class="cl-desc">GOP: fix 50i FPS (interlaced÷2), fix HLG/arib-std-b67 as SDR, AAC-LC display, audio track count via -show_programs; Generate Report button; Override with justification popup</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.6.2</div><div class="cl-date">2026-04-16</div><div class="cl-desc">GOP: larger fonts, GOP avg hero, history filters, bitrate fallback, AAC FLTP</div></div>
         <div class="cl-entry"><div class="cl-version">v2.6.0</div><div class="cl-date">2026-04-16</div><div class="cl-desc">GOP: graceful timeout, NAL/IDR, open/closed GOP, compliance RAG table, FPS flag, host labels, filters, bulk delete; MTR: hops fix, bulk delete</div></div>
         <div class="cl-entry"><div class="cl-version">v2.5.0</div><div class="cl-date">2026-04-14</div><div class="cl-desc">New: GOP Analyzer — SRT stream capture, IDR/GOP visualizer, stream info, compliance checks</div></div>
         <div class="cl-entry"><div class="cl-version">v2.4.0</div><div class="cl-date">2026-04-14</div><div class="cl-desc">MTR: ICMP/UDP-53 toggle, Country/ASN geo toggle, -b flag, proto+geo in header and history</div></div>
@@ -1240,7 +1240,7 @@
             // Update title & version from env
             const title = env.APP_TITLE || "SP SO Web Toolbox";
             document.title = title;
-            $("#app-version").text("v2.6.2");
+            $("#app-version").text("v2.6.3");
 
             renderSidebar();
             renderWelcomeCards();

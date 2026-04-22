@@ -839,7 +839,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
         log("Running ffprobe for stream info…")
         probe_cmd = [
             "ffprobe", "-v", "quiet", "-print_format", "json",
-            "-show_streams", "-show_format", ts_path
+            "-show_streams", "-show_format", "-show_programs", ts_path
         ]
         probe_data = {}
         try:
@@ -979,7 +979,12 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
             try: n, d = raw.split("/"); return float(n)/float(d) if float(d) else 0
             except: return 0
         v_fps_val   = _fps_val(r_fps_raw)
-        v_fps_str   = f"{r_fps_raw} | {v_fps_val:.3f}"
+        # INTERLACED FPS FIX: 50i = 25 fps, 60i = 30 fps (fields/2 = frames)
+        v_fps_for_display = v_fps_val
+        v_fps_for_compliance = v_fps_val
+        if v_scan == "interlaced" and v_fps_val > 0:
+            v_fps_for_compliance = v_fps_val / 2  # 50 fields → 25 frames
+        v_fps_str = f"{r_fps_raw} | {v_fps_val:.3f} ({'interlaced, ' + str(v_fps_for_compliance) + ' fps effective' if v_scan == 'interlaced' else ''})"
 
         dar = vid.get("display_aspect_ratio", "")
         if not dar and v_width and v_height:
@@ -988,8 +993,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
         chroma_map  = {"yuv420p":"4:2:0","yuv422p":"4:2:2","yuv444p":"4:4:4"}
         v_chroma    = chroma_map.get(v_pix_fmt, v_pix_fmt)
 
-        # Entropy coding (CABAC vs CAVLC) from codec_tag / profile heuristic
-        # High/Main profile typically uses CABAC; Baseline uses CAVLC
+        # Entropy coding (CABAC vs CAVLC) from profile heuristic
         v_entropy   = "CABAC" if v_profile in ("High","Main","High 10","High 422","High 444") else "CAVLC"
 
         # Scan type normalisation
@@ -997,34 +1001,67 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
                     "tb":"interlaced","bt":"interlaced","unknown":"progressive"}
         v_scan = scan_map.get(v_field, v_field)
 
-        # SDR/HDR
-        hdr_transfers = ("smpte2084","arib-std-b67","smpte428")
-        v_hdr = "HDR" if v_color_tr in hdr_transfers else "SDR"
+        # SDR/HDR — arib-std-b67 (HLG) on interlaced broadcast streams is heritage,
+        # not true HDR content. Treat as SDR unless progressive.
+        hdr_transfers = ("smpte2084", "smpte428")  # removed arib-std-b67
+        if v_color_tr in hdr_transfers:
+            v_hdr = "HDR"
+        elif v_color_tr == "arib-std-b67" and v_scan == "progressive":
+            v_hdr = "HDR"  # HLG on progressive = genuine HDR
+        else:
+            v_hdr = "SDR"  # interlaced arib-std-b67 = broadcast legacy, SDR
+
+        # Audio: normalise codec display name including profile
+        def _audio_display_name(codec, profile):
+            c = (codec or "").lower()
+            p = (profile or "").upper()
+            if c == "aac":
+                if "LATM" in p:     return "AAC-LATM"
+                if "HE" in p:       return "AAC-HE"
+                if "LD" in p:       return "AAC-LD"
+                if "ELD" in p:      return "AAC-ELD"
+                return f"AAC-{p}" if p and p != "?" and p != "UNKNOWN" else "AAC-LC"
+            if c in ("mp1","mp2","mp3"): return c.upper()
+            return codec.upper() if codec else "?"
 
         a_codec    = aud.get("codec_name", "unknown")
         a_profile  = aud.get("profile", "?")
+        a_codec_display = _audio_display_name(a_codec, a_profile)
         a_ch       = aud.get("channels", 0)
         a_layout   = aud.get("channel_layout", "?")
         a_rate     = aud.get("sample_rate", "?")
         a_lang     = aud.get("tags", {}).get("language", "?")
+
         # Audio bits per sample: AAC uses float (fltp), ffprobe reports 0 → normalise
         a_bps_raw  = aud.get("bits_per_raw_sample") or aud.get("bits_per_coded_sample")
         if a_bps_raw and int(a_bps_raw) > 0:
             a_bps  = str(int(a_bps_raw))
         elif a_codec in ("aac", "mp3", "mp2", "mp1", "opus", "vorbis"):
-            a_bps  = "FLTP"   # float planar — correct for AAC-LC
+            a_bps  = "FLTP"
         else:
             a_bps  = "?"
         a_br_kbps  = round(a_br / 1000) if a_br else 0
 
-        # VBR/CBR heuristic from codec context (not always available in ts)
-        # Use file_br vs v_br+a_br to guess
+        # Count ALL audio streams across all programs (not just first program)
+        # ffprobe -show_programs gives per-program stream lists
+        all_audio_streams = [s for s in streams if s.get("codec_type") == "audio"]
+        # For MPEG-TS: count unique audio stream indices across all programs
+        programs = probe_data.get("programs", [])
+        if programs:
+            audio_indices = set()
+            for prog in programs:
+                for s in prog.get("streams", []):
+                    if s.get("codec_type") == "audio":
+                        audio_indices.add(s.get("index", id(s)))
+            audio_track_count = len(audio_indices) if audio_indices else len(all_audio_streams)
+        else:
+            audio_track_count = len(all_audio_streams)
+
+        # VBR/CBR heuristic
         v_rate_ctrl = "CBR" if file_br and v_br and abs(file_br - v_br) < file_br * 0.1 else "VBR"
 
         # ── Compliance checks ─────────────────────────────────────────
-        # Returns (status, measured, note)
         def comply(measured, spec_range, preferred=None, label=None):
-            """COMPLIANT = within preferred, ACCEPTED = within range, REJECTED = outside range"""
             lo, hi = spec_range
             if measured is None: return "UNKNOWN", str(measured), ""
             in_range = lo <= measured <= hi
@@ -1048,9 +1085,12 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
         a_br_kbps_f  = round(a_br   / 1000, 1) if a_br  else 0
         a_rate_khz   = round(float(a_rate) / 1000, 1) if str(a_rate).isdigit() else 0
 
+        # FPS compliance uses effective fps (interlaced / 2)
+        fps_eff = v_fps_for_compliance
         fps_compliant_values = [25.0, 29.97, 30.0]
-        fps_ok = any(abs(v_fps_val - f) < 0.1 for f in fps_compliant_values)
-        fps_status = "COMPLIANT" if abs(v_fps_val - 25.0) < 0.1 else ("ACCEPTED" if fps_ok else "REJECTED")
+        fps_ok = any(abs(fps_eff - f) < 0.1 for f in fps_compliant_values)
+        fps_status = "COMPLIANT" if abs(fps_eff - 25.0) < 0.1 else ("ACCEPTED" if fps_ok else "REJECTED")
+        fps_measured_str = f"{fps_eff:.3f}" + (" (50i→25fps)" if v_scan == "interlaced" and v_fps_val != fps_eff else "")
 
         gop_valid = [30, 50]
         gop_status = "COMPLIANT" if avg_gop in gop_valid else (
@@ -1080,9 +1120,9 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
             "rate_ctrl_v":     comply_enum(v_rate_ctrl, ["VBR","CBR"], ["CBR"]),
             "v_br":            comply(v_br_mbps, (5.0, 18.0), (8.0, 15.0)),
             "hdr_scheme":      comply_enum(v_hdr, ["SDR","HDR"], ["SDR"]),
-            "fps":             (fps_status, f"{v_fps_val:.3f}", "Expected 25.0, 29.97, 30.0"),
-            "a_codec":         comply_enum(a_codec, ["aac","mp1","mp2"], ["aac"]),
-            "a_streams":       comply(len(aud_list), (1, 32), (2, 2)),
+            "fps":             (fps_status, fps_measured_str, "Expected 25.0, 29.97, 30.0"),
+            "a_codec":         comply_enum(a_codec_display, ["AAC-LC","AAC-LATM","AAC-HE","MP1","MP2"], ["AAC-LC"]),
+            "a_streams":       comply(audio_track_count, (1, 32), (2, 2)),
             "a_channels":      comply(a_ch, (2, 2)),
             "a_rate_ctrl":     comply_enum("VBR", ["VBR","CBR"], ["CBR"]),
             "a_sample_rate":   comply(a_rate_khz, (44.1, 48.0), (48.0, 48.0)),
@@ -1109,7 +1149,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
             # Video
             "v_codec": v_codec, "v_profile": v_profile, "v_level": v_level_str,
             "v_level_f": v_level_f, "v_width": v_width, "v_height": v_height,
-            "v_fps": v_fps_str, "v_fps_val": v_fps_val,
+            "v_fps": v_fps_str, "v_fps_val": v_fps_val, "v_fps_compliance": v_fps_for_compliance,
             "v_pix_fmt": v_pix_fmt, "v_b_frames": v_b_frames, "v_refs": v_refs,
             "v_br": v_br, "v_br_mbps": v_br_mbps,
             "v_color_sp": v_color_sp, "v_color_tr": v_color_tr,
@@ -1118,10 +1158,11 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
             "v_bits": str(v_bits), "v_chroma": v_chroma, "v_dar": dar,
             "v_entropy": v_entropy, "v_hdr": v_hdr, "v_rate_ctrl": v_rate_ctrl,
             # Audio
-            "a_codec": a_codec, "a_profile": a_profile, "a_channels": a_ch,
+            "a_codec": a_codec, "a_codec_display": a_codec_display,
+            "a_profile": a_profile, "a_channels": a_ch,
             "a_layout": a_layout, "a_rate": a_rate, "a_rate_khz": a_rate_khz,
             "a_br": a_br, "a_br_kbps": a_br_kbps_f, "a_lang": a_lang,
-            "a_bps": str(a_bps), "audio_tracks": len(aud_list),
+            "a_bps": str(a_bps), "audio_tracks": audio_track_count,
             # GOP
             "has_idr": has_idr, "idr_count": idr_count,
             "non_idr_keyframes": non_idr_keyframe_count,
