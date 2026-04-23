@@ -984,15 +984,19 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
             try: n, d = raw.split("/"); return float(n)/float(d) if float(d) else 0
             except: return 0
         v_fps_val   = _fps_val(r_fps_raw)
-        # INTERLACED FPS FIX: 50i = 25 fps, 60i = 30 fps (fields/2 = frames)
-        v_fps_for_display = v_fps_val
+
+        # INTERLACED FPS: ffprobe r_frame_rate can report either:
+        #   - field rate: 50/1 for 50i (needs ÷2 → 25 fps)
+        #   - frame rate: 25/1 for 25p stored as interlaced container (no division needed)
+        # Rule: only divide if fps_val > 30 AND stream is interlaced.
+        # A 25/1 interlaced stream is already at frame rate.
         v_fps_for_compliance = v_fps_val
-        if v_scan == "interlaced" and v_fps_val > 0:
-            v_fps_for_compliance = v_fps_val / 2  # 50 fields → 25 frames
-        v_fps_str = f"{r_fps_raw} | {v_fps_val:.3f}" + (
-            f" (interlaced, {v_fps_for_compliance:.3f} fps effective)"
-            if v_scan == "interlaced" else ""
-        )
+        if v_scan == "interlaced" and v_fps_val > 30:
+            v_fps_for_compliance = v_fps_val / 2  # 50 fields/s → 25 frames/s
+        v_fps_interlaced_note = ""
+        if v_scan == "interlaced" and v_fps_val > 30:
+            v_fps_interlaced_note = f" (50i→{v_fps_for_compliance:.3f}fps)"
+        v_fps_str = f"{r_fps_raw} | {v_fps_val:.3f}{v_fps_interlaced_note}"
 
         dar = vid.get("display_aspect_ratio", "")
         if not dar and v_width and v_height:
@@ -1181,16 +1185,31 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
             "overall_status": overall_status,
         }
 
-        # Save result
+        # Save result JSON
         ts_str   = datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S")
         safe_url = re.sub(r"[^\w\-]", "_", url_display)[:40]
         res_file = f"{ts_str}_{safe_url}.json"
+        ts_dest  = os.path.join(GOP_DIR, res_file.replace(".json", ".ts"))
+
+        # Keep .ts file for download — copy to gop-results dir
+        if ts_path and os.path.isfile(ts_path):
+            try:
+                import shutil as _shutil
+                _shutil.move(ts_path, ts_dest)
+                ts_saved = os.path.basename(ts_dest)
+                log(f"TS saved: {ts_saved}")
+            except Exception as e:
+                log(f"WARNING: Could not save .ts file: {e}")
+                ts_saved = None
+        else:
+            ts_saved = None
+
+        result["ts_file"] = ts_saved
+        result["override"] = None  # placeholder — set via /gop/override endpoint
+
         with open(os.path.join(GOP_DIR, res_file), "w") as f:
             json.dump(result, f, indent=2)
         log(f"Result saved: {res_file}")
-
-        try: os.remove(ts_path)
-        except Exception: pass
 
         ended_at = datetime.datetime.utcnow().isoformat() + "Z"
         with _gop_lock:
@@ -1201,7 +1220,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
 
     except Exception as e:
         log(f"ERROR: {e}")
-        # Try to clean up ts file
+        # Clean up ts temp file if still exists (not yet moved)
         try:
             if ts_path and os.path.isfile(ts_path): os.remove(ts_path)
         except Exception: pass
@@ -1265,6 +1284,8 @@ def gop_results():
         try:
             with open(os.path.join(GOP_DIR, f)) as fh:
                 d = json.load(fh)
+            override = d.get("override")
+            eff_status = "ACCEPTED (Override)" if override else d.get("overall_status", "UNKNOWN")
             items.append({
                 "file":           f,
                 "url":            d.get("url", ""),
@@ -1280,7 +1301,9 @@ def gop_results():
                 "v_width":        d.get("v_width", 0),
                 "v_height":       d.get("v_height", 0),
                 "v_fps_val":      d.get("v_fps_val", 0),
-                "overall_status": d.get("overall_status", "UNKNOWN"),
+                "overall_status": eff_status,
+                "override":       override,
+                "ts_file":        d.get("ts_file"),
             })
         except Exception:
             pass
@@ -1292,19 +1315,173 @@ def gop_result_file(filename):
     return send_from_directory(GOP_DIR, filename)
 
 
+@app.route("/gop/ts/<path:filename>", methods=["GET"])
+def gop_ts_download(filename):
+    """Download the .ts capture file for a GOP analysis result."""
+    return send_from_directory(GOP_DIR, filename, as_attachment=True)
+
+
+@app.route("/gop/override/<path:filename>", methods=["POST"])
+def gop_override(filename):
+    """Save override reason to the result JSON and update overall_status."""
+    data   = request.get_json(silent=True) or {}
+    reason = (data.get("reason") or "").strip()
+    if not reason:
+        return jsonify({"error": "reason is required"}), 400
+    filepath = os.path.join(GOP_DIR, filename)
+    if not os.path.isfile(filepath):
+        return jsonify({"error": "File not found"}), 404
+    try:
+        with open(filepath) as f:
+            d = json.load(f)
+        d["override"] = {
+            "reason":    reason,
+            "applied_at": datetime.datetime.utcnow().isoformat() + "Z",
+        }
+        d["overall_status"] = "ACCEPTED (Override)"
+        with open(filepath, "w") as f:
+            json.dump(d, f, indent=2)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/gop/override/<path:filename>", methods=["DELETE"])
+def gop_override_remove(filename):
+    """Remove override from a result JSON."""
+    filepath = os.path.join(GOP_DIR, filename)
+    if not os.path.isfile(filepath):
+        return jsonify({"error": "File not found"}), 404
+    try:
+        with open(filepath) as f:
+            d = json.load(f)
+        d.pop("override", None)
+        # Re-compute overall_status from compliance
+        statuses = [v[0] for v in (d.get("compliance") or {}).values()]
+        if "REJECTED" in statuses:   d["overall_status"] = "REJECTED"
+        elif "ACCEPTED" in statuses: d["overall_status"] = "ACCEPTED"
+        else:                        d["overall_status"] = "COMPLIANT"
+        with open(filepath, "w") as f:
+            json.dump(d, f, indent=2)
+        return jsonify({"success": True, "overall_status": d["overall_status"]})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route("/gop/delete/<path:filename>", methods=["DELETE"])
 def gop_delete(filename):
     ok, err = _check_password(request)
     if not ok:
         return err
     filepath = os.path.join(GOP_DIR, filename)
-    if not os.path.isfile(filepath):
-        return jsonify({"error": "File not found"}), 404
+    # Also delete associated .ts file if present
+    ts_path  = filepath.replace(".json", ".ts")
+    deleted  = []
+    for fp in [filepath, ts_path]:
+        if os.path.isfile(fp):
+            try: os.remove(fp); deleted.append(os.path.basename(fp))
+            except Exception: pass
+    if filepath.replace(".json","") + ".json" not in [os.path.join(GOP_DIR, d) for d in deleted]:
+        if not os.path.isfile(filepath):
+            return jsonify({"success": True, "deleted": deleted})
+        return jsonify({"error": "Could not delete file"}), 500
+    return jsonify({"success": True, "deleted": deleted})
+
+
+# ── SCHEDULED GOP JOBS ──────────────────────────────────────────────
+_gop_scheduled = {}   # sched_id -> {sched_id, run_at_utc, url, duration, tag, status}
+_gop_sched_lock = threading.Lock()
+
+
+@app.route("/gop/schedule", methods=["POST"])
+def gop_schedule():
+    """Schedule a GOP analysis for a future UTC time."""
+    data       = request.get_json(silent=True) or {}
+    url        = (data.get("url") or "").strip()
+    run_at     = (data.get("run_at_utc") or "").strip()   # ISO format: 2026-04-22T14:30:00
+    duration   = min(int(data.get("duration") or 30), 120)
+    passphrase = (data.get("passphrase") or "").strip()
+    tag        = (data.get("tag") or "").strip()
+    if not url or not run_at:
+        return jsonify({"error": "url and run_at_utc are required"}), 400
+
     try:
-        os.remove(filepath)
-        return jsonify({"success": True})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        run_dt = datetime.datetime.fromisoformat(run_at.replace("Z",""))
+    except ValueError:
+        return jsonify({"error": "Invalid run_at_utc format (use ISO 8601)"}), 400
+
+    if passphrase and "passphrase=" not in url:
+        sep = "&" if "?" in url else "?"
+        url = f"{url}{sep}passphrase={passphrase}"
+
+    sched_id = str(uuid.uuid4())[:8]
+    url_display = re.sub(r'[?&]passphrase=[^&]*', '', url).rstrip('?&')
+
+    with _gop_sched_lock:
+        _gop_scheduled[sched_id] = {
+            "sched_id":   sched_id,
+            "url":        url_display,
+            "url_full":   url,
+            "run_at_utc": run_dt.isoformat() + "Z",
+            "duration":   duration,
+            "tag":        tag,
+            "status":     "pending",
+        }
+
+    def _wait_and_run():
+        now = datetime.datetime.utcnow()
+        delay = (run_dt - now).total_seconds()
+        if delay > 0:
+            import time as _time2; _time2.sleep(delay)
+        with _gop_sched_lock:
+            sched = _gop_scheduled.get(sched_id, {})
+            if sched.get("status") == "cancelled":
+                return
+            sched["status"] = "running"
+        # Launch actual analysis
+        job_id = str(uuid.uuid4())[:8]
+        started_at = datetime.datetime.utcnow().isoformat() + "Z"
+        with _gop_lock:
+            _gop_jobs[job_id] = {
+                "job_id": job_id, "status": "running",
+                "started_at": started_at, "ended_at": None,
+                "url": url_display, "tag": tag, "result": None, "log": [],
+            }
+        with _gop_sched_lock:
+            if sched_id in _gop_scheduled:
+                _gop_scheduled[sched_id]["job_id"] = job_id
+        t = threading.Thread(target=_run_gop_analysis,
+                             args=(job_id, url, duration, passphrase, tag), daemon=True)
+        t.start()
+        t.join()
+        with _gop_sched_lock:
+            if sched_id in _gop_scheduled:
+                _gop_scheduled[sched_id]["status"] = "done"
+
+    threading.Thread(target=_wait_and_run, daemon=True).start()
+    return jsonify({"sched_id": sched_id, "run_at_utc": run_dt.isoformat() + "Z"})
+
+
+@app.route("/gop/schedule", methods=["GET"])
+def gop_schedule_list():
+    with _gop_sched_lock:
+        items = list(_gop_scheduled.values())
+    return jsonify(items)
+
+
+@app.route("/gop/schedule/<sched_id>/cancel", methods=["POST"])
+def gop_schedule_cancel(sched_id):
+    ok, err = _check_password(request)
+    if not ok:
+        return err
+    with _gop_sched_lock:
+        sched = _gop_scheduled.get(sched_id)
+        if not sched:
+            return jsonify({"error": "Scheduled job not found"}), 404
+        if sched["status"] not in ("pending",):
+            return jsonify({"error": f"Cannot cancel job with status '{sched['status']}'"}), 400
+        sched["status"] = "cancelled"
+    return jsonify({"success": True})
 
 
 if __name__ == "__main__":

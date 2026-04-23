@@ -186,7 +186,7 @@
 <body>
 <div id="app">
   <div class="topbar">
-    <h1>GOP <span>//</span> Analyzer</h1>
+    <h1>SO Video <span>//</span> Analyser</h1>
     <span class="topbar-sub">SRT stream capture · ffprobe NAL/IDR · GOP structure · compliance check</span>
   </div>
 
@@ -223,7 +223,8 @@
       <input id="inp-tag" type="text" placeholder="e.g. test, JIRA-123" autocomplete="off" list="tag-presets" />
       <datalist id="tag-presets"></datalist>
     </div>
-    <button class="btn-run" id="btn-run" onclick="runAnalysis()">▶ Analyze</button>
+    <button class="btn-run" id="btn-run" onclick="runAnalysis()">▶ Analyse Now</button>
+    <button onclick="openScheduleModal()" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-family:var(--mono);font-size:.76rem;font-weight:700;padding:0 .9rem;height:36px;cursor:pointer;white-space:nowrap;align-self:flex-end;transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='var(--cyan)';this.style.color='var(--cyan)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🕐 Schedule</button>
   </div>
 
   <div class="main-area">
@@ -231,7 +232,7 @@
     <div class="result-panel" id="result-panel">
       <div class="status-bar">
         <span class="dot" id="dot"></span>
-        <span class="status-text" id="status-text">Ready — fill in SRT details and click Analyze</span>
+        <span class="status-text" id="status-text">Ready — fill in SRT details and click Analyse Now</span>
         <div id="progress-bar"><div id="progress-fill"></div></div>
       </div>
 
@@ -252,6 +253,15 @@
       </div>
 
       <div id="results-content" style="display:none">
+        <!-- Test metadata header -->
+        <div style="padding:.5rem .85rem;background:var(--bg3);border:1px solid var(--border);border-radius:6px;font-family:var(--mono);font-size:.72rem;display:flex;gap:1.5rem;flex-wrap:wrap;align-items:center" id="test-meta-bar">
+          <span id="meta-date" style="color:var(--muted)"></span>
+          <span id="meta-server" style="color:var(--cyan)"></span>
+          <span id="meta-port" style="color:var(--muted)"></span>
+          <span id="meta-tags" style="color:var(--yellow)"></span>
+          <span id="meta-ts-download" style="margin-left:auto"></span>
+        </div>
+
         <!-- IDR + overall status + actions -->
         <div class="card">
           <div class="card-title">Stream Check</div>
@@ -335,13 +345,21 @@
 
     <!-- History panel -->
     <div class="history-panel">
+      <!-- Scheduled section -->
+      <div class="history-header" style="border-bottom:1px solid var(--border)">
+        Scheduled
+        <button class="btn-sm" onclick="loadScheduled()">↻</button>
+      </div>
+      <div id="scheduled-list" style="max-height:120px;overflow-y:auto;flex-shrink:0;border-bottom:1px solid var(--border)">
+        <div class="hist-empty">No scheduled analyses</div>
+      </div>
+
       <div class="history-header">
         History
         <button class="btn-sm" onclick="loadHistory()">↻</button>
       </div>
       <div class="hist-filters">
         <input class="f-search" id="hist-search" type="text"  placeholder="host/port…" oninput="loadHistory()" />
-        <button class="btn-sm" onclick="loadHistory()" style="flex-shrink:0">↻</button>
       </div>
       <div class="hist-filters" style="border-bottom:1px solid var(--border)">
         <input class="f-date"   id="hist-date"   type="date"                           oninput="loadHistory()" title="Filter by date" />
@@ -358,6 +376,41 @@
         <span class="hist-bulk-txt" id="bulk-count">0 selected</span>
         <button class="btn-bulk-del" onclick="openBulkDeleteModal()">🗑 Delete selected</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Schedule modal -->
+<div class="modal-overlay" id="schedule-modal">
+  <div class="modal-card">
+    <div class="modal-title" style="color:var(--cyan)">🕐 Schedule Analysis</div>
+    <div class="modal-body">Schedule a future analysis using the current form settings.<br>All times are in <strong>UTC</strong>.</div>
+    <div style="margin-bottom:1rem">
+      <label style="font-family:var(--mono);font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:.4rem">Run at (UTC)</label>
+      <input id="sched-datetime" type="datetime-local"
+        style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:#fff;font-family:var(--mono);font-size:.82rem;padding:.45rem .65rem;outline:none;color-scheme:dark" />
+      <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-top:.3rem">
+        Your browser: <span id="sched-local-time" style="color:var(--text)"></span>
+      </div>
+      <div id="sched-err" style="font-family:var(--mono);font-size:.65rem;color:var(--red);margin-top:.3rem;min-height:1em"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-danger" style="background:var(--cyan);color:#000" onclick="confirmSchedule()">Schedule</button>
+      <button class="btn-cancel" onclick="closeScheduleModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Cancel scheduled modal -->
+<div class="modal-overlay" id="cancel-sched-modal">
+  <div class="modal-card">
+    <div class="modal-title">⚠ Cancel Scheduled Analysis</div>
+    <div class="modal-body">Cancel the scheduled analysis for <strong id="cancel-sched-dest" style="color:var(--cyan)"></strong>?</div>
+    <div class="modal-actions">
+      <button class="btn-danger" onclick="confirmCancelSched()">Yes, Cancel</button>
+      <button class="btn-cancel" onclick="document.getElementById('cancel-sched-modal').classList.remove('open')">No</button>
+      <input class="modal-pw" id="cancel-sched-pw" type="password" placeholder="admin password…" style="display:none" />
+      <div class="modal-err" id="cancel-sched-err"></div>
     </div>
   </div>
 </div>
@@ -548,7 +601,7 @@ function pollStatus(job_id, dur, host, port) {
 // ── Render result ─────────────────────────────────────────────────
 function renderResult(r) {
   _currentResult = r;
-  _overrideReason = null;
+  _overrideReason = r.override ? r.override.reason : null;
   // Reset override UI
   document.getElementById("override-notice").style.display = "none";
   document.getElementById("btn-override").textContent = "⚡ Override";
@@ -556,7 +609,32 @@ function renderResult(r) {
   document.getElementById("btn-override").style.color = "var(--yellow)";
   document.getElementById("btn-override").onclick = openOverrideModal;
 
+  // If already overridden in saved file, show it
+  if (r.override) {
+    _overrideReason = r.override.reason;
+    applyOverride(r.override.reason);
+  }
+
   document.getElementById("results-content").style.display = "";
+  document.getElementById("log-card").style.display = "none";
+  document.getElementById("placeholder").style.display = "none";
+
+  // Test metadata bar
+  const serverName = resolveHost(r.url_host);
+  const testDate   = r.started_at ? r.started_at.replace("T"," ").slice(0,19)+" UTC" : "—";
+  const tags       = (r.tag||"").split(",").map(t=>t.trim()).filter(Boolean).join(" · ");
+  document.getElementById("meta-date").textContent   = "📅 " + testDate;
+  document.getElementById("meta-server").textContent = "🖥 " + serverName;
+  document.getElementById("meta-port").textContent   = "🔌 :" + (r.url_port||"?");
+  document.getElementById("meta-tags").textContent   = tags ? "🏷 " + tags : "";
+  // TS download button
+  const tsEl = document.getElementById("meta-ts-download");
+  if (r.ts_file && r.res_file) {
+    const tsFile = r.res_file.replace(".json", ".ts");
+    tsEl.innerHTML = `<a href="${PROXY}/gop/ts/${encodeURIComponent(tsFile)}" download style="font-family:var(--mono);font-size:.7rem;color:var(--cyan);text-decoration:none;border:1px solid var(--border);border-radius:3px;padding:2px 8px">⬇ Download .ts</a>`;
+  } else {
+    tsEl.innerHTML = "";
+  }
   document.getElementById("log-card").style.display = "none";
   document.getElementById("placeholder").style.display = "none";
 
@@ -807,15 +885,19 @@ async function loadHistory() {
     list.innerHTML = filtered.map(item => {
       const serverName = resolveHost(item.url_host);
       const port       = item.url_port || "?";
-      const statusCls  = (item.overall_status||"unknown").toLowerCase();
+      const isOverride = !!item.override;
+      const statusCls  = isOverride ? "accepted" : (item.overall_status||"unknown").toLowerCase().replace(/[^a-z]/g,"");
+      const statusLabel= isOverride ? "⚡ Override" : (item.overall_status||"UNKNOWN");
       const idrCls     = item.has_idr ? "compliant" : "rejected";
       const gopTypeCls = item.gop_type === "CLOSED" ? "compliant" : "accepted";
-      const fpsCls     = (item.v_fps_val||0) > 30 ? "rejected" : "";
+      const fpsCls     = (item.v_fps_val||0) > 30.5 ? "rejected" : "";
       const fpsStr     = item.v_fps_val ? item.v_fps_val.toFixed(2)+" fps" : "";
       const res        = item.v_width ? `${item.v_width}×${item.v_height}` : "";
-      // Display individual tags
       const tagBadges  = (item.tag||"").split(",").map(t=>t.trim()).filter(Boolean)
         .map(t=>`<span class="hi-badge">${t}</span>`).join("");
+      const tsLink     = item.ts_file
+        ? `<a class="hi-badge" href="${PROXY}/gop/ts/${encodeURIComponent(item.ts_file)}" download onclick="event.stopPropagation()" style="color:var(--cyan)">⬇ .ts</a>`
+        : "";
 
       return `<div class="hist-item" id="hist-${item.file.replace(/\W/g,'_')}">
         <input type="checkbox" class="hist-item-cb" data-file="${item.file}" onchange="updateBulkBar()" />
@@ -827,8 +909,9 @@ async function loadHistory() {
             <span class="hi-badge ${gopTypeCls}">GOP ${item.gop_type||"?"}</span>
             ${res ? `<span class="hi-badge">${res}</span>` : ""}
             ${fpsStr ? `<span class="hi-badge ${fpsCls}">${fpsStr}</span>` : ""}
-            ${item.overall_status ? `<span class="hi-badge ${statusCls}">${item.overall_status}</span>` : ""}
+            <span class="hi-badge ${statusCls}">${statusLabel}</span>
             ${tagBadges}
+            ${tsLink}
           </div>
         </div>
       </div>`;
@@ -945,45 +1028,63 @@ function openOverrideModal() {
 function closeOverrideModal() {
   document.getElementById("override-modal").classList.remove("open");
 }
-function confirmOverride() {
+async function confirmOverride() {
   const reason = document.getElementById("override-reason").value.trim();
   if (!reason) {
     document.getElementById("override-reason-err").textContent = "Justification is required.";
     return;
   }
+  // Save override to server if we have a res_file
+  if (_currentResult && _currentResult.res_file) {
+    try {
+      await fetch(`${PROXY}/gop/override/${encodeURIComponent(_currentResult.res_file)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason })
+      });
+      // Update local result
+      _currentResult.override = { reason, applied_at: new Date().toISOString() };
+      _currentResult.overall_status = "ACCEPTED (Override)";
+    } catch(e) { console.error("Override save failed:", e); }
+  }
   _overrideReason = reason;
   closeOverrideModal();
   applyOverride(reason);
+  loadHistory(); // refresh history badge
 }
 function applyOverride(reason) {
-  // Update overall badge to ACCEPTED + OVERRIDE
   document.getElementById("overall-badge").innerHTML =
     `<span class="status-pill" style="background:rgba(227,179,65,.15);color:var(--yellow);border:1px solid var(--yellow);font-size:.72rem;padding:3px 12px;cursor:pointer" onclick="document.getElementById('override-detail-modal').classList.add('open')">⚡ ACCEPTED (Override) ℹ</span>`;
-  // Show override notice
   document.getElementById("override-reason-display").textContent = reason;
   document.getElementById("override-notice").style.display = "";
-  // Populate detail modal
   document.getElementById("override-detail-reason").textContent = reason;
-  // Update btn
   document.getElementById("btn-override").textContent = "⚡ Override ℹ";
   document.getElementById("btn-override").style.borderColor = "var(--green)";
   document.getElementById("btn-override").style.color = "var(--green)";
   document.getElementById("btn-override").onclick = () => document.getElementById("override-detail-modal").classList.add("open");
 }
-function resetOverride() {
+async function resetOverride() {
+  if (_currentResult && _currentResult.res_file) {
+    try {
+      const res = await fetch(`${PROXY}/gop/override/${encodeURIComponent(_currentResult.res_file)}`, { method: "DELETE" });
+      const d   = await res.json();
+      if (_currentResult) _currentResult.overall_status = d.overall_status || "UNKNOWN";
+    } catch(e) { console.error("Override remove failed:", e); }
+  }
   _overrideReason = null;
+  if (_currentResult) _currentResult.override = null;
   document.getElementById("override-detail-modal").classList.remove("open");
   document.getElementById("override-notice").style.display = "none";
   document.getElementById("btn-override").textContent = "⚡ Override";
   document.getElementById("btn-override").style.borderColor = "var(--yellow)";
   document.getElementById("btn-override").style.color = "var(--yellow)";
   document.getElementById("btn-override").onclick = openOverrideModal;
-  // Re-render overall badge from result
   if (_currentResult) {
     const os = _currentResult.overall_status || "UNKNOWN";
     document.getElementById("overall-badge").innerHTML =
       `<span class="status-pill ${os}" style="font-size:.72rem;padding:3px 12px">${os}</span>`;
   }
+  loadHistory();
 }
 
 // ── Generate Report ───────────────────────────────────────────────
@@ -1076,14 +1177,133 @@ async function copyReport() {
   setTimeout(() => ok.style.display = "none", 2500);
 }
 
+// ── Scheduled jobs ────────────────────────────────────────────────
+let _pendingCancelSchedId = null;
+
+function openScheduleModal() {
+  const host = document.getElementById("inp-host").value.trim();
+  const port = document.getElementById("inp-port").value.trim();
+  if (!host || !port) { setStatus("err","Fill in Host and Port before scheduling."); return; }
+  // Default to now + 1 hour
+  const now  = new Date();
+  now.setHours(now.getHours() + 1, 0, 0, 0);
+  const pad  = n => String(n).padStart(2,"0");
+  // datetime-local format: YYYY-MM-DDThh:mm (local time, we'll convert to UTC on submit)
+  document.getElementById("sched-datetime").value =
+    `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  document.getElementById("sched-err").textContent = "";
+  updateSchedLocalTime();
+  document.getElementById("schedule-modal").classList.add("open");
+}
+function closeScheduleModal() {
+  document.getElementById("schedule-modal").classList.remove("open");
+}
+function updateSchedLocalTime() {
+  const val = document.getElementById("sched-datetime").value;
+  if (!val) return;
+  const dt  = new Date(val); // browser interprets as local
+  document.getElementById("sched-local-time").textContent =
+    dt.toLocaleString() + " → " + dt.toUTCString();
+}
+document.addEventListener("DOMContentLoaded", () => {
+  const dtEl = document.getElementById("sched-datetime");
+  if (dtEl) dtEl.addEventListener("input", updateSchedLocalTime);
+});
+
+async function confirmSchedule() {
+  const host = document.getElementById("inp-host").value.trim();
+  const port = document.getElementById("inp-port").value.trim();
+  const lat  = document.getElementById("inp-latency").value.trim();
+  const pass = document.getElementById("inp-pass").value.trim();
+  const dur  = parseInt(document.getElementById("inp-dur").value) || 30;
+  const tag  = document.getElementById("inp-tag").value.trim();
+  const dtVal= document.getElementById("sched-datetime").value;
+  const errEl= document.getElementById("sched-err");
+
+  if (!dtVal) { errEl.textContent = "Please select a date and time."; return; }
+  const localDt  = new Date(dtVal); // local browser time
+  const utcStr   = localDt.toISOString(); // convert to UTC ISO
+  if (localDt <= new Date()) { errEl.textContent = "Scheduled time must be in the future."; return; }
+
+  let url = `srt://${host}:${port}?mode=caller`;
+  if (lat) url += `&latency=${lat}`;
+
+  try {
+    const res  = await fetch(`${PROXY}/gop/schedule`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, run_at_utc: utcStr, duration: dur, passphrase: pass, tag })
+    });
+    const data = await res.json();
+    if (data.error) { errEl.textContent = data.error; return; }
+    closeScheduleModal();
+    setStatus("ok", `Scheduled for ${localDt.toUTCString()}`);
+    loadScheduled();
+  } catch(e) { errEl.textContent = `Error: ${e.message}`; }
+}
+
+async function loadScheduled() {
+  try {
+    const res   = await fetch(`${PROXY}/gop/schedule`);
+    const items = await res.json();
+    const list  = document.getElementById("scheduled-list");
+    const active = items.filter(i => i.status === "pending" || i.status === "running");
+    if (!active.length) {
+      list.innerHTML = '<div class="hist-empty">No scheduled analyses</div>';
+      return;
+    }
+    list.innerHTML = active.map(item => {
+      const runAt     = item.run_at_utc ? item.run_at_utc.slice(0,16).replace("T"," ")+" UTC" : "—";
+      const host      = resolveHost(item.url.replace(/^srt:\/\//,"").split(":")[0].split("?")[0]);
+      const port      = (item.url.match(/:(\d+)[\?$]/) || [])[1] || "?";
+      const isRunning = item.status === "running";
+      const safeId    = JSON.stringify(item.sched_id).replace(/"/g,"&quot;");
+      return `<div style="padding:.45rem .65rem;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:.68rem">
+        <div style="color:#fff;font-weight:600">${host}:${port}</div>
+        <div style="color:var(--muted);margin-top:1px">🕐 ${runAt}${item.tag ? " · " + item.tag : ""}</div>
+        <div style="margin-top:4px;display:flex;gap:.4rem">
+          <span style="color:${isRunning?'var(--yellow)':'var(--cyan)'}">● ${item.status}</span>
+          ${!isRunning ? `<button onclick="openCancelSchedModal(${safeId},'${host}:${port}')" style="background:transparent;border:1px solid var(--border);border-radius:3px;color:var(--muted);font-family:var(--mono);font-size:.6rem;padding:0 6px;cursor:pointer" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--muted)'">✕ Cancel</button>` : ""}
+        </div>
+      </div>`;
+    }).join("");
+  } catch(e) { console.error(e); }
+}
+
+function openCancelSchedModal(schedId, dest) {
+  _pendingCancelSchedId = schedId;
+  document.getElementById("cancel-sched-dest").textContent = dest;
+  document.getElementById("cancel-sched-pw").style.display = _hasAdminPw ? "" : "none";
+  document.getElementById("cancel-sched-pw").value = "";
+  document.getElementById("cancel-sched-err").textContent = "";
+  document.getElementById("cancel-sched-modal").classList.add("open");
+}
+async function confirmCancelSched() {
+  if (!_pendingCancelSchedId) return;
+  const pw  = document.getElementById("cancel-sched-pw").value;
+  const err = document.getElementById("cancel-sched-err");
+  const headers = {};
+  if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
+  try {
+    const res  = await fetch(`${PROXY}/gop/schedule/${_pendingCancelSchedId}/cancel`,
+                             { method: "POST", headers });
+    const data = await res.json();
+    if (res.status === 403) { err.textContent = "❌ Invalid password"; return; }
+    document.getElementById("cancel-sched-modal").classList.remove("open");
+    _pendingCancelSchedId = null;
+    loadScheduled();
+  } catch(e) { err.textContent = `Error: ${e.message}`; }
+}
+
 // Close modals on backdrop
-["override-modal","override-detail-modal","report-modal"].forEach(id => {
+["override-modal","override-detail-modal","report-modal","schedule-modal","cancel-sched-modal"].forEach(id => {
   const el = document.getElementById(id);
   if (el) el.addEventListener("click", function(e){ if(e.target===this) this.classList.remove("open"); });
 });
 
 loadConfig();
 loadHistory();
+loadScheduled();
+setInterval(loadScheduled, 15000); // refresh scheduled every 15s
 </script>
 </body>
 </html>

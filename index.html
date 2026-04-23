@@ -783,7 +783,7 @@
         <button id="btn-git-pull" class="git-pull-btn" data-tip="Pull latest from Git" onclick="gitPull()">⟳ Update</button>
         <button class="git-pull-btn" data-tip="Restart proxy service" onclick="openRestartConfirm()" style="border-color:rgba(255,78,106,0.4);color:#ffb3be;">⏻ Restart Proxy</button>
         <button class="git-pull-btn" data-tip="View README" onclick="openReadme()" style="border-color:rgba(88,166,255,0.4);color:var(--accent);">📖 README</button>
-        <span class="version" id="app-version" onclick="openChangelog()" title="Click to see changelog">v2.6.3</span>
+        <span class="version" id="app-version" onclick="openChangelog()" title="Click to see changelog">v2.7.0</span>
       </header>
 
       <aside id="sidebar">
@@ -826,7 +826,8 @@
           <div class="cl-title">SP SO Web Toolbox — Changelog</div>
           <button class="cl-close" onclick="closeChangelog()">Close</button>
         </div>
-        <div class="cl-entry"><div class="cl-version">v2.6.3</div><div class="cl-date">2026-04-21</div><div class="cl-desc">GOP: fix 50i FPS (interlaced÷2), fix HLG/arib-std-b67 as SDR, AAC-LC display, audio track count via -show_programs; Generate Report button; Override with justification popup</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.7.0</div><div class="cl-date">2026-04-22</div><div class="cl-desc">SO Video Analyser: renamed tool, fix 50i FPS logic (÷2 only if fps>30), fix v_scan ordering bug, override persisted to JSON, TS download, scheduled jobs, metadata bar, test info header; index: UTC+local clocks in statusbar</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.6.3</div><div class="cl-date">2026-04-21</div><div class="cl-desc">GOP: fix v_scan reference before assignment, 50i→25fps, HLG SDR, AAC-LC, audio tracks, Generate Report, Override</div></div>
         <div class="cl-entry"><div class="cl-version">v2.6.2</div><div class="cl-date">2026-04-16</div><div class="cl-desc">GOP: larger fonts, GOP avg hero, history filters, bitrate fallback, AAC FLTP</div></div>
         <div class="cl-entry"><div class="cl-version">v2.6.0</div><div class="cl-date">2026-04-16</div><div class="cl-desc">GOP: graceful timeout, NAL/IDR, open/closed GOP, compliance RAG table, FPS flag, host labels, filters, bulk delete; MTR: hops fix, bulk delete</div></div>
         <div class="cl-entry"><div class="cl-version">v2.5.0</div><div class="cl-date">2026-04-14</div><div class="cl-desc">New: GOP Analyzer — SRT stream capture, IDR/GOP visualizer, stream info, compliance checks</div></div>
@@ -894,6 +895,10 @@
       <span id="status-msg">Loading…</span>
       <span class="sep">|</span>
       <span id="status-count-bar">0 tools</span>
+      <span class="sep" style="margin-left:auto">|</span>
+      <span id="clock-utc" title="UTC time" style="font-variant-numeric:tabular-nums">…</span>
+      <span class="sep">|</span>
+      <span id="clock-local" title="Local time" style="font-variant-numeric:tabular-nums">…</span>
     </div>
 
     <script>
@@ -910,6 +915,21 @@
 
       const PROXY_URL = "/so-proxy";
       let _hasAdminPw = false;
+
+      // ── Clocks ────────────────────────────────────────────────────
+      function updateClocks() {
+        const now  = new Date();
+        const pad  = n => String(n).padStart(2,"0");
+        // UTC
+        const utcH = pad(now.getUTCHours()), utcM = pad(now.getUTCMinutes()), utcS = pad(now.getUTCSeconds());
+        document.getElementById("clock-utc").textContent = `UTC ${utcH}:${utcM}:${utcS}`;
+        // Local with timezone abbreviation
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+        const localStr = now.toLocaleTimeString([], { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        document.getElementById("clock-local").textContent = `${tz} ${localStr}`;
+      }
+      updateClocks();
+      setInterval(updateClocks, 1000);
 
       // Load config to check admin password
       fetch(`${PROXY_URL}/config`).then(r=>r.json()).then(d=>{
@@ -1240,7 +1260,7 @@
             // Update title & version from env
             const title = env.APP_TITLE || "SP SO Web Toolbox";
             document.title = title;
-            $("#app-version").text("v2.6.3");
+            $("#app-version").text("v2.7.0");
 
             renderSidebar();
             renderWelcomeCards();
