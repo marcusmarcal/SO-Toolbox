@@ -188,6 +188,7 @@
   <div class="topbar">
     <h1>SO Video <span>//</span> Analyser</h1>
     <span class="topbar-sub">SRT stream capture · ffprobe NAL/IDR · GOP structure · compliance check</span>
+    <button onclick="openSpecsEditor()" style="margin-left:auto;background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-family:var(--mono);font-size:.68rem;padding:3px 10px;cursor:pointer;white-space:nowrap;transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='var(--purple)';this.style.color='var(--purple)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">⚙ Specs</button>
   </div>
 
   <div class="form-row">
@@ -309,22 +310,24 @@
           </div>
         </div>
         <div class="info-grid">
+          <!-- GOP Stats LEFT -->
+          <div class="card">
+            <div class="card-title">GOP Statistics</div>
+            <div class="gop-hero" id="gop-hero">
+              <div>
+                <div class="gop-hero-label">Avg GOP Size</div>
+                <div class="gop-hero-num" id="gop-hero-avg">—</div>
+                <div class="gop-hero-label">frames</div>
+              </div>
+              <div class="gop-hero-detail" id="gop-hero-detail"></div>
+            </div>
+            <div id="tbl-gop-stats"></div>
+          </div>
+          <!-- Audio RIGHT -->
           <div class="card">
             <div class="card-title">Audio Stream [A]</div>
             <div id="tbl-audio"></div>
           </div>
-        <div class="card">
-          <div class="card-title">GOP Statistics</div>
-          <div class="gop-hero" id="gop-hero">
-            <div>
-              <div class="gop-hero-label">Avg GOP Size</div>
-              <div class="gop-hero-num" id="gop-hero-avg">—</div>
-              <div class="gop-hero-label">frames</div>
-            </div>
-            <div class="gop-hero-detail" id="gop-hero-detail"></div>
-          </div>
-          <div id="tbl-gop-stats"></div>
-        </div>
         </div>
 
         <!-- GOP visualizer -->
@@ -376,6 +379,28 @@
         <span class="hist-bulk-txt" id="bulk-count">0 selected</span>
         <button class="btn-bulk-del" onclick="openBulkDeleteModal()">🗑 Delete selected</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Specs Editor modal -->
+<div class="modal-overlay" id="specs-modal">
+  <div class="modal-card" style="width:720px;max-width:96vw;max-height:88vh;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.85rem;flex-shrink:0">
+      <div class="modal-title" style="color:var(--purple);margin:0">⚙ Compliance Specs Editor</div>
+      <div style="display:flex;gap:.5rem">
+        <button onclick="resetSpecs()" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-family:var(--mono);font-size:.68rem;padding:3px 10px;cursor:pointer">↺ Reset to default</button>
+        <button class="btn-cancel" onclick="closeSpecsModal()">Close</button>
+      </div>
+    </div>
+    <div style="font-family:var(--mono);font-size:.7rem;color:var(--muted);margin-bottom:.75rem;flex-shrink:0">
+      Changes require admin password. Saved to <code style="color:var(--text)">specs.json</code> on the server.
+    </div>
+    <div style="flex:1;overflow-y:auto" id="specs-editor-body"></div>
+    <div style="margin-top:.85rem;display:flex;gap:.5rem;align-items:center;flex-shrink:0;padding-top:.65rem;border-top:1px solid var(--border)">
+      <input class="modal-pw" id="specs-pw" type="password" placeholder="admin password…" style="display:none" />
+      <button class="btn-danger" style="background:var(--purple)" onclick="saveSpecs()">Save Specs</button>
+      <div class="modal-err" id="specs-err"></div>
     </div>
   </div>
 </div>
@@ -886,32 +911,41 @@ async function loadHistory() {
       const serverName = resolveHost(item.url_host);
       const port       = item.url_port || "?";
       const isOverride = !!item.override;
-      const statusCls  = isOverride ? "accepted" : (item.overall_status||"unknown").toLowerCase().replace(/[^a-z]/g,"");
-      const statusLabel= isOverride ? "⚡ Override" : (item.overall_status||"UNKNOWN");
+      const runStatus  = item.run_status || "done";
+      const isFailed   = runStatus === "failed" || runStatus === "error";
+
+      // Status badge
+      let statusCls, statusLabel;
+      if (isOverride)       { statusCls="accepted"; statusLabel="⚡ Override"; }
+      else if (isFailed)    { statusCls="rejected";  statusLabel = runStatus==="error" ? "✗ ERROR" : "✗ FAILED"; }
+      else { statusCls=(item.overall_status||"unknown").toLowerCase().replace(/[^a-z]/g,""); statusLabel=item.overall_status||"UNKNOWN"; }
+
       const idrCls     = item.has_idr ? "compliant" : "rejected";
       const gopTypeCls = item.gop_type === "CLOSED" ? "compliant" : "accepted";
-      const fpsCls     = (item.v_fps_val||0) > 30.5 ? "rejected" : "";
-      const fpsStr     = item.v_fps_val ? item.v_fps_val.toFixed(2)+" fps" : "";
+      const fpsEff     = item.v_fps_compliance || (item.v_scan==="interlaced" && (item.v_fps_val||0)>30 ? (item.v_fps_val||0)/2 : (item.v_fps_val||0));
+      const fpsCls     = fpsEff > 30.5 ? "rejected" : "";
+      const fpsStr     = fpsEff ? fpsEff.toFixed(2)+" fps"+(item.v_scan==="interlaced" && (item.v_fps_val||0)>30?" (i)":"") : "";
       const res        = item.v_width ? `${item.v_width}×${item.v_height}` : "";
-      const tagBadges  = (item.tag||"").split(",").map(t=>t.trim()).filter(Boolean)
-        .map(t=>`<span class="hi-badge">${t}</span>`).join("");
-      const tsLink     = item.ts_file
-        ? `<a class="hi-badge" href="${PROXY}/gop/ts/${encodeURIComponent(item.ts_file)}" download onclick="event.stopPropagation()" style="color:var(--cyan)">⬇ .ts</a>`
-        : "";
+      const tagBadges  = (item.tag||"").split(",").map(t=>t.trim()).filter(Boolean).map(t=>`<span class="hi-badge">${t}</span>`).join("");
+      const tsLink     = item.ts_file ? `<a class="hi-badge" href="${PROXY}/gop/ts/${encodeURIComponent(item.ts_file)}" download onclick="event.stopPropagation()" style="color:var(--cyan)">⬇ .ts</a>` : "";
+      const schedBadge = item.is_scheduled ? `<span class="hi-badge" style="color:var(--cyan);border-color:var(--cyan);background:var(--cyan-d)">🕐 Sched</span>` : "";
+      const logBadge   = isFailed && item.log_count ? `<span class="hi-badge" style="cursor:pointer;color:var(--muted)" onclick="event.stopPropagation();viewErrorLog('${item.file}')" title="View error log">📋 ${item.log_count} log lines</span>` : "";
+      const errorHint  = isFailed && item.error ? `<div style="font-family:var(--mono);font-size:.62rem;color:var(--red);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.error}</div>` : "";
+      const clickFn   = isFailed ? `viewErrorLog('${item.file}')` : `loadResult('${item.file}')`;
 
       return `<div class="hist-item" id="hist-${item.file.replace(/\W/g,'_')}">
         <input type="checkbox" class="hist-item-cb" data-file="${item.file}" onchange="updateBulkBar()" />
-        <div class="hist-item-body" onclick="loadResult('${item.file}');event.stopPropagation()">
+        <div class="hist-item-body" onclick="${clickFn};event.stopPropagation()">
           <div class="hi-dest">${serverName}:${port}</div>
-          <div class="hi-sub">${item.url_host} · ${item.v_codec||"?"}</div>
+          <div class="hi-sub">${item.url_host} · ${item.v_codec||"?"}${item.tag ? " · "+item.tag : ""}</div>
+          ${errorHint}
           <div class="hi-badges">
-            <span class="hi-badge ${idrCls}">${item.has_idr?"✓ IDR":"✗ No IDR"}</span>
-            <span class="hi-badge ${gopTypeCls}">GOP ${item.gop_type||"?"}</span>
-            ${res ? `<span class="hi-badge">${res}</span>` : ""}
-            ${fpsStr ? `<span class="hi-badge ${fpsCls}">${fpsStr}</span>` : ""}
+            ${!isFailed ? `<span class="hi-badge ${idrCls}">${item.has_idr?"✓ IDR":"✗ No IDR"}</span>` : ""}
+            ${!isFailed && item.gop_type ? `<span class="hi-badge ${gopTypeCls}">GOP ${item.gop_type}</span>` : ""}
+            ${!isFailed && res  ? `<span class="hi-badge">${res}</span>` : ""}
+            ${!isFailed && fpsStr ? `<span class="hi-badge ${fpsCls}">${fpsStr}</span>` : ""}
             <span class="hi-badge ${statusCls}">${statusLabel}</span>
-            ${tagBadges}
-            ${tsLink}
+            ${schedBadge}${logBadge}${tagBadges}${tsLink}
           </div>
         </div>
       </div>`;
@@ -1295,10 +1329,180 @@ async function confirmCancelSched() {
 }
 
 // Close modals on backdrop
-["override-modal","override-detail-modal","report-modal","schedule-modal","cancel-sched-modal"].forEach(id => {
+["override-modal","override-detail-modal","report-modal","schedule-modal","cancel-sched-modal","specs-modal"].forEach(id => {
   const el = document.getElementById(id);
   if (el) el.addEventListener("click", function(e){ if(e.target===this) this.classList.remove("open"); });
 });
+
+// ── Specs Editor ─────────────────────────────────────────────────
+let _currentSpecs = null;
+
+async function openSpecsEditor() {
+  document.getElementById("specs-err").textContent = "";
+  document.getElementById("specs-pw").style.display = _hasAdminPw ? "" : "none";
+  document.getElementById("specs-pw").value = "";
+  document.getElementById("specs-modal").classList.add("open");
+  document.getElementById("specs-editor-body").innerHTML =
+    '<div style="font-family:var(--mono);font-size:.7rem;color:var(--muted);padding:.5rem">Loading…</div>';
+  try {
+    const res  = await fetch(`${PROXY}/gop/specs`);
+    _currentSpecs = await res.json();
+    renderSpecsEditor(_currentSpecs);
+  } catch(e) {
+    document.getElementById("specs-editor-body").innerHTML =
+      `<div style="color:var(--red);font-family:var(--mono);font-size:.72rem">Failed to load specs: ${e.message}</div>`;
+  }
+}
+function closeSpecsModal() {
+  document.getElementById("specs-modal").classList.remove("open");
+}
+
+function renderSpecsEditor(specs) {
+  const sections = {
+    "MEDIA PROFILE": ["overall_br"],
+    "VIDEO": ["gop_size","gop_type","b_frames","idr","frame_size","aspect_ratio","chroma",
+              "scan_type","bit_depth","colour_gamut","codec","codec_level","codec_profile",
+              "entropy","rate_ctrl_v","v_br","hdr_scheme","fps"],
+    "AUDIO": ["a_codec","a_streams","a_channels","a_rate_ctrl","a_sample_rate","a_bits","a_br_kbps"],
+  };
+
+  let html = `<table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.72rem">
+    <thead><tr>
+      <th style="text-align:left;padding:.3rem .6rem;border-bottom:1px solid var(--border);color:var(--muted);font-size:.63rem;text-transform:uppercase">Element</th>
+      <th style="text-align:left;padding:.3rem .6rem;border-bottom:1px solid var(--border);color:var(--muted);font-size:.63rem;text-transform:uppercase">Allowed values / Range</th>
+      <th style="text-align:left;padding:.3rem .6rem;border-bottom:1px solid var(--border);color:var(--muted);font-size:.63rem;text-transform:uppercase">Preferred</th>
+      <th style="text-align:left;padding:.3rem .6rem;border-bottom:1px solid var(--border);color:var(--muted);font-size:.63rem;text-transform:uppercase">Special</th>
+    </tr></thead><tbody>`;
+
+  for (const [section, keys] of Object.entries(sections)) {
+    html += `<tr><td colspan="4" style="background:var(--bg3);color:var(--muted);font-size:.63rem;text-transform:uppercase;letter-spacing:.08em;padding:.22rem .6rem">${section}</td></tr>`;
+    for (const key of keys) {
+      const s = specs[key] || {};
+      const label = s.label || key;
+
+      // Build input fields based on spec type
+      let allowedEl = "", prefEl = "", specialEl = "";
+
+      if ("lo" in s) {
+        // Range spec
+        allowedEl = `<input data-key="${key}" data-field="lo" type="number" value="${s.lo}" step="0.01" style="${inStyle}" title="Min" /> – <input data-key="${key}" data-field="hi" type="number" value="${s.hi}" step="0.01" style="${inStyle}" title="Max" />`;
+        if ("pref_lo" in s) {
+          prefEl = `<input data-key="${key}" data-field="pref_lo" type="number" value="${s.pref_lo}" step="0.01" style="${inStyle}" title="Preferred min" /> – <input data-key="${key}" data-field="pref_hi" type="number" value="${s.pref_hi}" step="0.01" style="${inStyle}" title="Preferred max" />`;
+        }
+      } else if ("values" in s) {
+        // Enum spec
+        allowedEl = `<input data-key="${key}" data-field="values" type="text" value="${(s.values||[]).join(", ")}" style="${inStyle};width:180px" placeholder="comma separated" />`;
+        prefEl    = `<input data-key="${key}" data-field="preferred" type="text" value="${s.preferred||""}" style="${inStyle};width:100px" />`;
+      } else if ("required" in s) {
+        allowedEl = `<input data-key="${key}" data-field="required" type="text" value="${s.required}" style="${inStyle}" />`;
+      }
+
+      // Special options
+      let specials = [];
+      if ("allow_seconds" in s) specials.push(`<label style="cursor:pointer"><input type="checkbox" data-key="${key}" data-field="allow_seconds" ${s.allow_seconds?"checked":""} /> Accept GOP in seconds (1s, 2s)</label>`);
+      if ("allow_50p_720" in s) specials.push(`<label style="cursor:pointer"><input type="checkbox" data-key="${key}" data-field="allow_50p_720" ${s.allow_50p_720?"checked":""} /> Accept 50p if 720p</label>`);
+      if ("tolerance" in s) specials.push(`±<input data-key="${key}" data-field="tolerance" type="number" value="${s.tolerance}" step="1" min="0" style="${inStyle};width:50px" title="Tolerance" />`);
+      specialEl = specials.join(" &nbsp; ");
+
+      html += `<tr style="border-bottom:1px solid rgba(255,255,255,.03)">
+        <td style="padding:.3rem .6rem;color:var(--text)">${label}</td>
+        <td style="padding:.3rem .6rem">${allowedEl}</td>
+        <td style="padding:.3rem .6rem">${prefEl}</td>
+        <td style="padding:.3rem .6rem;font-size:.65rem;color:var(--muted)">${specialEl}</td>
+      </tr>`;
+    }
+  }
+  html += "</tbody></table>";
+
+  document.getElementById("specs-editor-body").innerHTML = html;
+}
+
+const inStyle = "background:var(--bg);border:1px solid var(--border);border-radius:3px;color:#fff;font-family:var(--mono);font-size:.68rem;padding:2px 5px;outline:none;width:80px;transition:border-color .15s";
+
+async function saveSpecs() {
+  const pw    = document.getElementById("specs-pw").value;
+  const errEl = document.getElementById("specs-err");
+  errEl.textContent = "";
+
+  // Read all inputs back into specs object
+  const specs = JSON.parse(JSON.stringify(_currentSpecs));
+  document.querySelectorAll("[data-key][data-field]").forEach(el => {
+    const key   = el.dataset.key;
+    const field = el.dataset.field;
+    if (!specs[key]) specs[key] = {};
+    if (el.type === "checkbox") {
+      specs[key][field] = el.checked;
+    } else if (field === "values") {
+      specs[key][field] = el.value.split(",").map(v=>v.trim()).filter(Boolean);
+    } else if (["lo","hi","pref_lo","pref_hi","tolerance"].includes(field)) {
+      specs[key][field] = parseFloat(el.value) || 0;
+    } else {
+      specs[key][field] = el.value.trim();
+    }
+  });
+
+  const headers = { "Content-Type": "application/json" };
+  if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
+
+  try {
+    const res  = await fetch(`${PROXY}/gop/specs`, {
+      method: "POST", headers,
+      body: JSON.stringify(specs)
+    });
+    const data = await res.json();
+    if (res.status === 403) { errEl.textContent = "❌ Invalid password"; return; }
+    if (!data.success) { errEl.textContent = data.error || "Save failed"; return; }
+    _currentSpecs = specs;
+    errEl.style.color = "var(--green)";
+    errEl.textContent = "✓ Saved";
+    setTimeout(() => { errEl.textContent = ""; errEl.style.color = ""; }, 2500);
+  } catch(e) { errEl.textContent = `Error: ${e.message}`; }
+}
+
+async function resetSpecs() {
+  if (!confirm("Reset all specs to defaults?")) return;
+  const pw = document.getElementById("specs-pw").value;
+  const headers = {};
+  if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
+  try {
+    const res  = await fetch(`${PROXY}/gop/specs/reset`, { method:"POST", headers });
+    const data = await res.json();
+    if (data.success) {
+      _currentSpecs = data.specs;
+      renderSpecsEditor(_currentSpecs);
+    }
+  } catch(e) { console.error(e); }
+}
+
+// ── Error / Failed result log viewer ─────────────────────────────
+async function viewErrorLog(file) {
+  try {
+    const res  = await fetch(`${PROXY}/gop/result/${encodeURIComponent(file)}`);
+    const d    = await res.json();
+    const logs = (d.log || []).join("\n") || "(no log lines saved)";
+    const err  = d.error || "";
+    const ts   = (d.started_at||"").replace("T"," ").slice(0,19)+" UTC";
+    const serverName = resolveHost(d.url_host||"");
+    const port = d.url_port || "?";
+
+    // Re-use report modal for log display
+    document.getElementById("report-text").value =
+      `FAILED ANALYSIS LOG\n` +
+      `${"─".repeat(50)}\n` +
+      `Date      : ${ts}\n` +
+      `Server    : ${serverName}:${port}\n` +
+      `URL       : ${d.url||"—"}\n` +
+      `Tag       : ${d.tag||"—"}\n` +
+      `Status    : ${d.status||"?"}\n` +
+      (err ? `Error     : ${err}\n` : "") +
+      `${"─".repeat(50)}\n` +
+      logs;
+    document.querySelector("#report-modal .modal-title").textContent = "📋 Error Log";
+    document.getElementById("report-modal").classList.add("open");
+  } catch(e) {
+    alert(`Failed to load log: ${e.message}`);
+  }
+}
 
 loadConfig();
 loadHistory();

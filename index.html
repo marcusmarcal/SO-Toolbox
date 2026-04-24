@@ -783,7 +783,7 @@
         <button id="btn-git-pull" class="git-pull-btn" data-tip="Pull latest from Git" onclick="gitPull()">⟳ Update</button>
         <button class="git-pull-btn" data-tip="Restart proxy service" onclick="openRestartConfirm()" style="border-color:rgba(255,78,106,0.4);color:#ffb3be;">⏻ Restart Proxy</button>
         <button class="git-pull-btn" data-tip="View README" onclick="openReadme()" style="border-color:rgba(88,166,255,0.4);color:var(--accent);">📖 README</button>
-        <span class="version" id="app-version" onclick="openChangelog()" title="Click to see changelog">v2.7.0</span>
+        <span class="version" id="app-version" onclick="openChangelog()" title="Click to see changelog">v2.8.1</span>
       </header>
 
       <aside id="sidebar">
@@ -826,7 +826,9 @@
           <div class="cl-title">SP SO Web Toolbox — Changelog</div>
           <button class="cl-close" onclick="closeChangelog()">Close</button>
         </div>
-        <div class="cl-entry"><div class="cl-version">v2.7.0</div><div class="cl-date">2026-04-22</div><div class="cl-desc">SO Video Analyser: renamed tool, fix 50i FPS logic (÷2 only if fps>30), fix v_scan ordering bug, override persisted to JSON, TS download, scheduled jobs, metadata bar, test info header; index: UTC+local clocks in statusbar</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.8.1</div><div class="cl-date">2026-04-23</div><div class="cl-desc">SO Video Analyser: always log failed/error results to JSON (scheduled or not); history shows FAILED/ERROR badge, error hint, log viewer; _wait_and_run patches is_scheduled on all outcomes</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.8.0</div><div class="cl-date">2026-04-23</div><div class="cl-desc">Schedule fix, fps history badge (v_fps_compliance), specs editor (JSON, password), GOP Stats left/Audio right, scheduled badge</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.7.0</div><div class="cl-date">2026-04-22</div><div class="cl-desc">SO Video Analyser rename, 50i FPS fix, override→JSON, .ts download, scheduled jobs, metadata header; index: UTC+local clocks</div></div>
         <div class="cl-entry"><div class="cl-version">v2.6.3</div><div class="cl-date">2026-04-21</div><div class="cl-desc">GOP: fix v_scan reference before assignment, 50i→25fps, HLG SDR, AAC-LC, audio tracks, Generate Report, Override</div></div>
         <div class="cl-entry"><div class="cl-version">v2.6.2</div><div class="cl-date">2026-04-16</div><div class="cl-desc">GOP: larger fonts, GOP avg hero, history filters, bitrate fallback, AAC FLTP</div></div>
         <div class="cl-entry"><div class="cl-version">v2.6.0</div><div class="cl-date">2026-04-16</div><div class="cl-desc">GOP: graceful timeout, NAL/IDR, open/closed GOP, compliance RAG table, FPS flag, host labels, filters, bulk delete; MTR: hops fix, bulk delete</div></div>
@@ -1260,7 +1262,7 @@
             // Update title & version from env
             const title = env.APP_TITLE || "SP SO Web Toolbox";
             document.title = title;
-            $("#app-version").text("v2.7.0");
+            $("#app-version").text("v2.8.1");
 
             renderSidebar();
             renderWelcomeCards();

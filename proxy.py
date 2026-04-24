@@ -823,15 +823,37 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
             log("ERROR: Capture produced no usable data. Is the stream reachable?")
             if cap_out:
                 log(cap_out[-800:])
+            ended_at = datetime.datetime.utcnow().isoformat() + "Z"
+            err_result = {
+                "url": url_display, "url_host": url_host, "url_port": url_port,
+                "tag": tag, "started_at": _gop_jobs.get(job_id, {}).get("started_at",""),
+                "ended_at": ended_at,
+                "status": "failed",
+                "error": "Stream unreachable or produced no data",
+                "log": log_lines,
+                "has_idr": False, "idr_count": 0, "total_frames": 0,
+                "overall_status": "FAILED", "is_scheduled": False, "override": None,
+            }
+            # Always save JSON so scheduled runs are logged
+            ts_str   = datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+            safe_url = re.sub(r"[^\w\-]", "_", url_display)[:40]
+            res_file = f"{ts_str}_{safe_url}_FAILED.json"
+            try:
+                with open(os.path.join(GOP_DIR, res_file), "w") as f:
+                    json.dump(err_result, f, indent=2)
+                log(f"Failure log saved: {res_file}")
+            except Exception as ex:
+                log(f"WARNING: Could not save failure log: {ex}")
+            # Clean up temp ts file
+            try:
+                if ts_path and os.path.isfile(ts_path): os.remove(ts_path)
+            except Exception: pass
             with _gop_lock:
                 _gop_jobs[job_id].update({
                     "status": "failed", "log": log_lines,
-                    "ended_at": datetime.datetime.utcnow().isoformat() + "Z",
-                    "result": {
-                        "url": url_display, "url_host": url_host, "url_port": url_port,
-                        "tag": tag, "error": "Stream unreachable or produced no data",
-                        "has_idr": False, "idr_count": 0, "total_frames": 0,
-                    }
+                    "ended_at": ended_at,
+                    "res_file": res_file,
+                    "result": err_result,
                 })
             return
 
@@ -1220,14 +1242,47 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
 
     except Exception as e:
         log(f"ERROR: {e}")
-        # Clean up ts temp file if still exists (not yet moved)
+        import traceback
+        log(traceback.format_exc())
+        # Clean up temp ts file if still exists (not yet moved)
         try:
             if ts_path and os.path.isfile(ts_path): os.remove(ts_path)
         except Exception: pass
+
+        ended_at = datetime.datetime.utcnow().isoformat() + "Z"
+        err_result = {
+            "url": url_display if 'url_display' in dir() else url,
+            "url_host": url_host if 'url_host' in dir() else "",
+            "url_port": url_port if 'url_port' in dir() else "",
+            "tag": tag,
+            "started_at": _gop_jobs.get(job_id, {}).get("started_at", ""),
+            "ended_at": ended_at,
+            "status": "error",
+            "error": str(e),
+            "log": log_lines,
+            "has_idr": False, "idr_count": 0, "total_frames": 0,
+            "overall_status": "ERROR", "is_scheduled": False, "override": None,
+        }
+        # Always save JSON so scheduled runs are fully logged
+        try:
+            ts_str   = datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+            safe_url = re.sub(r"[^\w\-]", "_", err_result["url"])[:40]
+            res_file = f"{ts_str}_{safe_url}_ERROR.json"
+            with open(os.path.join(GOP_DIR, res_file), "w") as f:
+                json.dump(err_result, f, indent=2)
+            log_lines.append(f"Error log saved: {res_file}")
+            err_result["log"] = log_lines
+        except Exception as ex2:
+            res_file = None
+            log_lines.append(f"WARNING: Could not save error log: {ex2}")
+
         with _gop_lock:
             _gop_jobs[job_id].update({
-                "status": "error", "log": log_lines,
-                "ended_at": datetime.datetime.utcnow().isoformat() + "Z"
+                "status":   "error",
+                "log":      log_lines,
+                "ended_at": ended_at,
+                "res_file": res_file,
+                "result":   err_result,
             })
 
 
@@ -1284,26 +1339,45 @@ def gop_results():
         try:
             with open(os.path.join(GOP_DIR, f)) as fh:
                 d = json.load(fh)
-            override = d.get("override")
-            eff_status = "ACCEPTED (Override)" if override else d.get("overall_status", "UNKNOWN")
+            override         = d.get("override")
+            raw_status       = d.get("status", "done")          # done | failed | error
+            raw_ov_status    = d.get("overall_status", "UNKNOWN")
+            # If override, show that; if failed/error, show that instead of compliance
+            if override:
+                eff_status = "ACCEPTED (Override)"
+            elif raw_status in ("failed", "error"):
+                eff_status = raw_status.upper()
+            else:
+                eff_status = raw_ov_status
+
+            v_fps_val        = d.get("v_fps_val", 0)
+            v_fps_compliance = d.get("v_fps_compliance", v_fps_val)
+            v_scan           = d.get("v_scan", "progressive")
             items.append({
-                "file":           f,
-                "url":            d.get("url", ""),
-                "url_host":       d.get("url_host", ""),
-                "url_port":       d.get("url_port", ""),
-                "tag":            d.get("tag", ""),
-                "started_at":     d.get("started_at", ""),
-                "has_idr":        d.get("has_idr", False),
-                "has_b_frames":   d.get("has_b_frames", False),
-                "gop_type":       d.get("gop_type", ""),
-                "gop_avg":        d.get("gop_avg", 0),
-                "v_codec":        d.get("v_codec", ""),
-                "v_width":        d.get("v_width", 0),
-                "v_height":       d.get("v_height", 0),
-                "v_fps_val":      d.get("v_fps_val", 0),
-                "overall_status": eff_status,
-                "override":       override,
-                "ts_file":        d.get("ts_file"),
+                "file":              f,
+                "url":               d.get("url", ""),
+                "url_host":          d.get("url_host", ""),
+                "url_port":          d.get("url_port", ""),
+                "tag":               d.get("tag", ""),
+                "started_at":        d.get("started_at", ""),
+                "ended_at":          d.get("ended_at", ""),
+                "has_idr":           d.get("has_idr", False),
+                "has_b_frames":      d.get("has_b_frames", False),
+                "gop_type":          d.get("gop_type", ""),
+                "gop_avg":           d.get("gop_avg", 0),
+                "v_codec":           d.get("v_codec", ""),
+                "v_width":           d.get("v_width", 0),
+                "v_height":          d.get("v_height", 0),
+                "v_fps_val":         v_fps_val,
+                "v_fps_compliance":  v_fps_compliance,
+                "v_scan":            v_scan,
+                "run_status":        raw_status,       # done|failed|error
+                "overall_status":    eff_status,
+                "override":          override,
+                "error":             d.get("error", ""),
+                "ts_file":           d.get("ts_file"),
+                "is_scheduled":      d.get("is_scheduled", False),
+                "log_count":         len(d.get("log", [])),
             })
         except Exception:
             pass
@@ -1429,31 +1503,55 @@ def gop_schedule():
         }
 
     def _wait_and_run():
-        now = datetime.datetime.utcnow()
-        delay = (run_dt - now).total_seconds()
+        import time as _time2
+        now_utc = datetime.datetime.utcnow()
+        delay   = (run_dt - now_utc).total_seconds()
         if delay > 0:
-            import time as _time2; _time2.sleep(delay)
+            _time2.sleep(max(0, delay))
+
         with _gop_sched_lock:
             sched = _gop_scheduled.get(sched_id, {})
             if sched.get("status") == "cancelled":
                 return
             sched["status"] = "running"
-        # Launch actual analysis
-        job_id = str(uuid.uuid4())[:8]
+
+        # Create job entry first
+        job_id     = str(uuid.uuid4())[:8]
         started_at = datetime.datetime.utcnow().isoformat() + "Z"
         with _gop_lock:
             _gop_jobs[job_id] = {
-                "job_id": job_id, "status": "running",
-                "started_at": started_at, "ended_at": None,
-                "url": url_display, "tag": tag, "result": None, "log": [],
+                "job_id":     job_id,
+                "status":     "running",
+                "started_at": started_at,
+                "ended_at":   None,
+                "url":        url_display,
+                "tag":        tag,
+                "result":     None,
+                "log":        [],
             }
         with _gop_sched_lock:
             if sched_id in _gop_scheduled:
                 _gop_scheduled[sched_id]["job_id"] = job_id
-        t = threading.Thread(target=_run_gop_analysis,
-                             args=(job_id, url, duration, passphrase, tag), daemon=True)
-        t.start()
-        t.join()
+
+        # Run analysis — passphrase already injected into url
+        _run_gop_analysis(job_id, url, duration, "", tag)
+
+        # After completion, mark result as scheduled in the saved JSON
+        with _gop_lock:
+            job = _gop_jobs.get(job_id, {})
+            res_file = job.get("res_file")
+        if res_file:
+            res_path = os.path.join(GOP_DIR, res_file)
+            try:
+                with open(res_path) as f:
+                    d = json.load(f)
+                d["is_scheduled"] = True
+                d["sched_id"]     = sched_id
+                with open(res_path, "w") as f:
+                    json.dump(d, f, indent=2)
+            except Exception:
+                pass
+
         with _gop_sched_lock:
             if sched_id in _gop_scheduled:
                 _gop_scheduled[sched_id]["status"] = "done"
@@ -1484,6 +1582,88 @@ def gop_schedule_cancel(sched_id):
     return jsonify({"success": True})
 
 
+# ═══════════════════════════════════════════════════════════
+#  SPECS EDITOR (specs.json)
+# ═══════════════════════════════════════════════════════════
+SPECS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "specs.json")
+
+DEFAULT_SPECS = {
+    "overall_br":   {"lo": 5.0,  "hi": 18.0, "pref_lo": 8.0,  "pref_hi": 15.0, "label": "Overall Bitrate (Mbps)"},
+    "gop_size":     {"values": [30, 50], "tolerance": 3, "label": "GOP Size (frames)", "allow_seconds": True},
+    "gop_type":     {"required": "CLOSED", "label": "GOP Type"},
+    "b_frames":     {"preferred": "absent", "label": "B-Frames"},
+    "idr":          {"required": True, "label": "IDR Frames"},
+    "frame_size":   {"values": ["1280x720","1920x1080"], "preferred": "1920x1080", "label": "Frame Size"},
+    "aspect_ratio": {"values": ["16:9"], "label": "Aspect Ratio"},
+    "chroma":       {"values": ["4:2:0"], "label": "Chroma Subsampling"},
+    "scan_type":    {"values": ["progressive","interlaced","mbaff"], "preferred": "interlaced", "label": "Scan Type"},
+    "bit_depth":    {"values": ["8"], "label": "Bit Depth"},
+    "colour_gamut": {"values": ["unknown","bt709"], "preferred": "bt709", "label": "Colour Gamut"},
+    "codec":        {"values": ["h264","hevc"], "preferred": "h264", "label": "Coding Algorithm"},
+    "codec_level":  {"lo": 4.0, "hi": 4.2, "pref_lo": 4.1, "pref_hi": 4.2, "label": "CODEC Level"},
+    "codec_profile":{"values": ["main","high"], "preferred": "high", "label": "CODEC Profile"},
+    "entropy":      {"values": ["CABAC"], "label": "Entropy"},
+    "rate_ctrl_v":  {"values": ["VBR","CBR"], "preferred": "CBR", "label": "Rate Control (Video)"},
+    "v_br":         {"lo": 5.0, "hi": 18.0, "pref_lo": 8.0, "pref_hi": 15.0, "label": "Video Bitrate (Mbps)"},
+    "hdr_scheme":   {"values": ["SDR"], "label": "SDR/HDR Scheme"},
+    "fps":          {"values": [25.0, 29.97, 30.0], "preferred": 25.0, "label": "Frame Rate",
+                     "allow_50p_720": True},
+    "a_codec":      {"values": ["AAC-LC","AAC-LATM","AAC-HE","MP1","MP2"], "preferred": "AAC-LC", "label": "Audio Coding"},
+    "a_streams":    {"lo": 1, "hi": 32, "pref_lo": 2, "pref_hi": 2, "label": "Audio Streams"},
+    "a_channels":   {"lo": 2, "hi": 2, "label": "Audio Channels"},
+    "a_rate_ctrl":  {"values": ["VBR","CBR"], "preferred": "CBR", "label": "Audio Rate Control"},
+    "a_sample_rate":{"lo": 44.1, "hi": 48.0, "pref_lo": 48.0, "pref_hi": 48.0, "label": "Sample Rate (kHz)"},
+    "a_bits":       {"values": ["fltp","16","s16"], "preferred": "16", "label": "Audio Bits per Sample"},
+    "a_br_kbps":    {"lo": 118, "hi": 512, "pref_lo": 256, "pref_hi": 256, "label": "Audio Bitrate (Kbps)"},
+}
+
+def _load_specs():
+    if os.path.isfile(SPECS_FILE):
+        try:
+            with open(SPECS_FILE) as f:
+                saved = json.load(f)
+            # Merge with defaults (saved overrides defaults)
+            specs = dict(DEFAULT_SPECS)
+            specs.update(saved)
+            return specs
+        except Exception:
+            pass
+    return dict(DEFAULT_SPECS)
+
+def _save_specs(specs):
+    with open(SPECS_FILE, "w") as f:
+        json.dump(specs, f, indent=2)
+
+@app.route("/gop/specs", methods=["GET"])
+def gop_specs_get():
+    return jsonify(_load_specs())
+
+@app.route("/gop/specs", methods=["POST"])
+def gop_specs_save():
+    ok, err = _check_password(request)
+    if not ok:
+        return err
+    data = request.get_json(silent=True) or {}
+    if not data:
+        return jsonify({"error": "No specs data provided"}), 400
+    try:
+        _save_specs(data)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route("/gop/specs/reset", methods=["POST"])
+def gop_specs_reset():
+    ok, err = _check_password(request)
+    if not ok:
+        return err
+    try:
+        if os.path.isfile(SPECS_FILE):
+            os.remove(SPECS_FILE)
+        return jsonify({"success": True, "specs": DEFAULT_SPECS})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 if __name__ == "__main__":
-    # threaded=True permite lidar com várias requisições ao mesmo tempo
     app.run(host='0.0.0.0', port=5050, threaded=True)
