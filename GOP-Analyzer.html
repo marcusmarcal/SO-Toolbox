@@ -591,6 +591,9 @@ async function runAnalysis() {
 
 function pollStatus(job_id, dur, host, port) {
   clearInterval(pollTimer);
+  // Reset _currentResultFile so we get the new one from this run
+  _currentResultFile = null;
+
   pollTimer = setInterval(async () => {
     try {
       const res = await fetch(`${PROXY}/gop/status/${job_id}`);
@@ -600,20 +603,31 @@ function pollStatus(job_id, dur, host, port) {
       logEl.scrollTop = logEl.scrollHeight;
 
       if (job.status === "running") return;
+
       clearInterval(pollTimer); pollTimer = null;
       stopProgress(job.status === "done");
       document.getElementById("btn-run").disabled = false;
 
+      // Store res_file so override/re-run works on the new result
+      if (job.res_file) _currentResultFile = job.res_file;
+
       if (job.status === "done" && job.result) {
+        // Inject res_file into result so renderResult can use it
+        if (job.res_file) job.result.res_file = job.res_file;
         renderResult(job.result);
         setStatus("ok", `Done — ${host}:${port}`);
-        loadHistory();
-      } else if (job.result && job.result.error) {
-        // Partial result (stream unreachable)
-        setStatus("err", `Capture failed: ${job.result.error}`);
       } else {
-        setStatus("err", `Analysis ${job.status}. Check log above.`);
+        // failed / error — show log, update status
+        const errMsg = (job.result && job.result.error) || `Analysis ${job.status}`;
+        setStatus("err", errMsg);
+        if (job.result && job.result.error) {
+          document.getElementById("log-card").style.display = "";
+        }
       }
+
+      // Always refresh history — failed/error runs also save a JSON now
+      loadHistory();
+
     } catch(e) { console.error(e); }
   }, 1500);
 }
