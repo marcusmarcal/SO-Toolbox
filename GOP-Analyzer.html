@@ -1,3073 +1,1381 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GOP Analyzer</title>
-    <link
-      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Barlow:wght@300;400;600;700&display=swap"
-      rel="stylesheet"
-    />
-    <style>
-      *,
-      *::before,
-      *::after {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
-      :root {
-        --bg: #080c10;
-        --bg2: #0d1117;
-        --bg3: #161b22;
-        --border: #21262d;
-        --green: #3fb950;
-        --green-d: #1a3d20;
-        --cyan: #58a6ff;
-        --cyan-d: #0d2035;
-        --yellow: #e3b341;
-        --yellow-d: #2d2200;
-        --red: #f85149;
-        --red-d: #2d0a0a;
-        --purple: #bc8cff;
-        --purple-d: #1e1035;
-        --orange: #f0883e;
-        --text: #c9d1d9;
-        --muted: #6e7681;
-        --mono: "JetBrains Mono", monospace;
-        --sans: "Barlow", sans-serif;
-        --fs: 13px;
-      }
-      html,
-      body {
-        height: 100%;
-        background: var(--bg);
-        color: var(--text);
-        font-family: var(--sans);
-        font-size: var(--fs);
-        overflow: hidden;
-      }
-      #app {
-        display: flex;
-        flex-direction: column;
-        height: 100vh;
-        padding: 0.85rem 1.1rem;
-        gap: 0.65rem;
-      }
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GOP Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Barlow:wght@300;400;600;700&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:#080c10; --bg2:#0d1117; --bg3:#161b22; --border:#21262d;
+    --green:#3fb950; --green-d:#1a3d20;
+    --cyan:#58a6ff; --cyan-d:#0d2035;
+    --yellow:#e3b341; --yellow-d:#2d2200;
+    --red:#f85149; --red-d:#2d0a0a;
+    --purple:#bc8cff; --purple-d:#1e1035;
+    --orange:#f0883e;
+    --text:#c9d1d9; --muted:#6e7681;
+    --mono:'JetBrains Mono',monospace; --sans:'Barlow',sans-serif;
+    --fs:13px;
+  }
+  html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:var(--fs);overflow:hidden}
+  #app{display:flex;flex-direction:column;height:100vh;padding:.85rem 1.1rem;gap:.65rem}
 
-      .topbar {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        flex-shrink: 0;
-        border-bottom: 1px solid var(--border);
-        padding-bottom: 0.65rem;
-      }
-      .topbar h1 {
-        font-family: var(--mono);
-        font-size: 1rem;
-        font-weight: 700;
-        color: #fff;
-        white-space: nowrap;
-      }
-      .topbar h1 span {
-        color: var(--purple);
-      }
-      .topbar-sub {
-        font-family: var(--mono);
-        font-size: 0.72rem;
-        color: var(--muted);
-      }
+  .topbar{display:flex;align-items:center;gap:.75rem;flex-shrink:0;border-bottom:1px solid var(--border);padding-bottom:.65rem}
+  .topbar h1{font-family:var(--mono);font-size:1rem;font-weight:700;color:#fff;white-space:nowrap}
+  .topbar h1 span{color:var(--purple)}
+  .topbar-sub{font-family:var(--mono);font-size:.72rem;color:var(--muted)}
 
-      .form-row {
-        display: flex;
-        gap: 0.65rem;
-        align-items: flex-end;
-        flex-shrink: 0;
-        flex-wrap: wrap;
-      }
-      .field {
-        display: flex;
-        flex-direction: column;
-        gap: 0.28rem;
-      }
-      .field.grow {
-        flex: 1;
-        min-width: 140px;
-      }
-      .field.w90 {
-        width: 90px;
-      }
-      .field.w120 {
-        width: 120px;
-      }
-      .field.w180 {
-        width: 180px;
-      }
-      label {
-        font-family: var(--mono);
-        font-size: 0.65rem;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--muted);
-      }
-      input[type="text"],
-      input[type="number"],
-      input[type="password"],
-      select {
-        background: var(--bg3);
-        border: 1px solid var(--border);
-        border-radius: 5px;
-        padding: 0.45rem 0.65rem;
-        color: #fff;
-        font-family: var(--mono);
-        font-size: 0.88rem;
-        outline: none;
-        transition: border-color 0.15s;
-        width: 100%;
-      }
-      input:focus,
-      select:focus {
-        border-color: var(--purple);
-      }
-      input.from-env {
-        border-color: rgba(63, 185, 80, 0.5);
-        background: rgba(63, 185, 80, 0.05);
-      }
-      .btn-run {
-        background: var(--purple);
-        color: #000;
-        border: none;
-        border-radius: 5px;
-        padding: 0 1.3rem;
-        font-family: var(--mono);
-        font-size: 0.82rem;
-        font-weight: 700;
-        cursor: pointer;
-        height: 36px;
-        white-space: nowrap;
-        align-self: flex-end;
-        transition: opacity 0.15s;
-      }
-      .btn-run:hover {
-        opacity: 0.85;
-      }
-      .btn-run:disabled {
-        opacity: 0.35;
-        cursor: not-allowed;
-      }
+  .form-row{display:flex;gap:.65rem;align-items:flex-end;flex-shrink:0;flex-wrap:wrap}
+  .field{display:flex;flex-direction:column;gap:.28rem}
+  .field.grow{flex:1;min-width:140px} .field.w90{width:90px} .field.w120{width:120px} .field.w180{width:180px}
+  label{font-family:var(--mono);font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  input[type="text"],input[type="number"],input[type="password"],select{
+    background:var(--bg3);border:1px solid var(--border);border-radius:5px;
+    padding:.45rem .65rem;color:#fff;font-family:var(--mono);font-size:.88rem;
+    outline:none;transition:border-color .15s;width:100%}
+  input:focus,select:focus{border-color:var(--purple)}
+  input.from-env{border-color:rgba(63,185,80,.5);background:rgba(63,185,80,.05)}
+  .btn-run{background:var(--purple);color:#000;border:none;border-radius:5px;padding:0 1.3rem;font-family:var(--mono);font-size:.82rem;font-weight:700;cursor:pointer;height:36px;white-space:nowrap;align-self:flex-end;transition:opacity .15s}
+  .btn-run:hover{opacity:.85} .btn-run:disabled{opacity:.35;cursor:not-allowed}
 
-      .main-area {
-        flex: 1;
-        display: flex;
-        gap: 0.65rem;
-        min-height: 0;
-      }
+  .main-area{flex:1;display:flex;gap:.65rem;min-height:0}
 
-      /* Result panel */
-      .result-panel {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        min-height: 0;
-        gap: 0.5rem;
-        overflow-y: auto;
-      }
-      .result-panel::-webkit-scrollbar {
-        width: 4px;
-      }
-      .result-panel::-webkit-scrollbar-thumb {
-        background: var(--border);
-        border-radius: 2px;
-      }
+  /* Result panel */
+  .result-panel{flex:1;display:flex;flex-direction:column;min-height:0;gap:.5rem;overflow-y:auto}
+  .result-panel::-webkit-scrollbar{width:4px}
+  .result-panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 
-      .status-bar {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.42rem 0.85rem;
-        background: var(--bg3);
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        flex-shrink: 0;
-      }
-      .dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: var(--muted);
-        flex-shrink: 0;
-      }
-      .dot.running {
-        background: var(--yellow);
-        animation: blink 0.8s ease-in-out infinite;
-      }
-      .dot.ok {
-        background: var(--green);
-      }
-      .dot.err {
-        background: var(--red);
-      }
-      @keyframes blink {
-        0%,
-        100% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.3;
-        }
-      }
-      .status-text {
-        font-family: var(--mono);
-        font-size: 0.75rem;
-        color: var(--muted);
-        flex: 1;
-      }
-      #progress-bar {
-        height: 3px;
-        background: var(--border);
-        border-radius: 2px;
-        overflow: hidden;
-        width: 120px;
-        flex-shrink: 0;
-      }
-      #progress-fill {
-        height: 100%;
-        width: 0%;
-        background: var(--purple);
-        transition: width 1s linear;
-      }
+  .status-bar{display:flex;align-items:center;gap:.5rem;padding:.42rem .85rem;background:var(--bg3);border:1px solid var(--border);border-radius:6px;flex-shrink:0}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0}
+  .dot.running{background:var(--yellow);animation:blink .8s ease-in-out infinite}
+  .dot.ok{background:var(--green)} .dot.err{background:var(--red)}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+  .status-text{font-family:var(--mono);font-size:.75rem;color:var(--muted);flex:1}
+  #progress-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden;width:120px;flex-shrink:0}
+  #progress-fill{height:100%;width:0%;background:var(--purple);transition:width 1s linear}
 
-      .card {
-        background: var(--bg2);
-        border: 1px solid var(--border);
-        border-radius: 7px;
-        overflow: hidden;
-        flex-shrink: 0;
-      }
-      .card-title {
-        font-family: var(--mono);
-        font-size: 0.68rem;
-        font-weight: 700;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: var(--muted);
-        padding: 0.45rem 0.85rem;
-        background: var(--bg3);
-        border-bottom: 1px solid var(--border);
-      }
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:7px;overflow:hidden;flex-shrink:0}
+  .card-title{font-family:var(--mono);font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:.45rem .85rem;background:var(--bg3);border-bottom:1px solid var(--border)}
 
-      /* Compliance table */
-      .ctable {
-        width: 100%;
-        border-collapse: collapse;
-      }
-      .ctable th {
-        font-family: var(--mono);
-        font-size: 0.68rem;
-        font-weight: 700;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        color: var(--muted);
-        padding: 0.4rem 0.85rem;
-        text-align: left;
-        border-bottom: 1px solid var(--border);
-        background: var(--bg3);
-      }
-      .ctable th:last-child,
-      .ctable td:last-child {
-        text-align: right;
-      }
-      .ctable td {
-        font-family: var(--mono);
-        font-size: 0.78rem;
-        padding: 0.35rem 0.85rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-        vertical-align: middle;
-      }
-      .ctable tr:last-child td {
-        border-bottom: none;
-      }
-      .ctable tr:hover td {
-        background: rgba(255, 255, 255, 0.025);
-      }
-      .ctable .section-hdr td {
-        background: var(--bg3);
-        color: var(--muted);
-        font-size: 0.67rem;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        padding: 0.28rem 0.85rem;
-      }
-      .status-pill {
-        display: inline-flex;
-        align-items: center;
-        padding: 2px 8px;
-        border-radius: 3px;
-        font-family: var(--mono);
-        font-size: 0.7rem;
-        font-weight: 700;
-        white-space: nowrap;
-      }
-      .status-pill.COMPLIANT {
-        background: var(--green-d);
-        color: var(--green);
-        border: 1px solid var(--green);
-      }
-      .status-pill.ACCEPTED {
-        background: var(--yellow-d);
-        color: var(--yellow);
-        border: 1px solid var(--yellow);
-      }
-      .status-pill.REJECTED {
-        background: var(--red-d);
-        color: var(--red);
-        border: 1px solid var(--red);
-      }
-      .status-pill.UNKNOWN {
-        background: var(--bg3);
-        color: var(--muted);
-        border: 1px solid var(--border);
-      }
+  /* Compliance table */
+  .ctable{width:100%;border-collapse:collapse}
+  .ctable th{font-family:var(--mono);font-size:.68rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:.4rem .85rem;text-align:left;border-bottom:1px solid var(--border);background:var(--bg3)}
+  .ctable th:last-child,.ctable td:last-child{text-align:right}
+  .ctable td{font-family:var(--mono);font-size:.78rem;padding:.35rem .85rem;border-bottom:1px solid rgba(255,255,255,.03);vertical-align:middle}
+  .ctable tr:last-child td{border-bottom:none}
+  .ctable tr:hover td{background:rgba(255,255,255,.025)}
+  .ctable .section-hdr td{background:var(--bg3);color:var(--muted);font-size:.67rem;letter-spacing:.08em;text-transform:uppercase;padding:.28rem .85rem}
+  .status-pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:3px;font-family:var(--mono);font-size:.7rem;font-weight:700;white-space:nowrap}
+  .status-pill.COMPLIANT{background:var(--green-d);color:var(--green);border:1px solid var(--green)}
+  .status-pill.ACCEPTED{background:var(--yellow-d);color:var(--yellow);border:1px solid var(--yellow)}
+  .status-pill.REJECTED{background:var(--red-d);color:var(--red);border:1px solid var(--red)}
+  .status-pill.UNKNOWN{background:var(--bg3);color:var(--muted);border:1px solid var(--border)}
 
-      /* IDR + stream check header */
-      .idr-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.45rem;
-        padding: 0.65rem 1.1rem;
-        border-radius: 6px;
-        font-family: var(--mono);
-        font-size: 0.88rem;
-        font-weight: 700;
-      }
-      .idr-badge.pass {
-        background: var(--green-d);
-        border: 1px solid var(--green);
-        color: var(--green);
-      }
-      .idr-badge.fail {
-        background: var(--red-d);
-        border: 1px solid var(--red);
-        color: var(--red);
-      }
+  /* IDR + stream check header */
+  .idr-badge{display:inline-flex;align-items:center;gap:.45rem;padding:.65rem 1.1rem;border-radius:6px;font-family:var(--mono);font-size:.88rem;font-weight:700}
+  .idr-badge.pass{background:var(--green-d);border:1px solid var(--green);color:var(--green)}
+  .idr-badge.fail{background:var(--red-d);border:1px solid var(--red);color:var(--red)}
 
-      /* GOP avg hero number */
-      .gop-hero {
-        display: flex;
-        align-items: center;
-        gap: 1.5rem;
-        padding: 0.65rem 0.85rem;
-        border-bottom: 1px solid var(--border);
-        flex-wrap: wrap;
-      }
-      .gop-hero-num {
-        font-family: var(--mono);
-        font-size: 2.8rem;
-        font-weight: 700;
-        color: var(--purple);
-        line-height: 1;
-        flex-shrink: 0;
-      }
-      .gop-hero-label {
-        font-family: var(--mono);
-        font-size: 0.72rem;
-        color: var(--muted);
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-      }
-      .gop-hero-detail {
-        display: flex;
-        gap: 2rem;
-        flex-wrap: wrap;
-      }
-      .gop-hero-stat {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-      }
-      .gop-hero-stat-val {
-        font-family: var(--mono);
-        font-size: 1.3rem;
-        font-weight: 700;
-        line-height: 1;
-      }
-      .gop-hero-stat-lbl {
-        font-family: var(--mono);
-        font-size: 0.62rem;
-        color: var(--muted);
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-      }
+  /* GOP avg hero number */
+  .gop-hero{display:flex;align-items:center;gap:1.5rem;padding:.65rem .85rem;border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .gop-hero-num{font-family:var(--mono);font-size:2.8rem;font-weight:700;color:var(--purple);line-height:1;flex-shrink:0}
+  .gop-hero-label{font-family:var(--mono);font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em}
+  .gop-hero-detail{display:flex;gap:2rem;flex-wrap:wrap}
+  .gop-hero-stat{display:flex;flex-direction:column;gap:2px}
+  .gop-hero-stat-val{font-family:var(--mono);font-size:1.3rem;font-weight:700;line-height:1}
+  .gop-hero-stat-lbl{font-family:var(--mono);font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
 
-      /* GOP visualizer */
-      .gop-viz {
-        padding: 0.65rem 0.85rem 0.85rem;
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-      }
-      .gop-row {
-        display: flex;
-        align-items: center;
-        gap: 0.35rem;
-        flex-wrap: wrap;
-      }
-      .gop-label {
-        font-family: var(--mono);
-        font-size: 0.68rem;
-        color: var(--muted);
-        width: 54px;
-        flex-shrink: 0;
-      }
-      .gop-frames {
-        display: flex;
-        gap: 2px;
-        flex-wrap: wrap;
-      }
-      .gop-frame {
-        width: 15px;
-        height: 24px;
-        border-radius: 2px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-family: var(--mono);
-        font-size: 0.58rem;
-        font-weight: 700;
-        cursor: default;
-        transition: transform 0.1s;
-        flex-shrink: 0;
-      }
-      .gop-frame:hover {
-        transform: scaleY(1.15);
-      }
-      .gop-frame.I,
-      .gop-frame.IDR {
-        background: var(--green);
-        color: #000;
-      }
-      .gop-frame.IDR {
-        box-shadow: 0 0 4px var(--green);
-      }
-      .gop-frame.P {
-        background: var(--cyan);
-        color: #000;
-      }
-      .gop-frame.B {
-        background: var(--yellow);
-        color: #000;
-      }
-      .gop-frame.S {
-        background: var(--purple);
-        color: #000;
-      }
-      .gop-frame.Q {
-        background: var(--muted);
-        color: #000;
-      }
-      .gop-pattern {
-        font-family: var(--mono);
-        font-size: 0.7rem;
-        color: var(--muted);
-        margin-left: 4px;
-      }
-      .gop-stats-bar {
-        display: flex;
-        gap: 1.2rem;
-        flex-wrap: wrap;
-        padding: 0.5rem 0.85rem;
-        background: var(--bg3);
-        border-top: 1px solid var(--border);
-      }
-      .gop-stat {
-        font-family: var(--mono);
-        font-size: 0.75rem;
-      }
-      .gop-stat span {
-        color: var(--purple);
-        font-weight: 700;
-      }
-      .legend {
-        display: flex;
-        gap: 0.85rem;
-        padding: 0.45rem 0.85rem;
-        flex-wrap: wrap;
-      }
-      .leg-item {
-        display: flex;
-        align-items: center;
-        gap: 0.35rem;
-        font-family: var(--mono);
-        font-size: 0.7rem;
-        color: var(--muted);
-      }
-      .leg-dot {
-        width: 11px;
-        height: 11px;
-        border-radius: 2px;
-      }
+  /* GOP visualizer */
+  .gop-viz{padding:.65rem .85rem .85rem;display:flex;flex-direction:column;gap:.5rem}
+  .gop-row{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap}
+  .gop-label{font-family:var(--mono);font-size:.68rem;color:var(--muted);width:54px;flex-shrink:0}
+  .gop-frames{display:flex;gap:2px;flex-wrap:wrap}
+  .gop-frame{width:15px;height:24px;border-radius:2px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:.58rem;font-weight:700;cursor:default;transition:transform .1s;flex-shrink:0}
+  .gop-frame:hover{transform:scaleY(1.15)}
+  .gop-frame.I,.gop-frame.IDR{background:var(--green);color:#000}
+  .gop-frame.IDR{box-shadow:0 0 4px var(--green)}
+  .gop-frame.P{background:var(--cyan);color:#000}
+  .gop-frame.B{background:var(--yellow);color:#000}
+  .gop-frame.S{background:var(--purple);color:#000}
+  .gop-frame.Q{background:var(--muted);color:#000}
+  .gop-pattern{font-family:var(--mono);font-size:.7rem;color:var(--muted);margin-left:4px}
+  .gop-stats-bar{display:flex;gap:1.2rem;flex-wrap:wrap;padding:.5rem .85rem;background:var(--bg3);border-top:1px solid var(--border)}
+  .gop-stat{font-family:var(--mono);font-size:.75rem}
+  .gop-stat span{color:var(--purple);font-weight:700}
+  .legend{display:flex;gap:.85rem;padding:.45rem .85rem;flex-wrap:wrap}
+  .leg-item{display:flex;align-items:center;gap:.35rem;font-family:var(--mono);font-size:.7rem;color:var(--muted)}
+  .leg-dot{width:11px;height:11px;border-radius:2px}
 
-      /* Log */
-      #log-output {
-        flex: 1;
-        overflow-y: auto;
-        padding: 0.7rem 0.85rem;
-        font-family: var(--mono);
-        font-size: 0.75rem;
-        line-height: 1.7;
-        color: var(--muted);
-        white-space: pre-wrap;
-        min-height: 80px;
-        max-height: 200px;
-      }
-      #log-output::-webkit-scrollbar {
-        width: 4px;
-      }
-      #log-output::-webkit-scrollbar-thumb {
-        background: var(--border);
-      }
+  /* Log */
+  #log-output{flex:1;overflow-y:auto;padding:.7rem .85rem;font-family:var(--mono);font-size:.75rem;line-height:1.7;color:var(--muted);white-space:pre-wrap;min-height:80px;max-height:200px}
+  #log-output::-webkit-scrollbar{width:4px}
+  #log-output::-webkit-scrollbar-thumb{background:var(--border)}
 
-      /* Info grid */
-      .info-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 0.5rem;
-      }
-      @media (max-width: 900px) {
-        .info-grid {
-          grid-template-columns: 1fr;
-        }
-      }
-      .info-row {
-        display: flex;
-        align-items: baseline;
-        padding: 0.32rem 0.85rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-        font-family: var(--mono);
-        font-size: 0.78rem;
-      }
-      .info-row:last-child {
-        border-bottom: none;
-      }
-      .info-key {
-        color: var(--muted);
-        flex: 0 0 200px;
-        white-space: nowrap;
-      }
-      .info-val {
-        color: var(--text);
-        flex: 1;
-        text-align: right;
-      }
-      .info-val.green {
-        color: var(--green);
-      }
-      .info-val.red {
-        color: var(--red);
-      }
-      .info-val.yellow {
-        color: var(--yellow);
-      }
-      .info-val.cyan {
-        color: var(--cyan);
-      }
-      .info-val.purple {
-        color: var(--purple);
-      }
+  /* Info grid */
+  .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+  @media(max-width:900px){.info-grid{grid-template-columns:1fr}}
+  .info-row{display:flex;align-items:baseline;padding:.32rem .85rem;border-bottom:1px solid rgba(255,255,255,.03);font-family:var(--mono);font-size:.78rem}
+  .info-row:last-child{border-bottom:none}
+  .info-key{color:var(--muted);flex:0 0 200px;white-space:nowrap}
+  .info-val{color:var(--text);flex:1;text-align:right}
+  .info-val.green{color:var(--green)} .info-val.red{color:var(--red)}
+  .info-val.yellow{color:var(--yellow)} .info-val.cyan{color:var(--cyan)}
+  .info-val.purple{color:var(--purple)}
 
-      /* Placeholder */
-      .placeholder {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-direction: column;
-        gap: 0.6rem;
-        flex: 1;
-        opacity: 0.3;
-      }
-      .placeholder p {
-        font-family: var(--mono);
-        font-size: 0.82rem;
-        color: var(--muted);
-      }
+  /* Placeholder */
+  .placeholder{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:.6rem;flex:1;opacity:.3}
+  .placeholder p{font-family:var(--mono);font-size:.82rem;color:var(--muted)}
 
-      /* History panel */
-      .history-panel {
-        width: 340px;
-        flex-shrink: 0;
-        display: flex;
-        flex-direction: column;
-        background: var(--bg2);
-        border: 1px solid var(--border);
-        border-radius: 7px;
-        overflow: hidden;
-      }
-      .history-header {
-        padding: 0.45rem 0.8rem;
-        background: var(--bg3);
-        border-bottom: 1px solid var(--border);
-        font-family: var(--mono);
-        font-size: 0.7rem;
-        font-weight: 700;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: var(--muted);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-shrink: 0;
-      }
-      .hist-filters {
-        display: flex;
-        gap: 0.25rem;
-        padding: 0.35rem 0.55rem;
-        background: var(--bg3);
-        border-bottom: 1px solid var(--border);
-        flex-shrink: 0;
-        align-items: center;
-        flex-wrap: wrap;
-      }
-      /* Style all filter controls uniformly */
-      .hist-filters input,
-      .hist-filters select {
-        background: var(--bg);
-        border: 1px solid var(--border);
-        border-radius: 3px;
-        color: var(--text);
-        font-family: var(--mono);
-        font-size: 0.68rem;
-        padding: 3px 6px;
-        outline: none;
-        transition: border-color 0.15s;
-        color-scheme: dark;
-      }
-      .hist-filters input:focus,
-      .hist-filters select:focus {
-        border-color: var(--purple);
-      }
-      .hist-filters input.f-search {
-        flex: 1;
-        min-width: 50px;
-      }
-      .hist-filters input.f-date {
-        width: 108px;
-      }
-      .hist-filters input.f-tag {
-        width: 58px;
-      }
-      .hist-filters select.f-server {
-        flex: 1;
-        min-width: 60px;
-        cursor: pointer;
-      }
-      .btn-sm {
-        background: transparent;
-        border: none;
-        color: var(--muted);
-        font-family: var(--mono);
-        font-size: 0.75rem;
-        cursor: pointer;
-        padding: 0;
-        flex-shrink: 0;
-      }
-      .btn-sm:hover {
-        color: var(--cyan);
-      }
-      .history-list {
-        flex: 1;
-        overflow-y: auto;
-      }
-      .history-list::-webkit-scrollbar {
-        width: 4px;
-      }
-      .history-list::-webkit-scrollbar-thumb {
-        background: var(--border);
-        border-radius: 2px;
-      }
-      .hist-item {
-        padding: 0.6rem 0.75rem;
-        border-bottom: 1px solid var(--border);
-        cursor: pointer;
-        transition: background 0.12s;
-        display: flex;
-        gap: 0.4rem;
-        align-items: flex-start;
-      }
-      .hist-item:hover {
-        background: var(--bg3);
-      }
-      .hist-item-cb {
-        margin-top: 4px;
-        flex-shrink: 0;
-        cursor: pointer;
-        accent-color: var(--purple);
-      }
-      .hist-item-body {
-        flex: 1;
-        min-width: 0;
-      }
-      .hi-dest {
-        font-family: var(--mono);
-        font-size: 0.82rem;
-        color: #fff;
-        font-weight: 700;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .hi-sub {
-        font-family: var(--mono);
-        font-size: 0.68rem;
-        color: var(--muted);
-        margin-top: 2px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .hi-badges {
-        display: flex;
-        gap: 0.28rem;
-        margin-top: 5px;
-        flex-wrap: wrap;
-      }
-      .hi-badge {
-        font-family: var(--mono);
-        font-size: 0.65rem;
-        padding: 2px 6px;
-        border-radius: 3px;
-        border: 1px solid var(--border);
-        background: var(--bg);
-      }
-      .hi-badge.compliant {
-        color: var(--green);
-        border-color: var(--green);
-        background: var(--green-d);
-      }
-      .hi-badge.accepted {
-        color: var(--yellow);
-        border-color: var(--yellow);
-        background: var(--yellow-d);
-      }
-      .hi-badge.rejected {
-        color: var(--red);
-        border-color: var(--red);
-        background: var(--red-d);
-      }
-      .hist-empty {
-        padding: 1.5rem;
-        text-align: center;
-        font-family: var(--mono);
-        font-size: 0.72rem;
-        color: var(--muted);
-      }
-      .hist-bulk-bar {
-        padding: 0.35rem 0.65rem;
-        background: var(--bg3);
-        border-top: 1px solid var(--border);
-        display: none;
-        justify-content: space-between;
-        align-items: center;
-        flex-shrink: 0;
-      }
-      .hist-bulk-bar.visible {
-        display: flex;
-      }
-      .hist-bulk-txt {
-        font-family: var(--mono);
-        font-size: 0.68rem;
-        color: var(--muted);
-      }
-      .btn-bulk-del {
-        background: transparent;
-        border: 1px solid var(--border);
-        border-radius: 3px;
-        color: var(--muted);
-        font-family: var(--mono);
-        font-size: 0.68rem;
-        padding: 2px 9px;
-        cursor: pointer;
-        transition: border-color 0.15s, color 0.15s;
-      }
-      .btn-bulk-del:hover {
-        border-color: var(--red);
-        color: var(--red);
-      }
+  /* History panel */
+  .history-panel{width:340px;flex-shrink:0;display:flex;flex-direction:column;background:var(--bg2);border:1px solid var(--border);border-radius:7px;overflow:hidden}
+  .history-header{padding:.45rem .8rem;background:var(--bg3);border-bottom:1px solid var(--border);font-family:var(--mono);font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+  .hist-filters{display:flex;gap:.25rem;padding:.35rem .55rem;background:var(--bg3);border-bottom:1px solid var(--border);flex-shrink:0;align-items:center;flex-wrap:wrap}
+  /* Style all filter controls uniformly */
+  .hist-filters input,
+  .hist-filters select {
+    background:var(--bg);border:1px solid var(--border);border-radius:3px;
+    color:var(--text);font-family:var(--mono);font-size:.68rem;
+    padding:3px 6px;outline:none;transition:border-color .15s;color-scheme:dark;
+  }
+  .hist-filters input:focus,.hist-filters select:focus{border-color:var(--purple)}
+  .hist-filters input.f-search{flex:1;min-width:50px}
+  .hist-filters input.f-date{width:108px}
+  .hist-filters input.f-tag{width:58px}
+  .hist-filters select.f-server{flex:1;min-width:60px;cursor:pointer}
+  .btn-sm{background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:.75rem;cursor:pointer;padding:0;flex-shrink:0}
+  .btn-sm:hover{color:var(--cyan)}
+  .history-list{flex:1;overflow-y:auto}
+  .history-list::-webkit-scrollbar{width:4px}
+  .history-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+  .hist-item{padding:.6rem .75rem;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;display:flex;gap:.4rem;align-items:flex-start}
+  .hist-item:hover{background:var(--bg3)}
+  .hist-item-cb{margin-top:4px;flex-shrink:0;cursor:pointer;accent-color:var(--purple)}
+  .hist-item-body{flex:1;min-width:0}
+  .hi-dest{font-family:var(--mono);font-size:.82rem;color:#fff;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hi-sub{font-family:var(--mono);font-size:.68rem;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hi-badges{display:flex;gap:.28rem;margin-top:5px;flex-wrap:wrap}
+  .hi-badge{font-family:var(--mono);font-size:.65rem;padding:2px 6px;border-radius:3px;border:1px solid var(--border);background:var(--bg)}
+  .hi-badge.compliant{color:var(--green);border-color:var(--green);background:var(--green-d)}
+  .hi-badge.accepted{color:var(--yellow);border-color:var(--yellow);background:var(--yellow-d)}
+  .hi-badge.rejected{color:var(--red);border-color:var(--red);background:var(--red-d)}
+  .hist-empty{padding:1.5rem;text-align:center;font-family:var(--mono);font-size:.72rem;color:var(--muted)}
+  .hist-bulk-bar{padding:.35rem .65rem;background:var(--bg3);border-top:1px solid var(--border);display:none;justify-content:space-between;align-items:center;flex-shrink:0}
+  .hist-bulk-bar.visible{display:flex}
+  .hist-bulk-txt{font-family:var(--mono);font-size:.68rem;color:var(--muted)}
+  .btn-bulk-del{background:transparent;border:1px solid var(--border);border-radius:3px;color:var(--muted);font-family:var(--mono);font-size:.68rem;padding:2px 9px;cursor:pointer;transition:border-color .15s,color .15s}
+  .btn-bulk-del:hover{border-color:var(--red);color:var(--red)}
 
-      /* Modal */
-      .modal-overlay {
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.65);
-        z-index: 300;
-        align-items: center;
-        justify-content: center;
-      }
-      .modal-overlay.open {
-        display: flex;
-      }
-      .modal-card {
-        background: var(--bg2);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 1.5rem 2rem;
-        width: 420px;
-        max-width: 92vw;
-        box-shadow: 0 0 50px rgba(0, 0, 0, 0.6);
-      }
-      .modal-title {
-        font-family: var(--mono);
-        font-size: 0.78rem;
-        font-weight: 700;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: var(--red);
-        margin-bottom: 0.8rem;
-      }
-      .modal-body {
-        font-family: var(--mono);
-        font-size: 0.78rem;
-        color: var(--text);
-        line-height: 1.7;
-        margin-bottom: 1rem;
-      }
-      .modal-actions {
-        display: flex;
-        gap: 0.5rem;
-        align-items: center;
-        flex-wrap: wrap;
-      }
-      .modal-pw {
-        background: var(--bg3);
-        border: 1px solid var(--border);
-        border-radius: 4px;
-        color: #fff;
-        font-family: var(--mono);
-        font-size: 0.8rem;
-        padding: 5px 10px;
-        outline: none;
-        width: 160px;
-        transition: border-color 0.15s;
-      }
-      .modal-pw:focus {
-        border-color: var(--purple);
-      }
-      .modal-pw.error {
-        border-color: var(--red);
-      }
-      .btn-danger {
-        background: var(--red);
-        border: none;
-        border-radius: 5px;
-        color: #fff;
-        font-family: var(--mono);
-        font-size: 0.75rem;
-        font-weight: 700;
-        padding: 5px 16px;
-        cursor: pointer;
-      }
-      .btn-cancel {
-        background: transparent;
-        border: 1px solid var(--border);
-        border-radius: 5px;
-        color: var(--muted);
-        font-family: var(--mono);
-        font-size: 0.75rem;
-        padding: 5px 14px;
-        cursor: pointer;
-      }
-      .btn-cancel:hover {
-        border-color: var(--cyan);
-        color: var(--cyan);
-      }
-      .modal-err {
-        font-family: var(--mono);
-        font-size: 0.7rem;
-        color: var(--red);
-        margin-top: 0.4rem;
-        min-height: 1em;
-        width: 100%;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="app">
-      <div class="topbar">
-        <h1>SO Video <span>//</span> Analyser</h1>
-        <span class="topbar-sub"
-          >SRT stream capture · ffprobe NAL/IDR · GOP structure · compliance
-          check</span
-        >
-        <button
-          onclick="openSpecsEditor()"
-          style="
-            margin-left: auto;
-            background: transparent;
-            border: 1px solid var(--border);
-            border-radius: 5px;
-            color: var(--muted);
-            font-family: var(--mono);
-            font-size: 0.68rem;
-            padding: 3px 10px;
-            cursor: pointer;
-            white-space: nowrap;
-            transition: border-color 0.15s, color 0.15s;
-          "
-          onmouseover="this.style.borderColor='var(--purple)';this.style.color='var(--purple)'"
-          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'"
-        >
-          ⚙ Specs
-        </button>
+  /* Modal */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:300;align-items:center;justify-content:center}
+  .modal-overlay.open{display:flex}
+  .modal-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:1.5rem 2rem;width:420px;max-width:92vw;box-shadow:0 0 50px rgba(0,0,0,.6)}
+  .modal-title{font-family:var(--mono);font-size:.78rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--red);margin-bottom:.8rem}
+  .modal-body{font-family:var(--mono);font-size:.78rem;color:var(--text);line-height:1.7;margin-bottom:1rem}
+  .modal-actions{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+  .modal-pw{background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:#fff;font-family:var(--mono);font-size:.8rem;padding:5px 10px;outline:none;width:160px;transition:border-color .15s}
+  .modal-pw:focus{border-color:var(--purple)}
+  .modal-pw.error{border-color:var(--red)}
+  .btn-danger{background:var(--red);border:none;border-radius:5px;color:#fff;font-family:var(--mono);font-size:.75rem;font-weight:700;padding:5px 16px;cursor:pointer}
+  .btn-cancel{background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-family:var(--mono);font-size:.75rem;padding:5px 14px;cursor:pointer}
+  .btn-cancel:hover{border-color:var(--cyan);color:var(--cyan)}
+  .modal-err{font-family:var(--mono);font-size:.7rem;color:var(--red);margin-top:.4rem;min-height:1em;width:100%}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <h1>SO Video <span>//</span> Analyser</h1>
+    <span class="topbar-sub">SRT stream capture · ffprobe NAL/IDR · GOP structure · compliance check</span>
+    <button onclick="openSpecsEditor()" style="margin-left:auto;background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-family:var(--mono);font-size:.68rem;padding:3px 10px;cursor:pointer;white-space:nowrap;transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='var(--purple)';this.style.color='var(--purple)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">⚙ Specs</button>
+  </div>
+
+  <div class="form-row">
+    <div class="field grow">
+      <label>Host / IP</label>
+      <input id="inp-host" type="text" placeholder="10.0.0.1" autocomplete="off" list="srt-host-presets" />
+      <datalist id="srt-host-presets"></datalist>
+    </div>
+    <div class="field w90">
+      <label>Port</label>
+      <input id="inp-port" type="number" placeholder="9000" min="1" max="65535" />
+    </div>
+    <div class="field w180">
+      <label>Passphrase <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+      <input id="inp-pass" type="text" placeholder="leave blank if none"
+        autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false"
+        style="-webkit-text-security:disc;font-family:var(--mono)" />
+    </div>
+    <div class="field w120">
+      <label>Duration</label>
+      <select id="inp-dur">
+        <option value="15">15 seconds</option>
+        <option value="30" selected>30 seconds</option>
+        <option value="60">60 seconds</option>
+      </select>
+    </div>
+    <div class="field w180">
+      <label>Tag <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+      <input id="inp-tag" type="text" placeholder="e.g. test, JIRA-123" autocomplete="off" list="tag-presets" />
+      <datalist id="tag-presets"></datalist>
+    </div>
+    <button class="btn-run" id="btn-run" onclick="runAnalysis()">▶ Analyse Now</button>
+    <button onclick="openScheduleModal()" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-family:var(--mono);font-size:.76rem;font-weight:700;padding:0 .9rem;height:36px;cursor:pointer;white-space:nowrap;align-self:flex-end;transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='var(--cyan)';this.style.color='var(--cyan)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🕐 Schedule</button>
+  </div>
+
+  <div class="main-area">
+    <!-- Result panel -->
+    <div class="result-panel" id="result-panel">
+      <div class="status-bar">
+        <span class="dot" id="dot"></span>
+        <span class="status-text" id="status-text">Ready — fill in SRT details and click Analyse Now</span>
+        <div id="progress-bar"><div id="progress-fill"></div></div>
       </div>
 
-      <div class="form-row">
-        <div class="field grow">
-          <label>Host / IP</label>
-          <input
-            id="inp-host"
-            type="text"
-            placeholder="10.0.0.1"
-            autocomplete="off"
-            list="srt-host-presets"
-          />
-          <datalist id="srt-host-presets"></datalist>
-        </div>
-        <div class="field w90">
-          <label>Port</label>
-          <input
-            id="inp-port"
-            type="number"
-            placeholder="9000"
-            min="1"
-            max="65535"
-          />
-        </div>
-        <div class="field w90">
-          <label>Latency ms</label>
-          <input id="inp-latency" type="number" placeholder="120" min="0" />
-        </div>
-        <div class="field w180">
-          <label
-            >Passphrase
-            <span style="color: var(--muted); font-weight: 400"
-              >(optional)</span
-            ></label
-          >
-          <input
-            id="inp-pass"
-            type="text"
-            placeholder="leave blank if none"
-            autocomplete="new-password"
-            autocorrect="off"
-            autocapitalize="off"
-            spellcheck="false"
-            style="-webkit-text-security: disc; font-family: var(--mono)"
-          />
-        </div>
-        <div class="field w120">
-          <label>Duration</label>
-          <select id="inp-dur">
-            <option value="15">15 seconds</option>
-            <option value="30" selected>30 seconds</option>
-            <option value="60">60 seconds</option>
-          </select>
-        </div>
-        <div class="field w180">
-          <label
-            >Tag
-            <span style="color: var(--muted); font-weight: 400"
-              >(optional)</span
-            ></label
-          >
-          <input
-            id="inp-tag"
-            type="text"
-            placeholder="e.g. test, JIRA-123"
-            autocomplete="off"
-            list="tag-presets"
-          />
-          <datalist id="tag-presets"></datalist>
-        </div>
-        <button class="btn-run" id="btn-run" onclick="runAnalysis()">
-          ▶ Analyse Now
-        </button>
-        <button
-          onclick="openScheduleModal()"
-          style="
-            background: transparent;
-            border: 1px solid var(--border);
-            border-radius: 5px;
-            color: var(--muted);
-            font-family: var(--mono);
-            font-size: 0.76rem;
-            font-weight: 700;
-            padding: 0 0.9rem;
-            height: 36px;
-            cursor: pointer;
-            white-space: nowrap;
-            align-self: flex-end;
-            transition: border-color 0.15s, color 0.15s;
-          "
-          onmouseover="this.style.borderColor='var(--cyan)';this.style.color='var(--cyan)'"
-          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'"
-        >
-          🕐 Schedule
-        </button>
+      <div class="placeholder" id="placeholder">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+          <rect x="2" y="8" width="44" height="32" rx="3" stroke="#484f58" stroke-width="2"/>
+          <rect x="7"  y="15" width="6" height="18" rx="1" fill="#3fb950"/>
+          <rect x="16" y="20" width="6" height="13" rx="1" fill="#58a6ff"/>
+          <rect x="25" y="23" width="6" height="10" rx="1" fill="#e3b341"/>
+          <rect x="34" y="20" width="6" height="13" rx="1" fill="#58a6ff"/>
+        </svg>
+        <p>No analysis yet</p>
       </div>
 
-      <div class="main-area">
-        <!-- Result panel -->
-        <div class="result-panel" id="result-panel">
-          <div class="status-bar">
-            <span class="dot" id="dot"></span>
-            <span class="status-text" id="status-text"
-              >Ready — fill in SRT details and click Analyse Now</span
-            >
-            <div id="progress-bar"><div id="progress-fill"></div></div>
-          </div>
+      <div class="card" id="log-card" style="display:none">
+        <div class="card-title">Analysis Log</div>
+        <div id="log-output"></div>
+      </div>
 
-          <div class="placeholder" id="placeholder">
-            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-              <rect
-                x="2"
-                y="8"
-                width="44"
-                height="32"
-                rx="3"
-                stroke="#484f58"
-                stroke-width="2"
-              />
-              <rect x="7" y="15" width="6" height="18" rx="1" fill="#3fb950" />
-              <rect x="16" y="20" width="6" height="13" rx="1" fill="#58a6ff" />
-              <rect x="25" y="23" width="6" height="10" rx="1" fill="#e3b341" />
-              <rect x="34" y="20" width="6" height="13" rx="1" fill="#58a6ff" />
-            </svg>
-            <p>No analysis yet</p>
-          </div>
+      <div id="results-content" style="display:none">
+        <!-- Test metadata header -->
+        <div style="padding:.5rem .85rem;background:var(--bg3);border:1px solid var(--border);border-radius:6px;font-family:var(--mono);font-size:.72rem;display:flex;gap:1.5rem;flex-wrap:wrap;align-items:center" id="test-meta-bar">
+          <span id="meta-date" style="color:var(--muted)"></span>
+          <span id="meta-server" style="color:var(--cyan)"></span>
+          <span id="meta-port" style="color:var(--muted)"></span>
+          <span id="meta-tags" style="color:var(--yellow)"></span>
+          <span id="meta-ts-download" style="margin-left:auto"></span>
+        </div>
 
-          <div class="card" id="log-card" style="display: none">
-            <div class="card-title">Analysis Log</div>
-            <div id="log-output"></div>
-          </div>
-
-          <div id="results-content" style="display: none">
-            <!-- Test metadata header -->
-            <div
-              style="
-                padding: 0.5rem 0.85rem;
-                background: var(--bg3);
-                border: 1px solid var(--border);
-                border-radius: 6px;
-                font-family: var(--mono);
-                font-size: 0.72rem;
-                display: flex;
-                gap: 1.5rem;
-                flex-wrap: wrap;
-                align-items: center;
-              "
-              id="test-meta-bar"
-            >
-              <span id="meta-date" style="color: var(--muted)"></span>
-              <span id="meta-server" style="color: var(--cyan)"></span>
-              <span id="meta-port" style="color: var(--muted)"></span>
-              <span id="meta-tags" style="color: var(--yellow)"></span>
-              <span id="meta-ts-download" style="margin-left: auto"></span>
-            </div>
-
-            <!-- IDR + overall status + actions -->
-            <div class="card">
-              <div class="card-title">Stream Check</div>
-              <div
-                style="
-                  padding: 0.65rem 0.85rem;
-                  display: flex;
-                  gap: 1rem;
-                  align-items: center;
-                  flex-wrap: wrap;
-                "
-              >
-                <div class="idr-badge" id="idr-badge">…</div>
-                <div
-                  style="
-                    font-family: var(--mono);
-                    font-size: 0.72rem;
-                    color: var(--muted);
-                    line-height: 1.9;
-                  "
-                  id="idr-detail"
-                >
-                  …
-                </div>
-                <div
-                  style="
-                    margin-left: auto;
-                    display: flex;
-                    gap: 0.5rem;
-                    align-items: center;
-                    flex-wrap: wrap;
-                  "
-                >
-                  <div id="overall-badge"></div>
-                  <button
-                    id="btn-override"
-                    onclick="openOverrideModal()"
-                    style="
-                      background: transparent;
-                      border: 1px solid var(--yellow);
-                      border-radius: 5px;
-                      color: var(--yellow);
-                      font-family: var(--mono);
-                      font-size: 0.7rem;
-                      font-weight: 700;
-                      padding: 4px 12px;
-                      cursor: pointer;
-                      transition: opacity 0.15s;
-                    "
-                    title="Manually accept this result with justification"
-                  >
-                    ⚡ Override
-                  </button>
-                  <button
-                    id="btn-report"
-                    onclick="generateReport()"
-                    style="
-                      background: var(--cyan);
-                      border: none;
-                      border-radius: 5px;
-                      color: #000;
-                      font-family: var(--mono);
-                      font-size: 0.7rem;
-                      font-weight: 700;
-                      padding: 4px 12px;
-                      cursor: pointer;
-                      transition: opacity 0.15s;
-                    "
-                    title="Generate email report"
-                  >
-                    📋 Generate Report
-                  </button>
-                </div>
-              </div>
-              <!-- Override notice (hidden until override applied) -->
-              <div
-                id="override-notice"
-                style="
-                  display: none;
-                  padding: 0.5rem 0.85rem;
-                  background: rgba(227, 179, 65, 0.08);
-                  border-top: 1px solid rgba(227, 179, 65, 0.3);
-                "
-              >
-                <span
-                  style="
-                    font-family: var(--mono);
-                    font-size: 0.72rem;
-                    color: var(--yellow);
-                  "
-                  >⚡ OVERRIDE APPLIED —
-                </span>
-                <span
-                  id="override-reason-display"
-                  style="
-                    font-family: var(--mono);
-                    font-size: 0.72rem;
-                    color: var(--text);
-                  "
-                ></span>
-              </div>
-            </div>
-
-            <!-- Compliance table -->
-            <div class="card">
-              <div class="card-title">Compliance — RAG Status</div>
-              <table class="ctable" id="compliance-table">
-                <thead>
-                  <tr>
-                    <th>Element</th>
-                    <th>Specification</th>
-                    <th>Measured</th>
-                    <th>Result</th>
-                  </tr>
-                </thead>
-                <tbody id="compliance-body"></tbody>
-              </table>
-            </div>
-
-            <!-- Stream info -->
-            <div class="info-grid">
-              <div class="card">
-                <div class="card-title">Container / File</div>
-                <div id="tbl-container"></div>
-              </div>
-              <div class="card">
-                <div class="card-title">Video Stream [V]</div>
-                <div id="tbl-video"></div>
-              </div>
-            </div>
-            <div class="info-grid">
-              <!-- GOP Stats LEFT -->
-              <div class="card">
-                <div class="card-title">GOP Statistics</div>
-                <div class="gop-hero" id="gop-hero">
-                  <div>
-                    <div class="gop-hero-label">Avg GOP Size</div>
-                    <div class="gop-hero-num" id="gop-hero-avg">—</div>
-                    <div class="gop-hero-label">frames</div>
-                  </div>
-                  <div class="gop-hero-detail" id="gop-hero-detail"></div>
-                </div>
-                <div id="tbl-gop-stats"></div>
-              </div>
-              <!-- Audio RIGHT -->
-              <div class="card">
-                <div class="card-title">Audio Stream [A]</div>
-                <div id="tbl-audio"></div>
-              </div>
-            </div>
-
-            <!-- GOP visualizer -->
-            <div class="card">
-              <div class="card-title">GOP Structure Visualizer</div>
-              <div class="legend">
-                <div class="leg-item">
-                  <div class="leg-dot" style="background: var(--green)"></div>
-                  I — IDR/Intra
-                </div>
-                <div class="leg-item">
-                  <div class="leg-dot" style="background: var(--cyan)"></div>
-                  P — Predicted
-                </div>
-                <div class="leg-item">
-                  <div class="leg-dot" style="background: var(--yellow)"></div>
-                  B — Bi-directional
-                </div>
-                <div class="leg-item">
-                  <div class="leg-dot" style="background: var(--purple)"></div>
-                  S — other
-                </div>
-                <span
-                  style="
-                    font-family: var(--mono);
-                    font-size: 0.6rem;
-                    color: var(--muted);
-                    margin-left: auto;
-                  "
-                  >Last GOP excluded (incomplete)</span
-                >
-              </div>
-              <div class="gop-viz" id="gop-viz"></div>
-              <div class="gop-stats-bar" id="gop-stats-bar"></div>
+        <!-- IDR + overall status + actions -->
+        <div class="card">
+          <div class="card-title">Stream Check</div>
+          <div style="padding:.65rem .85rem;display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
+            <div class="idr-badge" id="idr-badge">…</div>
+            <div style="font-family:var(--mono);font-size:.72rem;color:var(--muted);line-height:1.9" id="idr-detail">…</div>
+            <div style="margin-left:auto;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+              <div id="overall-badge"></div>
+              <button id="btn-override" onclick="openOverrideModal()" style="background:transparent;border:1px solid var(--yellow);border-radius:5px;color:var(--yellow);font-family:var(--mono);font-size:.7rem;font-weight:700;padding:4px 12px;cursor:pointer;transition:opacity .15s" title="Manually accept this result with justification">⚡ Override</button>
+              <button id="btn-report" onclick="generateReport()" style="background:var(--cyan);border:none;border-radius:5px;color:#000;font-family:var(--mono);font-size:.7rem;font-weight:700;padding:4px 12px;cursor:pointer;transition:opacity .15s" title="Generate email report">📋 Generate Report</button>
             </div>
           </div>
+          <!-- Override notice (hidden until override applied) -->
+          <div id="override-notice" style="display:none;padding:.5rem .85rem;background:rgba(227,179,65,.08);border-top:1px solid rgba(227,179,65,.3)">
+            <span style="font-family:var(--mono);font-size:.72rem;color:var(--yellow)">⚡ OVERRIDE APPLIED — </span>
+            <span id="override-reason-display" style="font-family:var(--mono);font-size:.72rem;color:var(--text)"></span>
+          </div>
         </div>
 
-        <!-- History panel -->
-        <div class="history-panel">
-          <!-- Scheduled section -->
-          <div
-            class="history-header"
-            style="border-bottom: 1px solid var(--border)"
-          >
-            Scheduled
-            <button class="btn-sm" onclick="loadScheduled()">↻</button>
-          </div>
-          <div
-            id="scheduled-list"
-            style="
-              max-height: 120px;
-              overflow-y: auto;
-              flex-shrink: 0;
-              border-bottom: 1px solid var(--border);
-            "
-          >
-            <div class="hist-empty">No scheduled analyses</div>
-          </div>
+        <!-- Compliance table -->
+        <div class="card">
+          <div class="card-title">Compliance — RAG Status</div>
+          <table class="ctable" id="compliance-table">
+            <thead>
+              <tr>
+                <th>Element</th>
+                <th>Specification</th>
+                <th>Measured</th>
+                <th>Result</th>
+              </tr>
+            </thead>
+            <tbody id="compliance-body"></tbody>
+          </table>
+        </div>
 
-          <div class="history-header">
-            History
-            <button class="btn-sm" onclick="loadHistory()">↻</button>
+        <!-- Stream info -->
+        <div class="info-grid">
+          <div class="card">
+            <div class="card-title">Container / File</div>
+            <div id="tbl-container"></div>
           </div>
-          <div class="hist-filters">
-            <input
-              class="f-search"
-              id="hist-search"
-              type="text"
-              placeholder="host/port…"
-              oninput="loadHistory()"
-            />
+          <div class="card">
+            <div class="card-title">Video Stream [V]</div>
+            <div id="tbl-video"></div>
           </div>
-          <div
-            class="hist-filters"
-            style="border-bottom: 1px solid var(--border)"
-          >
-            <input
-              class="f-date"
-              id="hist-date"
-              type="date"
-              oninput="loadHistory()"
-              title="Filter by date"
-            />
-            <input
-              class="f-tag"
-              id="hist-tag"
-              type="text"
-              placeholder="tag…"
-              list="hist-tag-list"
-              oninput="loadHistory()"
-            />
-            <datalist id="hist-tag-list"></datalist>
-            <select class="f-server" id="hist-server" onchange="loadHistory()">
-              <option value="">All servers</option>
-            </select>
+        </div>
+        <div class="info-grid">
+          <!-- GOP Stats LEFT -->
+          <div class="card">
+            <div class="card-title">GOP Statistics</div>
+            <div class="gop-hero" id="gop-hero">
+              <div>
+                <div class="gop-hero-label">Avg GOP Size</div>
+                <div class="gop-hero-num" id="gop-hero-avg">—</div>
+                <div class="gop-hero-label">frames</div>
+              </div>
+              <div class="gop-hero-detail" id="gop-hero-detail"></div>
+            </div>
+            <div id="tbl-gop-stats"></div>
           </div>
-          <div class="history-list" id="history-list">
-            <div class="hist-empty">No analyses yet</div>
+          <!-- Audio RIGHT -->
+          <div class="card">
+            <div class="card-title">Audio Stream [A]</div>
+            <div id="tbl-audio"></div>
           </div>
-          <div class="hist-bulk-bar" id="bulk-bar">
-            <span class="hist-bulk-txt" id="bulk-count">0 selected</span>
-            <button class="btn-bulk-del" onclick="openBulkDeleteModal()">
-              🗑 Delete selected
-            </button>
+        </div>
+
+        <!-- GOP visualizer -->
+        <div class="card">
+          <div class="card-title">GOP Structure Visualizer</div>
+          <div class="legend">
+            <div class="leg-item"><div class="leg-dot" style="background:var(--green)"></div>I — IDR/Intra</div>
+            <div class="leg-item"><div class="leg-dot" style="background:var(--cyan)"></div>P — Predicted</div>
+            <div class="leg-item"><div class="leg-dot" style="background:var(--yellow)"></div>B — Bi-directional</div>
+            <div class="leg-item"><div class="leg-dot" style="background:var(--purple)"></div>S — other</div>
+            <span style="font-family:var(--mono);font-size:.6rem;color:var(--muted);margin-left:auto">Last GOP excluded (incomplete)</span>
           </div>
+          <div class="gop-viz" id="gop-viz"></div>
+          <div class="gop-stats-bar" id="gop-stats-bar"></div>
         </div>
       </div>
     </div>
 
-    <!-- Specs Editor modal -->
-    <div class="modal-overlay" id="specs-modal">
-      <div
-        class="modal-card"
-        style="
-          width: 720px;
-          max-width: 96vw;
-          max-height: 88vh;
-          display: flex;
-          flex-direction: column;
-        "
-      >
-        <div
-          style="
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.85rem;
-            flex-shrink: 0;
-          "
-        >
-          <div class="modal-title" style="color: var(--purple); margin: 0">
-            ⚙ Compliance Specs Editor
-          </div>
-          <div style="display: flex; gap: 0.5rem">
-            <button
-              onclick="resetSpecs()"
-              style="
-                background: transparent;
-                border: 1px solid var(--border);
-                border-radius: 5px;
-                color: var(--muted);
-                font-family: var(--mono);
-                font-size: 0.68rem;
-                padding: 3px 10px;
-                cursor: pointer;
-              "
-            >
-              ↺ Reset to default
-            </button>
-            <button class="btn-cancel" onclick="closeSpecsModal()">
-              Close
-            </button>
-          </div>
-        </div>
-        <div
-          style="
-            font-family: var(--mono);
-            font-size: 0.7rem;
-            color: var(--muted);
-            margin-bottom: 0.75rem;
-            flex-shrink: 0;
-          "
-        >
-          Changes require admin password. Saved to
-          <code style="color: var(--text)">specs.json</code> on the server.
-        </div>
-        <div style="flex: 1; overflow-y: auto" id="specs-editor-body"></div>
-        <div
-          style="
-            margin-top: 0.85rem;
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-            flex-shrink: 0;
-            padding-top: 0.65rem;
-            border-top: 1px solid var(--border);
-          "
-        >
-          <input
-            class="modal-pw"
-            id="specs-pw"
-            type="password"
-            placeholder="admin password…"
-            style="display: none"
-          />
-          <button
-            class="btn-danger"
-            style="background: var(--purple)"
-            onclick="saveSpecs()"
-          >
-            Save Specs
-          </button>
-          <div class="modal-err" id="specs-err"></div>
-        </div>
+    <!-- History panel -->
+    <div class="history-panel">
+      <!-- Scheduled section -->
+      <div class="history-header" style="border-bottom:1px solid var(--border)">
+        Scheduled
+        <button class="btn-sm" onclick="loadScheduled()">↻</button>
+      </div>
+      <div id="scheduled-list" style="max-height:120px;overflow-y:auto;flex-shrink:0;border-bottom:1px solid var(--border)">
+        <div class="hist-empty">No scheduled analyses</div>
+      </div>
+
+      <div class="history-header">
+        History
+        <button class="btn-sm" onclick="loadHistory()">↻</button>
+      </div>
+      <div class="hist-filters">
+        <input class="f-search" id="hist-search" type="text"  placeholder="host/port…" oninput="loadHistory()" />
+      </div>
+      <div class="hist-filters" style="border-bottom:1px solid var(--border)">
+        <input class="f-date"   id="hist-date"   type="date"                           oninput="loadHistory()" title="Filter by date" />
+        <input class="f-tag"    id="hist-tag"    type="text"  placeholder="tag…"       list="hist-tag-list" oninput="loadHistory()" />
+        <datalist id="hist-tag-list"></datalist>
+        <select class="f-server" id="hist-server" onchange="loadHistory()">
+          <option value="">All servers</option>
+        </select>
+      </div>
+      <div class="history-list" id="history-list">
+        <div class="hist-empty">No analyses yet</div>
+      </div>
+      <div class="hist-bulk-bar" id="bulk-bar">
+        <span class="hist-bulk-txt" id="bulk-count">0 selected</span>
+        <button class="btn-bulk-del" onclick="openBulkDeleteModal()">🗑 Delete selected</button>
       </div>
     </div>
+  </div>
+</div>
 
-    <!-- Schedule modal -->
-    <div class="modal-overlay" id="schedule-modal">
-      <div class="modal-card">
-        <div class="modal-title" style="color: var(--cyan)">
-          🕐 Schedule Analysis
-        </div>
-        <div class="modal-body">
-          Schedule a future analysis using the current form settings.
-        </div>
-        <div style="margin-bottom: 1rem">
-          <label
-            style="
-              font-family: var(--mono);
-              font-size: 0.65rem;
-              font-weight: 700;
-              letter-spacing: 0.08em;
-              text-transform: uppercase;
-              color: var(--muted);
-              display: block;
-              margin-bottom: 0.4rem;
-            "
-            >Run at (Local Time - UTC below)</label
-          >
-          <input
-            id="sched-datetime"
-            type="datetime-local"
-            style="
-              width: 100%;
-              background: var(--bg3);
-              border: 1px solid var(--border);
-              border-radius: 5px;
-              color: #fff;
-              font-family: var(--mono);
-              font-size: 0.82rem;
-              padding: 0.45rem 0.65rem;
-              outline: none;
-              color-scheme: dark;
-            "
-          />
-          <div
-            style="
-              font-family: var(--mono);
-              font-size: 0.65rem;
-              color: var(--muted);
-              margin-top: 0.3rem;
-            "
-          >
-            Your browser:
-            <span id="sched-local-time" style="color: var(--text)"></span>
-          </div>
-          <div
-            id="sched-err"
-            style="
-              font-family: var(--mono);
-              font-size: 0.65rem;
-              color: var(--red);
-              margin-top: 0.3rem;
-              min-height: 1em;
-            "
-          ></div>
-        </div>
-        <div class="modal-actions">
-          <button
-            class="btn-danger"
-            style="background: var(--cyan); color: #000"
-            onclick="confirmSchedule()"
-          >
-            Schedule
-          </button>
-          <button class="btn-cancel" onclick="closeScheduleModal()">
-            Cancel
-          </button>
-        </div>
+<!-- Specs Editor modal -->
+<div class="modal-overlay" id="specs-modal">
+  <div class="modal-card" style="width:720px;max-width:96vw;max-height:88vh;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.85rem;flex-shrink:0">
+      <div class="modal-title" style="color:var(--purple);margin:0">⚙ Compliance Specs Editor</div>
+      <div style="display:flex;gap:.5rem">
+        <button onclick="resetSpecs()" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-family:var(--mono);font-size:.68rem;padding:3px 10px;cursor:pointer">↺ Reset to default</button>
+        <button class="btn-cancel" onclick="closeSpecsModal()">Close</button>
       </div>
     </div>
-
-    <!-- Cancel scheduled modal -->
-    <div class="modal-overlay" id="cancel-sched-modal">
-      <div class="modal-card">
-        <div class="modal-title">⚠ Cancel Scheduled Analysis</div>
-        <div class="modal-body">
-          Cancel the scheduled analysis for
-          <strong id="cancel-sched-dest" style="color: var(--cyan)"></strong>?
-        </div>
-        <div class="modal-actions">
-          <button class="btn-danger" onclick="confirmCancelSched()">
-            Yes, Cancel
-          </button>
-          <button
-            class="btn-cancel"
-            onclick="document.getElementById('cancel-sched-modal').classList.remove('open')"
-          >
-            No
-          </button>
-          <input
-            class="modal-pw"
-            id="cancel-sched-pw"
-            type="password"
-            placeholder="admin password…"
-            style="display: none"
-          />
-          <div class="modal-err" id="cancel-sched-err"></div>
-        </div>
-      </div>
+    <div style="font-family:var(--mono);font-size:.7rem;color:var(--muted);margin-bottom:.75rem;flex-shrink:0">
+      Changes require admin password. Saved to <code style="color:var(--text)">specs.json</code> on the server.
     </div>
-
-    <!-- Override modal -->
-    <div class="modal-overlay" id="override-modal">
-      <div class="modal-card">
-        <div class="modal-title" style="color: var(--yellow)">
-          ⚡ Manual Override
-        </div>
-        <div class="modal-body">
-          Override the compliance result and mark this stream as
-          <strong style="color: var(--green)">ACCEPTED</strong>.<br /><br />
-          This does <strong>not</strong> change the individual test results — it
-          adds an override flag with your justification to the overall status.
-        </div>
-        <div style="margin-bottom: 1rem">
-          <label
-            style="
-              font-family: var(--mono);
-              font-size: 0.65rem;
-              font-weight: 700;
-              letter-spacing: 0.08em;
-              text-transform: uppercase;
-              color: var(--muted);
-              display: block;
-              margin-bottom: 0.4rem;
-            "
-            >Justification (required)</label
-          >
-          <textarea
-            id="override-reason"
-            rows="3"
-            placeholder="e.g. Interlaced 50i confirmed by supplier — FPS compliance waived per ops agreement"
-            style="
-              width: 100%;
-              background: var(--bg3);
-              border: 1px solid var(--border);
-              border-radius: 5px;
-              color: #fff;
-              font-family: var(--mono);
-              font-size: 0.78rem;
-              padding: 0.5rem 0.65rem;
-              outline: none;
-              resize: vertical;
-              transition: border-color 0.15s;
-            "
-            onfocus="this.style.borderColor='var(--yellow)'"
-            onblur="this.style.borderColor='var(--border)'"
-          ></textarea>
-          <div
-            id="override-reason-err"
-            style="
-              font-family: var(--mono);
-              font-size: 0.65rem;
-              color: var(--red);
-              margin-top: 0.3rem;
-              min-height: 1em;
-            "
-          ></div>
-        </div>
-        <div class="modal-actions">
-          <button
-            class="btn-danger"
-            style="background: var(--yellow); color: #000"
-            onclick="confirmOverride()"
-          >
-            Apply Override
-          </button>
-          <button class="btn-cancel" onclick="closeOverrideModal()">
-            Cancel
-          </button>
-        </div>
-      </div>
+    <div style="flex:1;overflow-y:auto" id="specs-editor-body"></div>
+    <div style="margin-top:.85rem;display:flex;gap:.5rem;align-items:center;flex-shrink:0;padding-top:.65rem;border-top:1px solid var(--border)">
+      <input class="modal-pw" id="specs-pw" type="password" placeholder="admin password…" style="display:none" />
+      <button class="btn-danger" style="background:var(--purple)" onclick="saveSpecs()">Save Specs</button>
+      <div class="modal-err" id="specs-err"></div>
     </div>
+  </div>
+</div>
 
-    <!-- Override detail popup (click on override badge) -->
-    <div class="modal-overlay" id="override-detail-modal">
-      <div class="modal-card">
-        <div class="modal-title" style="color: var(--yellow)">
-          ⚡ Override Details
-        </div>
-        <div class="modal-body">
-          <div style="margin-bottom: 0.5rem">
-            <strong>Status:</strong>
-            <span style="color: var(--green)">ACCEPTED (Override)</span>
-          </div>
-          <div><strong>Justification:</strong></div>
-          <div
-            id="override-detail-reason"
-            style="
-              margin-top: 0.4rem;
-              padding: 0.6rem;
-              background: var(--bg3);
-              border-radius: 5px;
-              font-family: var(--mono);
-              font-size: 0.78rem;
-              line-height: 1.7;
-              color: var(--text);
-            "
-          ></div>
-        </div>
-        <div class="modal-actions">
-          <button
-            class="btn-cancel"
-            onclick="document.getElementById('override-detail-modal').classList.remove('open')"
-          >
-            Close
-          </button>
-          <button
-            onclick="resetOverride()"
-            style="
-              background: transparent;
-              border: 1px solid var(--border);
-              border-radius: 5px;
-              color: var(--muted);
-              font-family: var(--mono);
-              font-size: 0.7rem;
-              padding: 5px 14px;
-              cursor: pointer;
-            "
-          >
-            Remove Override
-          </button>
-        </div>
+<!-- Schedule modal -->
+<div class="modal-overlay" id="schedule-modal">
+  <div class="modal-card">
+    <div class="modal-title" style="color:var(--cyan)">🕐 Schedule Analysis</div>
+    <div class="modal-body">Schedule a future analysis using the current form settings.<br>All times are in <strong>UTC</strong>.</div>
+    <div style="margin-bottom:1rem">
+      <label style="font-family:var(--mono);font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:.4rem">Run at (UTC) — enter time in UTC</label>
+      <input id="sched-datetime" type="datetime-local"
+        style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:#fff;font-family:var(--mono);font-size:.82rem;padding:.45rem .65rem;outline:none;color-scheme:dark" />
+      <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-top:.3rem">
+        Local equivalent: <span id="sched-local-time" style="color:var(--text)"></span>
       </div>
+      <div id="sched-err" style="font-family:var(--mono);font-size:.65rem;color:var(--red);margin-top:.3rem;min-height:1em"></div>
     </div>
-
-    <!-- Report modal -->
-    <div class="modal-overlay" id="report-modal">
-      <div class="modal-card" style="width: 680px; max-width: 95vw">
-        <div class="modal-title" style="color: var(--cyan)">
-          📋 Generated Report
-        </div>
-        <div
-          style="
-            font-family: var(--mono);
-            font-size: 0.7rem;
-            color: var(--muted);
-            margin-bottom: 0.75rem;
-          "
-        >
-          Ready to copy and paste into an email body.
-        </div>
-        <textarea
-          id="report-text"
-          rows="22"
-          readonly
-          style="
-            width: 100%;
-            background: var(--bg3);
-            border: 1px solid var(--border);
-            border-radius: 5px;
-            color: var(--text);
-            font-family: var(--mono);
-            font-size: 0.72rem;
-            padding: 0.6rem 0.8rem;
-            outline: none;
-            resize: vertical;
-            line-height: 1.7;
-          "
-          onclick="this.select()"
-        ></textarea>
-        <div class="modal-actions" style="margin-top: 0.8rem">
-          <button
-            class="btn-danger"
-            style="background: var(--cyan); color: #000"
-            onclick="copyReport()"
-          >
-            📋 Copy to Clipboard
-          </button>
-          <button
-            class="btn-cancel"
-            onclick="document.getElementById('report-modal').classList.remove('open')"
-          >
-            Close
-          </button>
-          <span
-            id="report-copy-ok"
-            style="
-              font-family: var(--mono);
-              font-size: 0.68rem;
-              color: var(--green);
-              display: none;
-            "
-            >✓ Copied!</span
-          >
-        </div>
-      </div>
+    <div class="modal-actions">
+      <button class="btn-danger" style="background:var(--cyan);color:#000" onclick="confirmSchedule()">Schedule</button>
+      <button class="btn-cancel" onclick="closeScheduleModal()">Cancel</button>
     </div>
+  </div>
+</div>
 
-    <!-- Delete modal -->
-    <div class="modal-overlay" id="delete-modal">
-      <div class="modal-card">
-        <div class="modal-title">⚠ Delete Results</div>
-        <div class="modal-body" id="delete-modal-body">
-          Permanently delete selected results?<br />This action is
-          <strong style="color: var(--red)">irreversible</strong>.
-        </div>
-        <div class="modal-actions">
-          <button class="btn-danger" onclick="confirmDelete()">
-            Yes, Delete
-          </button>
-          <button class="btn-cancel" onclick="closeDeleteModal()">
-            Cancel
-          </button>
-          <input
-            class="modal-pw"
-            id="delete-pw"
-            type="password"
-            placeholder="admin password…"
-            style="display: none"
-          />
-          <div class="modal-err" id="delete-err"></div>
-        </div>
-      </div>
+<!-- Cancel scheduled modal -->
+<div class="modal-overlay" id="cancel-sched-modal">
+  <div class="modal-card">
+    <div class="modal-title">⚠ Cancel Scheduled Analysis</div>
+    <div class="modal-body">Cancel the scheduled analysis for <strong id="cancel-sched-dest" style="color:var(--cyan)"></strong>?</div>
+    <div class="modal-actions">
+      <button class="btn-danger" onclick="confirmCancelSched()">Yes, Cancel</button>
+      <button class="btn-cancel" onclick="document.getElementById('cancel-sched-modal').classList.remove('open')">No</button>
+      <input class="modal-pw" id="cancel-sched-pw" type="password" placeholder="admin password…" style="display:none" />
+      <div class="modal-err" id="cancel-sched-err"></div>
     </div>
+  </div>
+</div>
 
-    <script>
-      const PROXY = "/so-proxy";
-      let pollTimer = null,
-        _progTimer = null;
-      let _srtPresets = {},
-        _hasAdminPw = false;
-      let _pendingDeleteFiles = [];
+<!-- Override modal -->
+<div class="modal-overlay" id="override-modal">
+  <div class="modal-card">
+    <div class="modal-title" style="color:var(--yellow)">⚡ Manual Override</div>
+    <div class="modal-body">
+      Override the compliance result and mark this stream as <strong style="color:var(--green)">ACCEPTED</strong>.<br><br>
+      This does <strong>not</strong> change the individual test results — it adds an override flag with your justification to the overall status.
+    </div>
+    <div style="margin-bottom:1rem">
+      <label style="font-family:var(--mono);font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:.4rem">Justification (required)</label>
+      <textarea id="override-reason" rows="3" placeholder="e.g. Interlaced 50i confirmed by supplier — FPS compliance waived per ops agreement"
+        style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:#fff;font-family:var(--mono);font-size:.78rem;padding:.5rem .65rem;outline:none;resize:vertical;transition:border-color .15s"
+        onfocus="this.style.borderColor='var(--yellow)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+      <div id="override-reason-err" style="font-family:var(--mono);font-size:.65rem;color:var(--red);margin-top:.3rem;min-height:1em"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-danger" style="background:var(--yellow);color:#000" onclick="confirmOverride()">Apply Override</button>
+      <button class="btn-cancel" onclick="closeOverrideModal()">Cancel</button>
+    </div>
+  </div>
+</div>
 
-      // ── Boot ─────────────────────────────────────────────────────────
-      async function loadConfig() {
-        try {
-          const res = await fetch(`${PROXY}/config`);
-          const d = await res.json();
-          const env = d.config || {};
-          _hasAdminPw = env.HAS_ADMIN_PASSWORD === "true";
+<!-- Override detail popup (click on override badge) -->
+<div class="modal-overlay" id="override-detail-modal">
+  <div class="modal-card">
+    <div class="modal-title" style="color:var(--yellow)">⚡ Override Details</div>
+    <div class="modal-body">
+      <div style="margin-bottom:.5rem"><strong>Status:</strong> <span style="color:var(--green)">ACCEPTED (Override)</span></div>
+      <div><strong>Justification:</strong></div>
+      <div id="override-detail-reason" style="margin-top:.4rem;padding:.6rem;background:var(--bg3);border-radius:5px;font-family:var(--mono);font-size:.78rem;line-height:1.7;color:var(--text)"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="document.getElementById('override-detail-modal').classList.remove('open')">Close</button>
+      <button onclick="resetOverride()" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-family:var(--mono);font-size:.7rem;padding:5px 14px;cursor:pointer">Remove Override</button>
+    </div>
+  </div>
+</div>
 
-          const dl = document.getElementById("srt-host-presets");
-          dl.innerHTML = "";
-          _srtPresets = {};
-          Object.keys(env)
-            .filter((k) => /^SRT_LOCAL_\d+$/.test(k))
-            .sort(
-              (a, b) => parseInt(a.split("_")[2]) - parseInt(b.split("_")[2])
-            )
-            .forEach((k) => {
-              const [ip, label] = env[k].split("|").map((s) => s.trim());
-              if (!ip) return;
-              _srtPresets[ip] = label || ip;
-              const opt = document.createElement("option");
-              opt.value = ip;
-              opt.textContent = `${label || ip} (${ip})`;
-              dl.appendChild(opt);
-            });
+<!-- Report modal -->
+<div class="modal-overlay" id="report-modal">
+  <div class="modal-card" style="width:680px;max-width:95vw">
+    <div class="modal-title" style="color:var(--cyan)">📋 Generated Report</div>
+    <div style="font-family:var(--mono);font-size:.7rem;color:var(--muted);margin-bottom:.75rem">Ready to copy and paste into an email body.</div>
+    <textarea id="report-text" rows="22" readonly
+      style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:var(--mono);font-size:.72rem;padding:.6rem .8rem;outline:none;resize:vertical;line-height:1.7"
+      onclick="this.select()"></textarea>
+    <div class="modal-actions" style="margin-top:.8rem">
+      <button class="btn-danger" style="background:var(--cyan);color:#000" onclick="copyReport()">📋 Copy to Clipboard</button>
+      <button class="btn-cancel" onclick="document.getElementById('report-modal').classList.remove('open')">Close</button>
+      <span id="report-copy-ok" style="font-family:var(--mono);font-size:.68rem;color:var(--green);display:none">✓ Copied!</span>
+    </div>
+  </div>
+</div>
 
-          // Populate server filter dropdown
-          const sf = document.getElementById("hist-server");
-          if (sf) {
-            // Keep existing "All servers" option
-            while (sf.options.length > 1) sf.remove(1);
-            Object.entries(_srtPresets).forEach(([ip, label]) => {
-              const o = document.createElement("option");
-              o.value = ip;
-              o.textContent = label;
-              sf.appendChild(o);
-            });
-          }
+<!-- Delete modal -->
+<div class="modal-overlay" id="delete-modal">
+  <div class="modal-card">
+    <div class="modal-title">⚠ Delete Results</div>
+    <div class="modal-body" id="delete-modal-body">Permanently delete selected results?<br>This action is <strong style="color:var(--red)">irreversible</strong>.</div>
+    <div class="modal-actions">
+      <button class="btn-danger" onclick="confirmDelete()">Yes, Delete</button>
+      <button class="btn-cancel" onclick="closeDeleteModal()">Cancel</button>
+      <input class="modal-pw" id="delete-pw" type="password" placeholder="admin password…" style="display:none" />
+      <div class="modal-err" id="delete-err"></div>
+    </div>
+  </div>
+</div>
 
-          if (env.SRT_PASSPHRASE) {
-            const el = document.getElementById("inp-pass");
-            el.value = env.SRT_PASSPHRASE;
-            el.classList.add("from-env");
-            el.addEventListener(
-              "input",
-              function () {
-                this.classList.remove("from-env");
-              },
-              { once: true }
-            );
-          }
-        } catch (e) {
-          console.warn(e);
-        }
+<script>
+const PROXY = "/so-proxy";
+let pollTimer = null, _progTimer = null;
+let _srtPresets = {}, _hasAdminPw = false;
+let _pendingDeleteFiles = [];
+
+// ── Boot ─────────────────────────────────────────────────────────
+async function loadConfig() {
+  try {
+    const res = await fetch(`${PROXY}/config`);
+    const d   = await res.json();
+    const env = d.config || {};
+    _hasAdminPw = env.HAS_ADMIN_PASSWORD === "true";
+
+    const dl = document.getElementById("srt-host-presets");
+    dl.innerHTML = "";
+    _srtPresets = {};
+    Object.keys(env).filter(k => /^SRT_LOCAL_\d+$/.test(k))
+      .sort((a,b) => parseInt(a.split("_")[2]) - parseInt(b.split("_")[2]))
+      .forEach(k => {
+        const [ip, label] = env[k].split("|").map(s => s.trim());
+        if (!ip) return;
+        _srtPresets[ip] = label || ip;
+        const opt = document.createElement("option");
+        opt.value = ip; opt.textContent = `${label || ip} (${ip})`;
+        dl.appendChild(opt);
+      });
+
+    // Populate server filter dropdown
+    const sf = document.getElementById("hist-server");
+    if (sf) {
+      // Keep existing "All servers" option
+      while (sf.options.length > 1) sf.remove(1);
+      Object.entries(_srtPresets).forEach(([ip, label]) => {
+        const o = document.createElement("option");
+        o.value = ip; o.textContent = label;
+        sf.appendChild(o);
+      });
+    }
+
+    if (env.SRT_PASSPHRASE) {
+      const el = document.getElementById("inp-pass");
+      el.value = env.SRT_PASSPHRASE;
+      el.classList.add("from-env");
+      el.addEventListener("input", function(){ this.classList.remove("from-env"); }, { once: true });
+    }
+  } catch(e) { console.warn(e); }
+}
+
+// ── Run ───────────────────────────────────────────────────────────
+async function runAnalysis() {
+  const host = document.getElementById("inp-host").value.trim();
+  const port = document.getElementById("inp-port").value.trim();
+  const pass = document.getElementById("inp-pass").value.trim();
+  const dur  = parseInt(document.getElementById("inp-dur").value) || 30;
+  const tag  = document.getElementById("inp-tag").value.trim();
+
+  if (!host || !port) { setStatus("err","Host and Port are required."); return; }
+
+  const url = `srt://${host}:${port}?mode=caller`;
+
+  document.getElementById("btn-run").disabled = true;
+  document.getElementById("placeholder").style.display = "none";
+  document.getElementById("results-content").style.display = "none";
+  document.getElementById("log-card").style.display = "";
+  document.getElementById("log-output").textContent = "";
+  startProgress(dur);
+  setStatus("running", `Capturing ${dur}s from ${host}:${port}…`);
+
+  try {
+    const res  = await fetch(`${PROXY}/gop/run`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, duration: dur, passphrase: pass, tag })
+    });
+    const data = await res.json();
+    if (!data.job_id) throw new Error(data.error || "No job_id");
+    pollStatus(data.job_id, dur, host, port);
+  } catch(e) {
+    setStatus("err", `Error: ${e.message}`);
+    document.getElementById("btn-run").disabled = false;
+    stopProgress(false);
+  }
+}
+
+function pollStatus(job_id, dur, host, port) {
+  clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    try {
+      const res = await fetch(`${PROXY}/gop/status/${job_id}`);
+      const job = await res.json();
+      const logEl = document.getElementById("log-output");
+      logEl.textContent = (job.log || []).join("\n");
+      logEl.scrollTop = logEl.scrollHeight;
+
+      if (job.status === "running") return;
+      clearInterval(pollTimer); pollTimer = null;
+      stopProgress(job.status === "done");
+      document.getElementById("btn-run").disabled = false;
+
+      if (job.status === "done" && job.result) {
+        renderResult(job.result);
+        setStatus("ok", `Done — ${host}:${port}`);
+        loadHistory();
+      } else if (job.result && job.result.error) {
+        // Partial result (stream unreachable)
+        setStatus("err", `Capture failed: ${job.result.error}`);
+      } else {
+        setStatus("err", `Analysis ${job.status}. Check log above.`);
       }
+    } catch(e) { console.error(e); }
+  }, 1500);
+}
 
-      // ── Run ───────────────────────────────────────────────────────────
-      async function runAnalysis() {
-        const host = document.getElementById("inp-host").value.trim();
-        const port = document.getElementById("inp-port").value.trim();
-        const lat = document.getElementById("inp-latency").value.trim();
-        const pass = document.getElementById("inp-pass").value.trim();
-        const dur = parseInt(document.getElementById("inp-dur").value) || 30;
-        const tag = document.getElementById("inp-tag").value.trim();
+// ── Render result ─────────────────────────────────────────────────
+function renderResult(r) {
+  _currentResult = r;
+  _currentResultFile = r.res_file || _currentResultFile;  // keep track of file
+  _overrideReason = r.override ? r.override.reason : null;
+  // Reset override UI
+  document.getElementById("override-notice").style.display = "none";
+  document.getElementById("btn-override").textContent = "⚡ Override";
+  document.getElementById("btn-override").style.borderColor = "var(--yellow)";
+  document.getElementById("btn-override").style.color = "var(--yellow)";
+  document.getElementById("btn-override").onclick = openOverrideModal;
 
-        if (!host || !port) {
-          setStatus("err", "Host and Port are required.");
-          return;
-        }
+  // If already overridden in saved file, show it
+  if (r.override) {
+    _overrideReason = r.override.reason;
+    applyOverride(r.override.reason);
+  }
 
-        let url = `srt://${host}:${port}?mode=caller`;
-        if (lat) url += `&latency=${lat}`;
+  document.getElementById("results-content").style.display = "";
+  document.getElementById("log-card").style.display = "none";
+  document.getElementById("placeholder").style.display = "none";
 
-        document.getElementById("btn-run").disabled = true;
-        document.getElementById("placeholder").style.display = "none";
-        document.getElementById("results-content").style.display = "none";
-        document.getElementById("log-card").style.display = "";
-        document.getElementById("log-output").textContent = "";
-        startProgress(dur);
-        setStatus("running", `Capturing ${dur}s from ${host}:${port}…`);
+  // Test metadata bar
+  const serverName = resolveHost(r.url_host);
+  const testDate   = r.started_at ? r.started_at.replace("T"," ").slice(0,19)+" UTC" : "—";
+  const tags       = (r.tag||"").split(",").map(t=>t.trim()).filter(Boolean).join(" · ");
+  document.getElementById("meta-date").textContent   = "📅 " + testDate;
+  document.getElementById("meta-server").textContent = "🖥 " + serverName;
+  document.getElementById("meta-port").textContent   = "🔌 :" + (r.url_port||"?");
+  document.getElementById("meta-tags").textContent   = tags ? "🏷 " + tags : "";
+  // TS download button
+  const tsEl = document.getElementById("meta-ts-download");
+  if (r.ts_file && r.res_file) {
+    const tsFile = r.res_file.replace(".json", ".ts");
+    tsEl.innerHTML = `<a href="${PROXY}/gop/ts/${encodeURIComponent(tsFile)}" download style="font-family:var(--mono);font-size:.7rem;color:var(--cyan);text-decoration:none;border:1px solid var(--border);border-radius:3px;padding:2px 8px">⬇ Download .ts</a>`;
+  } else {
+    tsEl.innerHTML = "";
+  }
+  document.getElementById("log-card").style.display = "none";
+  document.getElementById("placeholder").style.display = "none";
 
-        try {
-          const res = await fetch(`${PROXY}/gop/run`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url, duration: dur, passphrase: pass, tag }),
-          });
-          const data = await res.json();
-          if (!data.job_id) throw new Error(data.error || "No job_id");
-          pollStatus(data.job_id, dur, host, port);
-        } catch (e) {
-          setStatus("err", `Error: ${e.message}`);
-          document.getElementById("btn-run").disabled = false;
-          stopProgress(false);
-        }
-      }
+  // IDR check
+  const idrBadge = document.getElementById("idr-badge");
+  if (r.has_idr) {
+    idrBadge.className = "idr-badge pass";
+    idrBadge.innerHTML = `✓ IDR Frames Present`;
+  } else {
+    idrBadge.className = "idr-badge fail";
+    idrBadge.innerHTML = `✗ No IDR Frames (NAL type 5)`;
+  }
 
-      function pollStatus(job_id, dur, host, port) {
-        clearInterval(pollTimer);
-        pollTimer = setInterval(async () => {
-          try {
-            const res = await fetch(`${PROXY}/gop/status/${job_id}`);
-            const job = await res.json();
-            const logEl = document.getElementById("log-output");
-            logEl.textContent = (job.log || []).join("\n");
-            logEl.scrollTop = logEl.scrollHeight;
+  const gop_type_color = r.gop_type === "CLOSED" ? "var(--green)" : "var(--yellow)";
+  document.getElementById("idr-detail").innerHTML = [
+    `IDR count: <strong style="color:${r.has_idr?'var(--green)':'var(--red)'}">${r.idr_count}</strong>`,
+    `Non-IDR keyframes: <strong>${r.non_idr_keyframes || 0}</strong>`,
+    `GOP type: <strong style="color:${gop_type_color}">${r.gop_type || "—"}</strong>`,
+    `B-frames: <strong style="color:${r.has_b_frames?'var(--yellow)':'var(--green)'}">` +
+      `${r.has_b_frames?'YES ('+r.b_frame_count+')':'No'}</strong>`,
+    `Total frames: <strong>${r.total_frames}</strong>`,
+  ].join("  ·  ");
 
-            if (job.status === "running") return;
-            clearInterval(pollTimer);
-            pollTimer = null;
-            stopProgress(job.status === "done");
-            document.getElementById("btn-run").disabled = false;
+  // Overall badge
+  const os = r.overall_status || "UNKNOWN";
+  document.getElementById("overall-badge").innerHTML =
+    `<span class="status-pill ${os}" style="font-size:.72rem;padding:3px 12px">${os}</span>`;
 
-            if (job.status === "done" && job.result) {
-              renderResult(job.result);
-              setStatus("ok", `Done — ${host}:${port}`);
-              loadHistory();
-            } else if (job.result && job.result.error) {
-              // Partial result (stream unreachable)
-              setStatus("err", `Capture failed: ${job.result.error}`);
-            } else {
-              setStatus("err", `Analysis ${job.status}. Check log above.`);
-            }
-          } catch (e) {
-            console.error(e);
-          }
-        }, 1500);
-      }
+  // Compliance table
+  renderComplianceTable(r);
 
-      // ── Render result ─────────────────────────────────────────────────
-      function renderResult(r) {
-        _currentResult = r;
-        _overrideReason = r.override ? r.override.reason : null;
-        // Reset override UI
-        document.getElementById("override-notice").style.display = "none";
-        document.getElementById("btn-override").textContent = "⚡ Override";
-        document.getElementById("btn-override").style.borderColor =
-          "var(--yellow)";
-        document.getElementById("btn-override").style.color = "var(--yellow)";
-        document.getElementById("btn-override").onclick = openOverrideModal;
+  // Container
+  infoRows("tbl-container", [
+    ["Container",          r.container, "cyan"],
+    ["File Size",          r.file_size  ? fmtBytes(r.file_size) : "—"],
+    ["Duration",           r.file_dur   ? r.file_dur.toFixed(3)+"s" : "—"],
+    ["File Bitrate",       r.file_br    ? fmtBps(r.file_br)  : "—"],
+    ["Num programs",       r.num_programs],
+    ["Num streams",        r.num_streams],
+    ["Have Video",         r.have_video],
+    ["Have Audio",         r.have_audio],
+  ]);
 
-        // If already overridden in saved file, show it
-        if (r.override) {
-          _overrideReason = r.override.reason;
-          applyOverride(r.override.reason);
-        }
+  const vfpsCol = (r.v_fps_compliance || r.v_fps_val) > 30.5 ? "red"
+                : r.v_scan === "interlaced" ? "yellow" : "green";
+  const fpsDisplay = r.v_scan === "interlaced" && r.v_fps_val > 30
+    ? `${r.v_fps} → ${(r.v_fps_compliance||r.v_fps_val/2).toFixed(3)} fps effective (interlaced)`
+    : r.v_fps;
 
-        document.getElementById("results-content").style.display = "";
-        document.getElementById("log-card").style.display = "none";
-        document.getElementById("placeholder").style.display = "none";
+  const aCodecDisplay = r.a_codec_display || (r.a_codec||"?").toUpperCase();
+  const aCodecCol = aCodecDisplay.startsWith("AAC") || ["MP1","MP2","MP3"].includes(aCodecDisplay) ? "green" : "yellow";
+  // Video
+  infoRows("tbl-video", [
+    ["[V] Codec",           (r.v_codec||"?").toUpperCase() + " | " + (r.v_codec||"?"), "green"],
+    ["[V] Codec Profile",   r.v_profile, r.v_profile==="High"?"yellow":""],
+    ["[V] Codec Level",     r.v_level],
+    ["[V] Width",           r.v_width],
+    ["[V] Height",          r.v_height],
+    ["[V] Aspect Ratio",    r.v_dar||"—"],
+    ["[V] B Frames",        r.v_b_frames, r.v_b_frames>0?"yellow":"green"],
+    ["[V] Reference Frames",r.v_refs],
+    ["[V] FPS",             fpsDisplay, vfpsCol],
+    ["[V] Field Order",     r.v_field],
+    ["[V] Pixel Format",    r.v_pix_fmt],
+    ["[V] Color Space",     r.v_color_combined||"—"],
+    ["[V] Bits per Sample", r.v_bits],
+    ["[V] ChromaSubSample", r.v_chroma],
+    ["[V] Bitrate",         r.v_br ? fmtBps(r.v_br) : "—"],
+    ["[V] Entropy",         r.v_entropy||"—"],
+    ["[V] Scan Type",       r.v_scan||"—"],
+    ["[V] HDR/SDR",         r.v_hdr||"SDR"],
+  ]);
 
-        // Test metadata bar
-        const serverName = resolveHost(r.url_host);
-        const testDate = r.started_at
-          ? r.started_at.replace("T", " ").slice(0, 19) + " UTC"
-          : "—";
-        const tags = (r.tag || "")
-          .split(",")
-          .map((t) => t.trim())
-          .filter(Boolean)
-          .join(" · ");
-        document.getElementById("meta-date").textContent = "📅 " + testDate;
-        document.getElementById("meta-server").textContent = "🖥 " + serverName;
-        document.getElementById("meta-port").textContent =
-          "🔌 :" + (r.url_port || "?");
-        document.getElementById("meta-tags").textContent = tags
-          ? "🏷 " + tags
-          : "";
-        // TS download button
-        const tsEl = document.getElementById("meta-ts-download");
-        if (r.ts_file && r.res_file) {
-          const tsFile = r.res_file.replace(".json", ".ts");
-          tsEl.innerHTML = `<a href="${PROXY}/gop/ts/${encodeURIComponent(
-            tsFile
-          )}" download style="font-family:var(--mono);font-size:.7rem;color:var(--cyan);text-decoration:none;border:1px solid var(--border);border-radius:3px;padding:2px 8px">⬇ Download .ts</a>`;
-        } else {
-          tsEl.innerHTML = "";
-        }
-        document.getElementById("log-card").style.display = "none";
-        document.getElementById("placeholder").style.display = "none";
+  infoRows("tbl-audio", [
+    ["[A] Codec",          aCodecDisplay, aCodecCol],
+    ["[A] Channels",       r.a_channels],
+    ["[A] Layout",         r.a_layout],
+    ["[A] Sampling Rate",  r.a_rate ? r.a_rate+" Hz" : "—"],
+    ["[A] Bitrate",        r.a_br ? fmtBps(r.a_br) : "—"],
+    ["[A] Bits per Sample",r.a_bps],
+    ["[A] Language",       r.a_lang],
+    ["[A] Audio Tracks",   r.audio_tracks, r.audio_tracks > 2 ? "yellow" : ""],
+  ]);
 
-        // IDR check
-        const idrBadge = document.getElementById("idr-badge");
-        if (r.has_idr) {
-          idrBadge.className = "idr-badge pass";
-          idrBadge.innerHTML = `✓ IDR Frames Present`;
-        } else {
-          idrBadge.className = "idr-badge fail";
-          idrBadge.innerHTML = `✗ No IDR Frames (NAL type 5)`;
-        }
+  // GOP stats info rows
+  infoRows("tbl-gop-stats", [
+    ["IDR frames",           r.idr_count, r.has_idr?"green":"red"],
+    ["GOP type",             r.gop_type, r.gop_type==="CLOSED"?"green":"yellow"],
+    ["Total GOPs (complete)",r.gop_count],
+    ["GOP avg size",         r.gop_avg+" frames"],
+    ["GOP min size",         r.gop_min+" frames"],
+    ["GOP max size",         r.gop_max+" frames"],
+    ["Has B-frames",         r.has_b_frames?"YES":"No", r.has_b_frames?"yellow":"green"],
+    ["B-frame count",        r.b_frame_count],
+    ["Total frames",         r.total_frames],
+  ]);
 
-        const gop_type_color =
-          r.gop_type === "CLOSED" ? "var(--green)" : "var(--yellow)";
-        document.getElementById("idr-detail").innerHTML = [
-          `IDR count: <strong style="color:${
-            r.has_idr ? "var(--green)" : "var(--red)"
-          }">${r.idr_count}</strong>`,
-          `Non-IDR keyframes: <strong>${r.non_idr_keyframes || 0}</strong>`,
-          `GOP type: <strong style="color:${gop_type_color}">${
-            r.gop_type || "—"
-          }</strong>`,
-          `B-frames: <strong style="color:${
-            r.has_b_frames ? "var(--yellow)" : "var(--green)"
-          }">` +
-            `${
-              r.has_b_frames ? "YES (" + r.b_frame_count + ")" : "No"
-            }</strong>`,
-          `Total frames: <strong>${r.total_frames}</strong>`,
-        ].join("  ·  ");
-
-        // Overall badge
-        const os = r.overall_status || "UNKNOWN";
-        document.getElementById(
-          "overall-badge"
-        ).innerHTML = `<span class="status-pill ${os}" style="font-size:.72rem;padding:3px 12px">${os}</span>`;
-
-        // Compliance table
-        renderComplianceTable(r);
-
-        // Container
-        infoRows("tbl-container", [
-          ["Container", r.container, "cyan"],
-          ["File Size", r.file_size ? fmtBytes(r.file_size) : "—"],
-          ["Duration", r.file_dur ? r.file_dur.toFixed(3) + "s" : "—"],
-          ["File Bitrate", r.file_br ? fmtBps(r.file_br) : "—"],
-          ["Num programs", r.num_programs],
-          ["Num streams", r.num_streams],
-          ["Have Video", r.have_video],
-          ["Have Audio", r.have_audio],
-        ]);
-
-        const vfpsCol =
-          (r.v_fps_compliance || r.v_fps_val) > 30.5
-            ? "red"
-            : r.v_scan === "interlaced"
-            ? "yellow"
-            : "green";
-        const fpsDisplay =
-          r.v_scan === "interlaced" && r.v_fps_val > 30
-            ? `${r.v_fps} → ${(r.v_fps_compliance || r.v_fps_val / 2).toFixed(
-                3
-              )} fps effective (interlaced)`
-            : r.v_fps;
-
-        const aCodecDisplay =
-          r.a_codec_display || (r.a_codec || "?").toUpperCase();
-        const aCodecCol =
-          aCodecDisplay.startsWith("AAC") ||
-          ["MP1", "MP2", "MP3"].includes(aCodecDisplay)
-            ? "green"
-            : "yellow";
-        // Video
-        infoRows("tbl-video", [
-          [
-            "[V] Codec",
-            (r.v_codec || "?").toUpperCase() + " | " + (r.v_codec || "?"),
-            "green",
-          ],
-          [
-            "[V] Codec Profile",
-            r.v_profile,
-            r.v_profile === "High" ? "yellow" : "",
-          ],
-          ["[V] Codec Level", r.v_level],
-          ["[V] Width", r.v_width],
-          ["[V] Height", r.v_height],
-          ["[V] Aspect Ratio", r.v_dar || "—"],
-          ["[V] B Frames", r.v_b_frames, r.v_b_frames > 0 ? "yellow" : "green"],
-          ["[V] Reference Frames", r.v_refs],
-          ["[V] FPS", fpsDisplay, vfpsCol],
-          ["[V] Field Order", r.v_field],
-          ["[V] Pixel Format", r.v_pix_fmt],
-          ["[V] Color Space", r.v_color_combined || "—"],
-          ["[V] Bits per Sample", r.v_bits],
-          ["[V] ChromaSubSample", r.v_chroma],
-          ["[V] Bitrate", r.v_br ? fmtBps(r.v_br) : "—"],
-          ["[V] Entropy", r.v_entropy || "—"],
-          ["[V] Scan Type", r.v_scan || "—"],
-          ["[V] HDR/SDR", r.v_hdr || "SDR"],
-        ]);
-
-        infoRows("tbl-audio", [
-          ["[A] Codec", aCodecDisplay, aCodecCol],
-          ["[A] Channels", r.a_channels],
-          ["[A] Layout", r.a_layout],
-          ["[A] Sampling Rate", r.a_rate ? r.a_rate + " Hz" : "—"],
-          ["[A] Bitrate", r.a_br ? fmtBps(r.a_br) : "—"],
-          ["[A] Bits per Sample", r.a_bps],
-          ["[A] Language", r.a_lang],
-          [
-            "[A] Audio Tracks",
-            r.audio_tracks,
-            r.audio_tracks > 2 ? "yellow" : "",
-          ],
-        ]);
-
-        // GOP stats info rows
-        infoRows("tbl-gop-stats", [
-          ["IDR frames", r.idr_count, r.has_idr ? "green" : "red"],
-          [
-            "GOP type",
-            r.gop_type,
-            r.gop_type === "CLOSED" ? "green" : "yellow",
-          ],
-          ["Total GOPs (complete)", r.gop_count],
-          ["GOP avg size", r.gop_avg + " frames"],
-          ["GOP min size", r.gop_min + " frames"],
-          ["GOP max size", r.gop_max + " frames"],
-          [
-            "Has B-frames",
-            r.has_b_frames ? "YES" : "No",
-            r.has_b_frames ? "yellow" : "green",
-          ],
-          ["B-frame count", r.b_frame_count],
-          ["Total frames", r.total_frames],
-        ]);
-
-        // GOP hero numbers
-        const heroAvg = document.getElementById("gop-hero-avg");
-        if (heroAvg) {
-          heroAvg.textContent = r.gop_avg || "—";
-          heroAvg.style.color =
-            r.gop_avg === 30 || r.gop_avg === 50
-              ? "var(--green)"
-              : r.gop_avg > 0
-              ? "var(--yellow)"
-              : "var(--muted)";
-        }
-        const heroDetail = document.getElementById("gop-hero-detail");
-        if (heroDetail) {
-          const gopTypeColor =
-            r.gop_type === "CLOSED" ? "var(--green)" : "var(--yellow)";
-          heroDetail.innerHTML = [
-            { val: r.gop_count, lbl: "GOPs total", col: "var(--cyan)" },
-            { val: r.gop_min, lbl: "Min size", col: "var(--text)" },
-            { val: r.gop_max, lbl: "Max size", col: "var(--text)" },
-            { val: r.gop_type || "—", lbl: "GOP type", col: gopTypeColor },
-            {
-              val: r.idr_count,
-              lbl: "IDR frames",
-              col: r.has_idr ? "var(--green)" : "var(--red)",
-            },
-          ]
-            .map(
-              (s) => `<div class="gop-hero-stat">
+  // GOP hero numbers
+  const heroAvg = document.getElementById("gop-hero-avg");
+  if (heroAvg) {
+    heroAvg.textContent = r.gop_avg || "—";
+    heroAvg.style.color = r.gop_avg === 30 || r.gop_avg === 50
+      ? "var(--green)" : r.gop_avg > 0 ? "var(--yellow)" : "var(--muted)";
+  }
+  const heroDetail = document.getElementById("gop-hero-detail");
+  if (heroDetail) {
+    const gopTypeColor = r.gop_type === "CLOSED" ? "var(--green)" : "var(--yellow)";
+    heroDetail.innerHTML = [
+      { val: r.gop_count,     lbl: "GOPs total",    col: "var(--cyan)" },
+      { val: r.gop_min,       lbl: "Min size",       col: "var(--text)" },
+      { val: r.gop_max,       lbl: "Max size",       col: "var(--text)" },
+      { val: r.gop_type||"—", lbl: "GOP type",       col: gopTypeColor },
+      { val: r.idr_count,     lbl: "IDR frames",     col: r.has_idr ? "var(--green)" : "var(--red)" },
+    ].map(s => `<div class="gop-hero-stat">
       <div class="gop-hero-stat-val" style="color:${s.col}">${s.val}</div>
       <div class="gop-hero-stat-lbl">${s.lbl}</div>
-    </div>`
-            )
-            .join("");
-        }
+    </div>`).join("");
+  }
 
-        // GOP viz
-        renderGopViz(r.gops || [], r.gop_patterns || []);
-      }
+  // GOP viz
+  renderGopViz(r.gops||[], r.gop_patterns||[]);
+}
 
-      function renderComplianceTable(r) {
-        const c = r.compliance || {};
-        const spec = {
-          overall_br: ["Overall Bitrate (Mbps)", "5.0–18.0 (8.0–15.0)"],
-          idr: ["IDR Frames", "Required"],
-          gop_size: ["GOP Size", "30, 50"],
-          gop_type: ["GOP Type", "CLOSED"],
-          b_frames: ["B-Frames", "Absent (preferred)"],
-          frame_size: ["Frame Size", "1280×720, 1920×1080"],
-          aspect_ratio: ["Aspect Ratio", "16:9"],
-          chroma: ["Chroma Subsampling", "4:2:0"],
-          scan_type: ["Scan Type", "progressive / interlaced"],
-          bit_depth: ["Bit Depth", "8"],
-          colour_gamut: ["Colour Gamut", "bt709"],
-          codec: ["Coding Algorithm", "AVC H.264"],
-          codec_level: ["CODEC Level", "4.0–4.2"],
-          codec_profile: ["CODEC Profile", "Main, High"],
-          entropy: ["Entropy", "CABAC"],
-          rate_ctrl_v: ["Rate Control (Video)", "VBR, CBR"],
-          v_br: ["Video Bitrate (Mbps)", "5.0–18.0 (8.0–15.0)"],
-          hdr_scheme: ["SDR/HDR Scheme", "SDR"],
-          fps: ["Frame Rate", "25.0, 29.97, 30.0"],
-          a_codec: ["Audio Coding", "AAC-LC, MP1, MP2"],
-          a_streams: ["Audio Streams", "1–32"],
-          a_channels: ["Audio Channels", "2"],
-          a_rate_ctrl: ["Audio Rate Control", "VBR, CBR"],
-          a_sample_rate: ["Sample Rate (kHz)", "44.1–48.0"],
-          a_bits: ["Audio Bits per Sample", "FLTP, 16"],
-          a_br_kbps: ["Audio Bitrate (Kbps)", "118–512"],
-        };
+function renderComplianceTable(r) {
+  const c = r.compliance || {};
+  const spec = {
+    "overall_br":    ["Overall Bitrate (Mbps)",      "5.0–18.0 (8.0–15.0)"],
+    "idr":           ["IDR Frames",                  "Required"],
+    "gop_size":      ["GOP Size",                    "30, 50"],
+    "gop_type":      ["GOP Type",                    "CLOSED"],
+    "b_frames":      ["B-Frames",                    "Absent (preferred)"],
+    "frame_size":    ["Frame Size",                  "1280×720, 1920×1080"],
+    "aspect_ratio":  ["Aspect Ratio",                "16:9"],
+    "chroma":        ["Chroma Subsampling",           "4:2:0"],
+    "scan_type":     ["Scan Type",                   "progressive / interlaced"],
+    "bit_depth":     ["Bit Depth",                   "8"],
+    "colour_gamut":  ["Colour Gamut",                "bt709"],
+    "codec":         ["Coding Algorithm",             "AVC H.264"],
+    "codec_level":   ["CODEC Level",                 "4.0–4.2"],
+    "codec_profile": ["CODEC Profile",               "Main, High"],
+    "entropy":       ["Entropy",                     "CABAC"],
+    "rate_ctrl_v":   ["Rate Control (Video)",        "VBR, CBR"],
+    "v_br":          ["Video Bitrate (Mbps)",        "5.0–18.0 (8.0–15.0)"],
+    "hdr_scheme":    ["SDR/HDR Scheme",              "SDR"],
+    "fps":           ["Frame Rate",                  "25.0, 29.97, 30.0"],
+    "a_codec":       ["Audio Coding",                "AAC-LC, MP1, MP2"],
+    "a_streams":     ["Audio Streams",               "1–32"],
+    "a_channels":    ["Audio Channels",              "2"],
+    "a_rate_ctrl":   ["Audio Rate Control",          "VBR, CBR"],
+    "a_sample_rate": ["Sample Rate (kHz)",           "44.1–48.0"],
+    "a_bits":        ["Audio Bits per Sample",       "FLTP, 16"],
+    "a_br_kbps":     ["Audio Bitrate (Kbps)",       "118–512"],
+  };
 
-        const sections = {
-          "MEDIA PROFILE": ["overall_br"],
-          VIDEO: [
-            "idr",
-            "gop_size",
-            "gop_type",
-            "b_frames",
-            "frame_size",
-            "aspect_ratio",
-            "chroma",
-            "scan_type",
-            "bit_depth",
-            "colour_gamut",
-            "codec",
-            "codec_level",
-            "codec_profile",
-            "entropy",
-            "rate_ctrl_v",
-            "v_br",
-            "hdr_scheme",
-            "fps",
-          ],
-          AUDIO: [
-            "a_codec",
-            "a_streams",
-            "a_channels",
-            "a_rate_ctrl",
-            "a_sample_rate",
-            "a_bits",
-            "a_br_kbps",
-          ],
-        };
+  const sections = {
+    "MEDIA PROFILE": ["overall_br"],
+    "VIDEO": ["idr","gop_size","gop_type","b_frames","frame_size","aspect_ratio","chroma","scan_type","bit_depth","colour_gamut","codec","codec_level","codec_profile","entropy","rate_ctrl_v","v_br","hdr_scheme","fps"],
+    "AUDIO": ["a_codec","a_streams","a_channels","a_rate_ctrl","a_sample_rate","a_bits","a_br_kbps"],
+  };
 
-        let html = "";
-        for (const [section, keys] of Object.entries(sections)) {
-          html += `<tr class="section-hdr"><td colspan="4">${section}</td></tr>`;
-          for (const key of keys) {
-            const info = spec[key] || [key, "—"];
-            const [status, measured, note] = c[key] || ["UNKNOWN", "—", ""];
-            html += `<tr>
+  let html = "";
+  for (const [section, keys] of Object.entries(sections)) {
+    html += `<tr class="section-hdr"><td colspan="4">${section}</td></tr>`;
+    for (const key of keys) {
+      const info = spec[key] || [key, "—"];
+      const [status, measured, note] = c[key] || ["UNKNOWN","—",""];
+      html += `<tr>
         <td>${info[0]}</td>
         <td style="color:var(--muted)">${info[1]}</td>
-        <td>${measured}${
-              note
-                ? ` <span style="color:var(--muted);font-size:.58rem">(${note})</span>`
-                : ""
-            }</td>
+        <td>${measured}${note ? ` <span style="color:var(--muted);font-size:.58rem">(${note})</span>` : ""}</td>
         <td><span class="status-pill ${status}">${status}</span></td>
       </tr>`;
-          }
-        }
-        document.getElementById("compliance-body").innerHTML = html;
-      }
+    }
+  }
+  document.getElementById("compliance-body").innerHTML = html;
+}
 
-      function infoRows(id, rows) {
-        document.getElementById(id).innerHTML = rows
-          .map(
-            ([k, v, cls]) =>
-              `<div class="info-row"><span class="info-key">${k}</span><span class="info-val ${
-                cls || ""
-              }">${v ?? "—"}</span></div>`
-          )
-          .join("");
-      }
+function infoRows(id, rows) {
+  document.getElementById(id).innerHTML = rows.map(([k,v,cls]) =>
+    `<div class="info-row"><span class="info-key">${k}</span><span class="info-val ${cls||""}">${v??'—'}</span></div>`
+  ).join("");
+}
 
-      function renderGopViz(gops, patterns) {
-        const el = document.getElementById("gop-viz");
-        if (!gops.length) {
-          el.innerHTML =
-            '<div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);padding:.5rem">No GOP data (stream may lack IDR frames)</div>';
-          document.getElementById("gop-stats-bar").innerHTML = "";
-          return;
-        }
-        el.innerHTML = gops
-          .map((frames, i) => {
-            const frameHtml = frames
-              .map((f) => {
-                const cls = f.idr
-                  ? "IDR"
-                  : ["I", "P", "B"].includes(f.type)
-                  ? f.type
-                  : "S";
-                return `<div class="gop-frame ${cls}" title="${
-                  f.idr ? "IDR" : ""
-                }${f.type} frame">${f.type}</div>`;
-              })
-              .join("");
-            const pat = patterns[i] || frames.map((f) => f.type).join("");
-            const short = pat.length > 28 ? pat.slice(0, 26) + "…" : pat;
-            return `<div class="gop-row">
-      <div class="gop-label">GOP ${i + 1}</div>
+function renderGopViz(gops, patterns) {
+  const el = document.getElementById("gop-viz");
+  if (!gops.length) {
+    el.innerHTML = '<div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);padding:.5rem">No GOP data (stream may lack IDR frames)</div>';
+    document.getElementById("gop-stats-bar").innerHTML = "";
+    return;
+  }
+  el.innerHTML = gops.map((frames, i) => {
+    const frameHtml = frames.map(f => {
+      const cls = f.idr ? "IDR" : ["I","P","B"].includes(f.type) ? f.type : "S";
+      return `<div class="gop-frame ${cls}" title="${f.idr?"IDR":""}${f.type} frame">${f.type}</div>`;
+    }).join("");
+    const pat = patterns[i] || frames.map(f=>f.type).join("");
+    const short = pat.length > 28 ? pat.slice(0,26)+"…" : pat;
+    return `<div class="gop-row">
+      <div class="gop-label">GOP ${i+1}</div>
       <div class="gop-frames">${frameHtml}</div>
       <div class="gop-pattern">${short} (${frames.length}f)</div>
     </div>`;
-          })
-          .join("");
+  }).join("");
 
-        const all = gops.flat();
-        const iCount = all.filter((f) => f.key).length;
-        const pCount = all.filter((f) => f.type === "P").length;
-        const bCount = all.filter((f) => f.type === "B").length;
-        const avg = (
-          gops.map((g) => g.length).reduce((a, b) => a + b, 0) / gops.length
-        ).toFixed(1);
-        document.getElementById("gop-stats-bar").innerHTML = [
-          `GOPs: <span>${gops.length}</span>`,
-          `Avg: <span>${avg}f</span>`,
-          `I: <span style="color:var(--green)">${iCount}</span>`,
-          `P: <span style="color:var(--cyan)">${pCount}</span>`,
-          `B: <span style="color:var(--yellow)">${bCount}</span>`,
-        ]
-          .map((s) => `<div class="gop-stat">${s}</div>`)
-          .join("");
-      }
+  const all    = gops.flat();
+  const iCount = all.filter(f=>f.key).length;
+  const pCount = all.filter(f=>f.type==="P").length;
+  const bCount = all.filter(f=>f.type==="B").length;
+  const avg    = (gops.map(g=>g.length).reduce((a,b)=>a+b,0)/gops.length).toFixed(1);
+  document.getElementById("gop-stats-bar").innerHTML = [
+    `GOPs: <span>${gops.length}</span>`,
+    `Avg: <span>${avg}f</span>`,
+    `I: <span style="color:var(--green)">${iCount}</span>`,
+    `P: <span style="color:var(--cyan)">${pCount}</span>`,
+    `B: <span style="color:var(--yellow)">${bCount}</span>`,
+  ].map(s=>`<div class="gop-stat">${s}</div>`).join("");
+}
 
-      // ── History ───────────────────────────────────────────────────────
-      async function loadHistory() {
-        try {
-          const res = await fetch(`${PROXY}/gop/results`);
-          const items = await res.json();
-          const list = document.getElementById("history-list");
-          const search = (
-            document.getElementById("hist-search").value || ""
-          ).toLowerCase();
-          const date = (
-            document.getElementById("hist-date").value || ""
-          ).trim();
-          const tag = (
-            document.getElementById("hist-tag").value || ""
-          ).toLowerCase();
-          const server = (
-            document.getElementById("hist-server").value || ""
-          ).trim();
+// ── History ───────────────────────────────────────────────────────
+async function loadHistory() {
+  try {
+    const res    = await fetch(`${PROXY}/gop/results`);
+    const items  = await res.json();
+    const list   = document.getElementById("history-list");
+    const search = (document.getElementById("hist-search").value||"").toLowerCase();
+    const date   = (document.getElementById("hist-date").value||"").trim();
+    const tag    = (document.getElementById("hist-tag").value||"").toLowerCase();
+    const server = (document.getElementById("hist-server").value||"").trim();
 
-          // Populate tag datalist — split comma-separated tags
-          const allTags = [
-            ...new Set(
-              items.flatMap((i) =>
-                (i.tag || "")
-                  .split(",")
-                  .map((t) => t.trim())
-                  .filter(Boolean)
-              )
-            ),
-          ];
-          document.getElementById("hist-tag-list").innerHTML = allTags
-            .map((t) => `<option value="${t}">`)
-            .join("");
+    // Populate tag datalist — split comma-separated tags
+    const allTags = [...new Set(
+      items.flatMap(i => (i.tag||"").split(",").map(t=>t.trim()).filter(Boolean))
+    )];
+    document.getElementById("hist-tag-list").innerHTML = allTags.map(t=>`<option value="${t}">`).join("");
 
-          const filtered = items.filter((item) => {
-            const hostStr = (
-              resolveHost(item.url_host) +
-              " " +
-              item.url_host +
-              " " +
-              item.url_port
-            ).toLowerCase();
-            const tagParts = (item.tag || "")
-              .split(",")
-              .map((t) => t.trim().toLowerCase());
-            if (
-              search &&
-              !hostStr.includes(search) &&
-              !tagParts.some((t) => t.includes(search))
-            )
-              return false;
-            if (date && !(item.started_at || "").startsWith(date)) return false;
-            if (tag && !tagParts.some((t) => t.includes(tag))) return false;
-            if (server && item.url_host !== server) return false;
-            return true;
-          });
+    const filtered = items.filter(item => {
+      const hostStr  = (resolveHost(item.url_host) + " " + item.url_host + " " + item.url_port).toLowerCase();
+      const tagParts = (item.tag||"").split(",").map(t=>t.trim().toLowerCase());
+      if (search && !hostStr.includes(search) && !tagParts.some(t=>t.includes(search))) return false;
+      if (date   && !(item.started_at||"").startsWith(date)) return false;
+      if (tag    && !tagParts.some(t=>t.includes(tag))) return false;
+      if (server && item.url_host !== server) return false;
+      return true;
+    });
 
-          if (!filtered.length) {
-            list.innerHTML = '<div class="hist-empty">No analyses found</div>';
-            return;
-          }
+    if (!filtered.length) { list.innerHTML='<div class="hist-empty">No analyses found</div>'; return; }
 
-          list.innerHTML = filtered
-            .map((item) => {
-              const serverName = resolveHost(item.url_host);
-              const port = item.url_port || "?";
-              const isOverride = !!item.override;
-              const runStatus = item.run_status || "done";
-              const isFailed = runStatus === "failed" || runStatus === "error";
+    list.innerHTML = filtered.map(item => {
+      const serverName = resolveHost(item.url_host);
+      const port       = item.url_port || "?";
+      const isOverride = !!item.override;
+      const runStatus  = item.run_status || "done";
+      const isFailed   = runStatus === "failed" || runStatus === "error";
 
-              // Status badge
-              let statusCls, statusLabel;
-              if (isOverride) {
-                statusCls = "accepted";
-                statusLabel = "⚡ Override";
-              } else if (isFailed) {
-                statusCls = "rejected";
-                statusLabel = runStatus === "error" ? "✗ ERROR" : "✗ FAILED";
-              } else {
-                statusCls = (item.overall_status || "unknown")
-                  .toLowerCase()
-                  .replace(/[^a-z]/g, "");
-                statusLabel = item.overall_status || "UNKNOWN";
-              }
+      // Status badge
+      let statusCls, statusLabel;
+      if (isOverride)       { statusCls="accepted"; statusLabel="⚡ Override"; }
+      else if (isFailed)    { statusCls="rejected";  statusLabel = runStatus==="error" ? "✗ ERROR" : "✗ FAILED"; }
+      else { statusCls=(item.overall_status||"unknown").toLowerCase().replace(/[^a-z]/g,""); statusLabel=item.overall_status||"UNKNOWN"; }
 
-              const idrCls = item.has_idr ? "compliant" : "rejected";
-              const gopTypeCls =
-                item.gop_type === "CLOSED" ? "compliant" : "accepted";
-              const fpsEff =
-                item.v_fps_compliance ||
-                (item.v_scan === "interlaced" && (item.v_fps_val || 0) > 30
-                  ? (item.v_fps_val || 0) / 2
-                  : item.v_fps_val || 0);
-              const fpsCls = fpsEff > 30.5 ? "rejected" : "";
-              const fpsStr = fpsEff
-                ? fpsEff.toFixed(2) +
-                  " fps" +
-                  (item.v_scan === "interlaced" && (item.v_fps_val || 0) > 30
-                    ? " (i)"
-                    : "")
-                : "";
-              const res = item.v_width
-                ? `${item.v_width}×${item.v_height}`
-                : "";
-              const tagBadges = (item.tag || "")
-                .split(",")
-                .map((t) => t.trim())
-                .filter(Boolean)
-                .map((t) => `<span class="hi-badge">${t}</span>`)
-                .join("");
-              const tsLink = item.ts_file
-                ? `<a class="hi-badge" href="${PROXY}/gop/ts/${encodeURIComponent(
-                    item.ts_file
-                  )}" download onclick="event.stopPropagation()" style="color:var(--cyan)">⬇ .ts</a>`
-                : "";
-              const schedBadge = item.is_scheduled
-                ? `<span class="hi-badge" style="color:var(--cyan);border-color:var(--cyan);background:var(--cyan-d)">🕐 Sched</span>`
-                : "";
-              const logBadge =
-                isFailed && item.log_count
-                  ? `<span class="hi-badge" style="cursor:pointer;color:var(--muted)" onclick="event.stopPropagation();viewErrorLog('${item.file}')" title="View error log">📋 ${item.log_count} log lines</span>`
-                  : "";
-              const errorHint =
-                isFailed && item.error
-                  ? `<div style="font-family:var(--mono);font-size:.62rem;color:var(--red);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.error}</div>`
-                  : "";
-              const clickFn = isFailed
-                ? `viewErrorLog('${item.file}')`
-                : `loadResult('${item.file}')`;
+      const idrCls     = item.has_idr ? "compliant" : "rejected";
+      const gopTypeCls = item.gop_type === "CLOSED" ? "compliant" : "accepted";
+      const fpsEff     = item.v_fps_compliance || (item.v_scan==="interlaced" && (item.v_fps_val||0)>30 ? (item.v_fps_val||0)/2 : (item.v_fps_val||0));
+      const res        = item.v_width ? `${item.v_width}×${item.v_height}` : "";
+      const tagBadges  = (item.tag||"").split(",").map(t=>t.trim()).filter(Boolean).map(t=>`<span class="hi-badge">${t}</span>`).join("");
+      const tsLink     = item.ts_file ? `<a class="hi-badge" href="${PROXY}/gop/ts/${encodeURIComponent(item.ts_file)}" download onclick="event.stopPropagation()" style="color:var(--cyan)">⬇ .ts</a>` : "";
+      const schedBadge = item.is_scheduled ? `<span class="hi-badge" style="color:var(--cyan);border-color:var(--cyan);background:var(--cyan-d)">🕐 Sched</span>` : "";
+      const logBadge   = isFailed && item.log_count ? `<span class="hi-badge" style="cursor:pointer;color:var(--muted)" onclick="event.stopPropagation();viewErrorLog('${item.file}')" title="View error log">📋 ${item.log_count} log lines</span>` : "";
+      const errorHint  = isFailed && item.error ? `<div style="font-family:var(--mono);font-size:.62rem;color:var(--red);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.error}</div>` : "";
+      const clickFn    = isFailed ? `viewErrorLog('${item.file}')` : `loadResult('${item.file}')`;
 
-              return `<div class="hist-item" id="hist-${item.file.replace(
-                /\W/g,
-                "_"
-              )}">
-        <input type="checkbox" class="hist-item-cb" data-file="${
-          item.file
-        }" onchange="updateBulkBar()" />
+      // Subtitle: date · codec · resolution · fps  (replaces IP/tags/codec mess)
+      const dateStr    = item.started_at ? item.started_at.slice(0,16).replace("T"," ")+" UTC" : "—";
+      const codecStr   = (item.v_codec||"?").toUpperCase();
+      const fpsDisp    = fpsEff ? fpsEff.toFixed(2)+"fps"+(item.v_scan==="interlaced"&&(item.v_fps_val||0)>30?" (i)":"") : "?";
+      const subLine    = isFailed ? dateStr : `${dateStr} · ${codecStr} · ${res||"?×?"} · ${fpsDisp}`;
+
+      return `<div class="hist-item" id="hist-${item.file.replace(/\W/g,'_')}">
+        <input type="checkbox" class="hist-item-cb" data-file="${item.file}" onchange="updateBulkBar()" />
         <div class="hist-item-body" onclick="${clickFn};event.stopPropagation()">
           <div class="hi-dest">${serverName}:${port}</div>
-          <div class="hi-sub">${item.url_host} · ${item.v_codec || "?"}${
-                item.tag ? " · " + item.tag : ""
-              }</div>
+          <div class="hi-sub">${subLine}</div>
           ${errorHint}
           <div class="hi-badges">
-            ${
-              !isFailed
-                ? `<span class="hi-badge ${idrCls}">${
-                    item.has_idr ? "✓ IDR" : "✗ No IDR"
-                  }</span>`
-                : ""
-            }
-            ${
-              !isFailed && item.gop_type
-                ? `<span class="hi-badge ${gopTypeCls}">GOP ${item.gop_type}</span>`
-                : ""
-            }
-            ${!isFailed && res ? `<span class="hi-badge">${res}</span>` : ""}
-            ${
-              !isFailed && fpsStr
-                ? `<span class="hi-badge ${fpsCls}">${fpsStr}</span>`
-                : ""
-            }
+            ${!isFailed ? `<span class="hi-badge ${idrCls}">${item.has_idr?"✓ IDR":"✗ No IDR"}</span>` : ""}
+            ${!isFailed && item.gop_type ? `<span class="hi-badge ${gopTypeCls}">GOP ${item.gop_type}</span>` : ""}
             <span class="hi-badge ${statusCls}">${statusLabel}</span>
             ${schedBadge}${logBadge}${tagBadges}${tsLink}
           </div>
         </div>
       </div>`;
-            })
-            .join("");
-        } catch (e) {
-          console.error(e);
-        }
-      }
+    }).join("");
+  } catch(e) { console.error(e); }
+}
 
-      function resolveHost(ip) {
-        return _srtPresets[ip] || ip || "—";
-      }
+function resolveHost(ip) {
+  return _srtPresets[ip] || ip || "—";
+}
 
-      async function loadResult(file) {
-        try {
-          const res = await fetch(
-            `${PROXY}/gop/result/${encodeURIComponent(file)}`
-          );
-          const data = await res.json();
-          document.getElementById("placeholder").style.display = "none";
-          document.getElementById("log-card").style.display = "none";
-          renderResult(data);
-          setStatus("ok", `Loaded: ${file}`);
-        } catch (e) {
-          setStatus("err", "Failed to load result.");
-        }
-      }
+let _currentResultFile = null;
 
-      // ── Bulk delete ───────────────────────────────────────────────────
-      function updateBulkBar() {
-        const checked = [...document.querySelectorAll(".hist-item-cb:checked")];
-        const bar = document.getElementById("bulk-bar");
-        document.getElementById(
-          "bulk-count"
-        ).textContent = `${checked.length} selected`;
-        bar.classList.toggle("visible", checked.length > 0);
-      }
+async function loadResult(file) {
+  try {
+    const res  = await fetch(`${PROXY}/gop/result/${encodeURIComponent(file)}`);
+    const data = await res.json();
+    _currentResultFile = file;  // store so override knows which file to patch
+    data.res_file = file;       // inject so renderResult TS download works
+    document.getElementById("placeholder").style.display = "none";
+    document.getElementById("log-card").style.display = "none";
+    renderResult(data);
+    setStatus("ok", `Loaded: ${file}`);
+  } catch(e) { setStatus("err","Failed to load result."); }
+}
 
-      function openBulkDeleteModal() {
-        const checked = [...document.querySelectorAll(".hist-item-cb:checked")];
-        _pendingDeleteFiles = checked.map((cb) => cb.dataset.file);
-        if (!_pendingDeleteFiles.length) return;
-        document.getElementById(
-          "delete-modal-body"
-        ).innerHTML = `Permanently delete <strong style="color:var(--red)">${_pendingDeleteFiles.length}</strong> result(s)?<br>This action is <strong style="color:var(--red)">irreversible</strong>.`;
-        document.getElementById("delete-pw").value = "";
-        document.getElementById("delete-pw").style.display = _hasAdminPw
-          ? ""
-          : "none";
-        document.getElementById("delete-err").textContent = "";
-        document.getElementById("delete-modal").classList.add("open");
-      }
+// ── Bulk delete ───────────────────────────────────────────────────
+function updateBulkBar() {
+  const checked = [...document.querySelectorAll(".hist-item-cb:checked")];
+  const bar     = document.getElementById("bulk-bar");
+  document.getElementById("bulk-count").textContent = `${checked.length} selected`;
+  bar.classList.toggle("visible", checked.length > 0);
+}
 
-      function closeDeleteModal() {
-        document.getElementById("delete-modal").classList.remove("open");
-        _pendingDeleteFiles = [];
-      }
+function openBulkDeleteModal() {
+  const checked = [...document.querySelectorAll(".hist-item-cb:checked")];
+  _pendingDeleteFiles = checked.map(cb => cb.dataset.file);
+  if (!_pendingDeleteFiles.length) return;
+  document.getElementById("delete-modal-body").innerHTML =
+    `Permanently delete <strong style="color:var(--red)">${_pendingDeleteFiles.length}</strong> result(s)?<br>This action is <strong style="color:var(--red)">irreversible</strong>.`;
+  document.getElementById("delete-pw").value = "";
+  document.getElementById("delete-pw").style.display = _hasAdminPw ? "" : "none";
+  document.getElementById("delete-err").textContent = "";
+  document.getElementById("delete-modal").classList.add("open");
+}
 
-      async function confirmDelete() {
-        const pw = document.getElementById("delete-pw").value;
-        const errEl = document.getElementById("delete-err");
-        errEl.textContent = "";
-        const headers = {};
-        if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
+function closeDeleteModal() {
+  document.getElementById("delete-modal").classList.remove("open");
+  _pendingDeleteFiles = [];
+}
 
-        let anyFailed = false;
-        for (const file of _pendingDeleteFiles) {
-          try {
-            const res = await fetch(
-              `${PROXY}/gop/delete/${encodeURIComponent(file)}`,
-              { method: "DELETE", headers }
-            );
-            const data = await res.json();
-            if (res.status === 403) {
-              document.getElementById("delete-pw").classList.add("error");
-              errEl.textContent = "❌ Invalid password";
-              return;
-            }
-            if (!data.success) anyFailed = true;
-          } catch (e) {
-            anyFailed = true;
-          }
-        }
+async function confirmDelete() {
+  const pw    = document.getElementById("delete-pw").value;
+  const errEl = document.getElementById("delete-err");
+  errEl.textContent = "";
+  const headers = {};
+  if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
 
-        closeDeleteModal();
-        document.getElementById("bulk-bar").classList.remove("visible");
-        if (anyFailed) setStatus("err", "Some files could not be deleted.");
-        loadHistory();
+  let anyFailed = false;
+  for (const file of _pendingDeleteFiles) {
+    try {
+      const res  = await fetch(`${PROXY}/gop/delete/${encodeURIComponent(file)}`,
+                               { method:"DELETE", headers });
+      const data = await res.json();
+      if (res.status === 403) {
+        document.getElementById("delete-pw").classList.add("error");
+        errEl.textContent = "❌ Invalid password";
+        return;
       }
+      if (!data.success) anyFailed = true;
+    } catch(e) { anyFailed = true; }
+  }
 
-      // ── Progress ─────────────────────────────────────────────────────
-      function startProgress(dur) {
-        clearInterval(_progTimer);
-        let pct = 0;
-        const fill = document.getElementById("progress-fill");
-        fill.style.background = "var(--purple)";
-        _progTimer = setInterval(() => {
-          pct = pct + (95 - pct) * (1.2 / dur);
-          fill.style.width = Math.min(pct, 95) + "%";
-        }, 1000);
-      }
-      function stopProgress(ok) {
-        clearInterval(_progTimer);
-        const fill = document.getElementById("progress-fill");
-        fill.style.width = "100%";
-        fill.style.background = ok ? "var(--green)" : "var(--red)";
-        setTimeout(() => {
-          fill.style.width = "0%";
-          fill.style.background = "var(--purple)";
-        }, 2500);
-      }
+  closeDeleteModal();
+  document.getElementById("bulk-bar").classList.remove("visible");
+  if (anyFailed) setStatus("err","Some files could not be deleted.");
+  loadHistory();
+}
 
-      function setStatus(t, m) {
-        document.getElementById("dot").className =
-          "dot " + (t === "running" ? "running" : t === "ok" ? "ok" : "err");
-        document.getElementById("status-text").textContent = m;
-      }
-      function fmtBytes(b) {
-        return b > 1e9
-          ? (b / 1e9).toFixed(2) + "GB"
-          : b > 1e6
-          ? (b / 1e6).toFixed(1) + "MB"
-          : (b / 1e3).toFixed(0) + "KB";
-      }
-      function fmtBps(b) {
-        return b > 1e6
-          ? (b / 1e6).toFixed(2) + " Mbps"
-          : b > 1e3
-          ? (b / 1e3).toFixed(0) + " Kbps"
-          : b + " bps";
-      }
+// ── Progress ─────────────────────────────────────────────────────
+function startProgress(dur) {
+  clearInterval(_progTimer);
+  let pct = 0;
+  const fill = document.getElementById("progress-fill");
+  fill.style.background = "var(--purple)";
+  _progTimer = setInterval(() => {
+    pct = pct + (95 - pct) * (1.2 / dur);
+    fill.style.width = Math.min(pct, 95) + "%";
+  }, 1000);
+}
+function stopProgress(ok) {
+  clearInterval(_progTimer);
+  const fill = document.getElementById("progress-fill");
+  fill.style.width = "100%";
+  fill.style.background = ok ? "var(--green)" : "var(--red)";
+  setTimeout(() => { fill.style.width = "0%"; fill.style.background = "var(--purple)"; }, 2500);
+}
 
-      document
-        .getElementById("delete-modal")
-        .addEventListener("click", function (e) {
-          if (e.target === this) closeDeleteModal();
-        });
+function setStatus(t, m) {
+  document.getElementById("dot").className = "dot " + (t==="running"?"running":t==="ok"?"ok":"err");
+  document.getElementById("status-text").textContent = m;
+}
+function fmtBytes(b) { return b>1e9?(b/1e9).toFixed(2)+"GB":b>1e6?(b/1e6).toFixed(1)+"MB":(b/1e3).toFixed(0)+"KB"; }
+function fmtBps(b)   { return b>1e6?(b/1e6).toFixed(2)+" Mbps":b>1e3?(b/1e3).toFixed(0)+" Kbps":b+" bps"; }
 
-      // ── Override ──────────────────────────────────────────────────────
-      let _currentResult = null;
-      let _overrideReason = null;
+document.getElementById("delete-modal").addEventListener("click", function(e){ if(e.target===this)closeDeleteModal(); });
 
-      function openOverrideModal() {
-        document.getElementById("override-reason").value =
-          _overrideReason || "";
-        document.getElementById("override-reason-err").textContent = "";
-        document.getElementById("override-modal").classList.add("open");
-        setTimeout(
-          () => document.getElementById("override-reason").focus(),
-          100
-        );
-      }
-      function closeOverrideModal() {
-        document.getElementById("override-modal").classList.remove("open");
-      }
-      async function confirmOverride() {
-        const reason = document.getElementById("override-reason").value.trim();
-        if (!reason) {
-          document.getElementById("override-reason-err").textContent =
-            "Justification is required.";
-          return;
-        }
-        // Save override to server if we have a res_file
-        if (_currentResult && _currentResult.res_file) {
-          try {
-            await fetch(
-              `${PROXY}/gop/override/${encodeURIComponent(
-                _currentResult.res_file
-              )}`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ reason }),
-              }
-            );
-            // Update local result
-            _currentResult.override = {
-              reason,
-              applied_at: new Date().toISOString(),
-            };
-            _currentResult.overall_status = "ACCEPTED (Override)";
-          } catch (e) {
-            console.error("Override save failed:", e);
-          }
-        }
-        _overrideReason = reason;
-        closeOverrideModal();
-        applyOverride(reason);
-        loadHistory(); // refresh history badge
-      }
-      function applyOverride(reason) {
-        document.getElementById(
-          "overall-badge"
-        ).innerHTML = `<span class="status-pill" style="background:rgba(227,179,65,.15);color:var(--yellow);border:1px solid var(--yellow);font-size:.72rem;padding:3px 12px;cursor:pointer" onclick="document.getElementById('override-detail-modal').classList.add('open')">⚡ ACCEPTED (Override) ℹ</span>`;
-        document.getElementById("override-reason-display").textContent = reason;
-        document.getElementById("override-notice").style.display = "";
-        document.getElementById("override-detail-reason").textContent = reason;
-        document.getElementById("btn-override").textContent = "⚡ Override ℹ";
-        document.getElementById("btn-override").style.borderColor =
-          "var(--green)";
-        document.getElementById("btn-override").style.color = "var(--green)";
-        document.getElementById("btn-override").onclick = () =>
-          document
-            .getElementById("override-detail-modal")
-            .classList.add("open");
-      }
-      async function resetOverride() {
-        if (_currentResult && _currentResult.res_file) {
-          try {
-            const res = await fetch(
-              `${PROXY}/gop/override/${encodeURIComponent(
-                _currentResult.res_file
-              )}`,
-              { method: "DELETE" }
-            );
-            const d = await res.json();
-            if (_currentResult)
-              _currentResult.overall_status = d.overall_status || "UNKNOWN";
-          } catch (e) {
-            console.error("Override remove failed:", e);
-          }
-        }
-        _overrideReason = null;
-        if (_currentResult) _currentResult.override = null;
-        document
-          .getElementById("override-detail-modal")
-          .classList.remove("open");
-        document.getElementById("override-notice").style.display = "none";
-        document.getElementById("btn-override").textContent = "⚡ Override";
-        document.getElementById("btn-override").style.borderColor =
-          "var(--yellow)";
-        document.getElementById("btn-override").style.color = "var(--yellow)";
-        document.getElementById("btn-override").onclick = openOverrideModal;
-        if (_currentResult) {
-          const os = _currentResult.overall_status || "UNKNOWN";
-          document.getElementById(
-            "overall-badge"
-          ).innerHTML = `<span class="status-pill ${os}" style="font-size:.72rem;padding:3px 12px">${os}</span>`;
-        }
-        loadHistory();
-      }
+// ── Override ──────────────────────────────────────────────────────
+let _currentResult = null;
+let _overrideReason = null;
 
-      // ── Generate Report ───────────────────────────────────────────────
-      function generateReport() {
-        if (!_currentResult) return;
-        const r = _currentResult;
-        const now =
-          new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC";
-        const testDate =
-          (r.started_at || "").replace("T", " ").slice(0, 19) + " UTC";
-        const serverName = resolveHost(r.url_host) || r.url_host;
-        const port = r.url_port || "?";
-        const tags = (r.tag || "")
-          .split(",")
-          .map((t) => t.trim())
-          .filter(Boolean)
-          .join(", ");
-        const overallStatus = _overrideReason
-          ? `ACCEPTED (Override — ${_overrideReason})`
-          : r.overall_status || "UNKNOWN";
-
-        const c = r.compliance || {};
-        const statusLine = (key) => {
-          const [s, m, note] = c[key] || ["—", "—", ""];
-          return `${s.padEnd(12)} ${m}${note ? " (" + note + ")" : ""}`;
-        };
-
-        const fps_eff =
-          r.v_fps_compliance ||
-          (r.v_scan === "interlaced" ? r.v_fps_val / 2 : r.v_fps_val);
-        const aCodecDisplay =
-          r.a_codec_display || (r.a_codec || "?").toUpperCase();
-
-        const sep = "─".repeat(60);
-        const lines = [
-          `SP SO Web Toolbox — GOP Analyzer Report`,
-          `Generated   : ${now}`,
-          `Test Date   : ${testDate}`,
-          ``,
-          `STREAM`,
-          `Source      : ${r.url}`,
-          `Server      : ${serverName} (${r.url_host})`,
-          `Port        : ${port}`,
-          `Tags        : ${tags || "—"}`,
-          ``,
-          `OVERALL RESULT: ${overallStatus}`,
-          sep,
-          ``,
-          `ELEMENT                      SPEC                   MEASURED        RESULT`,
-          sep,
-          `MEDIA PROFILE`,
-          `Overall Bitrate (Mbps)       5.0–18.0 (8.0–15.0)    ${String(
-            r.file_br_mbps || "—"
-          ).padEnd(15)} ${c.overall_br?.[0] || "—"}`,
-          ``,
-          `VIDEO`,
-          `GOP Size                     30, 50                  ${String(
-            r.gop_avg || "—"
-          ).padEnd(15)} ${c.gop_size?.[0] || "—"}`,
-          `GOP Type                     CLOSED                  ${String(
-            r.gop_type || "—"
-          ).padEnd(15)} ${c.gop_type?.[0] || "—"}`,
-          `B-Frames                     Absent (preferred)      ${String(
-            r.has_b_frames ? "Present" : "Absent"
-          ).padEnd(15)} ${c.b_frames?.[0] || "—"}`,
-          `IDR Frames                   Required                ${String(
-            r.has_idr ? "Present" : "ABSENT"
-          ).padEnd(15)} ${c.idr?.[0] || "—"}`,
-          `Frame Size                   1920×1080               ${String(
-            r.v_width + "x" + r.v_height
-          ).padEnd(15)} ${c.frame_size?.[0] || "—"}`,
-          `Aspect Ratio                 16:9                    ${String(
-            r.v_dar || "—"
-          ).padEnd(15)} ${c.aspect_ratio?.[0] || "—"}`,
-          `Chroma Subsampling           4:2:0                   ${String(
-            r.v_chroma || "—"
-          ).padEnd(15)} ${c.chroma?.[0] || "—"}`,
-          `Scan Type                    progressive/interlaced  ${String(
-            r.v_scan || "—"
-          ).padEnd(15)} ${c.scan_type?.[0] || "—"}`,
-          `Bit Depth                    8                       ${String(
-            r.v_bits || "—"
-          ).padEnd(15)} ${c.bit_depth?.[0] || "—"}`,
-          `Colour Gamut                 bt709                   ${String(
-            r.v_color_sp || "—"
-          ).padEnd(15)} ${c.colour_gamut?.[0] || "—"}`,
-          `Coding Algorithm             AVC H.264               ${String(
-            (r.v_codec || "?").toUpperCase()
-          ).padEnd(15)} ${c.codec?.[0] || "—"}`,
-          `CODEC Level                  4.0–4.2                 ${String(
-            r.v_level || "—"
-          ).padEnd(15)} ${c.codec_level?.[0] || "—"}`,
-          `CODEC Profile                Main, High              ${String(
-            r.v_profile || "—"
-          ).padEnd(15)} ${c.codec_profile?.[0] || "—"}`,
-          `Entropy                      CABAC                   ${String(
-            r.v_entropy || "—"
-          ).padEnd(15)} ${c.entropy?.[0] || "—"}`,
-          `Rate Control                 VBR, CBR                ${String(
-            r.v_rate_ctrl || "—"
-          ).padEnd(15)} ${c.rate_ctrl_v?.[0] || "—"}`,
-          `Video Bitrate (Mbps)         5.0–18.0 (8.0–15.0)    ${String(
-            r.v_br_mbps || "—"
-          ).padEnd(15)} ${c.v_br?.[0] || "—"}`,
-          `SDR/HDR Scheme               SDR                     ${String(
-            r.v_hdr || "—"
-          ).padEnd(15)} ${c.hdr_scheme?.[0] || "—"}`,
-          `Frame Rate                   25.0, 29.97, 30.0       ${String(
-            fps_eff.toFixed(3) +
-              (r.v_scan === "interlaced" ? " (50i→25fps)" : "")
-          ).padEnd(15)} ${c.fps?.[0] || "—"}`,
-          ``,
-          `AUDIO`,
-          `Coding Algorithm             AAC-LC, MP1, MP2        ${String(
-            aCodecDisplay
-          ).padEnd(15)} ${c.a_codec?.[0] || "—"}`,
-          `Audio Streams                1–32 (2)                ${String(
-            r.audio_tracks || "—"
-          ).padEnd(15)} ${c.a_streams?.[0] || "—"}`,
-          `Audio Channels               2                       ${String(
-            r.a_channels || "—"
-          ).padEnd(15)} ${c.a_channels?.[0] || "—"}`,
-          `Sample Rate (kHz)            44.1–48.0               ${String(
-            r.a_rate_khz || "—"
-          ).padEnd(15)} ${c.a_sample_rate?.[0] || "—"}`,
-          `Bits per Sample              FLTP, 16                ${String(
-            r.a_bps || "—"
-          ).padEnd(15)} ${c.a_bits?.[0] || "—"}`,
-          `Audio Bitrate (Kbps)         118–512                 ${String(
-            r.a_br_kbps || "—"
-          ).padEnd(15)} ${c.a_br_kbps?.[0] || "—"}`,
-          sep,
-          ``,
-          _overrideReason ? `⚡ OVERRIDE: ${_overrideReason}` : "",
-          ``,
-          `Generated by SP SO Web Toolbox — GOP Analyzer`,
-          `This is a pre-validation assurance report and does not constitute a formal compliance certification.`,
-        ].filter((l) => l !== undefined);
-
-        document.getElementById("report-text").value = lines.join("\n");
-        document.getElementById("report-modal").classList.add("open");
-      }
-
-      async function copyReport() {
-        const text = document.getElementById("report-text").value;
-        try {
-          await navigator.clipboard.writeText(text);
-        } catch {
-          document.getElementById("report-text").select();
-          document.execCommand("copy");
-        }
-        const ok = document.getElementById("report-copy-ok");
-        ok.style.display = "";
-        setTimeout(() => (ok.style.display = "none"), 2500);
-      }
-
-      // ── Scheduled jobs ────────────────────────────────────────────────
-      let _pendingCancelSchedId = null;
-
-      function openScheduleModal() {
-        const host = document.getElementById("inp-host").value.trim();
-        const port = document.getElementById("inp-port").value.trim();
-        if (!host || !port) {
-          setStatus("err", "Fill in Host and Port before scheduling.");
-          return;
-        }
-        // Default to now + 1 hour
-        const now = new Date();
-        now.setHours(now.getHours() + 1, 0, 0, 0);
-        const pad = (n) => String(n).padStart(2, "0");
-        // datetime-local format: YYYY-MM-DDThh:mm (local time, we'll convert to UTC on submit)
-        document.getElementById(
-          "sched-datetime"
-        ).value = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(
-          now.getDate()
-        )}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
-        document.getElementById("sched-err").textContent = "";
-        updateSchedLocalTime();
-        document.getElementById("schedule-modal").classList.add("open");
-      }
-      function closeScheduleModal() {
-        document.getElementById("schedule-modal").classList.remove("open");
-      }
-      function updateSchedLocalTime() {
-        const val = document.getElementById("sched-datetime").value;
-        if (!val) return;
-        const dt = new Date(val); // browser interprets as local
-        document.getElementById("sched-local-time").textContent =
-          dt.toLocaleString() + " → " + dt.toUTCString();
-      }
-      document.addEventListener("DOMContentLoaded", () => {
-        const dtEl = document.getElementById("sched-datetime");
-        if (dtEl) dtEl.addEventListener("input", updateSchedLocalTime);
+function openOverrideModal() {
+  document.getElementById("override-reason").value = _overrideReason || "";
+  document.getElementById("override-reason-err").textContent = "";
+  document.getElementById("override-modal").classList.add("open");
+  setTimeout(() => document.getElementById("override-reason").focus(), 100);
+}
+function closeOverrideModal() {
+  document.getElementById("override-modal").classList.remove("open");
+}
+async function confirmOverride() {
+  const reason = document.getElementById("override-reason").value.trim();
+  if (!reason) {
+    document.getElementById("override-reason-err").textContent = "Justification is required.";
+    return;
+  }
+  const file = _currentResultFile || (_currentResult && _currentResult.res_file);
+  if (file) {
+    try {
+      await fetch(`${PROXY}/gop/override/${encodeURIComponent(file)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason })
       });
-
-      async function confirmSchedule() {
-        const host = document.getElementById("inp-host").value.trim();
-        const port = document.getElementById("inp-port").value.trim();
-        const lat = document.getElementById("inp-latency").value.trim();
-        const pass = document.getElementById("inp-pass").value.trim();
-        const dur = parseInt(document.getElementById("inp-dur").value) || 30;
-        const tag = document.getElementById("inp-tag").value.trim();
-        const dtVal = document.getElementById("sched-datetime").value;
-        const errEl = document.getElementById("sched-err");
-
-        if (!dtVal) {
-          errEl.textContent = "Please select a date and time.";
-          return;
-        }
-        const localDt = new Date(dtVal); // local browser time
-        const utcStr = localDt.toISOString(); // convert to UTC ISO
-        if (localDt <= new Date()) {
-          errEl.textContent = "Scheduled time must be in the future.";
-          return;
-        }
-
-        let url = `srt://${host}:${port}?mode=caller`;
-        if (lat) url += `&latency=${lat}`;
-
-        try {
-          const res = await fetch(`${PROXY}/gop/schedule`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              url,
-              run_at_utc: utcStr,
-              duration: dur,
-              passphrase: pass,
-              tag,
-            }),
-          });
-          const data = await res.json();
-          if (data.error) {
-            errEl.textContent = data.error;
-            return;
-          }
-          closeScheduleModal();
-          setStatus("ok", `Scheduled for ${localDt.toUTCString()}`);
-          loadScheduled();
-        } catch (e) {
-          errEl.textContent = `Error: ${e.message}`;
-        }
+      if (_currentResult) {
+        _currentResult.override       = { reason, applied_at: new Date().toISOString() };
+        _currentResult.overall_status = "ACCEPTED (Override)";
       }
+    } catch(e) { console.error("Override save failed:", e); }
+  }
+  _overrideReason = reason;
+  closeOverrideModal();
+  applyOverride(reason);
+  loadHistory();
+}
+function applyOverride(reason) {
+  document.getElementById("overall-badge").innerHTML =
+    `<span class="status-pill" style="background:rgba(227,179,65,.15);color:var(--yellow);border:1px solid var(--yellow);font-size:.72rem;padding:3px 12px;cursor:pointer" onclick="document.getElementById('override-detail-modal').classList.add('open')">⚡ ACCEPTED (Override) ℹ</span>`;
+  document.getElementById("override-reason-display").textContent = reason;
+  document.getElementById("override-notice").style.display = "";
+  document.getElementById("override-detail-reason").textContent = reason;
+  document.getElementById("btn-override").textContent = "⚡ Override ℹ";
+  document.getElementById("btn-override").style.borderColor = "var(--green)";
+  document.getElementById("btn-override").style.color = "var(--green)";
+  document.getElementById("btn-override").onclick = () => document.getElementById("override-detail-modal").classList.add("open");
+}
+async function resetOverride() {
+  const file = _currentResultFile || (_currentResult && _currentResult.res_file);
+  if (file) {
+    try {
+      const res = await fetch(`${PROXY}/gop/override/${encodeURIComponent(file)}`, { method: "DELETE" });
+      const d   = await res.json();
+      if (_currentResult) _currentResult.overall_status = d.overall_status || "UNKNOWN";
+    } catch(e) { console.error("Override remove failed:", e); }
+  }
+  _overrideReason = null;
+  if (_currentResult) _currentResult.override = null;
+  document.getElementById("override-detail-modal").classList.remove("open");
+  document.getElementById("override-notice").style.display = "none";
+  document.getElementById("btn-override").textContent = "⚡ Override";
+  document.getElementById("btn-override").style.borderColor = "var(--yellow)";
+  document.getElementById("btn-override").style.color = "var(--yellow)";
+  document.getElementById("btn-override").onclick = openOverrideModal;
+  if (_currentResult) {
+    const os = _currentResult.overall_status || "UNKNOWN";
+    document.getElementById("overall-badge").innerHTML =
+      `<span class="status-pill ${os}" style="font-size:.72rem;padding:3px 12px">${os}</span>`;
+  }
+  loadHistory();
+}
 
-      async function loadScheduled() {
-        try {
-          const res = await fetch(`${PROXY}/gop/schedule`);
-          const items = await res.json();
-          const list = document.getElementById("scheduled-list");
-          const active = items.filter(
-            (i) => i.status === "pending" || i.status === "running"
-          );
-          if (!active.length) {
-            list.innerHTML =
-              '<div class="hist-empty">No scheduled analyses</div>';
-            return;
-          }
-          list.innerHTML = active
-            .map((item) => {
-              const runAt = item.run_at_utc
-                ? item.run_at_utc.slice(0, 16).replace("T", " ") + " UTC"
-                : "—";
-              const host = resolveHost(
-                item.url
-                  .replace(/^srt:\/\//, "")
-                  .split(":")[0]
-                  .split("?")[0]
-              );
-              const port = (item.url.match(/:(\d+)[\?$]/) || [])[1] || "?";
-              const isRunning = item.status === "running";
-              const safeId = JSON.stringify(item.sched_id).replace(
-                /"/g,
-                "&quot;"
-              );
-              return `<div style="padding:.45rem .65rem;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:.68rem">
+// ── Generate Report ───────────────────────────────────────────────
+function generateReport() {
+  if (!_currentResult) return;
+  const r = _currentResult;
+  const now = new Date().toISOString().replace("T"," ").slice(0,19) + " UTC";
+  const testDate = (r.started_at||"").replace("T"," ").slice(0,19) + " UTC";
+  const serverName = resolveHost(r.url_host) || r.url_host;
+  const port = r.url_port || "?";
+  const tags = (r.tag||"").split(",").map(t=>t.trim()).filter(Boolean).join(", ");
+  const overallStatus = _overrideReason
+    ? `ACCEPTED (Override — ${_overrideReason})`
+    : (r.overall_status || "UNKNOWN");
+
+  const c = r.compliance || {};
+  const statusLine = (key) => {
+    const [s, m, note] = c[key] || ["—","—",""];
+    return `${s.padEnd(12)} ${m}${note ? " ("+note+")" : ""}`;
+  };
+
+  const fps_eff = r.v_fps_compliance || (r.v_scan === "interlaced" ? r.v_fps_val/2 : r.v_fps_val);
+  const aCodecDisplay = r.a_codec_display || (r.a_codec||"?").toUpperCase();
+
+  const sep = "─".repeat(60);
+  const lines = [
+    `SP SO Web Toolbox — GOP Analyzer Report`,
+    `Generated   : ${now}`,
+    `Test Date   : ${testDate}`,
+    ``,
+    `STREAM`,
+    `Source      : ${r.url}`,
+    `Server      : ${serverName} (${r.url_host})`,
+    `Port        : ${port}`,
+    `Tags        : ${tags || "—"}`,
+    ``,
+    `OVERALL RESULT: ${overallStatus}`,
+    sep,
+    ``,
+    `ELEMENT                      SPEC                   MEASURED        RESULT`,
+    sep,
+    `MEDIA PROFILE`,
+    `Overall Bitrate (Mbps)       5.0–18.0 (8.0–15.0)    ${String(r.file_br_mbps||"—").padEnd(15)} ${c.overall_br?.[0]||"—"}`,
+    ``,
+    `VIDEO`,
+    `GOP Size                     30, 50                  ${String(r.gop_avg||"—").padEnd(15)} ${c.gop_size?.[0]||"—"}`,
+    `GOP Type                     CLOSED                  ${String(r.gop_type||"—").padEnd(15)} ${c.gop_type?.[0]||"—"}`,
+    `B-Frames                     Absent (preferred)      ${String(r.has_b_frames?"Present":"Absent").padEnd(15)} ${c.b_frames?.[0]||"—"}`,
+    `IDR Frames                   Required                ${String(r.has_idr?"Present":"ABSENT").padEnd(15)} ${c.idr?.[0]||"—"}`,
+    `Frame Size                   1920×1080               ${String(r.v_width+"x"+r.v_height).padEnd(15)} ${c.frame_size?.[0]||"—"}`,
+    `Aspect Ratio                 16:9                    ${String(r.v_dar||"—").padEnd(15)} ${c.aspect_ratio?.[0]||"—"}`,
+    `Chroma Subsampling           4:2:0                   ${String(r.v_chroma||"—").padEnd(15)} ${c.chroma?.[0]||"—"}`,
+    `Scan Type                    progressive/interlaced  ${String(r.v_scan||"—").padEnd(15)} ${c.scan_type?.[0]||"—"}`,
+    `Bit Depth                    8                       ${String(r.v_bits||"—").padEnd(15)} ${c.bit_depth?.[0]||"—"}`,
+    `Colour Gamut                 bt709                   ${String(r.v_color_sp||"—").padEnd(15)} ${c.colour_gamut?.[0]||"—"}`,
+    `Coding Algorithm             AVC H.264               ${String((r.v_codec||"?").toUpperCase()).padEnd(15)} ${c.codec?.[0]||"—"}`,
+    `CODEC Level                  4.0–4.2                 ${String(r.v_level||"—").padEnd(15)} ${c.codec_level?.[0]||"—"}`,
+    `CODEC Profile                Main, High              ${String(r.v_profile||"—").padEnd(15)} ${c.codec_profile?.[0]||"—"}`,
+    `Entropy                      CABAC                   ${String(r.v_entropy||"—").padEnd(15)} ${c.entropy?.[0]||"—"}`,
+    `Rate Control                 VBR, CBR                ${String(r.v_rate_ctrl||"—").padEnd(15)} ${c.rate_ctrl_v?.[0]||"—"}`,
+    `Video Bitrate (Mbps)         5.0–18.0 (8.0–15.0)    ${String(r.v_br_mbps||"—").padEnd(15)} ${c.v_br?.[0]||"—"}`,
+    `SDR/HDR Scheme               SDR                     ${String(r.v_hdr||"—").padEnd(15)} ${c.hdr_scheme?.[0]||"—"}`,
+    `Frame Rate                   25.0, 29.97, 30.0       ${String(fps_eff.toFixed(3)+(r.v_scan==="interlaced"?" (50i→25fps)":"")).padEnd(15)} ${c.fps?.[0]||"—"}`,
+    ``,
+    `AUDIO`,
+    `Coding Algorithm             AAC-LC, MP1, MP2        ${String(aCodecDisplay).padEnd(15)} ${c.a_codec?.[0]||"—"}`,
+    `Audio Streams                1–32 (2)                ${String(r.audio_tracks||"—").padEnd(15)} ${c.a_streams?.[0]||"—"}`,
+    `Audio Channels               2                       ${String(r.a_channels||"—").padEnd(15)} ${c.a_channels?.[0]||"—"}`,
+    `Sample Rate (kHz)            44.1–48.0               ${String(r.a_rate_khz||"—").padEnd(15)} ${c.a_sample_rate?.[0]||"—"}`,
+    `Bits per Sample              FLTP, 16                ${String(r.a_bps||"—").padEnd(15)} ${c.a_bits?.[0]||"—"}`,
+    `Audio Bitrate (Kbps)         118–512                 ${String(r.a_br_kbps||"—").padEnd(15)} ${c.a_br_kbps?.[0]||"—"}`,
+    sep,
+    ``,
+    _overrideReason ? `⚡ OVERRIDE: ${_overrideReason}` : "",
+    ``,
+    `Generated by SP SO Web Toolbox — GOP Analyzer`,
+    `This is a pre-validation assurance report and does not constitute a formal compliance certification.`,
+  ].filter(l => l !== undefined);
+
+  document.getElementById("report-text").value = lines.join("\n");
+  document.getElementById("report-modal").classList.add("open");
+}
+
+async function copyReport() {
+  const text = document.getElementById("report-text").value;
+  try { await navigator.clipboard.writeText(text); }
+  catch { document.getElementById("report-text").select(); document.execCommand("copy"); }
+  const ok = document.getElementById("report-copy-ok");
+  ok.style.display = "";
+  setTimeout(() => ok.style.display = "none", 2500);
+}
+
+// ── Scheduled jobs ────────────────────────────────────────────────
+let _pendingCancelSchedId = null;
+
+function openScheduleModal() {
+  const host = document.getElementById("inp-host").value.trim();
+  const port = document.getElementById("inp-port").value.trim();
+  if (!host || !port) { setStatus("err","Fill in Host and Port before scheduling."); return; }
+  // Pre-fill with UTC+1h — show as UTC in the field
+  const utcNow = new Date();
+  utcNow.setMinutes(utcNow.getMinutes() + 60); // +1h
+  const pad = n => String(n).padStart(2,"0");
+  const utcStr = `${utcNow.getUTCFullYear()}-${pad(utcNow.getUTCMonth()+1)}-${pad(utcNow.getUTCDate())}T${pad(utcNow.getUTCHours())}:${pad(utcNow.getUTCMinutes())}`;
+  document.getElementById("sched-datetime").value = utcStr;
+  document.getElementById("sched-err").textContent = "";
+  updateSchedUTCHint();
+  document.getElementById("schedule-modal").classList.add("open");
+}
+function closeScheduleModal() {
+  document.getElementById("schedule-modal").classList.remove("open");
+}
+function updateSchedUTCHint() {
+  const val = document.getElementById("sched-datetime").value;
+  if (!val) return;
+  // Input is treated as UTC — show equivalent local time for reference
+  const utcDt    = new Date(val + "Z"); // force UTC interpretation
+  const localStr = utcDt.toLocaleString([], { timeZoneName: "short" });
+  document.getElementById("sched-local-time").textContent = `= ${localStr} local`;
+}
+document.addEventListener("DOMContentLoaded", () => {
+  const dtEl = document.getElementById("sched-datetime");
+  if (dtEl) dtEl.addEventListener("input", updateSchedUTCHint);
+});
+
+async function confirmSchedule() {
+  const host = document.getElementById("inp-host").value.trim();
+  const port = document.getElementById("inp-port").value.trim();
+  const pass = document.getElementById("inp-pass").value.trim();
+  const dur  = parseInt(document.getElementById("inp-dur").value) || 30;
+  const tag  = document.getElementById("inp-tag").value.trim();
+  const dtVal= document.getElementById("sched-datetime").value;
+  const errEl= document.getElementById("sched-err");
+
+  if (!dtVal) { errEl.textContent = "Please select a date and time (UTC)."; return; }
+
+  // Treat input as UTC (append Z)
+  const utcDt  = new Date(dtVal + "Z");
+  const utcStr = utcDt.toISOString();
+  if (utcDt <= new Date()) { errEl.textContent = "Scheduled time must be in the future (UTC)."; return; }
+
+  const url = `srt://${host}:${port}?mode=caller`;
+
+  try {
+    const res  = await fetch(`${PROXY}/gop/schedule`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, run_at_utc: utcStr, duration: dur, passphrase: pass, tag })
+    });
+    const data = await res.json();
+    if (data.error) { errEl.textContent = data.error; return; }
+    closeScheduleModal();
+    setStatus("ok", `Scheduled for ${dtVal} UTC`);
+    loadScheduled();
+  } catch(e) { errEl.textContent = `Error: ${e.message}`; }
+}
+
+async function loadScheduled() {
+  try {
+    const res   = await fetch(`${PROXY}/gop/schedule`);
+    const items = await res.json();
+    const list  = document.getElementById("scheduled-list");
+    const active = items.filter(i => i.status === "pending" || i.status === "running");
+    const justDone = items.filter(i => i.status === "done" && i._notified !== true);
+
+    // Auto-refresh history for newly completed scheduled jobs
+    if (justDone.length) { loadHistory(); }
+
+    if (!active.length) {
+      list.innerHTML = '<div class="hist-empty">No scheduled analyses</div>';
+      return;
+    }
+    list.innerHTML = active.map(item => {
+      const runAt     = item.run_at_utc ? item.run_at_utc.slice(0,16).replace("T"," ")+" UTC" : "—";
+      const urlHost   = (item.url||"").replace(/^srt:\/\//,"").split(":")[0].split("?")[0];
+      const host      = resolveHost(urlHost);
+      const portMatch = (item.url||"").match(/:(\d+)/);
+      const port      = portMatch ? portMatch[1] : "?";
+      const isRunning = item.status === "running";
+      return `<div style="padding:.45rem .65rem;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:.68rem">
         <div style="color:#fff;font-weight:600">${host}:${port}</div>
-        <div style="color:var(--muted);margin-top:1px">🕐 ${runAt}${
-                item.tag ? " · " + item.tag : ""
-              }</div>
+        <div style="color:var(--muted);margin-top:1px">🕐 ${runAt}${item.tag ? " · " + item.tag : ""}</div>
         <div style="margin-top:4px;display:flex;gap:.4rem">
-          <span style="color:${
-            isRunning ? "var(--yellow)" : "var(--cyan)"
-          }">● ${item.status}</span>
-          ${
-            !isRunning
-              ? `<button onclick="openCancelSchedModal(${safeId},'${host}:${port}')" style="background:transparent;border:1px solid var(--border);border-radius:3px;color:var(--muted);font-family:var(--mono);font-size:.6rem;padding:0 6px;cursor:pointer" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--muted)'">✕ Cancel</button>`
-              : ""
-          }
+          <span style="color:${isRunning?'var(--yellow)':'var(--cyan)'}">● ${item.status}</span>
+          ${!isRunning ? `<button onclick="openCancelSchedModal('${item.sched_id}','${host}:${port}')" style="background:transparent;border:1px solid var(--border);border-radius:3px;color:var(--muted);font-family:var(--mono);font-size:.6rem;padding:0 6px;cursor:pointer" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--muted)'">✕ Cancel</button>` : ""}
         </div>
       </div>`;
-            })
-            .join("");
-        } catch (e) {
-          console.error(e);
-        }
-      }
+    }).join("");
+  } catch(e) { console.error(e); }
+}
 
-      function openCancelSchedModal(schedId, dest) {
-        _pendingCancelSchedId = schedId;
-        document.getElementById("cancel-sched-dest").textContent = dest;
-        document.getElementById("cancel-sched-pw").style.display = _hasAdminPw
-          ? ""
-          : "none";
-        document.getElementById("cancel-sched-pw").value = "";
-        document.getElementById("cancel-sched-err").textContent = "";
-        document.getElementById("cancel-sched-modal").classList.add("open");
-      }
-      async function confirmCancelSched() {
-        if (!_pendingCancelSchedId) return;
-        const pw = document.getElementById("cancel-sched-pw").value;
-        const err = document.getElementById("cancel-sched-err");
-        const headers = {};
-        if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
-        try {
-          const res = await fetch(
-            `${PROXY}/gop/schedule/${_pendingCancelSchedId}/cancel`,
-            { method: "POST", headers }
-          );
-          const data = await res.json();
-          if (res.status === 403) {
-            err.textContent = "❌ Invalid password";
-            return;
-          }
-          document
-            .getElementById("cancel-sched-modal")
-            .classList.remove("open");
-          _pendingCancelSchedId = null;
-          loadScheduled();
-        } catch (e) {
-          err.textContent = `Error: ${e.message}`;
-        }
-      }
+function openCancelSchedModal(schedId, dest) {
+  _pendingCancelSchedId = schedId;
+  document.getElementById("cancel-sched-dest").textContent = dest;
+  document.getElementById("cancel-sched-pw").style.display = _hasAdminPw ? "" : "none";
+  document.getElementById("cancel-sched-pw").value = "";
+  document.getElementById("cancel-sched-err").textContent = "";
+  document.getElementById("cancel-sched-modal").classList.add("open");
+}
+async function confirmCancelSched() {
+  if (!_pendingCancelSchedId) return;
+  const pw  = document.getElementById("cancel-sched-pw").value;
+  const err = document.getElementById("cancel-sched-err");
+  const headers = {};
+  if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
+  try {
+    const res  = await fetch(`${PROXY}/gop/schedule/${_pendingCancelSchedId}/cancel`,
+                             { method: "POST", headers });
+    const data = await res.json();
+    if (res.status === 403) { err.textContent = "❌ Invalid password"; return; }
+    document.getElementById("cancel-sched-modal").classList.remove("open");
+    _pendingCancelSchedId = null;
+    loadScheduled();
+  } catch(e) { err.textContent = `Error: ${e.message}`; }
+}
 
-      // Close modals on backdrop
-      [
-        "override-modal",
-        "override-detail-modal",
-        "report-modal",
-        "schedule-modal",
-        "cancel-sched-modal",
-        "specs-modal",
-      ].forEach((id) => {
-        const el = document.getElementById(id);
-        if (el)
-          el.addEventListener("click", function (e) {
-            if (e.target === this) this.classList.remove("open");
-          });
-      });
+// Close modals on backdrop
+["override-modal","override-detail-modal","report-modal","schedule-modal","cancel-sched-modal","specs-modal"].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener("click", function(e){ if(e.target===this) this.classList.remove("open"); });
+});
 
-      // ── Specs Editor ─────────────────────────────────────────────────
-      let _currentSpecs = null;
+// ── Specs Editor ─────────────────────────────────────────────────
+let _currentSpecs = null;
 
-      async function openSpecsEditor() {
-        document.getElementById("specs-err").textContent = "";
-        document.getElementById("specs-pw").style.display = _hasAdminPw
-          ? ""
-          : "none";
-        document.getElementById("specs-pw").value = "";
-        document.getElementById("specs-modal").classList.add("open");
-        document.getElementById("specs-editor-body").innerHTML =
-          '<div style="font-family:var(--mono);font-size:.7rem;color:var(--muted);padding:.5rem">Loading…</div>';
-        try {
-          const res = await fetch(`${PROXY}/gop/specs`);
-          _currentSpecs = await res.json();
-          renderSpecsEditor(_currentSpecs);
-        } catch (e) {
-          document.getElementById(
-            "specs-editor-body"
-          ).innerHTML = `<div style="color:var(--red);font-family:var(--mono);font-size:.72rem">Failed to load specs: ${e.message}</div>`;
-        }
-      }
-      function closeSpecsModal() {
-        document.getElementById("specs-modal").classList.remove("open");
-      }
+async function openSpecsEditor() {
+  document.getElementById("specs-err").textContent = "";
+  document.getElementById("specs-pw").style.display = _hasAdminPw ? "" : "none";
+  document.getElementById("specs-pw").value = "";
+  document.getElementById("specs-modal").classList.add("open");
+  document.getElementById("specs-editor-body").innerHTML =
+    '<div style="font-family:var(--mono);font-size:.7rem;color:var(--muted);padding:.5rem">Loading…</div>';
+  try {
+    const res  = await fetch(`${PROXY}/gop/specs`);
+    _currentSpecs = await res.json();
+    renderSpecsEditor(_currentSpecs);
+  } catch(e) {
+    document.getElementById("specs-editor-body").innerHTML =
+      `<div style="color:var(--red);font-family:var(--mono);font-size:.72rem">Failed to load specs: ${e.message}</div>`;
+  }
+}
+function closeSpecsModal() {
+  document.getElementById("specs-modal").classList.remove("open");
+}
 
-      function renderSpecsEditor(specs) {
-        const sections = {
-          "MEDIA PROFILE": ["overall_br"],
-          VIDEO: [
-            "gop_size",
-            "gop_type",
-            "b_frames",
-            "idr",
-            "frame_size",
-            "aspect_ratio",
-            "chroma",
-            "scan_type",
-            "bit_depth",
-            "colour_gamut",
-            "codec",
-            "codec_level",
-            "codec_profile",
-            "entropy",
-            "rate_ctrl_v",
-            "v_br",
-            "hdr_scheme",
-            "fps",
-          ],
-          AUDIO: [
-            "a_codec",
-            "a_streams",
-            "a_channels",
-            "a_rate_ctrl",
-            "a_sample_rate",
-            "a_bits",
-            "a_br_kbps",
-          ],
-        };
+function renderSpecsEditor(specs) {
+  const sections = {
+    "MEDIA PROFILE": ["overall_br"],
+    "VIDEO": ["gop_size","gop_type","b_frames","idr","frame_size","aspect_ratio","chroma",
+              "scan_type","bit_depth","colour_gamut","codec","codec_level","codec_profile",
+              "entropy","rate_ctrl_v","v_br","hdr_scheme","fps"],
+    "AUDIO": ["a_codec","a_streams","a_channels","a_rate_ctrl","a_sample_rate","a_bits","a_br_kbps"],
+  };
 
-        let html = `<table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.72rem">
+  let html = `<table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.72rem">
     <thead><tr>
       <th style="text-align:left;padding:.3rem .6rem;border-bottom:1px solid var(--border);color:var(--muted);font-size:.63rem;text-transform:uppercase">Element</th>
       <th style="text-align:left;padding:.3rem .6rem;border-bottom:1px solid var(--border);color:var(--muted);font-size:.63rem;text-transform:uppercase">Allowed values / Range</th>
@@ -3075,188 +1383,141 @@
       <th style="text-align:left;padding:.3rem .6rem;border-bottom:1px solid var(--border);color:var(--muted);font-size:.63rem;text-transform:uppercase">Special</th>
     </tr></thead><tbody>`;
 
-        for (const [section, keys] of Object.entries(sections)) {
-          html += `<tr><td colspan="4" style="background:var(--bg3);color:var(--muted);font-size:.63rem;text-transform:uppercase;letter-spacing:.08em;padding:.22rem .6rem">${section}</td></tr>`;
-          for (const key of keys) {
-            const s = specs[key] || {};
-            const label = s.label || key;
+  for (const [section, keys] of Object.entries(sections)) {
+    html += `<tr><td colspan="4" style="background:var(--bg3);color:var(--muted);font-size:.63rem;text-transform:uppercase;letter-spacing:.08em;padding:.22rem .6rem">${section}</td></tr>`;
+    for (const key of keys) {
+      const s = specs[key] || {};
+      const label = s.label || key;
 
-            // Build input fields based on spec type
-            let allowedEl = "",
-              prefEl = "",
-              specialEl = "";
+      // Build input fields based on spec type
+      let allowedEl = "", prefEl = "", specialEl = "";
 
-            if ("lo" in s) {
-              // Range spec
-              allowedEl = `<input data-key="${key}" data-field="lo" type="number" value="${s.lo}" step="0.01" style="${inStyle}" title="Min" /> – <input data-key="${key}" data-field="hi" type="number" value="${s.hi}" step="0.01" style="${inStyle}" title="Max" />`;
-              if ("pref_lo" in s) {
-                prefEl = `<input data-key="${key}" data-field="pref_lo" type="number" value="${s.pref_lo}" step="0.01" style="${inStyle}" title="Preferred min" /> – <input data-key="${key}" data-field="pref_hi" type="number" value="${s.pref_hi}" step="0.01" style="${inStyle}" title="Preferred max" />`;
-              }
-            } else if ("values" in s) {
-              // Enum spec
-              allowedEl = `<input data-key="${key}" data-field="values" type="text" value="${(
-                s.values || []
-              ).join(
-                ", "
-              )}" style="${inStyle};width:180px" placeholder="comma separated" />`;
-              prefEl = `<input data-key="${key}" data-field="preferred" type="text" value="${
-                s.preferred || ""
-              }" style="${inStyle};width:100px" />`;
-            } else if ("required" in s) {
-              allowedEl = `<input data-key="${key}" data-field="required" type="text" value="${s.required}" style="${inStyle}" />`;
-            }
+      if ("lo" in s) {
+        // Range spec
+        allowedEl = `<input data-key="${key}" data-field="lo" type="number" value="${s.lo}" step="0.01" style="${inStyle}" title="Min" /> – <input data-key="${key}" data-field="hi" type="number" value="${s.hi}" step="0.01" style="${inStyle}" title="Max" />`;
+        if ("pref_lo" in s) {
+          prefEl = `<input data-key="${key}" data-field="pref_lo" type="number" value="${s.pref_lo}" step="0.01" style="${inStyle}" title="Preferred min" /> – <input data-key="${key}" data-field="pref_hi" type="number" value="${s.pref_hi}" step="0.01" style="${inStyle}" title="Preferred max" />`;
+        }
+      } else if ("values" in s) {
+        // Enum spec
+        allowedEl = `<input data-key="${key}" data-field="values" type="text" value="${(s.values||[]).join(", ")}" style="${inStyle};width:180px" placeholder="comma separated" />`;
+        prefEl    = `<input data-key="${key}" data-field="preferred" type="text" value="${s.preferred||""}" style="${inStyle};width:100px" />`;
+      } else if ("required" in s) {
+        allowedEl = `<input data-key="${key}" data-field="required" type="text" value="${s.required}" style="${inStyle}" />`;
+      }
 
-            // Special options
-            let specials = [];
-            if ("allow_seconds" in s)
-              specials.push(
-                `<label style="cursor:pointer"><input type="checkbox" data-key="${key}" data-field="allow_seconds" ${
-                  s.allow_seconds ? "checked" : ""
-                } /> Accept GOP in seconds (1s, 2s)</label>`
-              );
-            if ("allow_50p_720" in s)
-              specials.push(
-                `<label style="cursor:pointer"><input type="checkbox" data-key="${key}" data-field="allow_50p_720" ${
-                  s.allow_50p_720 ? "checked" : ""
-                } /> Accept 50p if 720p</label>`
-              );
-            if ("tolerance" in s)
-              specials.push(
-                `±<input data-key="${key}" data-field="tolerance" type="number" value="${s.tolerance}" step="1" min="0" style="${inStyle};width:50px" title="Tolerance" />`
-              );
-            specialEl = specials.join(" &nbsp; ");
+      // Special options
+      let specials = [];
+      if ("allow_seconds" in s) specials.push(`<label style="cursor:pointer"><input type="checkbox" data-key="${key}" data-field="allow_seconds" ${s.allow_seconds?"checked":""} /> Accept GOP in seconds (1s, 2s)</label>`);
+      if ("allow_50p_720" in s) specials.push(`<label style="cursor:pointer"><input type="checkbox" data-key="${key}" data-field="allow_50p_720" ${s.allow_50p_720?"checked":""} /> Accept 50p if 720p</label>`);
+      if ("tolerance" in s) specials.push(`±<input data-key="${key}" data-field="tolerance" type="number" value="${s.tolerance}" step="1" min="0" style="${inStyle};width:50px" title="Tolerance" />`);
+      specialEl = specials.join(" &nbsp; ");
 
-            html += `<tr style="border-bottom:1px solid rgba(255,255,255,.03)">
+      html += `<tr style="border-bottom:1px solid rgba(255,255,255,.03)">
         <td style="padding:.3rem .6rem;color:var(--text)">${label}</td>
         <td style="padding:.3rem .6rem">${allowedEl}</td>
         <td style="padding:.3rem .6rem">${prefEl}</td>
         <td style="padding:.3rem .6rem;font-size:.65rem;color:var(--muted)">${specialEl}</td>
       </tr>`;
-          }
-        }
-        html += "</tbody></table>";
+    }
+  }
+  html += "</tbody></table>";
 
-        document.getElementById("specs-editor-body").innerHTML = html;
-      }
+  document.getElementById("specs-editor-body").innerHTML = html;
+}
 
-      const inStyle =
-        "background:var(--bg);border:1px solid var(--border);border-radius:3px;color:#fff;font-family:var(--mono);font-size:.68rem;padding:2px 5px;outline:none;width:80px;transition:border-color .15s";
+const inStyle = "background:var(--bg);border:1px solid var(--border);border-radius:3px;color:#fff;font-family:var(--mono);font-size:.68rem;padding:2px 5px;outline:none;width:80px;transition:border-color .15s";
 
-      async function saveSpecs() {
-        const pw = document.getElementById("specs-pw").value;
-        const errEl = document.getElementById("specs-err");
-        errEl.textContent = "";
+async function saveSpecs() {
+  const pw    = document.getElementById("specs-pw").value;
+  const errEl = document.getElementById("specs-err");
+  errEl.textContent = "";
 
-        // Read all inputs back into specs object
-        const specs = JSON.parse(JSON.stringify(_currentSpecs));
-        document.querySelectorAll("[data-key][data-field]").forEach((el) => {
-          const key = el.dataset.key;
-          const field = el.dataset.field;
-          if (!specs[key]) specs[key] = {};
-          if (el.type === "checkbox") {
-            specs[key][field] = el.checked;
-          } else if (field === "values") {
-            specs[key][field] = el.value
-              .split(",")
-              .map((v) => v.trim())
-              .filter(Boolean);
-          } else if (
-            ["lo", "hi", "pref_lo", "pref_hi", "tolerance"].includes(field)
-          ) {
-            specs[key][field] = parseFloat(el.value) || 0;
-          } else {
-            specs[key][field] = el.value.trim();
-          }
-        });
+  // Read all inputs back into specs object
+  const specs = JSON.parse(JSON.stringify(_currentSpecs));
+  document.querySelectorAll("[data-key][data-field]").forEach(el => {
+    const key   = el.dataset.key;
+    const field = el.dataset.field;
+    if (!specs[key]) specs[key] = {};
+    if (el.type === "checkbox") {
+      specs[key][field] = el.checked;
+    } else if (field === "values") {
+      specs[key][field] = el.value.split(",").map(v=>v.trim()).filter(Boolean);
+    } else if (["lo","hi","pref_lo","pref_hi","tolerance"].includes(field)) {
+      specs[key][field] = parseFloat(el.value) || 0;
+    } else {
+      specs[key][field] = el.value.trim();
+    }
+  });
 
-        const headers = { "Content-Type": "application/json" };
-        if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
+  const headers = { "Content-Type": "application/json" };
+  if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
 
-        try {
-          const res = await fetch(`${PROXY}/gop/specs`, {
-            method: "POST",
-            headers,
-            body: JSON.stringify(specs),
-          });
-          const data = await res.json();
-          if (res.status === 403) {
-            errEl.textContent = "❌ Invalid password";
-            return;
-          }
-          if (!data.success) {
-            errEl.textContent = data.error || "Save failed";
-            return;
-          }
-          _currentSpecs = specs;
-          errEl.style.color = "var(--green)";
-          errEl.textContent = "✓ Saved";
-          setTimeout(() => {
-            errEl.textContent = "";
-            errEl.style.color = "";
-          }, 2500);
-        } catch (e) {
-          errEl.textContent = `Error: ${e.message}`;
-        }
-      }
+  try {
+    const res  = await fetch(`${PROXY}/gop/specs`, {
+      method: "POST", headers,
+      body: JSON.stringify(specs)
+    });
+    const data = await res.json();
+    if (res.status === 403) { errEl.textContent = "❌ Invalid password"; return; }
+    if (!data.success) { errEl.textContent = data.error || "Save failed"; return; }
+    _currentSpecs = specs;
+    errEl.style.color = "var(--green)";
+    errEl.textContent = "✓ Saved";
+    setTimeout(() => { errEl.textContent = ""; errEl.style.color = ""; }, 2500);
+  } catch(e) { errEl.textContent = `Error: ${e.message}`; }
+}
 
-      async function resetSpecs() {
-        if (!confirm("Reset all specs to defaults?")) return;
-        const pw = document.getElementById("specs-pw").value;
-        const headers = {};
-        if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
-        try {
-          const res = await fetch(`${PROXY}/gop/specs/reset`, {
-            method: "POST",
-            headers,
-          });
-          const data = await res.json();
-          if (data.success) {
-            _currentSpecs = data.specs;
-            renderSpecsEditor(_currentSpecs);
-          }
-        } catch (e) {
-          console.error(e);
-        }
-      }
+async function resetSpecs() {
+  if (!confirm("Reset all specs to defaults?")) return;
+  const pw = document.getElementById("specs-pw").value;
+  const headers = {};
+  if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
+  try {
+    const res  = await fetch(`${PROXY}/gop/specs/reset`, { method:"POST", headers });
+    const data = await res.json();
+    if (data.success) {
+      _currentSpecs = data.specs;
+      renderSpecsEditor(_currentSpecs);
+    }
+  } catch(e) { console.error(e); }
+}
 
-      // ── Error / Failed result log viewer ─────────────────────────────
-      async function viewErrorLog(file) {
-        try {
-          const res = await fetch(
-            `${PROXY}/gop/result/${encodeURIComponent(file)}`
-          );
-          const d = await res.json();
-          const logs = (d.log || []).join("\n") || "(no log lines saved)";
-          const err = d.error || "";
-          const ts =
-            (d.started_at || "").replace("T", " ").slice(0, 19) + " UTC";
-          const serverName = resolveHost(d.url_host || "");
-          const port = d.url_port || "?";
+// ── Error / Failed result log viewer ─────────────────────────────
+async function viewErrorLog(file) {
+  try {
+    const res  = await fetch(`${PROXY}/gop/result/${encodeURIComponent(file)}`);
+    const d    = await res.json();
+    const logs = (d.log || []).join("\n") || "(no log lines saved)";
+    const err  = d.error || "";
+    const ts   = (d.started_at||"").replace("T"," ").slice(0,19)+" UTC";
+    const serverName = resolveHost(d.url_host||"");
+    const port = d.url_port || "?";
 
-          // Re-use report modal for log display
-          document.getElementById("report-text").value =
-            `FAILED ANALYSIS LOG\n` +
-            `${"─".repeat(50)}\n` +
-            `Date      : ${ts}\n` +
-            `Server    : ${serverName}:${port}\n` +
-            `URL       : ${d.url || "—"}\n` +
-            `Tag       : ${d.tag || "—"}\n` +
-            `Status    : ${d.status || "?"}\n` +
-            (err ? `Error     : ${err}\n` : "") +
-            `${"─".repeat(50)}\n` +
-            logs;
-          document.querySelector("#report-modal .modal-title").textContent =
-            "📋 Error Log";
-          document.getElementById("report-modal").classList.add("open");
-        } catch (e) {
-          alert(`Failed to load log: ${e.message}`);
-        }
-      }
+    // Re-use report modal for log display
+    document.getElementById("report-text").value =
+      `FAILED ANALYSIS LOG\n` +
+      `${"─".repeat(50)}\n` +
+      `Date      : ${ts}\n` +
+      `Server    : ${serverName}:${port}\n` +
+      `URL       : ${d.url||"—"}\n` +
+      `Tag       : ${d.tag||"—"}\n` +
+      `Status    : ${d.status||"?"}\n` +
+      (err ? `Error     : ${err}\n` : "") +
+      `${"─".repeat(50)}\n` +
+      logs;
+    document.querySelector("#report-modal .modal-title").textContent = "📋 Error Log";
+    document.getElementById("report-modal").classList.add("open");
+  } catch(e) {
+    alert(`Failed to load log: ${e.message}`);
+  }
+}
 
-      loadConfig();
-      loadHistory();
-      loadScheduled();
-      setInterval(loadScheduled, 15000); // refresh scheduled every 15s
-    </script>
-  </body>
+loadConfig();
+loadHistory();
+loadScheduled();
+setInterval(loadScheduled, 5000);   // poll every 5s — detects completion + auto-refreshes history
+setInterval(() => { if (!pollTimer) loadHistory(); }, 30000);  // background history refresh
+</script>
+</body>
 </html>

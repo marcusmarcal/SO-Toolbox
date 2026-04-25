@@ -1090,6 +1090,9 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
         v_rate_ctrl = "CBR" if file_br and v_br and abs(file_br - v_br) < file_br * 0.1 else "VBR"
 
         # ── Compliance checks ─────────────────────────────────────────
+        # Load current specs from specs.json (or defaults)
+        specs = _load_specs()
+
         def comply(measured, spec_range, preferred=None, label=None):
             lo, hi = spec_range
             if measured is None: return "UNKNOWN", str(measured), ""
@@ -1144,7 +1147,8 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
             "codec":           comply_enum(v_codec, ["h264","hevc"], ["h264"]),
             "codec_level":     comply(v_level_f, (4.0, 4.2), (4.1, 4.1)),
             "codec_profile":   comply_enum(v_profile.lower() if v_profile else "",
-                                           ["main","high"], ["high"]),
+                                           [p.lower() for p in specs.get("codec_profile",{}).get("values", ["main","high","constrained baseline","baseline"])],
+                                           [specs.get("codec_profile",{}).get("preferred","high").lower()]),
             "entropy":         comply_enum(v_entropy, ["CABAC"], ["CABAC"]),
             "rate_ctrl_v":     comply_enum(v_rate_ctrl, ["VBR","CBR"], ["CBR"]),
             "v_br":            comply(v_br_mbps, (5.0, 18.0), (8.0, 15.0)),
@@ -1601,7 +1605,7 @@ DEFAULT_SPECS = {
     "colour_gamut": {"values": ["unknown","bt709"], "preferred": "bt709", "label": "Colour Gamut"},
     "codec":        {"values": ["h264","hevc"], "preferred": "h264", "label": "Coding Algorithm"},
     "codec_level":  {"lo": 4.0, "hi": 4.2, "pref_lo": 4.1, "pref_hi": 4.2, "label": "CODEC Level"},
-    "codec_profile":{"values": ["main","high"], "preferred": "high", "label": "CODEC Profile"},
+    "codec_profile":{"values": ["main","high","constrained baseline","baseline"], "preferred": "high", "label": "CODEC Profile"},
     "entropy":      {"values": ["CABAC"], "label": "Entropy"},
     "rate_ctrl_v":  {"values": ["VBR","CBR"], "preferred": "CBR", "label": "Rate Control (Video)"},
     "v_br":         {"lo": 5.0, "hi": 18.0, "pref_lo": 8.0, "pref_hi": 15.0, "label": "Video Bitrate (Mbps)"},
