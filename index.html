@@ -783,7 +783,7 @@
         <button id="btn-git-pull" class="git-pull-btn" data-tip="Pull latest from Git" onclick="gitPull()">⟳ Update</button>
         <button class="git-pull-btn" data-tip="Restart proxy service" onclick="openRestartConfirm()" style="border-color:rgba(255,78,106,0.4);color:#ffb3be;">⏻ Restart Proxy</button>
         <button class="git-pull-btn" data-tip="View README" onclick="openReadme()" style="border-color:rgba(88,166,255,0.4);color:var(--accent);">📖 README</button>
-        <span class="version" id="app-version" onclick="openChangelog()" title="Click to see changelog">v2.8.2</span>
+        <span class="version" id="app-version" onclick="openChangelog()" title="Click to see changelog">v2.8.3</span>
       </header>
 
       <aside id="sidebar">
@@ -826,7 +826,8 @@
           <div class="cl-title">SP SO Web Toolbox — Changelog</div>
           <button class="cl-close" onclick="closeChangelog()">Close</button>
         </div>
-        <div class="cl-entry"><div class="cl-version">v2.8.2</div><div class="cl-date">2026-04-23</div><div class="cl-desc">SO Video Analyser: override fixed (uses _currentResultFile), schedule UTC-only input, auto-refresh history on schedule complete, constrained baseline accepted, hi-sub shows date/codec/res/fps, res/fps badges removed, latency field removed, poll 5s</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.8.3</div><div class="cl-date">2026-04-23</div><div class="cl-desc">SO Video Analyser: Re-run button on loaded result and on each history item — pre-fills form and runs immediately</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.8.2</div><div class="cl-date">2026-04-23</div><div class="cl-desc">Override _currentResultFile fix, schedule UTC, constrained baseline, hi-sub date/codec/res/fps, no latency field</div></div>
         <div class="cl-entry"><div class="cl-version">v2.8.1</div><div class="cl-date">2026-04-23</div><div class="cl-desc">Always log failed/error JSON, FAILED/ERROR badges in history, log viewer</div></div>
         <div class="cl-entry"><div class="cl-version">v2.8.0</div><div class="cl-date">2026-04-23</div><div class="cl-desc">Schedule fix, fps history badge (v_fps_compliance), specs editor (JSON, password), GOP Stats left/Audio right, scheduled badge</div></div>
         <div class="cl-entry"><div class="cl-version">v2.7.0</div><div class="cl-date">2026-04-22</div><div class="cl-desc">SO Video Analyser rename, 50i FPS fix, override→JSON, .ts download, scheduled jobs, metadata header; index: UTC+local clocks</div></div>
@@ -1263,7 +1264,7 @@
             // Update title & version from env
             const title = env.APP_TITLE || "SP SO Web Toolbox";
             document.title = title;
-            $("#app-version").text("v2.8.2");
+            $("#app-version").text("v2.8.3");
 
             renderSidebar();
             renderWelcomeCards();

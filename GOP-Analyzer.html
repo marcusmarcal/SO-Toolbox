@@ -268,6 +268,7 @@
             <div style="margin-left:auto;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
               <div id="overall-badge"></div>
               <button id="btn-override" onclick="openOverrideModal()" style="background:transparent;border:1px solid var(--yellow);border-radius:5px;color:var(--yellow);font-family:var(--mono);font-size:.7rem;font-weight:700;padding:4px 12px;cursor:pointer;transition:opacity .15s" title="Manually accept this result with justification">⚡ Override</button>
+              <button id="btn-rerun" onclick="rerunCurrent()" style="background:transparent;border:1px solid var(--green);border-radius:5px;color:var(--green);font-family:var(--mono);font-size:.7rem;font-weight:700;padding:4px 12px;cursor:pointer;transition:opacity .15s" title="Re-run this analysis now">↺ Re-run</button>
               <button id="btn-report" onclick="generateReport()" style="background:var(--cyan);border:none;border-radius:5px;color:#000;font-family:var(--mono);font-size:.7rem;font-weight:700;padding:4px 12px;cursor:pointer;transition:opacity .15s" title="Generate email report">📋 Generate Report</button>
             </div>
           </div>
@@ -923,6 +924,7 @@ async function loadHistory() {
       const tsLink     = item.ts_file ? `<a class="hi-badge" href="${PROXY}/gop/ts/${encodeURIComponent(item.ts_file)}" download onclick="event.stopPropagation()" style="color:var(--cyan)">⬇ .ts</a>` : "";
       const schedBadge = item.is_scheduled ? `<span class="hi-badge" style="color:var(--cyan);border-color:var(--cyan);background:var(--cyan-d)">🕐 Sched</span>` : "";
       const logBadge   = isFailed && item.log_count ? `<span class="hi-badge" style="cursor:pointer;color:var(--muted)" onclick="event.stopPropagation();viewErrorLog('${item.file}')" title="View error log">📋 ${item.log_count} log lines</span>` : "";
+      const rerunBtn   = `<button onclick="event.stopPropagation();rerunFromItem(${JSON.stringify(item).replace(/"/g,'&quot;')})" style="background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:.62rem;cursor:pointer;padding:0" title="Re-run this analysis" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">↺</button>`;
       const errorHint  = isFailed && item.error ? `<div style="font-family:var(--mono);font-size:.62rem;color:var(--red);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.error}</div>` : "";
       const clickFn    = isFailed ? `viewErrorLog('${item.file}')` : `loadResult('${item.file}')`;
 
@@ -942,7 +944,7 @@ async function loadHistory() {
             ${!isFailed ? `<span class="hi-badge ${idrCls}">${item.has_idr?"✓ IDR":"✗ No IDR"}</span>` : ""}
             ${!isFailed && item.gop_type ? `<span class="hi-badge ${gopTypeCls}">GOP ${item.gop_type}</span>` : ""}
             <span class="hi-badge ${statusCls}">${statusLabel}</span>
-            ${schedBadge}${logBadge}${tagBadges}${tsLink}
+            ${schedBadge}${logBadge}${rerunBtn}${tagBadges}${tsLink}
           </div>
         </div>
       </div>`;
@@ -1483,7 +1485,50 @@ async function resetSpecs() {
   } catch(e) { console.error(e); }
 }
 
-// ── Error / Failed result log viewer ─────────────────────────────
+// ── Re-run ────────────────────────────────────────────────────────
+function rerunCurrent() {
+  if (!_currentResult) return;
+  _fillFormFromResult(_currentResult);
+  // Scroll to top and run
+  document.getElementById("result-panel").scrollTop = 0;
+  runAnalysis();
+}
+
+function rerunFromItem(item) {
+  // item from history list — may not have full result, fetch it first if needed
+  const host = item.url_host || (item.url||"").replace(/^srt:\/\//,"").split(":")[0].split("?")[0];
+  const port = item.url_port || ((item.url||"").match(/:(\d+)/) || [])[1] || "";
+  // Extract passphrase from stored url (if not stripped)
+  const passMatch = (item.url_full||item.url||"").match(/[?&]passphrase=([^&]+)/);
+  const pass = passMatch ? decodeURIComponent(passMatch[1]) : "";
+
+  _fillFormFromValues(host, port, pass, item.tag || "");
+  document.getElementById("inp-dur").value = "30"; // default duration
+  runAnalysis();
+}
+
+function _fillFormFromResult(r) {
+  const host = r.url_host || "";
+  const port = r.url_port || "";
+  const passMatch = (r.url_full || r.url || "").match(/[?&]passphrase=([^&]+)/);
+  const pass = passMatch ? decodeURIComponent(passMatch[1]) : "";
+  _fillFormFromValues(host, port, pass, r.tag || "");
+}
+
+function _fillFormFromValues(host, port, pass, tag) {
+  if (host) document.getElementById("inp-host").value = host;
+  if (port) document.getElementById("inp-port").value = port;
+  // Only pre-fill passphrase from env if it wasn't overridden
+  if (pass) {
+    const passEl = document.getElementById("inp-pass");
+    passEl.value = pass;
+    passEl.classList.remove("from-env");
+  }
+  if (tag) document.getElementById("inp-tag").value = tag;
+  // Scroll result panel back to top so user sees progress
+  const panel = document.getElementById("result-panel");
+  if (panel) panel.scrollTop = 0;
+}
 async function viewErrorLog(file) {
   try {
     const res  = await fetch(`${PROXY}/gop/result/${encodeURIComponent(file)}`);
