@@ -99,6 +99,7 @@ PHENIXRTS_PASSWORD=your-password
 
 | Version | Date       | Changes |
 |---------|------------|---------|
+| 2.8.3   | 2026-04-23 | SO Video Analyser: Re-run button on loaded result + each history item |
 | 2.8.2   | 2026-04-23 | override uses _currentResultFile, schedule full UTC, auto-refresh on complete, constrained baseline, hi-sub date/codec/res/fps, no res/fps badges, no latency field |
 | 2.8.1   | 2026-04-23 | Always save log JSON on failure/error, FAILED/ERROR badges, log viewer |
 | 2.7.0   | 2026-04-22 | SO Video Analyser rename, 50i FPS fix, override→JSON, .ts download, scheduled jobs, metadata header; index: clocks |
@@ -125,7 +126,7 @@ PHENIXRTS_PASSWORD=your-password
 | 1.1.0   | 2026-03-25 | Full English translation + rich GUI |
 | 1.0.0   | 2026-03-25 | Initial PhenixRTS Channel Health Monitor |
 
-**Current Version: 2.8.2**
+**Current Version: 2.8.3**
 
 ---
 
