@@ -1209,6 +1209,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
             # Compliance
             "compliance": compliance,
             "overall_status": overall_status,
+            "test_id": str(uuid.uuid4()),  # unique ID for this test run
         }
 
         # Save result JSON
@@ -1382,6 +1383,7 @@ def gop_results():
                 "ts_file":           d.get("ts_file"),
                 "is_scheduled":      d.get("is_scheduled", False),
                 "log_count":         len(d.get("log", [])),
+                "test_id":           d.get("test_id", ""),
             })
         except Exception:
             pass
