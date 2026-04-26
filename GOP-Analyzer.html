@@ -124,7 +124,16 @@
   .info-val.yellow{color:var(--yellow)} .info-val.cyan{color:var(--cyan)}
   .info-val.purple{color:var(--purple)}
 
-  /* Placeholder */
+  /* Print styles — visual report only */
+  @media print {
+    body * { visibility: hidden !important; }
+    #report-visual-content, #report-visual-content * { visibility: visible !important; }
+    #report-visual-content {
+      position: fixed; inset: 0; background: #fff; color: #000;
+      padding: 1.5rem; font-family: 'JetBrains Mono', monospace;
+    }
+    .report-vis-pill { border: 1px solid #ccc !important; }
+  }
   .placeholder{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:.6rem;flex:1;opacity:.3}
   .placeholder p{font-family:var(--mono);font-size:.82rem;color:var(--muted)}
 
@@ -359,7 +368,7 @@
         <button class="btn-sm" onclick="loadHistory()">↻</button>
       </div>
       <div class="hist-filters">
-        <input class="f-search" id="hist-search" type="text"  placeholder="host/port…" oninput="loadHistory()" />
+        <input class="f-search" id="hist-search" type="text" placeholder="search…" oninput="loadHistory()" title="Search by host, port, test ID, tag" />
       </div>
       <div class="hist-filters" style="border-bottom:1px solid var(--border)">
         <input class="f-date"   id="hist-date"   type="date"                           oninput="loadHistory()" title="Filter by date" />
@@ -477,15 +486,33 @@
 
 <!-- Report modal -->
 <div class="modal-overlay" id="report-modal">
-  <div class="modal-card" style="width:680px;max-width:95vw">
-    <div class="modal-title" style="color:var(--cyan)">📋 Generated Report</div>
-    <div style="font-family:var(--mono);font-size:.7rem;color:var(--muted);margin-bottom:.75rem">Ready to copy and paste into an email body.</div>
-    <textarea id="report-text" rows="22" readonly
-      style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:var(--mono);font-size:.72rem;padding:.6rem .8rem;outline:none;resize:vertical;line-height:1.7"
-      onclick="this.select()"></textarea>
-    <div class="modal-actions" style="margin-top:.8rem">
-      <button class="btn-danger" style="background:var(--cyan);color:#000" onclick="copyReport()">📋 Copy to Clipboard</button>
-      <button class="btn-cancel" onclick="document.getElementById('report-modal').classList.remove('open')">Close</button>
+  <div class="modal-card" style="width:780px;max-width:97vw;max-height:93vh;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;flex-shrink:0">
+      <div class="modal-title" style="color:var(--cyan);margin:0" id="report-modal-title">📋 Report</div>
+      <div style="display:flex;gap:.4rem;align-items:center">
+        <!-- Tab buttons -->
+        <button id="tab-visual" onclick="showReportTab('visual')" style="background:var(--cyan);border:none;border-radius:4px;color:#000;font-family:var(--mono);font-size:.68rem;font-weight:700;padding:3px 10px;cursor:pointer">🖼 Visual</button>
+        <button id="tab-text"   onclick="showReportTab('text')"   style="background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--muted);font-family:var(--mono);font-size:.68rem;padding:3px 10px;cursor:pointer">📄 Text</button>
+        <button class="btn-cancel" onclick="closeReportModal()">✕</button>
+      </div>
+    </div>
+
+    <!-- Visual report pane -->
+    <div id="report-visual-pane" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:.5rem">
+      <div id="report-visual-content" style="background:var(--bg);border-radius:6px;padding:1rem;flex:1"></div>
+    </div>
+
+    <!-- Text report pane -->
+    <div id="report-text-pane" style="flex:1;overflow-y:auto;display:none;flex-direction:column;gap:.5rem">
+      <div style="font-family:var(--mono);font-size:.68rem;color:var(--muted);flex-shrink:0">Monospaced — paste into ServiceNow, Jira, or any incident system.</div>
+      <textarea id="report-text" readonly rows="24"
+        style="width:100%;flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:.6rem .8rem;outline:none;resize:none;line-height:1.6;tab-size:2"
+        onclick="this.select()"></textarea>
+    </div>
+
+    <div style="margin-top:.6rem;display:flex;gap:.5rem;align-items:center;flex-shrink:0;padding-top:.5rem;border-top:1px solid var(--border)">
+      <button onclick="copyReport()" style="background:var(--cyan);border:none;border-radius:5px;color:#000;font-family:var(--mono);font-size:.7rem;font-weight:700;padding:5px 14px;cursor:pointer">📋 Copy Text</button>
+      <button onclick="window.print()" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-family:var(--mono);font-size:.7rem;padding:5px 12px;cursor:pointer" id="btn-print">🖨 Print / Save PDF</button>
       <span id="report-copy-ok" style="font-family:var(--mono);font-size:.68rem;color:var(--green);display:none">✓ Copied!</span>
     </div>
   </div>
@@ -906,9 +933,12 @@ async function loadHistory() {
     document.getElementById("hist-tag-list").innerHTML = allTags.map(t=>`<option value="${t}">`).join("");
 
     const filtered = items.filter(item => {
-      const hostStr  = (resolveHost(item.url_host) + " " + item.url_host + " " + item.url_port).toLowerCase();
+      const searchable = [
+        resolveHost(item.url_host), item.url_host, item.url_port,
+        item.tag, item.test_id, item.v_codec, item.url
+      ].map(v=>(v||"").toLowerCase()).join(" ");
       const tagParts = (item.tag||"").split(",").map(t=>t.trim().toLowerCase());
-      if (search && !hostStr.includes(search) && !tagParts.some(t=>t.includes(search))) return false;
+      if (search && !searchable.includes(search)) return false;
       if (date   && !(item.started_at||"").startsWith(date)) return false;
       if (tag    && !tagParts.some(t=>t.includes(tag))) return false;
       if (server && item.url_host !== server) return false;
@@ -947,12 +977,14 @@ async function loadHistory() {
       const codecStr   = (item.v_codec||"?").toUpperCase();
       const fpsDisp    = fpsEff ? fpsEff.toFixed(2)+"fps"+(item.v_scan==="interlaced"&&(item.v_fps_val||0)>30?" (i)":"") : "?";
       const subLine    = isFailed ? dateStr : `${dateStr} · ${codecStr} · ${res||"?×?"} · ${fpsDisp}`;
+      const testIdBit  = item.test_id ? `<div style="font-family:var(--mono);font-size:.58rem;color:var(--muted);margin-top:1px;opacity:.6" title="Test ID — searchable">${item.test_id}</div>` : "";
 
       return `<div class="hist-item" id="hist-${item.file.replace(/\W/g,'_')}">
         <input type="checkbox" class="hist-item-cb" data-file="${item.file}" onchange="updateBulkBar()" />
         <div class="hist-item-body" onclick="${clickFn};event.stopPropagation()">
           <div class="hi-dest">${serverName}:${port}</div>
           <div class="hi-sub">${subLine}</div>
+          ${testIdBit}
           ${errorHint}
           <div class="hi-badges">
             ${!isFailed ? `<span class="hi-badge ${idrCls}">${item.has_idr?"✓ IDR":"✗ No IDR"}</span>` : ""}
@@ -1141,88 +1173,185 @@ async function resetOverride() {
 }
 
 // ── Generate Report ───────────────────────────────────────────────
+// ── Report modal tabs ─────────────────────────────────────────────
+function showReportTab(tab) {
+  const isVis = tab === "visual";
+  document.getElementById("report-visual-pane").style.display = isVis ? "flex" : "none";
+  document.getElementById("report-text-pane").style.display   = isVis ? "none"  : "flex";
+  const tabVis = document.getElementById("tab-visual");
+  const tabTxt = document.getElementById("tab-text");
+  tabVis.style.background = isVis ? "var(--cyan)" : "transparent";
+  tabVis.style.color      = isVis ? "#000" : "var(--muted)";
+  tabVis.style.border     = isVis ? "none" : "1px solid var(--border)";
+  tabTxt.style.background = isVis ? "transparent" : "var(--cyan)";
+  tabTxt.style.color      = isVis ? "var(--muted)" : "#000";
+  tabTxt.style.border     = isVis ? "1px solid var(--border)" : "none";
+}
+function closeReportModal() {
+  document.getElementById("report-modal").classList.remove("open");
+}
+
 function generateReport() {
   if (!_currentResult) return;
-  const r = _currentResult;
-  const now = new Date().toISOString().replace("T"," ").slice(0,19) + " UTC";
-  const testDate = (r.started_at||"").replace("T"," ").slice(0,19) + " UTC";
-  const serverName = resolveHost(r.url_host) || r.url_host;
-  const port = r.url_port || "?";
-  const tags = (r.tag||"").split(",").map(t=>t.trim()).filter(Boolean).join(", ");
-  const overallStatus = _overrideReason
-    ? `ACCEPTED (Override — ${_overrideReason})`
-    : (r.overall_status || "UNKNOWN");
+  const r           = _currentResult;
+  const now         = new Date().toISOString().replace("T"," ").slice(0,19) + " UTC";
+  const testDate    = (r.started_at||"").replace("T"," ").slice(0,19) + " UTC";
+  const serverName  = resolveHost(r.url_host) || r.url_host;
+  const port        = r.url_port || "?";
+  const tags        = (r.tag||"").split(",").map(t=>t.trim()).filter(Boolean).join(", ") || "—";
+  const testId      = r.test_id || "—";
+  const overallStat = _overrideReason ? "ACCEPTED (Override)" : (r.overall_status||"UNKNOWN");
+  const aCodec      = r.a_codec_display || (r.a_codec||"?").toUpperCase();
+  const fps_eff     = r.v_fps_compliance || r.v_fps_val || 0;
+  const c           = r.compliance || {};
 
-  const c = r.compliance || {};
-  const statusLine = (key) => {
-    const [s, m, note] = c[key] || ["—","—",""];
-    return `${s.padEnd(12)} ${m}${note ? " ("+note+")" : ""}`;
+  // Status colours
+  const statusCol = overallStat.includes("COMPLIANT") ? "#3fb950"
+    : overallStat.includes("ACCEPTED") ? "#e3b341"
+    : overallStat.includes("REJECTED") ? "#f85149" : "#58a6ff";
+
+  // Pill helper for visual
+  const pill = (status) => {
+    const bg  = {"COMPLIANT":"rgba(63,185,80,.15)","ACCEPTED":"rgba(227,179,65,.15)","REJECTED":"rgba(248,81,73,.15)"}[status] || "rgba(255,255,255,.04)";
+    const col = {"COMPLIANT":"#3fb950","ACCEPTED":"#e3b341","REJECTED":"#f85149"}[status] || "#6e7681";
+    return `<span style="display:inline-block;background:${bg};color:${col};border:1px solid ${col};border-radius:3px;padding:1px 7px;font-size:.62rem;font-weight:700">${status||"—"}</span>`;
   };
 
-  const fps_eff = r.v_fps_compliance || (r.v_scan === "interlaced" ? r.v_fps_val/2 : r.v_fps_val);
-  const aCodecDisplay = r.a_codec_display || (r.a_codec||"?").toUpperCase();
+  // Visual table row
+  const vrow = (label, spec, measured, key) => {
+    const [s] = c[key] || ["—"];
+    return `<tr style="border-bottom:1px solid rgba(255,255,255,.05)">
+      <td style="padding:.22rem .5rem;color:#8b949e;white-space:nowrap;font-size:.7rem">${label}</td>
+      <td style="padding:.22rem .5rem;color:#6e7681;font-size:.64rem">${spec}</td>
+      <td style="padding:.22rem .5rem;font-weight:600;font-size:.7rem">${measured||"—"}</td>
+      <td style="padding:.22rem .5rem;text-align:right">${pill(s)}</td></tr>`;
+  };
+  const vsec = (t) =>
+    `<tr><td colspan="4" style="padding:.28rem .5rem .1rem;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:#6e7681;background:rgba(255,255,255,.02)">${t}</td></tr>`;
 
-  const sep = "─".repeat(60);
-  const lines = [
-    `SP SO Web Toolbox — GOP Analyzer Report`,
-    `Generated   : ${now}`,
-    `Test Date   : ${testDate}`,
-    ``,
-    `STREAM`,
-    `Source      : ${r.url}`,
-    `Server      : ${serverName} (${r.url_host})`,
-    `Port        : ${port}`,
-    `Tags        : ${tags || "—"}`,
-    ``,
-    `OVERALL RESULT: ${overallStatus}`,
+  // ── VISUAL HTML ──────────────────────────────────────────────────
+  document.getElementById("report-visual-content").innerHTML = `
+  <div style="font-family:'JetBrains Mono',monospace;font-size:.72rem;color:#c9d1d9;background:#080c10;border-radius:8px;padding:1rem;max-width:720px;margin:0 auto">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.85rem;flex-wrap:wrap;gap:.4rem">
+      <div>
+        <div style="font-size:.95rem;font-weight:700;color:#fff">SP SO Video Analyser</div>
+        <div style="color:#58a6ff;font-size:.72rem;margin-top:2px">${serverName}:${port}</div>
+        <div style="color:#484f58;font-size:.63rem;margin-top:2px">${r.url||"—"}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:1.3rem;font-weight:700;color:${statusCol};line-height:1.1">${overallStat}</div>
+        ${_overrideReason?`<div style="color:#e3b341;font-size:.62rem;margin-top:2px">⚡ ${_overrideReason}</div>`:""}
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.2rem .75rem;margin-bottom:.75rem;font-size:.67rem;border:1px solid rgba(255,255,255,.07);border-radius:5px;padding:.5rem .6rem;background:rgba(255,255,255,.02)">
+      <div><span style="color:#6e7681">Test ID: </span><span style="color:#fff">${testId}</span></div>
+      <div><span style="color:#6e7681">Generated: </span>${now}</div>
+      <div><span style="color:#6e7681">Test Date: </span>${testDate}</div>
+      <div><span style="color:#6e7681">Tags: </span><span style="color:#e3b341">${tags}</span></div>
+    </div>
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr style="border-bottom:1px solid rgba(255,255,255,.12)">
+        <th style="text-align:left;padding:.28rem .5rem;color:#6e7681;font-size:.6rem;text-transform:uppercase">Element</th>
+        <th style="text-align:left;padding:.28rem .5rem;color:#6e7681;font-size:.6rem;text-transform:uppercase">Spec</th>
+        <th style="text-align:left;padding:.28rem .5rem;color:#6e7681;font-size:.6rem;text-transform:uppercase">Measured</th>
+        <th style="text-align:right;padding:.28rem .5rem;color:#6e7681;font-size:.6rem;text-transform:uppercase">Result</th>
+      </thead><tbody>
+        ${vsec("MEDIA PROFILE")}
+        ${vrow("Overall Bitrate","5.0–18.0 (8–15) Mbps",`${r.file_br_mbps||"—"} Mbps`,"overall_br")}
+        ${vsec("VIDEO")}
+        ${vrow("GOP Size","30 or 50 frames",`${r.gop_avg||"—"} frames`,"gop_size")}
+        ${vrow("GOP Type","CLOSED",r.gop_type||"—","gop_type")}
+        ${vrow("IDR Frames","Required",r.has_idr?"Present":"ABSENT","idr")}
+        ${vrow("B-Frames","Absent (preferred)",r.has_b_frames?"Present":"Absent","b_frames")}
+        ${vrow("Frame Size","1920×1080",`${r.v_width||"?"}×${r.v_height||"?"}`,"frame_size")}
+        ${vrow("Aspect Ratio","16:9",r.v_dar||"—","aspect_ratio")}
+        ${vrow("Chroma","4:2:0",r.v_chroma||"—","chroma")}
+        ${vrow("Scan Type","progressive / interlaced",r.v_scan||"—","scan_type")}
+        ${vrow("Bit Depth","8",String(r.v_bits||"—"),"bit_depth")}
+        ${vrow("Colour Gamut","bt709",r.v_color_sp||"—","colour_gamut")}
+        ${vrow("Codec","AVC H.264",(r.v_codec||"?").toUpperCase(),"codec")}
+        ${vrow("CODEC Level","4.0–4.2",r.v_level||"—","codec_level")}
+        ${vrow("CODEC Profile","Main / High",r.v_profile||"—","codec_profile")}
+        ${vrow("Entropy","CABAC",r.v_entropy||"—","entropy")}
+        ${vrow("Video Bitrate","5.0–18.0 Mbps",`${r.v_br_mbps||"—"} Mbps`,"v_br")}
+        ${vrow("SDR/HDR","SDR",r.v_hdr||"—","hdr_scheme")}
+        ${vrow("Frame Rate","25.0 / 29.97 / 30.0",`${fps_eff.toFixed(3)}${r.v_scan==="interlaced"&&(r.v_fps_val||0)>30?" (50i→25fps)":""}`, "fps")}
+        ${vsec("AUDIO")}
+        ${vrow("Audio Coding","AAC-LC / MP1 / MP2",aCodec,"a_codec")}
+        ${vrow("Audio Streams","1–32 (prefer 2)",String(r.audio_tracks||"—"),"a_streams")}
+        ${vrow("Audio Channels","2",String(r.a_channels||"—"),"a_channels")}
+        ${vrow("Sample Rate","44.1–48.0 kHz",r.a_rate_khz?r.a_rate_khz+" kHz":"—","a_sample_rate")}
+        ${vrow("Bits per Sample","FLTP / 16",r.a_bps||"—","a_bits")}
+        ${vrow("Audio Bitrate","118–512 Kbps",r.a_br_kbps?r.a_br_kbps+" Kbps":"—","a_br_kbps")}
+      </tbody>
+    </table>
+    ${_overrideReason?`<div style="margin-top:.6rem;padding:.45rem .6rem;background:rgba(227,179,65,.08);border:1px solid rgba(227,179,65,.3);border-radius:5px;font-size:.67rem"><span style="color:#e3b341;font-weight:700">⚡ OVERRIDE: </span>${_overrideReason}</div>`:""}
+    <div style="margin-top:.6rem;font-size:.58rem;color:#484f58;text-align:center">SP SO Web Toolbox · SO Video Analyser · Pre-validation only — not a formal compliance certification</div>
+  </div>`;
+
+  // ── TEXT (monospaced, copy-paste for ServiceNow / Jira) ──────────
+  const W1=28, W2=20, W3=18, W4=12;
+  const hdr = `${"ELEMENT".padEnd(W1)} ${"SPEC".padEnd(W2)} ${"MEASURED".padEnd(W3)} RESULT`;
+  const sep = "─".repeat(W1+W2+W3+W4+3);
+  const tr = (el, spec, meas, key) => {
+    const [s] = c[key] || ["—"];
+    return `${el.padEnd(W1)} ${spec.padEnd(W2)} ${String(meas||"—").padEnd(W3)} ${s}`;
+  };
+
+  document.getElementById("report-text").value = [
+    `SO VIDEO ANALYSER — TEST REPORT`,
     sep,
+    `Test ID   : ${testId}`,
+    `Generated : ${now}`,
+    `Test Date : ${testDate}`,
+    `Server    : ${serverName}:${port}`,
+    `URL       : ${r.url||"—"}`,
+    `Tags      : ${tags}`,
     ``,
-    `ELEMENT                      SPEC                   MEASURED        RESULT`,
-    sep,
+    `OVERALL RESULT: ${overallStat}`,
+    _overrideReason ? `OVERRIDE  : ${_overrideReason}` : null,
+    sep, ``, hdr, sep,
     `MEDIA PROFILE`,
-    `Overall Bitrate (Mbps)       5.0–18.0 (8.0–15.0)    ${String(r.file_br_mbps||"—").padEnd(15)} ${c.overall_br?.[0]||"—"}`,
+    tr("Overall Bitrate (Mbps)","5.0–18.0 (8–15)",`${r.file_br_mbps||"—"} Mbps`,"overall_br"),
     ``,
     `VIDEO`,
-    `GOP Size                     30, 50                  ${String(r.gop_avg||"—").padEnd(15)} ${c.gop_size?.[0]||"—"}`,
-    `GOP Type                     CLOSED                  ${String(r.gop_type||"—").padEnd(15)} ${c.gop_type?.[0]||"—"}`,
-    `B-Frames                     Absent (preferred)      ${String(r.has_b_frames?"Present":"Absent").padEnd(15)} ${c.b_frames?.[0]||"—"}`,
-    `IDR Frames                   Required                ${String(r.has_idr?"Present":"ABSENT").padEnd(15)} ${c.idr?.[0]||"—"}`,
-    `Frame Size                   1920×1080               ${String(r.v_width+"x"+r.v_height).padEnd(15)} ${c.frame_size?.[0]||"—"}`,
-    `Aspect Ratio                 16:9                    ${String(r.v_dar||"—").padEnd(15)} ${c.aspect_ratio?.[0]||"—"}`,
-    `Chroma Subsampling           4:2:0                   ${String(r.v_chroma||"—").padEnd(15)} ${c.chroma?.[0]||"—"}`,
-    `Scan Type                    progressive/interlaced  ${String(r.v_scan||"—").padEnd(15)} ${c.scan_type?.[0]||"—"}`,
-    `Bit Depth                    8                       ${String(r.v_bits||"—").padEnd(15)} ${c.bit_depth?.[0]||"—"}`,
-    `Colour Gamut                 bt709                   ${String(r.v_color_sp||"—").padEnd(15)} ${c.colour_gamut?.[0]||"—"}`,
-    `Coding Algorithm             AVC H.264               ${String((r.v_codec||"?").toUpperCase()).padEnd(15)} ${c.codec?.[0]||"—"}`,
-    `CODEC Level                  4.0–4.2                 ${String(r.v_level||"—").padEnd(15)} ${c.codec_level?.[0]||"—"}`,
-    `CODEC Profile                Main, High              ${String(r.v_profile||"—").padEnd(15)} ${c.codec_profile?.[0]||"—"}`,
-    `Entropy                      CABAC                   ${String(r.v_entropy||"—").padEnd(15)} ${c.entropy?.[0]||"—"}`,
-    `Rate Control                 VBR, CBR                ${String(r.v_rate_ctrl||"—").padEnd(15)} ${c.rate_ctrl_v?.[0]||"—"}`,
-    `Video Bitrate (Mbps)         5.0–18.0 (8.0–15.0)    ${String(r.v_br_mbps||"—").padEnd(15)} ${c.v_br?.[0]||"—"}`,
-    `SDR/HDR Scheme               SDR                     ${String(r.v_hdr||"—").padEnd(15)} ${c.hdr_scheme?.[0]||"—"}`,
-    `Frame Rate                   25.0, 29.97, 30.0       ${String(fps_eff.toFixed(3)+(r.v_scan==="interlaced"?" (50i→25fps)":"")).padEnd(15)} ${c.fps?.[0]||"—"}`,
+    tr("GOP Size",        "30 or 50 frames",    `${r.gop_avg||"—"} frames`,           "gop_size"),
+    tr("GOP Type",        "CLOSED",              r.gop_type||"—",                       "gop_type"),
+    tr("IDR Frames",      "Required",            r.has_idr?"Present":"ABSENT",          "idr"),
+    tr("B-Frames",        "Absent (preferred)",  r.has_b_frames?"Present":"Absent",     "b_frames"),
+    tr("Frame Size",      "1920×1080",           `${r.v_width||"?"}x${r.v_height||"?"}`,"frame_size"),
+    tr("Aspect Ratio",    "16:9",                r.v_dar||"—",                          "aspect_ratio"),
+    tr("Chroma",          "4:2:0",               r.v_chroma||"—",                       "chroma"),
+    tr("Scan Type",       "prog/interlaced",     r.v_scan||"—",                         "scan_type"),
+    tr("Bit Depth",       "8",                   String(r.v_bits||"—"),                 "bit_depth"),
+    tr("Colour Gamut",    "bt709",               r.v_color_sp||"—",                     "colour_gamut"),
+    tr("Codec",           "AVC H.264",           (r.v_codec||"?").toUpperCase(),        "codec"),
+    tr("CODEC Level",     "4.0–4.2",             r.v_level||"—",                        "codec_level"),
+    tr("CODEC Profile",   "Main / High",         r.v_profile||"—",                      "codec_profile"),
+    tr("Entropy",         "CABAC",               r.v_entropy||"—",                      "entropy"),
+    tr("Video Bitrate",   "5.0–18.0 Mbps",      `${r.v_br_mbps||"—"} Mbps`,           "v_br"),
+    tr("SDR/HDR",         "SDR",                 r.v_hdr||"—",                          "hdr_scheme"),
+    tr("Frame Rate",      "25.0/29.97/30.0",     `${fps_eff.toFixed(3)}${r.v_scan==="interlaced"&&(r.v_fps_val||0)>30?" (50i)":""}`, "fps"),
     ``,
     `AUDIO`,
-    `Coding Algorithm             AAC-LC, MP1, MP2        ${String(aCodecDisplay).padEnd(15)} ${c.a_codec?.[0]||"—"}`,
-    `Audio Streams                1–32 (2)                ${String(r.audio_tracks||"—").padEnd(15)} ${c.a_streams?.[0]||"—"}`,
-    `Audio Channels               2                       ${String(r.a_channels||"—").padEnd(15)} ${c.a_channels?.[0]||"—"}`,
-    `Sample Rate (kHz)            44.1–48.0               ${String(r.a_rate_khz||"—").padEnd(15)} ${c.a_sample_rate?.[0]||"—"}`,
-    `Bits per Sample              FLTP, 16                ${String(r.a_bps||"—").padEnd(15)} ${c.a_bits?.[0]||"—"}`,
-    `Audio Bitrate (Kbps)         118–512                 ${String(r.a_br_kbps||"—").padEnd(15)} ${c.a_br_kbps?.[0]||"—"}`,
+    tr("Audio Coding",    "AAC-LC/MP1/MP2",      aCodec,                                "a_codec"),
+    tr("Audio Streams",   "1–32 (prefer 2)",     String(r.audio_tracks||"—"),           "a_streams"),
+    tr("Audio Channels",  "2",                   String(r.a_channels||"—"),             "a_channels"),
+    tr("Sample Rate",     "44.1–48.0 kHz",       r.a_rate_khz?r.a_rate_khz+" kHz":"—", "a_sample_rate"),
+    tr("Bits per Sample", "FLTP / 16",           r.a_bps||"—",                          "a_bits"),
+    tr("Audio Bitrate",   "118–512 Kbps",        r.a_br_kbps?r.a_br_kbps+" Kbps":"—", "a_br_kbps"),
     sep,
-    ``,
-    _overrideReason ? `⚡ OVERRIDE: ${_overrideReason}` : "",
-    ``,
-    `Generated by SP SO Web Toolbox — GOP Analyzer`,
-    `This is a pre-validation assurance report and does not constitute a formal compliance certification.`,
-  ].filter(l => l !== undefined);
+    `SP SO Web Toolbox — SO Video Analyser`,
+    `Pre-validation only. Not a formal compliance certification.`,
+  ].filter(l => l !== null).join("\n");
 
-  document.getElementById("report-text").value = lines.join("\n");
+  showReportTab("visual");
   document.getElementById("report-modal").classList.add("open");
 }
 
 async function copyReport() {
   const text = document.getElementById("report-text").value;
+  if (!text) { showReportTab("text"); return; }
   try { await navigator.clipboard.writeText(text); }
   catch { document.getElementById("report-text").select(); document.execCommand("copy"); }
   const ok = document.getElementById("report-copy-ok");
