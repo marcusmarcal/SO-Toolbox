@@ -99,7 +99,6 @@ PHENIXRTS_PASSWORD=your-password
 
 | Version | Date       | Changes |
 |---------|------------|---------|
-| 2.9.1   | 2026-04-24 | SO Video Analyser: compliance fully specs-driven (gop_size, fps, gop_type, all enums and ranges from specs.json); allow_seconds GOP, allow_50p_720 FPS |
 | 2.9.0   | 2026-04-24 | Unique test_id per run (searchable), dual report (visual screenshot + text copy for ServiceNow/Jira), print CSS |
 | 2.8.4   | 2026-04-23 | Re-run saves new JSON + appears in history; pollStatus sets _currentResultFile; loadHistory on all outcomes |
 | 2.8.3   | 2026-04-23 | SO Video Analyser: Re-run button on loaded result + each history item |
@@ -129,7 +128,7 @@ PHENIXRTS_PASSWORD=your-password
 | 1.1.0   | 2026-03-25 | Full English translation + rich GUI |
 | 1.0.0   | 2026-03-25 | Initial PhenixRTS Channel Health Monitor |
 
-**Current Version: 2.9.1**
+**Current Version: 2.9.0**
 
 ---
 
