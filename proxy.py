@@ -1170,7 +1170,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
             fps_to_check = 50.0
             fps_values = list(fps_values) + [50.0]
 
-        fps_ok = any(abs(fps_to_check - f) < 0.1 for f in fps_values)
+        fps_ok = any(abs(fps_to_check - float(f)) < 0.1 for f in fps_values)
         fps_pref_ok = isinstance(fps_pref, (int, float)) and abs(fps_to_check - float(fps_pref)) < 0.1
         if not fps_ok:
             fps_status = "REJECTED"
