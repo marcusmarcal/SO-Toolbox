@@ -1089,78 +1089,164 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
         # VBR/CBR heuristic
         v_rate_ctrl = "CBR" if file_br and v_br and abs(file_br - v_br) < file_br * 0.1 else "VBR"
 
-        # ── Compliance checks ─────────────────────────────────────────
+        # ── Compliance checks — driven by specs.json ──────────────────
         # Load current specs from specs.json (or defaults)
         specs = _load_specs()
 
-        def comply(measured, spec_range, preferred=None, label=None):
-            lo, hi = spec_range
-            if measured is None: return "UNKNOWN", str(measured), ""
+        def _s(key):
+            """Get spec dict for a key, falling back to DEFAULT_SPECS."""
+            return specs.get(key, DEFAULT_SPECS.get(key, {}))
+
+        def comply_range(measured, key):
+            """Check a numeric value against a range spec."""
+            sp = _s(key)
+            lo, hi = sp.get("lo", 0), sp.get("hi", float("inf"))
+            plo = sp.get("pref_lo")
+            phi = sp.get("pref_hi")
+            label = sp.get("label", key)
+            if measured is None:
+                return "UNKNOWN", "—", ""
             in_range = lo <= measured <= hi
-            if not in_range: return "REJECTED", str(measured), f"Expected {lo}–{hi}"
-            if preferred is not None:
-                plo, phi = preferred
-                if plo <= measured <= phi: return "COMPLIANT", str(measured), ""
+            if not in_range:
+                return "REJECTED", str(measured), f"Expected {lo}–{hi}"
+            if plo is not None and phi is not None:
+                if plo <= measured <= phi:
+                    return "COMPLIANT", str(measured), ""
                 return "ACCEPTED", str(measured), f"Preferred {plo}–{phi}"
             return "COMPLIANT", str(measured), ""
 
-        def comply_enum(measured, allowed, preferred=None):
+        def comply_enum_s(measured, key):
+            """Check an enum value against an enum spec."""
+            sp = _s(key)
+            allowed   = [str(v).lower() for v in sp.get("values", [])]
+            preferred = str(sp.get("preferred", "")).lower()
             m = str(measured).strip().lower()
-            allowed_l = [str(a).lower() for a in allowed]
-            preferred_l = [str(a).lower() for a in (preferred or [])]
-            if m not in allowed_l: return "REJECTED", measured, f"Expected one of {allowed}"
-            if preferred_l and m in preferred_l: return "COMPLIANT", measured, ""
-            return "ACCEPTED", measured, ""
+            if not allowed:
+                return "UNKNOWN", measured, "No spec defined"
+            if m not in allowed:
+                return "REJECTED", measured, f"Expected one of {sp.get('values', [])}"
+            if preferred and m == preferred:
+                return "COMPLIANT", measured, ""
+            if preferred and m != preferred:
+                return "ACCEPTED", measured, f"Preferred {sp.get('preferred','')}"
+            return "COMPLIANT", measured, ""
+
+        # Helper: also accept multi-preferred
+        def comply_enum_multi(measured, key):
+            """Like comply_enum_s but preferred can be a list."""
+            sp = _s(key)
+            allowed    = [str(v).lower() for v in sp.get("values", [])]
+            pref_raw   = sp.get("preferred", "")
+            if isinstance(pref_raw, list):
+                preferred = [str(p).lower() for p in pref_raw]
+            else:
+                preferred = [str(pref_raw).lower()] if pref_raw else []
+            m = str(measured).strip().lower()
+            if not allowed:
+                return "UNKNOWN", measured, "No spec defined"
+            if m not in allowed:
+                return "REJECTED", measured, f"Expected one of {sp.get('values', [])}"
+            if preferred and m in preferred:
+                return "COMPLIANT", measured, ""
+            if preferred:
+                return "ACCEPTED", measured, f"Preferred {pref_raw}"
+            return "COMPLIANT", measured, ""
 
         file_br_mbps = round(file_br / 1e6, 5) if file_br else 0
         v_br_mbps    = round(v_br   / 1e6, 5) if v_br   else 0
         a_br_kbps_f  = round(a_br   / 1000, 1) if a_br  else 0
         a_rate_khz   = round(float(a_rate) / 1000, 1) if str(a_rate).isdigit() else 0
 
-        # FPS compliance uses effective fps (interlaced / 2)
+        # ── FPS (specs-driven, with interlaced compensation) ──────────
         fps_eff = v_fps_for_compliance
-        fps_compliant_values = [25.0, 29.97, 30.0]
-        fps_ok = any(abs(fps_eff - f) < 0.1 for f in fps_compliant_values)
-        fps_status = "COMPLIANT" if abs(fps_eff - 25.0) < 0.1 else ("ACCEPTED" if fps_ok else "REJECTED")
+        fps_sp  = _s("fps")
+        fps_values = fps_sp.get("values", [25.0, 29.97, 30.0])
+        fps_pref   = fps_sp.get("preferred", 25.0)
+        allow_50p_720 = fps_sp.get("allow_50p_720", False)
+
+        # Accept 50p if 720p allowed
+        fps_to_check = fps_eff
+        if allow_50p_720 and v_height == 720 and abs(fps_eff - 50.0) < 0.5:
+            fps_to_check = 50.0
+            fps_values = list(fps_values) + [50.0]
+
+        fps_ok = any(abs(fps_to_check - f) < 0.1 for f in fps_values)
+        fps_pref_ok = isinstance(fps_pref, (int, float)) and abs(fps_to_check - float(fps_pref)) < 0.1
+        if not fps_ok:
+            fps_status = "REJECTED"
+        elif fps_pref_ok:
+            fps_status = "COMPLIANT"
+        else:
+            fps_status = "ACCEPTED"
         fps_measured_str = f"{fps_eff:.3f}" + (" (50i→25fps)" if v_scan == "interlaced" and v_fps_val != fps_eff else "")
 
-        gop_valid = [30, 50]
-        gop_status = "COMPLIANT" if avg_gop in gop_valid else (
-            "ACCEPTED" if any(abs(avg_gop - g) < 3 for g in gop_valid) else "REJECTED")
+        # ── GOP size (specs-driven, with seconds option) ──────────────
+        gop_sp      = _s("gop_size")
+        gop_values  = [int(v) for v in gop_sp.get("values", [30, 50])]
+        gop_tol     = int(gop_sp.get("tolerance", 3))
+        allow_secs  = gop_sp.get("allow_seconds", True)
+
+        if allow_secs and avg_gop > 0:
+            # Also accept GOPs that are 1s or 2s at the measured fps
+            fps_for_gop = fps_eff if fps_eff > 0 else 25.0
+            gop_values_ext = list(gop_values)
+            for secs in [1, 2]:
+                gop_values_ext.append(round(fps_for_gop * secs))
+            gop_values_check = gop_values_ext
+        else:
+            gop_values_check = gop_values
+
+        gop_exact = any(abs(avg_gop - g) < 1 for g in gop_values_check)
+        gop_near  = any(abs(avg_gop - g) <= gop_tol for g in gop_values_check)
+        gop_status = "COMPLIANT" if gop_exact else ("ACCEPTED" if gop_near else "REJECTED")
+        gop_expected_str = ", ".join(str(v) for v in gop_values)
+        if allow_secs:
+            gop_expected_str += " or 1s/2s"
+
+        # ── GOP type ──────────────────────────────────────────────────
+        gop_type_sp  = _s("gop_type")
+        required_gop = gop_type_sp.get("required", "CLOSED").upper()
+        if gop_type.upper() == required_gop:
+            gop_type_status = "COMPLIANT"
+        else:
+            gop_type_status = "REJECTED"
+
+        # ── B-frames ──────────────────────────────────────────────────
+        b_sp = _s("b_frames")
+        pref_b = str(b_sp.get("preferred", "absent")).lower()
+        if pref_b == "absent":
+            b_status = "COMPLIANT" if not has_b_frames else "ACCEPTED"
+        else:
+            b_status = "COMPLIANT" if has_b_frames else "ACCEPTED"
 
         compliance = {
-            "overall_br":      comply(file_br_mbps, (5.0, 18.0), (8.0, 15.0)),
-            "gop_size":        (gop_status, str(avg_gop), "Expected 30 or 50"),
-            "gop_type":        ("COMPLIANT" if gop_type == "CLOSED" else "REJECTED",
-                                gop_type, "Must be CLOSED"),
-            "b_frames":        ("COMPLIANT" if not has_b_frames else "ACCEPTED",
-                                "Absent" if not has_b_frames else "Present", "Preferred absent"),
-            "idr":             ("COMPLIANT" if has_idr else "REJECTED",
-                                "Present" if has_idr else "ABSENT", "IDR frames required"),
-            "frame_size":      comply_enum(f"{v_width}x{v_height}",
-                                           ["1280x720","1920x1080"], ["1920x1080"]),
-            "aspect_ratio":    comply_enum(dar, ["16:9"], ["16:9"]),
-            "chroma":          comply_enum(v_chroma, ["4:2:0"], ["4:2:0"]),
-            "scan_type":       comply_enum(v_scan, ["progressive","interlaced","mbaff"], ["interlaced"]),
-            "bit_depth":       comply_enum(str(v_bits), ["8"], ["8"]),
-            "colour_gamut":    comply_enum(v_color_sp, ["unknown","bt709"], ["bt709"]),
-            "codec":           comply_enum(v_codec, ["h264","hevc"], ["h264"]),
-            "codec_level":     comply(v_level_f, (4.0, 4.2), (4.1, 4.1)),
-            "codec_profile":   comply_enum(v_profile.lower() if v_profile else "",
-                                           [p.lower() for p in specs.get("codec_profile",{}).get("values", ["main","high","constrained baseline","baseline"])],
-                                           [specs.get("codec_profile",{}).get("preferred","high").lower()]),
-            "entropy":         comply_enum(v_entropy, ["CABAC"], ["CABAC"]),
-            "rate_ctrl_v":     comply_enum(v_rate_ctrl, ["VBR","CBR"], ["CBR"]),
-            "v_br":            comply(v_br_mbps, (5.0, 18.0), (8.0, 15.0)),
-            "hdr_scheme":      comply_enum(v_hdr, ["SDR","HDR"], ["SDR"]),
-            "fps":             (fps_status, fps_measured_str, "Expected 25.0, 29.97, 30.0"),
-            "a_codec":         comply_enum(a_codec_display, ["AAC-LC","AAC-LATM","AAC-HE","MP1","MP2"], ["AAC-LC"]),
-            "a_streams":       comply(audio_track_count, (1, 32), (2, 2)),
-            "a_channels":      comply(a_ch, (2, 2)),
-            "a_rate_ctrl":     comply_enum("VBR", ["VBR","CBR"], ["CBR"]),
-            "a_sample_rate":   comply(a_rate_khz, (44.1, 48.0), (48.0, 48.0)),
-            "a_bits":          comply_enum(a_bps.lower(), ["fltp","16","s16"], ["16","fltp"]),
-            "a_br_kbps":       comply(a_br_kbps_f, (118, 512), (256, 256)),
+            "overall_br":   comply_range(file_br_mbps, "overall_br"),
+            "gop_size":     (gop_status, str(avg_gop), f"Expected {gop_expected_str}"),
+            "gop_type":     (gop_type_status, gop_type, f"Must be {required_gop}"),
+            "b_frames":     (b_status, "Absent" if not has_b_frames else "Present", f"Preferred {pref_b}"),
+            "idr":          ("COMPLIANT" if has_idr else "REJECTED",
+                             "Present" if has_idr else "ABSENT", "IDR frames required"),
+            "frame_size":   comply_enum_multi(f"{v_width}x{v_height}", "frame_size"),
+            "aspect_ratio": comply_enum_multi(dar, "aspect_ratio"),
+            "chroma":       comply_enum_multi(v_chroma, "chroma"),
+            "scan_type":    comply_enum_multi(v_scan, "scan_type"),
+            "bit_depth":    comply_enum_multi(str(v_bits), "bit_depth"),
+            "colour_gamut": comply_enum_multi(v_color_sp, "colour_gamut"),
+            "codec":        comply_enum_multi(v_codec.lower() if v_codec else "", "codec"),
+            "codec_level":  comply_range(v_level_f, "codec_level"),
+            "codec_profile":comply_enum_multi(v_profile.lower() if v_profile else "", "codec_profile"),
+            "entropy":      comply_enum_multi(v_entropy, "entropy"),
+            "rate_ctrl_v":  comply_enum_multi(v_rate_ctrl, "rate_ctrl_v"),
+            "v_br":         comply_range(v_br_mbps, "v_br"),
+            "hdr_scheme":   comply_enum_multi(v_hdr, "hdr_scheme"),
+            "fps":          (fps_status, fps_measured_str, f"Expected {fps_values}"),
+            "a_codec":      comply_enum_multi(a_codec_display, "a_codec"),
+            "a_streams":    comply_range(audio_track_count, "a_streams"),
+            "a_channels":   comply_range(a_ch, "a_channels"),
+            "a_rate_ctrl":  comply_enum_multi("VBR", "a_rate_ctrl"),
+            "a_sample_rate":comply_range(a_rate_khz, "a_sample_rate"),
+            "a_bits":       comply_enum_multi(a_bps.lower(), "a_bits"),
+            "a_br_kbps":    comply_range(a_br_kbps_f, "a_br_kbps"),
         }
 
         # Overall status
@@ -1624,21 +1710,34 @@ DEFAULT_SPECS = {
 }
 
 def _load_specs():
+    """Load specs.json and deep-merge with DEFAULT_SPECS so no field is lost."""
+    import copy
+    base = copy.deepcopy(DEFAULT_SPECS)
     if os.path.isfile(SPECS_FILE):
         try:
             with open(SPECS_FILE) as f:
                 saved = json.load(f)
-            # Merge with defaults (saved overrides defaults)
-            specs = dict(DEFAULT_SPECS)
-            specs.update(saved)
-            return specs
+            # Deep merge: for each key, update the dict rather than replace it
+            for key, val in saved.items():
+                if key in base and isinstance(base[key], dict) and isinstance(val, dict):
+                    base[key].update(val)   # merge field-by-field
+                else:
+                    base[key] = val
         except Exception:
             pass
-    return dict(DEFAULT_SPECS)
+    return base
 
-def _save_specs(specs):
+def _save_specs(incoming):
+    """Deep-merge incoming with defaults then save complete specs.json."""
+    import copy
+    merged = copy.deepcopy(DEFAULT_SPECS)
+    for key, val in incoming.items():
+        if key in merged and isinstance(merged[key], dict) and isinstance(val, dict):
+            merged[key].update(val)
+        else:
+            merged[key] = val
     with open(SPECS_FILE, "w") as f:
-        json.dump(specs, f, indent=2)
+        json.dump(merged, f, indent=2)
 
 @app.route("/gop/specs", methods=["GET"])
 def gop_specs_get():
