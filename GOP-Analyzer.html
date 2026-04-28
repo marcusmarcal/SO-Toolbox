@@ -276,9 +276,10 @@
             <div style="font-family:var(--mono);font-size:.72rem;color:var(--muted);line-height:1.9" id="idr-detail">…</div>
             <div style="margin-left:auto;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
               <div id="overall-badge"></div>
-              <button id="btn-override" onclick="openOverrideModal()" style="background:transparent;border:1px solid var(--yellow);border-radius:5px;color:var(--yellow);font-family:var(--mono);font-size:.7rem;font-weight:700;padding:4px 12px;cursor:pointer;transition:opacity .15s" title="Manually accept this result with justification">⚡ Override</button>
-              <button id="btn-rerun" onclick="rerunCurrent()" style="background:transparent;border:1px solid var(--green);border-radius:5px;color:var(--green);font-family:var(--mono);font-size:.7rem;font-weight:700;padding:4px 12px;cursor:pointer;transition:opacity .15s" title="Re-run this analysis now">↺ Re-run</button>
-              <button id="btn-report" onclick="generateReport()" style="background:var(--cyan);border:none;border-radius:5px;color:#000;font-family:var(--mono);font-size:.7rem;font-weight:700;padding:4px 12px;cursor:pointer;transition:opacity .15s" title="Generate email report">📋 Generate Report</button>
+              <button id="btn-override" onclick="openOverrideModal()" style="display:none;background:transparent;border:1px solid var(--yellow);border-radius:5px;color:var(--yellow);font-family:var(--mono);font-size:.7rem;font-weight:700;padding:4px 12px;cursor:pointer" title="Manually accept this rejected result with justification">⚡ Override</button>
+              <button onclick="clearResults()" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-family:var(--mono);font-size:.7rem;padding:4px 10px;cursor:pointer" title="Clear and start fresh" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">✕ Clear</button>
+              <button id="btn-rerun" onclick="rerunCurrent()" style="background:transparent;border:1px solid var(--green);border-radius:5px;color:var(--green);font-family:var(--mono);font-size:.7rem;font-weight:700;padding:4px 12px;cursor:pointer" title="Re-run this analysis now">↺ Re-run</button>
+              <button id="btn-report" onclick="generateReport()" style="background:var(--cyan);border:none;border-radius:5px;color:#000;font-family:var(--mono);font-size:.7rem;font-weight:700;padding:4px 12px;cursor:pointer" title="Generate email report">📋 Generate Report</button>
             </div>
           </div>
           <!-- Override notice (hidden until override applied) -->
@@ -671,10 +672,27 @@ function renderResult(r) {
   document.getElementById("btn-override").style.color = "var(--yellow)";
   document.getElementById("btn-override").onclick = openOverrideModal;
 
-  // If already overridden in saved file, show it
-  if (r.override) {
+  // Show override button only for REJECTED results (or if already overridden)
+  const overrideBtn = document.getElementById("btn-override");
+  const isRejected  = (r.overall_status || "").includes("REJECTED");
+  const hasOverride = !!r.override;
+
+  if (hasOverride) {
+    // Already overridden — show in green as info button
+    overrideBtn.style.display   = "";
     _overrideReason = r.override.reason;
     applyOverride(r.override.reason);
+  } else if (isRejected) {
+    // REJECTED — show override option
+    overrideBtn.style.display   = "";
+    overrideBtn.textContent     = "⚡ Override";
+    overrideBtn.style.borderColor = "var(--yellow)";
+    overrideBtn.style.color       = "var(--yellow)";
+    overrideBtn.onclick           = openOverrideModal;
+  } else {
+    // COMPLIANT / ACCEPTED — hide override
+    overrideBtn.style.display = "none";
+    document.getElementById("override-notice").style.display = "none";
   }
 
   document.getElementById("results-content").style.display = "";
@@ -1160,12 +1178,18 @@ async function resetOverride() {
   if (_currentResult) _currentResult.override = null;
   document.getElementById("override-detail-modal").classList.remove("open");
   document.getElementById("override-notice").style.display = "none";
-  document.getElementById("btn-override").textContent = "⚡ Override";
-  document.getElementById("btn-override").style.borderColor = "var(--yellow)";
-  document.getElementById("btn-override").style.color = "var(--yellow)";
-  document.getElementById("btn-override").onclick = openOverrideModal;
+  const os = _currentResult ? (_currentResult.overall_status || "UNKNOWN") : "UNKNOWN";
+  const overrideBtn = document.getElementById("btn-override");
+  if (os.includes("REJECTED")) {
+    overrideBtn.style.display     = "";
+    overrideBtn.textContent       = "⚡ Override";
+    overrideBtn.style.borderColor = "var(--yellow)";
+    overrideBtn.style.color       = "var(--yellow)";
+    overrideBtn.onclick           = openOverrideModal;
+  } else {
+    overrideBtn.style.display = "none";
+  }
   if (_currentResult) {
-    const os = _currentResult.overall_status || "UNKNOWN";
     document.getElementById("overall-badge").innerHTML =
       `<span class="status-pill ${os}" style="font-size:.72rem;padding:3px 12px">${os}</span>`;
   }
@@ -1539,16 +1563,19 @@ function renderSpecsEditor(specs) {
 
       if ("lo" in s) {
         // Range spec
-        allowedEl = `<input data-key="${key}" data-field="lo" type="number" value="${s.lo}" step="0.01" style="${inStyle}" title="Min" /> – <input data-key="${key}" data-field="hi" type="number" value="${s.hi}" step="0.01" style="${inStyle}" title="Max" />`;
+        allowedEl = `<input data-key="${key}" data-field="lo" type="number" value="${s.lo}" step="0.1" style="${inStyle}" title="Min" /> – <input data-key="${key}" data-field="hi" type="number" value="${s.hi}" step="0.1" style="${inStyle}" title="Max" />`;
         if ("pref_lo" in s) {
-          prefEl = `<input data-key="${key}" data-field="pref_lo" type="number" value="${s.pref_lo}" step="0.01" style="${inStyle}" title="Preferred min" /> – <input data-key="${key}" data-field="pref_hi" type="number" value="${s.pref_hi}" step="0.01" style="${inStyle}" title="Preferred max" />`;
+          prefEl = `<input data-key="${key}" data-field="pref_lo" type="number" value="${s.pref_lo}" step="0.1" style="${inStyle}" title="Preferred min" /> – <input data-key="${key}" data-field="pref_hi" type="number" value="${s.pref_hi}" step="0.1" style="${inStyle}" title="Preferred max" />`;
         }
       } else if ("values" in s) {
-        // Enum spec
-        allowedEl = `<input data-key="${key}" data-field="values" type="text" value="${(s.values||[]).join(", ")}" style="${inStyle};width:180px" placeholder="comma separated" />`;
-        prefEl    = `<input data-key="${key}" data-field="preferred" type="text" value="${s.preferred||""}" style="${inStyle};width:100px" />`;
+        // Enum spec — values can contain numbers or strings
+        const valStr = Array.isArray(s.values) ? s.values.join(", ") : (s.values || "");
+        const prefStr = Array.isArray(s.preferred) ? s.preferred.join(", ") : (s.preferred ?? "");
+        allowedEl = `<input data-key="${key}" data-field="values" type="text" value="${valStr}" style="${inStyle};width:190px" placeholder="comma separated" />`;
+        prefEl    = `<input data-key="${key}" data-field="preferred" type="text" value="${prefStr}" style="${inStyle};width:110px" />`;
       } else if ("required" in s) {
-        allowedEl = `<input data-key="${key}" data-field="required" type="text" value="${s.required}" style="${inStyle}" />`;
+        // Required-value spec (e.g. gop_type)
+        allowedEl = `<input data-key="${key}" data-field="required" type="text" value="${s.required || ""}" style="${inStyle};width:110px" />`;
       }
 
       // Special options
@@ -1578,8 +1605,9 @@ async function saveSpecs() {
   const errEl = document.getElementById("specs-err");
   errEl.textContent = "";
 
-  // Read all inputs back into specs object
-  const specs = JSON.parse(JSON.stringify(_currentSpecs));
+  // Build specs object from current loaded state + editor inputs
+  const specs = JSON.parse(JSON.stringify(_currentSpecs || {}));
+
   document.querySelectorAll("[data-key][data-field]").forEach(el => {
     const key   = el.dataset.key;
     const field = el.dataset.field;
@@ -1587,9 +1615,14 @@ async function saveSpecs() {
     if (el.type === "checkbox") {
       specs[key][field] = el.checked;
     } else if (field === "values") {
-      specs[key][field] = el.value.split(",").map(v=>v.trim()).filter(Boolean);
+      specs[key][field] = el.value.split(",").map(v => v.trim()).filter(Boolean);
     } else if (["lo","hi","pref_lo","pref_hi","tolerance"].includes(field)) {
-      specs[key][field] = parseFloat(el.value) || 0;
+      const n = parseFloat(el.value);
+      specs[key][field] = isNaN(n) ? 0 : n;
+    } else if (field === "preferred") {
+      // Try to parse as number first (for fps preferred)
+      const n = parseFloat(el.value);
+      specs[key][field] = isNaN(n) ? el.value.trim() : n;
     } else {
       specs[key][field] = el.value.trim();
     }
@@ -1608,8 +1641,8 @@ async function saveSpecs() {
     if (!data.success) { errEl.textContent = data.error || "Save failed"; return; }
     _currentSpecs = specs;
     errEl.style.color = "var(--green)";
-    errEl.textContent = "✓ Saved";
-    setTimeout(() => { errEl.textContent = ""; errEl.style.color = ""; }, 2500);
+    errEl.textContent = "✓ Saved — new analyses will use these specs";
+    setTimeout(() => { errEl.textContent = ""; errEl.style.color = ""; }, 3000);
   } catch(e) { errEl.textContent = `Error: ${e.message}`; }
 }
 
@@ -1628,7 +1661,27 @@ async function resetSpecs() {
   } catch(e) { console.error(e); }
 }
 
-// ── Re-run ────────────────────────────────────────────────────────
+// ── Clear results ─────────────────────────────────────────────────
+function clearResults() {
+  _currentResult     = null;
+  _currentResultFile = null;
+  _overrideReason    = null;
+  document.getElementById("results-content").style.display = "none";
+  document.getElementById("log-card").style.display        = "none";
+  document.getElementById("placeholder").style.display     = "";
+  document.getElementById("log-output").textContent        = "";
+  document.getElementById("dot").className                 = "dot";
+  document.getElementById("status-text").textContent       = "Ready — fill in SRT details and click Analyse Now";
+  document.getElementById("progress-fill").style.width     = "0%";
+  // Reset form
+  document.getElementById("inp-host").value  = "";
+  document.getElementById("inp-port").value  = "";
+  document.getElementById("inp-tag").value   = "";
+  document.getElementById("inp-pass").value  = "";
+  document.getElementById("inp-pass").classList.remove("from-env");
+  // Reload passphrase from env
+  loadConfig();
+}
 function rerunCurrent() {
   if (!_currentResult) return;
   _fillFormFromResult(_currentResult);
