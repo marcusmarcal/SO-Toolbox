@@ -1,3 +1,5 @@
 .env
 ingest-results/
 mtr-results/
+gop-results/
+specs.json
