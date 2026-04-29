@@ -635,6 +635,29 @@ def _run_ingest(job_id, url, output_dir):
             _ingest_jobs[job_id].update({"status": "error", "log": log_lines})
 
 
+@app.route("/ingest/upload-ts", methods=["POST"])
+def ingest_upload_ts():
+    """Accept a .ts file upload, save to /tmp, return the path for analysis."""
+    if "file" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+    f = request.files["file"]
+    if not f.filename:
+        return jsonify({"error": "Empty filename"}), 400
+    # Sanitise filename and save to /tmp
+    import uuid as _uuid
+    ext = os.path.splitext(f.filename)[1].lower() or ".ts"
+    if ext not in (".ts", ".mpeg", ".mpg", ".m2ts"):
+        return jsonify({"error": "Only .ts / .mpeg / .m2ts files are accepted"}), 400
+    safe_name = f"upload_{_uuid.uuid4().hex[:8]}{ext}"
+    dest_path = f"/tmp/{safe_name}"
+    try:
+        f.save(dest_path)
+        size = os.path.getsize(dest_path)
+        return jsonify({"ok": True, "path": dest_path, "size": size, "filename": safe_name})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/ingest/run", methods=["POST"])
 def ingest_run():
     data = request.get_json(silent=True) or {}
@@ -890,7 +913,42 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
 
         log(f"Analysed {len(frames_data)} video frames")
 
-        # ── Parse GOP structure ───────────────────────────────────────
+        # ── Step 3b: AV Sync & PTS Jitter analysis ───────────────────
+        log("Running ffprobe audio PTS analysis…")
+        av_sync_ms     = None
+        pts_jitter_v   = None
+        pts_jitter_a   = None
+        try:
+            audio_pts_cmd = [
+                "ffprobe", "-v", "quiet", "-print_format", "json",
+                "-select_streams", "a:0",
+                "-show_frames",
+                "-show_entries", "frame=pts_time",
+                ts_path
+            ]
+            ar = subprocess.run(audio_pts_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60)
+            afd = json.loads(ar.stdout.decode())
+            a_pts_list = [float(f.get("pts_time", 0) or 0) for f in afd.get("frames", []) if f.get("pts_time") is not None]
+            v_pts_list = [float(f.get("pts_time", 0) or 0) for f in frames_data if f.get("pts_time") is not None]
+
+            # AV Sync: difference between first video and first audio PTS (ms)
+            if v_pts_list and a_pts_list:
+                av_sync_ms = round(abs(v_pts_list[0] - a_pts_list[0]) * 1000, 2)
+
+            # PTS Jitter: std dev of inter-frame intervals (ms)
+            def _jitter_ms(pts_list):
+                if len(pts_list) < 3:
+                    return None
+                diffs = [abs(pts_list[i+1] - pts_list[i]) * 1000 for i in range(len(pts_list)-1)]
+                mean = sum(diffs) / len(diffs)
+                variance = sum((d - mean) ** 2 for d in diffs) / len(diffs)
+                return round(variance ** 0.5, 2)
+
+            pts_jitter_v = _jitter_ms(v_pts_list)
+            pts_jitter_a = _jitter_ms(a_pts_list)
+            log(f"AV Sync: {av_sync_ms}ms  |  V jitter: {pts_jitter_v}ms  |  A jitter: {pts_jitter_a}ms")
+        except Exception as e:
+            log(f"WARNING: AV sync analysis failed: {e}")
         # IDR = key_frame==1 (ffmpeg/ffprobe marks NAL type 5 IDR as key_frame)
         # Additionally check side_data for "H.264 Supplemental Enhancement Information" with idr
         gops = []
@@ -1296,6 +1354,10 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
             "compliance": compliance,
             "overall_status": overall_status,
             "test_id": str(uuid.uuid4()),  # unique ID for this test run
+            # AV Sync / PTS Jitter
+            "av_sync_ms":   av_sync_ms,
+            "pts_jitter_v": pts_jitter_v,
+            "pts_jitter_a": pts_jitter_a,
         }
 
         # Save result JSON
