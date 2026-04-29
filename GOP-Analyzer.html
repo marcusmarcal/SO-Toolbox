@@ -944,7 +944,12 @@ async function loadHistory() {
     const tag    = (document.getElementById("hist-tag").value||"").toLowerCase();
     const server = (document.getElementById("hist-server").value||"").trim();
 
-    // Populate tag datalist — split comma-separated tags
+    // Remember which files are currently checked before rebuilding
+    const checkedFiles = new Set(
+      [...document.querySelectorAll(".hist-item-cb:checked")].map(cb => cb.dataset.file)
+    );
+
+    // Populate tag datalist
     const allTags = [...new Set(
       items.flatMap(i => (i.tag||"").split(",").map(t=>t.trim()).filter(Boolean))
     )];
@@ -963,7 +968,7 @@ async function loadHistory() {
       return true;
     });
 
-    if (!filtered.length) { list.innerHTML='<div class="hist-empty">No analyses found</div>'; return; }
+    if (!filtered.length) { list.innerHTML='<div class="hist-empty">No analyses found</div>'; updateBulkBar(); return; }
 
     list.innerHTML = filtered.map(item => {
       const serverName = resolveHost(item.url_host);
@@ -1013,6 +1018,15 @@ async function loadHistory() {
         </div>
       </div>`;
     }).join("");
+
+    // Restore previously checked checkboxes — preserves selection across refreshes
+    if (checkedFiles.size > 0) {
+      document.querySelectorAll(".hist-item-cb").forEach(cb => {
+        if (checkedFiles.has(cb.dataset.file)) cb.checked = true;
+      });
+    }
+    updateBulkBar();
+
   } catch(e) { console.error(e); }
 }
 
