@@ -783,7 +783,7 @@
         <button id="btn-git-pull" class="git-pull-btn" data-tip="Pull latest from Git" onclick="gitPull()">⟳ Update</button>
         <button class="git-pull-btn" data-tip="Restart proxy service" onclick="openRestartConfirm()" style="border-color:rgba(255,78,106,0.4);color:#ffb3be;">⏻ Restart Proxy</button>
         <button class="git-pull-btn" data-tip="View README" onclick="openReadme()" style="border-color:rgba(88,166,255,0.4);color:var(--accent);">📖 README</button>
-        <span class="version" id="app-version" onclick="openChangelog()" title="Click to see changelog">v2.9.2</span>
+        <span class="version" id="app-version" onclick="openChangelog()" title="Click to see changelog">v2.9.3</span>
       </header>
 
       <aside id="sidebar">
@@ -826,7 +826,8 @@
           <div class="cl-title">SP SO Web Toolbox — Changelog</div>
           <button class="cl-close" onclick="closeChangelog()">Close</button>
         </div>
-        <div class="cl-entry"><div class="cl-version">v2.9.2</div><div class="cl-date">2026-04-24</div><div class="cl-desc">Compliance fully specs-driven: deep-merge _load_specs, _save_specs saves complete JSON, saveSpecs JS preserves all fields, editor handles number preferred values</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.9.3</div><div class="cl-date">2026-04-24</div><div class="cl-desc">Override only shown for REJECTED results; Clear button resets form + results panel; history preserves checkbox selections across auto-refresh</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.9.2</div><div class="cl-date">2026-04-24</div><div class="cl-desc">Compliance fully specs-driven: deep-merge _load_specs/_save_specs, all checks use _s(key) helpers</div></div>
         <div class="cl-entry"><div class="cl-version">v2.9.1</div><div class="cl-date">2026-04-24</div><div class="cl-desc">Compliance fully specs-driven from specs.json — comply_range/comply_enum_s/comply_enum_multi helpers, GOP seconds, FPS 50p/720</div></div>
         <div class="cl-entry"><div class="cl-version">v2.9.0</div><div class="cl-date">2026-04-24</div><div class="cl-desc">Unique test_id per run, dual report (visual screenshot + text copy for ServiceNow/Jira), print CSS</div></div>
         <div class="cl-entry"><div class="cl-version">v2.8.4</div><div class="cl-date">2026-04-23</div><div class="cl-desc">Re-run saves new JSON + appears in history; pollStatus sets _currentResultFile; loadHistory on all outcomes</div></div>
@@ -1268,7 +1269,7 @@
             // Update title & version from env
             const title = env.APP_TITLE || "SP SO Web Toolbox";
             document.title = title;
-            $("#app-version").text("v2.9.2");
+            $("#app-version").text("v2.9.3");
 
             renderSidebar();
             renderWelcomeCards();
