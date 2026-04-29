@@ -231,7 +231,6 @@
     </div>
     <button class="btn-run" id="btn-run" onclick="runAnalysis()">▶ Analyse Now</button>
     <button onclick="openScheduleModal()" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-family:var(--mono);font-size:.76rem;font-weight:700;padding:0 .9rem;height:36px;cursor:pointer;white-space:nowrap;align-self:flex-end;transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='var(--cyan)';this.style.color='var(--cyan)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🕐 Schedule</button>
-    <button onclick="clearForm()" title="Clear all form fields" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-family:var(--mono);font-size:.72rem;padding:0 .7rem;height:36px;cursor:pointer;align-self:flex-end;white-space:nowrap;transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">✕ Clear Form</button>
   </div>
 
   <div class="main-area">
@@ -367,10 +366,7 @@
 
       <div class="history-header">
         History
-        <div style="display:flex;gap:.3rem;align-items:center">
-          <button class="btn-sm" onclick="clearHistoryFilters()" title="Clear all filters" style="color:var(--muted);font-size:.65rem">✕ clear</button>
-          <button class="btn-sm" onclick="loadHistory()">↻</button>
-        </div>
+        <button class="btn-sm" onclick="loadHistory()">↻</button>
       </div>
       <div class="hist-filters">
         <input class="f-search" id="hist-search" type="text" placeholder="search…" oninput="loadHistory()" title="Search by host, port, test ID, tag" />
@@ -491,7 +487,7 @@
 
 <!-- Report modal -->
 <div class="modal-overlay" id="report-modal">
-  <div class="modal-card" style="width:920px;max-width:99vw;max-height:97vh;display:flex;flex-direction:column">
+  <div class="modal-card" style="width:780px;max-width:97vw;max-height:93vh;display:flex;flex-direction:column">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;flex-shrink:0">
       <div class="modal-title" style="color:var(--cyan);margin:0" id="report-modal-title">📋 Report</div>
       <div style="display:flex;gap:.4rem;align-items:center">
@@ -540,20 +536,6 @@
 <script>
 const PROXY = "/so-proxy";
 let pollTimer = null, _progTimer = null;
-
-// ── EU datetime formatter (HH:mm:ss dd/mm/yyyy, always UTC) ───────
-function fmtUTC(iso) {
-  if (!iso) return "—";
-  const d = new Date(iso.endsWith("Z") ? iso : iso + "Z");
-  const p = n => String(n).padStart(2, "0");
-  return `${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())} ${p(d.getUTCDate())}/${p(d.getUTCMonth()+1)}/${d.getUTCFullYear()} UTC`;
-}
-function fmtUTCShort(iso) {
-  if (!iso) return "—";
-  const d = new Date(iso.endsWith("Z") ? iso : iso + "Z");
-  const p = n => String(n).padStart(2, "0");
-  return `${p(d.getUTCHours())}:${p(d.getUTCMinutes())} ${p(d.getUTCDate())}/${p(d.getUTCMonth()+1)}/${d.getUTCFullYear()} UTC`;
-}
 let _srtPresets = {}, _hasAdminPw = false;
 let _pendingDeleteFiles = [];
 
@@ -719,7 +701,7 @@ function renderResult(r) {
 
   // Test metadata bar
   const serverName = resolveHost(r.url_host);
-  const testDate   = fmtUTC(r.started_at);
+  const testDate   = r.started_at ? r.started_at.replace("T"," ").slice(0,19)+" UTC" : "—";
   const tags       = (r.tag||"").split(",").map(t=>t.trim()).filter(Boolean).join(" · ");
   document.getElementById("meta-date").textContent   = "📅 " + testDate;
   document.getElementById("meta-server").textContent = "🖥 " + serverName;
@@ -1009,7 +991,7 @@ async function loadHistory() {
       const clickFn    = isFailed ? `viewErrorLog('${item.file}')` : `loadResult('${item.file}')`;
 
       // Subtitle: date · codec · resolution · fps  (replaces IP/tags/codec mess)
-      const dateStr    = fmtUTC(item.started_at);
+      const dateStr    = item.started_at ? item.started_at.slice(0,16).replace("T"," ")+" UTC" : "—";
       const codecStr   = (item.v_codec||"?").toUpperCase();
       const fpsDisp    = fpsEff ? fpsEff.toFixed(2)+"fps"+(item.v_scan==="interlaced"&&(item.v_fps_val||0)>30?" (i)":"") : "?";
       const subLine    = isFailed ? dateStr : `${dateStr} · ${codecStr} · ${res||"?×?"} · ${fpsDisp}`;
@@ -1236,8 +1218,8 @@ function closeReportModal() {
 function generateReport() {
   if (!_currentResult) return;
   const r           = _currentResult;
-  const now         = fmtUTC(new Date().toISOString());
-  const testDate    = fmtUTC(r.started_at);
+  const now         = new Date().toISOString().replace("T"," ").slice(0,19) + " UTC";
+  const testDate    = (r.started_at||"").replace("T"," ").slice(0,19) + " UTC";
   const serverName  = resolveHost(r.url_host) || r.url_host;
   const port        = r.url_port || "?";
   const tags        = (r.tag||"").split(",").map(t=>t.trim()).filter(Boolean).join(", ") || "—";
@@ -1327,66 +1309,6 @@ function generateReport() {
         ${vrow("Audio Bitrate","118–512 Kbps",r.a_br_kbps?r.a_br_kbps+" Kbps":"—","a_br_kbps")}
       </tbody>
     </table>
-    ${(() => {
-      const gops = r.gops || [];
-      if (!gops.length) return "";
-      const frameColor = t => t==="I"?"#3fb950":t==="P"?"#58a6ff":t==="B"?"#e3b341":"#bc8cff";
-      const gopRows = gops.slice(0,10).map((frames, i) => {
-        const boxes = frames.map(f =>
-          `<span style="display:inline-block;width:13px;height:18px;border-radius:2px;background:${frameColor(f.type)};font-family:monospace;font-size:.52rem;font-weight:700;color:#000;text-align:center;line-height:18px;margin-right:1px;flex-shrink:0">${f.type}</span>`
-        ).join("");
-        return `<div style="display:flex;align-items:center;gap:.4rem;margin-bottom:2px">
-          <span style="font-size:.62rem;color:#6e7681;width:46px;flex-shrink:0">GOP ${i+1}</span>
-          <div style="display:flex;flex-wrap:wrap;gap:1px">${boxes}</div>
-          <span style="font-size:.58rem;color:#484f58;margin-left:2px">(${frames.length}f)</span>
-        </div>`;
-      }).join("");
-      const more = gops.length > 10 ? `<div style="font-size:.6rem;color:#484f58;margin-top:2px">… and ${gops.length-10} more GOPs</div>` : "";
-      return `<div style="margin-top:.65rem;border:1px solid rgba(255,255,255,.07);border-radius:5px;padding:.5rem .65rem">
-        <div style="font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:#6e7681;margin-bottom:.4rem">GOP STRUCTURE (first ${Math.min(gops.length,10)} GOPs)</div>
-        ${gopRows}${more}
-        <div style="display:flex;gap:.75rem;margin-top:.4rem">
-          <span style="font-size:.6rem"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#3fb950;margin-right:2px"></span>I</span>
-          <span style="font-size:.6rem"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#58a6ff;margin-right:2px"></span>P</span>
-          <span style="font-size:.6rem"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#e3b341;margin-right:2px"></span>B</span>
-        </div>
-      </div>`;
-    })()}
-      const vjit = r.pts_jitter_v != null ? r.pts_jitter_v : null;
-      const ajit = r.pts_jitter_a != null ? r.pts_jitter_a : null;
-      const avPill = (val, warn, fail) => {
-        if (val == null) return `<span style="color:#6e7681;font-size:.62rem">N/A</span>`;
-        const ok = val < warn;
-        const bg  = ok ? "rgba(63,185,80,.15)" : val < fail ? "rgba(227,179,65,.15)" : "rgba(248,81,73,.15)";
-        const col = ok ? "#3fb950" : val < fail ? "#e3b341" : "#f85149";
-        const lbl = ok ? "PASS" : val < fail ? "WARN" : "FAIL";
-        return `<span style="display:inline-block;background:${bg};color:${col};border:1px solid ${col};border-radius:3px;padding:1px 7px;font-size:.62rem;font-weight:700">${lbl}</span>`;
-      };
-      const avRow2 = (desc, desired, actual, warnVal, failVal) =>
-        `<tr style="border-bottom:1px solid rgba(255,255,255,.05)">
-          <td style="padding:.22rem .5rem;color:#8b949e;font-size:.7rem">${desc}</td>
-          <td style="padding:.22rem .5rem;color:#6e7681;font-size:.64rem">${desired}</td>
-          <td style="padding:.22rem .5rem;font-weight:600;font-size:.7rem">${actual!=null?actual+" ms":"N/A"}</td>
-          <td style="padding:.22rem .5rem;text-align:right">${avPill(actual, warnVal, failVal)}</td>
-        </tr>`;
-      if (avMs == null && vjit == null && ajit == null) return "";
-      return `<div style="margin-top:.65rem;border:1px solid rgba(255,255,255,.07);border-radius:5px;overflow:hidden">
-        <div style="background:rgba(255,255,255,.04);padding:.28rem .5rem;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:#6e7681">AV SYNC &amp; TIMING</div>
-        <table style="width:100%;border-collapse:collapse">
-          <thead><tr style="border-bottom:1px solid rgba(255,255,255,.12)">
-            <th style="text-align:left;padding:.22rem .5rem;color:#6e7681;font-size:.6rem;text-transform:uppercase">Description</th>
-            <th style="text-align:left;padding:.22rem .5rem;color:#6e7681;font-size:.6rem;text-transform:uppercase">Desired</th>
-            <th style="text-align:left;padding:.22rem .5rem;color:#6e7681;font-size:.6rem;text-transform:uppercase">Actual</th>
-            <th style="text-align:right;padding:.22rem .5rem;color:#6e7681;font-size:.6rem;text-transform:uppercase">Result</th>
-          </thead><tbody>
-            ${avRow2("AV Sync Warn Offset", "< 15 ms",  avMs, 15, 175)}
-            ${avRow2("AV Sync Max Offset",  "< 175 ms", avMs, 175, 999)}
-            ${avRow2("Video PTS Jitter",    "< 5.0 ms", vjit, 5, 10)}
-            ${avRow2("Audio PTS Jitter",    "< 5.0 ms", ajit, 5, 10)}
-          </tbody>
-        </table>
-      </div>`;
-    })()}
     ${_overrideReason?`<div style="margin-top:.6rem;padding:.45rem .6rem;background:rgba(227,179,65,.08);border:1px solid rgba(227,179,65,.3);border-radius:5px;font-size:.67rem"><span style="color:#e3b341;font-weight:700">⚡ OVERRIDE: </span>${_overrideReason}</div>`:""}
     <div style="margin-top:.6rem;font-size:.58rem;color:#484f58;text-align:center">SP SO Web Toolbox · SO Video Analyser · Pre-validation only — not a formal compliance certification</div>
   </div>`;
@@ -1442,25 +1364,6 @@ function generateReport() {
     tr("Sample Rate",     "44.1–48.0 kHz",       r.a_rate_khz?r.a_rate_khz+" kHz":"—", "a_sample_rate"),
     tr("Bits per Sample", "FLTP / 16",           r.a_bps||"—",                          "a_bits"),
     tr("Audio Bitrate",   "118–512 Kbps",        r.a_br_kbps?r.a_br_kbps+" Kbps":"—", "a_br_kbps"),
-    ``,
-    `AV SYNC & TIMING`,
-    ...(() => {
-      const W = [35, 12, 12, 12];
-      const avHdr = `${"Description".padEnd(W[0])} ${"Desired".padEnd(W[1])} ${"Actual".padEnd(W[2])} Result`;
-      const avSep = "─".repeat(W[0]+W[1]+W[2]+W[3]+3);
-      const avRow = (desc, desired, actual, result) =>
-        `${desc.padEnd(W[0])} ${String(desired).padEnd(W[1])} ${String(actual||"N/A").padEnd(W[2])} ${result}`;
-      const avMs = r.av_sync_ms != null ? r.av_sync_ms : null;
-      const vjit = r.pts_jitter_v != null ? r.pts_jitter_v : null;
-      const ajit = r.pts_jitter_a != null ? r.pts_jitter_a : null;
-      return [
-        avHdr, avSep,
-        avRow("AV Sync Warn Offset (ms)",  "< 15",  avMs!=null?avMs+"ms":"N/A",  avMs==null?"N/A":avMs<15?"PASS":"WARN"),
-        avRow("AV Sync Max Offset (ms)",   "< 175", avMs!=null?avMs+"ms":"N/A",  avMs==null?"N/A":avMs<175?"PASS":"FAIL"),
-        avRow("Video PTS Jitter (ms)",     "< 5.0", vjit!=null?vjit+"ms":"N/A",  vjit==null?"N/A":vjit<5?"PASS":"WARN"),
-        avRow("Audio PTS Jitter (ms)",     "< 5.0", ajit!=null?ajit+"ms":"N/A",  ajit==null?"N/A":ajit<5?"PASS":"WARN"),
-      ];
-    })(),
     sep,
     `SP SO Web Toolbox — SO Video Analyser`,
     `Pre-validation only. Not a formal compliance certification.`,
@@ -1487,9 +1390,9 @@ function openScheduleModal() {
   const host = document.getElementById("inp-host").value.trim();
   const port = document.getElementById("inp-port").value.trim();
   if (!host || !port) { setStatus("err","Fill in Host and Port before scheduling."); return; }
-  // Pre-fill with UTC+30min — show as UTC in the field
+  // Pre-fill with UTC+1h — show as UTC in the field
   const utcNow = new Date();
-  utcNow.setMinutes(utcNow.getMinutes() + 30); // +30min
+  utcNow.setMinutes(utcNow.getMinutes() + 60); // +1h
   const pad = n => String(n).padStart(2,"0");
   const utcStr = `${utcNow.getUTCFullYear()}-${pad(utcNow.getUTCMonth()+1)}-${pad(utcNow.getUTCDate())}T${pad(utcNow.getUTCHours())}:${pad(utcNow.getUTCMinutes())}`;
   document.getElementById("sched-datetime").value = utcStr;
@@ -1560,7 +1463,7 @@ async function loadScheduled() {
       return;
     }
     list.innerHTML = active.map(item => {
-      const runAt     = fmtUTCShort(item.run_at_utc);
+      const runAt     = item.run_at_utc ? item.run_at_utc.slice(0,16).replace("T"," ")+" UTC" : "—";
       const urlHost   = (item.url||"").replace(/^srt:\/\//,"").split(":")[0].split("?")[0];
       const host      = resolveHost(urlHost);
       const portMatch = (item.url||"").match(/:(\d+)/);
@@ -1758,26 +1661,6 @@ async function resetSpecs() {
   } catch(e) { console.error(e); }
 }
 
-// ── Clear form ────────────────────────────────────────────────────
-function clearForm() {
-  document.getElementById("inp-host").value = "";
-  document.getElementById("inp-port").value = "";
-  document.getElementById("inp-tag").value  = "";
-  const passEl = document.getElementById("inp-pass");
-  passEl.value = "";
-  passEl.classList.remove("from-env");
-  // Reload passphrase from env
-  loadConfig();
-}
-
-function clearHistoryFilters() {
-  document.getElementById("hist-search").value = "";
-  document.getElementById("hist-date").value   = "";
-  document.getElementById("hist-tag").value    = "";
-  document.getElementById("hist-server").value = "";
-  loadHistory();
-}
-
 // ── Clear results ─────────────────────────────────────────────────
 function clearResults() {
   _currentResult     = null;
@@ -1848,7 +1731,7 @@ async function viewErrorLog(file) {
     const d    = await res.json();
     const logs = (d.log || []).join("\n") || "(no log lines saved)";
     const err  = d.error || "";
-    const ts   = fmtUTC(d.started_at);
+    const ts   = (d.started_at||"").replace("T"," ").slice(0,19)+" UTC";
     const serverName = resolveHost(d.url_host||"");
     const port = d.url_port || "?";
 

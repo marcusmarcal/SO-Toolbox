@@ -46,7 +46,7 @@ Frontend for the `run-ingest-analysis.sh` script. Accepts SRT, RTMP, UDP, custom
 
 ```env
 APP_TITLE=SP SO Web Toolbox
-APP_VERSION=3.0.0
+APP_VERSION=2.0.0
 
 # Tools — format: TOOL_n=file.html|Name|Description|icon|Category|BADGE
 TOOL_1=monitor.html|Channel Monitor|PhenixRTS real-time health|📡|Monitoring|LIVE
@@ -88,7 +88,6 @@ PHENIXRTS_PASSWORD=your-password
 | `/so-proxy/mtr/results/<file>` | GET | Download MTR result JSON |
 | `/so-proxy/mtr/tag/<file>` | POST | Update tag on a result |
 | `/so-proxy/ingest/run` | POST | Start an ingest analysis job |
-| `/so-proxy/ingest/upload-ts` | POST | Upload a .ts file for analysis (saved to /tmp) |
 | `/so-proxy/ingest/status/<id>` | GET | Poll job status |
 | `/so-proxy/ingest/results` | GET | List saved ingest results |
 | `/so-proxy/ingest/report/<dir>/<file>` | GET | Serve report file (HTML/charts) |
@@ -100,7 +99,6 @@ PHENIXRTS_PASSWORD=your-password
 
 | Version | Date       | Changes |
 |---------|------------|---------|
-| 3.0.0   | 2026-04-29 | SO Video Analyser: AV Sync & PTS Jitter table in report (visual + text); GOP structure mini-viz in report modal; report modal enlarged (920px, no scrollbar); scheduler default UTC+30min; all timestamps EU format HH:mm:ss dd/mm/yyyy UTC; Clear Form button on GOP Analyser; Clear Filters button on GOP history; Ingest Analyzer: .ts file upload via browser (multipart → /tmp); proxy: /ingest/upload-ts endpoint; Clear Form & Clear Filters buttons on Ingest Analyzer |
 | 2.9.2   | 2026-04-24 | Compliance fully specs-driven: deep-merge _load_specs, _save_specs complete, saveSpecs JS preserves all fields, specs editor handles number preferred |
 | 2.9.1   | 2026-04-24 | SO Video Analyser: compliance fully specs-driven (gop_size, fps, gop_type, all enums and ranges from specs.json); allow_seconds GOP, allow_50p_720 FPS |
 | 2.9.0   | 2026-04-24 | Unique test_id per run (searchable), dual report (visual screenshot + text copy for ServiceNow/Jira), print CSS |
@@ -132,7 +130,7 @@ PHENIXRTS_PASSWORD=your-password
 | 1.1.0   | 2026-03-25 | Full English translation + rich GUI |
 | 1.0.0   | 2026-03-25 | Initial PhenixRTS Channel Health Monitor |
 
-**Current Version: 3.0.0**
+**Current Version: 2.9.2**
 
 ---
 
