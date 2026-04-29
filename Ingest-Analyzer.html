@@ -638,6 +638,7 @@
           <button class="btn-run" id="btn-run" onclick="runAnalysis()">
             ▶ Analyze
           </button>
+          <button onclick="clearIngestForm()" title="Clear all form fields" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-family:var(--mono);font-size:.72rem;padding:0 .65rem;height:34px;cursor:pointer;align-self:flex-end;white-space:nowrap;transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">✕ Clear</button>
         </div>
         <div class="form-row">
           <div class="field grow" style="max-width: 300px">
@@ -721,6 +722,16 @@
           </div>
           <button class="btn-run" onclick="runAnalysis()">▶ Analyze</button>
         </div>
+        <div class="form-row" style="align-items:center;gap:.65rem">
+          <div class="field" style="flex:1;max-width:420px">
+            <label>— or — Upload .ts file from your computer</label>
+            <input id="file-upload" type="file" accept=".ts,.mpeg,.mpg,.m2ts"
+              style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:var(--mono);font-size:.8rem;padding:.35rem .6rem;cursor:pointer;width:100%"
+              onchange="onFileSelected(this)" />
+          </div>
+          <div id="upload-status" style="font-family:var(--mono);font-size:.72rem;color:var(--muted);align-self:flex-end;padding-bottom:.15rem"></div>
+          <button class="btn-run" id="btn-upload" onclick="uploadAndAnalyze()" style="display:none">▶ Upload &amp; Analyze</button>
+        </div>
       </div>
 
       <!-- Main area -->
@@ -761,7 +772,10 @@
               "
             >
               <span>History</span>
-              <button class="btn-refresh" onclick="loadHistory()">↻</button>
+              <div style="display:flex;gap:.3rem;align-items:center">
+                <button onclick="clearIngestFilters()" style="background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:.62rem;cursor:pointer;padding:0" title="Clear filters" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--muted)'">✕ clear</button>
+                <button class="btn-refresh" onclick="loadHistory()">↻</button>
+              </div>
             </div>
             <div style="display: flex; gap: 0.4rem; width: 100%">
               <input
@@ -1308,6 +1322,100 @@
             if (e.key === "Enter") runAnalysis();
           });
       });
+
+      // ── Clear form ────────────────────────────────────────────────
+      function clearIngestForm() {
+        document.getElementById("srt-host").value    = "";
+        document.getElementById("srt-port").value    = "";
+        document.getElementById("srt-pass").value    = "";
+        document.getElementById("srt-latency").value = "";
+        document.getElementById("inp-tag").value     = "";
+        const passEl = document.getElementById("srt-pass");
+        if (passEl) passEl.classList.remove("from-env");
+        loadConfig(); // reload defaults from .env
+      }
+
+      // ── Clear history filters ─────────────────────────────────────
+      function clearIngestFilters() {
+        const s = document.getElementById("search-filter");
+        const v = document.getElementById("server-filter");
+        const t = document.getElementById("tag-filter");
+        const d = document.getElementById("date-filter");
+        if (s) s.value = "";
+        if (v) v.value = "";
+        if (t) t.value = "";
+        if (d) d.value = "";
+        loadHistory();
+      }
+
+      // ── Upload .ts file ───────────────────────────────────────────
+      let _uploadedTsPath = null;
+
+      function onFileSelected(input) {
+        const file = input.files[0];
+        const btn  = document.getElementById("btn-upload");
+        const stat = document.getElementById("upload-status");
+        _uploadedTsPath = null;
+        if (!file) { btn.style.display = "none"; stat.textContent = ""; return; }
+        const sizeMB = (file.size / 1024 / 1024).toFixed(1);
+        stat.textContent = `📄 ${file.name} (${sizeMB} MB) — ready to upload`;
+        stat.style.color = "var(--muted)";
+        btn.style.display = "";
+      }
+
+      async function uploadAndAnalyze() {
+        const input  = document.getElementById("file-upload");
+        const file   = input.files[0];
+        const stat   = document.getElementById("upload-status");
+        const btn    = document.getElementById("btn-upload");
+        const tag    = document.getElementById("inp-tag").value.trim();
+        if (!file) { setStatus("failed", "No file selected."); return; }
+
+        stat.textContent  = "⬆ Uploading…";
+        stat.style.color  = "var(--yellow)";
+        btn.disabled      = true;
+
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("tag", tag);
+
+        try {
+          const res  = await fetch(`${PROXY}/ingest/upload-ts`, { method: "POST", body: formData });
+          const data = await res.json();
+          if (data.error) throw new Error(data.error);
+          stat.textContent = `✓ Uploaded to ${data.path}`;
+          stat.style.color = "var(--green)";
+          _uploadedTsPath = data.path;
+          // Now run analysis on the uploaded path
+          await runAnalysisOnPath(_uploadedTsPath, tag);
+        } catch(e) {
+          stat.textContent = `✗ Upload failed: ${e.message}`;
+          stat.style.color = "var(--red)";
+        } finally {
+          btn.disabled = false;
+        }
+      }
+
+      async function runAnalysisOnPath(tsPath, tag) {
+        setStatus("running", `Analyzing uploaded file: ${tsPath}…`);
+        document.querySelectorAll(".btn-run").forEach(b => b.disabled = true);
+        document.getElementById("log-output").textContent = "";
+        startProgress();
+        try {
+          const res  = await fetch(`${PROXY}/ingest/run`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: tsPath, tag })
+          });
+          const data = await res.json();
+          if (!data.job_id) throw new Error(data.error || "No job_id");
+          pollStatus(data.job_id);
+        } catch(e) {
+          setStatus("failed", `Error: ${e.message}`);
+          document.querySelectorAll(".btn-run").forEach(b => b.disabled = false);
+          stopProgress(false);
+        }
+      }
 
       loadConfig();
       loadHistory();
