@@ -831,7 +831,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None):
     if is_file_upload:
         url_host = "upload"
         url_port = ""
-        url_display = "upload:" + os.path.basename(ts_path_from_upload or "")
+        url_display = url_display if url_display.startswith("upload:") else "upload:" + os.path.basename(ts_path_from_upload or "")
     else:
         url_host = m_host.group(1) if m_host else url_display
         url_port = m_host.group(2) if m_host else ""
@@ -1323,7 +1323,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None):
             fps_to_check = 50.0
             fps_values = list(fps_values) + [50.0]
 
-        fps_ok = any(abs(fps_to_check - float(f)) < 0.1 for f in fps_values)
+        fps_ok = any(abs(fps_to_check - f) < 0.1 for f in fps_values)
         fps_pref_ok = isinstance(fps_pref, (int, float)) and abs(fps_to_check - float(fps_pref)) < 0.1
         if not fps_ok:
             fps_status = "REJECTED"
