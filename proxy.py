@@ -791,8 +791,10 @@ def _run_gop_on_file(job_id, ts_path, tag, url_display, started_at):
             _gop_jobs[job_id]["_ts_path"] = ts_path
 
         # Call the main analysis function with a file:// URL
+        # Extract original filename from url_display ("upload:filename.ts")
+        original_name = url_display.split("upload:", 1)[-1] if url_display.startswith("upload:") else None
         _run_gop_analysis(job_id, f"file://{ts_path}", 9999, "", tag,
-                          _started_at=started_at)
+                          _started_at=started_at, _original_name=original_name)
 
     except Exception as e:
         log(f"ERROR: {e}")
@@ -803,7 +805,7 @@ def _run_gop_on_file(job_id, ts_path, tag, url_display, started_at):
             })
 
 
-def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None):
+def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, _original_name=None):
     """Background: capture SRT stream, run ffprobe frame analysis, parse GOP structure.
     Key improvements:
     - Graceful timeout: if ffmpeg times out, analyse whatever was captured
@@ -831,7 +833,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None):
     if is_file_upload:
         url_host = "upload"
         url_port = ""
-        url_display = url_display if url_display.startswith("upload:") else "upload:" + os.path.basename(ts_path_from_upload or "")
+        url_display = "upload:" + (_original_name or os.path.basename(ts_path_from_upload or ""))
     else:
         url_host = m_host.group(1) if m_host else url_display
         url_port = m_host.group(2) if m_host else ""
@@ -1313,7 +1315,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None):
         # ── FPS (specs-driven, with interlaced compensation) ──────────
         fps_eff = v_fps_for_compliance
         fps_sp  = _s("fps")
-        fps_values = fps_sp.get("values", [25.0, 29.97, 30.0])
+        fps_values = [float(v) for v in fps_sp.get("values", [25.0, 29.97, 30.0])]
         fps_pref   = fps_sp.get("preferred", 25.0)
         allow_50p_720 = fps_sp.get("allow_50p_720", False)
 
