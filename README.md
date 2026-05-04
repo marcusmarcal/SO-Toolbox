@@ -99,7 +99,8 @@ PHENIXRTS_PASSWORD=your-password
 
 | Version | Date       | Changes |
 |---------|------------|---------|
-| 2.9.3   | 2026-04-24 | Override only for REJECTED; Clear button resets form+results; history preserves checkboxes across auto-refresh |
+| 2.10.0  | 2026-05-04 | AV sync+jitter checks in GOP analyser, .ts upload endpoint, clear form/history buttons, checkbox persistence, schedule UTC+30min, European time format, bigger report, GOP in report |
+| 2.9.3   | 2026-04-24 | Override only for REJECTED; Clear form+results; history checkboxes persist across refresh |
 | 2.9.2   | 2026-04-24 | Compliance fully specs-driven: deep-merge _load_specs, _save_specs complete, saveSpecs JS preserves all fields, specs editor handles number preferred |
 | 2.9.1   | 2026-04-24 | SO Video Analyser: compliance fully specs-driven (gop_size, fps, gop_type, all enums and ranges from specs.json); allow_seconds GOP, allow_50p_720 FPS |
 | 2.9.0   | 2026-04-24 | Unique test_id per run (searchable), dual report (visual screenshot + text copy for ServiceNow/Jira), print CSS |
@@ -131,7 +132,7 @@ PHENIXRTS_PASSWORD=your-password
 | 1.1.0   | 2026-03-25 | Full English translation + rich GUI |
 | 1.0.0   | 2026-03-25 | Initial PhenixRTS Channel Health Monitor |
 
-**Current Version: 2.9.3**
+**Current Version: 2.10.0**
 
 ---
 

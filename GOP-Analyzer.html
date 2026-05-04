@@ -231,6 +231,10 @@
     </div>
     <button class="btn-run" id="btn-run" onclick="runAnalysis()">▶ Analyse Now</button>
     <button onclick="openScheduleModal()" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-family:var(--mono);font-size:.76rem;font-weight:700;padding:0 .9rem;height:36px;cursor:pointer;white-space:nowrap;align-self:flex-end;transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='var(--cyan)';this.style.color='var(--cyan)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🕐 Schedule</button>
+    <button onclick="clearForm()" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-family:var(--mono);font-size:.76rem;font-weight:700;padding:0 .75rem;height:36px;cursor:pointer;white-space:nowrap;align-self:flex-end" title="Clear all form fields">✕ Clear</button>
+    <!-- Hidden TS upload input -->
+    <input type="file" id="ts-upload-input" accept=".ts" style="display:none" onchange="uploadTS(this)" />
+    <button onclick="document.getElementById('ts-upload-input').click()" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-family:var(--mono);font-size:.76rem;font-weight:700;padding:0 .75rem;height:36px;cursor:pointer;white-space:nowrap;align-self:flex-end;transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='var(--purple)';this.style.color='var(--purple)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'" title="Upload a .ts file for analysis">⬆ Upload .ts</button>
   </div>
 
   <div class="main-area">
@@ -370,6 +374,8 @@
       </div>
       <div class="hist-filters">
         <input class="f-search" id="hist-search" type="text" placeholder="search…" oninput="loadHistory()" title="Search by host, port, test ID, tag" />
+        <button class="btn-sm" onclick="clearHistFilters()" title="Clear all filters" style="color:var(--muted);font-size:.68rem">✕</button>
+      </div>
       </div>
       <div class="hist-filters" style="border-bottom:1px solid var(--border)">
         <input class="f-date"   id="hist-date"   type="date"                           oninput="loadHistory()" title="Filter by date" />
@@ -487,7 +493,7 @@
 
 <!-- Report modal -->
 <div class="modal-overlay" id="report-modal">
-  <div class="modal-card" style="width:780px;max-width:97vw;max-height:93vh;display:flex;flex-direction:column">
+  <div class="modal-card" style="width:900px;max-width:99vw;height:92vh;display:flex;flex-direction:column">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;flex-shrink:0">
       <div class="modal-title" style="color:var(--cyan);margin:0" id="report-modal-title">📋 Report</div>
       <div style="display:flex;gap:.4rem;align-items:center">
@@ -810,6 +816,14 @@ function renderResult(r) {
     ["Has B-frames",         r.has_b_frames?"YES":"No", r.has_b_frames?"yellow":"green"],
     ["B-frame count",        r.b_frame_count],
     ["Total frames",         r.total_frames],
+    ["AV Sync Avg",          r.av_sync_avg_ms!=null ? r.av_sync_avg_ms+" ms" : "—",
+      r.av_sync_avg_ms!=null ? (r.av_sync_avg_ms<15?"green":r.av_sync_avg_ms<175?"yellow":"red") : ""],
+    ["AV Sync Max",          r.av_sync_max_ms!=null ? r.av_sync_max_ms+" ms" : "—",
+      r.av_sync_max_ms!=null ? (r.av_sync_max_ms<175?"green":r.av_sync_max_ms<230?"yellow":"red") : ""],
+    ["Video PTS Jitter",     r.v_pts_jitter_ms!=null ? r.v_pts_jitter_ms+" ms" : "—",
+      r.v_pts_jitter_ms!=null ? (r.v_pts_jitter_ms<5?"green":"yellow") : ""],
+    ["Audio PTS Jitter",     r.a_pts_jitter_ms!=null ? r.a_pts_jitter_ms+" ms" : "—",
+      r.a_pts_jitter_ms!=null ? (r.a_pts_jitter_ms<5?"green":"yellow") : ""],
   ]);
 
   // GOP hero numbers
@@ -873,13 +887,21 @@ function renderComplianceTable(r) {
     "MEDIA PROFILE": ["overall_br"],
     "VIDEO": ["idr","gop_size","gop_type","b_frames","frame_size","aspect_ratio","chroma","scan_type","bit_depth","colour_gamut","codec","codec_level","codec_profile","entropy","rate_ctrl_v","v_br","hdr_scheme","fps"],
     "AUDIO": ["a_codec","a_streams","a_channels","a_rate_ctrl","a_sample_rate","a_bits","a_br_kbps"],
+    "AV SYNC & TIMING": ["av_sync_warn","av_sync_max","v_pts_jitter","a_pts_jitter"],
+  };
+
+  const avSyncSpec = {
+    "av_sync_warn":  ["AV Sync Avg Offset",  "< 15 ms (preferred)"],
+    "av_sync_max":   ["AV Sync Max Offset",   "< 175 ms (hard limit 230ms)"],
+    "v_pts_jitter":  ["Video PTS Jitter",     "< 5.0 ms"],
+    "a_pts_jitter":  ["Audio PTS Jitter",     "< 5.0 ms"],
   };
 
   let html = "";
   for (const [section, keys] of Object.entries(sections)) {
     html += `<tr class="section-hdr"><td colspan="4">${section}</td></tr>`;
     for (const key of keys) {
-      const info = spec[key] || [key, "—"];
+      const info = avSyncSpec[key] || spec[key] || [key, "—"];
       const [status, measured, note] = c[key] || ["UNKNOWN","—",""];
       html += `<tr>
         <td>${info[0]}</td>
@@ -976,7 +998,6 @@ async function loadHistory() {
       const isOverride = !!item.override;
       const runStatus  = item.run_status || "done";
       const isFailed   = runStatus === "failed" || runStatus === "error";
-
       // Status badge
       let statusCls, statusLabel;
       if (isOverride)       { statusCls="accepted"; statusLabel="⚡ Override"; }
@@ -1003,7 +1024,9 @@ async function loadHistory() {
       const testIdBit  = item.test_id ? `<div style="font-family:var(--mono);font-size:.58rem;color:var(--muted);margin-top:1px;opacity:.6" title="Test ID — searchable">${item.test_id}</div>` : "";
 
       return `<div class="hist-item" id="hist-${item.file.replace(/\W/g,'_')}">
-        <input type="checkbox" class="hist-item-cb" data-file="${item.file}" onchange="updateBulkBar()" />
+        <input type="checkbox" class="hist-item-cb" data-file="${item.file}"
+          ${_checkedFiles.has(item.file) ? "checked" : ""}
+          onchange="updateBulkBar()" />
         <div class="hist-item-body" onclick="${clickFn};event.stopPropagation()">
           <div class="hi-dest">${serverName}:${port}</div>
           <div class="hi-sub">${subLine}</div>
@@ -1019,13 +1042,10 @@ async function loadHistory() {
       </div>`;
     }).join("");
 
-    // Restore previously checked checkboxes — preserves selection across refreshes
-    if (checkedFiles.size > 0) {
-      document.querySelectorAll(".hist-item-cb").forEach(cb => {
-        if (checkedFiles.has(cb.dataset.file)) cb.checked = true;
-      });
-    }
-    updateBulkBar();
+    // Update bulk bar to reflect persistent selection
+    const bar = document.getElementById("bulk-bar");
+    document.getElementById("bulk-count").textContent = `${_checkedFiles.size} selected`;
+    bar.classList.toggle("visible", _checkedFiles.size > 0);
 
   } catch(e) { console.error(e); }
 }
@@ -1058,8 +1078,7 @@ function updateBulkBar() {
 }
 
 function openBulkDeleteModal() {
-  const checked = [...document.querySelectorAll(".hist-item-cb:checked")];
-  _pendingDeleteFiles = checked.map(cb => cb.dataset.file);
+  _pendingDeleteFiles = [..._checkedFiles];
   if (!_pendingDeleteFiles.length) return;
   document.getElementById("delete-modal-body").innerHTML =
     `Permanently delete <strong style="color:var(--red)">${_pendingDeleteFiles.length}</strong> result(s)?<br>This action is <strong style="color:var(--red)">irreversible</strong>.`;
@@ -1097,8 +1116,8 @@ async function confirmDelete() {
   }
 
   closeDeleteModal();
+  _checkedFiles.clear();
   document.getElementById("bulk-bar").classList.remove("visible");
-  if (anyFailed) setStatus("err","Some files could not be deleted.");
   loadHistory();
 }
 
@@ -1269,7 +1288,7 @@ function generateReport() {
 
   // ── VISUAL HTML ──────────────────────────────────────────────────
   document.getElementById("report-visual-content").innerHTML = `
-  <div style="font-family:'JetBrains Mono',monospace;font-size:.72rem;color:#c9d1d9;background:#080c10;border-radius:8px;padding:1rem;max-width:720px;margin:0 auto">
+  <div style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:#c9d1d9;background:#080c10;border-radius:8px;padding:.85rem;max-width:100%;margin:0 auto">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.85rem;flex-wrap:wrap;gap:.4rem">
       <div>
         <div style="font-size:.95rem;font-weight:700;color:#fff">SP SO Video Analyser</div>
@@ -1321,6 +1340,11 @@ function generateReport() {
         ${vrow("Sample Rate","44.1–48.0 kHz",r.a_rate_khz?r.a_rate_khz+" kHz":"—","a_sample_rate")}
         ${vrow("Bits per Sample","FLTP / 16",r.a_bps||"—","a_bits")}
         ${vrow("Audio Bitrate","118–512 Kbps",r.a_br_kbps?r.a_br_kbps+" Kbps":"—","a_br_kbps")}
+        ${vsec("AV SYNC & TIMING")}
+        ${vrow("AV Sync Avg Offset","< 15 ms preferred",r.av_sync_avg_ms!=null?r.av_sync_avg_ms+" ms":"—","av_sync_warn")}
+        ${vrow("AV Sync Max Offset","< 175 ms hard limit",r.av_sync_max_ms!=null?r.av_sync_max_ms+" ms":"—","av_sync_max")}
+        ${vrow("Video PTS Jitter","< 5.0 ms",r.v_pts_jitter_ms!=null?r.v_pts_jitter_ms+" ms":"—","v_pts_jitter")}
+        ${vrow("Audio PTS Jitter","< 5.0 ms",r.a_pts_jitter_ms!=null?r.a_pts_jitter_ms+" ms":"—","a_pts_jitter")}
       </tbody>
     </table>
     ${_overrideReason?`<div style="margin-top:.6rem;padding:.45rem .6rem;background:rgba(227,179,65,.08);border:1px solid rgba(227,179,65,.3);border-radius:5px;font-size:.67rem"><span style="color:#e3b341;font-weight:700">⚡ OVERRIDE: </span>${_overrideReason}</div>`:""}
@@ -1378,6 +1402,19 @@ function generateReport() {
     tr("Sample Rate",     "44.1–48.0 kHz",       r.a_rate_khz?r.a_rate_khz+" kHz":"—", "a_sample_rate"),
     tr("Bits per Sample", "FLTP / 16",           r.a_bps||"—",                          "a_bits"),
     tr("Audio Bitrate",   "118–512 Kbps",        r.a_br_kbps?r.a_br_kbps+" Kbps":"—", "a_br_kbps"),
+    ``,
+    `AV SYNC & TIMING`,
+    tr("AV Sync Avg Offset",  "< 15 ms preferred",  r.av_sync_avg_ms!=null?r.av_sync_avg_ms+" ms":"—",  "av_sync_warn"),
+    tr("AV Sync Max Offset",  "< 175 ms hard limit", r.av_sync_max_ms!=null?r.av_sync_max_ms+" ms":"—", "av_sync_max"),
+    tr("Video PTS Jitter",    "< 5.0 ms",            r.v_pts_jitter_ms!=null?r.v_pts_jitter_ms+" ms":"—","v_pts_jitter"),
+    tr("Audio PTS Jitter",    "< 5.0 ms",            r.a_pts_jitter_ms!=null?r.a_pts_jitter_ms+" ms":"—","a_pts_jitter"),
+    sep,
+    `GOP STRUCTURE`,
+    ...(() => {
+      const gops = r.gop_patterns || [];
+      if (!gops.length) return ["(no GOP data available)"];
+      return gops.slice(0,15).map((pat,i) => `  GOP ${String(i+1).padStart(2)}: ${pat} (${pat.length}f)`);
+    })(),
     sep,
     `SP SO Web Toolbox — SO Video Analyser`,
     `Pre-validation only. Not a formal compliance certification.`,
@@ -1397,16 +1434,79 @@ async function copyReport() {
   setTimeout(() => ok.style.display = "none", 2500);
 }
 
-// ── Scheduled jobs ────────────────────────────────────────────────
+// ── Clear functions ───────────────────────────────────────────────
+function clearForm() {
+  document.getElementById("inp-host").value = "";
+  document.getElementById("inp-port").value = "";
+  document.getElementById("inp-pass").value = "";
+  document.getElementById("inp-tag").value  = "";
+  document.getElementById("inp-dur").value  = "30";
+}
+
+function clearHistFilters() {
+  ["hist-search","hist-date","hist-tag"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+  const sv = document.getElementById("hist-server");
+  if (sv) sv.value = "";
+  loadHistory();
+}
+
+// ── TS Upload ─────────────────────────────────────────────────────
+async function uploadTS(input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = ""; // reset so same file can be re-selected
+
+  const tag = document.getElementById("inp-tag").value.trim();
+  const fd  = new FormData();
+  fd.append("file", file);
+  fd.append("tag", tag);
+
+  document.getElementById("btn-run").disabled = true;
+  document.getElementById("placeholder").style.display = "none";
+  document.getElementById("results-content").style.display = "none";
+  document.getElementById("log-card").style.display = "";
+  document.getElementById("log-output").textContent = `Uploading ${file.name}…`;
+  startProgress(60);
+  setStatus("running", `Uploading and analysing ${file.name}…`);
+
+  try {
+    const res  = await fetch(`${PROXY}/gop/upload`, { method: "POST", body: fd });
+    const data = await res.json();
+    if (!data.job_id) throw new Error(data.error || "No job_id");
+    _currentResultFile = null;
+    pollStatus(data.job_id, 60, "upload", file.name);
+  } catch(e) {
+    setStatus("err", `Upload failed: ${e.message}`);
+    document.getElementById("btn-run").disabled = false;
+    stopProgress(false);
+  }
+}
+
+// ── History checkbox persistence ──────────────────────────────────
+let _checkedFiles = new Set();
+
+function updateBulkBar() {
+  // Sync _checkedFiles with current checkboxes
+  document.querySelectorAll(".hist-item-cb").forEach(cb => {
+    if (cb.checked) _checkedFiles.add(cb.dataset.file);
+    else            _checkedFiles.delete(cb.dataset.file);
+  });
+  const bar = document.getElementById("bulk-bar");
+  document.getElementById("bulk-count").textContent = `${_checkedFiles.size} selected`;
+  bar.classList.toggle("visible", _checkedFiles.size > 0);
+}
 let _pendingCancelSchedId = null;
 
 function openScheduleModal() {
   const host = document.getElementById("inp-host").value.trim();
   const port = document.getElementById("inp-port").value.trim();
   if (!host || !port) { setStatus("err","Fill in Host and Port before scheduling."); return; }
-  // Pre-fill with UTC+1h — show as UTC in the field
+  // Default to UTC + 30 minutes
   const utcNow = new Date();
-  utcNow.setMinutes(utcNow.getMinutes() + 60); // +1h
+  utcNow.setUTCMinutes(utcNow.getUTCMinutes() + 30);
   const pad = n => String(n).padStart(2,"0");
   const utcStr = `${utcNow.getUTCFullYear()}-${pad(utcNow.getUTCMonth()+1)}-${pad(utcNow.getUTCDate())}T${pad(utcNow.getUTCHours())}:${pad(utcNow.getUTCMinutes())}`;
   document.getElementById("sched-datetime").value = utcStr;
@@ -1417,13 +1517,21 @@ function openScheduleModal() {
 function closeScheduleModal() {
   document.getElementById("schedule-modal").classList.remove("open");
 }
+function _fmtEU(date) {
+  // European format: HH:mm:ss dd/mm/yyyy
+  const pad = n => String(n).padStart(2,"0");
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())} ${pad(date.getDate())}/${pad(date.getMonth()+1)}/${date.getFullYear()}`;
+}
+function _fmtEU_UTC(date) {
+  const pad = n => String(n).padStart(2,"0");
+  return `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())} ${pad(date.getUTCDate())}/${pad(date.getUTCMonth()+1)}/${date.getUTCFullYear()} UTC`;
+}
 function updateSchedUTCHint() {
   const val = document.getElementById("sched-datetime").value;
   if (!val) return;
-  // Input is treated as UTC — show equivalent local time for reference
-  const utcDt    = new Date(val + "Z"); // force UTC interpretation
-  const localStr = utcDt.toLocaleString([], { timeZoneName: "short" });
-  document.getElementById("sched-local-time").textContent = `= ${localStr} local`;
+  const utcDt = new Date(val + "Z");
+  document.getElementById("sched-local-time").textContent =
+    `= ${_fmtEU(utcDt)} local`;
 }
 document.addEventListener("DOMContentLoaded", () => {
   const dtEl = document.getElementById("sched-datetime");
