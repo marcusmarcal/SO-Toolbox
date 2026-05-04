@@ -5,6 +5,7 @@ from flask_cors import CORS
 from urllib.parse import quote
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024 * 1024  # 2 GB upload limit
 CORS(app)
 
 # Usar Session melhora MUITO a performance para múltiplas requisições
@@ -973,10 +974,23 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None):
                                 stderr=subprocess.PIPE, timeout=60)
             all_frames = json.loads(r2.stdout.decode()).get("frames", [])
 
-            v_pts = sorted([float(f["pts_time"]) for f in all_frames
-                            if f.get("media_type") == "video" and f.get("pts_time") not in (None, "N/A")])
-            a_pts = sorted([float(f["pts_time"]) for f in all_frames
-                            if f.get("media_type") == "audio" and f.get("pts_time") not in (None, "N/A")])
+            def _get_pts(f):
+                """Return pts_time or pkt_dts_time as float, or None if unavailable."""
+                for key in ("pts_time", "pkt_dts_time"):
+                    val = f.get(key)
+                    if val not in (None, "N/A"):
+                        try:
+                            return float(val)
+                        except (ValueError, TypeError):
+                            pass
+                return None
+
+            v_pts = sorted([t for f in all_frames
+                            if f.get("media_type") == "video"
+                            for t in [_get_pts(f)] if t is not None])
+            a_pts = sorted([t for f in all_frames
+                            if f.get("media_type") == "audio"
+                            for t in [_get_pts(f)] if t is not None])
 
             if v_pts and a_pts:
                 # AV offset: difference between video PTS and nearest audio PTS
@@ -1306,7 +1320,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None):
             fps_to_check = 50.0
             fps_values = list(fps_values) + [50.0]
 
-        fps_ok = any(abs(fps_to_check - float(f)) < 0.1 for f in fps_values)
+        fps_ok = any(abs(fps_to_check - f) < 0.1 for f in fps_values)
         fps_pref_ok = isinstance(fps_pref, (int, float)) and abs(fps_to_check - float(fps_pref)) < 0.1
         if not fps_ok:
             fps_status = "REJECTED"
