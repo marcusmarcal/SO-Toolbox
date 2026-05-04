@@ -1473,7 +1473,14 @@ async function uploadTS(input) {
 
   try {
     const res  = await fetch(`${PROXY}/gop/upload`, { method: "POST", body: fd });
-    const data = await res.json();
+    let data;
+    const ct = res.headers.get("content-type") || "";
+    if (!ct.includes("application/json")) {
+      const body = await res.text();
+      if (res.status === 413) throw new Error("File too large — increase client_max_body_size in nginx config");
+      throw new Error(`Server returned HTTP ${res.status}: ${body.slice(0, 120)}`);
+    }
+    data = await res.json();
     if (!data.job_id) throw new Error(data.error || "No job_id");
     _currentResultFile = null;
     pollStatus(data.job_id, 60, "upload", file.name);
