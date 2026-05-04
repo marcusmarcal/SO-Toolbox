@@ -602,14 +602,12 @@
         display: none;
         position: fixed;
         inset: 0;
-        background: rgba(0, 0, 0, 0.6);
+        background: rgba(0,0,0,0.6);
         z-index: 300;
         align-items: center;
         justify-content: center;
       }
-      #changelog-modal.open {
-        display: flex;
-      }
+      #changelog-modal.open { display: flex; }
       .cl-card {
         background: var(--surface);
         border: 1px solid var(--border);
@@ -619,7 +617,7 @@
         max-width: 92vw;
         max-height: 80vh;
         overflow-y: auto;
-        box-shadow: 0 0 60px rgba(0, 0, 0, 0.6);
+        box-shadow: 0 0 60px rgba(0,0,0,0.6);
       }
       .cl-header {
         display: flex;
@@ -645,10 +643,7 @@
         padding: 3px 10px;
         cursor: pointer;
       }
-      .cl-close:hover {
-        border-color: var(--accent);
-        color: var(--accent);
-      }
+      .cl-close:hover { border-color: var(--accent); color: var(--accent); }
       .cl-entry {
         display: flex;
         gap: 1rem;
@@ -656,9 +651,7 @@
         border-bottom: 1px solid var(--border);
         align-items: baseline;
       }
-      .cl-entry:last-child {
-        border-bottom: none;
-      }
+      .cl-entry:last-child { border-bottom: none; }
       .cl-version {
         font-family: var(--mono);
         font-size: 0.7rem;
@@ -695,14 +688,12 @@
         display: none;
         position: fixed;
         inset: 0;
-        background: rgba(0, 0, 0, 0.6);
+        background: rgba(0,0,0,0.6);
         z-index: 200;
         align-items: center;
         justify-content: center;
       }
-      #git-modal.open {
-        display: flex;
-      }
+      #git-modal.open { display: flex; }
       .git-card {
         background: var(--surface);
         border: 1px solid var(--border);
@@ -710,7 +701,7 @@
         padding: 1.5rem 2rem;
         width: 500px;
         max-width: 90vw;
-        box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+        box-shadow: 0 0 40px rgba(0,0,0,0.5);
       }
       .git-card-title {
         font-family: var(--mono);
@@ -734,12 +725,8 @@
         margin-bottom: 1rem;
         line-height: 1.6;
       }
-      .git-output.ok {
-        color: #80ffdf;
-      }
-      .git-output.err {
-        color: #ffb3be;
-      }
+      .git-output.ok  { color: #80ffdf; }
+      .git-output.err { color: #ffb3be; }
       .git-close-btn {
         font-family: var(--mono);
         font-size: 0.65rem;
@@ -751,10 +738,7 @@
         cursor: pointer;
         transition: all 0.15s;
       }
-      .git-close-btn:hover {
-        border-color: var(--accent);
-        color: var(--accent);
-      }
+      .git-close-btn:hover { border-color: var(--accent); color: var(--accent); }
 
       .hidden {
         display: none !important;
@@ -791,42 +775,15 @@
     <div id="app">
       <header id="topbar">
         <div class="logo-mark"></div>
-        <h1>SP SO <span>Web Toolbox</span> - by MM</h1>
+        <h1>SP SO <span>Web Toolbox</span></h1>
         <div id="env-pill">
           <span class="pill-spinner"></span>
           <span id="env-pill-text">Loading .env…</span>
         </div>
-        <button
-          id="btn-git-pull"
-          class="git-pull-btn"
-          data-tip="Pull latest from Git"
-          onclick="gitPull()"
-        >
-          ⟳ Update
-        </button>
-        <button
-          class="git-pull-btn"
-          data-tip="Restart proxy service"
-          onclick="openRestartConfirm()"
-          style="border-color: rgba(255, 78, 106, 0.4); color: #ffb3be"
-        >
-          ⏻ Restart Proxy
-        </button>
-        <button
-          class="git-pull-btn"
-          data-tip="View README"
-          onclick="openReadme()"
-          style="border-color: rgba(88, 166, 255, 0.4); color: var(--accent)"
-        >
-          📖 README
-        </button>
-        <span
-          class="version"
-          id="app-version"
-          onclick="openChangelog()"
-          title="Click to see changelog"
-          >v2.9.3</span
-        >
+        <button id="btn-git-pull" class="git-pull-btn" data-tip="Pull latest from Git" onclick="gitPull()">⟳ Update</button>
+        <button class="git-pull-btn" data-tip="Restart proxy service" onclick="openRestartConfirm()" style="border-color:rgba(255,78,106,0.4);color:#ffb3be;">⏻ Restart Proxy</button>
+        <button class="git-pull-btn" data-tip="View README" onclick="openReadme()" style="border-color:rgba(88,166,255,0.4);color:var(--accent);">📖 README</button>
+        <span class="version" id="app-version" onclick="openChangelog()" title="Click to see changelog">v2.10.0</span>
       </header>
 
       <aside id="sidebar">
@@ -869,235 +826,35 @@
           <div class="cl-title">SP SO Web Toolbox — Changelog</div>
           <button class="cl-close" onclick="closeChangelog()">Close</button>
         </div>
-        <div class="cl-entry">
-          <div class="cl-version">v2.9.3</div>
-          <div class="cl-date">2026-04-24</div>
-          <div class="cl-desc">
-            Override only shown for REJECTED results; Clear button resets form +
-            results panel; history preserves checkbox selections across
-            auto-refresh
-          </div>
-        </div>
-        <div class="cl-entry">
-          <div class="cl-version">v2.9.2</div>
-          <div class="cl-date">2026-04-24</div>
-          <div class="cl-desc">
-            Compliance fully specs-driven: deep-merge _load_specs/_save_specs,
-            all checks use _s(key) helpers
-          </div>
-        </div>
-        <div class="cl-entry">
-          <div class="cl-version">v2.9.1</div>
-          <div class="cl-date">2026-04-24</div>
-          <div class="cl-desc">
-            Compliance fully specs-driven from specs.json —
-            comply_range/comply_enum_s/comply_enum_multi helpers, GOP seconds,
-            FPS 50p/720
-          </div>
-        </div>
-        <div class="cl-entry">
-          <div class="cl-version">v2.9.0</div>
-          <div class="cl-date">2026-04-24</div>
-          <div class="cl-desc">
-            Unique test_id per run, dual report (visual screenshot + text copy
-            for ServiceNow/Jira), print CSS
-          </div>
-        </div>
-        <div class="cl-entry">
-          <div class="cl-version">v2.8.4</div>
-          <div class="cl-date">2026-04-23</div>
-          <div class="cl-desc">
-            Re-run saves new JSON + appears in history; pollStatus sets
-            _currentResultFile; loadHistory on all outcomes
-          </div>
-        </div>
-        <div class="cl-entry">
-          <div class="cl-version">v2.8.3</div>
-          <div class="cl-date">2026-04-23</div>
-          <div class="cl-desc">
-            Re-run button on loaded result and each history item
-          </div>
-        </div>
-        <div class="cl-entry">
-          <div class="cl-version">v2.8.2</div>
-          <div class="cl-date">2026-04-23</div>
-          <div class="cl-desc">
-            Override _currentResultFile fix, schedule UTC, constrained baseline,
-            hi-sub date/codec/res/fps, no latency field
-          </div>
-        </div>
-        <div class="cl-entry">
-          <div class="cl-version">v2.8.1</div>
-          <div class="cl-date">2026-04-23</div>
-          <div class="cl-desc">
-            Always log failed/error JSON, FAILED/ERROR badges in history, log
-            viewer
-          </div>
-        </div>
-        <div class="cl-entry">
-          <div class="cl-version">v2.8.0</div>
-          <div class="cl-date">2026-04-23</div>
-          <div class="cl-desc">
-            Schedule fix, fps history badge (v_fps_compliance), specs editor
-            (JSON, password), GOP Stats left/Audio right, scheduled badge
-          </div>
-        </div>
-        <div class="cl-entry">
-          <div class="cl-version">v2.7.0</div>
-          <div class="cl-date">2026-04-22</div>
-          <div class="cl-desc">
-            SO Video Analyser rename, 50i FPS fix, override→JSON, .ts download,
-            scheduled jobs, metadata header; index: UTC+local clocks
-          </div>
-        </div>
-        <div class="cl-entry">
-          <div class="cl-version">v2.6.3</div>
-          <div class="cl-date">2026-04-21</div>
-          <div class="cl-desc">
-            GOP: fix v_scan reference before assignment, 50i→25fps, HLG SDR,
-            AAC-LC, audio tracks, Generate Report, Override
-          </div>
-        </div>
-        <div class="cl-entry">
-          <div class="cl-version">v2.6.2</div>
-          <div class="cl-date">2026-04-16</div>
-          <div class="cl-desc">
-            GOP: larger fonts, GOP avg hero, history filters, bitrate fallback,
-            AAC FLTP
-          </div>
-        </div>
-        <div class="cl-entry">
-          <div class="cl-version">v2.6.0</div>
-          <div class="cl-date">2026-04-16</div>
-          <div class="cl-desc">
-            GOP: graceful timeout, NAL/IDR, open/closed GOP, compliance RAG
-            table, FPS flag, host labels, filters, bulk delete; MTR: hops fix,
-            bulk delete
-          </div>
-        </div>
-        <div class="cl-entry">
-          <div class="cl-version">v2.5.0</div>
-          <div class="cl-date">2026-04-14</div>
-          <div class="cl-desc">
-            New: GOP Analyzer — SRT stream capture, IDR/GOP visualizer, stream
-            info, compliance checks
-          </div>
-        </div>
-        <div class="cl-entry">
-          <div class="cl-version">v2.4.0</div>
-          <div class="cl-date">2026-04-14</div>
-          <div class="cl-desc">
-            MTR: ICMP/UDP-53 toggle, Country/ASN geo toggle, -b flag, proto+geo
-            in header and history
-          </div>
-        </div>
-        <div class="cl-entry">
-          <div class="cl-version">v2.3.0</div>
-          <div class="cl-date">2026-04-13</div>
-          <div class="cl-desc">
-            Proxy renamed to so-proxy; ADMIN_PASSWORD for sensitive actions; MTR
-            host sanity check, no Watch/live duplication; README modal in index
-          </div>
-        </div>
-        <div class="cl-entry">
-          <div class="cl-version">v2.2.0</div>
-          <div class="cl-date">2026-04-10</div>
-          <div class="cl-desc">
-            MTR kill/delete with confirmation, date picker filter,
-            history/running panels
-          </div>
-        </div>
-        <div class="cl-entry">
-          <div class="cl-version">v2.1.0</div>
-          <div class="cl-date">2026-04-10</div>
-          <div class="cl-desc">
-            MTR: wider history panel, date/search/tag filters, multi-tag, Date
-            End + actual HH:MM:SS, Time mode left, copy button fix
-          </div>
-        </div>
-        <div class="cl-entry">
-          <div class="cl-version">v2.0.0</div>
-          <div class="cl-date">2026-04-07</div>
-          <div class="cl-desc">
-            MTR background jobs with disk persistence, tag filtering, running
-            jobs panel; Ingest Analyzer tags; bufsize streaming fix; progress
-            bar with countdown
-          </div>
-        </div>
-        <div class="cl-entry">
-          <div class="cl-version">v1.9.0</div>
-          <div class="cl-date">2026-04-06</div>
-          <div class="cl-desc">
-            Ingest Analyzer: background jobs, ZIP copy, HTML report served via
-            proxy, SRT_LOCAL presets
-          </div>
-        </div>
-        <div class="cl-entry">
-          <div class="cl-version">v1.8.0</div>
-          <div class="cl-date">2026-04-06</div>
-          <div class="cl-desc">
-            MTR time mode fix using cycles, SSE tick countdown, progress bar
-            with colour shift
-          </div>
-        </div>
-        <div class="cl-entry">
-          <div class="cl-version">v1.7.0</div>
-          <div class="cl-date">2026-04-01</div>
-          <div class="cl-desc">
-            MTR Network Trace tool with SSE streaming, server info, history
-          </div>
-        </div>
-        <div class="cl-entry">
-          <div class="cl-version">v1.6.0</div>
-          <div class="cl-date">2026-04-01</div>
-          <div class="cl-desc">
-            RMG RTS Multiview Dashboard launcher; Ingest Analyzer tool
-          </div>
-        </div>
-        <div class="cl-entry">
-          <div class="cl-version">v1.5.2</div>
-          <div class="cl-date">2026-04-01</div>
-          <div class="cl-desc">
-            nginx proxy_buffering off for SSE; per-distro nginx configs (CentOS
-            + Debian)
-          </div>
-        </div>
-        <div class="cl-entry">
-          <div class="cl-version">v1.5.1</div>
-          <div class="cl-date">2026-03-31</div>
-          <div class="cl-desc">
-            Config loaded via proxy instead of public .env; SRT_PASSPHRASE
-            secured
-          </div>
-        </div>
-        <div class="cl-entry">
-          <div class="cl-version">v1.5.0</div>
-          <div class="cl-date">2026-03-27</div>
-          <div class="cl-desc">
-            Git Pull button in index with auto-reload; proxy as systemd service
-          </div>
-        </div>
-        <div class="cl-entry">
-          <div class="cl-version">v1.4.0</div>
-          <div class="cl-date">2026-03-27</div>
-          <div class="cl-desc">
-            Lazy redraw — only update screen on state changes
-          </div>
-        </div>
-        <div class="cl-entry">
-          <div class="cl-version">v1.3.0</div>
-          <div class="cl-date">2026-03-27</div>
-          <div class="cl-desc">
-            Channel Monitor UI switched from rich to curses
-          </div>
-        </div>
-        <div class="cl-entry">
-          <div class="cl-version">v1.0.0</div>
-          <div class="cl-date">2026-03-25</div>
-          <div class="cl-desc">
-            Initial release — PhenixRTS Channel Health Monitor, SRT URI Builder
-          </div>
-        </div>
+        <div class="cl-entry"><div class="cl-version">v2.10.0</div><div class="cl-date">2026-04-24</div><div class="cl-desc">Override only shown for REJECTED results; Clear button resets form + results panel; history preserves checkbox selections across auto-refresh</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.10.0</div><div class="cl-date">2026-05-04</div><div class="cl-desc">SO Video Analyser: AV sync+jitter checks, .ts upload, clear form/history, checkbox persistence, schedule UTC+30min, European time format, bigger report modal, GOP in report, AV sync in compliance table</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.9.2</div><div class="cl-date">2026-04-24</div><div class="cl-desc">Compliance fully specs-driven: deep-merge load/save, all checks from specs.json</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.9.0</div><div class="cl-date">2026-04-24</div><div class="cl-desc">Unique test_id per run, dual report (visual screenshot + text copy for ServiceNow/Jira), print CSS</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.8.4</div><div class="cl-date">2026-04-23</div><div class="cl-desc">Re-run saves new JSON + appears in history; pollStatus sets _currentResultFile; loadHistory on all outcomes</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.8.3</div><div class="cl-date">2026-04-23</div><div class="cl-desc">Re-run button on loaded result and each history item</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.8.2</div><div class="cl-date">2026-04-23</div><div class="cl-desc">Override _currentResultFile fix, schedule UTC, constrained baseline, hi-sub date/codec/res/fps, no latency field</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.8.1</div><div class="cl-date">2026-04-23</div><div class="cl-desc">Always log failed/error JSON, FAILED/ERROR badges in history, log viewer</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.8.0</div><div class="cl-date">2026-04-23</div><div class="cl-desc">Schedule fix, fps history badge (v_fps_compliance), specs editor (JSON, password), GOP Stats left/Audio right, scheduled badge</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.7.0</div><div class="cl-date">2026-04-22</div><div class="cl-desc">SO Video Analyser rename, 50i FPS fix, override→JSON, .ts download, scheduled jobs, metadata header; index: UTC+local clocks</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.6.3</div><div class="cl-date">2026-04-21</div><div class="cl-desc">GOP: fix v_scan reference before assignment, 50i→25fps, HLG SDR, AAC-LC, audio tracks, Generate Report, Override</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.6.2</div><div class="cl-date">2026-04-16</div><div class="cl-desc">GOP: larger fonts, GOP avg hero, history filters, bitrate fallback, AAC FLTP</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.6.0</div><div class="cl-date">2026-04-16</div><div class="cl-desc">GOP: graceful timeout, NAL/IDR, open/closed GOP, compliance RAG table, FPS flag, host labels, filters, bulk delete; MTR: hops fix, bulk delete</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.5.0</div><div class="cl-date">2026-04-14</div><div class="cl-desc">New: GOP Analyzer — SRT stream capture, IDR/GOP visualizer, stream info, compliance checks</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.4.0</div><div class="cl-date">2026-04-14</div><div class="cl-desc">MTR: ICMP/UDP-53 toggle, Country/ASN geo toggle, -b flag, proto+geo in header and history</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.3.0</div><div class="cl-date">2026-04-13</div><div class="cl-desc">Proxy renamed to so-proxy; ADMIN_PASSWORD for sensitive actions; MTR host sanity check, no Watch/live duplication; README modal in index</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.2.0</div><div class="cl-date">2026-04-10</div><div class="cl-desc">MTR kill/delete with confirmation, date picker filter, history/running panels</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.1.0</div><div class="cl-date">2026-04-10</div><div class="cl-desc">MTR: wider history panel, date/search/tag filters, multi-tag, Date End + actual HH:MM:SS, Time mode left, copy button fix</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.0.0</div><div class="cl-date">2026-04-07</div><div class="cl-desc">MTR background jobs with disk persistence, tag filtering, running jobs panel; Ingest Analyzer tags; bufsize streaming fix; progress bar with countdown</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.9.0</div><div class="cl-date">2026-04-06</div><div class="cl-desc">Ingest Analyzer: background jobs, ZIP copy, HTML report served via proxy, SRT_LOCAL presets</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.8.0</div><div class="cl-date">2026-04-06</div><div class="cl-desc">MTR time mode fix using cycles, SSE tick countdown, progress bar with colour shift</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.7.0</div><div class="cl-date">2026-04-01</div><div class="cl-desc">MTR Network Trace tool with SSE streaming, server info, history</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.6.0</div><div class="cl-date">2026-04-01</div><div class="cl-desc">RMG RTS Multiview Dashboard launcher; Ingest Analyzer tool</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.5.2</div><div class="cl-date">2026-04-01</div><div class="cl-desc">nginx proxy_buffering off for SSE; per-distro nginx configs (CentOS + Debian)</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.5.1</div><div class="cl-date">2026-03-31</div><div class="cl-desc">Config loaded via proxy instead of public .env; SRT_PASSPHRASE secured</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.5.0</div><div class="cl-date">2026-03-27</div><div class="cl-desc">Git Pull button in index with auto-reload; proxy as systemd service</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.4.0</div><div class="cl-date">2026-03-27</div><div class="cl-desc">Lazy redraw — only update screen on state changes</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.3.0</div><div class="cl-date">2026-03-27</div><div class="cl-desc">Channel Monitor UI switched from rich to curses</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.0.0</div><div class="cl-date">2026-03-25</div><div class="cl-desc">Initial release — PhenixRTS Channel Health Monitor, SRT URI Builder</div></div>
       </div>
     </div>
 
@@ -1111,153 +868,33 @@
     </div>
 
     <!-- ── Restart Confirm Modal ──────────────────────────── -->
-    <div
-      id="restart-modal"
-      style="
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.65);
-        z-index: 300;
-        align-items: center;
-        justify-content: center;
-      "
-    >
-      <div class="git-card" style="max-width: 440px">
-        <div class="git-card-title" style="color: #ffb3be">
-          ⏻ Restart Proxy Service
-        </div>
-        <div
-          style="
-            font-family: var(--mono);
-            font-size: 0.72rem;
-            color: var(--text);
-            line-height: 1.7;
-            margin-bottom: 1rem;
-          "
-        >
-          ⚠ Restarting the proxy will
-          <strong style="color: #ffb3be">immediately terminate</strong> all
-          running background jobs:<br /><br />
-          <span style="color: var(--muted)"
-            >• MTR traces in progress<br />• Ingest analyses in progress</span
-          ><br /><br />
+    <div id="restart-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:300;align-items:center;justify-content:center;">
+      <div class="git-card" style="max-width:440px">
+        <div class="git-card-title" style="color:#ffb3be">⏻ Restart Proxy Service</div>
+        <div style="font-family:var(--mono);font-size:0.72rem;color:var(--text);line-height:1.7;margin-bottom:1rem">
+          ⚠ Restarting the proxy will <strong style="color:#ffb3be">immediately terminate</strong> all running background jobs:<br><br>
+          <span style="color:var(--muted)">• MTR traces in progress<br>• Ingest analyses in progress</span><br><br>
           Are you sure you want to continue?
         </div>
-        <div
-          style="
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-            flex-wrap: wrap;
-          "
-        >
-          <button
-            onclick="confirmRestart()"
-            style="
-              background: #ff4e6a;
-              border: none;
-              border-radius: 6px;
-              color: #fff;
-              font-family: var(--mono);
-              font-size: 0.7rem;
-              font-weight: 700;
-              padding: 6px 16px;
-              cursor: pointer;
-            "
-          >
-            Yes, Restart
-          </button>
-          <button onclick="closeRestartConfirm()" class="git-close-btn">
-            Cancel
-          </button>
-          <input
-            id="restart-pw"
-            type="password"
-            placeholder="admin password…"
-            style="
-              display: none;
-              background: var(--card);
-              border: 1px solid var(--border);
-              border-radius: 5px;
-              color: #fff;
-              font-family: var(--mono);
-              font-size: 0.7rem;
-              padding: 4px 10px;
-              outline: none;
-              width: 160px;
-            "
-          />
+        <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
+          <button onclick="confirmRestart()" style="background:#ff4e6a;border:none;border-radius:6px;color:#fff;font-family:var(--mono);font-size:0.7rem;font-weight:700;padding:6px 16px;cursor:pointer">Yes, Restart</button>
+          <button onclick="closeRestartConfirm()" class="git-close-btn">Cancel</button>
+          <input id="restart-pw" type="password" placeholder="admin password…"
+            style="display:none;background:var(--card);border:1px solid var(--border);border-radius:5px;color:#fff;font-family:var(--mono);font-size:0.7rem;padding:4px 10px;outline:none;width:160px" />
         </div>
-        <div
-          id="restart-pw-err"
-          style="
-            font-family: var(--mono);
-            font-size: 0.65rem;
-            color: #ffb3be;
-            margin-top: 0.4rem;
-            min-height: 1em;
-          "
-        ></div>
-        <div
-          id="restart-output"
-          style="display: none; margin-top: 1rem"
-          class="git-output"
-        ></div>
+        <div id="restart-pw-err" style="font-family:var(--mono);font-size:0.65rem;color:#ffb3be;margin-top:0.4rem;min-height:1em"></div>
+        <div id="restart-output" style="display:none;margin-top:1rem" class="git-output"></div>
       </div>
     </div>
 
     <!-- ── README Modal ────────────────────────────────────── -->
-    <div
-      id="readme-modal"
-      style="
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.7);
-        z-index: 300;
-        align-items: center;
-        justify-content: center;
-      "
-    >
-      <div
-        class="git-card"
-        style="
-          width: 700px;
-          max-width: 94vw;
-          max-height: 85vh;
-          display: flex;
-          flex-direction: column;
-        "
-      >
-        <div
-          style="
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-            flex-shrink: 0;
-          "
-        >
-          <div class="git-card-title" style="margin: 0">
-            📖 README — SP SO Web Toolbox
-          </div>
+    <div id="readme-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:300;align-items:center;justify-content:center;">
+      <div class="git-card" style="width:700px;max-width:94vw;max-height:85vh;display:flex;flex-direction:column">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-shrink:0">
+          <div class="git-card-title" style="margin:0">📖 README — SP SO Web Toolbox</div>
           <button class="git-close-btn" onclick="closeReadme()">Close</button>
         </div>
-        <div
-          id="readme-content"
-          style="
-            flex: 1;
-            overflow-y: auto;
-            font-family: var(--mono);
-            font-size: 0.7rem;
-            color: var(--text);
-            line-height: 1.8;
-            white-space: pre-wrap;
-          "
-        >
-          Loading...
-        </div>
+        <div id="readme-content" style="flex:1;overflow-y:auto;font-family:var(--mono);font-size:0.7rem;color:var(--text);line-height:1.8;white-space:pre-wrap">Loading...</div>
       </div>
     </div>
 
@@ -1267,20 +904,10 @@
       <span id="status-msg">Loading…</span>
       <span class="sep">|</span>
       <span id="status-count-bar">0 tools</span>
-      <span class="sep" style="margin-left: auto">|</span>
-      <span
-        id="clock-utc"
-        title="UTC time"
-        style="font-variant-numeric: tabular-nums"
-        >…</span
-      >
+      <span class="sep" style="margin-left:auto">|</span>
+      <span id="clock-utc" title="UTC time" style="font-variant-numeric:tabular-nums">…</span>
       <span class="sep">|</span>
-      <span
-        id="clock-local"
-        title="Local time"
-        style="font-variant-numeric: tabular-nums"
-        >…</span
-      >
+      <span id="clock-local" title="Local time" style="font-variant-numeric:tabular-nums">…</span>
     </div>
 
     <script>
@@ -1291,68 +918,50 @@
         document.getElementById("changelog-modal").classList.remove("open");
       }
       // Close on backdrop click
-      document
-        .getElementById("changelog-modal")
-        .addEventListener("click", function (e) {
-          if (e.target === this) closeChangelog();
-        });
+      document.getElementById("changelog-modal").addEventListener("click", function(e) {
+        if (e.target === this) closeChangelog();
+      });
 
       const PROXY_URL = "/so-proxy";
       let _hasAdminPw = false;
 
       // ── Clocks ────────────────────────────────────────────────────
       function updateClocks() {
-        const now = new Date();
-        const pad = (n) => String(n).padStart(2, "0");
+        const now  = new Date();
+        const pad  = n => String(n).padStart(2,"0");
         // UTC
-        const utcH = pad(now.getUTCHours()),
-          utcM = pad(now.getUTCMinutes()),
-          utcS = pad(now.getUTCSeconds());
-        document.getElementById(
-          "clock-utc"
-        ).textContent = `UTC ${utcH}:${utcM}:${utcS}`;
+        const utcH = pad(now.getUTCHours()), utcM = pad(now.getUTCMinutes()), utcS = pad(now.getUTCSeconds());
+        document.getElementById("clock-utc").textContent = `UTC ${utcH}:${utcM}:${utcS}`;
         // Local with timezone abbreviation
         const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
-        const localStr = now.toLocaleTimeString([], {
-          hour12: false,
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        });
-        document.getElementById(
-          "clock-local"
-        ).textContent = `${tz} ${localStr}`;
+        const localStr = now.toLocaleTimeString([], { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        document.getElementById("clock-local").textContent = `${tz} ${localStr}`;
       }
       updateClocks();
       setInterval(updateClocks, 1000);
 
       // Load config to check admin password
-      fetch(`${PROXY_URL}/config`)
-        .then((r) => r.json())
-        .then((d) => {
-          _hasAdminPw = (d.config || {}).HAS_ADMIN_PASSWORD === "true";
-          const pwEl = document.getElementById("restart-pw");
-          if (pwEl) pwEl.style.display = _hasAdminPw ? "" : "none";
-        })
-        .catch(() => {});
+      fetch(`${PROXY_URL}/config`).then(r=>r.json()).then(d=>{
+        _hasAdminPw = (d.config||{}).HAS_ADMIN_PASSWORD === "true";
+        const pwEl = document.getElementById("restart-pw");
+        if(pwEl) pwEl.style.display = _hasAdminPw ? "" : "none";
+      }).catch(()=>{});
 
       async function gitPull() {
-        const btn = document.getElementById("btn-git-pull");
-        const modal = document.getElementById("git-modal");
+        const btn    = document.getElementById("btn-git-pull");
+        const modal  = document.getElementById("git-modal");
         const output = document.getElementById("git-output");
         btn.classList.add("loading");
         btn.textContent = "⟳ Updating...";
         output.textContent = "Running git pull...";
-        output.className = "git-output";
+        output.className   = "git-output";
         modal.classList.add("open");
         try {
-          const res = await fetch(`${PROXY_URL}/git-pull`, { method: "POST" });
+          const res  = await fetch(`${PROXY_URL}/git-pull`, { method: "POST" });
           const data = await res.json();
           output.textContent = data.output || "(no output)";
           output.classList.add(data.success ? "ok" : "err");
-          if (data.success)
-            output.textContent +=
-              "\n\n✔ Done. Use ⏻ Restart Proxy to apply changes.";
+          if (data.success) output.textContent += "\n\n✔ Done. Use ⏻ Restart Proxy to apply changes.";
         } catch (e) {
           output.textContent = `Error: ${e.message}`;
           output.classList.add("err");
@@ -1361,37 +970,29 @@
         btn.textContent = "⟳ Update";
       }
 
-      function closeGitModal() {
-        document.getElementById("git-modal").classList.remove("open");
-      }
+      function closeGitModal() { document.getElementById("git-modal").classList.remove("open"); }
 
       function openRestartConfirm() {
         document.getElementById("restart-output").style.display = "none";
         document.getElementById("restart-pw-err").textContent = "";
         const pwEl = document.getElementById("restart-pw");
-        pwEl.value = "";
-        pwEl.style.display = _hasAdminPw ? "" : "none";
+        pwEl.value = ""; pwEl.style.display = _hasAdminPw ? "" : "none";
         document.getElementById("restart-modal").style.display = "flex";
       }
-      function closeRestartConfirm() {
-        document.getElementById("restart-modal").style.display = "none";
-      }
+      function closeRestartConfirm() { document.getElementById("restart-modal").style.display = "none"; }
 
       async function confirmRestart() {
-        const out = document.getElementById("restart-output");
-        const pw = document.getElementById("restart-pw").value;
+        const out   = document.getElementById("restart-output");
+        const pw    = document.getElementById("restart-pw").value;
         const errEl = document.getElementById("restart-pw-err");
         errEl.textContent = "";
         out.style.display = "block";
-        out.className = "git-output";
-        out.textContent = "Restarting proxy...";
+        out.className     = "git-output";
+        out.textContent   = "Restarting proxy...";
         const headers = { "Content-Type": "application/json" };
         if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
         try {
-          const res = await fetch(`${PROXY_URL}/restart-proxy`, {
-            method: "POST",
-            headers,
-          });
+          const res  = await fetch(`${PROXY_URL}/restart-proxy`, { method: "POST", headers });
           const data = await res.json();
           if (res.status === 403) {
             out.style.display = "none";
@@ -1412,12 +1013,12 @@
 
       // README modal
       async function openReadme() {
-        const modal = document.getElementById("readme-modal");
+        const modal   = document.getElementById("readme-modal");
         const content = document.getElementById("readme-content");
         modal.style.display = "flex";
         content.textContent = "Loading README...";
         try {
-          const res = await fetch("README.md", { cache: "no-cache" });
+          const res  = await fetch("README.md", { cache: "no-cache" });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const text = await res.text();
           content.textContent = text;
@@ -1425,27 +1026,20 @@
           content.textContent = `Could not load README.md: ${e.message}\n\nMake sure README.md is served alongside index.html.`;
         }
       }
-      function closeReadme() {
-        document.getElementById("readme-modal").style.display = "none";
-      }
-      document
-        .getElementById("readme-modal")
-        .addEventListener("click", function (e) {
-          if (e.target === this) closeReadme();
-        });
+      function closeReadme() { document.getElementById("readme-modal").style.display = "none"; }
+      document.getElementById("readme-modal").addEventListener("click", function(e) {
+        if (e.target === this) closeReadme();
+      });
 
       $(function () {
         // ═══════════════════════════════════════════════════
         //  .env parser
         // ═══════════════════════════════════════════════════
         async function loadEnv() {
-          const resp = await fetch(`${PROXY_URL}/config`, {
-            cache: "no-cache",
-          });
+          const resp = await fetch(`${PROXY_URL}/config`, { cache: "no-cache" });
           if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
           const data = await resp.json();
-          if (data.status !== "ok")
-            throw new Error(data.message || "Config error");
+          if (data.status !== "ok") throw new Error(data.message || "Config error");
           return data.config;
         }
 
@@ -1675,7 +1269,7 @@
             // Update title & version from env
             const title = env.APP_TITLE || "SP SO Web Toolbox";
             document.title = title;
-            $("#app-version").text("v2.9.3");
+            $("#app-version").text("v2.10.0");
 
             renderSidebar();
             renderWelcomeCards();

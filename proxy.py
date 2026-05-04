@@ -756,7 +756,53 @@ GOP_DIR    = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gop-resul
 os.makedirs(GOP_DIR, exist_ok=True)
 
 
-def _run_gop_analysis(job_id, url, duration, passphrase, tag):
+def _run_gop_on_file(job_id, ts_path, tag, url_display, started_at):
+    """Run GOP analysis on an already-captured/uploaded .ts file (no ffmpeg capture)."""
+    log_lines = []
+    def log(msg):
+        log_lines.append(msg)
+        with _gop_lock:
+            if job_id in _gop_jobs:
+                _gop_jobs[job_id]["log"] = list(log_lines)
+
+    try:
+        log(f"Analysing file: {url_display}")
+        ts_size = os.path.getsize(ts_path)
+        log(f"File size: {ts_size:,} bytes")
+
+        # Parse url_display for host/port (upload has none)
+        url_host = "upload"
+        url_port = ""
+
+        # Re-use the shared analysis block by calling _run_gop_analysis
+        # with a special sentinel URL — but the cleanest way is to call
+        # the same analysis steps. We signal "skip capture" by passing
+        # ts_path as the url with a special prefix that _run_gop_analysis detects.
+
+        # Actually: monkey-patch _gop_jobs to inject ts_path, then call full analysis
+        # Simplest correct approach: duplicate just the ffprobe+parse steps here.
+        # Since _run_gop_analysis is one long function, we use a thread-safe trick:
+        # write ts to a known location and call _run_gop_analysis with url="file://..."
+        # which it will detect and skip the ffmpeg capture.
+
+        # We patch the job to include ts_path so _run_gop_analysis can read it
+        with _gop_lock:
+            _gop_jobs[job_id]["_ts_path"] = ts_path
+
+        # Call the main analysis function with a file:// URL
+        _run_gop_analysis(job_id, f"file://{ts_path}", 9999, "", tag,
+                          _started_at=started_at)
+
+    except Exception as e:
+        log(f"ERROR: {e}")
+        with _gop_lock:
+            _gop_jobs[job_id].update({
+                "status": "error", "log": log_lines,
+                "ended_at": datetime.datetime.utcnow().isoformat() + "Z"
+            })
+
+
+def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None):
     """Background: capture SRT stream, run ffprobe frame analysis, parse GOP structure.
     Key improvements:
     - Graceful timeout: if ffmpeg times out, analyse whatever was captured
@@ -775,53 +821,72 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
 
     url_display = re.sub(r'[?&]passphrase=[^&]*', '', url).rstrip('?&')
 
+    # Detect file:// URL (uploaded file — skip capture)
+    is_file_upload = url.startswith("file://")
+    ts_path_from_upload = url[7:] if is_file_upload else None
+
     # Parse host:port from URL for display
     m_host = re.search(r'srt://([^:/?]+):(\d+)', url_display)
-    url_host = m_host.group(1) if m_host else url_display
-    url_port = m_host.group(2) if m_host else ""
+    if is_file_upload:
+        url_host = "upload"
+        url_port = ""
+        url_display = "upload:" + os.path.basename(ts_path_from_upload or "")
+    else:
+        url_host = m_host.group(1) if m_host else url_display
+        url_port = m_host.group(2) if m_host else ""
 
     ts_path = None
     cap_returncode = 0
 
+    # Use _started_at if provided (for upload jobs)
+    if _started_at and job_id in _gop_jobs:
+        with _gop_lock:
+            _gop_jobs[job_id]["started_at"] = _started_at
+
     try:
         log(f"Starting GOP analysis for: {url_display}")
-        log(f"Capture duration: {duration}s")
 
-        with tempfile.NamedTemporaryFile(suffix=".ts", delete=False) as tmp:
-            ts_path = tmp.name
+        if is_file_upload:
+            # Skip capture — use already-saved file
+            ts_path = ts_path_from_upload
+            ts_size = os.path.getsize(ts_path) if ts_path and os.path.isfile(ts_path) else 0
+            log(f"Using uploaded file: {ts_size:,} bytes")
+        else:
+            log(f"Capture duration: {duration}s")
+            with tempfile.NamedTemporaryFile(suffix=".ts", delete=False) as tmp:
+                ts_path = tmp.name
 
-        # ── Step 1: capture stream (graceful timeout) ─────────────────
-        log("Capturing stream with ffmpeg…")
-        cap_cmd = [
-            "ffmpeg", "-y",
-            "-timeout", str((duration + 10) * 1000000),  # SRT connect timeout µs
-            "-i", url,
-            "-t", str(duration),
-            "-c", "copy",
-            "-f", "mpegts",
-            ts_path
-        ]
-        try:
-            cap_result = subprocess.run(
-                cap_cmd,
-                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                timeout=duration + 45
-            )
-            cap_returncode = cap_result.returncode
-            cap_out = cap_result.stdout.decode(errors="replace")
-            log(f"ffmpeg capture done (exit {cap_returncode})")
-        except subprocess.TimeoutExpired:
-            log("WARNING: ffmpeg timed out — analysing partial capture if available")
-            cap_out = ""
-            cap_returncode = -1
+            # ── Step 1: capture stream (graceful timeout) ─────────────────
+            log("Capturing stream with ffmpeg…")
+            cap_cmd = [
+                "ffmpeg", "-y",
+                "-timeout", str((duration + 10) * 1000000),
+                "-i", url,
+                "-t", str(duration),
+                "-c", "copy",
+                "-f", "mpegts",
+                ts_path
+            ]
+            try:
+                cap_result = subprocess.run(
+                    cap_cmd,
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    timeout=duration + 45
+                )
+                cap_returncode = cap_result.returncode
+                cap_out = cap_result.stdout.decode(errors="replace")
+                log(f"ffmpeg capture done (exit {cap_returncode})")
+            except subprocess.TimeoutExpired:
+                log("WARNING: ffmpeg timed out — analysing partial capture if available")
+                cap_out = ""
+                cap_returncode = -1
 
-        # Check if we got anything usable
-        ts_size = os.path.getsize(ts_path) if (ts_path and os.path.isfile(ts_path)) else 0
-        log(f"Captured {ts_size:,} bytes")
+            ts_size = os.path.getsize(ts_path) if (ts_path and os.path.isfile(ts_path)) else 0
+            log(f"Captured {ts_size:,} bytes")
 
         if ts_size < 500:
             log("ERROR: Capture produced no usable data. Is the stream reachable?")
-            if cap_out:
+            if not is_file_upload and 'cap_out' in dir():
                 log(cap_out[-800:])
             ended_at = datetime.datetime.utcnow().isoformat() + "Z"
             err_result = {
@@ -890,7 +955,67 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
 
         log(f"Analysed {len(frames_data)} video frames")
 
-        # ── Parse GOP structure ───────────────────────────────────────
+        # ── Step 4: AV sync and PTS jitter analysis ───────────────────
+        log("Running ffprobe for AV sync analysis…")
+        av_sync = {"av_sync_min_ms": None, "av_sync_max_ms": None,
+                   "av_sync_avg_ms": None, "av_sync_median_ms": None,
+                   "v_pts_jitter_ms": None, "a_pts_jitter_ms": None}
+        try:
+            # Get all frames (video + audio) with pts_time
+            avsync_cmd = [
+                "ffprobe", "-v", "quiet", "-print_format", "json",
+                "-select_streams", "v:0,a:0",
+                "-show_frames",
+                "-show_entries", "frame=media_type,pts_time,pkt_dts_time",
+                ts_path
+            ]
+            r2 = subprocess.run(avsync_cmd, stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE, timeout=60)
+            all_frames = json.loads(r2.stdout.decode()).get("frames", [])
+
+            v_pts = sorted([float(f["pts_time"]) for f in all_frames
+                            if f.get("media_type") == "video" and f.get("pts_time") not in (None, "N/A")])
+            a_pts = sorted([float(f["pts_time"]) for f in all_frames
+                            if f.get("media_type") == "audio" and f.get("pts_time") not in (None, "N/A")])
+
+            if v_pts and a_pts:
+                # AV offset: difference between video PTS and nearest audio PTS
+                offsets = []
+                a_idx = 0
+                for vt in v_pts:
+                    # Binary search for nearest audio PTS
+                    while a_idx + 1 < len(a_pts) and abs(a_pts[a_idx+1] - vt) < abs(a_pts[a_idx] - vt):
+                        a_idx += 1
+                    offsets.append(abs(vt - a_pts[a_idx]) * 1000)  # ms
+
+                if offsets:
+                    av_sync["av_sync_min_ms"]    = round(min(offsets), 2)
+                    av_sync["av_sync_max_ms"]    = round(max(offsets), 2)
+                    av_sync["av_sync_avg_ms"]    = round(sum(offsets)/len(offsets), 2)
+                    s_off = sorted(offsets)
+                    mid = len(s_off) // 2
+                    av_sync["av_sync_median_ms"] = round(
+                        s_off[mid] if len(s_off) % 2 else (s_off[mid-1]+s_off[mid])/2, 2)
+
+            # PTS jitter — frame-to-frame interval variation
+            def _jitter(pts_list, expected_interval=None):
+                if len(pts_list) < 2:
+                    return 0.0
+                diffs = [abs(pts_list[i+1] - pts_list[i]) for i in range(len(pts_list)-1)]
+                avg = sum(diffs) / len(diffs)
+                variations = [abs(d - avg) * 1000 for d in diffs]  # ms
+                return round(sum(variations)/len(variations), 2)
+
+            if len(v_pts) > 2:
+                av_sync["v_pts_jitter_ms"] = _jitter(v_pts)
+            if len(a_pts) > 2:
+                av_sync["a_pts_jitter_ms"] = _jitter(a_pts)
+
+            log(f"AV sync: min={av_sync['av_sync_min_ms']}ms max={av_sync['av_sync_max_ms']}ms "
+                f"avg={av_sync['av_sync_avg_ms']}ms jitter V={av_sync['v_pts_jitter_ms']}ms "
+                f"A={av_sync['a_pts_jitter_ms']}ms")
+        except Exception as e:
+            log(f"WARNING: AV sync analysis failed: {e}")
         # IDR = key_frame==1 (ffmpeg/ffprobe marks NAL type 5 IDR as key_frame)
         # Additionally check side_data for "H.264 Supplemental Enhancement Information" with idr
         gops = []
@@ -1089,6 +1214,17 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
         # VBR/CBR heuristic
         v_rate_ctrl = "CBR" if file_br and v_br and abs(file_br - v_br) < file_br * 0.1 else "VBR"
 
+        def _av_check(measured_ms, warn_threshold, hard_limit, label):
+            """AV sync / jitter check: PASS < warn, WARN < hard_limit, FAIL >= hard_limit."""
+            if measured_ms is None:
+                return ("UNKNOWN", "—", "Could not measure")
+            m = round(measured_ms, 2)
+            if m < warn_threshold:
+                return ("COMPLIANT", f"{m} ms", f"< {warn_threshold}ms preferred")
+            if m < hard_limit:
+                return ("ACCEPTED", f"{m} ms", f"< {hard_limit}ms hard limit; prefer < {warn_threshold}ms")
+            return ("REJECTED", f"{m} ms", f"Exceeds hard limit of {hard_limit}ms")
+
         # ── Compliance checks — driven by specs.json ──────────────────
         # Load current specs from specs.json (or defaults)
         specs = _load_specs()
@@ -1170,7 +1306,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
             fps_to_check = 50.0
             fps_values = list(fps_values) + [50.0]
 
-        fps_ok = any(abs(fps_to_check - float(f)) < 0.1 for f in fps_values)
+        fps_ok = any(abs(fps_to_check - f) < 0.1 for f in fps_values)
         fps_pref_ok = isinstance(fps_pref, (int, float)) and abs(fps_to_check - float(fps_pref)) < 0.1
         if not fps_ok:
             fps_status = "REJECTED"
@@ -1247,6 +1383,11 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
             "a_sample_rate":comply_range(a_rate_khz, "a_sample_rate"),
             "a_bits":       comply_enum_multi(a_bps.lower(), "a_bits"),
             "a_br_kbps":    comply_range(a_br_kbps_f, "a_br_kbps"),
+            # AV Sync
+            "av_sync_warn": _av_check(av_sync.get("av_sync_avg_ms"), 15, 230, "AV Sync Avg Offset (ms)"),
+            "av_sync_max":  _av_check(av_sync.get("av_sync_max_ms"), 175, 230, "AV Sync Max Offset (ms)"),
+            "v_pts_jitter": _av_check(av_sync.get("v_pts_jitter_ms"), 5.0, 10.0, "Video PTS Jitter (ms)"),
+            "a_pts_jitter": _av_check(av_sync.get("a_pts_jitter_ms"), 5.0, 10.0, "Audio PTS Jitter (ms)"),
         }
 
         # Overall status
@@ -1295,7 +1436,14 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
             # Compliance
             "compliance": compliance,
             "overall_status": overall_status,
-            "test_id": str(uuid.uuid4()),  # unique ID for this test run
+            "test_id": str(uuid.uuid4()),
+            # AV Sync
+            "av_sync_min_ms":    av_sync.get("av_sync_min_ms"),
+            "av_sync_max_ms":    av_sync.get("av_sync_max_ms"),
+            "av_sync_avg_ms":    av_sync.get("av_sync_avg_ms"),
+            "av_sync_median_ms": av_sync.get("av_sync_median_ms"),
+            "v_pts_jitter_ms":   av_sync.get("v_pts_jitter_ms"),
+            "a_pts_jitter_ms":   av_sync.get("a_pts_jitter_ms"),
         }
 
         # Save result JSON
@@ -1304,12 +1452,17 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
         res_file = f"{ts_str}_{safe_url}.json"
         ts_dest  = os.path.join(GOP_DIR, res_file.replace(".json", ".ts"))
 
-        # Keep .ts file for download — copy to gop-results dir
+        # Keep .ts file for download — copy to gop-results dir (if not already there)
         if ts_path and os.path.isfile(ts_path):
             try:
-                import shutil as _shutil
-                _shutil.move(ts_path, ts_dest)
-                ts_saved = os.path.basename(ts_dest)
+                if is_file_upload and os.path.dirname(ts_path) == GOP_DIR:
+                    # Already in GOP_DIR (uploaded directly)
+                    ts_dest = ts_path
+                    ts_saved = os.path.basename(ts_dest)
+                else:
+                    import shutil as _shutil
+                    _shutil.move(ts_path, ts_dest)
+                    ts_saved = os.path.basename(ts_dest)
                 log(f"TS saved: {ts_saved}")
             except Exception as e:
                 log(f"WARNING: Could not save .ts file: {e}")
@@ -1375,6 +1528,46 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag):
                 "res_file": res_file,
                 "result":   err_result,
             })
+
+
+@app.route("/gop/upload", methods=["POST"])
+def gop_upload():
+    """Accept an uploaded .ts file and run GOP analysis on it (skips capture step)."""
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+    f = request.files["file"]
+    if not f.filename.lower().endswith(".ts"):
+        return jsonify({"error": "Only .ts files are supported"}), 400
+
+    tag = (request.form.get("tag") or "").strip()
+
+    import tempfile as _tf
+    with _tf.NamedTemporaryFile(suffix=".ts", delete=False, dir=GOP_DIR) as tmp:
+        ts_save_path = tmp.name
+    f.save(ts_save_path)
+
+    if os.path.getsize(ts_save_path) < 500:
+        os.remove(ts_save_path)
+        return jsonify({"error": "Uploaded file is empty or too small"}), 400
+
+    job_id     = str(uuid.uuid4())[:8]
+    started_at = datetime.datetime.utcnow().isoformat() + "Z"
+    url_display = f"upload:{f.filename}"
+
+    with _gop_lock:
+        _gop_jobs[job_id] = {
+            "job_id": job_id, "status": "running",
+            "started_at": started_at, "ended_at": None,
+            "url": url_display, "tag": tag, "result": None, "log": [],
+        }
+
+    t = threading.Thread(
+        target=_run_gop_on_file,
+        args=(job_id, ts_save_path, tag, url_display, started_at),
+        daemon=True
+    )
+    t.start()
+    return jsonify({"job_id": job_id})
 
 
 @app.route("/gop/run", methods=["POST"])
