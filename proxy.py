@@ -962,18 +962,6 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None):
                    "av_sync_avg_ms": None, "av_sync_median_ms": None,
                    "v_pts_jitter_ms": None, "a_pts_jitter_ms": None}
         try:
-            # Get all frames (video + audio) with pts_time
-            avsync_cmd = [
-                "ffprobe", "-v", "quiet", "-print_format", "json",
-                "-select_streams", "v:0,a:0",
-                "-show_frames",
-                "-show_entries", "frame=media_type,pts_time,pkt_dts_time",
-                ts_path
-            ]
-            r2 = subprocess.run(avsync_cmd, stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE, timeout=60)
-            all_frames = json.loads(r2.stdout.decode()).get("frames", [])
-
             def _get_pts(f):
                 """Return pts_time or pkt_dts_time as float, or None if unavailable."""
                 for key in ("pts_time", "pkt_dts_time"):
@@ -985,12 +973,27 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None):
                             pass
                 return None
 
-            v_pts = sorted([t for f in all_frames
-                            if f.get("media_type") == "video"
-                            for t in [_get_pts(f)] if t is not None])
-            a_pts = sorted([t for f in all_frames
-                            if f.get("media_type") == "audio"
-                            for t in [_get_pts(f)] if t is not None])
+            def _probe_pts(stream_spec):
+                """Run ffprobe for a single stream and return list of PTS floats."""
+                cmd = [
+                    "ffprobe", "-v", "error", "-print_format", "json",
+                    "-select_streams", stream_spec,
+                    "-show_frames",
+                    "-show_entries", "frame=pts_time,pkt_dts_time",
+                    ts_path
+                ]
+                r = subprocess.run(cmd, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE, timeout=60)
+                stderr_out = r.stderr.decode(errors="replace").strip()
+                if stderr_out:
+                    log(f"ffprobe [{stream_spec}] stderr: {stderr_out[:200]}")
+                frames = json.loads(r.stdout.decode()).get("frames", [])
+                pts = sorted([t for f in frames for t in [_get_pts(f)] if t is not None])
+                log(f"ffprobe [{stream_spec}]: {len(frames)} frames, {len(pts)} valid PTS")
+                return pts
+
+            v_pts = _probe_pts("v:0")
+            a_pts = _probe_pts("a:0")
 
             if v_pts and a_pts:
                 # AV offset: difference between video PTS and nearest audio PTS
@@ -1320,7 +1323,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None):
             fps_to_check = 50.0
             fps_values = list(fps_values) + [50.0]
 
-        fps_ok = any(abs(fps_to_check - f) < 0.1 for f in fps_values)
+        fps_ok = any(abs(fps_to_check - float(f)) < 0.1 for f in fps_values)
         fps_pref_ok = isinstance(fps_pref, (int, float)) and abs(fps_to_check - float(fps_pref)) < 0.1
         if not fps_ok:
             fps_status = "REJECTED"
