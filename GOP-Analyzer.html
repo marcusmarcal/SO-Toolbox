@@ -992,8 +992,11 @@ async function loadHistory() {
     if (!filtered.length) { list.innerHTML='<div class="hist-empty">No analyses found</div>'; updateBulkBar(); return; }
 
     list.innerHTML = filtered.map(item => {
-      const serverName = resolveHost(item.url_host);
-      const port       = item.url_port || "?";
+      const isUpload   = item.url_host === "upload";
+      const serverName = isUpload
+        ? (item.url || "").replace(/^upload:/, "Upload: ")
+        : resolveHost(item.url_host);
+      const port       = isUpload ? "" : (item.url_port || "?");
       const isOverride = !!item.override;
       const runStatus  = item.run_status || "done";
       const isFailed   = runStatus === "failed" || runStatus === "error";
@@ -1027,7 +1030,7 @@ async function loadHistory() {
           ${_checkedFiles.has(item.file) ? "checked" : ""}
           onchange="updateBulkBar()" />
         <div class="hist-item-body" onclick="${clickFn};event.stopPropagation()">
-          <div class="hi-dest">${serverName}:${port}</div>
+          <div class="hi-dest">${serverName}${port ? ":"+port : ""}</div>
           <div class="hi-sub">${subLine}</div>
           ${testIdBit}
           ${errorHint}
