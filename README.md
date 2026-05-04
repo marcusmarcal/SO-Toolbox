@@ -99,6 +99,7 @@ PHENIXRTS_PASSWORD=your-password
 
 | Version | Date       | Changes |
 |---------|------------|---------|
+| 2.10.1  | 2026-05-04 | SO Video Analyser bugfixes: misplaced </div> in history panel; .ts upload fix (Flask 2 GB MAX_CONTENT_LENGTH); AV sync offset fix (pkt_dts_time fallback for MPEG-TS pts_time=N/A) |
 | 2.10.0  | 2026-05-04 | AV sync+jitter checks in GOP analyser, .ts upload endpoint, clear form/history buttons, checkbox persistence, schedule UTC+30min, European time format, bigger report, GOP in report |
 | 2.9.3   | 2026-04-24 | Override only for REJECTED; Clear form+results; history checkboxes persist across refresh |
 | 2.9.2   | 2026-04-24 | Compliance fully specs-driven: deep-merge _load_specs, _save_specs complete, saveSpecs JS preserves all fields, specs editor handles number preferred |
@@ -132,12 +133,13 @@ PHENIXRTS_PASSWORD=your-password
 | 1.1.0   | 2026-03-25 | Full English translation + rich GUI |
 | 1.0.0   | 2026-03-25 | Initial PhenixRTS Channel Health Monitor |
 
-**Current Version: 2.10.0**
+**Current Version: 2.10.1**
 
 ---
 
 ## Notes
 
+- For .ts file uploads via the SO Video Analyser, nginx must allow large request bodies. Add `client_max_body_size 2G;` inside the relevant `server {}` or `location /so-proxy/` block in your nginx config.
 - The proxy executes `git pull` in its own directory when the Update button is clicked. The page reloads automatically after a successful pull. The proxy process itself must be restarted manually if `proxy.py` changes.
 - MTR jobs run as background daemon threads and survive browser disconnects. State is written to `mtr-results/*.running.json` while running and renamed to `*.json` on completion.
 - The Ingest Analyzer requires `run-ingest-analysis.sh` and its dependencies (`ffprobe`, `perl >= 5.36`, `gnuplot`, `jq`, `bc`) to be installed on the server.
