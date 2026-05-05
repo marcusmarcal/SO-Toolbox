@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>id3as DC Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #111118;
+      --card: #161621;
+      --border: #2a2a3a;
+      --accent: #00ffc8;
+      --accent2: #7b5ea7;
+      --text: #e8e8f0;
+      --muted: #6a6a8a;
+      --danger: #ff4e6a;
+      --warn: #f0a500;
+      --mono: "Space Mono", monospace;
+      --display: "Syne", sans-serif;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--display);
+      overflow: hidden;
+    }
+
+    /* ── LAYOUT ── */
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── TOOLBAR ── */
+    #toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    #toolbar h2 {
+      font-family: var(--display);
+      font-weight: 800;
+      font-size: 0.85rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-right: 4px;
+    }
+
+    .dc-toggle {
+      display: flex;
+      gap: 2px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 3px;
+    }
+    .dc-btn {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      text-transform: uppercase;
+      transition: all 0.15s;
+    }
+    .dc-btn.active {
+      background: var(--accent);
+      color: #000;
+    }
+
+    .view-tabs {
+      display: flex;
+      gap: 2px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 3px;
+    }
+    .view-tab {
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .view-tab.active {
+      background: var(--accent2);
+      color: #fff;
+    }
+
+    .tb-btn {
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      padding: 5px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .tb-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .tb-btn.refreshing { border-color: var(--accent); color: var(--accent); }
+
+    .filter-input {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      padding: 5px 10px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      outline: none;
+      width: 160px;
+      transition: border-color 0.2s;
+    }
+    .filter-input:focus { border-color: var(--accent); }
+    .filter-input::placeholder { color: var(--muted); }
+
+    #status-pill {
+      margin-left: auto;
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      background: var(--card);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    #status-pill.ok { border-color: rgba(0,255,200,0.4); color: #80ffdf; background: rgba(0,255,200,0.07); }
+    #status-pill.err { border-color: rgba(255,78,106,0.4); color: #ffb3be; background: rgba(255,78,106,0.07); }
+    #status-pill.loading { border-color: rgba(123,94,167,0.4); color: #c9b3e8; background: rgba(123,94,167,0.07); }
+    .s-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+    .s-spin { width: 8px; height: 8px; border: 1.5px solid rgba(255,255,255,0.2); border-top-color: var(--accent2); border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── TOGGLE: warnings only ── */
+    .toggle-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .toggle-wrap input { accent-color: var(--accent); cursor: pointer; }
+
+    /* ── MAIN CONTENT ── */
+    #content {
+      flex: 1;
+      overflow: auto;
+      padding: 16px;
+    }
+    #content::-webkit-scrollbar { width: 5px; }
+    #content::-webkit-scrollbar-track { background: transparent; }
+    #content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── EMPTY / ERROR / LOADING STATES ── */
+    .state-msg {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      height: 200px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      text-align: center;
+    }
+    .state-msg .big { font-size: 2rem; }
+
+    /* ── CHANNELS TABLE ── */
+    .ch-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+    }
+    .ch-table thead th {
+      text-align: left;
+      padding: 8px 12px;
+      background: var(--surface);
+      border-bottom: 2px solid var(--accent);
+      color: var(--accent);
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .ch-table tbody tr {
+      border-bottom: 1px solid #1e1e2e;
+      transition: background 0.1s;
+    }
+    .ch-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+    .ch-table tbody td {
+      padding: 7px 12px;
+      vertical-align: top;
+    }
+    .ch-table .expand-row td {
+      padding: 0 12px 10px 36px;
+      color: var(--muted);
+      font-size: 0.65rem;
+      border-bottom: 1px solid #1e1e2e;
+    }
+
+    /* status pills */
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.58rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .pill-running  { background: rgba(0,255,200,0.12); color: #00ffc8; border: 1px solid rgba(0,255,200,0.3); }
+    .pill-idle     { background: rgba(240,165,0,0.12); color: #f0a500; border: 1px solid rgba(240,165,0,0.3); }
+    .pill-disabled { background: rgba(106,106,138,0.12); color: var(--muted); border: 1px solid var(--border); }
+    .pill-streaming { background: rgba(0,255,200,0.12); color: #00ffc8; border: 1px solid rgba(0,255,200,0.3); }
+    .pill-acquiring { background: rgba(240,165,0,0.12); color: #f0a500; border: 1px solid rgba(240,165,0,0.3); }
+    .pill-err      { background: rgba(255,78,106,0.12); color: var(--danger); border: 1px solid rgba(255,78,106,0.3); }
+    .pill-none     { color: var(--muted); }
+
+    .warn-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 0.6rem;
+      font-weight: 700;
+    }
+    .warn-badge.has-warn { background: rgba(255,78,106,0.15); color: var(--danger); border: 1px solid rgba(255,78,106,0.3); }
+    .warn-badge.no-warn  { color: var(--muted); }
+
+    .ch-id { color: var(--accent); font-weight: 700; }
+    .ch-node { color: #a0a0c0; }
+
+    /* warning messages under row */
+    .warn-line {
+      display: flex;
+      gap: 8px;
+      padding: 3px 0;
+      align-items: flex-start;
+      color: var(--danger);
+      font-size: 0.63rem;
+    }
+    .warn-line .w-module { color: var(--muted); min-width: 80px; }
+    .warn-line .w-msg { color: var(--text); }
+    .warn-line .w-rep { color: var(--muted); }
+    .info-line { display: flex; gap: 8px; padding: 2px 0; color: var(--muted); font-size: 0.63rem; }
+
+    .event-line {
+      display: flex;
+      gap: 8px;
+      padding: 3px 0;
+      font-size: 0.63rem;
+      align-items: center;
+    }
+    .event-line .ev-id { color: var(--muted); }
+    .event-line .ev-name { color: #f0c060; }
+    .event-line .ev-time { color: var(--muted); }
+
+    /* ── SUMMARY BAR ── */
+    .summary-bar {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 10px 14px;
+      margin-bottom: 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      flex-wrap: wrap;
+    }
+    .sum-stat { display: flex; align-items: center; gap: 6px; }
+    .sum-stat .label { color: var(--muted); }
+    .sum-stat .value { color: var(--text); font-weight: 700; }
+    .sum-stat .value.accent { color: var(--accent); }
+    .sum-stat .value.warn { color: var(--warn); }
+    .sum-stat .value.danger { color: var(--danger); }
+
+    /* ── NODE CARDS ── */
+    .node-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 14px;
+    }
+    .node-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .node-card:hover { border-color: #3a3a5a; }
+    .node-card.has-warn { border-color: rgba(255,78,106,0.35); }
+
+    .node-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .node-id { font-family: var(--mono); font-size: 0.7rem; font-weight: 700; color: var(--accent); flex: 1; word-break: break-all; }
+    .node-host { font-family: var(--mono); font-size: 0.6rem; color: var(--muted); }
+    .node-status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .dot-online { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+    .dot-offline { background: var(--danger); }
+    .dot-unknown { background: var(--muted); }
+
+    .node-body { padding: 10px 14px; }
+
+    .ch-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-bottom: 8px;
+    }
+    .ch-chip {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid transparent;
+    }
+    .chip-ok       { background: rgba(0,255,200,0.08); color: #00ffc8; border-color: rgba(0,255,200,0.2); }
+    .chip-warn     { background: rgba(255,78,106,0.1); color: var(--danger); border-color: rgba(255,78,106,0.25); }
+    .chip-idle     { background: rgba(240,165,0,0.08); color: #f0a500; border-color: rgba(240,165,0,0.2); }
+    .chip-disabled { background: rgba(106,106,138,0.08); color: var(--muted); border-color: var(--border); }
+    .chip-empty    { color: var(--muted); font-style: italic; }
+
+    .node-stats {
+      display: flex;
+      gap: 14px;
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      color: var(--muted);
+      margin-top: 6px;
+      flex-wrap: wrap;
+    }
+    .node-stats span { white-space: nowrap; }
+    .node-stats .ns-val { color: var(--text); font-weight: 700; }
+
+    .node-warn-list { margin-top: 8px; border-top: 1px solid var(--border); padding-top: 6px; }
+
+    /* ── LOGS VIEW ── */
+    .logs-controls {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .log-level-btns {
+      display: flex;
+      gap: 2px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 3px;
+    }
+    .log-lvl {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      padding: 3px 9px;
+      border-radius: 4px;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      transition: all 0.15s;
+    }
+    .log-lvl.active-all     { background: var(--surface); color: var(--text); }
+    .log-lvl.active-info    { background: rgba(0,100,255,0.2); color: #80b0ff; }
+    .log-lvl.active-warning { background: rgba(240,165,0,0.2); color: #f0c060; }
+    .log-lvl.active-error   { background: rgba(255,78,106,0.2); color: var(--danger); }
+    .log-lvl.active-critical{ background: rgba(200,0,200,0.2); color: #e080e0; }
+
+    .date-input {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      padding: 5px 10px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s;
+      color-scheme: dark;
+    }
+    .date-input:focus { border-color: var(--accent); }
+
+    .log-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .log-row {
+      display: grid;
+      grid-template-columns: 160px 80px 100px auto;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 5px;
+      font-family: var(--mono);
+      font-size: 0.63rem;
+      border: 1px solid transparent;
+      transition: background 0.1s;
+      align-items: start;
+    }
+    .log-row:hover { background: var(--card); border-color: var(--border); }
+    .log-row .l-dt  { color: var(--muted); white-space: nowrap; }
+    .log-row .l-lvl { text-align: center; }
+    .log-row .l-cat { color: #a0a0c0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .log-row .l-msg { color: var(--text); word-break: break-word; }
+    .lvl-info     { color: #80b0ff; }
+    .lvl-warning  { color: #f0c060; }
+    .lvl-error    { color: var(--danger); }
+    .lvl-critical { color: #e080e0; }
+
+    /* ── GREP INPUT ── */
+    .grep-input {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      padding: 5px 10px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      outline: none;
+      width: 200px;
+      transition: border-color 0.2s;
+    }
+    .grep-input:focus { border-color: var(--accent); }
+    .grep-input::placeholder { color: var(--muted); }
+
+    /* ── COLOR KEY ── */
+    .color-key {
+      display: flex;
+      gap: 14px;
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      color: var(--muted);
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .ck-item { display: flex; align-items: center; gap: 5px; }
+    .ck-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+    /* ── SCROLL HINT ── */
+    #content { scroll-behavior: smooth; }
+
+    /* ── EXPAND ROW TOGGLE ── */
+    .expand-toggle {
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 0.65rem;
+      user-select: none;
+      transition: color 0.15s;
+    }
+    .expand-toggle:hover { color: var(--text); }
+
+    /* ── SECTION TITLE ── */
+    .section-title {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tag-count {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      color: var(--muted);
+      margin-left: auto;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── TOOLBAR ── -->
+  <div id="toolbar">
+    <h2>⛨ id3as DC Monitor</h2>
+
+    <!-- DC selector -->
+    <div class="dc-toggle">
+      <button class="dc-btn active" data-dc="ix">IX</button>
+      <button class="dc-btn" data-dc="eq">EQ</button>
+    </div>
+
+    <!-- View selector -->
+    <div class="view-tabs">
+      <button class="view-tab active" data-view="channels">Channels</button>
+      <button class="view-tab" data-view="nodes">Nodes</button>
+      <button class="view-tab" data-view="rmg">RMG</button>
+      <button class="view-tab" data-view="logs">Logs</button>
+    </div>
+
+    <!-- Filter -->
+    <input class="filter-input" id="filter-input" type="text" placeholder="Filter…" />
+
+    <!-- Warnings toggle -->
+    <label class="toggle-wrap">
+      <input type="checkbox" id="warn-only" />
+      Warnings only
+    </label>
+
+    <!-- Refresh -->
+    <button class="tb-btn" id="refresh-btn">↺ Refresh</button>
+
+    <!-- Status -->
+    <div id="status-pill">
+      <span class="s-dot"></span>
+      <span id="status-text">Select DC to load</span>
+    </div>
+  </div>
+
+  <!-- ── LOG CONTROLS (hidden unless logs view) ── -->
+  <div id="log-toolbar" style="display:none; padding:8px 16px; border-bottom:1px solid var(--border); background:var(--surface); flex-shrink:0;">
+    <div class="logs-controls">
+      <div class="log-level-btns">
+        <button class="log-lvl active-all" data-lvl="">ALL</button>
+        <button class="log-lvl" data-lvl="info">INFO</button>
+        <button class="log-lvl" data-lvl="warning">WARN</button>
+        <button class="log-lvl" data-lvl="error">ERROR</button>
+        <button class="log-lvl" data-lvl="critical">CRIT</button>
+      </div>
+      <input class="date-input" id="log-date" type="date" title="Date (UTC)" />
+      <input class="grep-input" id="log-grep" type="text" placeholder="grep (comma-sep)…" />
+      <span class="tag-count" id="log-count">0 events</span>
+    </div>
+  </div>
+
+  <!-- ── CONTENT ── -->
+  <div id="content">
+    <div class="state-msg" id="init-msg">
+      <div class="big">⛨</div>
+      <div>Select a DC and view to load data</div>
+    </div>
+    <div id="view-container" style="display:none;"></div>
+  </div>
+
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   id3as DC Monitor — SO Toolbox tool
+   Communicates via /so-proxy/id3as/* endpoints (proxy handles auth)
+════════════════════════════════════════════════════════════════ */
+
+const PROXY = '/so-proxy';
+
+let currentDC   = 'ix';
+let currentView = 'channels';
+let rawData     = {};
+let logAllEvents = [];
+let logLevel    = '';
+let refreshTimer = null;
+
+// ── Utility ──────────────────────────────────────────────────
+
+function setStatus(msg, type = '') {
+  const pill = document.getElementById('status-pill');
+  const text = document.getElementById('status-text');
+  pill.className = type ? type : '';
+  if (type === 'loading') {
+    pill.innerHTML = `<span class="s-spin"></span><span>${msg}</span>`;
+  } else {
+    const dotClass = type === 'ok' ? 's-dot' : type === 'err' ? 's-dot' : 's-dot';
+    pill.innerHTML = `<span class="${dotClass}"></span><span>${msg}</span>`;
+  }
+}
+
+async function fetchProxy(path) {
+  const r = await fetch(`${PROXY}/id3as/${currentDC}${path}`);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function fmtDt(s) {
+  if (!s) return '';
+  const m = s.match(/(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})/);
+  return m ? `${m[1]} ${m[2]}` : s.slice(0,16);
+}
+
+function isInfoWarn(w) {
+  return (w.msg || '').includes('No traffic on source');
+}
+
+// ── Fetch all data for current view ──────────────────────────
+
+async function loadData() {
+  setStatus('Loading…', 'loading');
+  document.getElementById('init-msg').style.display = 'none';
+  document.getElementById('view-container').style.display = 'block';
+  document.getElementById('view-container').innerHTML = `<div class="state-msg"><div class="s-spin" style="width:24px;height:24px;border-width:3px"></div><div>Fetching from ${currentDC.toUpperCase()}…</div></div>`;
+
+  try {
+    if (currentView === 'channels' || currentView === 'nodes') {
+      const [channels, flags, events] = await Promise.all([
+        fetchProxy('/channels/default'),
+        fetchProxy('/flags/channels'),
+        fetchProxy('/running_events'),
+      ]);
+      rawData = { channels, flags, events };
+    } else if (currentView === 'rmg') {
+      const [channels, flags, events] = await Promise.all([
+        fetchProxy('/channels/racing_uk'),
+        fetchProxy('/flags/channels'),
+        fetchProxy('/running_events'),
+      ]);
+      rawData = { channels, flags, events };
+    } else if (currentView === 'logs') {
+      const dateVal = document.getElementById('log-date').value;
+      let datePath = '';
+      if (dateVal) {
+        const [y,m,d] = dateVal.split('-');
+        datePath = `/${y}/${m}/${d}`;
+      }
+      const events = await fetchProxy(`/logs${datePath}`);
+      logAllEvents = Array.isArray(events) ? events : [];
+      rawData = { logs: logAllEvents };
+    }
+
+    renderView();
+    const now = new Date().toLocaleTimeString();
+    setStatus(`${currentDC.toUpperCase()} · refreshed ${now}`, 'ok');
+  } catch (e) {
+    document.getElementById('view-container').innerHTML = `<div class="state-msg"><div class="big">⚠</div><div style="color:var(--danger)">${escHtml(e.message)}</div><div style="font-size:0.6rem;margin-top:4px">Check proxy endpoints and PRFAUTH in .env</div></div>`;
+    setStatus(`Error: ${e.message}`, 'err');
+  }
+}
+
+// ── Render dispatcher ────────────────────────────────────────
+
+function renderView() {
+  const filter = document.getElementById('filter-input').value.trim().toLowerCase();
+  const warnOnly = document.getElementById('warn-only').checked;
+
+  if (currentView === 'channels') renderChannels(filter, warnOnly);
+  else if (currentView === 'nodes') renderNodes(filter, warnOnly);
+  else if (currentView === 'rmg') renderRMG(filter, warnOnly);
+  else if (currentView === 'logs') renderLogs();
+}
+
+// ── CHANNELS VIEW ────────────────────────────────────────────
+
+function buildFlagMap(flags) {
+  const m = {};
+  if (!Array.isArray(flags)) return m;
+  for (const f of flags) {
+    const sid = f.system_id || '';
+    if (sid) (m[sid] = m[sid] || []).push(f);
+  }
+  return m;
+}
+
+function buildEventMap(events) {
+  const m = {};
+  if (!Array.isArray(events)) return m;
+  for (const ev of events) {
+    const ch = ev.channel_id || '';
+    if (!ch) continue;
+    const sched = findScheduledEvent(ev) || {};
+    const name  = htmlToOneLine(sched.description || '');
+    (m[ch] = m[ch] || []).push({
+      event_id:   String(ev.id || ''),
+      event_name: name || '—',
+      start:      fmtDt(sched.start_datetime),
+      end:        fmtDt(sched.end_datetime),
+    });
+  }
+  return m;
+}
+
+function findScheduledEvent(obj) {
+  if (!obj || typeof obj !== 'object') return null;
+  if (Array.isArray(obj)) {
+    for (const it of obj) { const r = findScheduledEvent(it); if (r) return r; }
+    return null;
+  }
+  if (obj.scheduled_event && typeof obj.scheduled_event === 'object') return obj.scheduled_event;
+  for (const v of Object.values(obj)) { const r = findScheduledEvent(v); if (r) return r; }
+  return null;
+}
+
+function htmlToOneLine(s) {
+  if (!s) return '';
+  return s.replace(/<br\s*\/?>/gi,' | ').replace(/\s+/g,' ').trim();
+}
+
+function encStatePill(state) {
+  if (!state) return `<span class="pill-none">—</span>`;
+  if (state === 'running') return `<span class="pill pill-running">running</span>`;
+  return `<span class="pill pill-err">⚠ ${escHtml(state)}</span>`;
+}
+
+function srcStatePill(state) {
+  if (!state) return `<span class="pill-none">—</span>`;
+  if (state === 'streaming') return `<span class="pill pill-streaming">streaming</span>`;
+  if (state === 'acquiring_signal') return `<span class="pill pill-acquiring">acquiring</span>`;
+  return `<span class="pill pill-idle">${escHtml(state)}</span>`;
+}
+
+function warnBadge(count) {
+  if (count === 0) return `<span class="warn-badge no-warn">—</span>`;
+  return `<span class="warn-badge has-warn">⚠ ${count}</span>`;
+}
+
+function renderChannels(filter, warnOnly) {
+  const channels = Array.isArray(rawData.channels) ? rawData.channels : [];
+  const flagMap  = buildFlagMap(rawData.flags);
+  const evMap    = buildEventMap(rawData.events);
+
+  let rows = channels.filter(ch => typeof ch === 'object' && ch).map(ch => {
+    const id        = ch.id || '?';
+    const node      = ch.encoder_node_id || ch.target_node_id || '—';
+    const allMsgs   = flagMap[id] || [];
+    const wMsgs     = allMsgs.filter(w => !isInfoWarn(w));
+    const infoMsgs  = allMsgs.filter(w => isInfoWarn(w));
+    const encState  = ''; // populated from /channel/{id}/status — omitted in MVP (too many requests)
+    const srcState  = '';
+    return {
+      id, node,
+      encState, srcState,
+      jobStarted: !!ch.encoder_job_started,
+      enabled: !!ch.enabled,
+      warnings: wMsgs.length,
+      wMsgs, infoMsgs,
+      events: evMap[id] || [],
+    };
+  });
+
+  if (filter) rows = rows.filter(r => r.id.toLowerCase().includes(filter) || r.node.toLowerCase().includes(filter));
+  if (warnOnly) rows = rows.filter(r => r.warnings > 0);
+
+  const nTotal  = rows.length;
+  const nRun    = rows.filter(r => r.jobStarted).length;
+  const nWarn   = rows.reduce((s,r) => s + r.warnings, 0);
+  const nEv     = rows.reduce((s,r) => s + r.events.length, 0);
+
+  let html = `
+    <div class="summary-bar">
+      <div class="sum-stat"><span class="label">Channels</span><span class="value accent">${nTotal}</span></div>
+      <div class="sum-stat"><span class="label">Job running</span><span class="value">${nRun}</span></div>
+      <div class="sum-stat"><span class="label">Active events</span><span class="value">${nEv}</span></div>
+      <div class="sum-stat"><span class="label">Warnings</span><span class="value ${nWarn ? 'danger' : ''}">${nWarn || '—'}</span></div>
+    </div>
+    <table class="ch-table">
+      <thead><tr>
+        <th>Channel</th>
+        <th>Node</th>
+        <th>Job</th>
+        <th>Warnings</th>
+        <th></th>
+      </tr></thead>
+      <tbody>`;
+
+  for (const r of rows) {
+    const jobPill = r.jobStarted
+      ? `<span class="pill pill-running">active</span>`
+      : r.enabled
+        ? `<span class="pill pill-idle">idle</span>`
+        : `<span class="pill pill-disabled">disabled</span>`;
+
+    const hasExpand = r.warnings > 0 || r.events.length > 0 || r.infoMsgs.length > 0;
+    const rowId = 'ch-' + r.id.replace(/[^a-z0-9]/gi,'-');
+
+    html += `
+      <tr>
+        <td class="ch-id">${escHtml(r.id)}</td>
+        <td class="ch-node">${escHtml(r.node)}</td>
+        <td>${jobPill}</td>
+        <td>${warnBadge(r.warnings)}</td>
+        <td>${hasExpand ? `<span class="expand-toggle" onclick="toggleExpand('${rowId}')">▸ details</span>` : ''}</td>
+      </tr>`;
+
+    if (hasExpand) {
+      html += `<tr class="expand-row" id="${rowId}" style="display:none"><td colspan="5">`;
+      for (const ev of r.events) {
+        html += `<div class="event-line"><span class="ev-id">#${escHtml(ev.event_id)}</span><span class="ev-name">${escHtml(ev.event_name)}</span><span class="ev-time">${escHtml(ev.start)} → ${escHtml(ev.end)}</span></div>`;
+      }
+      for (const w of r.wMsgs) {
+        html += `<div class="warn-line"><span>⚠</span><span class="w-module">[${escHtml(w.module||'')}]</span><span class="w-msg">${escHtml(w.msg||'')}</span><span class="w-rep">(×${w.repeated||0})</span></div>`;
+      }
+      for (const w of r.infoMsgs) {
+        html += `<div class="info-line"><span>ℹ</span><span class="w-module">[${escHtml(w.module||'')}]</span><span>${escHtml(w.msg||'')}</span></div>`;
+      }
+      html += `</td></tr>`;
+    }
+  }
+
+  html += `</tbody></table>`;
+
+  if (!rows.length) {
+    html += `<div class="state-msg"><div class="big">🔍</div><div>No channels match current filters</div></div>`;
+  }
+
+  document.getElementById('view-container').innerHTML = html;
+}
+
+function toggleExpand(id) {
+  const row = document.getElementById(id);
+  if (!row) return;
+  const hidden = row.style.display === 'none';
+  row.style.display = hidden ? '' : 'none';
+  const toggle = row.previousElementSibling?.querySelector('.expand-toggle');
+  if (toggle) toggle.textContent = hidden ? '▾ details' : '▸ details';
+}
+
+// ── NODES VIEW ───────────────────────────────────────────────
+
+function renderNodes(filter, warnOnly) {
+  const channels  = Array.isArray(rawData.channels) ? rawData.channels : [];
+  const flagMap   = buildFlagMap(rawData.flags);
+  const evMap     = buildEventMap(rawData.events);
+
+  // group channels by node
+  const byNode = {};
+  const chToNode = {};
+  for (const ch of channels) {
+    if (!ch || typeof ch !== 'object') continue;
+    const id   = ch.id || '?';
+    const node = ch.encoder_node_id || ch.target_node_id || '__unassigned__';
+    chToNode[id] = node;
+    if (!byNode[node]) byNode[node] = [];
+    const allMsgs  = flagMap[id] || [];
+    const wMsgs    = allMsgs.filter(w => !isInfoWarn(w));
+    const infoMsgs = allMsgs.filter(w => isInfoWarn(w));
+    byNode[node].push({
+      id, enabled: !!ch.enabled, jobStarted: !!ch.encoder_job_started,
+      warnings: wMsgs.length, wMsgs, infoMsgs,
+    });
+  }
+
+  // events by node
+  const evByNode = {};
+  if (Array.isArray(rawData.events)) {
+    for (const ev of rawData.events) {
+      const ch   = ev.channel_id || '';
+      const node = chToNode[ch] || '';
+      if (!node || node === '__unassigned__') continue;
+      const sched = findScheduledEvent(ev) || {};
+      const name  = htmlToOneLine(sched.description || '') || '—';
+      (evByNode[node] = evByNode[node] || []).push({
+        event_id: String(ev.id||''), channel_id: ch,
+        event_name: name,
+        start: fmtDt(sched.start_datetime),
+        end:   fmtDt(sched.end_datetime),
+      });
+    }
+  }
+
+  let nodes = Object.keys(byNode).sort().map(nid => ({
+    id: nid,
+    channels: byNode[nid].sort((a,b) => a.id.localeCompare(b.id)),
+    events: evByNode[nid] || [],
+  }));
+
+  if (filter) nodes = nodes.filter(n => n.id.toLowerCase().includes(filter) ||
+    n.channels.some(c => c.id.toLowerCase().includes(filter)));
+  if (warnOnly) nodes = nodes.filter(n => n.channels.some(c => c.warnings > 0));
+
+  const nTotal = nodes.length;
+  const nWarn  = nodes.reduce((s,n) => s + n.channels.reduce((ss,c) => ss+c.warnings,0), 0);
+  const nCh    = nodes.reduce((s,n) => s + n.channels.length, 0);
+  const nRun   = nodes.reduce((s,n) => s + n.channels.filter(c=>c.jobStarted).length, 0);
+
+  let html = `
+    <div class="summary-bar">
+      <div class="sum-stat"><span class="label">Nodes</span><span class="value accent">${nTotal}</span></div>
+      <div class="sum-stat"><span class="label">Channels</span><span class="value">${nRun}/${nCh} running</span></div>
+      <div class="sum-stat"><span class="label">Warnings</span><span class="value ${nWarn ? 'danger' : ''}">${nWarn || '—'}</span></div>
+    </div>
+    <div class="node-grid">`;
+
+  for (const n of nodes) {
+    const nChs   = n.channels.length;
+    const nWs    = n.channels.reduce((s,c) => s+c.warnings, 0);
+    const nRunCh = n.channels.filter(c=>c.jobStarted).length;
+    const hasWarn = nWs > 0;
+
+    html += `<div class="node-card ${hasWarn ? 'has-warn' : ''}">
+      <div class="node-head">
+        <div class="node-status-dot dot-unknown"></div>
+        <div class="node-id">${escHtml(n.id)}</div>
+        ${hasWarn ? `<span class="warn-badge has-warn">⚠ ${nWs}</span>` : ''}
+      </div>
+      <div class="node-body">
+        <div class="ch-chips">`;
+
+    if (!n.channels.length) {
+      html += `<span class="ch-chip chip-empty">(no channels)</span>`;
+    } else {
+      for (const c of n.channels) {
+        let cls = 'chip-ok';
+        if (!c.enabled)     cls = 'chip-disabled';
+        else if (c.warnings > 0) cls = 'chip-warn';
+        else if (!c.jobStarted)  cls = 'chip-idle';
+        html += `<span class="ch-chip ${cls}" title="${escHtml(c.id)}">${escHtml(c.id)}</span>`;
+      }
+    }
+
+    html += `</div>
+        <div class="node-stats">
+          <span>${nRunCh}/<span class="ns-val">${nChs}</span> ch running</span>
+          ${n.events.length ? `<span><span class="ns-val" style="color:#f0c060">${n.events.length}</span> event${n.events.length!==1?'s':''}</span>` : ''}
+        </div>`;
+
+    if (n.events.length) {
+      for (const ev of n.events) {
+        html += `<div class="event-line" style="margin-top:6px"><span class="ev-id">${escHtml(ev.channel_id)}</span><span class="ev-name">${escHtml(ev.event_name.slice(0,50))}</span></div>`;
+      }
+    }
+
+    if (hasWarn) {
+      html += `<div class="node-warn-list">`;
+      for (const c of n.channels.filter(c=>c.warnings>0)) {
+        for (const w of c.wMsgs) {
+          html += `<div class="warn-line"><span>⚠</span><span class="w-module">${escHtml(c.id)}</span><span class="w-msg">${escHtml(w.msg||'')}</span></div>`;
+        }
+      }
+      html += `</div>`;
+    }
+
+    html += `</div></div>`;
+  }
+
+  html += `</div>`;
+
+  if (!nodes.length) {
+    html += `<div class="state-msg"><div class="big">🔍</div><div>No nodes match current filters</div></div>`;
+  }
+
+  html += `<div class="color-key">
+    <span class="ck-item"><span class="ck-dot" style="background:#00ffc8"></span> running</span>
+    <span class="ck-item"><span class="ck-dot" style="background:var(--danger)"></span> warning</span>
+    <span class="ck-item"><span class="ck-dot" style="background:#f0a500"></span> idle</span>
+    <span class="ck-item"><span class="ck-dot" style="background:var(--muted)"></span> disabled</span>
+  </div>`;
+
+  document.getElementById('view-container').innerHTML = html;
+}
+
+// ── RMG VIEW ─────────────────────────────────────────────────
+
+function renderRMG(filter, warnOnly) {
+  const channels = Array.isArray(rawData.channels) ? rawData.channels : [];
+  const flagMap  = buildFlagMap(rawData.flags);
+  const evMap    = buildEventMap(rawData.events);
+
+  let rows = channels.filter(ch => typeof ch === 'object' && ch).map(ch => {
+    const id  = ch.id || '?';
+    const node = ch.encoder_node_id || ch.target_node_id || '—';
+    const enabled = !!ch.enabled;
+    const jobStarted = !!ch.encoder_job_started;
+    const status = !enabled ? 'disabled' : jobStarted ? 'running' : 'idle';
+    const allMsgs  = flagMap[id] || [];
+    const wMsgs    = allMsgs.filter(w => !isInfoWarn(w));
+    const infoMsgs = allMsgs.filter(w => isInfoWarn(w));
+    return { id, node, status, warnings: wMsgs.length, wMsgs, infoMsgs, events: evMap[id] || [] };
+  });
+
+  if (filter) rows = rows.filter(r => r.id.toLowerCase().includes(filter) || r.node.toLowerCase().includes(filter));
+  if (warnOnly) rows = rows.filter(r => r.warnings > 0);
+
+  const nTotal   = rows.length;
+  const nRunning = rows.filter(r => r.status === 'running').length;
+  const nWarn    = rows.reduce((s,r) => s + r.warnings, 0);
+  const nEv      = rows.reduce((s,r) => s + r.events.length, 0);
+
+  let html = `
+    <div class="summary-bar">
+      <div class="sum-stat"><span class="label">RMG Channels</span><span class="value accent">${nTotal}</span></div>
+      <div class="sum-stat"><span class="label">Running</span><span class="value">${nRunning}</span></div>
+      <div class="sum-stat"><span class="label">Active events</span><span class="value">${nEv}</span></div>
+      <div class="sum-stat"><span class="label">Warnings</span><span class="value ${nWarn ? 'danger' : ''}">${nWarn || '—'}</span></div>
+    </div>
+    <table class="ch-table">
+      <thead><tr>
+        <th>Channel</th>
+        <th>Status</th>
+        <th>Node</th>
+        <th>Events</th>
+        <th>Warnings</th>
+        <th></th>
+      </tr></thead>
+      <tbody>`;
+
+  for (const r of rows) {
+    const statusPill =
+      r.status === 'running'  ? `<span class="pill pill-running">running</span>`  :
+      r.status === 'idle'     ? `<span class="pill pill-idle">idle</span>`         :
+                                `<span class="pill pill-disabled">disabled</span>`;
+
+    const hasExpand = r.warnings > 0 || r.events.length > 0;
+    const rowId = 'rmg-' + r.id.replace(/[^a-z0-9]/gi,'-');
+
+    html += `
+      <tr>
+        <td class="ch-id">${escHtml(r.id)}</td>
+        <td>${statusPill}</td>
+        <td class="ch-node">${escHtml(r.node)}</td>
+        <td><span style="color:#f0c060">${r.events.length || '—'}</span></td>
+        <td>${warnBadge(r.warnings)}</td>
+        <td>${hasExpand ? `<span class="expand-toggle" onclick="toggleExpand('${rowId}')">▸ details</span>` : ''}</td>
+      </tr>`;
+
+    if (hasExpand) {
+      html += `<tr class="expand-row" id="${rowId}" style="display:none"><td colspan="6">`;
+      for (const ev of r.events) {
+        html += `<div class="event-line"><span class="ev-id">#${escHtml(ev.event_id)}</span><span class="ev-name">${escHtml(ev.event_name.slice(0,70))}</span><span class="ev-time">${escHtml(ev.start)} → ${escHtml(ev.end)}</span></div>`;
+      }
+      for (const w of r.wMsgs) {
+        html += `<div class="warn-line"><span>⚠</span><span class="w-module">[${escHtml(w.module||'')}]</span><span class="w-msg">${escHtml(w.msg||'')}</span><span class="w-rep">(×${w.repeated||0})</span></div>`;
+      }
+      html += `</td></tr>`;
+    }
+  }
+
+  html += `</tbody></table>`;
+  if (!rows.length) {
+    html += `<div class="state-msg"><div class="big">🔍</div><div>No RMG channels match current filters</div></div>`;
+  }
+
+  document.getElementById('view-container').innerHTML = html;
+}
+
+// ── LOGS VIEW ────────────────────────────────────────────────
+
+function renderLogs() {
+  let events = logAllEvents;
+  const grep = document.getElementById('log-grep').value.trim().toLowerCase();
+  const filter = document.getElementById('filter-input').value.trim().toLowerCase();
+
+  if (logLevel) events = events.filter(e => (e.level||'').toLowerCase() === logLevel);
+
+  if (grep) {
+    const needles = grep.split(',').map(s=>s.trim()).filter(Boolean);
+    events = events.filter(e => {
+      const hay = `${e.id||''} ${e.category||''} ${e.level||''} ${e.message||''}`.toLowerCase();
+      return needles.every(n => hay.includes(n));
+    });
+  }
+  if (filter) {
+    events = events.filter(e => {
+      const hay = `${e.id||''} ${e.category||''} ${e.message||''}`.toLowerCase();
+      return hay.includes(filter);
+    });
+  }
+
+  document.getElementById('log-count').textContent = `${events.length} event${events.length!==1?'s':''}`;
+
+  if (!events.length) {
+    document.getElementById('view-container').innerHTML = `<div class="state-msg"><div class="big">📋</div><div>No log events match current filters</div></div>`;
+    return;
+  }
+
+  const lvlClass = { info:'lvl-info', warning:'lvl-warning', error:'lvl-error', critical:'lvl-critical' };
+
+  let html = `<div class="log-list">`;
+  for (const ev of events) {
+    const lvl = (ev.level||'').toLowerCase();
+    const dt  = ev.datetime ? ev.datetime.replace('T',' ').replace('Z','') : '';
+    let msg = (ev.message||'').replace(/<<(.*?)>>/g,'$1').replace(/\s*\n\s*/g,' ').trim();
+    html += `
+      <div class="log-row">
+        <span class="l-dt">${escHtml(dt)}</span>
+        <span class="l-lvl ${lvlClass[lvl]||''}">${escHtml((ev.level||'').toUpperCase())}</span>
+        <span class="l-cat" title="${escHtml(ev.category||'')}">${escHtml(ev.category||'')}</span>
+        <span class="l-msg">${escHtml(msg)}</span>
+      </div>`;
+  }
+  html += `</div>`;
+  document.getElementById('view-container').innerHTML = html;
+}
+
+// ── EVENTS ───────────────────────────────────────────────────
+
+document.querySelectorAll('.dc-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.dc-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentDC = btn.dataset.dc;
+    loadData();
+  });
+});
+
+document.querySelectorAll('.view-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentView = tab.dataset.view;
+    document.getElementById('log-toolbar').style.display = currentView === 'logs' ? '' : 'none';
+    loadData();
+  });
+});
+
+document.getElementById('refresh-btn').addEventListener('click', loadData);
+
+document.getElementById('filter-input').addEventListener('input', () => {
+  if (rawData && Object.keys(rawData).length) renderView();
+});
+
+document.getElementById('warn-only').addEventListener('change', () => {
+  if (rawData && Object.keys(rawData).length) renderView();
+});
+
+// Log controls
+document.querySelectorAll('.log-lvl').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.log-lvl').forEach(b => b.className = 'log-lvl');
+    logLevel = btn.dataset.lvl;
+    const cls = logLevel ? `active-${logLevel}` : 'active-all';
+    btn.classList.add(cls);
+    renderLogs();
+  });
+});
+
+document.getElementById('log-grep').addEventListener('input', renderLogs);
+
+document.getElementById('log-date').addEventListener('change', () => {
+  if (currentView === 'logs') loadData();
+});
+
+// Set today's date as default
+(function() {
+  const now = new Date();
+  const y = now.getUTCFullYear();
+  const m = String(now.getUTCMonth()+1).padStart(2,'0');
+  const d = String(now.getUTCDate()).padStart(2,'0');
+  document.getElementById('log-date').value = `${y}-${m}-${d}`;
+})();
+
+// Auto-refresh every 30s
+function startAutoRefresh() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = setInterval(() => {
+    if (Object.keys(rawData).length) loadData();
+  }, 30000);
+}
+startAutoRefresh();
+</script>
+</body>
+</html>

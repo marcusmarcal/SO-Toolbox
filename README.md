@@ -40,6 +40,9 @@ Launcher page for the PhenixRTS external multiview dashboard. Since `dashboard.p
 ### 🔬 Ingest Analyzer (`Ingest-Analyzer.html`)
 Frontend for the `run-ingest-analysis.sh` script. Accepts SRT, RTMP, UDP, custom URLs, or server-side `.ts` file paths. Runs the analysis as a background job (~2 minutes) and polls for completion. On finish, the full report directory (HTML + charts) and ZIP archive are copied to `ingest-results/`. Results can be opened directly in the browser or downloaded as a ZIP. Supports tag labeling. SRT local host presets are loaded from `SRT_LOCAL_*` in `.env`, and the passphrase is pre-filled from `SRT_PASSPHRASE`.
 
+### ⛨ id3as DC Monitor (`id3as-DC-Monitor.html`)
+Web frontend for monitoring id3as data-centre infrastructure. Communicates with the id3as API via the SO proxy using `PRFAUTH` from `.env` — credentials never reach the browser. Supports two DCs (IX and EQ) and four views: **Channels** (all default channels with job state, warnings, and active events), **Nodes** (per-node channel allocation grid with colour-coded chips), **RMG** (Racing UK channels with per-channel event list), and **Logs** (system event log with level filter, date picker, and grep). Auto-refreshes every 30 seconds. Filter and warnings-only toggle apply across all views.
+
 ---
 
 ## .env Format
@@ -54,6 +57,7 @@ TOOL_2=SRT-URI-Builder.html|SRT URI Builder|Build SRT connection strings|🔗|St
 TOOL_3=MTR-Trace.html|MTR Network Trace|Server-side route tracing|🔍|Network|
 TOOL_4=RMG-RTS-Multiview.html|RMG RTS Multiview|PhenixRTS live dashboard|📺|Monitoring|
 TOOL_5=Ingest-Analyzer.html|Ingest Analyzer|Validate ingest stream quality|🔬|Streaming|
+TOOL_6=id3as-DC-Monitor.html|id3as DC Monitor|id3as channel & node monitoring|⛨|Monitoring|
 
 # SRT URI Builder — server presets (IP|Label)
 SRT_SERVER_1=203.0.113.10|Ingest EU-West
@@ -69,6 +73,9 @@ SRT_PASSPHRASE=your-passphrase-here
 # PhenixRTS credentials — server-side only, never sent to browser
 PHENIXRTS_APP_ID=your-app-id
 PHENIXRTS_PASSWORD=your-password
+
+# id3as authentication — server-side only, never sent to browser
+PRFAUTH=your-prfauth-token-here
 ```
 
 ---
@@ -92,6 +99,13 @@ PHENIXRTS_PASSWORD=your-password
 | `/so-proxy/ingest/results` | GET | List saved ingest results |
 | `/so-proxy/ingest/report/<dir>/<file>` | GET | Serve report file (HTML/charts) |
 | `/so-proxy/ingest/download/<file>` | GET | Download ZIP |
+| `/so-proxy/id3as/<dc>/channels/<variant>` | GET | id3as channel list (default \| racing_uk) |
+| `/so-proxy/id3as/<dc>/flags/channels` | GET | Active warnings per channel |
+| `/so-proxy/id3as/<dc>/running_events` | GET | Currently running events |
+| `/so-proxy/id3as/<dc>/nodes` | GET | Node list with status |
+| `/so-proxy/id3as/<dc>/logs` | GET | System event log (today UTC) |
+| `/so-proxy/id3as/<dc>/logs/<y>/<m>/<d>` | GET | System event log for specific date |
+| `/so-proxy/id3as/<dc>/channel/<id>/status` | GET | Single channel enc/src state |
 
 ---
 
@@ -99,6 +113,7 @@ PHENIXRTS_PASSWORD=your-password
 
 | Version | Date       | Changes |
 |---------|------------|---------|
+| 2.11.0  | 2026-05-05 | New: id3as DC Monitor — web frontend for id3as channel/node/RMG/logs monitoring; proxy routes `/id3as/<dc>/*` handle PRFAUTH server-side; DC toggle (IX/EQ), four views (Channels, Nodes, RMG, Logs), warnings filter, 30s auto-refresh, grep and date picker for logs |
 | 2.10.2  | 2026-05-05 | Ingest Analyzer: File .ts tab replaced server-side path input with browser file upload; new `/ingest/upload` proxy endpoint accepts multipart .ts, saves to temp, runs script, cleans up |
 | 2.10.1  | 2026-05-04 | SO Video Analyser bugfixes: misplaced </div> in history panel; .ts upload fix (Flask 2 GB MAX_CONTENT_LENGTH); AV sync offset fix (pkt_dts_time fallback for MPEG-TS pts_time=N/A) |
 | 2.10.0  | 2026-05-04 | AV sync+jitter checks in GOP analyser, .ts upload endpoint, clear form/history buttons, checkbox persistence, schedule UTC+30min, European time format, bigger report, GOP in report |
@@ -134,7 +149,7 @@ PHENIXRTS_PASSWORD=your-password
 | 1.1.0   | 2026-03-25 | Full English translation + rich GUI |
 | 1.0.0   | 2026-03-25 | Initial PhenixRTS Channel Health Monitor |
 
-**Current Version: 2.10.2**
+**Current Version: 2.11.0**
 
 ---
 
