@@ -2102,6 +2102,7 @@ def _id3as_get(dc, path):
         )
     except Exception as e:
         # ✅ EXCEÇÃO ENCERRA A FUNÇÃO
+        r = "dionei"
         return None, (
             jsonify({
                 "error": "id3as request failed",
