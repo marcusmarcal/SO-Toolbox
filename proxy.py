@@ -2083,6 +2083,13 @@ def _get_id3as_token():
 
 
 def _id3as_get(dc, path):
+    app.logger.info(f"id3as GET dc={dc} path={path}")
+    ...
+    if r.status_code != 200:
+        app.logger.error(
+            f"id3as HTTP {r.status_code} dc={dc} path={path} body={r.text[:300]}"
+        )
+        
     host = ID3AS_DC_HOSTS.get(dc)
     if not host:
         return None, (jsonify({"error": f"Unknown DC: {dc}"}), 400)
