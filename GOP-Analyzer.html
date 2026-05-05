@@ -200,7 +200,14 @@
     <button onclick="openSpecsEditor()" style="margin-left:auto;background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-family:var(--mono);font-size:.68rem;padding:3px 10px;cursor:pointer;white-space:nowrap;transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='var(--purple)';this.style.color='var(--purple)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">⚙ Specs</button>
   </div>
 
-  <div class="form-row">
+  <!-- Mode tabs -->
+  <div style="display:flex;gap:0;margin-bottom:.6rem;border-bottom:1px solid var(--border)">
+    <button id="tab-srt" onclick="setInputMode('srt')" style="background:transparent;border:none;border-bottom:2px solid var(--purple);color:#fff;font-family:var(--mono);font-size:.78rem;font-weight:700;padding:.35rem .9rem .35rem .9rem;cursor:pointer;margin-bottom:-1px;transition:color .15s">📡 SRT Stream</button>
+    <button id="tab-upload" onclick="setInputMode('upload')" style="background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:var(--mono);font-size:.78rem;font-weight:700;padding:.35rem .9rem .35rem .9rem;cursor:pointer;margin-bottom:-1px;transition:color .15s">⬆ Upload .ts</button>
+  </div>
+
+  <!-- SRT mode -->
+  <div id="form-srt" class="form-row">
     <div class="field grow">
       <label>Host / IP</label>
       <input id="inp-host" type="text" placeholder="10.0.0.1" autocomplete="off" list="srt-host-presets" />
@@ -232,9 +239,27 @@
     <button class="btn-run" id="btn-run" onclick="runAnalysis()">▶ Analyse Now</button>
     <button onclick="openScheduleModal()" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-family:var(--mono);font-size:.76rem;font-weight:700;padding:0 .9rem;height:36px;cursor:pointer;white-space:nowrap;align-self:flex-end;transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='var(--cyan)';this.style.color='var(--cyan)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🕐 Schedule</button>
     <button onclick="clearForm()" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-family:var(--mono);font-size:.76rem;font-weight:700;padding:0 .75rem;height:36px;cursor:pointer;white-space:nowrap;align-self:flex-end" title="Clear all form fields">✕ Clear</button>
-    <!-- Hidden TS upload input -->
+  </div>
+
+  <!-- Upload mode -->
+  <div id="form-upload" class="form-row" style="display:none">
+    <div class="field w180">
+      <label>Tag <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+      <input id="inp-tag-upload" type="text" placeholder="e.g. test, JIRA-123" autocomplete="off" list="tag-presets-upload" />
+      <datalist id="tag-presets-upload"></datalist>
+    </div>
+    <!-- Drop zone -->
+    <div id="upload-drop-zone" style="flex:1;min-width:200px;border:2px dashed var(--border);border-radius:6px;padding:.45rem 1rem;font-family:var(--mono);font-size:.78rem;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:.6rem;transition:border-color .15s,color .15s;white-space:nowrap;overflow:hidden"
+      onclick="document.getElementById('ts-upload-input').click()"
+      ondragover="event.preventDefault();this.style.borderColor='var(--purple)';this.style.color='#fff'"
+      ondragleave="this.style.borderColor='var(--border)';this.style.color='var(--muted)'"
+      ondrop="event.preventDefault();this.style.borderColor='var(--border)';this.style.color='var(--muted)';uploadTS({files:event.dataTransfer.files})">
+      <span style="font-size:1rem">📂</span>
+      <span id="upload-drop-label">Choose or drop a .ts file…</span>
+    </div>
     <input type="file" id="ts-upload-input" accept=".ts" style="display:none" onchange="uploadTS(this)" />
-    <button onclick="document.getElementById('ts-upload-input').click()" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-family:var(--mono);font-size:.76rem;font-weight:700;padding:0 .75rem;height:36px;cursor:pointer;white-space:nowrap;align-self:flex-end;transition:border-color .15s,color .15s" onmouseover="this.style.borderColor='var(--purple)';this.style.color='var(--purple)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'" title="Upload a .ts file for analysis">⬆ Upload .ts</button>
+    <button class="btn-run" id="btn-upload" onclick="document.getElementById('ts-upload-input').click()" style="min-width:110px">⬆ Upload .ts</button>
+    <button onclick="clearForm()" style="background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-family:var(--mono);font-size:.76rem;font-weight:700;padding:0 .75rem;height:36px;cursor:pointer;white-space:nowrap;align-self:flex-end" title="Clear">✕ Clear</button>
   </div>
 
   <div class="main-area">
@@ -599,7 +624,8 @@ async function runAnalysis() {
 
   const url = `srt://${host}:${port}?mode=caller`;
 
-  document.getElementById("btn-run").disabled = true;
+  const btnUp = document.getElementById("btn-upload");
+  if (btnUp) btnUp.disabled = true;
   document.getElementById("placeholder").style.display = "none";
   document.getElementById("results-content").style.display = "none";
   document.getElementById("log-card").style.display = "";
@@ -1443,6 +1469,25 @@ function clearForm() {
   document.getElementById("inp-pass").value = "";
   document.getElementById("inp-tag").value  = "";
   document.getElementById("inp-dur").value  = "30";
+  const tagUp = document.getElementById("inp-tag-upload");
+  if (tagUp) tagUp.value = "";
+  const lbl = document.getElementById("upload-drop-label");
+  if (lbl) lbl.textContent = "Choose or drop a .ts file…";
+  const fi = document.getElementById("ts-upload-input");
+  if (fi) fi.value = "";
+}
+
+// ── Input mode toggle (SRT / Upload) ──────────────────────────────
+function setInputMode(mode) {
+  const isSrt = mode === "srt";
+  document.getElementById("form-srt").style.display    = isSrt ? "" : "none";
+  document.getElementById("form-upload").style.display = isSrt ? "none" : "";
+  const tabSrt    = document.getElementById("tab-srt");
+  const tabUpload = document.getElementById("tab-upload");
+  tabSrt.style.borderBottomColor    = isSrt ? "var(--purple)" : "transparent";
+  tabSrt.style.color                = isSrt ? "#fff" : "var(--muted)";
+  tabUpload.style.borderBottomColor = isSrt ? "transparent" : "var(--purple)";
+  tabUpload.style.color             = isSrt ? "var(--muted)" : "#fff";
 }
 
 function clearHistFilters() {
@@ -1461,7 +1506,7 @@ async function uploadTS(input) {
   if (!file) return;
   input.value = ""; // reset so same file can be re-selected
 
-  const tag = document.getElementById("inp-tag").value.trim();
+  const tag = (document.getElementById("inp-tag-upload") || document.getElementById("inp-tag")).value.trim();
   const fd  = new FormData();
   fd.append("file", file);
   fd.append("tag", tag);
@@ -1470,6 +1515,8 @@ async function uploadTS(input) {
   document.getElementById("placeholder").style.display = "none";
   document.getElementById("results-content").style.display = "none";
   document.getElementById("log-card").style.display = "";
+  const dropLbl = document.getElementById("upload-drop-label");
+  if (dropLbl) dropLbl.textContent = file.name;
   document.getElementById("log-output").textContent = `Uploading ${file.name}…`;
   startProgress(60);
   setStatus("running", `Uploading and analysing ${file.name}…`);
@@ -1489,7 +1536,8 @@ async function uploadTS(input) {
     pollStatus(data.job_id, 60, "upload", file.name);
   } catch(e) {
     setStatus("err", `Upload failed: ${e.message}`);
-    document.getElementById("btn-run").disabled = false;
+    const btnUp2 = document.getElementById("btn-upload");
+    if (btnUp2) btnUp2.disabled = false;
     stopProgress(false);
   }
 }
