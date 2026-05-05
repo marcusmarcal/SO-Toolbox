@@ -2083,20 +2083,13 @@ def _get_id3as_token():
 
 
 def _id3as_get(dc, path):
-    app.logger.info(f"id3as GET dc={dc} path={path}")
-    ...
-    if r.status_code != 200:
-        app.logger.error(
-            f"id3as HTTP {r.status_code} dc={dc} path={path} body={r.text[:300]}"
-        )
-    
     host = ID3AS_DC_HOSTS.get(dc)
     if not host:
-        return None, (jsonify({"error": f"Unknown DC: {dc}"}), 400)
+        return None, 400, jsonify({"error": f"Unknown DC: {dc}"})
 
     token = _get_id3as_token()
     if not token:
-        return None, (jsonify({"error": "PRFAUTH not set in .env"}), 500)
+        return None, 500, jsonify({"error": "PRFAUTH not set in .env"})
 
     url = f"https://{host}/ctl/api/data/{path.lstrip('/')}"
 
@@ -2108,29 +2101,21 @@ def _id3as_get(dc, path):
             timeout=15,
         )
     except Exception as e:
-        # ✅ EXCEÇÃO ENCERRA A FUNÇÃO
-        return None, (
-            jsonify({
-                "error": "id3as request failed",
-                "detail": str(e),
-            }),
-            502,
-        )
+        return None, 502, jsonify({"error": "id3as request failed", "detail": str(e)})
 
-    # ✅ DAQUI PRA BAIXO: r SEMPRE EXISTE
     if r.status_code in (401, 403):
-        return None, (
-            jsonify({"error": "PRFAUTH expired or invalid"}),
-            r.status_code,
-        )
+        return None, r.status_code, jsonify({"error": "PRFAUTH expired or invalid"})
 
     if r.status_code != 200:
-        return None, (
-            Response(r.text, status=r.status_code),
-            r.status_code,
-        )
+        return None, r.status_code, Response(r.text, status=r.status_code)
 
-    return r.json(), None
+    return r.json(), 200, None
+
+# Uso:
+#data, status, error = _id3as_get(dc, "channels")
+#if error:
+#    return error, status
+#return jsonify(data)
 
 
 # ── Channel variants ──────────────────────────────────────────
