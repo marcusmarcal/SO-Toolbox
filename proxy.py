@@ -2083,11 +2083,6 @@ def _get_id3as_token():
 
 
 def _id3as_get(dc, path):
-    """
-    Authenticated GET to id3as API. Returns (data, error_response).
-    data is the parsed JSON (list or dict); error_response is a Flask Response or None.
-    """
-    import os
     host = ID3AS_DC_HOSTS.get(dc)
     if not host:
         return None, (jsonify({"error": f"Unknown DC: {dc}"}), 400)
@@ -2097,26 +2092,31 @@ def _id3as_get(dc, path):
         return None, (jsonify({"error": "PRFAUTH not set in .env"}), 500)
 
     url = f"https://{host}/ctl/api/data/{path.lstrip('/')}"
+
     try:
-        resp = ID3AS_SESSION.get(
+        r = ID3AS_SESSION.get(
             url,
-            cookies={"prfauth": token},
             headers={"Accept": "application/json"},
-            timeout=20,
-            verify=True,
+            cookies={"prfauth": token},
+            timeout=15,
         )
-        # /running_events returns 500 when there are no active events — treat as empty
-        if resp.status_code == 500 and "running_events" in path:
-            return [], None
-        if resp.status_code != 200:
-            return None, (jsonify({"error": f"Upstream {resp.status_code}", "url": url}), resp.status_code)
-        return resp.json(), None
-    except requests.exceptions.ConnectionError as e:
-        return None, (jsonify({"error": f"Connection error: {e}"}), 502)
-    except requests.exceptions.Timeout:
-        return None, (jsonify({"error": "Request timed out"}), 504)
+
+        if r.status_code in (401, 403):
+            return None, (
+                jsonify({"error": "PRFAUTH expired or invalid"}),
+                r.status_code,
+            )
+
+        if r.status_code != 200:
+            return None, (
+                Response(r.text, status=r.status_code),
+                r.status_code,
+            )
+
+        return r.json(), None
+
     except Exception as e:
-        return None, (jsonify({"error": str(e)}), 500)
+        return None, (jsonify({"error": str(e)}), 502)
 
 
 # ── Channel variants ──────────────────────────────────────────
