@@ -518,8 +518,10 @@ INGEST_RESULTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "i
 os.makedirs(INGEST_RESULTS_DIR, exist_ok=True)
 
 
-def _run_ingest(job_id, url, output_dir):
-    """Background thread: run analysis, let script choose its own output dir."""
+def _run_ingest(job_id, url, output_dir, is_file_upload=False):
+    """Background thread: run analysis, let script choose its own output dir.
+    If is_file_upload=True, url is a local .ts file path — pass directly to script.
+    """
     log_lines = []
 
     def log(msg):
@@ -531,15 +533,26 @@ def _run_ingest(job_id, url, output_dir):
     with _ingest_lock:
         tag        = _ingest_jobs[job_id].get("tag", "")
         started_at = _ingest_jobs[job_id].get("started_at", "")
+        url_display = _ingest_jobs[job_id].get("url", url)
 
-    # Clean URL for display (remove passphrase)
-    url_display = re.sub(r'[?&]passphrase=[^&]*', '', url).rstrip('?&')
+    # For non-upload: clean URL for display (remove passphrase)
+    if not is_file_upload:
+        url_display = re.sub(r'[?&]passphrase=[^&]*', '', url).rstrip('?&')
+        with _ingest_lock:
+            _ingest_jobs[job_id]["url"] = url_display
 
     try:
-        log(f"Starting analysis for: {url_display}")
+        if is_file_upload:
+            log(f"Starting analysis on uploaded file: {url_display}")
+            ts_size = os.path.getsize(url) if os.path.isfile(url) else 0
+            log(f"File size: {ts_size:,} bytes")
+            script_input = url  # pass local path directly to script
+        else:
+            log(f"Starting analysis for: {url_display}")
+            script_input = url
 
         result = subprocess.run(
-            ["run-ingest-analysis.sh", url],
+            ["run-ingest-analysis.sh", script_input],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             timeout=600
@@ -627,6 +640,13 @@ def _run_ingest(job_id, url, output_dir):
                 "log":       log_lines,
             })
 
+        # Clean up uploaded temp file (it was a staging copy, results are in ingest-results/)
+        if is_file_upload and os.path.isfile(url) and os.path.dirname(url) == INGEST_RESULTS_DIR:
+            try:
+                os.remove(url)
+            except Exception:
+                pass
+
     except subprocess.TimeoutExpired:
         with _ingest_lock:
             _ingest_jobs[job_id].update({"status": "timeout", "log": log_lines})
@@ -663,6 +683,49 @@ def ingest_run():
     t = threading.Thread(target=_run_ingest, args=(job_id, url, None), daemon=True)
     t.start()
 
+    return jsonify({"job_id": job_id})
+
+
+@app.route("/ingest/upload", methods=["POST"])
+def ingest_upload():
+    """Accept an uploaded .ts file and run ingest analysis on it (skips live capture)."""
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+    f = request.files["file"]
+    if not f.filename.lower().endswith(".ts"):
+        return jsonify({"error": "Only .ts files are supported"}), 400
+
+    tag = (request.form.get("tag") or "").strip()
+
+    import tempfile as _tf
+    with _tf.NamedTemporaryFile(suffix=".ts", delete=False, dir=INGEST_RESULTS_DIR) as tmp:
+        ts_save_path = tmp.name
+    f.save(ts_save_path)
+
+    if os.path.getsize(ts_save_path) < 500:
+        os.remove(ts_save_path)
+        return jsonify({"error": "Uploaded file is empty or too small"}), 400
+
+    job_id     = str(uuid.uuid4())[:8]
+    started_at = datetime.datetime.utcnow().isoformat() + "Z"
+    url_display = f"upload:{f.filename}"
+
+    with _ingest_lock:
+        _ingest_jobs[job_id] = {
+            "job_id":     job_id,
+            "status":     "running",
+            "url":        url_display,
+            "tag":        tag,
+            "started_at": started_at,
+            "ended_at":   None,
+            "zip":        None,
+            "dir":        None,
+            "summary":    {},
+            "log":        [],
+        }
+
+    t = threading.Thread(target=_run_ingest, args=(job_id, ts_save_path, None, True), daemon=True)
+    t.start()
     return jsonify({"job_id": job_id})
 
 
