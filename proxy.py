@@ -2092,25 +2092,24 @@ def _id3as_get(dc, path):
         return None, (jsonify({"error": "PRFAUTH not set in .env"}), 500)
 
     url = f"https://{host}/ctl/api/data/{path.lstrip('/')}"
-
     try:
         r = ID3AS_SESSION.get(
             url,
             headers={"Accept": "application/json"},
             cookies={"prfauth": token},
-            timeout=15,
+            timeout=15
         )
 
         if r.status_code in (401, 403):
             return None, (
                 jsonify({"error": "PRFAUTH expired or invalid"}),
-                r.status_code,
+                r.status_code
             )
 
         if r.status_code != 200:
             return None, (
                 Response(r.text, status=r.status_code),
-                r.status_code,
+                r.status_code
             )
 
         return r.json(), None
