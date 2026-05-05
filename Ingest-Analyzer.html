@@ -709,15 +709,28 @@
 
       <!-- File form -->
       <div class="form-panel" id="panel-file">
-        <div class="form-row">
+        <div class="form-row" style="align-items: center;">
           <div class="field grow">
-            <label>MPEG-TS file path (server-side)</label>
-            <input
-              id="file-path"
-              type="text"
-              placeholder="/path/to/recording.ts"
-              autocomplete="off"
-            />
+            <label>MPEG-TS file (.ts) — upload from your machine</label>
+            <div style="display:flex;gap:0.5rem;align-items:center;">
+              <label for="file-upload" id="file-upload-label" style="
+                display:inline-flex;align-items:center;gap:0.5rem;
+                background:var(--bg3);border:1px solid var(--border);
+                border-radius:5px;padding:0.45rem 0.9rem;
+                font-family:var(--mono);font-size:0.78rem;
+                color:var(--muted);cursor:pointer;transition:border-color 0.15s,color 0.15s;
+                white-space:nowrap;
+              " onmouseover="this.style.borderColor='var(--cyan)';this.style.color='var(--cyan)'"
+                 onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+                📂 Choose file…
+              </label>
+              <input id="file-upload" type="file" accept=".ts" style="display:none"
+                onchange="onFileSelected(this)" />
+              <span id="file-upload-name" style="
+                font-family:var(--mono);font-size:0.75rem;color:var(--muted);
+                overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:300px;
+              ">No file chosen</span>
+            </div>
           </div>
           <button class="btn-run" onclick="runAnalysis()">▶ Analyze</button>
         </div>
@@ -850,6 +863,15 @@
       let curType = "srt";
       let pollTimer = null;
       let _serverPresets = {}; // ip -> label map from SRT_LOCAL_*
+      let _selectedFile = null; // for file upload tab
+
+      function onFileSelected(input) {
+        _selectedFile = input.files[0] || null;
+        document.getElementById("file-upload-name").textContent =
+          _selectedFile ? _selectedFile.name : "No file chosen";
+        document.getElementById("file-upload-name").style.color =
+          _selectedFile ? "var(--text)" : "var(--muted)";
+      }
 
       // ── Load config (SRT_LOCAL_* presets + passphrase) ───────────────
       async function loadConfig() {
@@ -919,6 +941,14 @@
           .querySelectorAll(".form-panel")
           .forEach((el) => el.classList.remove("active"));
         document.getElementById(`panel-${t}`).classList.add("active");
+        // Reset file selection when leaving the file tab
+        if (t !== "file") {
+          _selectedFile = null;
+          const nameEl = document.getElementById("file-upload-name");
+          if (nameEl) { nameEl.textContent = "No file chosen"; nameEl.style.color = "var(--muted)"; }
+          const inp = document.getElementById("file-upload");
+          if (inp) inp.value = "";
+        }
       }
 
       // ── Build URL from form ──────────────────────────────────────────
@@ -941,7 +971,7 @@
         if (curType === "url")
           return document.getElementById("custom-url").value.trim() || null;
         if (curType === "file")
-          return document.getElementById("file-path").value.trim() || null;
+          return _selectedFile ? "__file_upload__" : null;
         return null;
       }
 
@@ -949,7 +979,10 @@
       async function runAnalysis() {
         const url = buildUrl();
         if (!url) {
-          setStatus("failed", "Please fill in the required fields.");
+          if (curType === "file")
+            setStatus("failed", "Please choose a .ts file to upload.");
+          else
+            setStatus("failed", "Please fill in the required fields.");
           return;
         }
 
@@ -965,27 +998,40 @@
         document.getElementById("log-output").textContent = "";
         resetProgress();
         startProgressPulse();
-        setStatus("running", `Starting analysis for: ${url}`);
-        appendLog(
-          `URL: ${url}\nLaunching run-ingest-analysis.sh on server...\n`
-        );
 
+        const tag = document.getElementById("inp-tag").value.trim();
         let jobId;
+
         try {
-          const res = await fetch(`${PROXY}/ingest/run`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              url,
-              tag: document.getElementById("inp-tag").value.trim(),
-            }),
-          });
-          const data = await res.json();
-          if (!data.job_id) throw new Error(data.error || "No job_id returned");
-          jobId = data.job_id;
-          appendLog(
-            `Job started: ${jobId}\nThe script runs for ~2 minutes. Please wait...\n`
-          );
+          if (curType === "file") {
+            // ── File upload path ──────────────────────────────────────
+            setStatus("running", `Uploading ${_selectedFile.name}…`);
+            appendLog(`File: ${_selectedFile.name}\nUploading to server…\n`);
+            const fd = new FormData();
+            fd.append("file", _selectedFile);
+            if (tag) fd.append("tag", tag);
+            const res = await fetch(`${PROXY}/ingest/upload`, {
+              method: "POST",
+              body: fd,
+            });
+            const data = await res.json();
+            if (!data.job_id) throw new Error(data.error || "No job_id returned");
+            jobId = data.job_id;
+            appendLog(`Upload complete. Job started: ${jobId}\nAnalysis runs for ~2 minutes. Please wait…\n`);
+          } else {
+            // ── URL-based path ────────────────────────────────────────
+            setStatus("running", `Starting analysis for: ${url}`);
+            appendLog(`URL: ${url}\nLaunching run-ingest-analysis.sh on server…\n`);
+            const res = await fetch(`${PROXY}/ingest/run`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ url, tag }),
+            });
+            const data = await res.json();
+            if (!data.job_id) throw new Error(data.error || "No job_id returned");
+            jobId = data.job_id;
+            appendLog(`Job started: ${jobId}\nThe script runs for ~2 minutes. Please wait…\n`);
+          }
         } catch (e) {
           setStatus("failed", `Failed to start: ${e.message}`);
           document
@@ -1301,7 +1347,7 @@
       }
 
       // Enter key on single-field panels
-      ["rtmp-url", "udp-url", "custom-url", "file-path"].forEach((id) => {
+      ["rtmp-url", "udp-url", "custom-url"].forEach((id) => {
         const el = document.getElementById(id);
         if (el)
           el.addEventListener("keydown", (e) => {

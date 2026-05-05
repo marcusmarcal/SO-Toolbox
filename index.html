@@ -783,7 +783,7 @@
         <button id="btn-git-pull" class="git-pull-btn" data-tip="Pull latest from Git" onclick="gitPull()">⟳ Update</button>
         <button class="git-pull-btn" data-tip="Restart proxy service" onclick="openRestartConfirm()" style="border-color:rgba(255,78,106,0.4);color:#ffb3be;">⏻ Restart Proxy</button>
         <button class="git-pull-btn" data-tip="View README" onclick="openReadme()" style="border-color:rgba(88,166,255,0.4);color:var(--accent);">📖 README</button>
-        <span class="version" id="app-version" onclick="openChangelog()" title="Click to see changelog">v2.10.0</span>
+        <span class="version" id="app-version" onclick="openChangelog()" title="Click to see changelog">v2.10.2</span>
       </header>
 
       <aside id="sidebar">
@@ -826,6 +826,7 @@
           <div class="cl-title">SP SO Web Toolbox — Changelog</div>
           <button class="cl-close" onclick="closeChangelog()">Close</button>
         </div>
+        <div class="cl-entry"><div class="cl-version">v2.10.2</div><div class="cl-date">2026-05-05</div><div class="cl-desc">Ingest Analyzer: File .ts tab changed from server-side path input to browser file upload (multipart); new /ingest/upload proxy endpoint saves temp .ts and runs script on it</div></div>
         <div class="cl-entry"><div class="cl-version">v2.10.1</div><div class="cl-date">2026-05-04</div><div class="cl-desc">SO Video Analyser bugfixes: fix broken history-panel div structure; fix .ts upload (Flask 2GB limit + nginx client_max_body_size note); fix AV sync offset showing — by using pkt_dts_time fallback when pts_time is N/A in MPEG-TS</div></div>
         <div class="cl-entry"><div class="cl-version">v2.10.0</div><div class="cl-date">2026-05-04</div><div class="cl-desc">SO Video Analyser: AV sync+jitter checks, .ts upload, clear form/history, checkbox persistence, schedule UTC+30min, European time format, bigger report modal, GOP in report, AV sync in compliance table</div></div>
         <div class="cl-entry"><div class="cl-version">v2.9.2</div><div class="cl-date">2026-04-24</div><div class="cl-desc">Compliance fully specs-driven: deep-merge load/save, all checks from specs.json</div></div>

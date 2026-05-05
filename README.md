@@ -99,6 +99,7 @@ PHENIXRTS_PASSWORD=your-password
 
 | Version | Date       | Changes |
 |---------|------------|---------|
+| 2.10.2  | 2026-05-05 | Ingest Analyzer: File .ts tab replaced server-side path input with browser file upload; new `/ingest/upload` proxy endpoint accepts multipart .ts, saves to temp, runs script, cleans up |
 | 2.10.1  | 2026-05-04 | SO Video Analyser bugfixes: misplaced </div> in history panel; .ts upload fix (Flask 2 GB MAX_CONTENT_LENGTH); AV sync offset fix (pkt_dts_time fallback for MPEG-TS pts_time=N/A) |
 | 2.10.0  | 2026-05-04 | AV sync+jitter checks in GOP analyser, .ts upload endpoint, clear form/history buttons, checkbox persistence, schedule UTC+30min, European time format, bigger report, GOP in report |
 | 2.9.3   | 2026-04-24 | Override only for REJECTED; Clear form+results; history checkboxes persist across refresh |
@@ -133,7 +134,7 @@ PHENIXRTS_PASSWORD=your-password
 | 1.1.0   | 2026-03-25 | Full English translation + rich GUI |
 | 1.0.0   | 2026-03-25 | Initial PhenixRTS Channel Health Monitor |
 
-**Current Version: 2.10.1**
+**Current Version: 2.10.2**
 
 ---
 
