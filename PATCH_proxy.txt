@@ -1,0 +1,17 @@
+# ── proxy.py — add these two lines near the top, after `app = Flask(__name__)` ──
+#
+#   from id3as_routes import id3as_bp
+#   app.register_blueprint(id3as_bp)
+#
+# That's it. Remove any old id3as_* route blocks if you had them merged inline.
+#
+# ── On the server ────────────────────────────────────────────────────────────────
+#
+#   cp id3as_routes.py /opt/web/
+#   systemctl restart so-proxy
+#
+# ── Verify ───────────────────────────────────────────────────────────────────────
+#
+#   curl http://localhost:5050/id3as/ix/channels/default | python3 -m json.tool | head
+#   curl http://localhost:5050/id3as/ix/flags/channels
+#   curl http://localhost:5050/id3as/ix/running_events
