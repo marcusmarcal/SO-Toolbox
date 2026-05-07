@@ -19,7 +19,7 @@ from typing import Optional
 from urllib.parse import quote as url_quote
 
 import requests
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, Response
 
 id3as_bp = Blueprint("id3as", __name__)
 
@@ -65,15 +65,15 @@ def _id3as_get(dc, path, expect_list=True):
     body regardless of status code. Only if the body is empty or
     unparseable AND the status is an error do we return an error response.
     
-    Returns (data, None) on success, (None, flask_response) on hard error.
+    Returns (data, status_code, None) on success, (None, None, flask_response) on hard error.
     """
     host = ID3AS_DC_HOSTS.get(dc)
     if not host:
-        return None, (jsonify({"error": "Unknown DC: {}".format(dc)}), 400)
+        return None, None, (jsonify({"error": "Unknown DC: {}".format(dc)}), 400)
 
     token = _read_prfauth()
     if not token:
-        return None, (jsonify({"error": "PRFAUTH not set in .env"}), 500)
+        return None, None, (jsonify({"error": "PRFAUTH not set in .env"}), 500)
 
     url = "https://{}/ctl/api/data/{}".format(host, path.lstrip("/"))
     try:
@@ -85,11 +85,11 @@ def _id3as_get(dc, path, expect_list=True):
             verify=True,
         )
     except requests.exceptions.ConnectionError as exc:
-        return None, (jsonify({"error": "Connection error: {}".format(exc)}), 502)
+        return None, None, (jsonify({"error": "Connection error: {}".format(exc)}), 502)
     except requests.exceptions.Timeout:
-        return None, (jsonify({"error": "Request timed out"}), 504)
+        return None, None, (jsonify({"error": "Request timed out"}), 504)
     except Exception as exc:
-        return None, (jsonify({"error": str(exc)}), 500)
+        return None, None, (jsonify({"error": str(exc)}), 500)
 
     body = resp.text.strip() if resp.text else ""
 
@@ -102,20 +102,20 @@ def _id3as_get(dc, path, expect_list=True):
             if isinstance(data, dict) and expect_list:
                 data = list(data.values())
             # ✅ IMPORTANT: Always return data if parsing succeeds!
-            # Even if upstream returned HTTP 500
-            return data, None
+            # Return 200 status explicitly even if upstream returned 500
+            return data, 200, None
         except ValueError:
             pass
 
     # Body empty or unparseable — treat as error only if non-2xx
     if resp.status_code not in (200, 201, 204):
-        return None, (
+        return None, None, (
             jsonify({"error": "Upstream {}".format(resp.status_code), "url": url}),
             resp.status_code,
         )
 
     # 2xx but empty/invalid body
-    return ([] if expect_list else {}), None
+    return ([] if expect_list else {}), 200, None
 
 
 def _packaging_get(dc, path):
@@ -149,100 +149,100 @@ def _packaging_get(dc, path):
 
 @id3as_bp.route("/id3as/<dc>/channels/<variant>", methods=["GET"])
 def id3as_channels(dc, variant):
-    data, err = _id3as_get(dc, "channels?variant={}".format(variant))
+    data, status, err = _id3as_get(dc, "channels?variant={}".format(variant))
     if err:
         return err
-    return jsonify(data if isinstance(data, list) else [])
+    return jsonify(data if isinstance(data, list) else []), status
 
 
 @id3as_bp.route("/id3as/<dc>/channel/<ch_id>", methods=["GET"])
 def id3as_channel(dc, ch_id):
-    data, err = _id3as_get(dc, "channel/{}".format(url_quote(ch_id, safe="")), expect_list=False)
+    data, status, err = _id3as_get(dc, "channel/{}".format(url_quote(ch_id, safe="")), expect_list=False)
     if err:
         return err
-    return jsonify(data)
+    return jsonify(data), status
 
 
 @id3as_bp.route("/id3as/<dc>/channel/<ch_id>/status", methods=["GET"])
 def id3as_channel_status(dc, ch_id):
-    data, err = _id3as_get(dc, "channel/{}/status".format(url_quote(ch_id, safe="")), expect_list=False)
+    data, status, err = _id3as_get(dc, "channel/{}/status".format(url_quote(ch_id, safe="")), expect_list=False)
     if err:
         return err
-    return jsonify(data)
+    return jsonify(data), status
 
 
 # ── Flags routes ─────────────────────────────────────────────────────────
 
 @id3as_bp.route("/id3as/<dc>/flags/channels", methods=["GET"])
 def id3as_flags_channels(dc):
-    data, err = _id3as_get(dc, "flags/channels")
+    data, status, err = _id3as_get(dc, "flags/channels")
     if err:
         return err
-    return jsonify(data if isinstance(data, list) else [])
+    return jsonify(data if isinstance(data, list) else []), status
 
 
 @id3as_bp.route("/id3as/<dc>/flags/events", methods=["GET"])
 def id3as_flags_events(dc):
-    data, err = _id3as_get(dc, "flags/events")
+    data, status, err = _id3as_get(dc, "flags/events")
     if err:
         return err
-    return jsonify(data if isinstance(data, list) else [])
+    return jsonify(data if isinstance(data, list) else []), status
 
 
 @id3as_bp.route("/id3as/<dc>/flags", methods=["GET"])
 def id3as_flags_all(dc):
-    data, err = _id3as_get(dc, "flags")
+    data, status, err = _id3as_get(dc, "flags")
     if err:
         return err
-    return jsonify(data if isinstance(data, list) else [])
+    return jsonify(data if isinstance(data, list) else []), status
 
 
 # ── Events routes ─────────────────────────────────────────────────────────
 
 @id3as_bp.route("/id3as/<dc>/running_events", methods=["GET"])
 def id3as_running_events(dc):
-    data, err = _id3as_get(dc, "running_events")
+    data, status, err = _id3as_get(dc, "running_events")
     if err:
         return err
-    return jsonify(data if isinstance(data, list) else [])
+    return jsonify(data if isinstance(data, list) else []), status
 
 
 @id3as_bp.route("/id3as/<dc>/running_events/channel/<ch_id>", methods=["GET"])
 def id3as_running_events_channel(dc, ch_id):
-    data, err = _id3as_get(dc, "running_events?channel_id={}".format(url_quote(ch_id, safe="")))
+    data, status, err = _id3as_get(dc, "running_events?channel_id={}".format(url_quote(ch_id, safe="")))
     if err:
         return err
-    return jsonify(data if isinstance(data, list) else [])
+    return jsonify(data if isinstance(data, list) else []), status
 
 
 @id3as_bp.route("/id3as/<dc>/scheduled_events", methods=["GET"])
 def id3as_scheduled_events(dc):
-    data, err = _id3as_get(dc, "scheduled_events")
+    data, status, err = _id3as_get(dc, "scheduled_events")
     if err:
         return err
-    return jsonify(data if isinstance(data, list) else [])
+    return jsonify(data if isinstance(data, list) else []), status
 
 
 # ── Nodes routes ─────────────────────────────────────────────────────────
 
 @id3as_bp.route("/id3as/<dc>/nodes", methods=["GET"])
 def id3as_nodes(dc):
-    data, err = _id3as_get(dc, "nodes")
+    data, status, err = _id3as_get(dc, "nodes")
     if err:
         return err
     if isinstance(data, dict):
         data = list(data.values())
-    return jsonify(data if isinstance(data, list) else [])
+    return jsonify(data if isinstance(data, list) else []), status
 
 
 @id3as_bp.route("/id3as/<dc>/nodes/info", methods=["GET"])
 def id3as_nodes_info(dc):
-    data, err = _id3as_get(dc, "nodes/info")
+    data, status, err = _id3as_get(dc, "nodes/info")
     if err:
         return err
     if isinstance(data, dict):
         data = list(data.values())
-    return jsonify(data if isinstance(data, list) else [])
+    return jsonify(data if isinstance(data, list) else []), status
 
 
 # ── Logs route ──────────────────────────────────────────────────────────
