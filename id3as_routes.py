@@ -57,15 +57,14 @@ def _read_prfauth():
 
 # ── Core fetch ────────────────────────────────────────────────────────────────
 
-def _id3as_get(dc, path, expect_list=True):
+def _id3as_get(dc, path, expect_list=True):def _id3as_get(dc, path, expect_list=True):
     """
     Authenticated GET to id3as API.
-
     Critical behaviour: several endpoints return HTTP 500 even when they
     contain valid JSON data (API quirk). We ALWAYS attempt to parse the
     body regardless of status code. Only if the body is empty or
     unparseable AND the status is an error do we return an error response.
-
+    
     Returns (data, None) on success, (None, flask_response) on hard error.
     """
     host = ID3AS_DC_HOSTS.get(dc)
@@ -102,6 +101,8 @@ def _id3as_get(dc, path, expect_list=True):
             # Normalise dict → list if needed
             if isinstance(data, dict) and expect_list:
                 data = list(data.values())
+            # ✅ IMPORTANTE: Sempre retornar dados se conseguir parsear!
+            # Mesmo que upstream tenha status 500
             return data, None
         except ValueError:
             pass
