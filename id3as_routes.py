@@ -313,7 +313,7 @@ def _parse_log_response(raw):
     parts = re.split(r"}\s*,\s*{", txt.strip().strip("[]"))
     events = []
     for p in parts:
-        obj = ("{") if not p.startswith("{") else "") + p + ("}" if not p.endswith("}") else "")
+        obj = ("{" if not p.startswith("{") else "") + p + ("}" if not p.endswith("}") else "")
         try:
             events.append(json.loads(obj))
         except ValueError:
