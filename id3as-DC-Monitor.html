@@ -278,7 +278,12 @@
 </div>
 <script>
 const PROXY='/so-proxy';
-let dc='ix',view='channels',raw={},logEvents=[],logLevel='';
+let dc='ix',
+    view='channels',
+    raw={},
+    logEvents=[],
+    logLevel='',
+    activeOnly=false;
 
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
