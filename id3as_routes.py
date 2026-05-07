@@ -36,7 +36,7 @@ ID3AS_PACKAGING_BASE = {
 }
 
 
-# ── Auth ──────────────────────────────────────────────────────────────────────
+# ── Auth ────────────────────────────────────────────────────────────
 
 def _read_prfauth():
     # type: () -> Optional[str]
@@ -55,7 +55,7 @@ def _read_prfauth():
     return None
 
 
-# ── Core fetch ────────────────────────────────────────────────────────────────
+# ── Core fetch ──────────────────────────────────────────────────────────
 
 def _id3as_get(dc, path, expect_list=True):
     """
@@ -101,8 +101,8 @@ def _id3as_get(dc, path, expect_list=True):
             # Normalise dict → list if needed
             if isinstance(data, dict) and expect_list:
                 data = list(data.values())
-            # ✅ IMPORTANTE: Sempre retornar dados se conseguir parsear!
-            # Mesmo que upstream tenha status 500
+            # ✅ IMPORTANT: Always return data if parsing succeeds!
+            # Even if upstream returned HTTP 500
             return data, None
         except ValueError:
             pass
@@ -145,7 +145,7 @@ def _packaging_get(dc, path):
         return None, (jsonify({"error": str(exc)}), 502)
 
 
-# ── Channel routes ────────────────────────────────────────────────────────────
+# ── Channel routes ─────────────────────────────────────────────────────────
 
 @id3as_bp.route("/id3as/<dc>/channels/<variant>", methods=["GET"])
 def id3as_channels(dc, variant):
@@ -171,7 +171,7 @@ def id3as_channel_status(dc, ch_id):
     return jsonify(data)
 
 
-# ── Flags routes ──────────────────────────────────────────────────────────────
+# ── Flags routes ─────────────────────────────────────────────────────────
 
 @id3as_bp.route("/id3as/<dc>/flags/channels", methods=["GET"])
 def id3as_flags_channels(dc):
@@ -197,7 +197,7 @@ def id3as_flags_all(dc):
     return jsonify(data if isinstance(data, list) else [])
 
 
-# ── Events routes ─────────────────────────────────────────────────────────────
+# ── Events routes ─────────────────────────────────────────────────────────
 
 @id3as_bp.route("/id3as/<dc>/running_events", methods=["GET"])
 def id3as_running_events(dc):
@@ -223,7 +223,7 @@ def id3as_scheduled_events(dc):
     return jsonify(data if isinstance(data, list) else [])
 
 
-# ── Nodes routes ──────────────────────────────────────────────────────────────
+# ── Nodes routes ─────────────────────────────────────────────────────────
 
 @id3as_bp.route("/id3as/<dc>/nodes", methods=["GET"])
 def id3as_nodes(dc):
@@ -245,7 +245,7 @@ def id3as_nodes_info(dc):
     return jsonify(data if isinstance(data, list) else [])
 
 
-# ── Logs route ────────────────────────────────────────────────────────────────
+# ── Logs route ──────────────────────────────────────────────────────────
 
 @id3as_bp.route("/id3as/<dc>/logs", methods=["GET"])
 @id3as_bp.route("/id3as/<dc>/logs/<int:year>/<int:month>/<int:day>", methods=["GET"])
@@ -313,7 +313,7 @@ def _parse_log_response(raw):
     parts = re.split(r"}\s*,\s*{", txt.strip().strip("[]"))
     events = []
     for p in parts:
-        obj = ("{" if not p.startswith("{") else "") + p + ("}" if not p.endswith("}") else "")
+        obj = ("{") if not p.startswith("{") else "") + p + ("}" if not p.endswith("}") else "")
         try:
             events.append(json.loads(obj))
         except ValueError:
