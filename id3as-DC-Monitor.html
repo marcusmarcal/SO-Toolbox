@@ -254,6 +254,7 @@
     </div>
     <input class="tb-input" id="fi" type="text" placeholder="Filter..."/>
     <label class="toggle-wrap"><input type="checkbox" id="wo"/> Warnings only</label>
+    <label class="toggle-wrap"><input type="checkbox" id="ao"/> Active only</label>
     <button class="tb-btn" id="rb">&#8635; Refresh</button>
     <div id="status-pill"><span class="s-dot"></span><span id="st">Ready</span></div>
   </div>
@@ -439,8 +440,11 @@ function updateStatusCells(){
 }
 
 function renderView(){
-  const f=$('fi').value.trim().toLowerCase(),w=$('wo').checked;
-  if(view==='channels')renderChannels(f,w);
+  const f=$('fi').value.trim().toLowerCase(),
+      w=$('wo').checked,
+      a=$('ao') ? $('ao').checked : false;
+
+if(view==='channels')renderChannels(f,w,a);
   else if(view==='nodes-ch')renderNodesCh(f,w);
   else if(view==='nodes-health')renderNodesHealth(f,w);
   else if(view==='rmg')renderRMG(f,w);
@@ -451,7 +455,7 @@ function renderView(){
 
 // ── CHANNELS ──────────────────────────────────────────────────
 
-function renderChannels(filter,warnOnly){
+function renderChannels(filter,warnOnly,activeOnly){
   const chs=Array.isArray(raw.channels)?raw.channels:[];
   const fm=bfm(raw.flags),em=bev(raw.events);
   raw.evMap=em; // keep for updateStatusCells
@@ -471,8 +475,18 @@ function renderChannels(filter,warnOnly){
       bitrate:stat.source_bitrate||0,st};
   });
 
-  if(filter)rows=rows.filter(r=>r.id.toLowerCase().includes(filter)||r.node.toLowerCase().includes(filter)||r.evs.some(e=>e.event_name.toLowerCase().includes(filter)));
-  if(warnOnly)rows=rows.filter(r=>r.warnings>0);
+  if(filter)
+  rows=rows.filter(r=>
+    r.id.toLowerCase().includes(filter) ||
+    r.node.toLowerCase().includes(filter) ||
+    r.evs.some(e=>e.event_name.toLowerCase().includes(filter))
+  );
+
+if(warnOnly)
+  rows=rows.filter(r=>r.warnings>0);
+
+if(activeOnly)
+  rows=rows.filter(r=>r.evs.length > 0 || r.bitrate > 0);
 
   const nW=rows.reduce((s,r)=>s+r.warnings,0);
   const nE=rows.reduce((s,r)=>s+r.evs.length,0);
@@ -821,6 +835,7 @@ document.querySelectorAll('#vw-g .grp-btn').forEach(btn=>{
 $('rb').addEventListener('click',load);
 $('fi').addEventListener('input',()=>{if(Object.keys(raw).length)renderView();});
 $('wo').addEventListener('change',()=>{if(Object.keys(raw).length)renderView();});
+$('ao').addEventListener('change',()=>{if(Object.keys(raw).length)renderView();});
 document.querySelectorAll('#lvl-g .log-lvl').forEach(btn=>{
   btn.addEventListener('click',()=>{document.querySelectorAll('#lvl-g .log-lvl').forEach(b=>b.className='log-lvl');logLevel=btn.dataset.lvl;btn.classList.add(logLevel?'a-'+logLevel:'a-all');renderLogs();});
 });
