@@ -57,7 +57,7 @@ def _read_prfauth():
 
 # ── Core fetch ────────────────────────────────────────────────────────────────
 
-def _id3as_get(dc, path, expect_list=True):def _id3as_get(dc, path, expect_list=True):
+def _id3as_get(dc, path, expect_list=True):
     """
     Authenticated GET to id3as API.
     Critical behaviour: several endpoints return HTTP 500 even when they
