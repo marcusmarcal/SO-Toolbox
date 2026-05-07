@@ -14,6 +14,7 @@ import os
 import re
 import json
 import html as _html
+import sys
 from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import quote as url_quote
@@ -55,6 +56,11 @@ def _read_prfauth():
     return None
 
 
+def _debug_log(msg):
+    """Log debug messages to stderr"""
+    print(f"[ID3AS DEBUG] {msg}", file=sys.stderr, flush=True)
+
+
 # ── Core fetch ──────────────────────────────────────────────────────────
 
 def _id3as_get(dc, path, expect_list=True):
@@ -76,6 +82,8 @@ def _id3as_get(dc, path, expect_list=True):
         return None, None, (jsonify({"error": "PRFAUTH not set in .env"}), 500)
 
     url = "https://{}/ctl/api/data/{}".format(host, path.lstrip("/"))
+    _debug_log(f"Fetching: {url}")
+    
     try:
         resp = _SESSION.get(
             url,
@@ -84,37 +92,52 @@ def _id3as_get(dc, path, expect_list=True):
             timeout=25,
             verify=True,
         )
+        _debug_log(f"Got response: status={resp.status_code}, size={len(resp.text)}")
     except requests.exceptions.ConnectionError as exc:
+        _debug_log(f"Connection error: {exc}")
         return None, None, (jsonify({"error": "Connection error: {}".format(exc)}), 502)
     except requests.exceptions.Timeout:
+        _debug_log("Request timed out")
         return None, None, (jsonify({"error": "Request timed out"}), 504)
     except Exception as exc:
+        _debug_log(f"Exception: {type(exc).__name__}: {exc}")
         return None, None, (jsonify({"error": str(exc)}), 500)
 
     body = resp.text.strip() if resp.text else ""
+    _debug_log(f"Body length: {len(body)}")
 
     # Always try to parse the body first, regardless of HTTP status code.
     # The id3as API returns 500 even for valid data on several endpoints.
     if body:
         try:
             data = json.loads(body)
+            _debug_log(f"Parsed successfully: type={type(data).__name__}")
+            
             # Normalise dict → list if needed
             if isinstance(data, dict) and expect_list:
                 data = list(data.values())
+                _debug_log(f"Converted dict to list: {len(data)} items")
+            elif isinstance(data, list):
+                _debug_log(f"Got list: {len(data)} items")
+            
             # ✅ IMPORTANT: Always return data if parsing succeeds!
             # Return 200 status explicitly even if upstream returned 500
+            _debug_log(f"Returning success: {len(data)} items, status=200")
             return data, 200, None
-        except ValueError:
+        except ValueError as e:
+            _debug_log(f"Parse error: {e}")
             pass
 
     # Body empty or unparseable — treat as error only if non-2xx
     if resp.status_code not in (200, 201, 204):
+        _debug_log(f"Returning error: status={resp.status_code}")
         return None, None, (
             jsonify({"error": "Upstream {}".format(resp.status_code), "url": url}),
             resp.status_code,
         )
 
     # 2xx but empty/invalid body
+    _debug_log(f"2xx but empty body, returning empty list")
     return ([] if expect_list else {}), 200, None
 
 
