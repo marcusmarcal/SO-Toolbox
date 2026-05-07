@@ -362,6 +362,9 @@ function xpand(id,el){const r=document.getElementById(id);if(!r)return;const v=r
 // ── LOAD ──────────────────────────────────────────────────────
 
 async function load(){
+
+  activeOnly = $('ao').checked;
+
   setSt('Loading...','loading');
   $('content').innerHTML='<div class="state-msg"><div class="s-spin" style="width:22px;height:22px;border-width:3px"></div><div>Fetching '+dc.toUpperCase()+'...</div></div>';
   try{
@@ -446,10 +449,12 @@ function updateStatusCells(){
 
 function renderView(){
   const f=$('fi').value.trim().toLowerCase(),
-      w=$('wo').checked,
-      a=$('ao') ? $('ao').checked : false;
+        w=$('wo').checked,
+        a=$('ao').checked;
 
-if(view==='channels')renderChannels(f,w,a);
+  activeOnly = a;
+
+  if(view==='channels')renderChannels(f,w,a);
   else if(view==='nodes-ch')renderNodesCh(f,w);
   else if(view==='nodes-health')renderNodesHealth(f,w);
   else if(view==='rmg')renderRMG(f,w);
@@ -847,6 +852,21 @@ document.querySelectorAll('#lvl-g .log-lvl').forEach(btn=>{
 $('lg').addEventListener('input',renderLogs);
 $('ld').addEventListener('change',()=>{if(view==='logs')load();});
 (()=>{const n=new Date();$('ld').value=n.getUTCFullYear()+'-'+String(n.getUTCMonth()+1).padStart(2,'0')+'-'+String(n.getUTCDate()).padStart(2,'0');})();
+
+// persist filters
+//$('ao').checked = localStorage.getItem('activeOnly') === '1';
+//$('wo').checked = localStorage.getItem('warningsOnly') === '1';
+
+$('ao').addEventListener('change',()=>{
+  localStorage.setItem('activeOnly',$('ao').checked ? '1' : '0');
+  if(Object.keys(raw).length)renderView();
+});
+
+$('wo').addEventListener('change',()=>{
+  localStorage.setItem('warningsOnly',$('wo').checked ? '1' : '0');
+  if(Object.keys(raw).length)renderView();
+});
+
 setInterval(()=>{if(Object.keys(raw).length)load();},30000);
 </script>
 </body>
