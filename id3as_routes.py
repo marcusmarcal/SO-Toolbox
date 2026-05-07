@@ -1,11 +1,13 @@
 """
 id3as_routes.py — Flask Blueprint for id3as DC Monitor proxy endpoints.
 
+IMPORTANT: Several id3as API endpoints return HTTP 500 even when they have
+valid data. The proxy always attempts to parse the response body first,
+and only falls back to [] if parsing fails or body is empty.
+
 Register in proxy.py:
     from id3as_routes import id3as_bp
     app.register_blueprint(id3as_bp)
-
-Endpoints exposed at /id3as/<dc>/*  (PRFAUTH always server-side)
 """
 
 import os
@@ -13,7 +15,7 @@ import re
 import json
 import html as _html
 from datetime import datetime, timezone
-from typing import Optional, Tuple, Any
+from typing import Optional
 from urllib.parse import quote as url_quote
 
 import requests
@@ -32,16 +34,6 @@ ID3AS_PACKAGING_BASE = {
     "ix": "http://id3as.prod.ix.perform.local/ctl/api/packaging",
     "eq": "http://id3as.prod.eq.perform.local/ctl/api/packaging",
 }
-
-# These endpoints return HTTP 500 when the result set is empty — treat as []
-_EMPTY_ON_500 = (
-    "running_events",
-    "flags/channels",
-    "flags/events",
-    "flags",
-    "nodes/info",
-    "scheduled_events",
-)
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
@@ -65,7 +57,17 @@ def _read_prfauth():
 
 # ── Core fetch ────────────────────────────────────────────────────────────────
 
-def _id3as_get(dc, path):
+def _id3as_get(dc, path, expect_list=True):
+    """
+    Authenticated GET to id3as API.
+
+    Critical behaviour: several endpoints return HTTP 500 even when they
+    contain valid JSON data (API quirk). We ALWAYS attempt to parse the
+    body regardless of status code. Only if the body is empty or
+    unparseable AND the status is an error do we return an error response.
+
+    Returns (data, None) on success, (None, flask_response) on hard error.
+    """
     host = ID3AS_DC_HOSTS.get(dc)
     if not host:
         return None, (jsonify({"error": "Unknown DC: {}".format(dc)}), 400)
@@ -83,28 +85,36 @@ def _id3as_get(dc, path):
             timeout=25,
             verify=True,
         )
-        # Several endpoints legitimately return 500 when result set is empty
-        if resp.status_code == 500:
-            for ep in _EMPTY_ON_500:
-                if ep in path:
-                    return [], None
-            # For other 500s, return the error
-            return None, (
-                jsonify({"error": "Upstream 500", "url": url}),
-                500,
-            )
-        if resp.status_code != 200:
-            return None, (
-                jsonify({"error": "Upstream {}".format(resp.status_code), "url": url}),
-                resp.status_code,
-            )
-        return resp.json(), None
     except requests.exceptions.ConnectionError as exc:
         return None, (jsonify({"error": "Connection error: {}".format(exc)}), 502)
     except requests.exceptions.Timeout:
         return None, (jsonify({"error": "Request timed out"}), 504)
     except Exception as exc:
         return None, (jsonify({"error": str(exc)}), 500)
+
+    body = resp.text.strip() if resp.text else ""
+
+    # Always try to parse the body first, regardless of HTTP status code.
+    # The id3as API returns 500 even for valid data on several endpoints.
+    if body:
+        try:
+            data = json.loads(body)
+            # Normalise dict → list if needed
+            if isinstance(data, dict) and expect_list:
+                data = list(data.values())
+            return data, None
+        except ValueError:
+            pass
+
+    # Body empty or unparseable — treat as error only if non-2xx
+    if resp.status_code not in (200, 201, 204):
+        return None, (
+            jsonify({"error": "Upstream {}".format(resp.status_code), "url": url}),
+            resp.status_code,
+        )
+
+    # 2xx but empty/invalid body
+    return ([] if expect_list else {}), None
 
 
 def _packaging_get(dc, path):
@@ -122,9 +132,12 @@ def _packaging_get(dc, path):
             headers={"Accept": "application/json"},
             timeout=5,
         )
-        if resp.status_code != 200:
-            return None, (jsonify({"error": "Upstream {}".format(resp.status_code)}), resp.status_code)
-        return resp.json(), None
+        if not resp.text:
+            return None, (jsonify({"error": "empty response"}), 502)
+        try:
+            return json.loads(resp.text), None
+        except ValueError:
+            return None, (jsonify({"error": "invalid json"}), 502)
     except requests.exceptions.Timeout:
         return None, (jsonify({"error": "packaging_timeout"}), 504)
     except Exception as exc:
@@ -143,7 +156,7 @@ def id3as_channels(dc, variant):
 
 @id3as_bp.route("/id3as/<dc>/channel/<ch_id>", methods=["GET"])
 def id3as_channel(dc, ch_id):
-    data, err = _id3as_get(dc, "channel/{}".format(url_quote(ch_id, safe="")))
+    data, err = _id3as_get(dc, "channel/{}".format(url_quote(ch_id, safe="")), expect_list=False)
     if err:
         return err
     return jsonify(data)
@@ -151,7 +164,7 @@ def id3as_channel(dc, ch_id):
 
 @id3as_bp.route("/id3as/<dc>/channel/<ch_id>/status", methods=["GET"])
 def id3as_channel_status(dc, ch_id):
-    data, err = _id3as_get(dc, "channel/{}/status".format(url_quote(ch_id, safe="")))
+    data, err = _id3as_get(dc, "channel/{}/status".format(url_quote(ch_id, safe="")), expect_list=False)
     if err:
         return err
     return jsonify(data)
@@ -195,7 +208,6 @@ def id3as_running_events(dc):
 
 @id3as_bp.route("/id3as/<dc>/running_events/channel/<ch_id>", methods=["GET"])
 def id3as_running_events_channel(dc, ch_id):
-    """Filtered running events for one channel."""
     data, err = _id3as_get(dc, "running_events?channel_id={}".format(url_quote(ch_id, safe="")))
     if err:
         return err
@@ -255,7 +267,7 @@ def id3as_logs(dc, year=None, month=None, day=None):
             timeout=25,
             verify=True,
         )
-        raw = resp.text
+        raw = resp.text or ""
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
 
@@ -278,11 +290,13 @@ def id3as_packaging_event(dc, event_id):
 def _parse_log_response(raw):
     if not raw:
         return []
+    # Strategy 1 — straight parse
     try:
         data = json.loads(raw)
         return [data] if isinstance(data, dict) else (data if isinstance(data, list) else [])
     except ValueError:
         pass
+    # Strategy 2 — unescape HTML entities, fix adjacent objects, wrap in array
     txt = _html.unescape(raw).strip()
     txt = re.sub(r"}\s*{", "},{", txt)
     if not txt.startswith("["):
@@ -294,6 +308,7 @@ def _parse_log_response(raw):
         return data if isinstance(data, list) else [data]
     except ValueError:
         pass
+    # Strategy 3 — split on object boundaries
     parts = re.split(r"}\s*,\s*{", txt.strip().strip("[]"))
     events = []
     for p in parts:
