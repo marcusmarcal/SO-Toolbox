@@ -326,7 +326,7 @@ function bev(events){
   return m;
 }
 function pill(cls,txt){return'<span class="pill '+cls+'">'+esc(txt)+'</span>';}
-function wb(n){return n?'<span class="wb wb-y">&#9888; '+n+'</span>':'<span class="wb wb-n">-</span>';}
+function wb(n){return n?'<span class="wb wb-y">⚠ '+n+'</span>':'<span class="wb wb-n">-</span>';}
 function sumBar(stats){
   let h='<div class="sum-bar">';
   for(const[l,v,c]of stats)h+='<div class="ss"><span class="sl">'+l+'</span><span class="sv '+(c||'')+'">'+v+'</span></div>';
@@ -393,7 +393,7 @@ async function load(){
     renderView();
     setSt(dc.toUpperCase()+' \u00b7 '+new Date().toLocaleTimeString(),'ok');
   }catch(e){
-    $('content').innerHTML='<div class="state-msg"><div class="ico">&#9888;</div><div style="color:var(--danger)">'+esc(e.message)+'</div><div style="font-size:.58rem;margin-top:4px">Check proxy log and PRFAUTH in .env</div></div>';
+    $('content').innerHTML='<div class="state-msg"><div class="ico">⚠</div><div style="color:var(--danger)">'+esc(e.message)+'</div><div style="font-size:.58rem;margin-top:4px">Check proxy log and PRFAUTH in .env</div></div>';
     setSt('Error: '+e.message,'err');
   }
 }
@@ -427,9 +427,9 @@ function updateStatusCells(){
     const srcState=stat.source_state||'';
     const bps=stat.source_bitrate||0;
     const noSig=srcState==='acquiring_signal'||srcState==='no_signal';
-    encEl.innerHTML=encState==='running'?pill('p-run','running'):encState?pill('p-err','&#9888; '+encState):pill('p-dis','-');
+    encEl.innerHTML=encState==='running'?pill('p-run','running'):encState?pill('p-err','⚠ '+encState):pill('p-dis','-');
     srcEl.innerHTML=srcState==='streaming'?pill('p-str','streaming')
-      :srcState==='acquiring_signal'?(hasEv?pill('p-crit','&#9888; no signal'):pill('p-acq','acquiring'))
+      :srcState==='acquiring_signal'?(hasEv?pill('p-crit','⚠ no signal'):pill('p-acq','acquiring'))
       :srcState?pill('p-idle',srcState):pill('p-dis','-');
     if(bpsEl){
       bpsEl.className='c-bps '+(bps>0?'good':'none');
@@ -509,11 +509,11 @@ if(activeOnly)
     const isCrit=r.wm.some(w=>w.msg&&w.msg.includes('No traffic on source'))&&r.evs.length>0;
     // enc / src pills (populated from statusMap if available, else placeholder)
     const encH=r.encState?
-      (r.encState==='running'?pill('p-run','running'):pill('p-err','&#9888; '+r.encState))
+      (r.encState==='running'?pill('p-run','running'):pill('p-err','⚠ '+r.encState))
       :'<span id="enc-'+r.id+'" style="color:var(--muted);font-family:var(--mono);font-size:.58rem">-</span>';
     const srcH=r.srcState?
       (r.srcState==='streaming'?pill('p-str','streaming')
-        :r.srcState==='acquiring_signal'?(r.evs.length?pill('p-crit','&#9888; no signal'):pill('p-acq','acquiring'))
+        :r.srcState==='acquiring_signal'?(r.evs.length?pill('p-crit','⚠ no signal'):pill('p-acq','acquiring'))
         :pill('p-idle',r.srcState))
       :'<span id="src-'+r.id+'" style="color:var(--muted);font-family:var(--mono);font-size:.58rem">-</span>';
     const bpsH=r.bitrate>0?
@@ -543,7 +543,7 @@ if(activeOnly)
           '</div>';
       }
       for(const w of r.wm){
-        h+='<div class="warn-strip">&#9888; <span class="ws-mod">['+esc(w.module||'')+']</span>'+
+        h+='<div class="warn-strip">⚠ <span class="ws-mod">['+esc(w.module||'')+']</span>'+
           '<span class="ws-msg">'+esc(w.msg||'')+'</span>'+
           '<span class="ws-rep">(&times;'+esc(String(w.repeated||0))+')</span></div>';
       }
@@ -602,7 +602,7 @@ function renderNodesCh(filter,warnOnly){
     h+='<div class="node-card '+cls+'"><div class="node-head">'+
       '<span class="pill '+(n.status==='online'?'p-online':'p-offline')+'" style="font-size:.52rem">'+esc(n.status)+'</span>'+
       '<div style="flex:1"><div class="node-id">'+esc(n.id)+'</div>'+(n.host?'<div class="node-host">'+esc(n.host)+'</div>':'')+'</div>'+
-      (nW2?'<span class="wb wb-y">&#9888; '+nW2+'</span>':'')+
+      (nW2?'<span class="wb wb-y">⚠ '+nW2+'</span>':'')+
     '</div><div class="node-body"><div class="ch-chips">';
     if(!n.channels.length)h+='<span style="color:var(--muted);font-size:.58rem;font-family:var(--mono)">(none)</span>';
     for(const c of n.channels){
@@ -615,7 +615,7 @@ function renderNodesCh(filter,warnOnly){
     if(nW2){
       h+='<div style="margin-top:6px;border-top:1px solid var(--border);padding-top:5px">';
       for(const c of n.channels.filter(c=>c.warnings>0))for(const w of c.wm)
-        h+='<div class="warn-strip">&#9888; <span class="ws-mod">'+esc(c.id)+'</span><span class="ws-msg">'+esc(w.msg||'')+'</span></div>';
+        h+='<div class="warn-strip">⚠ <span class="ws-mod">'+esc(c.id)+'</span><span class="ws-msg">'+esc(w.msg||'')+'</span></div>';
       h+='</div>';
     }
     h+='</div></div>';
@@ -702,7 +702,7 @@ function renderRMG(filter,warnOnly){
     if(hasX){
       h+='<tr class="xrow" id="'+xid+'" style="display:none"><td colspan="6">';
       for(const ev of r.evs)h+='<div class="ev-strip"><span class="ev-eid">#'+esc(ev.event_id)+'</span><span class="ev-name">'+esc(ev.event_name.slice(0,70))+'</span><span class="ev-time">'+esc(ev.start)+' &rarr; '+esc(ev.end)+'</span></div>';
-      for(const w of r.wm)h+='<div class="warn-strip">&#9888; <span class="ws-mod">['+esc(w.module||'')+']</span><span class="ws-msg">'+esc(w.msg||'')+'</span><span class="ws-rep">(&times;'+(w.repeated||0)+')</span></div>';
+      for(const w of r.wm)h+='<div class="warn-strip">⚠ <span class="ws-mod">['+esc(w.module||'')+']</span><span class="ws-msg">'+esc(w.msg||'')+'</span><span class="ws-rep">(&times;'+(w.repeated||0)+')</span></div>';
       h+='</td></tr>';
     }
   }
@@ -744,7 +744,7 @@ function renderRunning(filter,warnOnly){
       (r.pkgNode?'<span>Pkg: <span class="mv">'+esc(r.pkgNode)+'</span></span>':'')+
       (r.startedAt?'<span>Started: <span class="mv">'+esc(r.startedAt)+'</span></span>':'')+
       '</div>';
-    for(const w of r.wm)h+='<div class="warn-strip">&#9888; <span class="ws-mod">['+esc(w.module||'')+']</span><span class="ws-msg">'+esc(w.msg||'')+'</span><span class="ws-rep">(&times;'+(w.repeated||0)+')</span></div>';
+    for(const w of r.wm)h+='<div class="warn-strip">⚠ <span class="ws-mod">['+esc(w.module||'')+']</span><span class="ws-msg">'+esc(w.msg||'')+'</span><span class="ws-rep">(&times;'+(w.repeated||0)+')</span></div>';
     h+='<div class="ev-pubs" id="'+pid+'"><span style="font-family:var(--mono);font-size:.56rem;color:var(--muted);font-style:italic">Loading publications...</span></div></div>';
   }
   $('content').innerHTML=h;
