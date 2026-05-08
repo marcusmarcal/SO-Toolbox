@@ -1,0 +1,103 @@
+{
+  "menu": [
+    {
+      "id": "rts-player",
+      "file": "RTS-Test-Player.html",
+      "label": "RTS Player",
+      "description": "Test & monitor RTS streams live",
+      "icon": "📺",
+      "category": "RTS",
+      "tag": "RTS"
+    },
+    {
+      "id": "rts-bc-config",
+      "file": "RTS-BC-ConfigTool.html",
+      "label": "RTS Base Channel Configuration Tool",
+      "description": "Base Channel Configuration Tool",
+      "icon": "📺",
+      "category": "RTS",
+      "tag": "RTS"
+    },
+    {
+      "id": "rts-monitor",
+      "file": "monitor.html",
+      "label": "RTS Monitor",
+      "description": "Channels monitor for RTS streams live",
+      "icon": "📺",
+      "category": "RTS",
+      "tag": "RTS"
+    },
+    {
+      "id": "srt-uri-builder",
+      "file": "SRT-URI-Builder.html",
+      "label": "SRT URI Builder",
+      "description": "Build & encode SRT stream URLs",
+      "icon": "🔗",
+      "category": "Streaming",
+      "tag": "SRT"
+    },
+    {
+      "id": "mtr-trace",
+      "file": "MTR-Trace.html",
+      "label": "MTR from INX",
+      "description": "Network Tracing",
+      "icon": "🔍",
+      "category": "Network",
+      "tag": "MTR"
+    },
+    {
+      "id": "ingest-analyzer",
+      "file": "Ingest-Analyzer.html",
+      "label": "RTS Ingest Analyzer",
+      "description": "VISA for RTS",
+      "icon": "🔬",
+      "category": "RTS",
+      "tag": "RTS"
+    },
+    {
+      "id": "gop-analyzer",
+      "file": "GOP-Analyzer.html",
+      "label": "Video Analyser",
+      "description": "Better than VISA",
+      "icon": "🎬",
+      "category": "Analysis",
+      "tag": "LIVE"
+    },
+    {
+      "id": "jira-formatter",
+      "file": "jira-formatter.html",
+      "label": "Jira Formatter",
+      "description": "Format raw ticket text for Jira",
+      "icon": "🎟️",
+      "category": "Documentation",
+      "tag": "JIRA"
+    },
+    {
+      "id": "sp-extensions",
+      "file": "sp-extensions.html",
+      "label": "SP Chrome Extensions",
+      "description": "Useful extensions for Video",
+      "icon": "🎬",
+      "category": "Utils",
+      "tag": "Tool"
+    },
+    {
+      "id": "purge-url-generator",
+      "file": "purge-url-generator.html",
+      "label": "URLs for Purge",
+      "description": "Generator of URLs for RMG Akamai Purge",
+      "icon": "🐎",
+      "category": "Akamai",
+      "tag": "RMG"
+    },
+    {
+      "id": "id3as-dc-monitor",
+      "file": "id3as-DC-Monitor.html",
+      "label": "id3as DC Monitor",
+      "description": "id3as channel & node monitoring",
+      "icon": "⛨",
+      "category": "Monitoring",
+      "tag": "ID3AS"
+    }
+  ]
+}
