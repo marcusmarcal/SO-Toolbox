@@ -6,7 +6,7 @@
       "label": "id3as DC Monitor",
       "description": "id3as channel & node monitoring",
       "icon": "⛨",
-      "category": "Monitoring",
+      "category": "0 - Monitoring",
       "tag": "ID3AS"
     },
     {
@@ -15,7 +15,7 @@
       "label": "RTS Player",
       "description": "Test & monitor RTS streams live",
       "icon": "📺",
-      "category": "RTS",
+      "category": "1 - RTS",
       "tag": "RTS"
     },
     {
@@ -24,7 +24,7 @@
       "label": "RTS Base Channel Configuration Tool",
       "description": "Base Channel Configuration Tool",
       "icon": "📺",
-      "category": "RTS",
+      "category": "1 - RTS",
       "tag": "RTS"
     },
     {
@@ -33,7 +33,7 @@
       "label": "RTS Monitor",
       "description": "Channels monitor for RTS streams live",
       "icon": "📺",
-      "category": "RTS",
+      "category": "1 - RTS",
       "tag": "RTS"
     },
     {
@@ -60,7 +60,7 @@
       "label": "RTS Ingest Analyzer",
       "description": "VISA for RTS",
       "icon": "🔬",
-      "category": "RTS",
+      "category": "1 - RTS",
       "tag": "RTS"
     },
     {
