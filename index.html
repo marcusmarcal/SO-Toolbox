@@ -48,11 +48,10 @@
         content: "";
         position: fixed;
         inset: 0;
-        background: radial-gradient(circle at 20% 50%, rgba(123, 94, 167, 0.1) 0%, transparent 50%),
-                    radial-gradient(circle at 80% 80%, rgba(0, 255, 200, 0.05) 0%, transparent 50%);
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
         pointer-events: none;
-        z-index: 1;
-        opacity: 1;
+        z-index: 9999;
+        opacity: 0.35;
       }
 
       #app {
@@ -60,8 +59,6 @@
         grid-template-columns: 280px 1fr;
         grid-template-rows: 60px 1fr;
         height: 100vh;
-        position: relative;
-        z-index: 2;
       }
 
       /* ── TOPBAR ── */
@@ -320,6 +317,7 @@
         flex-shrink: 0;
         letter-spacing: 0.04em;
       }
+      /* badge colours per badge text — assigned in JS */
       .tool-open-btn {
         display: flex;
         align-items: center;
@@ -342,6 +340,7 @@
         color: var(--bg);
         border-color: var(--accent);
       }
+      /* ── SIDEBAR FOOTER (count only, no add-tool button) ── */
       .sidebar-footer {
         padding: 10px 20px;
         border-top: 1px solid var(--border);
@@ -359,8 +358,6 @@
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        position: relative;
-        z-index: 3;
       }
 
       /* ── TAB BAR ── */
@@ -438,17 +435,14 @@
         flex: 1;
         position: relative;
         overflow: hidden;
-        z-index: 1;
       }
       .frame-wrapper {
         position: absolute;
         inset: 0;
         display: none;
-        z-index: 1;
       }
       .frame-wrapper.active {
         display: block;
-        z-index: 2;
       }
       .frame-wrapper iframe {
         width: 100%;
@@ -467,8 +461,6 @@
         justify-content: center;
         gap: 24px;
         padding: 40px;
-        z-index: 1;
-        background: var(--bg);
       }
       .welcome-glyph {
         width: 80px;
@@ -800,7 +792,7 @@
         <h1>SP SO <span>Web Toolbox</span></h1>
         <div id="env-pill">
           <span class="pill-spinner"></span>
-          <span id="env-pill-text">Loading menu…</span>
+          <span id="env-pill-text">Loading .env…</span>
         </div>
         <button id="btn-git-pull" class="git-pull-btn" data-tip="Pull latest from Git" onclick="gitPull()">⟳ Update</button>
         <button class="git-pull-btn" data-tip="Restart proxy service" onclick="openRestartConfirm()" style="border-color:rgba(255,78,106,0.4);color:#ffb3be;">⏻ Restart Proxy</button>
@@ -819,7 +811,7 @@
           />
         </div>
         <div class="tools-list" id="tools-list">
-          <!-- populated from menu-config.json -->
+          <!-- populated from .env -->
         </div>
         <div class="sidebar-footer">
           <div class="sidebar-footer-info" id="status-count">Loading…</div>
@@ -848,9 +840,38 @@
           <div class="cl-title">SP SO Web Toolbox — Changelog</div>
           <button class="cl-close" onclick="closeChangelog()">Close</button>
         </div>
-        <div class="cl-entry"><div class="cl-version">v2.12.0</div><div class="cl-date">2026-05-08</div><div class="cl-desc">id3as DC Monitor: merge Nodes+Health into single view; fix node count [...]</div></div>
-        <div class="cl-entry"><div class="cl-version">v2.11.0</div><div class="cl-date">2026-05-05</div><div class="cl-desc">New: id3as DC Monitor — web frontend for id3as channel/node/RMG/logs[...]</div></div>
-        <div class="cl-entry"><div class="cl-version">v2.10.0</div><div class="cl-date">2026-05-04</div><div class="cl-desc">SO Video Analyser: AV sync+jitter checks, .ts upload, clear form/histo[...]</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.12.0</div><div class="cl-date">2026-05-08</div><div class="cl-desc">id3as DC Monitor: merge Nodes+Health into single view; fix node count (86 not 42, now uses both channel endpoints); SCH bar (scheduler, thresholds 30/70); event/no-signal warnings on chips, node event list, and Events view; rename "Active only" → "In use only"; index: collapsible sidebar categories with colour-coded badges; version now reads from .env APP_VERSION</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.11.0</div><div class="cl-date">2026-05-05</div><div class="cl-desc">New: id3as DC Monitor — web frontend for id3as channel/node/RMG/logs monitoring; proxy routes /id3as/&lt;dc&gt;/* handle PRFAUTH server-side; DC toggle (IX/EQ), four views, warnings filter, 30s auto-refresh, grep and date picker for logs</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.10.2</div><div class="cl-date">2026-05-05</div><div class="cl-desc">Ingest Analyzer: File .ts tab changed from server-side path input to browser file upload (multipart); new /ingest/upload proxy endpoint saves temp .ts and runs script on it</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.10.1</div><div class="cl-date">2026-05-04</div><div class="cl-desc">SO Video Analyser bugfixes: fix broken history-panel div structure; fix .ts upload (Flask 2GB limit + nginx client_max_body_size note); fix AV sync offset showing — by using pkt_dts_time fallback when pts_time is N/A in MPEG-TS</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.10.0</div><div class="cl-date">2026-05-04</div><div class="cl-desc">SO Video Analyser: AV sync+jitter checks, .ts upload, clear form/history, checkbox persistence, schedule UTC+30min, European time format, bigger report modal, GOP in report, AV sync in compliance table</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.9.2</div><div class="cl-date">2026-04-24</div><div class="cl-desc">Compliance fully specs-driven: deep-merge load/save, all checks from specs.json</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.9.0</div><div class="cl-date">2026-04-24</div><div class="cl-desc">Unique test_id per run, dual report (visual screenshot + text copy for ServiceNow/Jira), print CSS</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.8.4</div><div class="cl-date">2026-04-23</div><div class="cl-desc">Re-run saves new JSON + appears in history; pollStatus sets _currentResultFile; loadHistory on all outcomes</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.8.3</div><div class="cl-date">2026-04-23</div><div class="cl-desc">Re-run button on loaded result and each history item</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.8.2</div><div class="cl-date">2026-04-23</div><div class="cl-desc">Override _currentResultFile fix, schedule UTC, constrained baseline, hi-sub date/codec/res/fps, no latency field</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.8.1</div><div class="cl-date">2026-04-23</div><div class="cl-desc">Always log failed/error JSON, FAILED/ERROR badges in history, log viewer</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.8.0</div><div class="cl-date">2026-04-23</div><div class="cl-desc">Schedule fix, fps history badge (v_fps_compliance), specs editor (JSON, password), GOP Stats left/Audio right, scheduled badge</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.7.0</div><div class="cl-date">2026-04-22</div><div class="cl-desc">SO Video Analyser rename, 50i FPS fix, override→JSON, .ts download, scheduled jobs, metadata header; index: UTC+local clocks</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.6.3</div><div class="cl-date">2026-04-21</div><div class="cl-desc">GOP: fix v_scan reference before assignment, 50i→25fps, HLG SDR, AAC-LC, audio tracks, Generate Report, Override</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.6.2</div><div class="cl-date">2026-04-16</div><div class="cl-desc">GOP: larger fonts, GOP avg hero, history filters, bitrate fallback, AAC FLTP</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.6.0</div><div class="cl-date">2026-04-16</div><div class="cl-desc">GOP: graceful timeout, NAL/IDR, open/closed GOP, compliance RAG table, FPS flag, host labels, filters, bulk delete; MTR: hops fix, bulk delete</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.5.0</div><div class="cl-date">2026-04-14</div><div class="cl-desc">New: GOP Analyzer — SRT stream capture, IDR/GOP visualizer, stream info, compliance checks</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.4.0</div><div class="cl-date">2026-04-14</div><div class="cl-desc">MTR: ICMP/UDP-53 toggle, Country/ASN geo toggle, -b flag, proto+geo in header and history</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.3.0</div><div class="cl-date">2026-04-13</div><div class="cl-desc">Proxy renamed to so-proxy; ADMIN_PASSWORD for sensitive actions; MTR host sanity check, no Watch/live duplication; README modal in index</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.2.0</div><div class="cl-date">2026-04-10</div><div class="cl-desc">MTR kill/delete with confirmation, date picker filter, history/running panels</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.1.0</div><div class="cl-date">2026-04-10</div><div class="cl-desc">MTR: wider history panel, date/search/tag filters, multi-tag, Date End + actual HH:MM:SS, Time mode left, copy button fix</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.0.0</div><div class="cl-date">2026-04-07</div><div class="cl-desc">MTR background jobs with disk persistence, tag filtering, running jobs panel; Ingest Analyzer tags; bufsize streaming fix; progress bar with countdown</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.9.0</div><div class="cl-date">2026-04-06</div><div class="cl-desc">Ingest Analyzer: background jobs, ZIP copy, HTML report served via proxy, SRT_LOCAL presets</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.8.0</div><div class="cl-date">2026-04-06</div><div class="cl-desc">MTR time mode fix using cycles, SSE tick countdown, progress bar with colour shift</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.7.0</div><div class="cl-date">2026-04-01</div><div class="cl-desc">MTR Network Trace tool with SSE streaming, server info, history</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.6.0</div><div class="cl-date">2026-04-01</div><div class="cl-desc">RMG RTS Multiview Dashboard launcher; Ingest Analyzer tool</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.5.2</div><div class="cl-date">2026-04-01</div><div class="cl-desc">nginx proxy_buffering off for SSE; per-distro nginx configs (CentOS + Debian)</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.5.1</div><div class="cl-date">2026-03-31</div><div class="cl-desc">Config loaded via proxy instead of public .env; SRT_PASSPHRASE secured</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.5.0</div><div class="cl-date">2026-03-27</div><div class="cl-desc">Git Pull button in index with auto-reload; proxy as systemd service</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.4.0</div><div class="cl-date">2026-03-27</div><div class="cl-desc">Lazy redraw — only update screen on state changes</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.3.0</div><div class="cl-date">2026-03-27</div><div class="cl-desc">Channel Monitor UI switched from rich to curses</div></div>
+        <div class="cl-entry"><div class="cl-version">v1.0.0</div><div class="cl-date">2026-03-25</div><div class="cl-desc">Initial release — PhenixRTS Channel Health Monitor, SRT URI Builder</div></div>
       </div>
     </div>
 
@@ -907,279 +928,53 @@
     </div>
 
     <script>
-      // ────────────────────────────────────────────────────────────
-      // GLOBAL STATE
-      // ────────────────────────────────────────────────────────────
-      let allTools = [];
-      let categoryCollapsed = {};
-
-      const PROXY_URL = "/so-proxy";
-      let _hasAdminPw = false;
-
-      // ────────────────────────────────────────────────────────────
-      // LOAD MENU CONFIG FROM JSON
-      // ────────────────────────────────────────────────────────────
-      async function loadMenuConfig() {
-        try {
-          const response = await fetch('menu-config.json');
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          const data = await response.json();
-          allTools = data.menu || [];
-          
-          document.getElementById("env-pill").classList.remove("warn");
-          document.getElementById("env-pill").classList.add("ok");
-          document.getElementById("env-pill-text").textContent = `✓ ${allTools.length} tools`;
-          
-          renderTools();
-          updateWelcomeCards();
-        } catch (error) {
-          console.error("Failed to load menu-config.json:", error);
-          document.getElementById("env-pill").classList.add("warn");
-          document.getElementById("env-pill-text").textContent = "✗ Config error";
-        }
-      }
-
-      // ────────────────────────────────────────────────────────────
-      // RENDER TOOLS WITH SMART CATEGORIZATION
-      // ────────────────────────────────────────────────────────────
-      function renderTools(filterText = "") {
-        const toolsList = document.getElementById("tools-list");
-        toolsList.innerHTML = "";
-
-        // Group tools by category
-        const grouped = {};
-        allTools.forEach(tool => {
-          const cat = tool.category || "Other";
-          if (!grouped[cat]) grouped[cat] = [];
-          grouped[cat].push(tool);
-        });
-
-        // Filter tools if search text exists
-        let visibleCount = 0;
-        Object.keys(grouped).sort().forEach(category => {
-          const tools = grouped[category];
-          
-          // Filter tools in this category
-          const filtered = tools.filter(tool => {
-            if (!filterText) return true;
-            const query = filterText.toLowerCase();
-            return (
-              tool.label.toLowerCase().includes(query) ||
-              tool.description.toLowerCase().includes(query) ||
-              tool.tag.toLowerCase().includes(query) ||
-              tool.category.toLowerCase().includes(query)
-            );
-          });
-
-          if (filtered.length === 0) return;
-
-          visibleCount += filtered.length;
-
-          // Category header
-          const isCollapsed = categoryCollapsed[category];
-          const catDiv = document.createElement("div");
-          catDiv.className = `category-label ${isCollapsed ? "collapsed" : ""}`;
-          catDiv.innerHTML = `
-            <span class="cat-arrow">▶</span>
-            <span>${category}</span>
-            <span class="cat-count">${filtered.length}</span>
-          `;
-          catDiv.onclick = () => {
-            categoryCollapsed[category] = !categoryCollapsed[category];
-            renderTools(filterText);
-          };
-          toolsList.appendChild(catDiv);
-
-          // Tools in category
-          const toolsDiv = document.createElement("div");
-          toolsDiv.className = `cat-tools ${isCollapsed ? "collapsed" : ""}`;
-          
-          filtered.forEach(tool => {
-            const toolItem = document.createElement("div");
-            toolItem.className = "tool-item";
-            toolItem.innerHTML = `
-              <span class="tool-icon">${tool.icon}</span>
-              <div class="tool-info">
-                <div class="tool-name">${tool.label}</div>
-                <div class="tool-desc">${tool.description}</div>
-              </div>
-              <span class="tool-badge" style="background: rgba(123, 94, 167, 0.2); color: #b8a6d6;">${tool.tag}</span>
-              <div class="tool-open-btn" title="Open tool">⤴</div>
-            `;
-            toolItem.onclick = () => openTool(tool);
-            toolsDiv.appendChild(toolItem);
-          });
-
-          toolsList.appendChild(toolsDiv);
-        });
-
-        document.getElementById("status-count").textContent = `${visibleCount} tool${visibleCount !== 1 ? "s" : ""}`;
-        document.getElementById("status-count-bar").textContent = `${visibleCount} tool${visibleCount !== 1 ? "s" : ""}`;
-      }
-
-      // ────────────────────────────────────────────────────────────
-      // SEARCH/FILTER
-      // ────────────────────────────────────────────────────────────
-      document.getElementById("search").addEventListener("input", (e) => {
-        renderTools(e.target.value);
-      });
-
-      // ────────────────────────────────────────────────────────────
-      // WELCOME CARDS - TOP 6 TOOLS
-      // ────────────────────────────────────────────────────────────
-      function updateWelcomeCards() {
-        const container = document.getElementById("welcome-cards");
-        container.innerHTML = "";
-        
-        allTools.slice(0, 6).forEach(tool => {
-          const card = document.createElement("div");
-          card.className = "welcome-card";
-          card.innerHTML = `
-            <div class="wc-icon">${tool.icon}</div>
-            <div class="wc-name">${tool.label}</div>
-            <div class="wc-desc">${tool.description}</div>
-          `;
-          card.onclick = () => openTool(tool);
-          container.appendChild(card);
-        });
-      }
-
-      // ────────────────────────────────────────────────────────────
-      // TOOL OPENING
-      // ────────────────────────────────────────────────────────────
-      function openTool(tool) {
-        const tabBar = document.getElementById("tab-bar");
-        const frames = document.getElementById("frames");
-        const welcome = document.getElementById("welcome");
-
-        // Create or activate tab
-        let tab = document.querySelector(`[data-tool-id="${tool.id}"]`);
-        if (!tab) {
-          tab = document.createElement("div");
-          tab.className = "tab";
-          tab.setAttribute("data-tool-id", tool.id);
-          tab.innerHTML = `
-            <span class="tab-icon">${tool.icon}</span>
-            <span>${tool.label}</span>
-            <span class="tab-close" onclick="event.stopPropagation(); closeTool('${tool.id}')">✕</span>
-          `;
-          tab.onclick = () => activateTab(tool.id);
-          tabBar.appendChild(tab);
-
-          // Create frame
-          const frame = document.createElement("div");
-          frame.className = "frame-wrapper";
-          frame.setAttribute("data-tool-id", tool.id);
-          frame.innerHTML = `<iframe src="${tool.file}"></iframe>`;
-          frames.appendChild(frame);
-        }
-
-        activateTab(tool.id);
-      }
-
-      function activateTab(toolId) {
-        // Deactivate all tabs/frames
-        document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-        document.querySelectorAll(".frame-wrapper").forEach(f => f.classList.remove("active"));
-        document.getElementById("welcome").style.display = "none";
-
-        // Activate selected
-        const tab = document.querySelector(`[data-tool-id="${toolId}"]`);
-        const frame = document.querySelector(`.frame-wrapper[data-tool-id="${toolId}"]`);
-        if (tab) tab.classList.add("active");
-        if (frame) frame.classList.add("active");
-      }
-
-      function closeTool(toolId) {
-        const tab = document.querySelector(`[data-tool-id="${toolId}"]`);
-        const frame = document.querySelector(`.frame-wrapper[data-tool-id="${toolId}"]`);
-        
-        const wasActive = tab?.classList.contains("active");
-        tab?.remove();
-        frame?.remove();
-
-        if (wasActive) {
-          const nextTab = document.querySelector(".tab");
-          if (nextTab) {
-            activateTab(nextTab.getAttribute("data-tool-id"));
-          } else {
-            document.getElementById("welcome").style.display = "flex";
-          }
-        }
-      }
-
-      // ────────────────────────────────────────────────────────────
-      // MODAL FUNCTIONS
-      // ────────────────────────────────────────────────────────────
       function openChangelog() {
         document.getElementById("changelog-modal").classList.add("open");
       }
       function closeChangelog() {
         document.getElementById("changelog-modal").classList.remove("open");
       }
+      // Close on backdrop click
       document.getElementById("changelog-modal").addEventListener("click", function(e) {
         if (e.target === this) closeChangelog();
       });
 
-      function openRestartConfirm() {
-        document.getElementById("restart-output").style.display = "none";
-        document.getElementById("restart-pw-err").textContent = "";
-        const pwEl = document.getElementById("restart-pw");
-        pwEl.value = ""; pwEl.style.display = _hasAdminPw ? "" : "none";
-        document.getElementById("restart-modal").style.display = "flex";
-      }
-      function closeRestartConfirm() {
-        document.getElementById("restart-modal").style.display = "none";
-      }
+      const PROXY_URL = "/so-proxy";
+      let _hasAdminPw = false;
 
-      async function confirmRestart() {
-        const btn = document.querySelector("[onclick*='confirmRestart']");
-        const output = document.getElementById("restart-output");
-        const errEl = document.getElementById("restart-pw-err");
-        
-        btn.disabled = true;
-        output.style.display = "block";
-        output.textContent = "Restarting...";
-        
-        try {
-          const pw = _hasAdminPw ? document.getElementById("restart-pw").value : "";
-          const res = await fetch(`${PROXY_URL}/restart`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ password: pw })
-          });
-          const data = await res.json();
-          
-          if (data.success) {
-            output.textContent = "✔ Restarted successfully!";
-            output.className = "git-output ok";
-            setTimeout(() => window.location.reload(), 2000);
-          } else {
-            errEl.textContent = data.error || "Restart failed";
-            output.textContent = data.error || "Failed";
-            output.className = "git-output err";
-          }
-        } catch (e) {
-          errEl.textContent = e.message;
-          output.textContent = e.message;
-          output.className = "git-output err";
-        }
-        btn.disabled = false;
+      // ── Clocks ────────────────────────────────────────────────────
+      function updateClocks() {
+        const now  = new Date();
+        const pad  = n => String(n).padStart(2,"0");
+        // UTC
+        const utcH = pad(now.getUTCHours()), utcM = pad(now.getUTCMinutes()), utcS = pad(now.getUTCSeconds());
+        document.getElementById("clock-utc").textContent = `UTC ${utcH}:${utcM}:${utcS}`;
+        // Local with timezone abbreviation
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+        const localStr = now.toLocaleTimeString([], { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        document.getElementById("clock-local").textContent = `${tz} ${localStr}`;
       }
+      updateClocks();
+      setInterval(updateClocks, 1000);
+
+      // Load config to check admin password
+      fetch(`${PROXY_URL}/config`).then(r=>r.json()).then(d=>{
+        _hasAdminPw = (d.config||{}).HAS_ADMIN_PASSWORD === "true";
+        const pwEl = document.getElementById("restart-pw");
+        if(pwEl) pwEl.style.display = _hasAdminPw ? "" : "none";
+      }).catch(()=>{});
 
       async function gitPull() {
-        const btn = document.getElementById("btn-git-pull");
-        const modal = document.getElementById("git-modal");
+        const btn    = document.getElementById("btn-git-pull");
+        const modal  = document.getElementById("git-modal");
         const output = document.getElementById("git-output");
-        
         btn.classList.add("loading");
         btn.textContent = "⟳ Updating...";
         output.textContent = "Running git pull...";
-        output.className = "git-output";
+        output.className   = "git-output";
         modal.classList.add("open");
-        
         try {
-          const res = await fetch(`${PROXY_URL}/git-pull`, { method: "POST" });
+          const res  = await fetch(`${PROXY_URL}/git-pull`, { method: "POST" });
           const data = await res.json();
           output.textContent = data.output || "(no output)";
           output.classList.add(data.success ? "ok" : "err");
@@ -1192,55 +987,387 @@
         btn.textContent = "⟳ Update";
       }
 
-      function closeGitModal() {
-        document.getElementById("git-modal").classList.remove("open");
-      }
+      function closeGitModal() { document.getElementById("git-modal").classList.remove("open"); }
 
-      async function openReadme() {
-        const modal = document.getElementById("readme-modal");
-        const content = document.getElementById("readme-content");
-        modal.style.display = "flex";
-        
+      function openRestartConfirm() {
+        document.getElementById("restart-output").style.display = "none";
+        document.getElementById("restart-pw-err").textContent = "";
+        const pwEl = document.getElementById("restart-pw");
+        pwEl.value = ""; pwEl.style.display = _hasAdminPw ? "" : "none";
+        document.getElementById("restart-modal").style.display = "flex";
+      }
+      function closeRestartConfirm() { document.getElementById("restart-modal").style.display = "none"; }
+
+      async function confirmRestart() {
+        const out   = document.getElementById("restart-output");
+        const pw    = document.getElementById("restart-pw").value;
+        const errEl = document.getElementById("restart-pw-err");
+        errEl.textContent = "";
+        out.style.display = "block";
+        out.className     = "git-output";
+        out.textContent   = "Restarting proxy...";
+        const headers = { "Content-Type": "application/json" };
+        if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
         try {
-          const res = await fetch("README.md");
-          const text = await res.text();
-          content.textContent = text;
+          const res  = await fetch(`${PROXY_URL}/restart-proxy`, { method: "POST", headers });
+          const data = await res.json();
+          if (res.status === 403) {
+            out.style.display = "none";
+            errEl.textContent = "❌ Invalid admin password";
+            return;
+          }
+          out.textContent = data.output || "(no output)";
+          out.classList.add(data.success ? "ok" : "err");
+          if (data.success) {
+            out.textContent += "\n\n⏳ Reloading in 6 seconds...";
+            setTimeout(() => location.reload(), 6000);
+          }
         } catch (e) {
-          content.textContent = `Error loading README: ${e.message}`;
+          out.textContent = `Error: ${e.message}`;
+          out.classList.add("err");
         }
       }
 
-      function closeReadme() {
-        document.getElementById("readme-modal").style.display = "none";
+      // README modal
+      async function openReadme() {
+        const modal   = document.getElementById("readme-modal");
+        const content = document.getElementById("readme-content");
+        modal.style.display = "flex";
+        content.textContent = "Loading README...";
+        try {
+          const res  = await fetch("README.md", { cache: "no-cache" });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const text = await res.text();
+          content.textContent = text;
+        } catch (e) {
+          content.textContent = `Could not load README.md: ${e.message}\n\nMake sure README.md is served alongside index.html.`;
+        }
       }
+      function closeReadme() { document.getElementById("readme-modal").style.display = "none"; }
+      document.getElementById("readme-modal").addEventListener("click", function(e) {
+        if (e.target === this) closeReadme();
+      });
 
-      // ────────────────────────────────────────────────────────────
-      // CLOCKS
-      // ────────────────────────────────────────────────────────────
-      function updateClocks() {
-        const now = new Date();
-        const pad = n => String(n).padStart(2, "0");
-        const utcH = pad(now.getUTCHours()), utcM = pad(now.getUTCMinutes()), utcS = pad(now.getUTCSeconds());
-        document.getElementById("clock-utc").textContent = `UTC ${utcH}:${utcM}:${utcS}`;
-        
-        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
-        const localStr = now.toLocaleTimeString([], { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
-        document.getElementById("clock-local").textContent = `${tz} ${localStr}`;
-      }
-      updateClocks();
-      setInterval(updateClocks, 1000);
+      $(function () {
+        // ═══════════════════════════════════════════════════
+        //  .env parser
+        // ═══════════════════════════════════════════════════
+        async function loadEnv() {
+          const resp = await fetch(`${PROXY_URL}/config`, { cache: "no-cache" });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const data = await resp.json();
+          if (data.status !== "ok") throw new Error(data.message || "Config error");
+          return data.config;
+        }
 
-      // ────────────────────────────────────────────────────────────
-      // INIT
-      // ────────────────────────────────────────────────────────────
-      fetch(`${PROXY_URL}/config`)
-        .then(r => r.json())
-        .then(d => {
-          _hasAdminPw = (d.config || {}).HAS_ADMIN_PASSWORD === "true";
-        })
-        .catch(() => {});
+        // ═══════════════════════════════════════════════════
+        //  Parse tools from env
+        //  TOOL_n=file.html|Name|Description|icon|Category|BADGE
+        // ═══════════════════════════════════════════════════
+        function parseTools(env) {
+          return Object.keys(env)
+            .filter((k) => /^TOOL_\d+$/.test(k))
+            .sort(
+              (a, b) => parseInt(a.split("_")[1]) - parseInt(b.split("_")[1])
+            )
+            .map((k) => {
+              const parts = env[k].split("|");
+              const file = (parts[0] || "").trim();
+              return {
+                id: file.replace(/\.html$/i, "").toLowerCase(),
+                file: file,
+                name: (parts[1] || file).trim(),
+                desc: (parts[2] || "").trim(),
+                icon: (parts[3] || "🔧").trim(),
+                category: (parts[4] || "Other").trim(),
+                badge: (parts[5] || "").trim(),
+              };
+            })
+            .filter((t) => t.file);
+        }
 
-      loadMenuConfig();
+        // ═══════════════════════════════════════════════════
+        //  State
+        // ═══════════════════════════════════════════════════
+        let tools = [];
+        let tabs = [];
+        let activeTab = null;
+
+        // ═══════════════════════════════════════════════════
+        //  Badge colour palette (by badge text)
+        // ═══════════════════════════════════════════════════
+        const BADGE_STYLES = {
+          "LIVE":  "background:rgba(255,78,106,.2);color:#ff7a8a;border:1px solid rgba(255,78,106,.35)",
+          "RTS":   "background:rgba(0,255,200,.12);color:#00ffc8;border:1px solid rgba(0,255,200,.25)",
+          "SRT":   "background:rgba(78,168,255,.15);color:#80c8ff;border:1px solid rgba(78,168,255,.3)",
+          "MTR":   "background:rgba(240,165,0,.12);color:#f0c060;border:1px solid rgba(240,165,0,.25)",
+          "JIRA":  "background:rgba(38,132,255,.15);color:#80b4ff;border:1px solid rgba(38,132,255,.3)",
+          "ID3AS": "background:rgba(123,94,167,.2);color:#c4a0e8;border:1px solid rgba(123,94,167,.35)",
+          "RMG":   "background:rgba(240,165,0,.12);color:#f0c060;border:1px solid rgba(240,165,0,.25)",
+          "TOOL":  "background:rgba(106,106,138,.15);color:#a0a0c8;border:1px solid rgba(106,106,138,.3)",
+        };
+        function badgeStyle(b) {
+          if (!b) return "";
+          return BADGE_STYLES[b.toUpperCase()] || "background:rgba(123,94,167,.2);color:#b89cd4;border:1px solid rgba(123,94,167,.3)";
+        }
+
+        // Track collapsed state per category (persist in localStorage)
+        let collapsedCats = {};
+        try { collapsedCats = JSON.parse(localStorage.getItem("sb-collapsed") || "{}"); } catch {}
+        function saveCatState() { try { localStorage.setItem("sb-collapsed", JSON.stringify(collapsedCats)); } catch {} }
+
+        // ═══════════════════════════════════════════════════
+        //  Render sidebar
+        // ═══════════════════════════════════════════════════
+        function renderSidebar(filter = "") {
+          const $list = $("#tools-list").empty();
+          const q = filter.trim().toLowerCase();
+          const cats = [...new Set(tools.map((t) => t.category))];
+
+          cats.forEach((cat) => {
+            const catTools = tools.filter(
+              (t) =>
+                t.category === cat &&
+                (!q ||
+                  t.name.toLowerCase().includes(q) ||
+                  t.desc.toLowerCase().includes(q) ||
+                  (t.badge && t.badge.toLowerCase().includes(q)))
+            );
+            if (!catTools.length) return;
+
+            // Force expand if filtering
+            const isCollapsed = !q && !!collapsedCats[cat];
+            const catId = "cat-" + cat.replace(/\W/g, "-");
+
+            $list.append(`
+              <div class="category-label${isCollapsed ? " collapsed" : ""}" data-cat="${cat}">
+                <span class="cat-arrow">▾</span>
+                <span>${cat}</span>
+                <span class="cat-count">${catTools.length}</span>
+              </div>
+              <div class="cat-tools${isCollapsed ? " collapsed" : ""}" id="${catId}"></div>
+            `);
+
+            const $catTools = $(`#${catId}`);
+            catTools.forEach((tool) => {
+              const isActive =
+                activeTab &&
+                tabs.find((tb) => tb.toolId === tool.id && tb.id === activeTab);
+              const bs = badgeStyle(tool.badge);
+              $catTools.append(`
+                <div class="tool-item ${isActive ? "active" : ""}" data-tool-id="${tool.id}">
+                  <span class="tool-icon">${tool.icon}</span>
+                  <div class="tool-info">
+                    <div class="tool-name">${tool.name}</div>
+                    <div class="tool-desc">${tool.desc}</div>
+                  </div>
+                  ${tool.badge ? `<span class="tool-badge" style="${bs}">${tool.badge}</span>` : ""}
+                  <div class="tool-open-btn" data-tip="Open in new tab" data-tool-id="${tool.id}">↗</div>
+                </div>
+              `);
+            });
+          });
+
+          if (!$list.children().length) {
+            $list.append(
+              `<div style="text-align:center;padding:30px;font-family:var(--mono);font-size:0.65rem;color:var(--muted)">No tools found</div>`
+            );
+          }
+
+          const n = tools.length;
+          $("#status-count").text(`${n} tool${n !== 1 ? "s" : ""} loaded`);
+          $("#status-count-bar").text(`${n} tool${n !== 1 ? "s" : ""}`);
+        }
+
+        // ═══════════════════════════════════════════════════
+        //  Render welcome cards
+        // ═══════════════════════════════════════════════════
+        function renderWelcomeCards() {
+          const $wc = $("#welcome-cards").empty();
+          tools.forEach((tool) => {
+            $wc.append(`
+        <div class="welcome-card" data-tool-id="${tool.id}">
+          <div class="wc-icon">${tool.icon}</div>
+          <div class="wc-name">${tool.name}</div>
+          <div class="wc-desc">${tool.desc}</div>
+        </div>
+      `);
+          });
+        }
+
+        // ═══════════════════════════════════════════════════
+        //  Tabs
+        // ═══════════════════════════════════════════════════
+        function openTab(toolId) {
+          const tool = tools.find((t) => t.id === toolId);
+          if (!tool) return;
+
+          const existing = tabs.find((tb) => tb.toolId === toolId);
+          if (existing) {
+            activateTab(existing.id);
+            return;
+          }
+
+          const tabId = "tab-" + Date.now();
+          tabs.push({ id: tabId, toolId });
+
+          $("#tab-bar").append(`
+      <div class="tab" data-tab-id="${tabId}">
+        <span class="tab-icon">${tool.icon}</span>
+        <span class="tab-name">${tool.name}</span>
+        <span class="tab-close" data-tab-id="${tabId}">✕</span>
+      </div>
+    `);
+
+          const $frame = $(`
+      <div class="frame-wrapper" id="${tabId}">
+        <div class="frame-loading"><div class="spinner"></div></div>
+        <iframe src="${tool.file}" title="${tool.name}"></iframe>
+      </div>
+    `);
+          $frame.find("iframe").on("load", function () {
+            $frame.find(".frame-loading").fadeOut(200);
+          });
+          $("#frames").append($frame);
+
+          activateTab(tabId);
+          setStatus(`Opened: ${tool.name}`);
+        }
+
+        function activateTab(tabId) {
+          activeTab = tabId;
+          $(".tab").removeClass("active");
+          $(`.tab[data-tab-id="${tabId}"]`).addClass("active");
+          $(".frame-wrapper").removeClass("active");
+          $(`#${tabId}`).addClass("active");
+          if (tabs.length > 0) $("#welcome").addClass("hidden");
+          renderSidebar($("#search").val());
+          const $t = $(`.tab[data-tab-id="${tabId}"]`);
+          if ($t.length)
+            $t[0].scrollIntoView({
+              behavior: "smooth",
+              block: "nearest",
+              inline: "nearest",
+            });
+        }
+
+        function closeTab(tabId) {
+          const idx = tabs.findIndex((tb) => tb.id === tabId);
+          if (idx === -1) return;
+          tabs.splice(idx, 1);
+          $(`.tab[data-tab-id="${tabId}"]`).remove();
+          $(`#${tabId}`).remove();
+          if (tabs.length === 0) {
+            activeTab = null;
+            $("#welcome").removeClass("hidden");
+            renderSidebar($("#search").val());
+            setStatus("Ready");
+          } else {
+            activateTab(tabs[Math.min(idx, tabs.length - 1)].id);
+          }
+        }
+
+        function setStatus(msg) {
+          $("#status-msg").text(msg);
+        }
+
+        // ═══════════════════════════════════════════════════
+        //  Events
+        // ═══════════════════════════════════════════════════
+        $(document).on("click", ".category-label", function () {
+          const cat = $(this).data("cat");
+          const catId = "cat-" + cat.replace(/\W/g, "-");
+          const isNowCollapsed = !collapsedCats[cat];
+          collapsedCats[cat] = isNowCollapsed;
+          saveCatState();
+          $(this).toggleClass("collapsed", isNowCollapsed);
+          $(`#${catId}`).toggleClass("collapsed", isNowCollapsed);
+        });
+
+        $(document).on("click", ".tool-item", function (e) {
+          if ($(e.target).closest(".tool-open-btn").length) return;
+          openTab($(this).data("toolId"));
+        });
+
+        $(document).on("click", ".tool-open-btn", function (e) {
+          e.stopPropagation();
+          const tool = tools.find((t) => t.id === $(this).data("toolId"));
+          if (tool) window.open(tool.file, "_blank");
+        });
+
+        $(document).on("click", ".tab", function (e) {
+          if ($(e.target).closest(".tab-close").length) return;
+          activateTab($(this).data("tabId"));
+        });
+
+        $(document).on("click", ".tab-close", function (e) {
+          e.stopPropagation();
+          closeTab($(this).data("tabId"));
+        });
+
+        $(document).on("click", ".welcome-card", function () {
+          openTab($(this).data("toolId"));
+        });
+
+        $("#search").on("input", function () {
+          renderSidebar($(this).val());
+        });
+
+        $(document).on("keydown", function (e) {
+          if ((e.ctrlKey || e.metaKey) && e.key === "w" && activeTab) {
+            e.preventDefault();
+            closeTab(activeTab);
+          }
+        });
+
+        // ═══════════════════════════════════════════════════
+        //  Boot — load .env then render
+        // ═══════════════════════════════════════════════════
+        loadEnv()
+          .then((env) => {
+            tools = parseTools(env);
+
+            // Update title & version from env
+            const title = env.APP_TITLE || "SP SO Web Toolbox";
+            document.title = title;
+            const envVer = env.APP_VERSION;
+            if (envVer) $("#app-version").text("v" + envVer);
+
+            renderSidebar();
+            renderWelcomeCards();
+            setStatus("Ready");
+
+            // ENV pill → ok
+            $("#env-pill")
+              .removeClass()
+              .addClass("ok")
+              .html(
+                `<span class="pill-dot"></span><span>.env loaded — ${
+                  tools.length
+                } tool${tools.length !== 1 ? "s" : ""}</span>`
+              );
+          })
+          .catch((err) => {
+            // No .env — show warning, render empty state
+            renderSidebar();
+            renderWelcomeCards();
+            setStatus(".env not found");
+
+            $("#env-pill")
+              .removeClass()
+              .addClass("warn")
+              .html(
+                `<span class="pill-dot"></span><span>.env not found</span>`
+              );
+
+            $("#tools-list").html(`
+        <div style="padding:20px;font-family:var(--mono);font-size:0.65rem;color:var(--muted);line-height:1.8">
+          <div style="color:#ffb3be;margin-bottom:8px">⚠ .env not loaded</div>
+          Serve this page via a web server and place a <code style="color:var(--accent)">.env</code> file in the same directory.
+        </div>
+      `);
+          });
+      });
     </script>
   </body>
 </html>
