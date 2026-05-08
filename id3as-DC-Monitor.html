@@ -374,7 +374,11 @@ async function load(){
       raw={channels:chs,flags,events:evs,statusMap:{}};
       // Kick off status fetches for active channels (don't block render)
       const activeIds=chs.filter(c=>c&&c.encoder_job_started).map(c=>c.id);
-      renderChannels($('fi').value.trim().toLowerCase(),$('wo').checked);
+      renderChannels(
+        $('fi').value.trim().toLowerCase(),
+        $('wo').checked,
+        $('ao').checked
+      );
       setSt(dc.toUpperCase()+' \u00b7 '+new Date().toLocaleTimeString(),'ok');
       // Fetch statuses in background, update rows as they arrive
       fetchStatuses(activeIds);
