@@ -15,7 +15,7 @@
       "label": "RTS Player",
       "description": "Test & monitor RTS streams live",
       "icon": "📺",
-      "category": "1 - RTS",
+      "category": "2 - RTS",
       "tag": "RTS"
     },
     {
@@ -24,7 +24,7 @@
       "label": "RTS Base Channel Configuration Tool",
       "description": "Base Channel Configuration Tool",
       "icon": "📺",
-      "category": "1 - RTS",
+      "category": "2 - RTS",
       "tag": "RTS"
     },
     {
@@ -33,7 +33,7 @@
       "label": "RTS Monitor",
       "description": "Channels monitor for RTS streams live",
       "icon": "📺",
-      "category": "1 - RTS",
+      "category": "2 - RTS",
       "tag": "RTS"
     },
     {
@@ -60,7 +60,7 @@
       "label": "RTS Ingest Analyzer",
       "description": "VISA for RTS",
       "icon": "🔬",
-      "category": "1 - RTS",
+      "category": "2 - RTS",
       "tag": "RTS"
     },
     {
@@ -69,7 +69,7 @@
       "label": "Video Analyser",
       "description": "Better than VISA",
       "icon": "🎬",
-      "category": "Analysis",
+      "category": "1 - Analysis",
       "tag": "LIVE"
     },
     {
