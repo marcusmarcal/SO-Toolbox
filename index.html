@@ -228,54 +228,71 @@
 
       .category-label {
         font-family: var(--mono);
-        font-size: 0.58rem;
+        font-size: 0.56rem;
         letter-spacing: 0.15em;
         text-transform: uppercase;
         color: var(--muted);
-        padding: 10px 10px 6px;
+        padding: 10px 10px 5px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        cursor: pointer;
+        border-radius: 4px;
+        user-select: none;
+        transition: color 0.15s;
       }
+      .category-label:hover { color: var(--text); }
+      .category-label .cat-arrow {
+        font-size: 0.5rem;
+        transition: transform 0.2s;
+        flex-shrink: 0;
+      }
+      .category-label.collapsed .cat-arrow { transform: rotate(-90deg); }
+      .category-label .cat-count {
+        margin-left: auto;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 0 5px;
+        font-size: 0.5rem;
+        color: var(--muted);
+      }
+      .cat-tools { overflow: hidden; }
+      .cat-tools.collapsed { display: none; }
 
       .tool-item {
         display: flex;
         align-items: center;
-        gap: 12px;
-        padding: 10px 12px;
-        border-radius: 8px;
+        gap: 8px;
+        padding: 7px 10px;
+        border-radius: 6px;
         cursor: pointer;
         border: 1px solid transparent;
-        transition: background 0.15s, border-color 0.15s, transform 0.1s;
-        margin-bottom: 2px;
+        transition: background 0.15s, border-color 0.15s;
+        margin-bottom: 1px;
       }
       .tool-item:hover {
         background: var(--card);
         border-color: var(--border);
-        transform: translateX(3px);
       }
       .tool-item.active {
         background: rgba(0, 255, 200, 0.07);
         border-color: rgba(0, 255, 200, 0.3);
       }
-      .tool-item.active .tool-icon {
-        color: var(--accent);
-      }
-      .tool-item.active .tool-name {
-        color: var(--accent);
-      }
+      .tool-item.active .tool-name { color: var(--accent); }
 
       .tool-icon {
-        font-size: 1.1rem;
-        width: 20px;
+        font-size: 0.95rem;
+        width: 18px;
         text-align: center;
         flex-shrink: 0;
-        color: var(--muted);
-        transition: color 0.15s;
       }
       .tool-info {
         flex: 1;
         min-width: 0;
       }
       .tool-name {
-        font-size: 0.8rem;
+        font-size: 0.74rem;
         font-weight: 600;
         white-space: nowrap;
         overflow: hidden;
@@ -284,7 +301,7 @@
       }
       .tool-desc {
         font-family: var(--mono);
-        font-size: 0.6rem;
+        font-size: 0.56rem;
         color: var(--muted);
         white-space: nowrap;
         overflow: hidden;
@@ -293,39 +310,36 @@
       }
       .tool-badge {
         font-family: var(--mono);
-        font-size: 0.5rem;
-        padding: 2px 6px;
-        border-radius: 4px;
-        background: rgba(123, 94, 167, 0.2);
-        color: #b89cd4;
-        border: 1px solid rgba(123, 94, 167, 0.3);
+        font-size: 0.48rem;
+        font-weight: 700;
+        padding: 2px 5px;
+        border-radius: 3px;
         flex-shrink: 0;
+        letter-spacing: 0.04em;
       }
+      /* badge colours per badge text — assigned in JS */
       .tool-open-btn {
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 26px;
-        height: 26px;
+        width: 20px;
+        height: 20px;
         background: var(--card);
         border: 1px solid var(--border);
-        border-radius: 6px;
+        border-radius: 4px;
         cursor: pointer;
         flex-shrink: 0;
         opacity: 0;
         transition: opacity 0.15s, background 0.15s;
-        font-size: 0.7rem;
+        font-size: 0.6rem;
         color: var(--muted);
       }
-      .tool-item:hover .tool-open-btn {
-        opacity: 1;
-      }
+      .tool-item:hover .tool-open-btn { opacity: 1; }
       .tool-open-btn:hover {
         background: var(--accent);
         color: var(--bg);
         border-color: var(--accent);
       }
-
       /* ── SIDEBAR FOOTER (count only, no add-tool button) ── */
       .sidebar-footer {
         padding: 10px 20px;
@@ -783,7 +797,7 @@
         <button id="btn-git-pull" class="git-pull-btn" data-tip="Pull latest from Git" onclick="gitPull()">⟳ Update</button>
         <button class="git-pull-btn" data-tip="Restart proxy service" onclick="openRestartConfirm()" style="border-color:rgba(255,78,106,0.4);color:#ffb3be;">⏻ Restart Proxy</button>
         <button class="git-pull-btn" data-tip="View README" onclick="openReadme()" style="border-color:rgba(88,166,255,0.4);color:var(--accent);">📖 README</button>
-        <span class="version" id="app-version" onclick="openChangelog()" title="Click to see changelog">v2.10.2</span>
+        <span class="version" id="app-version" onclick="openChangelog()" title="Click to see changelog">v2.12.0</span>
       </header>
 
       <aside id="sidebar">
@@ -826,6 +840,8 @@
           <div class="cl-title">SP SO Web Toolbox — Changelog</div>
           <button class="cl-close" onclick="closeChangelog()">Close</button>
         </div>
+        <div class="cl-entry"><div class="cl-version">v2.12.0</div><div class="cl-date">2026-05-08</div><div class="cl-desc">id3as DC Monitor: merge Nodes+Health into single view; fix node count (86 not 42, now uses both channel endpoints); SCH bar (scheduler, thresholds 30/70); event/no-signal warnings on chips, node event list, and Events view; rename "Active only" → "In use only"; index: collapsible sidebar categories with colour-coded badges; version now reads from .env APP_VERSION</div></div>
+        <div class="cl-entry"><div class="cl-version">v2.11.0</div><div class="cl-date">2026-05-05</div><div class="cl-desc">New: id3as DC Monitor — web frontend for id3as channel/node/RMG/logs monitoring; proxy routes /id3as/&lt;dc&gt;/* handle PRFAUTH server-side; DC toggle (IX/EQ), four views, warnings filter, 30s auto-refresh, grep and date picker for logs</div></div>
         <div class="cl-entry"><div class="cl-version">v2.10.2</div><div class="cl-date">2026-05-05</div><div class="cl-desc">Ingest Analyzer: File .ts tab changed from server-side path input to browser file upload (multipart); new /ingest/upload proxy endpoint saves temp .ts and runs script on it</div></div>
         <div class="cl-entry"><div class="cl-version">v2.10.1</div><div class="cl-date">2026-05-04</div><div class="cl-desc">SO Video Analyser bugfixes: fix broken history-panel div structure; fix .ts upload (Flask 2GB limit + nginx client_max_body_size note); fix AV sync offset showing — by using pkt_dts_time fallback when pts_time is N/A in MPEG-TS</div></div>
         <div class="cl-entry"><div class="cl-version">v2.10.0</div><div class="cl-date">2026-05-04</div><div class="cl-desc">SO Video Analyser: AV sync+jitter checks, .ts upload, clear form/history, checkbox persistence, schedule UTC+30min, European time format, bigger report modal, GOP in report, AV sync in compliance table</div></div>
@@ -1078,6 +1094,29 @@
         let activeTab = null;
 
         // ═══════════════════════════════════════════════════
+        //  Badge colour palette (by badge text)
+        // ═══════════════════════════════════════════════════
+        const BADGE_STYLES = {
+          "LIVE":  "background:rgba(255,78,106,.2);color:#ff7a8a;border:1px solid rgba(255,78,106,.35)",
+          "RTS":   "background:rgba(0,255,200,.12);color:#00ffc8;border:1px solid rgba(0,255,200,.25)",
+          "SRT":   "background:rgba(78,168,255,.15);color:#80c8ff;border:1px solid rgba(78,168,255,.3)",
+          "MTR":   "background:rgba(240,165,0,.12);color:#f0c060;border:1px solid rgba(240,165,0,.25)",
+          "JIRA":  "background:rgba(38,132,255,.15);color:#80b4ff;border:1px solid rgba(38,132,255,.3)",
+          "ID3AS": "background:rgba(123,94,167,.2);color:#c4a0e8;border:1px solid rgba(123,94,167,.35)",
+          "RMG":   "background:rgba(240,165,0,.12);color:#f0c060;border:1px solid rgba(240,165,0,.25)",
+          "TOOL":  "background:rgba(106,106,138,.15);color:#a0a0c8;border:1px solid rgba(106,106,138,.3)",
+        };
+        function badgeStyle(b) {
+          if (!b) return "";
+          return BADGE_STYLES[b.toUpperCase()] || "background:rgba(123,94,167,.2);color:#b89cd4;border:1px solid rgba(123,94,167,.3)";
+        }
+
+        // Track collapsed state per category (persist in localStorage)
+        let collapsedCats = {};
+        try { collapsedCats = JSON.parse(localStorage.getItem("sb-collapsed") || "{}"); } catch {}
+        function saveCatState() { try { localStorage.setItem("sb-collapsed", JSON.stringify(collapsedCats)); } catch {} }
+
+        // ═══════════════════════════════════════════════════
         //  Render sidebar
         // ═══════════════════════════════════════════════════
         function renderSidebar(filter = "") {
@@ -1091,30 +1130,41 @@
                 t.category === cat &&
                 (!q ||
                   t.name.toLowerCase().includes(q) ||
-                  t.desc.toLowerCase().includes(q))
+                  t.desc.toLowerCase().includes(q) ||
+                  (t.badge && t.badge.toLowerCase().includes(q)))
             );
             if (!catTools.length) return;
 
-            $list.append(`<div class="category-label">${cat}</div>`);
+            // Force expand if filtering
+            const isCollapsed = !q && !!collapsedCats[cat];
+            const catId = "cat-" + cat.replace(/\W/g, "-");
+
+            $list.append(`
+              <div class="category-label${isCollapsed ? " collapsed" : ""}" data-cat="${cat}">
+                <span class="cat-arrow">▾</span>
+                <span>${cat}</span>
+                <span class="cat-count">${catTools.length}</span>
+              </div>
+              <div class="cat-tools${isCollapsed ? " collapsed" : ""}" id="${catId}"></div>
+            `);
+
+            const $catTools = $(`#${catId}`);
             catTools.forEach((tool) => {
               const isActive =
                 activeTab &&
                 tabs.find((tb) => tb.toolId === tool.id && tb.id === activeTab);
-              $list.append(`
-          <div class="tool-item ${isActive ? "active" : ""}" data-tool-id="${
-                tool.id
-              }">
-            <span class="tool-icon">${tool.icon}</span>
-            <div class="tool-info">
-              <div class="tool-name">${tool.name}</div>
-              <div class="tool-desc">${tool.desc}</div>
-            </div>
-            ${tool.badge ? `<span class="tool-badge">${tool.badge}</span>` : ""}
-            <div class="tool-open-btn" data-tip="Open in new tab" data-tool-id="${
-              tool.id
-            }">↗</div>
-          </div>
-        `);
+              const bs = badgeStyle(tool.badge);
+              $catTools.append(`
+                <div class="tool-item ${isActive ? "active" : ""}" data-tool-id="${tool.id}">
+                  <span class="tool-icon">${tool.icon}</span>
+                  <div class="tool-info">
+                    <div class="tool-name">${tool.name}</div>
+                    <div class="tool-desc">${tool.desc}</div>
+                  </div>
+                  ${tool.badge ? `<span class="tool-badge" style="${bs}">${tool.badge}</span>` : ""}
+                  <div class="tool-open-btn" data-tip="Open in new tab" data-tool-id="${tool.id}">↗</div>
+                </div>
+              `);
             });
           });
 
@@ -1224,6 +1274,16 @@
         // ═══════════════════════════════════════════════════
         //  Events
         // ═══════════════════════════════════════════════════
+        $(document).on("click", ".category-label", function () {
+          const cat = $(this).data("cat");
+          const catId = "cat-" + cat.replace(/\W/g, "-");
+          const isNowCollapsed = !collapsedCats[cat];
+          collapsedCats[cat] = isNowCollapsed;
+          saveCatState();
+          $(this).toggleClass("collapsed", isNowCollapsed);
+          $(`#${catId}`).toggleClass("collapsed", isNowCollapsed);
+        });
+
         $(document).on("click", ".tool-item", function (e) {
           if ($(e.target).closest(".tool-open-btn").length) return;
           openTab($(this).data("toolId"));
@@ -1270,7 +1330,8 @@
             // Update title & version from env
             const title = env.APP_TITLE || "SP SO Web Toolbox";
             document.title = title;
-            $("#app-version").text("v2.12.0");
+            const envVer = env.APP_VERSION;
+            if (envVer) $("#app-version").text("v" + envVer);
 
             renderSidebar();
             renderWelcomeCards();

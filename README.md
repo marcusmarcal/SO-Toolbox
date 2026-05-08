@@ -49,7 +49,7 @@ Web frontend for monitoring id3as data-centre infrastructure. Communicates with 
 
 ```env
 APP_TITLE=SP SO Web Toolbox
-APP_VERSION=2.0.0
+APP_VERSION=2.12.0
 
 # Tools — format: TOOL_n=file.html|Name|Description|icon|Category|BADGE
 TOOL_1=monitor.html|Channel Monitor|PhenixRTS real-time health|📡|Monitoring|LIVE
