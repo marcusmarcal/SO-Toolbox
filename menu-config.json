@@ -1,6 +1,15 @@
 {
   "menu": [
     {
+      "id": "id3as-dc-monitor",
+      "file": "id3as-DC-Monitor.html",
+      "label": "id3as DC Monitor",
+      "description": "id3as channel & node monitoring",
+      "icon": "⛨",
+      "category": "Monitoring",
+      "tag": "ID3AS"
+    },
+    {
       "id": "rts-player",
       "file": "RTS-Test-Player.html",
       "label": "RTS Player",
@@ -89,15 +98,6 @@
       "icon": "🐎",
       "category": "Akamai",
       "tag": "RMG"
-    },
-    {
-      "id": "id3as-dc-monitor",
-      "file": "id3as-DC-Monitor.html",
-      "label": "id3as DC Monitor",
-      "description": "id3as channel & node monitoring",
-      "icon": "⛨",
-      "category": "Monitoring",
-      "tag": "ID3AS"
     }
   ]
 }
