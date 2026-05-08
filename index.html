@@ -797,7 +797,7 @@
         <button id="btn-git-pull" class="git-pull-btn" data-tip="Pull latest from Git" onclick="gitPull()">⟳ Update</button>
         <button class="git-pull-btn" data-tip="Restart proxy service" onclick="openRestartConfirm()" style="border-color:rgba(255,78,106,0.4);color:#ffb3be;">⏻ Restart Proxy</button>
         <button class="git-pull-btn" data-tip="View README" onclick="openReadme()" style="border-color:rgba(88,166,255,0.4);color:var(--accent);">📖 README</button>
-        <span class="version" id="app-version" onclick="openChangelog()" title="Click to see changelog">v2.12.0</span>
+        <span class="version" id="app-version" onclick="openChangelog()" title="Click to see changelog">v2.13.0</span>
       </header>
 
       <aside id="sidebar">
@@ -840,6 +840,7 @@
           <div class="cl-title">SP SO Web Toolbox — Changelog</div>
           <button class="cl-close" onclick="closeChangelog()">Close</button>
         </div>
+        <div class="cl-entry"><div class="cl-version">v2.13.0</div><div class="cl-date">2026-05-08</div><div class="cl-desc">id3as DC Monitor: soft refresh (no blank screen on auto-refresh); sort by on Nodes (ID/CPU/MEM/SCH/Warnings/Events/Jobs) and Events (Channel/Start/End) with localStorage persistence; log sub-filters (node/channel/event id); scheduled horizon filter (3/7/14d/all, default 3d); RMG view merged into Channels with RMG-only toggle; external links to id3as web GUI on node IDs, channel IDs (ruk_channels for RMG_*), and event IDs; packaging info placeholder removed; In use only now filters by active events only</div></div>
         <div class="cl-entry"><div class="cl-version">v2.12.0</div><div class="cl-date">2026-05-08</div><div class="cl-desc">id3as DC Monitor: merge Nodes+Health into single view; fix node count (86 not 42, now uses both channel endpoints); SCH bar (scheduler, thresholds 30/70); event/no-signal warnings on chips, node event list, and Events view; rename "Active only" → "In use only"; index: collapsible sidebar categories with colour-coded badges; version now reads from .env APP_VERSION</div></div>
         <div class="cl-entry"><div class="cl-version">v2.11.0</div><div class="cl-date">2026-05-05</div><div class="cl-desc">New: id3as DC Monitor — web frontend for id3as channel/node/RMG/logs monitoring; proxy routes /id3as/&lt;dc&gt;/* handle PRFAUTH server-side; DC toggle (IX/EQ), four views, warnings filter, 30s auto-refresh, grep and date picker for logs</div></div>
         <div class="cl-entry"><div class="cl-version">v2.10.2</div><div class="cl-date">2026-05-05</div><div class="cl-desc">Ingest Analyzer: File .ts tab changed from server-side path input to browser file upload (multipart); new /ingest/upload proxy endpoint saves temp .ts and runs script on it</div></div>
