@@ -113,6 +113,7 @@ PRFAUTH=your-prfauth-token-here
 
 | Version | Date       | Changes |
 |---------|------------|---------|
+| 2.12.0  | 2026-05-08 | id3as DC Monitor: merge Nodes+Health into single Nodes view; fix node count (now fetches both default+racing_uk channels, 86 nodes); add SCH (scheduler) resource bar with 30/70 thresholds; event/no-signal warning on channel chips (orange), node event list, and Events view; rename "Active only" to "In use only" with consistent criteria (event active or job running) |
 | 2.11.0  | 2026-05-05 | New: id3as DC Monitor — web frontend for id3as channel/node/RMG/logs monitoring; proxy routes `/id3as/<dc>/*` handle PRFAUTH server-side; DC toggle (IX/EQ), four views (Channels, Nodes, RMG, Logs), warnings filter, 30s auto-refresh, grep and date picker for logs |
 | 2.10.2  | 2026-05-05 | Ingest Analyzer: File .ts tab replaced server-side path input with browser file upload; new `/ingest/upload` proxy endpoint accepts multipart .ts, saves to temp, runs script, cleans up |
 | 2.10.1  | 2026-05-04 | SO Video Analyser bugfixes: misplaced </div> in history panel; .ts upload fix (Flask 2 GB MAX_CONTENT_LENGTH); AV sync offset fix (pkt_dts_time fallback for MPEG-TS pts_time=N/A) |
@@ -149,7 +150,7 @@ PRFAUTH=your-prfauth-token-here
 | 1.1.0   | 2026-03-25 | Full English translation + rich GUI |
 | 1.0.0   | 2026-03-25 | Initial PhenixRTS Channel Health Monitor |
 
-**Current Version: 2.11.0**
+**Current Version: 2.12.0**
 
 ---
 

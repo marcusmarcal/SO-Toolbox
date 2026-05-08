@@ -180,6 +180,7 @@
     .ch-chip{font-family:var(--mono);font-size:.56rem;padding:2px 5px;border-radius:3px;border:1px solid transparent;}
     .ck-ok  {background:rgba(0,255,200,.08);color:#00ffc8;border-color:rgba(0,255,200,.2);}
     .ck-wn  {background:rgba(255,78,106,.1);color:var(--danger);border-color:rgba(255,78,106,.25);}
+    .ck-evw {background:rgba(240,165,0,.12);color:#f0a500;border-color:rgba(240,165,0,.35);}
     .ck-idle{background:rgba(240,165,0,.08);color:#f0a500;border-color:rgba(240,165,0,.2);}
     .ck-dis {background:rgba(106,106,138,.08);color:var(--muted);border-color:var(--border);}
     .mbar-wrap{display:flex;align-items:center;gap:7px;margin:2px 0;font-family:var(--mono);font-size:.58rem;}
@@ -190,12 +191,19 @@
     .mbar-val{color:var(--text);width:30px;text-align:right;}
     .nmeta{display:flex;gap:10px;font-family:var(--mono);font-size:.56rem;color:var(--muted);margin-top:5px;flex-wrap:wrap;}
     .nmv{color:var(--text);font-weight:700;}
+    .nev-list{margin-top:6px;border-top:1px solid var(--border);padding-top:5px;display:flex;flex-direction:column;gap:2px;}
+    .nev-row{display:flex;align-items:baseline;gap:6px;font-family:var(--mono);font-size:.56rem;}
+    .nev-ch{color:var(--accent);min-width:60px;flex-shrink:0;}
+    .nev-nm{color:#f0c060;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .nev-wn{color:var(--warn);flex-shrink:0;}
+    .nwarn-list{margin-top:4px;display:flex;flex-direction:column;gap:1px;}
 
     /* ═══════════════════════════════════
        EVENTS VIEW
     ═══════════════════════════════════ */
     .ev-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:11px 13px;margin-bottom:7px;}
     .ev-card.hw{border-color:rgba(255,78,106,.35);}
+    .ev-card.ev-warn-card{border-color:rgba(240,165,0,.35);}
     .ev-head{display:flex;align-items:flex-start;gap:9px;margin-bottom:5px;}
     .ev-eid2{font-family:var(--mono);font-size:.58rem;color:var(--muted);white-space:nowrap;padding-top:2px;}
     .ev-name2{font-family:var(--display);font-size:.8rem;font-weight:600;color:#f0c060;flex:1;}
@@ -245,8 +253,7 @@
     </div>
     <div class="btn-group" id="vw-g">
       <button class="grp-btn avw" data-view="channels">Channels</button>
-      <button class="grp-btn" data-view="nodes-ch">Nodes</button>
-      <button class="grp-btn" data-view="nodes-health">Health</button>
+      <button class="grp-btn" data-view="nodes">Nodes</button>
       <button class="grp-btn" data-view="rmg">RMG</button>
       <button class="grp-btn" data-view="running">Events</button>
       <button class="grp-btn" data-view="scheduled">Scheduled</button>
@@ -254,7 +261,7 @@
     </div>
     <input class="tb-input" id="fi" type="text" placeholder="Filter..."/>
     <label class="toggle-wrap"><input type="checkbox" id="wo"/> Warnings only</label>
-    <label class="toggle-wrap"><input type="checkbox" id="ao"/> Active only</label>
+    <label class="toggle-wrap"><input type="checkbox" id="ao"/> In use only</label>
     <button class="tb-btn" id="rb">&#8635; Refresh</button>
     <div id="status-pill"><span class="s-dot"></span><span id="st">Ready</span></div>
   </div>
@@ -356,7 +363,7 @@ function streamInfo(status){
   return'<div class="stream-info">'+v+a+'</div>';
 }
 function empty(msg){return'<div class="state-msg"><div class="ico">&#128269;</div><div>'+msg+'</div></div>';}
-function ckRow(){return'<div class="ck-row"><span class="ck-item"><span class="ck-dot" style="background:#00ffc8"></span>running</span><span class="ck-item"><span class="ck-dot" style="background:var(--danger)"></span>warning</span><span class="ck-item"><span class="ck-dot" style="background:#f0a500"></span>idle</span><span class="ck-item"><span class="ck-dot" style="background:var(--muted)"></span>disabled</span></div>';}
+function ckRow(){return'<div class="ck-row"><span class="ck-item"><span class="ck-dot" style="background:#00ffc8"></span>running</span><span class="ck-item"><span class="ck-dot" style="background:var(--danger)"></span>warning</span><span class="ck-item"><span class="ck-dot" style="background:#f0a500"></span>event/no signal</span><span class="ck-item"><span class="ck-dot" style="background:#f0a500;opacity:.5"></span>idle</span><span class="ck-item"><span class="ck-dot" style="background:var(--muted)"></span>disabled</span></div>';}
 function xpand(id,el){const r=document.getElementById(id);if(!r)return;const v=r.style.display!=='none';r.style.display=v?'none':'';el.textContent=v?'\u25b8':'\u25be';}
 
 // ── LOAD ──────────────────────────────────────────────────────
@@ -383,18 +390,15 @@ async function load(){
       // Fetch statuses in background, update rows as they arrive
       fetchStatuses(activeIds);
       return;
-    } else if(view==='nodes-ch'){
-      const[chs,flags,evs,nodes]=await Promise.all([api('/channels/default'),api('/flags/channels'),api('/running_events'),api('/nodes')]);
-      raw={channels:chs,flags,events:evs,nodes};
-    } else if(view==='nodes-health'){
-      const[nodes,info,chD,chR,evs]=await Promise.all([api('/nodes'),api('/nodes/info'),api('/channels/default'),api('/channels/racing_uk'),api('/running_events')]);
-      raw={nodes,nodesInfo:info,channels:[...chD,...chR],events:evs};
+    } else if(view==='nodes'){
+      const[nodes,info,chD,chR,flags,evs]=await Promise.all([api('/nodes'),api('/nodes/info'),api('/channels/default'),api('/channels/racing_uk'),api('/flags/channels'),api('/running_events')]);
+      raw={nodes,nodesInfo:info,channels:[...chD,...chR],flags,events:evs};
     } else if(view==='rmg'){
       const[chs,flags,evs]=await Promise.all([api('/channels/racing_uk'),api('/flags/channels'),api('/running_events')]);
       raw={channels:chs,flags,events:evs};
     } else if(view==='running'){
-      const[evs,fev]=await Promise.all([api('/running_events'),api('/flags/events')]);
-      raw={events:evs,flagsEv:fev};
+      const[evs,fev,chD,chR]=await Promise.all([api('/running_events'),api('/flags/events'),api('/channels/default'),api('/channels/racing_uk')]);
+      raw={events:evs,flagsEv:fev,channels:[...chD,...chR]};
     } else if(view==='scheduled'){
       raw={events:await api('/scheduled_events')};
     } else if(view==='logs'){
@@ -459,8 +463,7 @@ function renderView(){
   activeOnly = a;
 
   if(view==='channels')renderChannels(f,w,a);
-  else if(view==='nodes-ch')renderNodesCh(f,w);
-  else if(view==='nodes-health')renderNodesHealth(f,w);
+  else if(view==='nodes')renderNodes(f,w,a);
   else if(view==='rmg')renderRMG(f,w);
   else if(view==='running')renderRunning(f,w);
   else if(view==='scheduled')renderScheduled(f,w);
@@ -578,108 +581,162 @@ if(activeOnly)
   }
 }
 
-// ── NODES CHANNELS ────────────────────────────────────────────
+// ── NODES (merged: channels + health) ────────────────────────
 
-function renderNodesCh(filter,warnOnly){
+function renderNodes(filter,warnOnly,inUseOnly){
+  const allNodes=Array.isArray(raw.nodes)?raw.nodes:[];
+  const infoArr=Array.isArray(raw.nodesInfo)?raw.nodesInfo:[];
   const chs=Array.isArray(raw.channels)?raw.channels:[];
   const fm=bfm(raw.flags),em=bev(raw.events);
-  const nm={};if(Array.isArray(raw.nodes))for(const n of raw.nodes)nm[n.id]=n;
-  const byNode={},chToNode={};
+
+  // index nodesInfo by id
+  const im={};for(const n of infoArr)if(n.id)im[n.id]=n;
+
+  // group channels by node
+  const cbN={};
   for(const ch of chs){
     if(!ch||typeof ch!=='object')continue;
-    const id=ch.id||'?',nid=ch.encoder_node_id||ch.target_node_id||'__u__';
-    chToNode[id]=nid;
-    const all=fm[id]||[],wm=all.filter(w=>!isInfo(w)),im=all.filter(w=>isInfo(w));
-    (byNode[nid]=byNode[nid]||[]).push({id,enabled:!!ch.enabled,jobStarted:!!ch.encoder_job_started,warnings:wm.length,wm,im});
+    const nid=ch.encoder_node_id||ch.target_node_id||'__u__';
+    (cbN[nid]=cbN[nid]||[]).push(ch);
   }
-  const evByNode={};
-  if(Array.isArray(raw.events))for(const ev of raw.events){
-    const ch=ev.channel_id||'',nid=chToNode[ch]||'';if(!nid||nid==='__u__')continue;
-    const s=findSched(ev)||{};
-    (evByNode[nid]=evByNode[nid]||[]).push({event_id:String(ev.id||''),channel_id:ch,
-      event_name:stripH(s.description||'')||'-',start:fmtDt(s.start_datetime),end:fmtDt(s.end_datetime)});
-  }
-  let nodes=Object.keys(byNode).sort().map(nid=>{
-    const nd=nm[nid]||{};
-    return{id:nid,host:nd.host_name||'',status:nd.status||'unknown',
-      channels:(byNode[nid]||[]).sort((a,b)=>a.id.localeCompare(b.id)),events:evByNode[nid]||[]};
+
+  // build rows
+  let rows=allNodes.map(n=>{
+    const inf=im[n.id]||{},m=inf.metrics||{};
+    const sched=Math.floor((inf.calculated_usage||inf.calculatedUsage||0)*100);
+    const nodeChs=(cbN[n.id]||[]).sort((a,b)=>String(a.id).localeCompare(String(b.id)));
+
+    // per-channel data
+    const chData=nodeChs.map(ch=>{
+      const id=ch.id||'?';
+      const all=fm[id]||[],wm=all.filter(w=>!isInfo(w));
+      const evs=em[id]||[];
+      const hasEv=evs.length>0;
+      const jobStarted=!!ch.encoder_job_started;
+      const enabled=!!ch.enabled;
+      // warning = has flag warnings
+      // evWarn = event active but no bitrate signal (acquiring/no_signal) — checked at render via statusMap
+      return{id,enabled,jobStarted,warnings:wm.length,wm,evs,hasEv};
+    });
+
+    // aggregate events for this node (one entry per channel that has events)
+    const evRows=[];
+    for(const c of chData)for(const ev of c.evs)evRows.push({chId:c.id,ev,hasWarn:false,chData:c});
+
+    const nW=chData.reduce((s,c)=>s+c.warnings,0);
+    const hasEvs=evRows.length>0;
+    const nRn=chData.filter(c=>c.jobStarted).length;
+
+    return{
+      id:n.id,host:n.host_name||'',status:n.status||'unknown',
+      allowAlloc:!!n.allow_allocations,
+      capacity:n.max_capacity||n.capacity||0,
+      cpu:m.cpu||0,mem:m.memory||0,gpu:m.gpu||0,sched,
+      usage:inf.calculated_usage||inf.calculatedUsage||0,
+      nCh:nodeChs.length,nRn,
+      nW,chData,evRows,hasEvs
+    };
   });
-  if(filter)nodes=nodes.filter(n=>n.id.toLowerCase().includes(filter)||n.channels.some(c=>c.id.toLowerCase().includes(filter)));
-  if(warnOnly)nodes=nodes.filter(n=>n.channels.some(c=>c.warnings>0));
-  const nW=nodes.reduce((s,n)=>s+n.channels.reduce((ss,c)=>ss+c.warnings,0),0);
-  const nCh=nodes.reduce((s,n)=>s+n.channels.length,0),nRn=nodes.reduce((s,n)=>s+n.channels.filter(c=>c.jobStarted).length,0);
-  let h=sumBar([['Nodes',nodes.length,'ac'],['Channels',nRn+'/'+nCh,''],['Warnings',nW||'-',nW?'dg':'']]);
+
+  // filters
+  if(filter)rows=rows.filter(r=>
+    r.id.toLowerCase().includes(filter)||
+    r.host.toLowerCase().includes(filter)||
+    r.chData.some(c=>c.id.toLowerCase().includes(filter))||
+    r.evRows.some(e=>e.ev.event_name.toLowerCase().includes(filter))
+  );
+  if(warnOnly)rows=rows.filter(r=>r.nW>0||r.cpu>=80||r.mem>=80||r.sched>=70||r.status==='offline');
+  if(inUseOnly)rows=rows.filter(r=>r.hasEvs||r.nRn>0);
+
+  const nOn=rows.filter(r=>r.status==='online').length;
+  const nWtot=rows.reduce((s,r)=>s+r.nW,0);
+  const nEvTot=rows.reduce((s,r)=>s+r.evRows.length,0);
+  const avgC=rows.length?Math.round(rows.reduce((s,r)=>s+r.cpu,0)/rows.length):0;
+
+  let h=sumBar([
+    ['Nodes',rows.length,'ac'],['Online',nOn,''],
+    ['Events',nEvTot,nEvTot?'in':''],
+    ['Avg CPU',avgC+'%',avgC>=80?'dg':avgC>=60?'wn':''],
+    ['Warnings',nWtot||'-',nWtot?'dg':'']
+  ]);
   h+='<div class="node-grid">';
-  for(const n of nodes){
-    const nW2=n.channels.reduce((s,c)=>s+c.warnings,0),nRn2=n.channels.filter(c=>c.jobStarted).length;
-    const cls=nW2?'hw':n.status==='offline'?'off':'';
-    h+='<div class="node-card '+cls+'"><div class="node-head">'+
-      '<span class="pill '+(n.status==='online'?'p-online':'p-offline')+'" style="font-size:.52rem">'+esc(n.status)+'</span>'+
-      '<div style="flex:1"><div class="node-id">'+esc(n.id)+'</div>'+(n.host?'<div class="node-host">'+esc(n.host)+'</div>':'')+'</div>'+
-      (nW2?'<span class="wb wb-y">⚠ '+nW2+'</span>':'')+
-    '</div><div class="node-body"><div class="ch-chips">';
-    if(!n.channels.length)h+='<span style="color:var(--muted);font-size:.58rem;font-family:var(--mono)">(none)</span>';
-    for(const c of n.channels){
-      const cc=!c.enabled?'ck-dis':c.warnings?'ck-wn':!c.jobStarted?'ck-idle':'ck-ok';
-      h+='<span class="ch-chip '+cc+'" title="'+esc(c.id)+'">'+esc(c.id)+'</span>';
+
+  for(const r of rows){
+    const borderCls=r.nW>0?'hw':r.status==='offline'?'off':'';
+    h+='<div class="node-card '+borderCls+'">'+
+      // ── HEAD ──
+      '<div class="node-head">'+
+        '<span class="pill '+(r.status==='online'?'p-online':'p-offline')+'" style="font-size:.52rem">'+esc(r.status)+'</span>'+
+        '<div style="flex:1"><div class="node-id">'+esc(r.id)+'</div>'+(r.host?'<div class="node-host">'+esc(r.host)+'</div>':'')+'</div>'+
+        (!r.allowAlloc?'<span style="font-family:var(--mono);font-size:.52rem;color:var(--warn);margin-right:4px">NO ALLOC</span>':'')+
+        (r.nW?'<span class="wb wb-y">⚠ '+r.nW+'</span>':'')+
+      '</div>'+
+      // ── BODY ──
+      '<div class="node-body">'+
+        // Channel chips
+        '<div class="ch-chips">';
+    if(!r.chData.length)h+='<span style="color:var(--muted);font-size:.58rem;font-family:var(--mono)">(none)</span>';
+    for(const c of r.chData){
+      // ck-wn = flag warning, ck-evw = event active but no bitrate (warn), ck-ok = running+ok, ck-idle = job not started, ck-dis = disabled
+      let cc;
+      if(!c.enabled)cc='ck-dis';
+      else if(c.warnings)cc='ck-wn';
+      else if(c.hasEv&&!c.jobStarted)cc='ck-evw';
+      else if(!c.jobStarted)cc='ck-idle';
+      else cc='ck-ok';
+      h+='<span class="ch-chip '+cc+'" title="'+esc(c.id)+(c.hasEv?' | '+c.evs.map(e=>e.event_name).join(', '):'')+'" style="cursor:default">'+esc(c.id)+'</span>';
     }
-    h+='</div><div class="nmeta"><span>'+nRn2+'/<span class="nmv">'+n.channels.length+'</span> running</span>';
-    if(n.events.length)h+='<span><span class="nmv" style="color:#f0c060">'+n.events.length+'</span> event'+(n.events.length!==1?'s':'')+'</span>';
     h+='</div>';
-    if(nW2){
-      h+='<div style="margin-top:6px;border-top:1px solid var(--border);padding-top:5px">';
-      for(const c of n.channels.filter(c=>c.warnings>0))for(const w of c.wm)
-        h+='<div class="warn-strip">⚠ <span class="ws-mod">'+esc(c.id)+'</span><span class="ws-msg">'+esc(w.msg||'')+'</span></div>';
+
+    // Resource bars
+    h+=mBar('CPU',r.cpu)+mBar('MEM',r.mem);
+    if(r.sched!==null&&r.sched!==undefined)h+=mBarSched('SCH',r.sched);
+    if(r.gpu)h+=mBar('GPU',r.gpu);
+
+    // Stats row
+    h+='<div class="nmeta">'+
+      '<span>Jobs: <span class="nmv">'+r.nRn+'/'+r.nCh+'</span></span>'+
+      (r.capacity?'<span>Cap: <span class="nmv">'+r.capacity+'</span></span>':'')+
+    '</div>';
+
+    // Events list
+    if(r.evRows.length){
+      h+='<div class="nev-list">';
+      for(const{chId,ev,chData:cd}of r.evRows){
+        // event warning: channel has event but encoder job not started
+        const evWarn=!cd.jobStarted;
+        h+='<div class="nev-row">'+
+          '<span class="nev-ch">'+esc(chId)+'</span>'+
+          '<span class="nev-nm" title="'+esc(ev.event_name)+'">'+esc(ev.event_name.slice(0,36))+'</span>'+
+          (evWarn?'<span class="nev-wn">⚠ no signal</span>':'')+
+        '</div>';
+      }
       h+='</div>';
     }
-    h+='</div></div>';
+
+    // Flag warnings list
+    if(r.nW){
+      h+='<div class="nwarn-list">';
+      for(const c of r.chData.filter(c=>c.warnings>0))for(const w of c.wm)
+        h+='<div class="warn-strip" style="font-size:.55rem">⚠ <span class="ws-mod">'+esc(c.id)+'</span><span class="ws-msg">'+esc(w.msg||'')+'</span></div>';
+      h+='</div>';
+    }
+
+    h+='</div></div>'; // close body + card
   }
+
   h+='</div>';
-  if(!nodes.length)h+=empty('No nodes match');
+  if(!rows.length)h+=empty('No nodes match');
   h+=ckRow();
   $('content').innerHTML=h;
 }
 
-// ── NODES HEALTH ──────────────────────────────────────────────
-
-function renderNodesHealth(filter,warnOnly){
-  const nodes=Array.isArray(raw.nodes)?raw.nodes:[];
-  const infoArr=Array.isArray(raw.nodesInfo)?raw.nodesInfo:[];
-  const chs=Array.isArray(raw.channels)?raw.channels:[];
-  const em=bev(raw.events);
-  const im={};for(const n of infoArr)if(n.id)im[n.id]=n;
-  const cbN={};for(const ch of chs){if(!ch||typeof ch!=='object')continue;const nid=ch.encoder_node_id||ch.target_node_id||'';if(!nid)continue;(cbN[nid]=cbN[nid]||[]).push(ch);}
-  let rows=nodes.map(n=>{
-    const inf=im[n.id]||{},m=inf.metrics||{};
-    const evs=[];for(const ch of cbN[n.id]||[]){const e=em[ch.id];if(e)evs.push(...e);}
-    return{id:n.id,host:n.host_name||'',status:n.status||'unknown',allowAlloc:!!n.allow_allocations,
-      capacity:n.max_capacity||n.capacity||0,cpu:m.cpu||0,mem:m.memory||0,gpu:m.gpu||0,
-      usage:inf.calculated_usage||0,nCh:(cbN[n.id]||[]).length,
-      nRn:(cbN[n.id]||[]).filter(c=>c.encoder_job_started).length,events:evs};
-  });
-  if(filter)rows=rows.filter(r=>r.id.toLowerCase().includes(filter)||r.host.toLowerCase().includes(filter));
-  if(warnOnly)rows=rows.filter(r=>r.cpu>=80||r.mem>=80||r.status==='offline');
-  const nOn=rows.filter(r=>r.status==='online').length;
-  const avgC=rows.length?Math.round(rows.reduce((s,r)=>s+r.cpu,0)/rows.length):0;
-  let h=sumBar([['Nodes',rows.length,'ac'],['Online',nOn,''],['Avg CPU',avgC+'%',avgC>=80?'dg':avgC>=60?'wn':'']]);
-  h+='<div class="node-grid">';
-  for(const r of rows){
-    const cls=r.status==='offline'?'off':r.cpu>=80||r.mem>=80?'hw':'';
-    h+='<div class="node-card '+cls+'"><div class="node-head">'+
-      '<span class="pill '+(r.status==='online'?'p-online':'p-offline')+'" style="font-size:.52rem">'+esc(r.status)+'</span>'+
-      '<div style="flex:1"><div class="node-id">'+esc(r.id)+'</div>'+(r.host?'<div class="node-host">'+esc(r.host)+'</div>':'')+'</div>'+
-      (!r.allowAlloc?'<span style="font-family:var(--mono);font-size:.52rem;color:var(--warn)">NO ALLOC</span>':'')+
-    '</div><div class="node-body">'+mBar('CPU',r.cpu)+mBar('MEM',r.mem)+(r.gpu?mBar('GPU',r.gpu):'')+
-    '<div class="nmeta" style="margin-top:7px">'+
-      '<span>Jobs: <span class="nmv">'+r.nRn+'/'+r.nCh+'</span></span>'+
-      (r.capacity?'<span>Cap: <span class="nmv">'+r.capacity+'</span></span>':'')+
-      (r.usage?'<span>Util: <span class="nmv">'+Math.round(r.usage*100)+'%</span></span>':'')+
-      (r.events.length?'<span style="color:#f0c060"><span class="nmv">'+r.events.length+'</span> ev</span>':'')+
-    '</div></div></div>';
-  }
-  h+='</div>';
-  if(!rows.length)h+=empty('No nodes match');
-  $('content').innerHTML=h;
+function mBarSched(label,val){
+  // thresholds: 30 warn, 50 warn-high, 70 critical
+  const p=Math.min(100,Math.round(val||0));
+  const cls=p>=70?'mf-cr':p>=30?'mf-wn':'mf-ok';
+  const vc=p>=70?'dg':p>=30?'wn':'';
+  return'<div class="mbar-wrap"><span class="mbar-lbl">'+label+'</span><div class="mbar"><div class="mbar-fill '+cls+'" style="width:'+p+'%"></div></div><span class="mbar-val'+(vc?' sv '+vc:'')+'">'+p+'%</span></div>';
 }
 function mBar(label,val){
   const p=Math.min(100,Math.round(val||0)),cls=p>=80?'mf-cr':p>=60?'mf-wn':'mf-ok',vc=p>=80?'dg':p>=60?'wn':'';
@@ -730,26 +787,34 @@ function renderRMG(filter,warnOnly){
 function renderRunning(filter,warnOnly){
   const events=Array.isArray(raw.events)?raw.events:[];
   const fm=bfm(raw.flagsEv);
+  // build channel state index: id → encoder_job_started
+  const chIdx={};for(const ch of Array.isArray(raw.channels)?raw.channels:[]){if(ch&&ch.id)chIdx[ch.id]=!!ch.encoder_job_started;}
   let rows=events.filter(e=>e&&typeof e==='object').map(ev=>{
     const id=String(ev.id||''),ch=ev.channel_id||'';
     const s=findSched(ev)||{};
     const flags=fm[ch]||[],wm=flags.filter(w=>!isInfo(w));
+    // evWarn: event active but channel encoder not running (no bitrate)
+    const evWarn=ch in chIdx && !chIdx[ch];
     return{id,ch,name:stripH(s.description||'')||'-',
       start:fmtDt(s.start_datetime),end:fmtDt(s.end_datetime),
       encNode:ev.encoder_node_id||'',pkgNode:ev.packager_node_id||'',
       pkgUrl:ev.packager_internal_url||'',startedAt:fmtDt(ev.started_at),
-      warnings:wm.length,wm};
+      warnings:wm.length,wm,evWarn};
   });
   if(filter)rows=rows.filter(r=>r.ch.toLowerCase().includes(filter)||r.name.toLowerCase().includes(filter)||r.encNode.toLowerCase().includes(filter));
-  if(warnOnly)rows=rows.filter(r=>r.warnings>0);
+  if(warnOnly)rows=rows.filter(r=>r.warnings>0||r.evWarn);
   const nW=rows.reduce((s,r)=>s+r.warnings,0);
-  let h=sumBar([['Running',rows.length,'ac'],['Warnings',nW||'-',nW?'dg':'']]);
+  const nEvW=rows.filter(r=>r.evWarn).length;
+  let h=sumBar([['Events',rows.length,'ac'],['Warnings',nW||'-',nW?'dg':''],['No signal',nEvW||'-',nEvW?'wn':'']]);
   if(!rows.length){h+=empty('No running events');$('content').innerHTML=h;return;}
   for(const r of rows){
     const pid='pkg-'+r.id;
-    h+='<div class="ev-card '+(r.warnings?'hw':'')+'">'+
+    const cardCls=r.warnings?'hw':r.evWarn?'ev-warn-card':'';
+    h+='<div class="ev-card '+cardCls+'">'+
       '<div class="ev-head"><span class="ev-eid2">#'+esc(r.id)+'</span>'+
-      '<div class="ev-name2">'+esc(r.name)+'</div>'+(r.warnings?wb(r.warnings):'')+
+      '<div class="ev-name2">'+esc(r.name)+'</div>'+
+      (r.evWarn?'<span class="wb wb-y" style="background:rgba(240,165,0,.15);color:#f0a500;border-color:rgba(240,165,0,.35)">⚠ no signal</span>':'')+
+      (r.warnings?wb(r.warnings):'')+
       '</div><div class="ev-meta">'+
       '<span>CH: <span class="mv">'+esc(r.ch)+'</span></span>'+
       '<span>Start: <span class="mv">'+esc(r.start)+'</span></span>'+
