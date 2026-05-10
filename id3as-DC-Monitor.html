@@ -262,11 +262,6 @@
       <input class="tb-input" id="lf-node" placeholder="node…" style="width:110px" list="dl-nodes"/>
       <input class="tb-input" id="lf-ch"   placeholder="channel…" style="width:100px" list="dl-channels"/>
       <input class="tb-input" id="lf-ev"   placeholder="event id…" style="width:90px" list="dl-events"/>
-      <!-- suggestion datalists — populated from cached data -->
-      <datalist id="dl-grep"></datalist>
-      <datalist id="dl-nodes"></datalist>
-      <datalist id="dl-channels"></datalist>
-      <datalist id="dl-events"></datalist>
       <span id="log-count"></span>
     </div>
     <!-- scheduled horizon -->
@@ -286,6 +281,12 @@
 
 <!-- floating refresh overlay -->
 <div id="refresh-overlay"><span class="s-spin"></span><span>Refreshing…</span></div>
+
+<!-- datalists for log suggestions — at body level so browsers resolve them regardless of display:none parents -->
+<datalist id="dl-grep"></datalist>
+<datalist id="dl-nodes"></datalist>
+<datalist id="dl-channels"></datalist>
+<datalist id="dl-events"></datalist>
 
 <script>
 const PROXY='/so-proxy';
@@ -473,7 +474,18 @@ async function load(){
       ]);
       raw={events:evs,flagsEv:fev,channels:[...chD,...chR]};
     } else if(view==='scheduled'){
-      raw={events:await api('/scheduled_events')};
+      const[evs,chD,chR]=await Promise.all([
+        api('/scheduled_events'),
+        api('/channels/default'),
+        api('/channels/racing_uk').catch(()=>[])
+      ]);
+      // build specifier→channel_id map
+      const specMap={};
+      for(const ch of[...chD,...chR]){
+        if(ch&&ch.primary_source_specifier&&ch.id)
+          specMap[ch.primary_source_specifier]=ch.id;
+      }
+      raw={events:evs,specMap};
     } else if(view==='logs'){
       // fetch range from→to (max 14 days), default today
       const from=$('ld-from').value, to=$('ld-to').value;
@@ -735,16 +747,17 @@ function renderRunning(filter,warnOnly){
 // ── SCHEDULED ─────────────────────────────────────────────────
 function renderScheduled(filter){
   const events=Array.isArray(raw.events)?raw.events:[];
+  const specMap=raw.specMap||{};
   const now=new Date();
   let rows=events.filter(e=>e&&typeof e==='object').map(ev=>{
-    // channel_id may be at root or inside scheduled_event
-    const s=findSched(ev)||{};
-    const ch=ev.channel_id||s.channel_id||'';
-    const id=String(ev.id||s.id||'');
-    const name=stripH(ev.description||s.description||'')||'-';
-    const startRaw=ev.start_datetime||s.start_datetime||null;
-    const endRaw  =ev.end_datetime  ||s.end_datetime  ||null;
-    return{id,name,ch,start:fmtDt(startRaw),end:fmtDt(endRaw),startRaw:startRaw?new Date(startRaw):null};
+    // channel_id: try root, then specifier→channel map
+    const spec=ev.primary_source_specifier||'';
+    const ch=ev.channel_id||specMap[spec]||'';
+    const id=String(ev.id||'');
+    const name=stripH(ev.description||'')||'-';
+    const startRaw=ev.start_datetime||null;
+    const endRaw  =ev.end_datetime  ||null;
+    return{id,name,ch,spec,start:fmtDt(startRaw),end:fmtDt(endRaw),startRaw:startRaw?new Date(startRaw):null};
   });
 
   if(schedHorizonDays>0){
@@ -761,7 +774,7 @@ function renderScheduled(filter){
     h+='<tr>'+
       '<td style="color:var(--muted);font-family:var(--mono);font-size:.58rem">'+evLink(r.id)+'</td>'+
       '<td style="color:#f0c060;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(r.name)+'">'+esc(r.name)+'</td>'+
-      '<td class="c-ch">'+(r.ch?chLink(r.ch):'-')+'</td>'+
+      '<td class="c-ch">'+(r.ch?chLink(r.ch):(r.spec?'<span style="font-family:var(--mono);font-size:.58rem;color:var(--muted)">'+esc(r.spec)+'</span>':'-'))+'</td>'+
       '<td style="font-family:var(--mono);font-size:.58rem;color:var(--muted)">'+esc(r.start)+'</td>'+
       '<td style="font-family:var(--mono);font-size:.58rem;color:var(--muted)">'+esc(r.end)+'</td>'+
     '</tr>';
@@ -880,7 +893,8 @@ document.querySelectorAll('#dc-g .grp-btn').forEach(btn=>btn.addEventListener('c
 document.querySelectorAll('#vw-g .grp-btn').forEach(btn=>btn.addEventListener('click',()=>{
   document.querySelectorAll('#vw-g .grp-btn').forEach(b=>b.classList.remove('avw'));
   btn.classList.add('avw');view=btn.dataset.view;hasData=false;
-  updateToolbarForView();load();
+  updateToolbarForView();
+  if(view!=='logs')load(); // logs shows prompt, waits for explicit Fetch
 }));
 $('rb').addEventListener('click',load);
 $('fi').addEventListener('input',()=>{if(hasData)renderView();});
@@ -913,8 +927,8 @@ try{$('ao').checked=localStorage.getItem('activeOnly')==='1';$('wo').checked=loc
 // init log date inputs to today UTC
 (()=>{const n=new Date();const td=n.getUTCFullYear()+'-'+String(n.getUTCMonth()+1).padStart(2,'0')+'-'+String(n.getUTCDate()).padStart(2,'0');$('ld-from').value=td;$('ld-to').value=td;})();
 
-// auto-refresh 30s
-setInterval(()=>{if(hasData)load();},30000);
+// auto-refresh 30s — skip logs (manual fetch only)
+setInterval(()=>{if(hasData&&view!=='logs')load();},30000);
 </script>
 </body>
 </html>
