@@ -49,7 +49,7 @@ Web frontend for monitoring id3as data-centre infrastructure. Communicates with 
 
 ```env
 APP_TITLE=SP SO Web Toolbox
-APP_VERSION=2.13.0
+APP_VERSION=2.14.0
 
 # Tools — format: TOOL_n=file.html|Name|Description|icon|Category|BADGE
 TOOL_1=monitor.html|Channel Monitor|PhenixRTS real-time health|📡|Monitoring|LIVE
@@ -113,6 +113,7 @@ PRFAUTH=your-prfauth-token-here
 
 | Version | Date       | Changes |
 |---------|------------|---------|
+| 2.14.0  | 2026-05-10 | id3as: RMG bitrate fixed; Scheduled channel field; horizon buttons; Logs date-range picker, empty-state-before-fetch, suggestion datalists |
 | 2.13.0  | 2026-05-08 | id3as DC Monitor: soft refresh (no blank screen); sort by on Nodes and Events with localStorage persistence; log sub-filters (node/channel/event id); scheduled horizon filter (3/7/14d/all, 3d default); RMG merged into Channels with RMG-only toggle; external links to id3as web GUI on node/channel/event IDs; In use only now events-only criterion |
 | 2.12.0  | 2026-05-08 | id3as DC Monitor: merge Nodes+Health into single Nodes view; fix node count (now fetches both default+racing_uk channels, 86 nodes); add SCH (scheduler) resource bar with 30/70 thresholds; event/no-signal warning on channel chips (orange), node event list, and Events view; rename "Active only" to "In use only" with consistent criteria (event active or job running) |
 | 2.11.0  | 2026-05-05 | New: id3as DC Monitor — web frontend for id3as channel/node/RMG/logs monitoring; proxy routes `/id3as/<dc>/*` handle PRFAUTH server-side; DC toggle (IX/EQ), four views (Channels, Nodes, RMG, Logs), warnings filter, 30s auto-refresh, grep and date picker for logs |
@@ -151,7 +152,7 @@ PRFAUTH=your-prfauth-token-here
 | 1.1.0   | 2026-03-25 | Full English translation + rich GUI |
 | 1.0.0   | 2026-03-25 | Initial PhenixRTS Channel Health Monitor |
 
-**Current Version: 2.13.0**
+**Current Version: 2.14.0**
 
 ---
 

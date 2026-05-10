@@ -253,11 +253,20 @@
         <button class="log-lvl" data-lvl="error">ERROR</button>
         <button class="log-lvl" data-lvl="critical">CRIT</button>
       </div>
-      <input class="date-input" id="ld" type="date"/>
-      <input class="tb-input" id="lg"      placeholder="grep (comma-sep)..." style="width:150px"/>
-      <input class="tb-input" id="lf-node" placeholder="node..."    style="width:90px"/>
-      <input class="tb-input" id="lf-ch"   placeholder="channel..."  style="width:90px"/>
-      <input class="tb-input" id="lf-ev"   placeholder="event id..."  style="width:90px"/>
+      <span style="font-family:var(--mono);font-size:.58rem;color:var(--muted)">From</span>
+      <input class="date-input" id="ld-from" type="date"/>
+      <span style="font-family:var(--mono);font-size:.58rem;color:var(--muted)">To</span>
+      <input class="date-input" id="ld-to" type="date"/>
+      <button class="tb-btn" id="log-fetch-btn" style="padding:3px 9px">Fetch</button>
+      <input class="tb-input" id="lg" placeholder="grep…" style="width:120px" list="dl-grep"/>
+      <input class="tb-input" id="lf-node" placeholder="node…" style="width:110px" list="dl-nodes"/>
+      <input class="tb-input" id="lf-ch"   placeholder="channel…" style="width:100px" list="dl-channels"/>
+      <input class="tb-input" id="lf-ev"   placeholder="event id…" style="width:90px" list="dl-events"/>
+      <!-- suggestion datalists — populated from cached data -->
+      <datalist id="dl-grep"></datalist>
+      <datalist id="dl-nodes"></datalist>
+      <datalist id="dl-channels"></datalist>
+      <datalist id="dl-events"></datalist>
       <span id="log-count"></span>
     </div>
     <!-- scheduled horizon -->
@@ -443,7 +452,7 @@ async function load(){
         api('/running_events')
       ]);
       raw={channels:[...chD,...chR],flags,events:evs,statusMap:raw.statusMap||{}};
-      const activeIds=chD.filter(c=>c&&c.encoder_job_started).map(c=>c.id);
+      const activeIds=[...chD,...chR].filter(c=>c&&c.encoder_job_started).map(c=>c.id);
       renderChannels($('fi').value.trim().toLowerCase(),$('wo').checked,$('ao').checked);
       setSt(dc.toUpperCase()+' · '+new Date().toLocaleTimeString(),'ok');
       hasData=true;
@@ -466,9 +475,19 @@ async function load(){
     } else if(view==='scheduled'){
       raw={events:await api('/scheduled_events')};
     } else if(view==='logs'){
-      const dv=$('ld').value;
-      const p=dv?'/logs/'+dv.replace(/-/g,'/'):'/logs';
-      logEvents=await api(p);raw={logs:logEvents};
+      // fetch range from→to (max 14 days), default today
+      const from=$('ld-from').value, to=$('ld-to').value;
+      const days=dateRange(from,to); // array of 'YYYY/MM/DD'
+      if(!days.length){
+        $('content').innerHTML=empty('Select a date range and click Fetch');
+        setSt(dc.toUpperCase()+' ready','ok');
+        hasData=false;$('refresh-overlay').classList.remove('vis');return;
+      }
+      const results=await Promise.all(days.map(d=>apiSoft('/logs/'+d).then(r=>Array.isArray(r)?r:[])));
+      logEvents=results.flat();
+      raw={logs:logEvents};
+      // populate suggestion datalists from cached node/channel/event data
+      populateLogSuggestions();
     }
     renderView();
     setSt(dc.toUpperCase()+' · '+new Date().toLocaleTimeString(),'ok');
@@ -717,13 +736,16 @@ function renderRunning(filter,warnOnly){
 function renderScheduled(filter){
   const events=Array.isArray(raw.events)?raw.events:[];
   const now=new Date();
-  let rows=events.filter(e=>e&&typeof e==='object').map(ev=>({
-    id:String(ev.id||''),
-    name:stripH(ev.description||'')||'-',
-    start:fmtDt(ev.start_datetime),end:fmtDt(ev.end_datetime),
-    startRaw:ev.start_datetime?new Date(ev.start_datetime):null,
-    ch:ev.channel_id||''
-  }));
+  let rows=events.filter(e=>e&&typeof e==='object').map(ev=>{
+    // channel_id may be at root or inside scheduled_event
+    const s=findSched(ev)||{};
+    const ch=ev.channel_id||s.channel_id||'';
+    const id=String(ev.id||s.id||'');
+    const name=stripH(ev.description||s.description||'')||'-';
+    const startRaw=ev.start_datetime||s.start_datetime||null;
+    const endRaw  =ev.end_datetime  ||s.end_datetime  ||null;
+    return{id,name,ch,start:fmtDt(startRaw),end:fmtDt(endRaw),startRaw:startRaw?new Date(startRaw):null};
+  });
 
   if(schedHorizonDays>0){
     const cutoff=new Date(now.getTime()+schedHorizonDays*86400000);
@@ -732,7 +754,7 @@ function renderScheduled(filter){
   rows.sort((a,b)=>(a.startRaw||0)-(b.startRaw||0));
   if(filter)rows=rows.filter(r=>r.name.toLowerCase().includes(filter)||r.ch.toLowerCase().includes(filter)||r.id.includes(filter));
 
-  let h=sumBar([['Scheduled',rows.length,'ac'],['Horizon',schedHorizonDays>0?schedHorizonDays+' days':'all','']]);
+  let h=sumBar([['Scheduled',rows.length,'ac'],['Horizon',schedHorizonDays>0?schedHorizonDays+'d':'all','']]);
   if(!rows.length){h+=empty('No scheduled events');$('content').innerHTML=h;return;}
   h+='<table class="ct"><thead><tr><th>ID</th><th>Event</th><th>Channel</th><th>Start</th><th>End</th></tr></thead><tbody>';
   for(const r of rows){
@@ -749,8 +771,57 @@ function renderScheduled(filter){
 }
 
 // ── LOGS ──────────────────────────────────────────────────────
+function dateRange(from,to){
+  // returns array of 'YYYY/MM/DD' strings, max 14 days
+  if(!from)return[];
+  const t=to||from;
+  const a=new Date(from+'T00:00:00Z'),b=new Date(t+'T00:00:00Z');
+  if(isNaN(a)||isNaN(b)||a>b)return[];
+  const days=[];let cur=new Date(a);
+  while(cur<=b&&days.length<14){
+    days.push(cur.toISOString().slice(0,10).replace(/-/g,'/'));
+    cur=new Date(cur.getTime()+86400000);
+  }
+  return days;
+}
+
+// Cache of suggestions fetched from other views or on-demand
+let logSuggestCache={nodes:[],channels:[],events:[]};
+
+async function populateLogSuggestions(){
+  // use already-cached raw data from other views if available, else fetch
+  let nodes=logSuggestCache.nodes, channels=logSuggestCache.channels, events=logSuggestCache.events;
+  if(!nodes.length||!channels.length){
+    try{
+      const[nd,chD,chR,ev]=await Promise.all([
+        apiSoft('/nodes'),
+        apiSoft('/channels/default'),
+        apiSoft('/channels/racing_uk').catch(()=>[]),
+        apiSoft('/running_events')
+      ]);
+      nodes=(nd||[]).map(n=>n.id).filter(Boolean);
+      channels=[...(chD||[]),...(chR||[])].map(c=>c.id).filter(Boolean);
+      events=(ev||[]).map(e=>String(e.id||'')).filter(Boolean);
+      logSuggestCache={nodes,channels,events};
+    }catch{}
+  }
+  const fill=(id,arr)=>{
+    const dl=document.getElementById(id);if(!dl)return;
+    dl.innerHTML=arr.map(v=>`<option value="${esc(v)}">`).join('');
+  };
+  fill('dl-nodes',nodes);
+  fill('dl-channels',channels);
+  fill('dl-events',events);
+  // grep suggestions: common useful terms
+  fill('dl-grep',['error','warning','critical','encoder','packager','scheduler','timeout','disconnect','reconnect','bitrate','signal']);
+}
+
 function renderLogs(){
-  let events=Array.isArray(logEvents)?logEvents:[];
+  if(!logEvents.length&&!$('ld-from').value){
+    $('content').innerHTML='<div class="state-msg"><div class="ico">📋</div><div>Select a date range and click <strong>Fetch</strong></div><div style="font-size:.58rem;margin-top:4px;color:var(--muted)">Defaults to today. Up to 14 days at once.</div></div>';
+    return;
+  }
+  let events=Array.isArray(logEvents)?[...logEvents]:[];
   const grep=$('lg').value.trim().toLowerCase();
   const fNode=$('lf-node').value.trim().toLowerCase();
   const fCh  =$('lf-ch').value.trim().toLowerCase();
@@ -758,14 +829,22 @@ function renderLogs(){
   const fMain=$('fi').value.trim().toLowerCase();
 
   if(logLevel)events=events.filter(e=>(e.level||'').toLowerCase()===logLevel);
-  if(grep){const ns=grep.split(',').map(s=>s.trim()).filter(Boolean);events=events.filter(e=>{const h=((e.id||'')+' '+(e.category||'')+' '+(e.level||'')+' '+(e.message||'')).toLowerCase();return ns.every(n=>h.includes(n));});}
+  if(grep){
+    const ns=grep.split(',').map(s=>s.trim()).filter(Boolean);
+    events=events.filter(e=>{
+      const hay=((e.id||'')+' '+(e.category||'')+' '+(e.level||'')+' '+(e.message||'')).toLowerCase();
+      return ns.every(n=>hay.includes(n));
+    });
+  }
   if(fNode)events=events.filter(e=>((e.category||'')+' '+(e.message||'')).toLowerCase().includes(fNode));
   if(fCh)  events=events.filter(e=>((e.category||'')+' '+(e.message||'')).toLowerCase().includes(fCh));
   if(fEv)  events=events.filter(e=>((e.id||'')+' '+(e.message||'')).toLowerCase().includes(fEv));
   if(fMain)events=events.filter(e=>((e.id||'')+' '+(e.category||'')+' '+(e.message||'')).toLowerCase().includes(fMain));
 
-  $('log-count').textContent=events.length+' event'+(events.length!==1?'s':'');
-  if(!events.length){$('content').innerHTML=empty('No log events match filters');return;}
+  $('log-count').textContent=events.length+' / '+logEvents.length+' events';
+  if(!logEvents.length){$('content').innerHTML=empty('No logs loaded');return;}
+  if(!events.length){$('content').innerHTML=empty('No events match filters');return;}
+
   const lc={info:'lv-info',warning:'lv-warning',error:'lv-error',critical:'lv-critical'};
   let h='<div class="log-list">';
   for(const ev of events){
@@ -789,6 +868,8 @@ function updateToolbarForView(){
   $('log-controls').style.display=isLog?'flex':'none';
   $('sched-controls').style.display=isSched?'flex':'none';
   $('rmg-wrap').style.display=view==='channels'?'':'none';
+  // show prompt immediately when switching to logs with no data
+  if(isLog&&!logEvents.length)renderLogs();
 }
 
 // ── WIRING ────────────────────────────────────────────────────
@@ -813,7 +894,9 @@ document.querySelectorAll('#lvl-g .log-lvl').forEach(btn=>btn.addEventListener('
 }));
 $('lg').addEventListener('input',renderLogs);
 ['lf-node','lf-ch','lf-ev'].forEach(id=>$(id).addEventListener('input',renderLogs));
-$('ld').addEventListener('change',()=>{if(view==='logs')load();});
+$('log-fetch-btn').addEventListener('click',()=>{if(view==='logs'){hasData=false;load();}});
+// also allow Enter key in date fields to trigger fetch
+['ld-from','ld-to'].forEach(id=>$(id).addEventListener('keydown',e=>{if(e.key==='Enter'&&view==='logs'){hasData=false;load();}}));
 
 document.querySelectorAll('.hz-btn').forEach(btn=>btn.addEventListener('click',()=>{
   document.querySelectorAll('.hz-btn').forEach(b=>b.classList.remove('active'));
@@ -827,8 +910,8 @@ try{$('ao').checked=localStorage.getItem('activeOnly')==='1';$('wo').checked=loc
 // init sort state
 ['nodes','running'].forEach(v=>{sortState[v]=getSort(v);});
 
-// init date input to today UTC
-(()=>{const n=new Date();$('ld').value=n.getUTCFullYear()+'-'+String(n.getUTCMonth()+1).padStart(2,'0')+'-'+String(n.getUTCDate()).padStart(2,'0');})();
+// init log date inputs to today UTC
+(()=>{const n=new Date();const td=n.getUTCFullYear()+'-'+String(n.getUTCMonth()+1).padStart(2,'0')+'-'+String(n.getUTCDate()).padStart(2,'0');$('ld-from').value=td;$('ld-to').value=td;})();
 
 // auto-refresh 30s
 setInterval(()=>{if(hasData)load();},30000);
