@@ -155,7 +155,7 @@ def start_ffmpeg():
         "-i", DISPLAY,
 
          # 🔥 BRIGHTNESS FIX
-        "-vf", "eq=gamma=1.2:brightness=0.06:contrast=1.2:saturation=1.2",
+        "-vf", "eq=gamma=1.2:brightness=0.15:contrast=1.7:saturation=1.2",
 
         "-c:v", VIDEO_CODEC,
         "-preset", "ultrafast",
