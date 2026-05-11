@@ -3,3 +3,4 @@ ingest-results/
 mtr-results/
 gop-results/
 specs.json
+__pycache__/

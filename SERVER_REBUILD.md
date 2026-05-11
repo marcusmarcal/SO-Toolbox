@@ -150,6 +150,7 @@ systemctl restart so-proxy
 ```
 
 > **WSL note:** `systemctl` may not work on WSL1. Use WSL2, or start manually:
+>
 > ```bash
 > cd /opt/web && python3 proxy.py &
 > ```
@@ -176,21 +177,22 @@ curl -sk https://localhost/.env
 
 ## 8. What lives where
 
-| What | Where | In Git? |
-|------|-------|---------|
-| App code (HTML, proxy.py) | `/opt/web/` | ✅ Yes |
-| nginx config (CentOS/RHEL) | `/opt/web/nginx.conf` → `/etc/nginx/nginx.conf` | ✅ Yes |
-| nginx config (Debian/Ubuntu) | `/opt/web/nginx-debian.conf` → `/etc/nginx/sites-available/so-toolbox` | ✅ Yes |
-| systemd service file | `/opt/web/so-proxy.service` → `/etc/systemd/system/` | ✅ Yes |
-| `.env` (tools, credentials) | `/opt/web/.env` | ❌ No — create manually |
-| SSL certificates | `/etc/nginx/ssl/` | ❌ No — generate manually |
-| Proxy logs | `journalctl -u so-proxy` | ❌ No |
+| What                         | Where                                                                  | In Git?                   |
+| ---------------------------- | ---------------------------------------------------------------------- | ------------------------- |
+| App code (HTML, proxy.py)    | `/opt/web/`                                                            | ✅ Yes                    |
+| nginx config (CentOS/RHEL)   | `/opt/web/nginx.conf` → `/etc/nginx/nginx.conf`                        | ✅ Yes                    |
+| nginx config (Debian/Ubuntu) | `/opt/web/nginx-debian.conf` → `/etc/nginx/sites-available/so-toolbox` | ✅ Yes                    |
+| systemd service file         | `/opt/web/so-proxy.service` → `/etc/systemd/system/`                   | ✅ Yes                    |
+| `.env` (tools, credentials)  | `/opt/web/.env`                                                        | ❌ No — create manually   |
+| SSL certificates             | `/etc/nginx/ssl/`                                                      | ❌ No — generate manually |
+| Proxy logs                   | `journalctl -u so-proxy`                                               | ❌ No                     |
 
 ---
 
 ## 9. Quick rebuild checklist
 
 ### CentOS / RHEL
+
 - [ ] `yum install nginx git python3 python3-pip -y`
 - [ ] `pip3 install flask flask-cors requests`
 - [ ] `git clone https://github.com/marcusmarcal/SO-Toolbox.git /opt/web`
@@ -203,6 +205,7 @@ curl -sk https://localhost/.env
 - [ ] Verify with curl checks in Section 7
 
 ### Debian / Ubuntu / WSL
+
 - [ ] `apt update && apt install nginx git python3 python3-flask python3-requests -y`
 - [ ] `pip3 install flask-cors --break-system-packages`
 - [ ] `git clone https://github.com/marcusmarcal/SO-Toolbox.git /opt/web`
@@ -215,3 +218,34 @@ curl -sk https://localhost/.env
 - [ ] `cp /opt/web/so-proxy.service /etc/systemd/system/`
 - [ ] `systemctl daemon-reload && systemctl enable so-proxy && systemctl start so-proxy`
 - [ ] Verify with curl checks in Section 7
+
+### srt-push service
+
+```bash
+sudo vi /etc/systemd/system/srt-push.service
+
+
+-------------
+[Unit]
+Description=SRT Push Streaming Service (Chromium + FFmpeg)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/web/srt-push.py
+Restart=always
+RestartSec=5
+User=root
+Environment=DISPLAY=:99
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
+-----------
+
+sudo systemctl daemon-reload
+sudo systemctl enable srt-push
+sudo systemctl start srt-push
+
+```
