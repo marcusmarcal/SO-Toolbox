@@ -15,9 +15,15 @@ import shutil
 # CONFIG
 # ============================================================
 
-#HTML_URL = "https://10.11.203.239/id3as-DC-Monitor.html"
-HTML_URL = "https://10.11.203.239/GOP-Analyzer.html"
-SRT_URL = "srt://10.11.203.2:3292?mode=caller&passphrase=rQ6zgFnfz1WgmJ0AgzI4Zs7Own54K0dU&latency=1000"
+HTML_URL = "https://10.11.203.239/id3as-DC-Monitor.html?sort=nW&dir=-1&view=nodes&inuse=1"
+#HTML_URL = "https://www.statsperform.com/"
+# ?view=nodes
+# ?view=nodes&inuse=1
+# ?view=channels&warn=1
+# ?view=running&dc=eq
+
+SRT_URL = "srt://10.11.203.1:3292?mode=caller&passphrase=rQ6zgFnfz1WgmJ0AgzI4Zs7Own54K0dU&latency=1000"
+
 
 BRIGHTNESS = 0.2      # -1.0 (dark) to +1.0 (bright)
 CONTRAST   = 1.0      # 1.0 = normal
