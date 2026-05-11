@@ -1301,12 +1301,19 @@
         } catch {}
 
         // ✅ UPDATE URL
+
         try {
           const url = new URL(window.location);
 
           url.searchParams.set("sort", k);
           url.searchParams.set("dir", dir);
           url.searchParams.set("view", v);
+
+          if ($("ao").checked) url.searchParams.set("inuse", "1");
+          else url.searchParams.delete("inuse");
+
+          if ($("wo").checked) url.searchParams.set("warn", "1");
+          else url.searchParams.delete("warn");
 
           window.history.replaceState({}, "", url);
         } catch {}
