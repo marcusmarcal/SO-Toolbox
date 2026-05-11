@@ -48,6 +48,23 @@ VIDEO_BITRATE = "3000k"
 VIDEO_CODEC = "libx264"
 
 XVFB_PATH = "/usr/bin/Xvfb"
+def start_xvfb():
+    print("[INFO] Starting Xvfb (no cursor)...")
+
+    proc = run([
+        XVFB_PATH,
+        DISPLAY,
+        "-screen",
+        "0",
+        f"{WIDTH}x{HEIGHT}x24",
+
+        # 🔥 IMPORTANT: disables cursor rendering
+        "-nocursor"
+    ])
+
+    processes.append(proc)
+    time.sleep(2)
+
 FFMPEG_PATH = "/usr/bin/ffmpeg"
 
 # Auto-detect Chromium (Oracle Linux RPM style)
