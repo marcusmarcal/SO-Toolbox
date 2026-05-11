@@ -1253,7 +1253,21 @@
           .replace(/</g, "&lt;")
           .replace(/>/g, "&gt;");
 
+      // ── SORT FROM URL ───────────────────────────
+      (function initSortFromURL() {
+        const params = new URLSearchParams(window.location.search);
+        const k = params.get("sort");
+        const d = parseInt(params.get("dir"), 10);
+
+        if (k) {
+          // só guardamos se for válido
+          sortState["nodes"] = { k, dir: d === -1 ? -1 : 1 };
+          sortState["running"] = { k, dir: d === -1 ? -1 : 1 };
+        }
+      })();
+
       // ── SORT ──────────────────────────────────────────────────────
+
       const SORT_FIELDS = {
         nodes: [
           { k: "id", label: "ID" },
@@ -2665,7 +2679,9 @@
 
       // init sort state
       ["nodes", "running"].forEach((v) => {
-        sortState[v] = getSort(v);
+        if (!sortState[v]) {
+          sortState[v] = getSort(v);
+        }
       });
 
       document.addEventListener("DOMContentLoaded", () => {
