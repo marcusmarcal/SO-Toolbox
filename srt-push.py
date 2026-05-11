@@ -246,9 +246,16 @@ def main():
                     ffmpeg_fail_counter += 1
                     restart_srt()
                 else:
-                    print("[FATAL] too many failures -> full restart")
+                    print("[FATAL] too many failures -> restarting ffmpeg cleanly")
+
                     cleanup()
-                    main()
+                    time.sleep(2)
+
+                    ffmpeg_fail_counter = 0
+
+                    start_xvfb()
+                    start_chromium()
+                    start_ffmpeg()
 
 if __name__ == "__main__":
     main()
