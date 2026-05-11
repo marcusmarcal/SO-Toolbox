@@ -1256,7 +1256,10 @@
         if (dcParam && ["ix", "eq"].includes(dcParam)) {
           dc = dcParam;
         }
-
+        if (params.get("inuse") === "1") {
+          $("ao").checked = true;
+          localStorage.setItem("activeOnly", "1"); // ✅ FIX
+        }
         document.addEventListener("DOMContentLoaded", () => {
           // sync UI com estado vindo da URL
           setActiveViewButton();
