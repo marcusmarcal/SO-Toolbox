@@ -49,7 +49,7 @@ Web frontend for monitoring id3as data-centre infrastructure. Communicates with 
 
 ```env
 APP_TITLE=SP SO Web Toolbox
-APP_VERSION=2.14.1
+APP_VERSION=2.14.3
 
 # Tools — format: TOOL_n=file.html|Name|Description|icon|Category|BADGE
 TOOL_1=monitor.html|Channel Monitor|PhenixRTS real-time health|📡|Monitoring|LIVE
@@ -152,7 +152,7 @@ PRFAUTH=your-prfauth-token-here
 | 1.1.0   | 2026-03-25 | Full English translation + rich GUI |
 | 1.0.0   | 2026-03-25 | Initial PhenixRTS Channel Health Monitor |
 
-**Current Version: 2.14.1**
+**Current Version: 2.14.3**
 
 ---
 
