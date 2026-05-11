@@ -18,7 +18,7 @@ import shutil
 # CONFIG
 # ============================================================
 
-HTML_URL = "https://10.11.203.239/id3as-DC-Monitor.html"
+HTML_URL = "http://10.11.203.239/id3as-DC-Monitor.html"
 
 SRT_URL = "srt://10.11.203.2:3292?mode=caller&passphrase=rQ6zgFnfz1WgmJ0AgzI4Zs7Own54K0dU&latency=1000"
 
