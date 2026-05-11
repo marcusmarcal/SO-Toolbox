@@ -1230,19 +1230,16 @@
         }
 
         document.addEventListener("DOMContentLoaded", () => {
-          if (
-            params.get("inuse") === "1" ||
-            localStorage.getItem("activeOnly") === "1"
-          ) {
-            $("ao").checked = true;
-          }
-
-          if (
-            params.get("warn") === "1" ||
-            localStorage.getItem("warningsOnly") === "1"
-          ) {
-            $("wo").checked = true;
-          }
+          // sync UI com estado vindo da URL
+          setActiveViewButton();
+          setActiveDCButton();
+          updateToolbarForView();
+          // 👇 FORÇAR load SEM DEPENDER DE ESTADO
+          setTimeout(() => {
+            if (view !== "logs") {
+              load();
+            }
+          }, 0);
         });
       })();
 
