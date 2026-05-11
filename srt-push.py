@@ -19,6 +19,12 @@ import shutil
 HTML_URL = "https://10.11.203.239/GOP-Analyzer.html"
 SRT_URL = "srt://10.11.203.2:3292?mode=caller&passphrase=rQ6zgFnfz1WgmJ0AgzI4Zs7Own54K0dU&latency=1000"
 
+BRIGHTNESS = 0.10      # -1.0 (dark) to +1.0 (bright)
+CONTRAST   = 1.15      # 1.0 = normal
+SATURATION = 1.15      # 1.0 = normal
+GAMMA      = 1.00      # optional fine tuning
+
+
 DISPLAY = ":99"
 
 WIDTH = 1280
@@ -35,6 +41,14 @@ CHROMIUM_PATH = (
     shutil.which("chromium-browser")
     or shutil.which("chromium")
     or "/usr/bin/chromium-browser"
+)
+
+vf_filter = (
+    f"eq="
+    f"brightness={BRIGHTNESS}:"
+    f"contrast={CONTRAST}:"
+    f"saturation={SATURATION}:"
+    f"gamma={GAMMA}"
 )
 
 processes = []
@@ -155,7 +169,7 @@ def start_ffmpeg():
         "-i", DISPLAY,
 
          # 🔥 BRIGHTNESS FIX
-        "-vf", "eq=gamma=1.2:brightness=0.15:contrast=1.7:saturation=1.2",
+        "-vf", vf_filter,
 
         "-c:v", VIDEO_CODEC,
         "-preset", "ultrafast",
