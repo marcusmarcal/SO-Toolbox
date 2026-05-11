@@ -2095,8 +2095,11 @@
           const warnCls =
             r.nW > 0 ? "hw warn-animated" : r.status === "offline" ? "off" : "";
 
-          h += '<div class="node-card ' + warnCls + '">';
-          +'<div class="node-head">' +
+          h +=
+            '<div class="node-card ' +
+            warnCls +
+            '">' +
+            '<div class="node-head">' +
             '<span class="pill ' +
             (r.status === "online" ? "p-online" : "p-offline") +
             '" style="font-size:.52rem">' +
