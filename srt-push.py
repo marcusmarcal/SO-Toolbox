@@ -1,7 +1,26 @@
 #!/usr/bin/env python3
 # ============================================================
 # HTML (NGINX) -> Xvfb -> Chromium -> FFmpeg -> SRT PUSH
-# ORACLE LINUX 9.7 - PRODUCTION AUTO-HEALING VERSION
+# ORACLE LINUX 9.7 - PRODUCTION STREAMING (FINAL VERSION)
+# ============================================================
+#
+# REQUIRED PACKAGES:
+#
+# sudo dnf install -y \
+#   chromium \
+#   xorg-x11-server-Xvfb \
+#   xorg-x11-server-utils \
+#   ffmpeg \
+#   psmisc
+#
+# ============================================================
+# FEATURES:
+# - Chromium OL9 wrapper support
+# - SSL bypass (self-signed HTTPS OK)
+# - Cursor hidden via xsetroot
+# - Xvfb virtual display
+# - FFmpeg x11grab -> SRT
+# - watchdog auto-restart
 # ============================================================
 
 import os
@@ -15,8 +34,9 @@ import shutil
 # CONFIGURATION
 # ============================================================
 
-HTML_URL = "https://127.0.0.1/dashboard.html"  # pode ser http também
-SRT_URL = "srt://127.0.0.1:9000?mode=caller"
+HTML_URL = "https://10.11.203.239/id3as-DC-Monitor.html"
+
+SRT_URL = "srt://10.11.203.2:3292?mode=caller&passphrase=rQ6zgFnfz1WgmJ0AgzI4Zs7Own54K0dU&latency=1000"
 
 DISPLAY = ":99"
 
@@ -30,7 +50,7 @@ VIDEO_CODEC = "libx264"
 XVFB_PATH = "/usr/bin/Xvfb"
 FFMPEG_PATH = "/usr/bin/ffmpeg"
 
-# auto detect chromium (OL9 compatible)
+# Auto-detect Chromium (Oracle Linux RPM style)
 CHROMIUM_PATH = (
     shutil.which("chromium-browser")
     or shutil.which("chromium")
@@ -40,7 +60,7 @@ CHROMIUM_PATH = (
 processes = []
 
 # ============================================================
-# CHROMIUM FLAGS (FIXED FOR ROOT + SSL + STREAMING)
+# CHROMIUM FLAGS (OL9 SAFE + STREAMING OPTIMIZED)
 # ============================================================
 
 CHROMIUM_FLAGS = [
@@ -51,12 +71,12 @@ CHROMIUM_FLAGS = [
     "--no-sandbox",
     "--disable-setuid-sandbox",
 
-    # SSL BYPASS (IMPORTANT)
+    # SSL BYPASS
     "--ignore-certificate-errors",
     "--ignore-ssl-errors",
     "--allow-insecure-localhost",
 
-    # PERFORMANCE / STABILITY
+    # PERFORMANCE
     "--disable-gpu",
     "--disable-infobars",
     "--autoplay-policy=no-user-gesture-required",
@@ -67,7 +87,7 @@ CHROMIUM_FLAGS = [
     "--disable-notifications",
     "--disable-extensions",
 
-    # streaming stability
+    # STREAM STABILITY
     "--disable-background-timer-throttling",
     "--disable-renderer-backgrounding",
     "--disable-backgrounding-occluded-windows",
@@ -90,12 +110,11 @@ def run(cmd, env=None):
 
 
 def kill_existing():
-    print("[INFO] Killing old processes...")
+    print("[INFO] Cleaning old processes...")
     subprocess.run(["pkill", "-9", "Xvfb"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     subprocess.run(["pkill", "-9", "chromium"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     subprocess.run(["pkill", "-9", "chromium-browser"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     subprocess.run(["pkill", "-9", "ffmpeg"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    subprocess.run(["pkill", "-9", "unclutter"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 # ============================================================
 # Xvfb
@@ -116,16 +135,16 @@ def start_xvfb():
     time.sleep(2)
 
 # ============================================================
-# HIDE CURSOR (IMPORTANT UX FIX)
+# CURSOR HIDE (X11 METHOD - NO UNCLUTTER)
 # ============================================================
 
 def hide_cursor():
-    print("[INFO] Hiding cursor...")
+    print("[INFO] Hiding cursor (xsetroot)...")
 
     subprocess.Popen([
-        "unclutter",
-        "-idle", "0.1",
-        "-root"
+        "xsetroot",
+        "-cursor_name",
+        "none"
     ])
 
 # ============================================================
@@ -194,7 +213,7 @@ def start_ffmpeg():
     processes.append(proc)
 
 # ============================================================
-# WATCHDOG (BASIC AUTO-RECOVERY)
+# WATCHDOG
 # ============================================================
 
 def restart_all():
@@ -207,7 +226,7 @@ def restart_all():
 # ============================================================
 
 def cleanup(sig=None, frame=None):
-    print("\n[INFO] Cleaning up...")
+    print("\n[INFO] Shutting down...")
 
     for p in processes:
         try:
@@ -219,7 +238,7 @@ def cleanup(sig=None, frame=None):
     sys.exit(0)
 
 # ============================================================
-# MAIN LOOP
+# MAIN
 # ============================================================
 
 def main():
@@ -233,15 +252,15 @@ def main():
     start_chromium()
     start_ffmpeg()
 
-    print("\n[OK] SRT STREAMING RUNNING (ORACLE LINUX 9)")
-    print("[INFO] Press Ctrl+C to stop\n")
+    print("\n[OK] STREAMING ACTIVE (ORACLE LINUX 9.7)")
+    print("[INFO] Ctrl+C to stop\n")
 
     while True:
         time.sleep(5)
 
         for p in processes:
             if p.poll() is not None:
-                print("[ERROR] Process crashed — auto restart")
+                print("[ERROR] Process crashed — restarting")
                 restart_all()
 
 
