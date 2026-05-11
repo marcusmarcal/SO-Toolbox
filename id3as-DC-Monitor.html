@@ -1087,6 +1087,35 @@
         height: 7px;
         border-radius: 50%;
       }
+
+      /* 🔴 ALERTA SUPER VISÍVEL */
+      @keyframes warnFlash {
+        0% {
+          background-color: rgba(255, 78, 106, 0.05);
+        }
+        50% {
+          background-color: rgba(255, 78, 106, 0.35);
+        }
+        100% {
+          background-color: rgba(255, 78, 106, 0.05);
+        }
+      }
+
+      @keyframes warnGlow {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(255, 78, 106, 0.6);
+        }
+        50% {
+          box-shadow: 0 0 12px 4px rgba(255, 78, 106, 0.9);
+        }
+      }
+
+      /* aplica nos nodes com warning */
+      .node-card.hw.warn-animated {
+        animation: warnFlash 1s infinite, warnGlow 1.2s infinite;
+        border-color: #ff4e6a !important;
+      }
     </style>
   </head>
   <body>
@@ -2063,9 +2092,12 @@
         h += '<div class="node-grid">';
 
         for (const r of rows) {
+          const warnCls =
+            r.nW > 0 ? "hw warn-animated" : r.status === "offline" ? "off" : "";
+
           h +=
             '<div class="node-card ' +
-            (r.nW > 0 ? "hw" : r.status === "offline" ? "off" : "") +
+            warnCls +
             '">' +
             '<div class="node-head">' +
             '<span class="pill ' +
