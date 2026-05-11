@@ -152,7 +152,10 @@ def start_ffmpeg():
         "-f", "x11grab",
         "-video_size", f"{WIDTH}x{HEIGHT}",
         "-framerate", str(FPS),
-        "-i","-vf", "eq=brightness=0.08:contrast=1.1:saturation=1.1", DISPLAY,
+        "-i", DISPLAY,
+
+         # 🔥 BRIGHTNESS FIX
+        "-vf", "eq=brightness=0.10:contrast=1.15:saturation=1.15",
 
         "-c:v", VIDEO_CODEC,
         "-preset", "ultrafast",
