@@ -1250,6 +1250,8 @@
           .replace(/</g, "&lt;")
           .replace(/>/g, "&gt;");
 
+      const sortState = {};
+
       // ── SORT FROM URL ───────────────────────────
       (function initSortFromURL() {
         const params = new URLSearchParams(window.location.search);
@@ -1281,7 +1283,6 @@
           { k: "end", label: "End" },
         ],
       };
-      const sortState = {};
 
       function getSort(v) {
         try {
