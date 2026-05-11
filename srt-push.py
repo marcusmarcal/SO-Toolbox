@@ -33,9 +33,9 @@ GAMMA      = 1.0      # optional fine tuning
 
 DISPLAY = ":99"
 
-WIDTH = 1280
-HEIGHT = 720
-FPS = 30
+WIDTH = 1920
+HEIGHT = 1080
+FPS = 25
 
 VIDEO_BITRATE = "3000k"
 VIDEO_CODEC = "libx264"
