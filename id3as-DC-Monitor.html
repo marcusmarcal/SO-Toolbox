@@ -1295,12 +1295,26 @@
         const cur = sortState[v];
         const dir = cur && cur.k === k ? -cur.dir : 1;
         sortState[v] = { k, dir };
+
         try {
           localStorage.setItem("sort-" + v, JSON.stringify(sortState[v]));
         } catch {}
+
+        // ✅ UPDATE URL
+        try {
+          const url = new URL(window.location);
+
+          url.searchParams.set("sort", k);
+          url.searchParams.set("dir", dir);
+          url.searchParams.set("view", v);
+
+          window.history.replaceState({}, "", url);
+        } catch {}
+
         updateSortUI(v);
         renderView();
       }
+
       function applySort(rows, v) {
         const s = sortState[v];
         if (!s || !SORT_FIELDS[v]) return rows;
