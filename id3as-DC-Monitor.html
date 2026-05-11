@@ -1256,21 +1256,25 @@
         if (dcParam && ["ix", "eq"].includes(dcParam)) {
           dc = dcParam;
         }
-        if (params.get("inuse") === "1") {
-          $("ao").checked = true;
-          localStorage.setItem("activeOnly", "1"); // ✅ FIX
-        }
+
+        const inUseParam = params.get("inuse");
+
         document.addEventListener("DOMContentLoaded", () => {
-          // sync UI com estado vindo da URL
+          // ✅ agora DOM já existe
+          if (inUseParam === "1") {
+            $("ao").checked = true;
+            localStorage.setItem("activeOnly", "1");
+          }
+
+          // ✅ UI sync
           setActiveViewButton();
           setActiveDCButton();
           updateToolbarForView();
-          // 👇 FORÇAR load SEM DEPENDER DE ESTADO
-          setTimeout(() => {
-            if (view !== "logs") {
-              load();
-            }
-          }, 0);
+
+          // ✅ load
+          if (view !== "logs") {
+            load();
+          }
         });
       })();
 
