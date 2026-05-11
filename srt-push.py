@@ -1,23 +1,10 @@
 #!/usr/bin/env python3
 # ============================================================
-# HTML (NGINX) -> CHROMIUM (Xvfb) -> FFMPEG -> SRT PUSH
-# ORACLE LINUX 9.7 (CLEAN VERSION - NO WINDOW MANAGER)
-# ============================================================
-#
-# REQUIRED PACKAGES (already confirmed working):
-#
-# sudo dnf install -y \
-#   chromium \
-#   xorg-x11-server-Xvfb \
-#   ffmpeg \
-#   psmisc
-#
-# ============================================================
-# VM CONTEXT
-# ------------------------------------------------------------
-# Cirrus Logic GD 5446 detected
-# -> NO GPU
-# -> CPU encoding only (libx264)
+# HTML -> CHROMIUM -> Xvfb -> FFMPEG -> SRT (ORACLE LINUX 9)
+# FIXED FOR:
+# - chromium-browser wrapper
+# - root sandbox restriction
+# - OL9 RPM packaging
 # ============================================================
 
 import os
@@ -25,9 +12,10 @@ import signal
 import subprocess
 import sys
 import time
+import shutil
 
 # ============================================================
-# CONFIGURATION
+# CONFIG
 # ============================================================
 
 HTML_URL = "https://10.11.203.239/id3as-DC-Monitor.html"
@@ -43,23 +31,32 @@ FPS = 30
 VIDEO_BITRATE = "3000k"
 VIDEO_CODEC = "libx264"
 
-CHROMIUM_PATH = "/usr/bin/chromium"
-FFMPEG_PATH = "/usr/bin/ffmpeg"
 XVFB_PATH = "/usr/bin/Xvfb"
+FFMPEG_PATH = "/usr/bin/ffmpeg"
 
 # ============================================================
-# CHROMIUM FLAGS (VM STABLE MODE)
+# AUTO DETECT CHROMIUM (IMPORTANT FIX)
+# ============================================================
+
+CHROMIUM_PATH = (
+    shutil.which("chromium-browser")
+    or shutil.which("chromium")
+    or "/usr/bin/chromium-browser"
+)
+
+# ============================================================
+# CHROMIUM FLAGS (FIXED FOR ROOT ON OL9)
 # ============================================================
 
 CHROMIUM_FLAGS = [
     "--kiosk",
     "--start-fullscreen",
 
-    # VM stability
-    "--disable-gpu",
+    # REQUIRED for root (your error fix)
     "--no-sandbox",
     "--disable-setuid-sandbox",
 
+    "--disable-gpu",
     "--disable-infobars",
     "--autoplay-policy=no-user-gesture-required",
     "--noerrdialogs",
@@ -69,21 +66,17 @@ CHROMIUM_FLAGS = [
     "--disable-notifications",
     "--disable-extensions",
 
-    # IMPORTANT for continuous rendering
+    # streaming stability
     "--disable-background-timer-throttling",
     "--disable-renderer-backgrounding",
     "--disable-backgrounding-occluded-windows",
     "--disable-frame-rate-limit",
 ]
 
-# ============================================================
-# PROCESS TRACKING
-# ============================================================
-
 processes = []
 
 # ============================================================
-# HELPERS
+# RUN HELPERS
 # ============================================================
 
 def run(cmd, env=None):
@@ -101,8 +94,8 @@ def kill_existing():
     print("[INFO] Cleaning old processes...")
     subprocess.run(["pkill", "-9", "Xvfb"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     subprocess.run(["pkill", "-9", "chromium"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run(["pkill", "-9", "chromium-browser"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     subprocess.run(["pkill", "-9", "ffmpeg"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
 
 # ============================================================
 # Xvfb
@@ -122,7 +115,6 @@ def start_xvfb():
     processes.append(proc)
     time.sleep(2)
 
-
 # ============================================================
 # CHROMIUM
 # ============================================================
@@ -132,6 +124,10 @@ def start_chromium():
 
     env = os.environ.copy()
     env["DISPLAY"] = DISPLAY
+
+    if not CHROMIUM_PATH:
+        print("[ERROR] Chromium not found!")
+        sys.exit(1)
 
     cmd = [
         CHROMIUM_PATH,
@@ -143,13 +139,12 @@ def start_chromium():
     processes.append(proc)
     time.sleep(6)
 
-
 # ============================================================
-# FFMPEG PIPELINE
+# FFMPEG
 # ============================================================
 
 def build_ffmpeg():
-    cmd = [
+    return [
         FFMPEG_PATH,
 
         "-thread_queue_size", "256",
@@ -158,9 +153,7 @@ def build_ffmpeg():
         "-video_size", f"{WIDTH}x{HEIGHT}",
         "-framerate", str(FPS),
         "-i", DISPLAY,
-    ]
 
-    cmd += [
         "-c:v", VIDEO_CODEC,
         "-preset", "ultrafast",
         "-tune", "zerolatency",
@@ -171,14 +164,10 @@ def build_ffmpeg():
         "-b:v", VIDEO_BITRATE,
         "-maxrate", VIDEO_BITRATE,
         "-bufsize", "6M",
-    ]
 
-    cmd += [
         "-f", "mpegts",
         SRT_URL
     ]
-
-    return cmd
 
 
 def start_ffmpeg():
@@ -190,7 +179,6 @@ def start_ffmpeg():
     proc = run(build_ffmpeg(), env=env)
 
     processes.append(proc)
-
 
 # ============================================================
 # CLEANUP
@@ -208,9 +196,8 @@ def cleanup(sig=None, frame=None):
     kill_existing()
     sys.exit(0)
 
-
 # ============================================================
-# MAIN LOOP (WATCHDOG SIMPLE)
+# MAIN
 # ============================================================
 
 def main():
@@ -223,15 +210,15 @@ def main():
     start_chromium()
     start_ffmpeg()
 
-    print("\n[OK] SRT streaming started successfully (Oracle Linux 9.7)")
-    print("[INFO] Press Ctrl+C to stop\n")
+    print("\n[OK] SRT streaming running on Oracle Linux 9.7")
+    print("[INFO] Ctrl+C to stop\n")
 
     while True:
         time.sleep(5)
 
         for p in processes:
             if p.poll() is not None:
-                print("[ERROR] Process crashed — restarting everything")
+                print("[ERROR] Process crashed — restarting")
                 cleanup()
 
 
