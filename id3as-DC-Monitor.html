@@ -2351,6 +2351,12 @@ function renderLogs(){
 
 // ── TOOLBAR VISIBILITY ────────────────────────────────────────
 function updateToolbarForView(){
+  const sched = document.getElementById('sched-controls');
+  if (!sched) {
+    console.warn('sched-controls ainda não existe no DOM');
+    return;
+  }
+
   $('sort-wrap').style.display=SORT_FIELDS[view]?'':'none';
   if(SORT_FIELDS[view]){
     if(!sortState[view])sortState[view]=getSort(view);
