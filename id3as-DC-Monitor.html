@@ -2018,27 +2018,38 @@ async function load(){
         }
 
         let rows = events
-          .filter((e) => e && typeof e === "object")
-          .map((ev) => {
-            const id = String(ev.id || ""),
-              ch = ev.channel_id || "";
-            const s = findSched(ev) || {};
-            const flags = fm[ch] || [],
-              wm = flags.filter((w) => !isInfo(w));
-            return {
-              id,
-              ch,
-              name: stripH(s.description || "") || "-",
-              start: fmtDt(s.start_datetime),
-              end: fmtDt(s.end_datetime),
-              encNode: ev.encoder_node_id || "",
-              pkgNode: ev.packager_node_id || "",
-              startedAt: fmtDt(ev.started_at),
-              warnings: wm.length,
-              wm,
-              evWarn: ch in chIdx && !chIdx[ch],
-            };
-          });
+  .filter((e) => e && typeof e === "object")
+  .map((ev) => {
+    const id = String(ev.id || ""),
+      ch = ev.channel_id || "";
+
+    const s = findSched(ev) || {};
+
+    const flags = fm[ch] || [],
+      wm = flags.filter((w) => !isInfo(w));
+
+    const rawName = stripH(s.description || "");
+    const baseName = rawName.split("|")[0].trim();
+
+    const name =
+      baseName && baseName.length > 60
+        ? baseName.slice(0, 59) + "…"
+        : baseName || "-";
+
+    return {
+      id,
+      ch,
+      name,
+      start: fmtDt(s.start_datetime),
+      end: fmtDt(s.end_datetime),
+      encNode: ev.encoder_node_id || "",
+      pkgNode: ev.packager_node_id || "",
+      startedAt: fmtDt(ev.started_at),
+      warnings: wm.length,
+      wm,
+      evWarn: ch in chIdx && !chIdx[ch],
+    };
+  });
 
         if (filter)
           rows = rows.filter(
