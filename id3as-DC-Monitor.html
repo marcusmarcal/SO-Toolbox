@@ -2359,7 +2359,8 @@ function updateToolbarForView(){
   const isLog=view==='logs', isSched=view==='scheduled';
   $('sub-toolbar').style.display=isSched?'':'none'; // logs manages its own sub-toolbar
   $('log-controls').style.display='none'; // hidden until logs are loaded
-  $('sched-controls').style.display=isSched?'flex':'none';
+  const el = $('sched-controls');
+  if (el) el.style.display = isSched ? 'flex' : 'none';
   $('rmg-wrap').style.display=view==='channels'?'':'none';
   if(isLog){
     // fetch suggestions then show form
