@@ -1029,7 +1029,7 @@
       <button class="tb-btn" id="log-back-btn" style="margin-left:auto;padding:3px 9px">← New search</button>
     </div>
     <!-- scheduled horizon -->
-    <div class="log-controls" id="sched-controls" style="display:none">
+    <div class="log-controls" id="sched-controls">
       <span style="font-family:var(--mono);font-size:.58rem;color:var(--muted)">Horizon:</span>
       <button class="hz-btn active" data-days="3">3 days</button>
       <button class="hz-btn" data-days="7">7 days</button>
@@ -1084,6 +1084,7 @@
         const inUseParam = params.get("inuse");
 
         document.addEventListener("DOMContentLoaded", () => {
+          
           // ✅ agora DOM já existe
           if (inUseParam === "1") {
             $("ao").checked = true;
@@ -2351,6 +2352,29 @@ function renderLogs(){
 
 // ── TOOLBAR VISIBILITY ────────────────────────────────────────
 function updateToolbarForView(){
+  $('sort-wrap').style.display = SORT_FIELDS[view] ? '' : 'none';
+
+  if (SORT_FIELDS[view]) {
+    if (!sortState[view]) sortState[view] = getSort(view);
+    updateSortUI(view);
+  }
+
+  const isLog = view === 'logs';
+  const isSched = view === 'scheduled';
+
+  $('sub-toolbar').style.display = (isLog || isSched) ? '' : 'none';
+
+  $('log-controls').style.display = isLog ? '' : 'none';
+
+  const sched = $('sched-controls');
+  if (sched) sched.style.display = isSched ? 'flex' : 'none';
+
+  $('rmg-wrap').style.display = view === 'channels' ? '' : 'none';
+
+  if (isLog) {
+    ensureLogSuggestions().then(showLogForm);
+  }
+}
   const sched = document.getElementById('sched-controls');
   if (!sched) {
     console.warn('sched-controls ainda não existe no DOM');
