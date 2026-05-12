@@ -10,6 +10,7 @@ A browser-based internal operations toolbox for the SP Support & Operations team
 
 ```
 index.html              — Main shell (sidebar, tabs, welcome screen, git update button)
+CHANGELOG.md            — Version history (Keep a Changelog format); read by index.html at runtime for version badge and changelog modal
 proxy.py                — Flask CORS proxy: serves config, PhenixRTS API, MTR, Ingest Analyzer
 nginx.conf              — Clean nginx config (CentOS/RHEL)
 nginx-debian.conf       — nginx site config (Debian/Ubuntu/WSL)
@@ -49,7 +50,6 @@ Web frontend for monitoring id3as data-centre infrastructure. Communicates with 
 
 ```env
 APP_TITLE=SP SO Web Toolbox
-APP_VERSION=2.14.1
 
 # Tools — format: TOOL_n=file.html|Name|Description|icon|Category|BADGE
 TOOL_1=monitor.html|Channel Monitor|PhenixRTS real-time health|📡|Monitoring|LIVE
@@ -111,48 +111,9 @@ PRFAUTH=your-prfauth-token-here
 
 ## Version History
 
-| Version | Date       | Changes |
-|---------|------------|---------|
-| 2.14.0  | 2026-05-10 | id3as: RMG bitrate fixed; Scheduled channel field; horizon buttons; Logs date-range picker, empty-state-before-fetch, suggestion datalists |
-| 2.13.0  | 2026-05-08 | id3as DC Monitor: soft refresh (no blank screen); sort by on Nodes and Events with localStorage persistence; log sub-filters (node/channel/event id); scheduled horizon filter (3/7/14d/all, 3d default); RMG merged into Channels with RMG-only toggle; external links to id3as web GUI on node/channel/event IDs; In use only now events-only criterion |
-| 2.12.0  | 2026-05-08 | id3as DC Monitor: merge Nodes+Health into single Nodes view; fix node count (now fetches both default+racing_uk channels, 86 nodes); add SCH (scheduler) resource bar with 30/70 thresholds; event/no-signal warning on channel chips (orange), node event list, and Events view; rename "Active only" to "In use only" with consistent criteria (event active or job running) |
-| 2.11.0  | 2026-05-05 | New: id3as DC Monitor — web frontend for id3as channel/node/RMG/logs monitoring; proxy routes `/id3as/<dc>/*` handle PRFAUTH server-side; DC toggle (IX/EQ), four views (Channels, Nodes, RMG, Logs), warnings filter, 30s auto-refresh, grep and date picker for logs |
-| 2.10.2  | 2026-05-05 | Ingest Analyzer: File .ts tab replaced server-side path input with browser file upload; new `/ingest/upload` proxy endpoint accepts multipart .ts, saves to temp, runs script, cleans up |
-| 2.10.1  | 2026-05-04 | SO Video Analyser bugfixes: misplaced </div> in history panel; .ts upload fix (Flask 2 GB MAX_CONTENT_LENGTH); AV sync offset fix (pkt_dts_time fallback for MPEG-TS pts_time=N/A) |
-| 2.10.0  | 2026-05-04 | AV sync+jitter checks in GOP analyser, .ts upload endpoint, clear form/history buttons, checkbox persistence, schedule UTC+30min, European time format, bigger report, GOP in report |
-| 2.9.3   | 2026-04-24 | Override only for REJECTED; Clear form+results; history checkboxes persist across refresh |
-| 2.9.2   | 2026-04-24 | Compliance fully specs-driven: deep-merge _load_specs, _save_specs complete, saveSpecs JS preserves all fields, specs editor handles number preferred |
-| 2.9.1   | 2026-04-24 | SO Video Analyser: compliance fully specs-driven (gop_size, fps, gop_type, all enums and ranges from specs.json); allow_seconds GOP, allow_50p_720 FPS |
-| 2.9.0   | 2026-04-24 | Unique test_id per run (searchable), dual report (visual screenshot + text copy for ServiceNow/Jira), print CSS |
-| 2.8.4   | 2026-04-23 | Re-run saves new JSON + appears in history; pollStatus sets _currentResultFile; loadHistory on all outcomes |
-| 2.8.3   | 2026-04-23 | SO Video Analyser: Re-run button on loaded result + each history item |
-| 2.8.2   | 2026-04-23 | override uses _currentResultFile, schedule full UTC, auto-refresh on complete, constrained baseline, hi-sub date/codec/res/fps, no res/fps badges, no latency field |
-| 2.8.1   | 2026-04-23 | Always save log JSON on failure/error, FAILED/ERROR badges, log viewer |
-| 2.7.0   | 2026-04-22 | SO Video Analyser rename, 50i FPS fix, override→JSON, .ts download, scheduled jobs, metadata header; index: clocks |
-| 2.6.3   | 2026-04-21 | GOP: fix 50i→25fps, HLG SDR, AAC-LC, audio tracks via -show_programs; Generate Report; Override |
-| 2.6.2   | 2026-04-16 | GOP: larger fonts, GOP avg hero, history filters, bitrate fallback, AAC FLTP |
-| 2.6.1   | 2026-04-16 | GOP: bitrate fallback, AAC FLTP, GOP badge, tag split, server filter |
-| 2.6.0   | 2026-04-16 | GOP compliance RAG, graceful timeout, NAL/IDR, open/closed GOP, FPS flag; MTR hops fix, bulk delete |
-| 2.5.0   | 2026-04-14 | New: GOP Analyzer — SRT capture, IDR detection, GOP structure visualizer (I/P/B/S), full stream info |
-| 2.4.0   | 2026-04-14 | MTR: ICMP/UDP-53 toggle, Country/ASN geo, -b flag |
-| 2.3.0   | 2026-04-13 | Proxy renamed to so-proxy; ADMIN_PASSWORD; MTR host sanity check; README modal |
-| 2.2.0   | 2026-04-10 | MTR kill/delete with confirmation, date picker filter, history panels |
-| 2.1.0   | 2026-04-10 | MTR: history filters, multi-tag, Date End + HH:MM:SS duration, Time mode left, copy fix |
-| 2.0.0   | 2026-04-07 | MTR background jobs with disk persistence, tags, running panel; Ingest Analyzer tags; bufsize fix; progress bar with countdown |
-| 1.9.0   | 2026-04-06 | Ingest Analyzer: background jobs, ZIP copy, HTML report served via proxy; SRT_LOCAL presets |
-| 1.8.0   | 2026-04-06 | MTR: time mode fix (cycles instead of timeout), SSE tick countdown, progress bar |
-| 1.7.0   | 2026-04-01 | MTR Network Trace tool with SSE streaming, server info, history |
-| 1.6.0   | 2026-04-01 | RMG RTS Multiview Dashboard launcher |
-| 1.5.2   | 2026-04-01 | nginx proxy_buffering off for SSE; per-distro nginx configs |
-| 1.5.1   | 2026-03-31 | Config loaded via proxy instead of public .env; SRT_PASSPHRASE secure |
-| 1.5.0   | 2026-03-27 | Git Pull button in index with auto-reload; systemd service |
-| 1.4.0   | 2026-03-27 | Lazy redraw — only update on state changes |
-| 1.3.0   | 2026-03-27 | Switched Channel Monitor UI from rich to curses |
-| 1.2.0   | 2026-03-25 | Alphabetical channel sorting |
-| 1.1.0   | 2026-03-25 | Full English translation + rich GUI |
-| 1.0.0   | 2026-03-25 | Initial PhenixRTS Channel Health Monitor |
+See [CHANGELOG.md](CHANGELOG.md) for full version history following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 
-**Current Version: 2.14.1**
+**Current version is always the first entry in `CHANGELOG.md`.** The `index.html` reads `CHANGELOG.md` at runtime to display the version badge and changelog modal — no hardcoding required.
 
 ---
 

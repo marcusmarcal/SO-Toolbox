@@ -201,7 +201,17 @@
     .c-ch{color:var(--accent);font-weight:700;}
     .c-nd{color:#9090b8;font-size:.6rem;}
 
-    /* LOGS */
+    /* LOG SEARCH FORM */
+    .log-form{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;max-width:680px;margin:24px auto;}
+    .log-form h3{font-family:var(--display);font-size:.85rem;font-weight:700;color:var(--accent);margin-bottom:16px;letter-spacing:.05em;}
+    .lf-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px;}
+    .lf-field{display:flex;flex-direction:column;gap:4px;}
+    .lf-field label{font-family:var(--mono);font-size:.56rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;}
+    .lf-select{font-family:var(--mono);font-size:.64rem;padding:5px 8px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);outline:none;cursor:pointer;min-width:130px;}
+    .lf-select:focus{border-color:var(--accent);}
+    .lf-load-btn{font-family:var(--mono);font-size:.65rem;font-weight:700;padding:7px 18px;border-radius:6px;border:none;background:var(--accent);color:#000;cursor:pointer;transition:opacity .15s;margin-top:4px;}
+    .lf-load-btn:hover{opacity:.85;}
+    .lf-hint{font-family:var(--mono);font-size:.56rem;color:var(--muted);margin-top:8px;}
     .log-list{display:flex;flex-direction:column;gap:1px;}
     .log-row{display:grid;grid-template-columns:152px 72px 108px auto;gap:7px;padding:4px 8px;border-radius:4px;font-family:var(--mono);font-size:.59rem;border:1px solid transparent;}
     .log-row:hover{background:var(--card);border-color:var(--border);}
@@ -244,8 +254,9 @@
   </div>
 
   <div id="sub-toolbar">
-    <!-- logs controls -->
+    <!-- logs post-load controls: level filter only -->
     <div class="log-controls" id="log-controls" style="display:none">
+      <span style="font-family:var(--mono);font-size:.58rem;color:var(--muted)">Level:</span>
       <div class="btn-group" id="lvl-g">
         <button class="log-lvl a-all" data-lvl="">ALL</button>
         <button class="log-lvl" data-lvl="info">INFO</button>
@@ -253,16 +264,9 @@
         <button class="log-lvl" data-lvl="error">ERROR</button>
         <button class="log-lvl" data-lvl="critical">CRIT</button>
       </div>
-      <span style="font-family:var(--mono);font-size:.58rem;color:var(--muted)">From</span>
-      <input class="date-input" id="ld-from" type="date"/>
-      <span style="font-family:var(--mono);font-size:.58rem;color:var(--muted)">To</span>
-      <input class="date-input" id="ld-to" type="date"/>
-      <button class="tb-btn" id="log-fetch-btn" style="padding:3px 9px">Fetch</button>
-      <input class="tb-input" id="lg" placeholder="grep…" style="width:120px" list="dl-grep"/>
-      <input class="tb-input" id="lf-node" placeholder="node…" style="width:110px" list="dl-nodes"/>
-      <input class="tb-input" id="lf-ch"   placeholder="channel…" style="width:100px" list="dl-channels"/>
-      <input class="tb-input" id="lf-ev"   placeholder="event id…" style="width:90px" list="dl-events"/>
-      <span id="log-count"></span>
+      <input class="tb-input" id="lg" placeholder="grep…" style="width:140px"/>
+      <span id="log-count" style="font-family:var(--mono);font-size:.58rem;color:var(--muted);margin-left:4px;"></span>
+      <button class="tb-btn" id="log-back-btn" style="margin-left:auto;padding:3px 9px">← New search</button>
     </div>
     <!-- scheduled horizon -->
     <div class="log-controls" id="sched-controls" style="display:none">
@@ -281,12 +285,6 @@
 
 <!-- floating refresh overlay -->
 <div id="refresh-overlay"><span class="s-spin"></span><span>Refreshing…</span></div>
-
-<!-- datalists for log suggestions — at body level so browsers resolve them regardless of display:none parents -->
-<datalist id="dl-grep"></datalist>
-<datalist id="dl-nodes"></datalist>
-<datalist id="dl-channels"></datalist>
-<datalist id="dl-events"></datalist>
 
 <script>
 const PROXY='/so-proxy';
@@ -434,9 +432,23 @@ function mBarSched(label,val){
 function xpand(id,el){const r=document.getElementById(id);if(!r)return;const v=r.style.display!=='none';r.style.display=v?'none':'';el.textContent=v?'▸':'▾';}
 
 // ── LOAD ──────────────────────────────────────────────────────
+// Capture log form values before load() replaces #content
+let pendingLogParams={from:'',to:'',fNode:'',fCh:'',fGrep:'',fLvl:''};
+
 async function load(){
+  // Capture log form values NOW, before DOM changes
+  if(view==='logs'){
+    pendingLogParams={
+      from: ($('lf-date-from')||{}).value || todayUTC(),
+      to:   ($('lf-date-to'  )||{}).value || '',
+      fNode:($('lf-sel-node' )||{}).value || '',
+      fCh:  ($('lf-sel-ch'   )||{}).value || '',
+      fGrep:($('lf-grep'     )||{}).value || '',
+      fLvl: ($('lf-sel-lvl'  )||{}).value || ''
+    };
+  }
+
   if(hasData){
-    // soft refresh: overlay only, keep current DOM
     $('refresh-overlay').classList.add('vis');
     setSt('Refreshing…','loading');
   } else {
@@ -479,27 +491,20 @@ async function load(){
         api('/channels/default'),
         api('/channels/racing_uk').catch(()=>[])
       ]);
-      // build specifier→channel_id map
+      // build input_address→channel_id map
       const specMap={};
       for(const ch of[...chD,...chR]){
-        if(ch&&ch.primary_source_specifier&&ch.id)
-          specMap[ch.primary_source_specifier]=ch.id;
+        if(ch&&ch.input_address&&ch.id)
+          specMap[ch.input_address]=ch.id;
       }
       raw={events:evs,specMap};
     } else if(view==='logs'){
-      // fetch range from→to (max 14 days), default today
-      const from=$('ld-from').value, to=$('ld-to').value;
-      const days=dateRange(from,to); // array of 'YYYY/MM/DD'
-      if(!days.length){
-        $('content').innerHTML=empty('Select a date range and click Fetch');
-        setSt(dc.toUpperCase()+' ready','ok');
-        hasData=false;$('refresh-overlay').classList.remove('vis');return;
-      }
+      const{from,to,fNode,fCh,fGrep,fLvl}=pendingLogParams;
+      logLevel=fLvl;
+      const days=dateRange(from||todayUTC(),to||from||todayUTC());
       const results=await Promise.all(days.map(d=>apiSoft('/logs/'+d).then(r=>Array.isArray(r)?r:[])));
       logEvents=results.flat();
-      raw={logs:logEvents};
-      // populate suggestion datalists from cached node/channel/event data
-      populateLogSuggestions();
+      raw={logs:logEvents,fNode,fCh,fGrep};
     }
     renderView();
     setSt(dc.toUpperCase()+' · '+new Date().toLocaleTimeString(),'ok');
@@ -784,12 +789,15 @@ function renderScheduled(filter){
 }
 
 // ── LOGS ──────────────────────────────────────────────────────
+function todayUTC(){
+  const n=new Date();
+  return n.getUTCFullYear()+'-'+String(n.getUTCMonth()+1).padStart(2,'0')+'-'+String(n.getUTCDate()).padStart(2,'0');
+}
 function dateRange(from,to){
-  // returns array of 'YYYY/MM/DD' strings, max 14 days
-  if(!from)return[];
+  if(!from)return[todayUTC().replace(/-/g,'/')];
   const t=to||from;
   const a=new Date(from+'T00:00:00Z'),b=new Date(t+'T00:00:00Z');
-  if(isNaN(a)||isNaN(b)||a>b)return[];
+  if(isNaN(a)||isNaN(b)||a>b)return[from.replace(/-/g,'/')];
   const days=[];let cur=new Date(a);
   while(cur<=b&&days.length<14){
     days.push(cur.toISOString().slice(0,10).replace(/-/g,'/'));
@@ -798,65 +806,106 @@ function dateRange(from,to){
   return days;
 }
 
-// Cache of suggestions fetched from other views or on-demand
-let logSuggestCache={nodes:[],channels:[],events:[]};
+// log suggestion cache — populated once per DC
+let logSuggestCache={nodes:[],channels:[]};
 
-async function populateLogSuggestions(){
-  // use already-cached raw data from other views if available, else fetch
-  let nodes=logSuggestCache.nodes, channels=logSuggestCache.channels, events=logSuggestCache.events;
-  if(!nodes.length||!channels.length){
-    try{
-      const[nd,chD,chR,ev]=await Promise.all([
-        apiSoft('/nodes'),
-        apiSoft('/channels/default'),
-        apiSoft('/channels/racing_uk').catch(()=>[]),
-        apiSoft('/running_events')
-      ]);
-      nodes=(nd||[]).map(n=>n.id).filter(Boolean);
-      channels=[...(chD||[]),...(chR||[])].map(c=>c.id).filter(Boolean);
-      events=(ev||[]).map(e=>String(e.id||'')).filter(Boolean);
-      logSuggestCache={nodes,channels,events};
-    }catch{}
-  }
-  const fill=(id,arr)=>{
-    const dl=document.getElementById(id);if(!dl)return;
-    dl.innerHTML=arr.map(v=>`<option value="${esc(v)}">`).join('');
-  };
-  fill('dl-nodes',nodes);
-  fill('dl-channels',channels);
-  fill('dl-events',events);
-  // grep suggestions: common useful terms
-  fill('dl-grep',['error','warning','critical','encoder','packager','scheduler','timeout','disconnect','reconnect','bitrate','signal']);
+async function ensureLogSuggestions(){
+  if(logSuggestCache.nodes.length&&logSuggestCache.channels.length)return;
+  try{
+    const[nd,chD,chR]=await Promise.all([
+      apiSoft('/nodes'),
+      apiSoft('/channels/default'),
+      apiSoft('/channels/racing_uk').catch(()=>[])
+    ]);
+    logSuggestCache.nodes  =(nd ||[]).map(n=>n.id).filter(Boolean).sort();
+    logSuggestCache.channels=[...(chD||[]),...(chR||[])].map(c=>c.id).filter(Boolean).sort();
+  }catch{}
+}
+
+function showLogForm(){
+  const td=todayUTC();
+  const nodes=logSuggestCache.nodes, channels=logSuggestCache.channels;
+  const nodeOpts='<option value="">— all nodes —</option>'+nodes.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  const chOpts  ='<option value="">— all channels —</option>'+channels.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+
+  $('content').innerHTML=`
+    <div class="log-form">
+      <h3>📋 Log Search</h3>
+      <div class="lf-row">
+        <div class="lf-field">
+          <label>Date from</label>
+          <input class="date-input" id="lf-date-from" type="date" value="${td}"/>
+        </div>
+        <div class="lf-field">
+          <label>Date to</label>
+          <input class="date-input" id="lf-date-to" type="date" value="${td}"/>
+        </div>
+        <div class="lf-field">
+          <label>Level</label>
+          <select class="lf-select" id="lf-sel-lvl">
+            <option value="">all levels</option>
+            <option value="info">INFO</option>
+            <option value="warning">WARNING</option>
+            <option value="error">ERROR</option>
+            <option value="critical">CRITICAL</option>
+          </select>
+        </div>
+      </div>
+      <div class="lf-row">
+        <div class="lf-field">
+          <label>Node</label>
+          <select class="lf-select" id="lf-sel-node">${nodeOpts}</select>
+        </div>
+        <div class="lf-field">
+          <label>Channel</label>
+          <select class="lf-select" id="lf-sel-ch">${chOpts}</select>
+        </div>
+        <div class="lf-field" style="flex:1;min-width:160px">
+          <label>Grep (free text)</label>
+          <input class="tb-input" id="lf-grep" placeholder="e.g. timeout, encoder…" style="width:100%;height:30px"/>
+        </div>
+      </div>
+      <div class="lf-row">
+        <button class="lf-load-btn" id="lf-submit-btn">Load Logs</button>
+      </div>
+      <div class="lf-hint">Leave fields empty to load all. Max 14 days at once.</div>
+    </div>`;
+
+  $('lf-submit-btn').addEventListener('click',()=>{
+    logLevel=($('lf-sel-lvl')||{}).value||'';
+    hasData=false;load();
+  });
+  // Enter key on grep field
+  $('lf-grep').addEventListener('keydown',e=>{if(e.key==='Enter'){logLevel=($('lf-sel-lvl')||{}).value||'';hasData=false;load();}});
 }
 
 function renderLogs(){
-  if(!logEvents.length&&!$('ld-from').value){
-    $('content').innerHTML='<div class="state-msg"><div class="ico">📋</div><div>Select a date range and click <strong>Fetch</strong></div><div style="font-size:.58rem;margin-top:4px;color:var(--muted)">Defaults to today. Up to 14 days at once.</div></div>';
-    return;
-  }
-  let events=Array.isArray(logEvents)?[...logEvents]:[];
-  const grep=$('lg').value.trim().toLowerCase();
-  const fNode=$('lf-node').value.trim().toLowerCase();
-  const fCh  =$('lf-ch').value.trim().toLowerCase();
-  const fEv  =$('lf-ev').value.trim().toLowerCase();
-  const fMain=$('fi').value.trim().toLowerCase();
+  // show level filter bar
+  $('log-controls').style.display='flex';
+  $('sub-toolbar').style.display='';
 
+  let events=Array.isArray(logEvents)?[...logEvents]:[];
+  const fNode=raw.fNode||'',fCh=raw.fCh||'',fGrep=raw.fGrep||'';
+  const fMain=$('fi').value.trim().toLowerCase();
+  const grep=$('lg')?$('lg').value.trim().toLowerCase():'';
+
+  // apply filters captured at fetch time
+  if(raw.fromDate||raw.toDate){} // already fetched correct days
   if(logLevel)events=events.filter(e=>(e.level||'').toLowerCase()===logLevel);
-  if(grep){
-    const ns=grep.split(',').map(s=>s.trim()).filter(Boolean);
-    events=events.filter(e=>{
-      const hay=((e.id||'')+' '+(e.category||'')+' '+(e.level||'')+' '+(e.message||'')).toLowerCase();
-      return ns.every(n=>hay.includes(n));
-    });
+  if(fNode)events=events.filter(e=>((e.category||'')+' '+(e.message||'')).toLowerCase().includes(fNode.toLowerCase()));
+  if(fCh)  events=events.filter(e=>((e.category||'')+' '+(e.message||'')).toLowerCase().includes(fCh.toLowerCase()));
+  if(fGrep){
+    const terms=fGrep.split(',').map(s=>s.trim()).filter(Boolean);
+    events=events.filter(e=>{const h=((e.category||'')+' '+(e.message||'')).toLowerCase();return terms.every(t=>h.includes(t));});
   }
-  if(fNode)events=events.filter(e=>((e.category||'')+' '+(e.message||'')).toLowerCase().includes(fNode));
-  if(fCh)  events=events.filter(e=>((e.category||'')+' '+(e.message||'')).toLowerCase().includes(fCh));
-  if(fEv)  events=events.filter(e=>((e.id||'')+' '+(e.message||'')).toLowerCase().includes(fEv));
+  // live grep from sub-toolbar
+  if(grep){
+    const terms=grep.split(',').map(s=>s.trim()).filter(Boolean);
+    events=events.filter(e=>{const h=((e.id||'')+' '+(e.category||'')+' '+(e.level||'')+' '+(e.message||'')).toLowerCase();return terms.every(t=>h.includes(t));});
+  }
   if(fMain)events=events.filter(e=>((e.id||'')+' '+(e.category||'')+' '+(e.message||'')).toLowerCase().includes(fMain));
 
-  $('log-count').textContent=events.length+' / '+logEvents.length+' events';
-  if(!logEvents.length){$('content').innerHTML=empty('No logs loaded');return;}
-  if(!events.length){$('content').innerHTML=empty('No events match filters');return;}
+  $('log-count').textContent=events.length+' / '+logEvents.length;
 
   const lc={info:'lv-info',warning:'lv-warning',error:'lv-error',critical:'lv-critical'};
   let h='<div class="log-list">';
@@ -866,6 +915,7 @@ function renderLogs(){
     h+='<div class="log-row"><span class="l-dt">'+esc(dt)+'</span><span class="l-lv '+(lc[lv]||'')+'">'+esc((ev.level||'').toUpperCase())+'</span><span class="l-ct" title="'+esc(ev.category||'')+'">'+esc(ev.category||'')+'</span><span class="l-mg">'+esc(msg)+'</span></div>';
   }
   h+='</div>';
+  if(!events.length)h=empty('No log events match filters');
   $('content').innerHTML=h;
 }
 
@@ -877,18 +927,22 @@ function updateToolbarForView(){
     updateSortUI(view);
   }
   const isLog=view==='logs', isSched=view==='scheduled';
-  $('sub-toolbar').style.display=(isLog||isSched)?'':'none';
-  $('log-controls').style.display=isLog?'flex':'none';
+  $('sub-toolbar').style.display=isSched?'':'none'; // logs manages its own sub-toolbar
+  $('log-controls').style.display='none'; // hidden until logs are loaded
   $('sched-controls').style.display=isSched?'flex':'none';
   $('rmg-wrap').style.display=view==='channels'?'':'none';
-  // show prompt immediately when switching to logs with no data
-  if(isLog&&!logEvents.length)renderLogs();
+  if(isLog){
+    // fetch suggestions then show form
+    ensureLogSuggestions().then(showLogForm);
+  }
 }
 
 // ── WIRING ────────────────────────────────────────────────────
 document.querySelectorAll('#dc-g .grp-btn').forEach(btn=>btn.addEventListener('click',()=>{
   document.querySelectorAll('#dc-g .grp-btn').forEach(b=>b.classList.remove('adc'));
-  btn.classList.add('adc');dc=btn.dataset.dc;hasData=false;load();
+  btn.classList.add('adc');dc=btn.dataset.dc;hasData=false;
+  logEvents=[];logSuggestCache={nodes:[],channels:[]};
+  load();
 }));
 document.querySelectorAll('#vw-g .grp-btn').forEach(btn=>btn.addEventListener('click',()=>{
   document.querySelectorAll('#vw-g .grp-btn').forEach(b=>b.classList.remove('avw'));
@@ -904,13 +958,17 @@ $('rmg-only').addEventListener('change',()=>{if(hasData)renderView();});
 
 document.querySelectorAll('#lvl-g .log-lvl').forEach(btn=>btn.addEventListener('click',()=>{
   document.querySelectorAll('#lvl-g .log-lvl').forEach(b=>b.className='log-lvl');
-  logLevel=btn.dataset.lvl;btn.classList.add(logLevel?'a-'+logLevel:'a-all');renderLogs();
+  logLevel=btn.dataset.lvl;btn.classList.add(logLevel?'a-'+logLevel:'a-all');
+  if(hasData&&view==='logs')renderLogs();
 }));
-$('lg').addEventListener('input',renderLogs);
-['lf-node','lf-ch','lf-ev'].forEach(id=>$(id).addEventListener('input',renderLogs));
-$('log-fetch-btn').addEventListener('click',()=>{if(view==='logs'){hasData=false;load();}});
-// also allow Enter key in date fields to trigger fetch
-['ld-from','ld-to'].forEach(id=>$(id).addEventListener('keydown',e=>{if(e.key==='Enter'&&view==='logs'){hasData=false;load();}}));
+$('lg').addEventListener('input',()=>{if(hasData&&view==='logs')renderLogs();});
+// "← New search" goes back to the form
+$('log-back-btn').addEventListener('click',()=>{
+  logEvents=[];hasData=false;logLevel='';
+  $('log-controls').style.display='none';
+  $('sub-toolbar').style.display='none';
+  ensureLogSuggestions().then(showLogForm);
+});
 
 document.querySelectorAll('.hz-btn').forEach(btn=>btn.addEventListener('click',()=>{
   document.querySelectorAll('.hz-btn').forEach(b=>b.classList.remove('active'));
@@ -923,9 +981,6 @@ try{$('ao').checked=localStorage.getItem('activeOnly')==='1';$('wo').checked=loc
 
 // init sort state
 ['nodes','running'].forEach(v=>{sortState[v]=getSort(v);});
-
-// init log date inputs to today UTC
-(()=>{const n=new Date();const td=n.getUTCFullYear()+'-'+String(n.getUTCMonth()+1).padStart(2,'0')+'-'+String(n.getUTCDate()).padStart(2,'0');$('ld-from').value=td;$('ld-to').value=td;})();
 
 // auto-refresh 30s — skip logs (manual fetch only)
 setInterval(()=>{if(hasData&&view!=='logs')load();},30000);
