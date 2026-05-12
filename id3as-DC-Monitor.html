@@ -1468,7 +1468,6 @@
           b.classList.toggle("adc", b.dataset.dc === dc);
         });
       }
-      ``;
 
 // ── LOAD ──────────────────────────────────────────────────────
 // Capture log form values before load() replaces #content
@@ -1696,9 +1695,7 @@ async function load(){
             ? r.encState === "running"
               ? pill("p-run", "running")
               : pill("p-err", "⚠ " + r.encState)
-            : '<span id="enc-' +
-              r.id +
-              '" style="color:var(--muted);font-size:.58rem;font-family:var(--mono)">-</span>';
+            : '<span style="color:var(--muted);font-size:.58rem;font-family:var(--mono)">-</span>';
           const srcH = r.srcState
             ? r.srcState === "streaming"
               ? pill("p-str", "streaming")
@@ -1707,13 +1704,11 @@ async function load(){
                 ? pill("p-crit", "⚠ no signal")
                 : pill("p-acq", "acquiring")
               : pill("p-idle", r.srcState)
-            : '<span id="src-' +
-              r.id +
-              '" style="color:var(--muted);font-size:.58rem;font-family:var(--mono)">-</span>';
+            : '<span style="color:var(--muted);font-size:.58rem;font-family:var(--mono)">-</span>';
           const bpsH =
             r.bitrate > 0
               ? '<span class="c-bps good">' + bpsFmt(r.bitrate) + "</span>"
-              : '<span class="c-bps none" id="bps-' + r.id + '">-</span>';
+              : '<span class="c-bps none">-</span>';
           const jpH = r.jobStarted
             ? ""
             : r.enabled
@@ -1754,7 +1749,7 @@ async function load(){
             '<div id="str-' +
             r.id +
             '" class="c-stream">' +
-            (r.st ? streamInfo(r.st) : '<span id="str-' + r.id + '"></span>') +
+            (r.st ? streamInfo(r.st) : '<span></span>') +
             "</div>" +
             '<div class="c-warn">' +
             wb(r.warnings) +
