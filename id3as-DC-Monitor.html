@@ -1320,38 +1320,36 @@
         return m;
       }
       function bev(events) {
-  const m = {};
-  if (!Array.isArray(events)) return m;
+        const m = {};
+        if (!Array.isArray(events)) return m;
 
-  for (const ev of events) {
-    const ch = ev.channel_id || "";
-    if (!ch) continue;
+        for (const ev of events) {
+          const ch = ev.channel_id || "";
+          if (!ch) continue;
 
-    const s = findSched(ev) || {};
+          const s = findSched(ev) || {};
 
-    // limpa e extrai só o título base (antes do pipe)
-    const raw = stripH(s.description || "");
-    const baseName = raw.split("|")[0].trim();
+          // limpa e extrai só o título base (antes do pipe)
+          const raw = stripH(s.description || "");
+          const baseName = raw.split("|")[0].trim();
 
-    // corta com consistência
-    const event_name =
-      baseName && baseName.length > 60
-        ? baseName.slice(0, 59) + "…"
-        : baseName || "---";
+          // corta com consistência
+          const event_name =
+            baseName && baseName.length > 60
+              ? baseName.slice(0, 59) + "…"
+              : baseName || "---";
 
-    (m[ch] = m[ch] || []).push({
-      event_id: String(ev.id || ""),
-      event_name,
-      start: fmtDt(s.start_datetime),
-      end: fmtDt(s.end_datetime),
-    });
-  }
-
-  return m;
-}
+          (m[ch] = m[ch] || []).push({
+            event_id: String(ev.id || ""),
+            event_name,
+            start: fmtDt(s.start_datetime),
+            end: fmtDt(s.end_datetime),
+          });
+        }
 
         return m;
       }
+
       function pill(cls, txt) {
         return '<span class="pill ' + cls + '">' + esc(txt) + "</span>";
       }
