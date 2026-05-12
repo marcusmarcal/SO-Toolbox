@@ -1328,7 +1328,8 @@
           const s = findSched(ev) || {};
           (m[ch] = m[ch] || []).push({
             event_id: String(ev.id || ""),
-            event_name: stripH(s.description || "") || "---",
+const name = stripH(s.description || "");
+event_name: name.length > 60 ? name.slice(0, 59) + "…" : name || "---",
             start: fmtDt(s.start_datetime),
             end: fmtDt(s.end_datetime),
           });
