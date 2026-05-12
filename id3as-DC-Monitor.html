@@ -1331,7 +1331,7 @@
 
           const name = stripH(s.description || "");
           const event_name = name
-            ? (name.length > 60 ? name.slice(0, 59) + "…" : name)
+            ? (name.length > 20 ? name.slice(0, 59) + "…" : name)
             : "---";
 
           (m[ch] = m[ch] || []).push({
