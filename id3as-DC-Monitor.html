@@ -1322,18 +1322,26 @@
       function bev(events) {
         const m = {};
         if (!Array.isArray(events)) return m;
+
         for (const ev of events) {
           const ch = ev.channel_id || "";
           if (!ch) continue;
+
           const s = findSched(ev) || {};
+
+          const name = stripH(s.description || "");
+          const event_name = name
+            ? (name.length > 60 ? name.slice(0, 59) + "…" : name)
+            : "---";
+
           (m[ch] = m[ch] || []).push({
             event_id: String(ev.id || ""),
-const name = stripH(s.description || "");
-event_name: name.length > 60 ? name.slice(0, 59) + "…" : name || "---",
+            event_name,
             start: fmtDt(s.start_datetime),
             end: fmtDt(s.end_datetime),
           });
         }
+
         return m;
       }
       function pill(cls, txt) {
