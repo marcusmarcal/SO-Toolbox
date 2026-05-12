@@ -797,7 +797,7 @@
         <button id="btn-git-pull" class="git-pull-btn" data-tip="Pull latest from Git" onclick="gitPull()">⟳ Update</button>
         <button class="git-pull-btn" data-tip="Restart proxy service" onclick="openRestartConfirm()" style="border-color:rgba(255,78,106,0.4);color:#ffb3be;">⏻ Restart Proxy</button>
         <button class="git-pull-btn" data-tip="View README" onclick="openReadme()" style="border-color:rgba(88,166,255,0.4);color:var(--accent);">📖 README</button>
-        <span class="version" id="app-version" onclick="openChangelog()" title="Click to see changelog">v2.14.3</span>
+        <span class="version" id="app-version" onclick="openChangelog()" title="Click to see changelog">…</span>
       </header>
 
       <aside id="sidebar">
@@ -840,40 +840,7 @@
           <div class="cl-title">SP SO Web Toolbox — Changelog</div>
           <button class="cl-close" onclick="closeChangelog()">Close</button>
         </div>
-        <div class="cl-entry"><div class="cl-version">v2.14.3</div><div class="cl-date">2026-05-10</div><div class="cl-desc">id3as DC Monitor: RMG bitrate now fetched (racing_uk active channels included in status batch); Scheduled channel field extracted from root and nested scheduled_event; horizon buttons now functional; Logs: date-range picker (from/to, default today, max 14 days); empty state shown before fetch; node/channel/event suggestion datalists; no content until logs explicitly fetched</div></div>
-        <div class="cl-entry"><div class="cl-version">v2.13.0</div><div class="cl-date">2026-05-08</div><div class="cl-desc">id3as DC Monitor: soft refresh (no blank screen on auto-refresh); sort by on Nodes (ID/CPU/MEM/SCH/Warnings/Events/Jobs) and Events (Channel/Start/End) with localStorage persistence; log sub-filters (node/channel/event id); scheduled horizon filter (3/7/14d/all, default 3d); RMG view merged into Channels with RMG-only toggle; external links to id3as web GUI on node IDs, channel IDs (ruk_channels for RMG_*), and event IDs; packaging info placeholder removed; In use only now filters by active events only</div></div>
-        <div class="cl-entry"><div class="cl-version">v2.12.0</div><div class="cl-date">2026-05-08</div><div class="cl-desc">id3as DC Monitor: merge Nodes+Health into single view; fix node count (86 not 42, now uses both channel endpoints); SCH bar (scheduler, thresholds 30/70); event/no-signal warnings on chips, node event list, and Events view; rename "Active only" → "In use only"; index: collapsible sidebar categories with colour-coded badges; version now reads from .env APP_VERSION</div></div>
-        <div class="cl-entry"><div class="cl-version">v2.11.0</div><div class="cl-date">2026-05-05</div><div class="cl-desc">New: id3as DC Monitor — web frontend for id3as channel/node/RMG/logs monitoring; proxy routes /id3as/&lt;dc&gt;/* handle PRFAUTH server-side; DC toggle (IX/EQ), four views, warnings filter, 30s auto-refresh, grep and date picker for logs</div></div>
-        <div class="cl-entry"><div class="cl-version">v2.10.2</div><div class="cl-date">2026-05-05</div><div class="cl-desc">Ingest Analyzer: File .ts tab changed from server-side path input to browser file upload (multipart); new /ingest/upload proxy endpoint saves temp .ts and runs script on it</div></div>
-        <div class="cl-entry"><div class="cl-version">v2.10.1</div><div class="cl-date">2026-05-04</div><div class="cl-desc">SO Video Analyser bugfixes: fix broken history-panel div structure; fix .ts upload (Flask 2GB limit + nginx client_max_body_size note); fix AV sync offset showing — by using pkt_dts_time fallback when pts_time is N/A in MPEG-TS</div></div>
-        <div class="cl-entry"><div class="cl-version">v2.10.0</div><div class="cl-date">2026-05-04</div><div class="cl-desc">SO Video Analyser: AV sync+jitter checks, .ts upload, clear form/history, checkbox persistence, schedule UTC+30min, European time format, bigger report modal, GOP in report, AV sync in compliance table</div></div>
-        <div class="cl-entry"><div class="cl-version">v2.9.2</div><div class="cl-date">2026-04-24</div><div class="cl-desc">Compliance fully specs-driven: deep-merge load/save, all checks from specs.json</div></div>
-        <div class="cl-entry"><div class="cl-version">v2.9.0</div><div class="cl-date">2026-04-24</div><div class="cl-desc">Unique test_id per run, dual report (visual screenshot + text copy for ServiceNow/Jira), print CSS</div></div>
-        <div class="cl-entry"><div class="cl-version">v2.8.4</div><div class="cl-date">2026-04-23</div><div class="cl-desc">Re-run saves new JSON + appears in history; pollStatus sets _currentResultFile; loadHistory on all outcomes</div></div>
-        <div class="cl-entry"><div class="cl-version">v2.8.3</div><div class="cl-date">2026-04-23</div><div class="cl-desc">Re-run button on loaded result and each history item</div></div>
-        <div class="cl-entry"><div class="cl-version">v2.8.2</div><div class="cl-date">2026-04-23</div><div class="cl-desc">Override _currentResultFile fix, schedule UTC, constrained baseline, hi-sub date/codec/res/fps, no latency field</div></div>
-        <div class="cl-entry"><div class="cl-version">v2.8.1</div><div class="cl-date">2026-04-23</div><div class="cl-desc">Always log failed/error JSON, FAILED/ERROR badges in history, log viewer</div></div>
-        <div class="cl-entry"><div class="cl-version">v2.8.0</div><div class="cl-date">2026-04-23</div><div class="cl-desc">Schedule fix, fps history badge (v_fps_compliance), specs editor (JSON, password), GOP Stats left/Audio right, scheduled badge</div></div>
-        <div class="cl-entry"><div class="cl-version">v2.7.0</div><div class="cl-date">2026-04-22</div><div class="cl-desc">SO Video Analyser rename, 50i FPS fix, override→JSON, .ts download, scheduled jobs, metadata header; index: UTC+local clocks</div></div>
-        <div class="cl-entry"><div class="cl-version">v2.6.3</div><div class="cl-date">2026-04-21</div><div class="cl-desc">GOP: fix v_scan reference before assignment, 50i→25fps, HLG SDR, AAC-LC, audio tracks, Generate Report, Override</div></div>
-        <div class="cl-entry"><div class="cl-version">v2.6.2</div><div class="cl-date">2026-04-16</div><div class="cl-desc">GOP: larger fonts, GOP avg hero, history filters, bitrate fallback, AAC FLTP</div></div>
-        <div class="cl-entry"><div class="cl-version">v2.6.0</div><div class="cl-date">2026-04-16</div><div class="cl-desc">GOP: graceful timeout, NAL/IDR, open/closed GOP, compliance RAG table, FPS flag, host labels, filters, bulk delete; MTR: hops fix, bulk delete</div></div>
-        <div class="cl-entry"><div class="cl-version">v2.5.0</div><div class="cl-date">2026-04-14</div><div class="cl-desc">New: GOP Analyzer — SRT stream capture, IDR/GOP visualizer, stream info, compliance checks</div></div>
-        <div class="cl-entry"><div class="cl-version">v2.4.0</div><div class="cl-date">2026-04-14</div><div class="cl-desc">MTR: ICMP/UDP-53 toggle, Country/ASN geo toggle, -b flag, proto+geo in header and history</div></div>
-        <div class="cl-entry"><div class="cl-version">v2.3.0</div><div class="cl-date">2026-04-13</div><div class="cl-desc">Proxy renamed to so-proxy; ADMIN_PASSWORD for sensitive actions; MTR host sanity check, no Watch/live duplication; README modal in index</div></div>
-        <div class="cl-entry"><div class="cl-version">v2.2.0</div><div class="cl-date">2026-04-10</div><div class="cl-desc">MTR kill/delete with confirmation, date picker filter, history/running panels</div></div>
-        <div class="cl-entry"><div class="cl-version">v2.1.0</div><div class="cl-date">2026-04-10</div><div class="cl-desc">MTR: wider history panel, date/search/tag filters, multi-tag, Date End + actual HH:MM:SS, Time mode left, copy button fix</div></div>
-        <div class="cl-entry"><div class="cl-version">v2.0.0</div><div class="cl-date">2026-04-07</div><div class="cl-desc">MTR background jobs with disk persistence, tag filtering, running jobs panel; Ingest Analyzer tags; bufsize streaming fix; progress bar with countdown</div></div>
-        <div class="cl-entry"><div class="cl-version">v1.9.0</div><div class="cl-date">2026-04-06</div><div class="cl-desc">Ingest Analyzer: background jobs, ZIP copy, HTML report served via proxy, SRT_LOCAL presets</div></div>
-        <div class="cl-entry"><div class="cl-version">v1.8.0</div><div class="cl-date">2026-04-06</div><div class="cl-desc">MTR time mode fix using cycles, SSE tick countdown, progress bar with colour shift</div></div>
-        <div class="cl-entry"><div class="cl-version">v1.7.0</div><div class="cl-date">2026-04-01</div><div class="cl-desc">MTR Network Trace tool with SSE streaming, server info, history</div></div>
-        <div class="cl-entry"><div class="cl-version">v1.6.0</div><div class="cl-date">2026-04-01</div><div class="cl-desc">RMG RTS Multiview Dashboard launcher; Ingest Analyzer tool</div></div>
-        <div class="cl-entry"><div class="cl-version">v1.5.2</div><div class="cl-date">2026-04-01</div><div class="cl-desc">nginx proxy_buffering off for SSE; per-distro nginx configs (CentOS + Debian)</div></div>
-        <div class="cl-entry"><div class="cl-version">v1.5.1</div><div class="cl-date">2026-03-31</div><div class="cl-desc">Config loaded via proxy instead of public .env; SRT_PASSPHRASE secured</div></div>
-        <div class="cl-entry"><div class="cl-version">v1.5.0</div><div class="cl-date">2026-03-27</div><div class="cl-desc">Git Pull button in index with auto-reload; proxy as systemd service</div></div>
-        <div class="cl-entry"><div class="cl-version">v1.4.0</div><div class="cl-date">2026-03-27</div><div class="cl-desc">Lazy redraw — only update screen on state changes</div></div>
-        <div class="cl-entry"><div class="cl-version">v1.3.0</div><div class="cl-date">2026-03-27</div><div class="cl-desc">Channel Monitor UI switched from rich to curses</div></div>
-        <div class="cl-entry"><div class="cl-version">v1.0.0</div><div class="cl-date">2026-03-25</div><div class="cl-desc">Initial release — PhenixRTS Channel Health Monitor, SRT URI Builder</div></div>
+        <div id="cl-body" style="color:var(--muted);font-family:var(--mono);font-size:.65rem;padding:12px">Loading changelog…</div>
       </div>
     </div>
 
@@ -930,7 +897,70 @@
     </div>
 
     <script>
+      // ── Changelog: load from CHANGELOG.md ─────────────────────────
+      let _changelogLoaded = false;
+      async function loadChangelog() {
+        if (_changelogLoaded) return;
+        try {
+          const r = await fetch("CHANGELOG.md", { cache: "no-cache" });
+          if (!r.ok) throw new Error("not found");
+          const md = await r.text();
+          parseAndRenderChangelog(md);
+          _changelogLoaded = true;
+        } catch {
+          document.getElementById("cl-body").textContent = "Could not load CHANGELOG.md";
+        }
+      }
+
+      function parseAndRenderChangelog(md) {
+        // Extract version entries: ## [x.y.z] - YYYY-MM-DD
+        const versionRe = /^## \[([^\]]+)\] - (\d{4}-\d{2}-\d{2})/;
+        const sectionRe = /^### (.+)/;
+        const itemRe    = /^- (.+)/;
+
+        const lines = md.split(/\r?\n/);
+        const entries = [];
+        let cur = null;
+        let curSection = null;
+
+        for (const line of lines) {
+          const vm = line.match(versionRe);
+          if (vm) {
+            if (cur) entries.push(cur);
+            cur = { ver: vm[1], date: vm[2], sections: {} };
+            curSection = null;
+            continue;
+          }
+          if (!cur) continue;
+          const sm = line.match(sectionRe);
+          if (sm) { curSection = sm[1]; cur.sections[curSection] = []; continue; }
+          const im = line.match(itemRe);
+          if (im && curSection) cur.sections[curSection].push(im[1]);
+        }
+        if (cur) entries.push(cur);
+
+        // Set version from first entry
+        if (entries.length) {
+          document.getElementById("app-version").textContent = "v" + entries[0].ver;
+        }
+
+        // Render modal
+        const sectionColors = { Added:"#00ffc8", Fixed:"#f0a500", Changed:"#4ea8ff", Removed:"#ff4e6a" };
+        let html = "";
+        for (const e of entries) {
+          const parts = Object.entries(e.sections).map(([sec, items]) => {
+            const col = sectionColors[sec] || "#e8e8f0";
+            return `<div style="margin-top:5px"><span style="font-family:var(--mono);font-size:.54rem;font-weight:700;color:${col};text-transform:uppercase;letter-spacing:.1em">${sec}</span>`
+              + items.map(i => `<div style="font-family:var(--mono);font-size:.6rem;color:#c0c0d8;padding-left:8px;margin-top:2px">· ${i}</div>`).join("")
+              + `</div>`;
+          }).join("");
+          html += `<div class="cl-entry"><div class="cl-version">v${e.ver}</div><div class="cl-date">${e.date}</div><div class="cl-desc" style="padding:0">${parts}</div></div>`;
+        }
+        document.getElementById("cl-body").innerHTML = html || "No entries found.";
+      }
+
       function openChangelog() {
+        loadChangelog(); // ensure loaded (noop if already done)
         document.getElementById("changelog-modal").classList.add("open");
       }
       function closeChangelog() {
@@ -1329,11 +1359,11 @@
           .then((env) => {
             tools = parseTools(env);
 
-            // Update title & version from env
+            // Update title from env (version now comes from CHANGELOG.md)
             const title = env.APP_TITLE || "SP SO Web Toolbox";
             document.title = title;
-            const envVer = env.APP_VERSION;
-            if (envVer) $("#app-version").text("v" + envVer);
+            // Load version + changelog from CHANGELOG.md
+            loadChangelog();
 
             renderSidebar();
             renderWelcomeCards();
