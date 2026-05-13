@@ -41,8 +41,8 @@ def run(cmd, env=None):
     print("[RUN]", " ".join(cmd))
     return subprocess.Popen(
         cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
+        stdout=subprocess.DEVNULL,
+        stderr=open("/var/logs/srt-push.log", "a"),
         text=True,
         env=env
     )
@@ -142,13 +142,38 @@ def watchdog_loop():
     ffmpeg_proc = start_ffmpeg()
 
     while True:
-        # verifica se morreu
+        time.sleep(3)
+
+        # Xvfb morreu -> reinicia tudo
+        if processes[0].poll() is not None:
+            print("[WATCHDOG] Xvfb died -> full restart...")
+            kill_existing()
+            time.sleep(1)
+            start_xvfb()
+            start_chromium()
+            ffmpeg_proc = start_ffmpeg()
+            continue
+
+        # Chromium morreu -> reinicia chromium + ffmpeg
+        if processes[1].poll() is not None:
+            print("[WATCHDOG] Chromium died -> restarting chromium + ffmpeg...")
+            try:
+                ffmpeg_proc.kill()
+            except:
+                pass
+            subprocess.run(["pkill", "-9", "chromium"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(["pkill", "-9", "chromium-browser"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            processes.pop()  # remove chromium da lista
+            time.sleep(2)
+            start_chromium()
+            ffmpeg_proc = start_ffmpeg()
+            continue
+
+        # FFmpeg morreu
         if ffmpeg_proc.poll() is not None:
             print("[WATCHDOG] FFmpeg died -> restarting...")
             time.sleep(2)
             ffmpeg_proc = start_ffmpeg()
-
-        time.sleep(1)
 
 # ============================================================
 # CLEANUP
