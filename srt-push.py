@@ -80,6 +80,12 @@ def start_chromium():
 
     p = run([
         CHROMIUM_PATH,
+    "--kiosk",
+    "--start-fullscreen",
+    "--disable-infobars",
+    "--noerrdialogs",
+    "--disable-session-crashed-bubble",
+    "--disable-features=TranslateUI",
     "--disable-gpu",
     "--disable-software-rasterizer",
     "--disable-dev-shm-usage",
