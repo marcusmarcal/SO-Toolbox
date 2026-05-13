@@ -42,7 +42,7 @@ def run(cmd, env=None):
     return subprocess.Popen(
         cmd,
         stdout=subprocess.DEVNULL,
-        stderr=open("/var/logs/srt-push.log", "a"),
+        stderr=open("/var/log/srt-push.log", "a"),
         text=True,
         env=env
     )
