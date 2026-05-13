@@ -1100,24 +1100,6 @@
     </div>
 
     <script>
-      // Load branch name from server and display in version pill
-
-      async function loadBranch() {
-        try {
-          const res = await fetch(`${PROXY_URL}/git-branch`);
-          const data = await res.json();
-
-          const el = document.getElementById("git-branch");
-          if (!el) return;
-
-          el.textContent = data.branch ? `(${data.branch})` : "";
-        } catch (err) {
-          console.error("branch error:", err);
-        }
-      }
-
-      loadBranch();
-
       // ── Changelog: load from CHANGELOG.md ─────────────────────────
       let _changelogLoaded = false;
       async function loadChangelog() {
@@ -1699,6 +1681,22 @@
                   `);
           });
       });
+      // Load branch name from server and display in version pill
+
+      async function loadBranch() {
+        try {
+          const res = await fetch(`${PROXY_URL}/git-branch`);
+          const data = await res.json();
+
+          const el = document.getElementById("git-branch");
+          if (!el) return;
+
+          el.textContent = data.branch ? `(${data.branch})` : "";
+        } catch (err) {
+          console.error("branch error:", err);
+        }
+      }
+      loadBranch();
     </script>
   </body>
 </html>
