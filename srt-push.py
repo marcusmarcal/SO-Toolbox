@@ -13,7 +13,7 @@ import shutil
 
 HTML_URL = "https://10.11.203.239/id3as-DC-Monitor.html?view=nodes&inuse=1"
 
-SRT_URL = "srt://10.11.203.1:3292?mode=caller&latency=1000"
+SRT_URL = "srt://10.11.203.1:3292?mode=caller&latency=1000&passphrase=rQ6zgFnfz1WgmJ0AgzI4Zs7Own54K0dU"
 
 DISPLAY = ":99"
 WIDTH = 1920
