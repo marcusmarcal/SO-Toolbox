@@ -98,6 +98,48 @@ def _cache_set(key, data):
     _LAST_GOOD[key] = data
 
 
+# ── Flags helpers ────────────────────────────────────────────────────
+
+
+def _flatten_flags(data):
+    """Normalise the various shapes flags/events can arrive in.
+
+    The id3as API can return flags as:
+      - a list of flag dicts  → already correct
+      - a dict keyed by system_id whose values are lists of flag dicts
+        e.g. {"2528893": [{...}, {...}]}  → flatten to a single list
+      - a dict keyed by system_id whose values are single flag dicts
+        e.g. {"2528893": {...}}           → wrap each value in a list
+
+    Returns a flat list of flag dicts with a guaranteed "system_id" key.
+    """
+    if isinstance(data, list):
+        # May still be [[{...}], [{...}]] if a prior dict-walk produced it
+        out = []
+        for item in data:
+            if isinstance(item, list):
+                out.extend(item)
+            elif isinstance(item, dict):
+                out.append(item)
+        return out
+
+    if isinstance(data, dict):
+        out = []
+        for sys_id, val in data.items():
+            if isinstance(val, list):
+                for flag in val:
+                    if isinstance(flag, dict):
+                        flag.setdefault("system_id", str(sys_id))
+                        out.append(flag)
+            elif isinstance(val, dict):
+                val.setdefault("system_id", str(sys_id))
+                out.append(val)
+        return out
+
+    return []
+
+
+
 # ── Core fetch ──────────────────────────────────────────────────────
 
 
@@ -366,7 +408,16 @@ def id3as_flags_events(dc):
     if err:
         return err
 
-    return jsonify(data if isinstance(data, list) else []), status
+    # flags/events can arrive as a dict keyed by system_id or a nested list;
+    # _flatten_flags normalises all shapes to a flat list of flag dicts.
+    _debug_log(
+        f"flags/events raw shape: "
+        f"type={type(data).__name__}, "
+        f"len={len(data) if hasattr(data, '__len__') else 'n/a'}"
+    )
+    flat = _flatten_flags(data)
+    _debug_log(f"flags/events flattened: {len(flat)} items")
+    return jsonify(flat), status
 
 
 @id3as_bp.route("/id3as/<dc>/flags", methods=["GET"])
