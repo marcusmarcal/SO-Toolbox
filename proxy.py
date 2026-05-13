@@ -134,6 +134,37 @@ def git_pull():
     except Exception as e:
         return jsonify({"success": False, "output": str(e)}), 500
 
+@app.route("/git-branch", methods=["GET"])
+def git_branch():
+    import subprocess, os
+
+    repo_dir = os.path.dirname(os.path.abspath(__file__))
+
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=repo_dir,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=10
+        )
+
+        branch = result.stdout.decode().strip()
+        error = result.stderr.decode().strip()
+
+        return jsonify({
+            "success": result.returncode == 0,
+            "branch": branch if result.returncode == 0 else None,
+            "output": error if result.returncode != 0 else ""
+        })
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "branch": None,
+            "output": str(e)
+        }), 500
+
 
 @app.route("/restart-proxy", methods=["POST"])
 def restart_proxy():
