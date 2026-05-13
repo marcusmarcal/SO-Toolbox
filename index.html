@@ -1095,21 +1095,28 @@
       // Load branch name from server and display in version pill
       async function loadBranch() {
         try {
-          const res = await fetch("/git-branch");
+          const res = await fetch(`${PROXY_URL}/git-branch`, {
+            method: "GET",
+          });
+
           const data = await res.json();
+
+          if (!data.success) {
+            throw new Error(data.output || "Failed to get branch");
+          }
 
           const branch = data.branch || "unknown";
 
           const el = document.getElementById("app-version");
-
-          // mantém o que já tiver (versão) e só acrescenta branch
           const current = el.textContent.trim();
 
           el.textContent = `${current} (${branch})`;
         } catch (err) {
-          console.error("Failed to load branch:", err);
+          console.error("Branch fetch error:", err);
         }
       }
+
+      loadBranch();
 
       loadBranch();
       // ── Changelog: load from CHANGELOG.md ─────────────────────────
