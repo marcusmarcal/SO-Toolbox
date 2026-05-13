@@ -1094,8 +1094,6 @@
     <script>
       // Load branch name from server and display in version pill
 
-      loadBranch();
-
       async function loadBranch() {
         const res = await fetch(`${PROXY_URL}/git-branch`);
         const data = await res.json();
@@ -1105,6 +1103,7 @@
 
         el.textContent = `${version} (${data.branch})`;
       }
+      loadBranch();
 
       // ── Changelog: load from CHANGELOG.md ─────────────────────────
       let _changelogLoaded = false;
