@@ -15,7 +15,7 @@ import shutil
 # CONFIG
 # ============================================================
 
-HTML_URL = "https://10.11.203.239/id3as-DC-Monitor.html?sort=nW&dir=-1&view=nodes&inuse=1"
+HTML_URL = "https://10.11.203.239/id3as-DC-Monitor.html?view=nodes&dc=ix&sort=nW&dir=1&inuse=1"
 #HTML_URL = "https://www.statsperform.com/"
 # ?view=nodes
 # ?view=nodes&inuse=1
