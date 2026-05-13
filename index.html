@@ -596,7 +596,14 @@
       #app {
         padding-bottom: 22px;
       }
+      /* GIT branch display in topbar, populated from backend on load */
 
+      .git-branch {
+        margin-left: 6px;
+        opacity: 0.6;
+        font-size: 12px;
+        font-family: monospace;
+      }
       /* ── GIT PULL BUTTON ── */
       .git-pull-btn {
         font-family: var(--mono);
@@ -1096,14 +1103,19 @@
       // Load branch name from server and display in version pill
 
       async function loadBranch() {
-        const res = await fetch(`${PROXY_URL}/git-branch`);
-        const data = await res.json();
+        try {
+          const res = await fetch(`${PROXY_URL}/git-branch`);
+          const data = await res.json();
 
-        const el = document.getElementById("app-version");
-        const version = el.textContent.trim();
+          const el = document.getElementById("git-branch");
+          if (!el) return;
 
-        el.textContent = `${version} (${data.branch})`;
+          el.textContent = data.branch ? `(${data.branch})` : "";
+        } catch (err) {
+          console.error("branch error:", err);
+        }
       }
+
       loadBranch();
 
       // ── Changelog: load from CHANGELOG.md ─────────────────────────
