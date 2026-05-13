@@ -1092,617 +1092,589 @@
     </div>
 
     <script>
-            // Load branch name from server and display in version pill
-            window.addEventListener("DOMContentLoaded", async () => {
-          await loadBranch();
-      });
+      // Load branch name from server and display in version pill
 
-      async function loadBranch() {
-          try {
-              const res = await fetch(`${PROXY_URL}/git-branch`, {
-                  method: "GET"
-              });
+      // ── Changelog: load from CHANGELOG.md ─────────────────────────
+      let _changelogLoaded = false;
+      async function loadChangelog() {
+        if (_changelogLoaded) return;
+        try {
+          const r = await fetch("CHANGELOG.md", { cache: "no-cache" });
+          if (!r.ok) throw new Error("not found");
+          const md = await r.text();
+          parseAndRenderChangelog(md);
+          _changelogLoaded = true;
+        } catch {
+          document.getElementById("cl-body").textContent =
+            "Could not load CHANGELOG.md";
+        }
+      }
 
-              const data = await res.json();
-              if (!data.success) return;
+      function parseAndRenderChangelog(md) {
+        // Extract version entries: ## [x.y.z] - YYYY-MM-DD
+        const versionRe = /^## \[([^\]]+)\] - (\d{4}-\d{2}-\d{2})/;
+        const sectionRe = /^### (.+)/;
+        const itemRe = /^- (.+)/;
 
-              const branch = data.branch || "unknown";
+        const lines = md.split(/\r?\n/);
+        const entries = [];
+        let cur = null;
+        let curSection = null;
 
-              const el = document.getElementById("app-version");
-              if (!el) {
-                  console.warn("app-version not found");
-                  return;
-              }
-
-              const version = el.textContent.trim() || "version";
-              el.textContent = `${version} (${branch})`;
-
-          } catch (err) {
-              console.error("branch error:", err);
+        for (const line of lines) {
+          const vm = line.match(versionRe);
+          if (vm) {
+            if (cur) entries.push(cur);
+            cur = { ver: vm[1], date: vm[2], sections: {} };
+            curSection = null;
+            continue;
           }
-      });
+          if (!cur) continue;
+          const sm = line.match(sectionRe);
+          if (sm) {
+            curSection = sm[1];
+            cur.sections[curSection] = [];
+            continue;
+          }
+          const im = line.match(itemRe);
+          if (im && curSection) cur.sections[curSection].push(im[1]);
+        }
+        if (cur) entries.push(cur);
 
-            // ── Changelog: load from CHANGELOG.md ─────────────────────────
-            let _changelogLoaded = false;
-            async function loadChangelog() {
-              if (_changelogLoaded) return;
-              try {
-                const r = await fetch("CHANGELOG.md", { cache: "no-cache" });
-                if (!r.ok) throw new Error("not found");
-                const md = await r.text();
-                parseAndRenderChangelog(md);
-                _changelogLoaded = true;
-              } catch {
-                document.getElementById("cl-body").textContent =
-                  "Could not load CHANGELOG.md";
-              }
-            }
+        // Set version from first entry
+        if (entries.length) {
+          document.getElementById("app-version").textContent =
+            "v" + entries[0].ver;
+        }
 
-            function parseAndRenderChangelog(md) {
-              // Extract version entries: ## [x.y.z] - YYYY-MM-DD
-              const versionRe = /^## \[([^\]]+)\] - (\d{4}-\d{2}-\d{2})/;
-              const sectionRe = /^### (.+)/;
-              const itemRe = /^- (.+)/;
-
-              const lines = md.split(/\r?\n/);
-              const entries = [];
-              let cur = null;
-              let curSection = null;
-
-              for (const line of lines) {
-                const vm = line.match(versionRe);
-                if (vm) {
-                  if (cur) entries.push(cur);
-                  cur = { ver: vm[1], date: vm[2], sections: {} };
-                  curSection = null;
-                  continue;
-                }
-                if (!cur) continue;
-                const sm = line.match(sectionRe);
-                if (sm) {
-                  curSection = sm[1];
-                  cur.sections[curSection] = [];
-                  continue;
-                }
-                const im = line.match(itemRe);
-                if (im && curSection) cur.sections[curSection].push(im[1]);
-              }
-              if (cur) entries.push(cur);
-
-              // Set version from first entry
-              if (entries.length) {
-                document.getElementById("app-version").textContent =
-                  "v" + entries[0].ver;
-              }
-
-              // Render modal
-              const sectionColors = {
-                Added: "#00ffc8",
-                Fixed: "#f0a500",
-                Changed: "#4ea8ff",
-                Removed: "#ff4e6a",
-              };
-              let html = "";
-              for (const e of entries) {
-                const parts = Object.entries(e.sections)
-                  .map(([sec, items]) => {
-                    const col = sectionColors[sec] || "#e8e8f0";
-                    return (
-                      `<div style="margin-top:5px"><span style="font-family:var(--mono);font-size:.54rem;font-weight:700;color:${col};text-transform:uppercase;letter-spacing:.1em">${sec}</span>` +
-                      items
-                        .map(
-                          (i) =>
-                            `<div style="font-family:var(--mono);font-size:.6rem;color:#c0c0d8;padding-left:8px;margin-top:2px">· ${i}</div>`
-                        )
-                        .join("") +
-                      `</div>`
-                    );
-                  })
-                  .join("");
-                html += `<div class="cl-entry"><div class="cl-version">v${e.ver}</div><div class="cl-date">${e.date}</div><div class="cl-desc" style="padding:0">${parts}</div></div>`;
-              }
-              document.getElementById("cl-body").innerHTML =
-                html || "No entries found.";
-            }
-
-            function openChangelog() {
-              loadChangelog(); // ensure loaded (noop if already done)
-              document.getElementById("changelog-modal").classList.add("open");
-            }
-            function closeChangelog() {
-              document.getElementById("changelog-modal").classList.remove("open");
-            }
-            // Close on backdrop click
-            document
-              .getElementById("changelog-modal")
-              .addEventListener("click", function (e) {
-                if (e.target === this) closeChangelog();
-              });
-
-            const PROXY_URL = "/so-proxy";
-            let _hasAdminPw = false;
-
-            // ── Clocks ────────────────────────────────────────────────────
-            function updateClocks() {
-              const now = new Date();
-              const pad = (n) => String(n).padStart(2, "0");
-              // UTC
-              const utcH = pad(now.getUTCHours()),
-                utcM = pad(now.getUTCMinutes()),
-                utcS = pad(now.getUTCSeconds());
-              document.getElementById(
-                "clock-utc"
-              ).textContent = `UTC ${utcH}:${utcM}:${utcS}`;
-              // Local with timezone abbreviation
-              const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
-              const localStr = now.toLocaleTimeString([], {
-                hour12: false,
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-              });
-              document.getElementById(
-                "clock-local"
-              ).textContent = `${tz} ${localStr}`;
-            }
-            updateClocks();
-            setInterval(updateClocks, 1000);
-
-            // Load config to check admin password
-            fetch(`${PROXY_URL}/config`)
-              .then((r) => r.json())
-              .then((d) => {
-                _hasAdminPw = (d.config || {}).HAS_ADMIN_PASSWORD === "true";
-                const pwEl = document.getElementById("restart-pw");
-                if (pwEl) pwEl.style.display = _hasAdminPw ? "" : "none";
-              })
-              .catch(() => {});
-
-            async function gitPull() {
-              const btn = document.getElementById("btn-git-pull");
-              const modal = document.getElementById("git-modal");
-              const output = document.getElementById("git-output");
-              btn.classList.add("loading");
-              btn.textContent = "⟳ Updating...";
-              output.textContent = "Running git pull...";
-              output.className = "git-output";
-              modal.classList.add("open");
-              try {
-                const res = await fetch(`${PROXY_URL}/git-pull`, { method: "POST" });
-                const data = await res.json();
-                output.textContent = data.output || "(no output)";
-                output.classList.add(data.success ? "ok" : "err");
-                if (data.success)
-                  output.textContent +=
-                    "\n\n✔ Done. Use ⏻ Restart Proxy to apply changes.";
-              } catch (e) {
-                output.textContent = `Error: ${e.message}`;
-                output.classList.add("err");
-              }
-              btn.classList.remove("loading");
-              btn.textContent = "⟳ Update";
-            }
-
-            function closeGitModal() {
-              document.getElementById("git-modal").classList.remove("open");
-            }
-
-            function openRestartConfirm() {
-              document.getElementById("restart-output").style.display = "none";
-              document.getElementById("restart-pw-err").textContent = "";
-              const pwEl = document.getElementById("restart-pw");
-              pwEl.value = "";
-              pwEl.style.display = _hasAdminPw ? "" : "none";
-              document.getElementById("restart-modal").style.display = "flex";
-            }
-            function closeRestartConfirm() {
-              document.getElementById("restart-modal").style.display = "none";
-            }
-
-            async function confirmRestart() {
-              const out = document.getElementById("restart-output");
-              const pw = document.getElementById("restart-pw").value;
-              const errEl = document.getElementById("restart-pw-err");
-              errEl.textContent = "";
-              out.style.display = "block";
-              out.className = "git-output";
-              out.textContent = "Restarting proxy...";
-              const headers = { "Content-Type": "application/json" };
-              if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
-              try {
-                const res = await fetch(`${PROXY_URL}/restart-proxy`, {
-                  method: "POST",
-                  headers,
-                });
-                const data = await res.json();
-                if (res.status === 403) {
-                  out.style.display = "none";
-                  errEl.textContent = "❌ Invalid admin password";
-                  return;
-                }
-                out.textContent = data.output || "(no output)";
-                out.classList.add(data.success ? "ok" : "err");
-                if (data.success) {
-                  out.textContent += "\n\n⏳ Reloading in 6 seconds...";
-                  setTimeout(() => location.reload(), 6000);
-                }
-              } catch (e) {
-                out.textContent = `Error: ${e.message}`;
-                out.classList.add("err");
-              }
-            }
-
-            // README modal
-            async function openReadme() {
-              const modal = document.getElementById("readme-modal");
-              const content = document.getElementById("readme-content");
-              modal.style.display = "flex";
-              content.textContent = "Loading README...";
-              try {
-                const res = await fetch("README.md", { cache: "no-cache" });
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                const text = await res.text();
-                content.textContent = text;
-              } catch (e) {
-                content.textContent = `Could not load README.md: ${e.message}\n\nMake sure README.md is served alongside index.html.`;
-              }
-            }
-            function closeReadme() {
-              document.getElementById("readme-modal").style.display = "none";
-            }
-            document
-              .getElementById("readme-modal")
-              .addEventListener("click", function (e) {
-                if (e.target === this) closeReadme();
-              });
-
-            $(function () {
-              // ═══════════════════════════════════════════════════
-              //  .env parser
-              // ═══════════════════════════════════════════════════
-              async function loadEnv() {
-                const resp = await fetch(`${PROXY_URL}/config`, {
-                  cache: "no-cache",
-                });
-                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                const data = await resp.json();
-                if (data.status !== "ok")
-                  throw new Error(data.message || "Config error");
-                return data.config;
-              }
-
-              // ═══════════════════════════════════════════════════
-              //  Parse tools from env
-              //  TOOL_n=file.html|Name|Description|icon|Category|BADGE
-              // ═══════════════════════════════════════════════════
-              function parseTools(env) {
-                return Object.keys(env)
-                  .filter((k) => /^TOOL_\d+$/.test(k))
-                  .sort(
-                    (a, b) => parseInt(a.split("_")[1]) - parseInt(b.split("_")[1])
+        // Render modal
+        const sectionColors = {
+          Added: "#00ffc8",
+          Fixed: "#f0a500",
+          Changed: "#4ea8ff",
+          Removed: "#ff4e6a",
+        };
+        let html = "";
+        for (const e of entries) {
+          const parts = Object.entries(e.sections)
+            .map(([sec, items]) => {
+              const col = sectionColors[sec] || "#e8e8f0";
+              return (
+                `<div style="margin-top:5px"><span style="font-family:var(--mono);font-size:.54rem;font-weight:700;color:${col};text-transform:uppercase;letter-spacing:.1em">${sec}</span>` +
+                items
+                  .map(
+                    (i) =>
+                      `<div style="font-family:var(--mono);font-size:.6rem;color:#c0c0d8;padding-left:8px;margin-top:2px">· ${i}</div>`
                   )
-                  .map((k) => {
-                    const parts = env[k].split("|");
-                    const file = (parts[0] || "").trim();
-                    return {
-                      id: file.replace(/\.html$/i, "").toLowerCase(),
-                      file: file,
-                      name: (parts[1] || file).trim(),
-                      desc: (parts[2] || "").trim(),
-                      icon: (parts[3] || "🔧").trim(),
-                      category: (parts[4] || "Other").trim(),
-                      badge: (parts[5] || "").trim(),
-                    };
-                  })
-                  .filter((t) => t.file);
-              }
+                  .join("") +
+                `</div>`
+              );
+            })
+            .join("");
+          html += `<div class="cl-entry"><div class="cl-version">v${e.ver}</div><div class="cl-date">${e.date}</div><div class="cl-desc" style="padding:0">${parts}</div></div>`;
+        }
+        document.getElementById("cl-body").innerHTML =
+          html || "No entries found.";
+      }
 
-              // ═══════════════════════════════════════════════════
-              //  State
-              // ═══════════════════════════════════════════════════
-              let tools = [];
-              let tabs = [];
-              let activeTab = null;
+      function openChangelog() {
+        loadChangelog(); // ensure loaded (noop if already done)
+        document.getElementById("changelog-modal").classList.add("open");
+      }
+      function closeChangelog() {
+        document.getElementById("changelog-modal").classList.remove("open");
+      }
+      // Close on backdrop click
+      document
+        .getElementById("changelog-modal")
+        .addEventListener("click", function (e) {
+          if (e.target === this) closeChangelog();
+        });
 
-              // ═══════════════════════════════════════════════════
-              //  Badge colour palette (by badge text)
-              // ═══════════════════════════════════════════════════
-              const BADGE_STYLES = {
-                LIVE: "background:rgba(255,78,106,.2);color:#ff7a8a;border:1px solid rgba(255,78,106,.35)",
-                RTS: "background:rgba(0,255,200,.12);color:#00ffc8;border:1px solid rgba(0,255,200,.25)",
-                SRT: "background:rgba(78,168,255,.15);color:#80c8ff;border:1px solid rgba(78,168,255,.3)",
-                MTR: "background:rgba(240,165,0,.12);color:#f0c060;border:1px solid rgba(240,165,0,.25)",
-                JIRA: "background:rgba(38,132,255,.15);color:#80b4ff;border:1px solid rgba(38,132,255,.3)",
-                ID3AS:
-                  "background:rgba(123,94,167,.2);color:#c4a0e8;border:1px solid rgba(123,94,167,.35)",
-                RMG: "background:rgba(240,165,0,.12);color:#f0c060;border:1px solid rgba(240,165,0,.25)",
-                TOOL: "background:rgba(106,106,138,.15);color:#a0a0c8;border:1px solid rgba(106,106,138,.3)",
+      const PROXY_URL = "/so-proxy";
+      let _hasAdminPw = false;
+
+      // ── Clocks ────────────────────────────────────────────────────
+      function updateClocks() {
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, "0");
+        // UTC
+        const utcH = pad(now.getUTCHours()),
+          utcM = pad(now.getUTCMinutes()),
+          utcS = pad(now.getUTCSeconds());
+        document.getElementById(
+          "clock-utc"
+        ).textContent = `UTC ${utcH}:${utcM}:${utcS}`;
+        // Local with timezone abbreviation
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+        const localStr = now.toLocaleTimeString([], {
+          hour12: false,
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        });
+        document.getElementById(
+          "clock-local"
+        ).textContent = `${tz} ${localStr}`;
+      }
+      updateClocks();
+      setInterval(updateClocks, 1000);
+
+      // Load config to check admin password
+      fetch(`${PROXY_URL}/config`)
+        .then((r) => r.json())
+        .then((d) => {
+          _hasAdminPw = (d.config || {}).HAS_ADMIN_PASSWORD === "true";
+          const pwEl = document.getElementById("restart-pw");
+          if (pwEl) pwEl.style.display = _hasAdminPw ? "" : "none";
+        })
+        .catch(() => {});
+
+      async function gitPull() {
+        const btn = document.getElementById("btn-git-pull");
+        const modal = document.getElementById("git-modal");
+        const output = document.getElementById("git-output");
+        btn.classList.add("loading");
+        btn.textContent = "⟳ Updating...";
+        output.textContent = "Running git pull...";
+        output.className = "git-output";
+        modal.classList.add("open");
+        try {
+          const res = await fetch(`${PROXY_URL}/git-pull`, { method: "POST" });
+          const data = await res.json();
+          output.textContent = data.output || "(no output)";
+          output.classList.add(data.success ? "ok" : "err");
+          if (data.success)
+            output.textContent +=
+              "\n\n✔ Done. Use ⏻ Restart Proxy to apply changes.";
+        } catch (e) {
+          output.textContent = `Error: ${e.message}`;
+          output.classList.add("err");
+        }
+        btn.classList.remove("loading");
+        btn.textContent = "⟳ Update";
+      }
+
+      function closeGitModal() {
+        document.getElementById("git-modal").classList.remove("open");
+      }
+
+      function openRestartConfirm() {
+        document.getElementById("restart-output").style.display = "none";
+        document.getElementById("restart-pw-err").textContent = "";
+        const pwEl = document.getElementById("restart-pw");
+        pwEl.value = "";
+        pwEl.style.display = _hasAdminPw ? "" : "none";
+        document.getElementById("restart-modal").style.display = "flex";
+      }
+      function closeRestartConfirm() {
+        document.getElementById("restart-modal").style.display = "none";
+      }
+
+      async function confirmRestart() {
+        const out = document.getElementById("restart-output");
+        const pw = document.getElementById("restart-pw").value;
+        const errEl = document.getElementById("restart-pw-err");
+        errEl.textContent = "";
+        out.style.display = "block";
+        out.className = "git-output";
+        out.textContent = "Restarting proxy...";
+        const headers = { "Content-Type": "application/json" };
+        if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
+        try {
+          const res = await fetch(`${PROXY_URL}/restart-proxy`, {
+            method: "POST",
+            headers,
+          });
+          const data = await res.json();
+          if (res.status === 403) {
+            out.style.display = "none";
+            errEl.textContent = "❌ Invalid admin password";
+            return;
+          }
+          out.textContent = data.output || "(no output)";
+          out.classList.add(data.success ? "ok" : "err");
+          if (data.success) {
+            out.textContent += "\n\n⏳ Reloading in 6 seconds...";
+            setTimeout(() => location.reload(), 6000);
+          }
+        } catch (e) {
+          out.textContent = `Error: ${e.message}`;
+          out.classList.add("err");
+        }
+      }
+
+      // README modal
+      async function openReadme() {
+        const modal = document.getElementById("readme-modal");
+        const content = document.getElementById("readme-content");
+        modal.style.display = "flex";
+        content.textContent = "Loading README...";
+        try {
+          const res = await fetch("README.md", { cache: "no-cache" });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const text = await res.text();
+          content.textContent = text;
+        } catch (e) {
+          content.textContent = `Could not load README.md: ${e.message}\n\nMake sure README.md is served alongside index.html.`;
+        }
+      }
+      function closeReadme() {
+        document.getElementById("readme-modal").style.display = "none";
+      }
+      document
+        .getElementById("readme-modal")
+        .addEventListener("click", function (e) {
+          if (e.target === this) closeReadme();
+        });
+
+      $(function () {
+        // ═══════════════════════════════════════════════════
+        //  .env parser
+        // ═══════════════════════════════════════════════════
+        async function loadEnv() {
+          const resp = await fetch(`${PROXY_URL}/config`, {
+            cache: "no-cache",
+          });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const data = await resp.json();
+          if (data.status !== "ok")
+            throw new Error(data.message || "Config error");
+          return data.config;
+        }
+
+        // ═══════════════════════════════════════════════════
+        //  Parse tools from env
+        //  TOOL_n=file.html|Name|Description|icon|Category|BADGE
+        // ═══════════════════════════════════════════════════
+        function parseTools(env) {
+          return Object.keys(env)
+            .filter((k) => /^TOOL_\d+$/.test(k))
+            .sort(
+              (a, b) => parseInt(a.split("_")[1]) - parseInt(b.split("_")[1])
+            )
+            .map((k) => {
+              const parts = env[k].split("|");
+              const file = (parts[0] || "").trim();
+              return {
+                id: file.replace(/\.html$/i, "").toLowerCase(),
+                file: file,
+                name: (parts[1] || file).trim(),
+                desc: (parts[2] || "").trim(),
+                icon: (parts[3] || "🔧").trim(),
+                category: (parts[4] || "Other").trim(),
+                badge: (parts[5] || "").trim(),
               };
-              function badgeStyle(b) {
-                if (!b) return "";
-                return (
-                  BADGE_STYLES[b.toUpperCase()] ||
-                  "background:rgba(123,94,167,.2);color:#b89cd4;border:1px solid rgba(123,94,167,.3)"
-                );
-              }
+            })
+            .filter((t) => t.file);
+        }
 
-              // Track collapsed state per category (persist in localStorage)
-              let collapsedCats = {};
-              try {
-                collapsedCats = JSON.parse(
-                  localStorage.getItem("sb-collapsed") || "{}"
-                );
-              } catch {}
-              function saveCatState() {
-                try {
-                  localStorage.setItem("sb-collapsed", JSON.stringify(collapsedCats));
-                } catch {}
-              }
+        // ═══════════════════════════════════════════════════
+        //  State
+        // ═══════════════════════════════════════════════════
+        let tools = [];
+        let tabs = [];
+        let activeTab = null;
 
-              // ═══════════════════════════════════════════════════
-              //  Render sidebar
-              // ═══════════════════════════════════════════════════
-              function renderSidebar(filter = "") {
-                const $list = $("#tools-list").empty();
-                const q = filter.trim().toLowerCase();
-                const cats = [...new Set(tools.map((t) => t.category))];
+        // ═══════════════════════════════════════════════════
+        //  Badge colour palette (by badge text)
+        // ═══════════════════════════════════════════════════
+        const BADGE_STYLES = {
+          LIVE: "background:rgba(255,78,106,.2);color:#ff7a8a;border:1px solid rgba(255,78,106,.35)",
+          RTS: "background:rgba(0,255,200,.12);color:#00ffc8;border:1px solid rgba(0,255,200,.25)",
+          SRT: "background:rgba(78,168,255,.15);color:#80c8ff;border:1px solid rgba(78,168,255,.3)",
+          MTR: "background:rgba(240,165,0,.12);color:#f0c060;border:1px solid rgba(240,165,0,.25)",
+          JIRA: "background:rgba(38,132,255,.15);color:#80b4ff;border:1px solid rgba(38,132,255,.3)",
+          ID3AS:
+            "background:rgba(123,94,167,.2);color:#c4a0e8;border:1px solid rgba(123,94,167,.35)",
+          RMG: "background:rgba(240,165,0,.12);color:#f0c060;border:1px solid rgba(240,165,0,.25)",
+          TOOL: "background:rgba(106,106,138,.15);color:#a0a0c8;border:1px solid rgba(106,106,138,.3)",
+        };
+        function badgeStyle(b) {
+          if (!b) return "";
+          return (
+            BADGE_STYLES[b.toUpperCase()] ||
+            "background:rgba(123,94,167,.2);color:#b89cd4;border:1px solid rgba(123,94,167,.3)"
+          );
+        }
 
-                cats.forEach((cat) => {
-                  const catTools = tools.filter(
-                    (t) =>
-                      t.category === cat &&
-                      (!q ||
-                        t.name.toLowerCase().includes(q) ||
-                        t.desc.toLowerCase().includes(q) ||
-                        (t.badge && t.badge.toLowerCase().includes(q)))
-                  );
-                  if (!catTools.length) return;
+        // Track collapsed state per category (persist in localStorage)
+        let collapsedCats = {};
+        try {
+          collapsedCats = JSON.parse(
+            localStorage.getItem("sb-collapsed") || "{}"
+          );
+        } catch {}
+        function saveCatState() {
+          try {
+            localStorage.setItem("sb-collapsed", JSON.stringify(collapsedCats));
+          } catch {}
+        }
 
-                  // Force expand if filtering
-                  const isCollapsed = !q && !!collapsedCats[cat];
-                  const catId = "cat-" + cat.replace(/\W/g, "-");
+        // ═══════════════════════════════════════════════════
+        //  Render sidebar
+        // ═══════════════════════════════════════════════════
+        function renderSidebar(filter = "") {
+          const $list = $("#tools-list").empty();
+          const q = filter.trim().toLowerCase();
+          const cats = [...new Set(tools.map((t) => t.category))];
 
-                  $list.append(`
-                    <div class="category-label${
-                      isCollapsed ? " collapsed" : ""
-                    }" data-cat="${cat}">
-                      <span class="cat-arrow">▾</span>
-                      <span>${cat}</span>
-                      <span class="cat-count">${catTools.length}</span>
-                    </div>
-                    <div class="cat-tools${
-                      isCollapsed ? " collapsed" : ""
-                    }" id="${catId}"></div>
-                  `);
+          cats.forEach((cat) => {
+            const catTools = tools.filter(
+              (t) =>
+                t.category === cat &&
+                (!q ||
+                  t.name.toLowerCase().includes(q) ||
+                  t.desc.toLowerCase().includes(q) ||
+                  (t.badge && t.badge.toLowerCase().includes(q)))
+            );
+            if (!catTools.length) return;
 
-                  const $catTools = $(`#${catId}`);
-                  catTools.forEach((tool) => {
-                    const isActive =
-                      activeTab &&
-                      tabs.find((tb) => tb.toolId === tool.id && tb.id === activeTab);
-                    const bs = badgeStyle(tool.badge);
-                    $catTools.append(`
-                      <div class="tool-item ${
-                        isActive ? "active" : ""
-                      }" data-tool-id="${tool.id}">
-                        <span class="tool-icon">${tool.icon}</span>
-                        <div class="tool-info">
-                          <div class="tool-name">${tool.name}</div>
-                          <div class="tool-desc">${tool.desc}</div>
-                        </div>
-                        ${
-                          tool.badge
-                            ? `<span class="tool-badge" style="${bs}">${tool.badge}</span>`
-                            : ""
-                        }
-                        <div class="tool-open-btn" data-tip="Open in new tab" data-tool-id="${
-                          tool.id
-                        }">↗</div>
-                      </div>
-                    `);
-                  });
-                });
+            // Force expand if filtering
+            const isCollapsed = !q && !!collapsedCats[cat];
+            const catId = "cat-" + cat.replace(/\W/g, "-");
 
-                if (!$list.children().length) {
-                  $list.append(
-                    `<div style="text-align:center;padding:30px;font-family:var(--mono);font-size:0.65rem;color:var(--muted)">No tools found</div>`
-                  );
-                }
+            $list.append(`
+                          <div class="category-label${
+                            isCollapsed ? " collapsed" : ""
+                          }" data-cat="${cat}">
+                            <span class="cat-arrow">▾</span>
+                            <span>${cat}</span>
+                            <span class="cat-count">${catTools.length}</span>
+                          </div>
+                          <div class="cat-tools${
+                            isCollapsed ? " collapsed" : ""
+                          }" id="${catId}"></div>
+                        `);
 
-                const n = tools.length;
-                $("#status-count").text(`${n} tool${n !== 1 ? "s" : ""} loaded`);
-                $("#status-count-bar").text(`${n} tool${n !== 1 ? "s" : ""}`);
-              }
-
-              // ═══════════════════════════════════════════════════
-              //  Render welcome cards
-              // ═══════════════════════════════════════════════════
-              function renderWelcomeCards() {
-                const $wc = $("#welcome-cards").empty();
-                tools.forEach((tool) => {
-                  $wc.append(`
-              <div class="welcome-card" data-tool-id="${tool.id}">
-                <div class="wc-icon">${tool.icon}</div>
-                <div class="wc-name">${tool.name}</div>
-                <div class="wc-desc">${tool.desc}</div>
-              </div>
-            `);
-                });
-              }
-
-              // ═══════════════════════════════════════════════════
-              //  Tabs
-              // ═══════════════════════════════════════════════════
-              function openTab(toolId) {
-                const tool = tools.find((t) => t.id === toolId);
-                if (!tool) return;
-
-                const existing = tabs.find((tb) => tb.toolId === toolId);
-                if (existing) {
-                  activateTab(existing.id);
-                  return;
-                }
-
-                const tabId = "tab-" + Date.now();
-                tabs.push({ id: tabId, toolId });
-
-                $("#tab-bar").append(`
-            <div class="tab" data-tab-id="${tabId}">
-              <span class="tab-icon">${tool.icon}</span>
-              <span class="tab-name">${tool.name}</span>
-              <span class="tab-close" data-tab-id="${tabId}">✕</span>
-            </div>
-          `);
-
-                const $frame = $(`
-            <div class="frame-wrapper" id="${tabId}">
-              <div class="frame-loading"><div class="spinner"></div></div>
-              <iframe src="${tool.file}" title="${tool.name}"></iframe>
-            </div>
-          `);
-                $frame.find("iframe").on("load", function () {
-                  $frame.find(".frame-loading").fadeOut(200);
-                });
-                $("#frames").append($frame);
-
-                activateTab(tabId);
-                setStatus(`Opened: ${tool.name}`);
-              }
-
-              function activateTab(tabId) {
-                activeTab = tabId;
-                $(".tab").removeClass("active");
-                $(`.tab[data-tab-id="${tabId}"]`).addClass("active");
-                $(".frame-wrapper").removeClass("active");
-                $(`#${tabId}`).addClass("active");
-                if (tabs.length > 0) $("#welcome").addClass("hidden");
-                renderSidebar($("#search").val());
-                const $t = $(`.tab[data-tab-id="${tabId}"]`);
-                if ($t.length)
-                  $t[0].scrollIntoView({
-                    behavior: "smooth",
-                    block: "nearest",
-                    inline: "nearest",
-                  });
-              }
-
-              function closeTab(tabId) {
-                const idx = tabs.findIndex((tb) => tb.id === tabId);
-                if (idx === -1) return;
-                tabs.splice(idx, 1);
-                $(`.tab[data-tab-id="${tabId}"]`).remove();
-                $(`#${tabId}`).remove();
-                if (tabs.length === 0) {
-                  activeTab = null;
-                  $("#welcome").removeClass("hidden");
-                  renderSidebar($("#search").val());
-                  setStatus("Ready");
-                } else {
-                  activateTab(tabs[Math.min(idx, tabs.length - 1)].id);
-                }
-              }
-
-              function setStatus(msg) {
-                $("#status-msg").text(msg);
-              }
-
-              // ═══════════════════════════════════════════════════
-              //  Events
-              // ═══════════════════════════════════════════════════
-              $(document).on("click", ".category-label", function () {
-                const cat = $(this).data("cat");
-                const catId = "cat-" + cat.replace(/\W/g, "-");
-                const isNowCollapsed = !collapsedCats[cat];
-                collapsedCats[cat] = isNowCollapsed;
-                saveCatState();
-                $(this).toggleClass("collapsed", isNowCollapsed);
-                $(`#${catId}`).toggleClass("collapsed", isNowCollapsed);
-              });
-
-              $(document).on("click", ".tool-item", function (e) {
-                if ($(e.target).closest(".tool-open-btn").length) return;
-                openTab($(this).data("toolId"));
-              });
-
-              $(document).on("click", ".tool-open-btn", function (e) {
-                e.stopPropagation();
-                const tool = tools.find((t) => t.id === $(this).data("toolId"));
-                if (tool) window.open(tool.file, "_blank");
-              });
-
-              $(document).on("click", ".tab", function (e) {
-                if ($(e.target).closest(".tab-close").length) return;
-                activateTab($(this).data("tabId"));
-              });
-
-              $(document).on("click", ".tab-close", function (e) {
-                e.stopPropagation();
-                closeTab($(this).data("tabId"));
-              });
-
-              $(document).on("click", ".welcome-card", function () {
-                openTab($(this).data("toolId"));
-              });
-
-              $("#search").on("input", function () {
-                renderSidebar($(this).val());
-              });
-
-              $(document).on("keydown", function (e) {
-                if ((e.ctrlKey || e.metaKey) && e.key === "w" && activeTab) {
-                  e.preventDefault();
-                  closeTab(activeTab);
-                }
-              });
-
-              // ═══════════════════════════════════════════════════
-              //  Boot — load .env then render
-              // ═══════════════════════════════════════════════════
-              loadEnv()
-                .then((env) => {
-                  tools = parseTools(env);
-
-                  // Update title from env (version now comes from CHANGELOG.md)
-                  const title = env.APP_TITLE || "SP SO Web Toolbox";
-                  document.title = title;
-                  // Load version + changelog from CHANGELOG.md
-                  loadChangelog();
-
-                  renderSidebar();
-                  renderWelcomeCards();
-                  setStatus("Ready");
-
-                  // ENV pill → ok
-                  $("#env-pill")
-                    .removeClass()
-                    .addClass("ok")
-                    .html(
-                      `<span class="pill-dot"></span><span>.env loaded — ${
-                        tools.length
-                      } tool${tools.length !== 1 ? "s" : ""}</span>`
-                    );
-                })
-                .catch((err) => {
-                  // No .env — show warning, render empty state
-                  renderSidebar();
-                  renderWelcomeCards();
-                  setStatus(".env not found");
-
-                  $("#env-pill")
-                    .removeClass()
-                    .addClass("warn")
-                    .html(
-                      `<span class="pill-dot"></span><span>.env not found</span>`
-                    );
-
-                  $("#tools-list").html(`
-              <div style="padding:20px;font-family:var(--mono);font-size:0.65rem;color:var(--muted);line-height:1.8">
-                <div style="color:#ffb3be;margin-bottom:8px">⚠ .env not loaded</div>
-                Serve this page via a web server and place a <code style="color:var(--accent)">.env</code> file in the same directory.
-              </div>
-            `);
-                });
+            const $catTools = $(`#${catId}`);
+            catTools.forEach((tool) => {
+              const isActive =
+                activeTab &&
+                tabs.find((tb) => tb.toolId === tool.id && tb.id === activeTab);
+              const bs = badgeStyle(tool.badge);
+              $catTools.append(`
+                            <div class="tool-item ${
+                              isActive ? "active" : ""
+                            }" data-tool-id="${tool.id}">
+                              <span class="tool-icon">${tool.icon}</span>
+                              <div class="tool-info">
+                                <div class="tool-name">${tool.name}</div>
+                                <div class="tool-desc">${tool.desc}</div>
+                              </div>
+                              ${
+                                tool.badge
+                                  ? `<span class="tool-badge" style="${bs}">${tool.badge}</span>`
+                                  : ""
+                              }
+                              <div class="tool-open-btn" data-tip="Open in new tab" data-tool-id="${
+                                tool.id
+                              }">↗</div>
+                            </div>
+                          `);
             });
+          });
+
+          if (!$list.children().length) {
+            $list.append(
+              `<div style="text-align:center;padding:30px;font-family:var(--mono);font-size:0.65rem;color:var(--muted)">No tools found</div>`
+            );
+          }
+
+          const n = tools.length;
+          $("#status-count").text(`${n} tool${n !== 1 ? "s" : ""} loaded`);
+          $("#status-count-bar").text(`${n} tool${n !== 1 ? "s" : ""}`);
+        }
+
+        // ═══════════════════════════════════════════════════
+        //  Render welcome cards
+        // ═══════════════════════════════════════════════════
+        function renderWelcomeCards() {
+          const $wc = $("#welcome-cards").empty();
+          tools.forEach((tool) => {
+            $wc.append(`
+                    <div class="welcome-card" data-tool-id="${tool.id}">
+                      <div class="wc-icon">${tool.icon}</div>
+                      <div class="wc-name">${tool.name}</div>
+                      <div class="wc-desc">${tool.desc}</div>
+                    </div>
+                  `);
+          });
+        }
+
+        // ═══════════════════════════════════════════════════
+        //  Tabs
+        // ═══════════════════════════════════════════════════
+        function openTab(toolId) {
+          const tool = tools.find((t) => t.id === toolId);
+          if (!tool) return;
+
+          const existing = tabs.find((tb) => tb.toolId === toolId);
+          if (existing) {
+            activateTab(existing.id);
+            return;
+          }
+
+          const tabId = "tab-" + Date.now();
+          tabs.push({ id: tabId, toolId });
+
+          $("#tab-bar").append(`
+                  <div class="tab" data-tab-id="${tabId}">
+                    <span class="tab-icon">${tool.icon}</span>
+                    <span class="tab-name">${tool.name}</span>
+                    <span class="tab-close" data-tab-id="${tabId}">✕</span>
+                  </div>
+                `);
+
+          const $frame = $(`
+                  <div class="frame-wrapper" id="${tabId}">
+                    <div class="frame-loading"><div class="spinner"></div></div>
+                    <iframe src="${tool.file}" title="${tool.name}"></iframe>
+                  </div>
+                `);
+          $frame.find("iframe").on("load", function () {
+            $frame.find(".frame-loading").fadeOut(200);
+          });
+          $("#frames").append($frame);
+
+          activateTab(tabId);
+          setStatus(`Opened: ${tool.name}`);
+        }
+
+        function activateTab(tabId) {
+          activeTab = tabId;
+          $(".tab").removeClass("active");
+          $(`.tab[data-tab-id="${tabId}"]`).addClass("active");
+          $(".frame-wrapper").removeClass("active");
+          $(`#${tabId}`).addClass("active");
+          if (tabs.length > 0) $("#welcome").addClass("hidden");
+          renderSidebar($("#search").val());
+          const $t = $(`.tab[data-tab-id="${tabId}"]`);
+          if ($t.length)
+            $t[0].scrollIntoView({
+              behavior: "smooth",
+              block: "nearest",
+              inline: "nearest",
+            });
+        }
+
+        function closeTab(tabId) {
+          const idx = tabs.findIndex((tb) => tb.id === tabId);
+          if (idx === -1) return;
+          tabs.splice(idx, 1);
+          $(`.tab[data-tab-id="${tabId}"]`).remove();
+          $(`#${tabId}`).remove();
+          if (tabs.length === 0) {
+            activeTab = null;
+            $("#welcome").removeClass("hidden");
+            renderSidebar($("#search").val());
+            setStatus("Ready");
+          } else {
+            activateTab(tabs[Math.min(idx, tabs.length - 1)].id);
+          }
+        }
+
+        function setStatus(msg) {
+          $("#status-msg").text(msg);
+        }
+
+        // ═══════════════════════════════════════════════════
+        //  Events
+        // ═══════════════════════════════════════════════════
+        $(document).on("click", ".category-label", function () {
+          const cat = $(this).data("cat");
+          const catId = "cat-" + cat.replace(/\W/g, "-");
+          const isNowCollapsed = !collapsedCats[cat];
+          collapsedCats[cat] = isNowCollapsed;
+          saveCatState();
+          $(this).toggleClass("collapsed", isNowCollapsed);
+          $(`#${catId}`).toggleClass("collapsed", isNowCollapsed);
+        });
+
+        $(document).on("click", ".tool-item", function (e) {
+          if ($(e.target).closest(".tool-open-btn").length) return;
+          openTab($(this).data("toolId"));
+        });
+
+        $(document).on("click", ".tool-open-btn", function (e) {
+          e.stopPropagation();
+          const tool = tools.find((t) => t.id === $(this).data("toolId"));
+          if (tool) window.open(tool.file, "_blank");
+        });
+
+        $(document).on("click", ".tab", function (e) {
+          if ($(e.target).closest(".tab-close").length) return;
+          activateTab($(this).data("tabId"));
+        });
+
+        $(document).on("click", ".tab-close", function (e) {
+          e.stopPropagation();
+          closeTab($(this).data("tabId"));
+        });
+
+        $(document).on("click", ".welcome-card", function () {
+          openTab($(this).data("toolId"));
+        });
+
+        $("#search").on("input", function () {
+          renderSidebar($(this).val());
+        });
+
+        $(document).on("keydown", function (e) {
+          if ((e.ctrlKey || e.metaKey) && e.key === "w" && activeTab) {
+            e.preventDefault();
+            closeTab(activeTab);
+          }
+        });
+
+        // ═══════════════════════════════════════════════════
+        //  Boot — load .env then render
+        // ═══════════════════════════════════════════════════
+        loadEnv()
+          .then((env) => {
+            tools = parseTools(env);
+
+            // Update title from env (version now comes from CHANGELOG.md)
+            const title = env.APP_TITLE || "SP SO Web Toolbox";
+            document.title = title;
+            // Load version + changelog from CHANGELOG.md
+            loadChangelog();
+
+            renderSidebar();
+            renderWelcomeCards();
+            setStatus("Ready");
+
+            // ENV pill → ok
+            $("#env-pill")
+              .removeClass()
+              .addClass("ok")
+              .html(
+                `<span class="pill-dot"></span><span>.env loaded — ${
+                  tools.length
+                } tool${tools.length !== 1 ? "s" : ""}</span>`
+              );
+          })
+          .catch((err) => {
+            // No .env — show warning, render empty state
+            renderSidebar();
+            renderWelcomeCards();
+            setStatus(".env not found");
+
+            $("#env-pill")
+              .removeClass()
+              .addClass("warn")
+              .html(
+                `<span class="pill-dot"></span><span>.env not found</span>`
+              );
+
+            $("#tools-list").html(`
+                    <div style="padding:20px;font-family:var(--mono);font-size:0.65rem;color:var(--muted);line-height:1.8">
+                      <div style="color:#ffb3be;margin-bottom:8px">⚠ .env not loaded</div>
+                      Serve this page via a web server and place a <code style="color:var(--accent)">.env</code> file in the same directory.
+                    </div>
+                  `);
+          });
+      });
     </script>
   </body>
 </html>
