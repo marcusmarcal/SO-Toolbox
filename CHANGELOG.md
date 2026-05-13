@@ -7,6 +7,16 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.14.5] - 2026-05-12
+
+### Added
+- id3as DC Monitor: URL parameter state sync for kiosk use — `?view=`, `?dc=`, `?inuse=`, `?warn=`, `?sort=`, `?dir=` are read on load and written on every state change via `history.replaceState`; allows bookmarking any view/filter/sort combination
+- Node cards with active warnings now pulse with a gentle amber glow (`warn-animated`) for kiosk visibility
+
+### Fixed
+- Merged manual URL-param changes back into main codebase (previously lost in a commit)
+- All comments translated to English
+
 ## [2.14.4] - 2026-05-11
 
 ### Fixed

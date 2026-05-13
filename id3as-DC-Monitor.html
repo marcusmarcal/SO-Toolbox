@@ -1,913 +1,189 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-    <title>id3as DC Monitor</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap"
-      rel="stylesheet"
-    />
-    <style>
-      *,
-      *::before,
-      *::after {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
-      :root {
-        --bg: #0a0a0f;
-        --surface: #111118;
-        --card: #161621;
-        --border: #2a2a3a;
-        --accent: #00ffc8;
-        --accent2: #7b5ea7;
-        --text: #e8e8f0;
-        --muted: #6a6a8a;
-        --danger: #ff4e6a;
-        --warn: #f0a500;
-        --info: #4ea8ff;
-        --green: #00ffc8;
-        --mono: "Space Mono", monospace;
-        --display: "Syne", sans-serif;
-      }
-      html,
-      body {
-        height: 100%;
-        background: var(--bg);
-        color: var(--text);
-        font-family: var(--display);
-        overflow: hidden;
-      }
-      #app {
-        display: flex;
-        flex-direction: column;
-        height: 100vh;
-      }
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>id3as DC Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    :root{
+      --bg:#0a0a0f;--surface:#111118;--card:#161621;--border:#2a2a3a;
+      --accent:#00ffc8;--accent2:#7b5ea7;--text:#e8e8f0;--muted:#6a6a8a;
+      --danger:#ff4e6a;--warn:#f0a500;--info:#4ea8ff;
+      --mono:"Space Mono",monospace;--display:"Syne",sans-serif;
+    }
+    html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--display);overflow:hidden;}
+    #app{display:flex;flex-direction:column;height:100vh;}
 
-      /* TOOLBAR */
-      #toolbar {
-        display: flex;
-        align-items: center;
-        gap: 7px;
-        padding: 7px 12px;
-        background: var(--surface);
-        border-bottom: 1px solid var(--border);
-        flex-shrink: 0;
-        flex-wrap: wrap;
-      }
-      #toolbar h2 {
-        font-family: var(--display);
-        font-weight: 800;
-        font-size: 0.8rem;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: var(--accent);
-        white-space: nowrap;
-      }
-      .btn-group {
-        display: flex;
-        gap: 2px;
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        padding: 3px;
-      }
-      .grp-btn {
-        font-family: var(--mono);
-        font-size: 0.6rem;
-        font-weight: 700;
-        padding: 4px 9px;
-        border-radius: 4px;
-        cursor: pointer;
-        border: none;
-        background: transparent;
-        color: var(--muted);
-        text-transform: uppercase;
-        transition: all 0.15s;
-        white-space: nowrap;
-      }
-      .grp-btn.adc {
-        background: var(--accent);
-        color: #000;
-      }
-      .grp-btn.avw {
-        background: var(--accent2);
-        color: #fff;
-      }
-      .tb-input {
-        font-family: var(--mono);
-        font-size: 0.62rem;
-        padding: 4px 9px;
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        color: var(--text);
-        outline: none;
-        width: 130px;
-        transition: border-color 0.2s;
-      }
-      .tb-input:focus {
-        border-color: var(--accent);
-      }
-      .tb-input::placeholder {
-        color: var(--muted);
-      }
-      .toggle-wrap {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        font-family: var(--mono);
-        font-size: 0.58rem;
-        color: var(--muted);
-        cursor: pointer;
-        white-space: nowrap;
-      }
-      .toggle-wrap input {
-        accent-color: var(--accent);
-        cursor: pointer;
-      }
-      .tb-btn {
-        font-family: var(--mono);
-        font-size: 0.58rem;
-        padding: 5px 9px;
-        border-radius: 6px;
-        border: 1px solid var(--border);
-        background: var(--card);
-        color: var(--text);
-        cursor: pointer;
-        transition: all 0.15s;
-        white-space: nowrap;
-      }
-      .tb-btn:hover {
-        border-color: var(--accent);
-        color: var(--accent);
-      }
-      /* sort dropdown */
-      .sort-wrap {
-        position: relative;
-        display: inline-flex;
-      }
-      .sort-btn {
-        font-family: var(--mono);
-        font-size: 0.58rem;
-        padding: 4px 8px;
-        border-radius: 6px;
-        border: 1px solid var(--border);
-        background: var(--card);
-        color: var(--muted);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        white-space: nowrap;
-      }
-      .sort-btn:hover,
-      .sort-btn.open {
-        border-color: var(--accent);
-        color: var(--accent);
-      }
-      .sort-menu {
-        display: none;
-        position: absolute;
-        top: calc(100% + 4px);
-        right: 0;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        min-width: 140px;
-        z-index: 100;
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
-      }
-      .sort-menu.open {
-        display: block;
-      }
-      .sort-opt {
-        font-family: var(--mono);
-        font-size: 0.6rem;
-        padding: 6px 12px;
-        cursor: pointer;
-        color: var(--muted);
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        transition: background 0.1s;
-      }
-      .sort-opt:hover {
-        background: var(--card);
-        color: var(--text);
-      }
-      .sort-opt.active {
-        color: var(--accent);
-      }
-      .sort-dir {
-        margin-left: auto;
-        font-size: 0.55rem;
-      }
-      #status-pill {
-        margin-left: auto;
-        font-family: var(--mono);
-        font-size: 0.56rem;
-        padding: 4px 9px;
-        border-radius: 20px;
-        border: 1px solid var(--border);
-        color: var(--muted);
-        background: var(--card);
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        white-space: nowrap;
-      }
-      #status-pill.ok {
-        border-color: rgba(0, 255, 200, 0.4);
-        color: #80ffdf;
-        background: rgba(0, 255, 200, 0.07);
-      }
-      #status-pill.err {
-        border-color: rgba(255, 78, 106, 0.4);
-        color: #ffb3be;
-        background: rgba(255, 78, 106, 0.07);
-      }
-      #status-pill.loading {
-        border-color: rgba(123, 94, 167, 0.4);
-        color: #c9b3e8;
-        background: rgba(123, 94, 167, 0.07);
-      }
-      .s-dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: currentColor;
-        flex-shrink: 0;
-      }
-      .s-spin {
-        width: 8px;
-        height: 8px;
-        border: 1.5px solid rgba(255, 255, 255, 0.2);
-        border-top-color: var(--accent2);
-        border-radius: 50%;
-        animation: spin 0.7s linear infinite;
-        flex-shrink: 0;
-      }
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
-      }
+    /* ── TOOLBAR ── */
+    #toolbar{display:flex;align-items:center;gap:7px;padding:7px 12px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;}
+    #toolbar h2{font-family:var(--display);font-weight:800;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);white-space:nowrap;}
+    .btn-group{display:flex;gap:2px;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:3px;}
+    .grp-btn{font-family:var(--mono);font-size:.6rem;font-weight:700;padding:4px 9px;border-radius:4px;cursor:pointer;border:none;background:transparent;color:var(--muted);text-transform:uppercase;transition:all .15s;white-space:nowrap;}
+    .grp-btn.adc{background:var(--accent);color:#000;}
+    .grp-btn.avw{background:var(--accent2);color:#fff;}
+    .tb-input{font-family:var(--mono);font-size:.62rem;padding:4px 9px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);outline:none;width:130px;transition:border-color .2s;}
+    .tb-input:focus{border-color:var(--accent);}
+    .tb-input::placeholder{color:var(--muted);}
+    .toggle-wrap{display:flex;align-items:center;gap:4px;font-family:var(--mono);font-size:.58rem;color:var(--muted);cursor:pointer;white-space:nowrap;}
+    .toggle-wrap input{accent-color:var(--accent);cursor:pointer;}
+    .tb-btn{font-family:var(--mono);font-size:.58rem;padding:5px 9px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;transition:all .15s;white-space:nowrap;}
+    .tb-btn:hover{border-color:var(--accent);color:var(--accent);}
 
-      /* SECONDARY TOOLBAR */
-      #sub-toolbar {
-        display: none;
-        padding: 6px 12px;
-        border-bottom: 1px solid var(--border);
-        background: var(--surface);
-        flex-shrink: 0;
-      }
-      .log-controls {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        flex-wrap: wrap;
-      }
-      .log-lvl {
-        font-family: var(--mono);
-        font-size: 0.58rem;
-        padding: 3px 8px;
-        border-radius: 4px;
-        cursor: pointer;
-        border: none;
-        background: transparent;
-        color: var(--muted);
-        transition: all 0.15s;
-      }
-      .log-lvl.a-all {
-        background: var(--surface);
-        color: var(--text);
-      }
-      .log-lvl.a-info {
-        background: rgba(78, 168, 255, 0.2);
-        color: #90c8ff;
-      }
-      .log-lvl.a-warning {
-        background: rgba(240, 165, 0, 0.2);
-        color: #f0c060;
-      }
-      .log-lvl.a-error {
-        background: rgba(255, 78, 106, 0.2);
-        color: var(--danger);
-      }
-      .log-lvl.a-critical {
-        background: rgba(200, 0, 200, 0.2);
-        color: #e080e0;
-      }
-      .date-input {
-        font-family: var(--mono);
-        font-size: 0.62rem;
-        padding: 4px 9px;
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        color: var(--text);
-        outline: none;
-        color-scheme: dark;
-      }
-      #log-count {
-        font-family: var(--mono);
-        font-size: 0.58rem;
-        color: var(--muted);
-        margin-left: auto;
-      }
-      .hz-btn {
-        font-family: var(--mono);
-        font-size: 0.58rem;
-        padding: 3px 8px;
-        border-radius: 4px;
-        cursor: pointer;
-        border: 1px solid var(--border);
-        background: transparent;
-        color: var(--muted);
-        transition: all 0.15s;
-      }
-      .hz-btn.active {
-        background: var(--accent2);
-        color: #fff;
-        border-color: var(--accent2);
-      }
+    /* Sort dropdown */
+    .sort-wrap{position:relative;display:inline-flex;}
+    .sort-btn{font-family:var(--mono);font-size:.58rem;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:4px;white-space:nowrap;}
+    .sort-btn:hover,.sort-btn.open{border-color:var(--accent);color:var(--accent);}
+    .sort-menu{display:none;position:absolute;top:calc(100% + 4px);right:0;background:var(--surface);border:1px solid var(--border);border-radius:6px;min-width:140px;z-index:100;box-shadow:0 6px 20px rgba(0,0,0,.5);}
+    .sort-menu.open{display:block;}
+    .sort-opt{font-family:var(--mono);font-size:.6rem;padding:6px 12px;cursor:pointer;color:var(--muted);display:flex;align-items:center;gap:6px;transition:background .1s;}
+    .sort-opt:hover{background:var(--card);color:var(--text);}
+    .sort-opt.active{color:var(--accent);}
+    .sort-dir{margin-left:auto;font-size:.55rem;}
 
-      /* CONTENT */
-      #content {
-        flex: 1;
-        overflow: auto;
-        padding: 12px;
-        position: relative;
-      }
-      #content::-webkit-scrollbar {
-        width: 5px;
-      }
-      #content::-webkit-scrollbar-thumb {
-        background: var(--border);
-        border-radius: 3px;
-      }
+    /* Status pill */
+    #status-pill{margin-left:auto;font-family:var(--mono);font-size:.56rem;padding:4px 9px;border-radius:20px;border:1px solid var(--border);color:var(--muted);background:var(--card);display:flex;align-items:center;gap:5px;white-space:nowrap;}
+    #status-pill.ok{border-color:rgba(0,255,200,.4);color:#80ffdf;background:rgba(0,255,200,.07);}
+    #status-pill.err{border-color:rgba(255,78,106,.4);color:#ffb3be;background:rgba(255,78,106,.07);}
+    #status-pill.loading{border-color:rgba(123,94,167,.4);color:#c9b3e8;background:rgba(123,94,167,.07);}
+    .s-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;}
+    .s-spin{width:8px;height:8px;border:1.5px solid rgba(255,255,255,.2);border-top-color:var(--accent2);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
+    @keyframes spin{to{transform:rotate(360deg);}}
 
-      /* refresh overlay — floats on top without blanking content */
-      #refresh-overlay {
-        display: none;
-        position: fixed;
-        top: 12px;
-        right: 16px;
-        z-index: 200;
-        font-family: var(--mono);
-        font-size: 0.56rem;
-        color: var(--muted);
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 20px;
-        padding: 4px 12px;
-        align-items: center;
-        gap: 6px;
-        pointer-events: none;
-      }
-      #refresh-overlay.vis {
-        display: flex;
-      }
+    /* ── SECONDARY TOOLBAR ── */
+    #sub-toolbar{display:none;padding:6px 12px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;}
+    .log-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+    .log-lvl{font-family:var(--mono);font-size:.58rem;padding:3px 8px;border-radius:4px;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all .15s;}
+    .log-lvl.a-all{background:var(--surface);color:var(--text);}
+    .log-lvl.a-info{background:rgba(78,168,255,.2);color:#90c8ff;}
+    .log-lvl.a-warning{background:rgba(240,165,0,.2);color:#f0c060;}
+    .log-lvl.a-error{background:rgba(255,78,106,.2);color:var(--danger);}
+    .log-lvl.a-critical{background:rgba(200,0,200,.2);color:#e080e0;}
+    .date-input{font-family:var(--mono);font-size:.62rem;padding:4px 9px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);outline:none;color-scheme:dark;}
+    #log-count{font-family:var(--mono);font-size:.58rem;color:var(--muted);margin-left:auto;}
+    .hz-btn{font-family:var(--mono);font-size:.58rem;padding:3px 8px;border-radius:4px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);transition:all .15s;}
+    .hz-btn.active{background:var(--accent2);color:#fff;border-color:var(--accent2);}
 
-      /* STATE */
-      .state-msg {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 12px;
-        height: 200px;
-        color: var(--muted);
-        font-family: var(--mono);
-        font-size: 0.7rem;
-        text-align: center;
-      }
-      .state-msg .ico {
-        font-size: 2rem;
-      }
+    /* ── CONTENT ── */
+    #content{flex:1;overflow:auto;padding:12px;position:relative;}
+    #content::-webkit-scrollbar{width:5px;}
+    #content::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
 
-      /* SUMMARY BAR */
-      .sum-bar {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        padding: 8px 12px;
-        margin-bottom: 10px;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        font-family: var(--mono);
-        font-size: 0.61rem;
-        flex-wrap: wrap;
-      }
-      .ss {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-      }
-      .sl {
-        color: var(--muted);
-      }
-      .sv {
-        color: var(--text);
-        font-weight: 700;
-      }
-      .sv.ac {
-        color: var(--accent);
-      }
-      .sv.wn {
-        color: var(--warn);
-      }
-      .sv.dg {
-        color: var(--danger);
-      }
-      .sv.in {
-        color: var(--info);
-      }
+    /* Refresh overlay — stays on top without blanking existing content */
+    #refresh-overlay{display:none;position:fixed;top:12px;right:16px;z-index:200;font-family:var(--mono);font-size:.56rem;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:4px 12px;align-items:center;gap:6px;pointer-events:none;}
+    #refresh-overlay.vis{display:flex;}
 
-      /* PILLS */
-      .pill {
-        display: inline-block;
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-size: 0.54rem;
-        font-weight: 700;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        white-space: nowrap;
-      }
-      .p-run {
-        background: rgba(0, 255, 200, 0.12);
-        color: #00ffc8;
-        border: 1px solid rgba(0, 255, 200, 0.3);
-      }
-      .p-idle {
-        background: rgba(240, 165, 0, 0.12);
-        color: #f0a500;
-        border: 1px solid rgba(240, 165, 0, 0.3);
-      }
-      .p-dis {
-        background: rgba(106, 106, 138, 0.12);
-        color: var(--muted);
-        border: 1px solid var(--border);
-      }
-      .p-str {
-        background: rgba(0, 255, 200, 0.12);
-        color: #00ffc8;
-        border: 1px solid rgba(0, 255, 200, 0.3);
-      }
-      .p-acq {
-        background: rgba(240, 165, 0, 0.12);
-        color: #f0a500;
-        border: 1px solid rgba(240, 165, 0, 0.3);
-      }
-      .p-err {
-        background: rgba(255, 78, 106, 0.12);
-        color: var(--danger);
-        border: 1px solid rgba(255, 78, 106, 0.3);
-      }
-      .p-crit {
-        background: rgba(255, 78, 106, 0.25);
-        color: #ff1a3a;
-        border: 1px solid rgba(255, 78, 106, 0.6);
-        animation: pulse-crit 1.4s ease-in-out infinite;
-      }
-      @keyframes pulse-crit {
-        0%,
-        100% {
-          box-shadow: 0 0 0 0 rgba(255, 78, 106, 0.4);
-        }
-        50% {
-          box-shadow: 0 0 0 4px rgba(255, 78, 106, 0);
-        }
-      }
-      .p-online {
-        background: rgba(0, 255, 200, 0.12);
-        color: #00ffc8;
-        border: 1px solid rgba(0, 255, 200, 0.3);
-      }
-      .p-offline {
-        background: rgba(255, 78, 106, 0.12);
-        color: var(--danger);
-        border: 1px solid rgba(255, 78, 106, 0.3);
-      }
-      .wb {
-        display: inline-flex;
-        align-items: center;
-        gap: 3px;
-        padding: 2px 5px;
-        border-radius: 4px;
-        font-size: 0.56rem;
-        font-weight: 700;
-      }
-      .wb-y {
-        background: rgba(255, 78, 106, 0.15);
-        color: var(--danger);
-        border: 1px solid rgba(255, 78, 106, 0.3);
-      }
-      .wb-n {
-        color: var(--muted);
-      }
+    /* Empty / error states */
+    .state-msg{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;height:200px;color:var(--muted);font-family:var(--mono);font-size:.7rem;text-align:center;}
+    .state-msg .ico{font-size:2rem;}
 
-      /* external links */
-      a.ext-lnk {
-        color: inherit;
-        text-decoration: none;
-        border-bottom: 1px dotted rgba(255, 255, 255, 0.2);
-        transition: color 0.15s, border-color 0.15s;
-      }
-      a.ext-lnk:hover {
-        color: var(--accent);
-        border-color: var(--accent);
-      }
+    /* Summary bar */
+    .sum-bar{display:flex;align-items:center;gap:16px;padding:8px 12px;margin-bottom:10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-family:var(--mono);font-size:.61rem;flex-wrap:wrap;}
+    .ss{display:flex;align-items:center;gap:5px;}
+    .sl{color:var(--muted);}
+    .sv{color:var(--text);font-weight:700;}
+    .sv.ac{color:var(--accent);}.sv.wn{color:var(--warn);}.sv.dg{color:var(--danger);}.sv.in{color:var(--info);}
 
-      /* ═══════════════════════════════════
-       CHANNELS VIEW
-    ═══════════════════════════════════ */
-      .ch-list {
-        display: flex;
-        flex-direction: column;
-        gap: 0;
-      }
-      .ch-row {
-        display: grid;
-        grid-template-columns: 110px 140px 100px 110px 80px 1fr 60px;
-        align-items: start;
-        padding: 7px 10px 3px;
-        border-bottom: 1px solid #1a1a28;
-        transition: background 0.1s;
-        gap: 0 8px;
-      }
-      .ch-row:hover {
-        background: rgba(255, 255, 255, 0.02);
-      }
-      .ch-row.crit-row {
-        background: rgba(255, 78, 106, 0.04);
-      }
-      .ch-sub {
-        padding: 0 10px 7px 10px;
-        border-bottom: 1px solid #1a1a28;
-        display: none;
-      }
-      .ch-sub.visible {
-        display: block;
-      }
-      .ch-header {
-        display: grid;
-        grid-template-columns: 110px 140px 100px 110px 80px 1fr 60px;
-        gap: 0 8px;
-        padding: 6px 10px;
-        background: var(--surface);
-        border-bottom: 2px solid var(--accent);
-        font-family: var(--mono);
-        font-size: 0.56rem;
-        color: var(--accent);
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-      }
-      .c-id {
-        font-family: var(--mono);
-        font-size: 0.72rem;
-        font-weight: 700;
-        color: var(--accent);
-        padding-top: 1px;
-      }
-      .c-node {
-        font-family: var(--mono);
-        font-size: 0.6rem;
-        color: #9090b8;
-        padding-top: 3px;
-      }
-      .c-enc,
-      .c-src {
-        padding-top: 2px;
-      }
-      .c-bps {
-        font-family: var(--mono);
-        font-size: 0.65rem;
-        font-weight: 700;
-        padding-top: 3px;
-      }
-      .c-bps.good {
-        color: #00ffc8;
-      }
-      .c-bps.none {
-        color: var(--muted);
-      }
-      .c-stream {
-        padding-top: 2px;
-      }
-      .c-warn {
-        padding-top: 2px;
-        text-align: right;
-      }
-      .stream-info {
-        font-family: var(--mono);
-        font-size: 0.58rem;
-        color: #8888aa;
-        line-height: 1.5;
-      }
-      .stream-codec {
-        color: #b0b0d0;
-      }
-      .stream-audio {
-        color: #7070a0;
-      }
-      .ev-strip {
-        display: flex;
-        align-items: baseline;
-        gap: 8px;
-        font-family: var(--mono);
-        font-size: 0.61rem;
-        padding: 3px 0 1px;
-        flex-wrap: wrap;
-      }
-      .ev-eid {
-        color: var(--muted);
-        font-size: 0.58rem;
-      }
-      .ev-name {
-        color: #f0c060;
-        flex: 1;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .ev-time {
-        color: var(--muted);
-        font-size: 0.58rem;
-        white-space: nowrap;
-      }
-      .warn-strip {
-        display: flex;
-        align-items: baseline;
-        gap: 6px;
-        font-family: var(--mono);
-        font-size: 0.6rem;
-        padding: 1px 0;
-        color: var(--danger);
-      }
-      .ws-mod {
-        color: var(--muted);
-        min-width: 75px;
-      }
-      .ws-msg {
-        color: #ffb0b8;
-      }
-      .ws-rep {
-        color: var(--muted);
-      }
-      .info-strip {
-        display: flex;
-        align-items: baseline;
-        gap: 6px;
-        font-family: var(--mono);
-        font-size: 0.58rem;
-        color: var(--muted);
-        padding: 1px 0;
-      }
+    /* Pills */
+    .pill{display:inline-block;padding:2px 6px;border-radius:4px;font-size:.54rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;}
+    .p-run{background:rgba(0,255,200,.12);color:#00ffc8;border:1px solid rgba(0,255,200,.3);}
+    .p-idle{background:rgba(240,165,0,.12);color:#f0a500;border:1px solid rgba(240,165,0,.3);}
+    .p-dis{background:rgba(106,106,138,.12);color:var(--muted);border:1px solid var(--border);}
+    .p-str{background:rgba(0,255,200,.12);color:#00ffc8;border:1px solid rgba(0,255,200,.3);}
+    .p-acq{background:rgba(240,165,0,.12);color:#f0a500;border:1px solid rgba(240,165,0,.3);}
+    .p-err{background:rgba(255,78,106,.12);color:var(--danger);border:1px solid rgba(255,78,106,.3);}
+    .p-crit{background:rgba(255,78,106,.25);color:#ff1a3a;border:1px solid rgba(255,78,106,.6);animation:pulse-crit 1.4s ease-in-out infinite;}
+    @keyframes pulse-crit{0%,100%{box-shadow:0 0 0 0 rgba(255,78,106,.4);}50%{box-shadow:0 0 0 4px rgba(255,78,106,0);}}
+    .p-online{background:rgba(0,255,200,.12);color:#00ffc8;border:1px solid rgba(0,255,200,.3);}
+    .p-offline{background:rgba(255,78,106,.12);color:var(--danger);border:1px solid rgba(255,78,106,.3);}
+    .wb{display:inline-flex;align-items:center;gap:3px;padding:2px 5px;border-radius:4px;font-size:.56rem;font-weight:700;}
+    .wb-y{background:rgba(255,78,106,.15);color:var(--danger);border:1px solid rgba(255,78,106,.3);}
+    .wb-n{color:var(--muted);}
 
-      /* ═══════════════════════════════════
-       NODES VIEW
-    ═══════════════════════════════════ */
-      .node-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
-        gap: 10px;
-      }
-      .node-card {
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: 9px;
-        overflow: hidden;
-      }
-      .node-card.hw {
-        border-color: rgba(255, 78, 106, 0.35);
-      }
-      .node-card.off {
-        border-color: rgba(255, 78, 106, 0.2);
-        opacity: 0.75;
-      }
-      .node-head {
-        display: flex;
-        align-items: center;
-        gap: 7px;
-        padding: 8px 11px;
-        background: var(--surface);
-        border-bottom: 1px solid var(--border);
-      }
-      .node-id {
-        font-family: var(--mono);
-        font-size: 0.66rem;
-        font-weight: 700;
-        color: var(--accent);
-      }
-      .node-host {
-        font-family: var(--mono);
-        font-size: 0.56rem;
-        color: var(--muted);
-      }
-      .node-body {
-        padding: 9px 11px;
-      }
-      .ch-chips {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-        margin-bottom: 6px;
-      }
-      .ch-chip {
-        font-family: var(--mono);
-        font-size: 0.56rem;
-        padding: 2px 5px;
-        border-radius: 3px;
-        border: 1px solid transparent;
-      }
-      .ck-ok {
-        background: rgba(0, 255, 200, 0.08);
-        color: #00ffc8;
-        border-color: rgba(0, 255, 200, 0.2);
-      }
-      .ck-wn {
-        background: rgba(255, 78, 106, 0.1);
-        color: var(--danger);
-        border-color: rgba(255, 78, 106, 0.25);
-      }
-      .ck-evw {
-        background: rgba(240, 165, 0, 0.12);
-        color: #f0a500;
-        border-color: rgba(240, 165, 0, 0.35);
-      }
-      .ck-idle {
-        background: rgba(240, 165, 0, 0.08);
-        color: #f0a500;
-        border-color: rgba(240, 165, 0, 0.2);
-      }
-      .ck-dis {
-        background: rgba(106, 106, 138, 0.08);
-        color: var(--muted);
-        border-color: var(--border);
-      }
-      .mbar-wrap {
-        display: flex;
-        align-items: center;
-        gap: 7px;
-        margin: 2px 0;
-        font-family: var(--mono);
-        font-size: 0.58rem;
-      }
-      .mbar-lbl {
-        color: var(--muted);
-        width: 28px;
-      }
-      .mbar {
-        flex: 1;
-        height: 4px;
-        background: var(--border);
-        border-radius: 2px;
-        overflow: hidden;
-      }
-      .mbar-fill {
-        height: 100%;
-        border-radius: 2px;
-        transition: width 0.4s;
-      }
-      .mf-ok {
-        background: var(--accent);
-      }
-      .mf-wn {
-        background: var(--warn);
-      }
-      .mf-cr {
-        background: var(--danger);
-      }
-      .mbar-val {
-        color: var(--text);
-        width: 30px;
-        text-align: right;
-      }
-      .nmeta {
-        display: flex;
-        gap: 10px;
-        font-family: var(--mono);
-        font-size: 0.56rem;
-        color: var(--muted);
-        margin-top: 5px;
-        flex-wrap: wrap;
-      }
-      .nmv {
-        color: var(--text);
-        font-weight: 700;
-      }
-      .nev-list {
-        margin-top: 6px;
-        border-top: 1px solid var(--border);
-        padding-top: 5px;
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-      }
-      .nev-row {
-        display: flex;
-        align-items: baseline;
-        gap: 6px;
-        font-family: var(--mono);
-        font-size: 0.56rem;
-      }
-      .nev-ch {
-        color: var(--accent);
-        min-width: 60px;
-        flex-shrink: 0;
-      }
-      .nev-nm {
-        color: #f0c060;
-        flex: 1;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .nev-wn {
-        color: var(--warn);
-        flex-shrink: 0;
-      }
-      .nwarn-list {
-        margin-top: 4px;
-        display: flex;
-        flex-direction: column;
-        gap: 1px;
-      }
+    /* External links */
+    a.ext-lnk{color:inherit;text-decoration:none;border-bottom:1px dotted rgba(255,255,255,.2);transition:color .15s,border-color .15s;}
+    a.ext-lnk:hover{color:var(--accent);border-color:var(--accent);}
 
-      /* ═══════════════════════════════════
-       EVENTS VIEW
-    ═══════════════════════════════════ */
-      .ev-card {
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 11px 13px;
-        margin-bottom: 7px;
-      }
-      .ev-card.hw {
-        border-color: rgba(255, 78, 106, 0.35);
-      }
-      .ev-card.ev-warn-card {
-        border-color: rgba(240, 165, 0, 0.35);
-      }
-      .ev-head {
-        display: flex;
-        align-items: flex-start;
-        gap: 9px;
-        margin-bottom: 5px;
-      }
-      .ev-eid2 {
-        font-family: var(--mono);
-        font-size: 0.58rem;
-        color: var(--muted);
-        white-space: nowrap;
-        padding-top: 2px;
-      }
-      .ev-name2 {
-        font-family: var(--display);
-        font-size: 0.8rem;
-        font-weight: 600;
-        color: #f0c060;
-        flex: 1;
-      }
-      .ev-meta {
-        display: flex;
-        gap: 10px;
-        font-family: var(--mono);
-        font-size: 0.58rem;
-        color: var(--muted);
-        flex-wrap: wrap;
-        margin-bottom: 5px;
-      }
-      .ev-meta .mv {
-        color: var(--text);
-      }
+    /* ── CHANNELS VIEW ── */
+    .ch-list{display:flex;flex-direction:column;gap:0;}
+    .ch-row{display:grid;grid-template-columns:110px 140px 100px 110px 80px 1fr 60px;align-items:start;padding:7px 10px 3px;border-bottom:1px solid #1a1a28;transition:background .1s;gap:0 8px;}
+    .ch-row:hover{background:rgba(255,255,255,.02);}
+    .ch-row.crit-row{background:rgba(255,78,106,.04);}
+    .ch-sub{padding:0 10px 7px 10px;border-bottom:1px solid #1a1a28;display:none;}
+    .ch-sub.visible{display:block;}
+    .ch-header{display:grid;grid-template-columns:110px 140px 100px 110px 80px 1fr 60px;gap:0 8px;padding:6px 10px;background:var(--surface);border-bottom:2px solid var(--accent);font-family:var(--mono);font-size:.56rem;color:var(--accent);letter-spacing:.12em;text-transform:uppercase;}
+    .c-id{font-family:var(--mono);font-size:.72rem;font-weight:700;color:var(--accent);padding-top:1px;}
+    .c-node{font-family:var(--mono);font-size:.6rem;color:#9090b8;padding-top:3px;}
+    .c-enc,.c-src{padding-top:2px;}
+    .c-bps{font-family:var(--mono);font-size:.65rem;font-weight:700;padding-top:3px;}
+    .c-bps.good{color:#00ffc8;}.c-bps.none{color:var(--muted);}
+    .c-stream{padding-top:2px;}.c-warn{padding-top:2px;text-align:right;}
+    .stream-info{font-family:var(--mono);font-size:.58rem;color:#8888aa;line-height:1.5;}
+    .stream-codec{color:#b0b0d0;}.stream-audio{color:#7070a0;}
+    .ev-strip{display:flex;align-items:baseline;gap:8px;font-family:var(--mono);font-size:.61rem;padding:3px 0 1px;flex-wrap:wrap;}
+    .ev-eid{color:var(--muted);font-size:.58rem;}
+    .ev-name{color:#f0c060;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .ev-time{color:var(--muted);font-size:.58rem;white-space:nowrap;}
+    .warn-strip{display:flex;align-items:baseline;gap:6px;font-family:var(--mono);font-size:.6rem;padding:1px 0;color:var(--danger);}
+    .ws-mod{color:var(--muted);min-width:75px;}.ws-msg{color:#ffb0b8;}.ws-rep{color:var(--muted);}
+    .info-strip{display:flex;align-items:baseline;gap:6px;font-family:var(--mono);font-size:.58rem;color:var(--muted);padding:1px 0;}
 
-      /* ═══════════════════════════════════
-       TABLE (Scheduled, RMG)
-    ═══════════════════════════════════ */
+    /* ── NODES VIEW ── */
+    .node-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:10px;}
+    .node-card{background:var(--card);border:1px solid var(--border);border-radius:9px;overflow:hidden;}
+    .node-card.hw{border-color:rgba(255,78,106,.35);}
+    .node-card.off{border-color:rgba(255,78,106,.2);opacity:.75;}
+    /* Pulsing glow on node cards with active warnings — subtle alert for kiosk display */
+    @keyframes warnGlow{0%,100%{box-shadow:0 0 0 0 rgba(240,165,0,.3);}50%{box-shadow:0 0 6px 2px rgba(240,165,0,.6);}}
+    .node-card.hw.warn-animated{animation:warnGlow 3s ease-in-out infinite;}
+    .node-head{display:flex;align-items:center;gap:7px;padding:8px 11px;background:var(--surface);border-bottom:1px solid var(--border);}
+    .node-id{font-family:var(--mono);font-size:.66rem;font-weight:700;color:var(--accent);}
+    .node-host{font-family:var(--mono);font-size:.56rem;color:var(--muted);}
+    .node-body{padding:9px 11px;}
+    .ch-chips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;}
+    .ch-chip{font-family:var(--mono);font-size:.56rem;padding:2px 5px;border-radius:3px;border:1px solid transparent;}
+    .ck-ok{background:rgba(0,255,200,.08);color:#00ffc8;border-color:rgba(0,255,200,.2);}
+    .ck-wn{background:rgba(255,78,106,.1);color:var(--danger);border-color:rgba(255,78,106,.25);}
+    .ck-evw{background:rgba(240,165,0,.12);color:#f0a500;border-color:rgba(240,165,0,.35);}
+    .ck-idle{background:rgba(240,165,0,.08);color:#f0a500;border-color:rgba(240,165,0,.2);}
+    .ck-dis{background:rgba(106,106,138,.08);color:var(--muted);border-color:var(--border);}
+    .mbar-wrap{display:flex;align-items:center;gap:7px;margin:2px 0;font-family:var(--mono);font-size:.58rem;}
+    .mbar-lbl{color:var(--muted);width:28px;}
+    .mbar{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+    .mbar-fill{height:100%;border-radius:2px;transition:width .4s;}
+    .mf-ok{background:var(--accent);}.mf-wn{background:var(--warn);}.mf-cr{background:var(--danger);}
+    .mbar-val{color:var(--text);width:30px;text-align:right;}
+    .nmeta{display:flex;gap:10px;font-family:var(--mono);font-size:.56rem;color:var(--muted);margin-top:5px;flex-wrap:wrap;}
+    .nmv{color:var(--text);font-weight:700;}
+    .nev-list{margin-top:6px;border-top:1px solid var(--border);padding-top:5px;display:flex;flex-direction:column;gap:2px;}
+    .nev-row{display:flex;align-items:baseline;gap:6px;font-family:var(--mono);font-size:.56rem;}
+    .nev-ch{color:var(--accent);min-width:60px;flex-shrink:0;}
+    .nev-nm{color:#f0c060;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .nev-wn{color:var(--warn);flex-shrink:0;}
+    .nwarn-list{margin-top:4px;display:flex;flex-direction:column;gap:1px;}
+
+    /* ── EVENTS VIEW ── */
+    .ev-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:11px 13px;margin-bottom:7px;}
+    .ev-card.hw{border-color:rgba(255,78,106,.35);}
+    .ev-card.ev-warn-card{border-color:rgba(240,165,0,.35);}
+    .ev-head{display:flex;align-items:flex-start;gap:9px;margin-bottom:5px;}
+    .ev-eid2{font-family:var(--mono);font-size:.58rem;color:var(--muted);white-space:nowrap;padding-top:2px;}
+    .ev-name2{font-family:var(--display);font-size:.8rem;font-weight:600;color:#f0c060;flex:1;}
+    .ev-meta{display:flex;gap:10px;font-family:var(--mono);font-size:.58rem;color:var(--muted);flex-wrap:wrap;margin-bottom:5px;}
+    .ev-meta .mv{color:var(--text);}
+
+    /* ── TABLE (Scheduled) ── */
     .ct{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.66rem;}
     .ct thead th{text-align:left;padding:6px 9px;background:var(--surface);border-bottom:2px solid var(--accent);color:var(--accent);font-size:.56rem;letter-spacing:.12em;text-transform:uppercase;white-space:nowrap;}
     .ct tbody tr{border-bottom:1px solid #1e1e2e;transition:background .1s;}
     .ct tbody tr:hover{background:rgba(255,255,255,.02);}
     .ct tbody td{padding:6px 9px;vertical-align:top;}
-    .ct .xrow td{padding:0 9px 7px 28px;border-bottom:1px solid #1e1e2e;}
-    .xp{cursor:pointer;color:var(--muted);font-size:.6rem;user-select:none;}
-    .xp:hover{color:var(--text);}
     .c-ch{color:var(--accent);font-weight:700;}
-    .c-nd{color:#9090b8;font-size:.6rem;}
 
-    /* LOG SEARCH FORM */
+    /* ── LOG SEARCH FORM ── */
     .log-form{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px 24px;max-width:680px;margin:24px auto;}
     .log-form h3{font-family:var(--display);font-size:.85rem;font-weight:700;color:var(--accent);margin-bottom:16px;letter-spacing:.05em;}
     .lf-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px;}
@@ -918,6 +194,8 @@
     .lf-load-btn{font-family:var(--mono);font-size:.65rem;font-weight:700;padding:7px 18px;border-radius:6px;border:none;background:var(--accent);color:#000;cursor:pointer;transition:opacity .15s;margin-top:4px;}
     .lf-load-btn:hover{opacity:.85;}
     .lf-hint{font-family:var(--mono);font-size:.56rem;color:var(--muted);margin-top:8px;}
+
+    /* ── LOG RESULTS ── */
     .log-list{display:flex;flex-direction:column;gap:1px;}
     .log-row{display:grid;grid-template-columns:152px 72px 108px auto;gap:7px;padding:4px 8px;border-radius:4px;font-family:var(--mono);font-size:.59rem;border:1px solid transparent;}
     .log-row:hover{background:var(--card);border-color:var(--border);}
@@ -925,96 +203,43 @@
     .l-lv{text-align:center;}
     .l-ct{color:#9090b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .l-mg{color:var(--text);word-break:break-word;}
-    .lv-info{color:#90c8ff;} .lv-warning{color:#f0c060;} .lv-error{color:var(--danger);} .lv-critical{color:#e080e0;}
+    .lv-info{color:#90c8ff;}.lv-warning{color:#f0c060;}.lv-error{color:var(--danger);}.lv-critical{color:#e080e0;}
 
-      .ck-row {
-        display: flex;
-        gap: 12px;
-        font-family: var(--mono);
-        font-size: 0.56rem;
-        color: var(--muted);
-        margin-top: 9px;
-        flex-wrap: wrap;
-      }
-      .ck-item {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-      }
-      .ck-dot {
-        width: 7px;
-        height: 7px;
-        border-radius: 50%;
-      }
-
-      /* 🟠 ALERTA MAIS SUAVE */
-      @keyframes warnFlash {
-        0% {
-          background-color: rgba(240, 165, 0, 0.05);
-        }
-        50% {
-          background-color: rgba(240, 165, 0, 0.18);
-        }
-        100% {
-          background-color: rgba(240, 165, 0, 0.05);
-        }
-      }
-
-      @keyframes warnGlow {
-        0%,
-        100% {
-          box-shadow: 0 0 0 0 rgba(240, 165, 0, 0.3);
-        }
-        50% {
-          box-shadow: 0 0 6px 2px rgba(240, 165, 0, 0.6);
-        }
-      }
-
-      /* aplicado aos nodes com warning */
-      .node-card.hw.warn-animated {
-        animation: warnGlow 3s ease-in-out infinite;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="app">
-      <div id="toolbar">
-        <h2>&#9736; id3as DC Monitor</h2>
-        <div class="btn-group" id="dc-g">
-          <button class="grp-btn adc" data-dc="ix">IX</button>
-          <button class="grp-btn" data-dc="eq">EQ</button>
-        </div>
-        <div class="btn-group" id="vw-g">
-          <button class="grp-btn avw" data-view="channels">Channels</button>
-          <button class="grp-btn" data-view="nodes">Nodes</button>
-          <button class="grp-btn" data-view="running">Events</button>
-          <button class="grp-btn" data-view="scheduled">Scheduled</button>
-          <button class="grp-btn" data-view="logs">Logs</button>
-        </div>
-        <input class="tb-input" id="fi" type="text" placeholder="Filter..." />
-        <label class="toggle-wrap" id="rmg-wrap" style="display: none"
-          ><input type="checkbox" id="rmg-only" /> RMG only</label
-        >
-        <label class="toggle-wrap"
-          ><input type="checkbox" id="wo" /> Warnings only</label
-        >
-        <label class="toggle-wrap"
-          ><input type="checkbox" id="ao" /> In use only</label
-        >
-        <div class="sort-wrap" id="sort-wrap" style="display: none">
-          <button class="sort-btn" id="sort-btn" onclick="toggleSort(event)">
-            ⇅ Sort: <span id="sort-lbl"></span>
-          </button>
-          <div class="sort-menu" id="sort-menu"></div>
-        </div>
-        <button class="tb-btn" id="rb">&#8635; Refresh</button>
-        <div id="status-pill">
-          <span class="s-dot"></span><span id="st">Ready</span>
-        </div>
-      </div>
+    /* Chip legend */
+    .ck-row{display:flex;gap:12px;font-family:var(--mono);font-size:.56rem;color:var(--muted);margin-top:9px;flex-wrap:wrap;}
+    .ck-item{display:flex;align-items:center;gap:4px;}
+    .ck-dot{width:7px;height:7px;border-radius:50%;}
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="toolbar">
+    <h2>&#9736; id3as DC Monitor</h2>
+    <div class="btn-group" id="dc-g">
+      <button class="grp-btn" data-dc="ix">IX</button>
+      <button class="grp-btn" data-dc="eq">EQ</button>
+    </div>
+    <div class="btn-group" id="vw-g">
+      <button class="grp-btn" data-view="channels">Channels</button>
+      <button class="grp-btn" data-view="nodes">Nodes</button>
+      <button class="grp-btn" data-view="running">Events</button>
+      <button class="grp-btn" data-view="scheduled">Scheduled</button>
+      <button class="grp-btn" data-view="logs">Logs</button>
+    </div>
+    <input class="tb-input" id="fi" type="text" placeholder="Filter..."/>
+    <label class="toggle-wrap" id="rmg-wrap" style="display:none"><input type="checkbox" id="rmg-only"/> RMG only</label>
+    <label class="toggle-wrap"><input type="checkbox" id="wo"/> Warnings only</label>
+    <label class="toggle-wrap"><input type="checkbox" id="ao"/> In use only</label>
+    <div class="sort-wrap" id="sort-wrap" style="display:none">
+      <button class="sort-btn" id="sort-btn" onclick="toggleSort(event)">⇅ Sort: <span id="sort-lbl"></span></button>
+      <div class="sort-menu" id="sort-menu"></div>
+    </div>
+    <button class="tb-btn" id="rb">&#8635; Refresh</button>
+    <div id="status-pill"><span class="s-dot"></span><span id="st">Ready</span></div>
+  </div>
 
   <div id="sub-toolbar">
-    <!-- logs post-load controls: level filter only -->
+    <!-- Post-load log controls: level filter + live grep + back to search -->
     <div class="log-controls" id="log-controls" style="display:none">
       <span style="font-family:var(--mono);font-size:.58rem;color:var(--muted)">Level:</span>
       <div class="btn-group" id="lvl-g">
@@ -1028,8 +253,8 @@
       <span id="log-count" style="font-family:var(--mono);font-size:.58rem;color:var(--muted);margin-left:4px;"></span>
       <button class="tb-btn" id="log-back-btn" style="margin-left:auto;padding:3px 9px">← New search</button>
     </div>
-    <!-- scheduled horizon -->
-    <div class="log-controls" id="sched-controls">
+    <!-- Scheduled horizon buttons -->
+    <div class="log-controls" id="sched-controls" style="display:none">
       <span style="font-family:var(--mono);font-size:.58rem;color:var(--muted)">Horizon:</span>
       <button class="hz-btn active" data-days="3">3 days</button>
       <button class="hz-btn" data-days="7">7 days</button>
@@ -1038,451 +263,222 @@
     </div>
   </div>
 
-      <div id="content">
-        <div class="state-msg">
-          <div class="ico">&#9736;</div>
-          <div>Select a DC and view</div>
-        </div>
-      </div>
-    </div>
+  <div id="content">
+    <div class="state-msg"><div class="ico">&#9736;</div><div>Select a DC and view</div></div>
+  </div>
+</div>
 
-<!-- floating refresh overlay -->
+<!-- Floating refresh indicator — shown during background refresh without blanking content -->
 <div id="refresh-overlay"><span class="s-spin"></span><span>Refreshing…</span></div>
 
-    <script>
-      const PROXY = "/so-proxy";
-      const DC_URLS = {
-        ix: "https://ID3AS_HOST_IX_PLACEHOLDER/ctl/admin",
-        eq: "https://ID3AS_HOST_EQ_PLACEHOLDER/ctl/admin",
-      };
+<script>
+const PROXY='/so-proxy';
+// Base URLs for id3as web GUI deep links — used by nodeLink(), chLink(), evLink()
+const DC_URLS={
+  ix:'https://ID3AS_HOST_IX_PLACEHOLDER/ctl/admin',
+  eq:'https://ID3AS_HOST_EQ_PLACEHOLDER/ctl/admin'
+};
 
-      let dc = "ix",
-        view = "channels",
-        raw = {},
-        logEvents = [],
-        logLevel = "",
-        schedHorizonDays = 3,
-        hasData = false;
+// ── STATE ─────────────────────────────────────────────────────
+let dc='ix', view='channels', raw={}, logEvents=[], logLevel='', schedHorizonDays=3, hasData=false;
 
-      // ── INIT FROM URL ───────────────────────────
-      (function initFromURL() {
-        const params = new URLSearchParams(window.location.search);
-
-        const v = params.get("view");
-        if (
-          v &&
-          ["channels", "nodes", "running", "scheduled", "logs"].includes(v)
-        ) {
-          view = v;
-        }
-
-        const dcParam = params.get("dc");
-        if (dcParam && ["ix", "eq"].includes(dcParam)) {
-          dc = dcParam;
-        }
-
-        const inUseParam = params.get("inuse");
-
-        document.addEventListener("DOMContentLoaded", () => {
-          // ✅ agora DOM já existe
-          if (inUseParam === "1") {
-            $("ao").checked = true;
-            localStorage.setItem("activeOnly", "1");
-          }
-
-          // ✅ UI sync
-          setActiveViewButton();
-          setActiveDCButton();
-          updateToolbarForView();
-
-          // ✅ load
-          if (view !== "logs") {
-            load();
-          }
-        });
-      })();
-
-      const $ = (id) => document.getElementById(id);
-      const esc = (s) =>
-        String(s)
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;");
-
-      const sortState = {};
-
-      // ── SORT FROM URL ───────────────────────────
-      (function initSortFromURL() {
-        const params = new URLSearchParams(window.location.search);
-        const k = params.get("sort");
-        const d = parseInt(params.get("dir"), 10);
-
-        if (k) {
-          // só guardamos se for válido
-          sortState["nodes"] = { k, dir: d === -1 ? -1 : 1 };
-          sortState["running"] = { k, dir: d === -1 ? -1 : 1 };
-        }
-      })();
-
-      // ── SORT ──────────────────────────────────────────────────────
-
-      const SORT_FIELDS = {
-        nodes: [
-          { k: "id", label: "ID" },
-          { k: "cpu", label: "CPU" },
-          { k: "mem", label: "MEM" },
-          { k: "sched", label: "SCH" },
-          { k: "nW", label: "Warnings" },
-          { k: "evRows", label: "Events" },
-          { k: "nRn", label: "Jobs" },
-        ],
-        running: [
-          { k: "ch", label: "Channel" },
-          { k: "start", label: "Start" },
-          { k: "end", label: "End" },
-        ],
-      };
-
-      function getSort(v) {
-        try {
-          const s = localStorage.getItem("sort-" + v);
-          if (s) return JSON.parse(s);
-        } catch {}
-        return { k: v === "nodes" ? "id" : "ch", dir: 1 };
-      }
-      function setSort(v, k) {
-        const cur = sortState[v];
-        const dir = cur && cur.k === k ? -cur.dir : 1;
-        sortState[v] = { k, dir };
-
-        try {
-          localStorage.setItem("sort-" + v, JSON.stringify(sortState[v]));
-        } catch {}
-
-        // ✅ UPDATE URL
-
-        try {
-          const url = new URL(window.location);
-
-          url.searchParams.set("sort", k);
-          url.searchParams.set("dir", dir);
-          url.searchParams.set("view", v);
-
-          if ($("ao").checked) url.searchParams.set("inuse", "1");
-          else url.searchParams.delete("inuse");
-
-          if ($("wo").checked) url.searchParams.set("warn", "1");
-          else url.searchParams.delete("warn");
-
-          window.history.replaceState({}, "", url);
-        } catch {}
-
-        updateSortUI(v);
-        renderView();
-      }
-
-      function applySort(rows, v) {
-        const s = sortState[v];
-        if (!s || !SORT_FIELDS[v]) return rows;
-        return [...rows].sort((a, b) => {
-          let av = a[s.k],
-            bv = b[s.k];
-          if (Array.isArray(av)) av = av.length;
-          if (Array.isArray(bv)) bv = bv.length;
-          if (typeof av === "string") return s.dir * av.localeCompare(bv);
-          return s.dir * ((av || 0) - (bv || 0));
-        });
-      }
-      function updateSortUI(v) {
-        const fields = SORT_FIELDS[v];
-        if (!fields) {
-          $("sort-wrap").style.display = "none";
-          return;
-        }
-        $("sort-wrap").style.display = "";
-        const s = sortState[v];
-        const f = fields.find((x) => x.k === s.k) || fields[0];
-        $("sort-lbl").textContent = f.label + (s.dir === 1 ? " ↑" : " ↓");
-        $("sort-menu").innerHTML = fields
-          .map((x) => {
-            const active = x.k === s.k;
-            return `<div class="sort-opt${
-              active ? " active" : ""
-            }" onclick="setSort('${v}','${x.k}')">${
-              x.label
-            }<span class="sort-dir">${
-              active ? (s.dir === 1 ? "↑" : "↓") : ""
-            }</span></div>`;
-          })
-          .join("");
-      }
-      function toggleSort(e) {
-        e.stopPropagation();
-        $("sort-menu").classList.toggle("open");
-        $("sort-btn").classList.toggle("open");
-      }
-      document.addEventListener("click", () => {
-        $("sort-menu").classList.remove("open");
-        $("sort-btn").classList.remove("open");
-      });
-
-      // ── EXTERNAL LINKS ────────────────────────────────────────────
-      function dcBase() {
-        return DC_URLS[dc] || DC_URLS.ix;
-      }
-      function nodeLink(id) {
-        return `<a class="ext-lnk" href="${dcBase()}#nodes/${esc(
-          id
-        )}" target="_blank" rel="noopener">${esc(id)}</a>`;
-      }
-      function chLink(id) {
-        if (!id) return "-";
-        const frag = id.toUpperCase().startsWith("RMG_")
-          ? `ruk_channels/${id}`
-          : `channels/${id}`;
-        return `<a class="ext-lnk" href="${dcBase()}#${esc(
-          frag
-        )}" target="_blank" rel="noopener">${esc(id)}</a>`;
-      }
-      function evLink(evId) {
-        return `<a class="ext-lnk" href="${dcBase()}#events/${esc(
-          evId
-        )}" target="_blank" rel="noopener">#${esc(evId)}</a>`;
-      }
-
-      // ── HELPERS ───────────────────────────────────────────────────
-      function setSt(msg, type) {
-        const p = $("status-pill");
-        p.className = type || "";
-        p.innerHTML =
-          type === "loading"
-            ? '<span class="s-spin"></span><span>' + msg + "</span>"
-            : '<span class="s-dot"></span><span>' + msg + "</span>";
-      }
-      async function api(path) {
-        const r = await fetch(PROXY + "/id3as/" + dc + path);
-        if (!r.ok) {
-          const j = await r.json().catch(() => ({}));
-          throw new Error(j.error || "HTTP " + r.status);
-        }
-        return r.json();
-      }
-      async function apiSoft(path) {
-        try {
-          const r = await fetch(PROXY + "/id3as/" + dc + path);
-          if (!r.ok) return null;
-          return r.json();
-        } catch {
-          return null;
-        }
-      }
-
-      function fmtDt(s) {
-        if (!s) return "";
-        const m = String(s).match(/(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})/);
-        return m ? m[1] + " " + m[2] : String(s).slice(0, 16);
-      }
-      function isInfo(w) {
-        return (w.msg || "").includes("No traffic on source");
-      }
-      function findSched(obj) {
-        if (!obj || typeof obj !== "object") return null;
-        if (Array.isArray(obj)) {
-          for (const it of obj) {
-            const r = findSched(it);
-            if (r) return r;
-          }
-          return null;
-        }
-        if (obj.scheduled_event && typeof obj.scheduled_event === "object")
-          return obj.scheduled_event;
-        for (const v of Object.values(obj)) {
-          const r = findSched(v);
-          if (r) return r;
-        }
-        return null;
-      }
-      function stripH(s) {
-        if (!s) return "";
-        return s
-          .replace(/<br\s*\/?>/gi, " | ")
-          .replace(/<[^>]+>/g, "")
-          .replace(/\s+/g, " ")
-          .trim();
-      }
-      function bfm(arr) {
-        const m = {};
-        if (!Array.isArray(arr)) return m;
-        for (const f of arr) {
-          const s = f.system_id || "";
-          if (s) (m[s] = m[s] || []).push(f);
-        }
-        return m;
-      }
-      function bev(events) {
-        const m = {};
-        if (!Array.isArray(events)) return m;
-
-        for (const ev of events) {
-          const ch = ev.channel_id || "";
-          if (!ch) continue;
-
-          const s = findSched(ev) || {};
-
-          // limpa e extrai só o título base (antes do pipe)
-          const raw = stripH(s.description || "");
-          const baseName = raw.split("|")[0].trim();
-
-          // corta com consistência
-          const event_name =
-            baseName && baseName.length > 60
-              ? baseName.slice(0, 59) + "…"
-              : baseName || "---";
-
-          (m[ch] = m[ch] || []).push({
-            event_id: String(ev.id || ""),
-            event_name,
-            start: fmtDt(s.start_datetime),
-            end: fmtDt(s.end_datetime),
-          });
-        }
-
-        return m;
-      }
-
-      function pill(cls, txt) {
-        return '<span class="pill ' + cls + '">' + esc(txt) + "</span>";
-      }
-      function wb(n) {
-        return n
-          ? '<span class="wb wb-y">⚠ ' + n + "</span>"
-          : '<span class="wb wb-n">-</span>';
-      }
-      function sumBar(stats) {
-        return (
-          '<div class="sum-bar">' +
-          stats
-            .map(
-              ([l, v, c]) =>
-                '<div class="ss"><span class="sl">' +
-                l +
-                '</span><span class="sv ' +
-                (c || "") +
-                '">' +
-                v +
-                "</span></div>"
-            )
-            .join("") +
-          "</div>"
-        );
-      }
-      function bpsFmt(bps) {
-        return (bps / 1e6).toFixed(1) + " Mbps";
-      }
-      function streamInfo(status) {
-        if (!status) return "";
-        const si = status.source_info || {};
-        const vs = (si.video_streams || [])[0];
-        const aus = si.audio_streams || [];
-        if (!vs && !aus.length) return "";
-        let v = "",
-          a = "";
-        if (vs)
-          v =
-            '<span class="stream-codec">' +
-            esc(vs.format || "") +
-            "</span> <span>" +
-            esc((vs.width || "") + "x" + (vs.height || "")) +
-            "</span>";
-        if (aus.length) {
-          const fmts = [
-            ...new Set(aus.map((a) => a.format || "").filter(Boolean)),
-          ];
-          a =
-            ' <span class="stream-audio">| ' +
-            esc(fmts.join("/")) +
-            "&nbsp;×" +
-            aus.length +
-            "</span>";
-        }
-        return '<div class="stream-info">' + v + a + "</div>";
-      }
-      function empty(msg) {
-        return (
-          '<div class="state-msg"><div class="ico">&#128269;</div><div>' +
-          msg +
-          "</div></div>"
-        );
-      }
-      function ckRow() {
-        return (
-          '<div class="ck-row">' +
-          [
-            "#00ffc8|running",
-            "var(--danger)|warning",
-            "#f0a500|event/no signal",
-            "rgba(240,165,0,.5)|idle",
-            "var(--muted)|disabled",
-          ]
-            .map((x) => {
-              const [bg, lbl] = x.split("|");
-              return `<span class="ck-item"><span class="ck-dot" style="background:${bg}"></span>${lbl}</span>`;
-            })
-            .join("") +
-          "</div>"
-        );
-      }
-      function mBar(label, val) {
-        const p = Math.min(100, Math.round(val || 0)),
-          cls = p >= 80 ? "mf-cr" : p >= 60 ? "mf-wn" : "mf-ok",
-          vc = p >= 80 ? "dg" : p >= 60 ? "wn" : "";
-        return `<div class="mbar-wrap"><span class="mbar-lbl">${label}</span><div class="mbar"><div class="mbar-fill ${cls}" style="width:${p}%"></div></div><span class="mbar-val${
-          vc ? " sv " + vc : ""
-        }">${p}%</span></div>`;
-      }
-      function mBarSched(label, val) {
-        const p = Math.min(100, Math.round(val || 0)),
-          cls = p >= 70 ? "mf-cr" : p >= 30 ? "mf-wn" : "mf-ok",
-          vc = p >= 70 ? "dg" : p >= 30 ? "wn" : "";
-        return `<div class="mbar-wrap"><span class="mbar-lbl">${label}</span><div class="mbar"><div class="mbar-fill ${cls}" style="width:${p}%"></div></div><span class="mbar-val${
-          vc ? " sv " + vc : ""
-        }">${p}%</span></div>`;
-      }
-      function xpand(id, el) {
-        const r = document.getElementById(id);
-        if (!r) return;
-        const v = r.style.display !== "none";
-        r.style.display = v ? "none" : "";
-        el.textContent = v ? "▸" : "▾";
-      }
-
-      // --- Variables on URL
-      function setActiveViewButton() {
-        document.querySelectorAll("#vw-g .grp-btn").forEach((b) => {
-          b.classList.toggle("avw", b.dataset.view === view);
-        });
-      }
-
-      function setActiveDCButton() {
-        document.querySelectorAll("#dc-g .grp-btn").forEach((b) => {
-          b.classList.toggle("adc", b.dataset.dc === dc);
-        });
-      }
-
-// ── LOAD ──────────────────────────────────────────────────────
-// Capture log form values before load() replaces #content
+// Log form values are captured here before load() replaces #content (avoids null-ref on form fields)
 let pendingLogParams={from:'',to:'',fNode:'',fCh:'',fGrep:'',fLvl:''};
 
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+// ── URL PARAM INITIALISATION ──────────────────────────────────
+// Reads ?view=, ?dc=, ?inuse=, ?warn=, ?sort=, ?dir= on load.
+// This allows bookmarking or kiosk links with a specific state.
+(function initFromURL(){
+  const p=new URLSearchParams(window.location.search);
+
+  const v=p.get('view');
+  if(v&&['channels','nodes','running','scheduled','logs'].includes(v))view=v;
+
+  const d=p.get('dc');
+  if(d&&['ix','eq'].includes(d))dc=d;
+
+  // Checkbox state from URL (overrides localStorage)
+  document.addEventListener('DOMContentLoaded',()=>{
+    if(p.get('inuse')==='1'){$('ao').checked=true;localStorage.setItem('activeOnly','1');}
+    if(p.get('warn') ==='1'){$('wo').checked=true;localStorage.setItem('warningsOnly','1');}
+    syncViewButtons();
+    syncDCButtons();
+    updateToolbarForView();
+    if(view!=='logs')load();
+  });
+})();
+
+// ── SORT ──────────────────────────────────────────────────────
+const SORT_FIELDS={
+  nodes:[
+    {k:'id',label:'ID'},{k:'cpu',label:'CPU'},{k:'mem',label:'MEM'},
+    {k:'sched',label:'SCH'},{k:'nW',label:'Warnings'},{k:'evRows',label:'Events'},{k:'nRn',label:'Jobs'}
+  ],
+  running:[{k:'ch',label:'Channel'},{k:'start',label:'Start'},{k:'end',label:'End'}]
+};
+const sortState={};
+
+// Pre-load sort from URL (?sort=cpu&dir=-1) — applied before first render
+(function initSortFromURL(){
+  const p=new URLSearchParams(window.location.search);
+  const k=p.get('sort'), d=parseInt(p.get('dir'),10);
+  if(k){
+    const state={k,dir:d===-1?-1:1};
+    sortState['nodes']=state;
+    sortState['running']={...state}; // independent copies
+  }
+})();
+
+function getSort(v){
+  try{const s=localStorage.getItem('sort-'+v);if(s)return JSON.parse(s);}catch{}
+  return{k:v==='nodes'?'id':'ch',dir:1};
+}
+
+// Called when user picks a sort field. Updates state, localStorage, and URL.
+function setSort(v,k){
+  const cur=sortState[v];
+  const dir=(cur&&cur.k===k)?-cur.dir:1;
+  sortState[v]={k,dir};
+  try{localStorage.setItem('sort-'+v,JSON.stringify(sortState[v]));}catch{}
+  // Keep URL in sync so kiosk links / bookmarks reflect current state
+  pushURL();
+  updateSortUI(v);
+  renderView();
+}
+
+function applySort(rows,v){
+  const s=sortState[v];
+  if(!s||!SORT_FIELDS[v])return rows;
+  return[...rows].sort((a,b)=>{
+    let av=a[s.k],bv=b[s.k];
+    if(Array.isArray(av))av=av.length;
+    if(Array.isArray(bv))bv=bv.length;
+    if(typeof av==='string')return s.dir*av.localeCompare(bv);
+    return s.dir*((av||0)-(bv||0));
+  });
+}
+
+function updateSortUI(v){
+  const fields=SORT_FIELDS[v];
+  if(!fields){$('sort-wrap').style.display='none';return;}
+  $('sort-wrap').style.display='';
+  const s=sortState[v];
+  const f=fields.find(x=>x.k===s.k)||fields[0];
+  $('sort-lbl').textContent=f.label+(s.dir===1?' ↑':' ↓');
+  $('sort-menu').innerHTML=fields.map(x=>{
+    const active=x.k===s.k;
+    return`<div class="sort-opt${active?' active':''}" onclick="setSort('${v}','${x.k}')">${x.label}<span class="sort-dir">${active?(s.dir===1?'↑':'↓'):''}</span></div>`;
+  }).join('');
+}
+
+function toggleSort(e){
+  e.stopPropagation();
+  $('sort-menu').classList.toggle('open');
+  $('sort-btn').classList.toggle('open');
+}
+document.addEventListener('click',()=>{$('sort-menu').classList.remove('open');$('sort-btn').classList.remove('open');});
+
+// ── URL SYNC ──────────────────────────────────────────────────
+// Updates browser URL without reloading — keeps kiosk state bookmarkable
+function pushURL(){
+  try{
+    const url=new URL(window.location);
+    url.searchParams.set('view',view);
+    url.searchParams.set('dc',dc);
+    $('ao').checked?url.searchParams.set('inuse','1'):url.searchParams.delete('inuse');
+    $('wo').checked?url.searchParams.set('warn','1') :url.searchParams.delete('warn');
+    const s=sortState[view];
+    if(s&&SORT_FIELDS[view]){
+      url.searchParams.set('sort',s.k);
+      url.searchParams.set('dir',s.dir);
+    } else {
+      url.searchParams.delete('sort');
+      url.searchParams.delete('dir');
+    }
+    window.history.replaceState({},''  ,url);
+  }catch{}
+}
+
+// ── EXTERNAL LINKS ────────────────────────────────────────────
+function dcBase(){return DC_URLS[dc]||DC_URLS.ix;}
+function nodeLink(id){return`<a class="ext-lnk" href="${dcBase()}#nodes/${esc(id)}" target="_blank" rel="noopener">${esc(id)}</a>`;}
+function chLink(id){
+  if(!id)return'-';
+  const frag=id.toUpperCase().startsWith('RMG_')?`ruk_channels/${id}`:`channels/${id}`;
+  return`<a class="ext-lnk" href="${dcBase()}#${esc(frag)}" target="_blank" rel="noopener">${esc(id)}</a>`;
+}
+function evLink(evId){return`<a class="ext-lnk" href="${dcBase()}#events/${esc(evId)}" target="_blank" rel="noopener">#${esc(evId)}</a>`;}
+
+// ── UTILITIES ─────────────────────────────────────────────────
+function setSt(msg,type){
+  const p=$('status-pill');p.className=type||'';
+  p.innerHTML=type==='loading'?'<span class="s-spin"></span><span>'+msg+'</span>':'<span class="s-dot"></span><span>'+msg+'</span>';
+}
+async function api(path){
+  const r=await fetch(PROXY+'/id3as/'+dc+path);
+  if(!r.ok){const j=await r.json().catch(()=>({}));throw new Error(j.error||'HTTP '+r.status);}
+  return r.json();
+}
+async function apiSoft(path){try{const r=await fetch(PROXY+'/id3as/'+dc+path);if(!r.ok)return null;return r.json();}catch{return null;}}
+
+function fmtDt(s){if(!s)return'';const m=String(s).match(/(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})/);return m?m[1]+' '+m[2]:String(s).slice(0,16);}
+function isInfo(w){return(w.msg||'').includes('No traffic on source');}
+function findSched(obj){
+  if(!obj||typeof obj!=='object')return null;
+  if(Array.isArray(obj)){for(const it of obj){const r=findSched(it);if(r)return r;}return null;}
+  if(obj.scheduled_event&&typeof obj.scheduled_event==='object')return obj.scheduled_event;
+  for(const v of Object.values(obj)){const r=findSched(v);if(r)return r;}
+  return null;
+}
+function stripH(s){if(!s)return'';return s.replace(/<br\s*\/?>/gi,' | ').replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim();}
+function bfm(arr){const m={};if(!Array.isArray(arr))return m;for(const f of arr){const s=f.system_id||'';if(s)(m[s]=m[s]||[]).push(f);}return m;}
+function bev(events){
+  const m={};
+  if(!Array.isArray(events))return m;
+  for(const ev of events){
+    const ch=ev.channel_id||'';if(!ch)continue;
+    const s=findSched(ev)||{};
+    (m[ch]=m[ch]||[]).push({event_id:String(ev.id||''),event_name:stripH(s.description||'')||'---',start:fmtDt(s.start_datetime),end:fmtDt(s.end_datetime)});
+  }
+  return m;
+}
+function pill(cls,txt){return'<span class="pill '+cls+'">'+esc(txt)+'</span>';}
+function wb(n){return n?'<span class="wb wb-y">⚠ '+n+'</span>':'<span class="wb wb-n">-</span>';}
+function sumBar(stats){return'<div class="sum-bar">'+stats.map(([l,v,c])=>'<div class="ss"><span class="sl">'+l+'</span><span class="sv '+(c||'')+'">'+v+'</span></div>').join('')+'</div>';}
+function bpsFmt(bps){return(bps/1e6).toFixed(1)+' Mbps';}
+function streamInfo(status){
+  if(!status)return'';
+  const si=status.source_info||{},vs=(si.video_streams||[])[0],aus=si.audio_streams||[];
+  if(!vs&&!aus.length)return'';
+  let v='',a='';
+  if(vs)v='<span class="stream-codec">'+esc(vs.format||'')+'</span> <span>'+esc((vs.width||'')+'x'+(vs.height||''))+'</span>';
+  if(aus.length){const fmts=[...new Set(aus.map(a=>a.format||'').filter(Boolean))];a=' <span class="stream-audio">| '+esc(fmts.join('/'))+'&nbsp;×'+aus.length+'</span>';}
+  return'<div class="stream-info">'+v+a+'</div>';
+}
+function empty(msg){return'<div class="state-msg"><div class="ico">&#128269;</div><div>'+msg+'</div></div>';}
+function ckRow(){return'<div class="ck-row">'+['#00ffc8|running','var(--danger)|warning','#f0a500|event/no signal','rgba(240,165,0,.5)|idle','var(--muted)|disabled'].map(x=>{const[bg,lbl]=x.split('|');return`<span class="ck-item"><span class="ck-dot" style="background:${bg}"></span>${lbl}</span>`;}).join('')+'</div>';}
+function mBar(label,val){const p=Math.min(100,Math.round(val||0)),cls=p>=80?'mf-cr':p>=60?'mf-wn':'mf-ok',vc=p>=80?'dg':p>=60?'wn':'';return`<div class="mbar-wrap"><span class="mbar-lbl">${label}</span><div class="mbar"><div class="mbar-fill ${cls}" style="width:${p}%"></div></div><span class="mbar-val${vc?' sv '+vc:''}">${p}%</span></div>`;}
+function mBarSched(label,val){const p=Math.min(100,Math.round(val||0)),cls=p>=70?'mf-cr':p>=30?'mf-wn':'mf-ok',vc=p>=70?'dg':p>=30?'wn':'';return`<div class="mbar-wrap"><span class="mbar-lbl">${label}</span><div class="mbar"><div class="mbar-fill ${cls}" style="width:${p}%"></div></div><span class="mbar-val${vc?' sv '+vc:''}">${p}%</span></div>`;}
+
+// Sync active button highlights to current state variables
+function syncViewButtons(){document.querySelectorAll('#vw-g .grp-btn').forEach(b=>b.classList.toggle('avw',b.dataset.view===view));}
+function syncDCButtons() {document.querySelectorAll('#dc-g .grp-btn').forEach(b=>b.classList.toggle('adc',b.dataset.dc===dc));}
+
+// ── LOAD ──────────────────────────────────────────────────────
 async function load(){
-  // Capture log form values NOW, before DOM changes
+  // Capture log form field values NOW, before #content is overwritten by the spinner.
+  // These fields live inside #content so they become null once the DOM is replaced.
   if(view==='logs'){
     pendingLogParams={
-      from: ($('lf-date-from')||{}).value || todayUTC(),
-      to:   ($('lf-date-to'  )||{}).value || '',
-      fNode:($('lf-sel-node' )||{}).value || '',
-      fCh:  ($('lf-sel-ch'   )||{}).value || '',
-      fGrep:($('lf-grep'     )||{}).value || '',
-      fLvl: ($('lf-sel-lvl'  )||{}).value || ''
+      from: ($('lf-date-from')||{}).value||todayUTC(),
+      to:   ($('lf-date-to'  )||{}).value||'',
+      fNode:($('lf-sel-node' )||{}).value||'',
+      fCh:  ($('lf-sel-ch'   )||{}).value||'',
+      fGrep:($('lf-grep'     )||{}).value||'',
+      fLvl: ($('lf-sel-lvl'  )||{}).value||''
     };
   }
 
@@ -1503,6 +499,7 @@ async function load(){
         api('/running_events')
       ]);
       raw={channels:[...chD,...chR],flags,events:evs,statusMap:raw.statusMap||{}};
+      // Fetch statuses for all active channels (default + racing_uk) to populate bitrate/enc/src cells
       const activeIds=[...chD,...chR].filter(c=>c&&c.encoder_job_started).map(c=>c.id);
       renderChannels($('fi').value.trim().toLowerCase(),$('wo').checked,$('ao').checked);
       setSt(dc.toUpperCase()+' · '+new Date().toLocaleTimeString(),'ok');
@@ -1510,6 +507,7 @@ async function load(){
       $('refresh-overlay').classList.remove('vis');
       fetchStatuses(activeIds);
       return;
+
     } else if(view==='nodes'){
       const[nodes,info,chD,chR,flags,evs]=await Promise.all([
         api('/nodes'),api('/nodes/info'),
@@ -1517,33 +515,36 @@ async function load(){
         api('/flags/channels'),api('/running_events')
       ]);
       raw={nodes,nodesInfo:info,channels:[...chD,...chR],flags,events:evs};
+
     } else if(view==='running'){
       const[evs,fev,chD,chR]=await Promise.all([
         api('/running_events'),api('/flags/events'),
         api('/channels/default'),api('/channels/racing_uk').catch(()=>[])
       ]);
       raw={events:evs,flagsEv:fev,channels:[...chD,...chR]};
+
     } else if(view==='scheduled'){
       const[evs,chD,chR]=await Promise.all([
         api('/scheduled_events'),
         api('/channels/default'),
         api('/channels/racing_uk').catch(()=>[])
       ]);
-      // build input_address→channel_id map
+      // Build input_address → channel_id map for scheduled event channel resolution
+      // (scheduled events don't carry channel_id directly; we join via multicast IP)
       const specMap={};
-      for(const ch of[...chD,...chR]){
-        if(ch&&ch.input_address&&ch.id)
-          specMap[ch.input_address]=ch.id;
-      }
+      for(const ch of[...chD,...chR]){if(ch&&ch.input_address&&ch.id)specMap[ch.input_address]=ch.id;}
       raw={events:evs,specMap};
+
     } else if(view==='logs'){
       const{from,to,fNode,fCh,fGrep,fLvl}=pendingLogParams;
       logLevel=fLvl;
       const days=dateRange(from||todayUTC(),to||from||todayUTC());
+      // Fetch each day in parallel (max 14)
       const results=await Promise.all(days.map(d=>apiSoft('/logs/'+d).then(r=>Array.isArray(r)?r:[])));
       logEvents=results.flat();
       raw={logs:logEvents,fNode,fCh,fGrep};
     }
+
     renderView();
     setSt(dc.toUpperCase()+' · '+new Date().toLocaleTimeString(),'ok');
     hasData=true;
@@ -1554,717 +555,292 @@ async function load(){
   $('refresh-overlay').classList.remove('vis');
 }
 
-      async function fetchStatuses(ids) {
-        for (let i = 0; i < ids.length; i += 10) {
-          const slice = ids.slice(i, i + 10);
-          const results = await Promise.all(
-            slice.map((id) =>
-              apiSoft("/channel/" + encodeURIComponent(id) + "/status").then(
-                (d) => ({ id, d })
-              )
-            )
-          );
-          let changed = false;
-          for (const { id, d } of results) {
-            if (d) {
-              raw.statusMap[id] = d;
-              changed = true;
-            }
-          }
-          if (changed) updateStatusCells();
-        }
-      }
-      function updateStatusCells() {
-        for (const [id, st] of Object.entries(raw.statusMap || {})) {
-          const encEl = document.getElementById("enc-" + id);
-          const srcEl = document.getElementById("src-" + id);
-          const bpsEl = document.getElementById("bps-" + id);
-          const stEl = document.getElementById("str-" + id);
-          if (!encEl) continue;
-          const stat = st.statistics || {};
-          const evs = (raw.evMap || {})[id] || [];
-          const encState = st.state || "",
-            srcState = stat.source_state || "",
-            bps = stat.source_bitrate || 0;
-          encEl.innerHTML =
-            encState === "running"
-              ? pill("p-run", "running")
-              : encState
-              ? pill("p-err", "⚠ " + encState)
-              : pill("p-dis", "-");
-          srcEl.innerHTML =
-            srcState === "streaming"
-              ? pill("p-str", "streaming")
-              : srcState === "acquiring_signal"
-              ? evs.length
-                ? pill("p-crit", "⚠ no signal")
-                : pill("p-acq", "acquiring")
-              : srcState
-              ? pill("p-idle", srcState)
-              : pill("p-dis", "-");
-          if (bpsEl) {
-            bpsEl.className = "c-bps " + (bps > 0 ? "good" : "none");
-            bpsEl.textContent = bps > 0 ? bpsFmt(bps) : "";
-          }
-          if (stEl) stEl.innerHTML = streamInfo(st);
-        }
-      }
+// Fetches channel status (enc state, src state, bitrate) in batches of 10.
+// Updates cells in-place as responses arrive — no full re-render needed.
+async function fetchStatuses(ids){
+  for(let i=0;i<ids.length;i+=10){
+    const slice=ids.slice(i,i+10);
+    const results=await Promise.all(slice.map(id=>apiSoft('/channel/'+encodeURIComponent(id)+'/status').then(d=>({id,d}))));
+    let changed=false;
+    for(const{id,d}of results){if(d){raw.statusMap[id]=d;changed=true;}}
+    if(changed)updateStatusCells();
+  }
+}
 
-      function renderView() {
-        const f = $("fi").value.trim().toLowerCase(),
-          w = $("wo").checked,
-          a = $("ao").checked;
-        if (view === "channels") renderChannels(f, w, a);
-        else if (view === "nodes") renderNodes(f, w, a);
-        else if (view === "running") renderRunning(f, w);
-        else if (view === "scheduled") renderScheduled(f, w);
-        else if (view === "logs") renderLogs();
-      }
+function updateStatusCells(){
+  for(const[id,st]of Object.entries(raw.statusMap||{})){
+    const encEl=$('enc-'+id),srcEl=$('src-'+id),bpsEl=$('bps-'+id),stEl=$('str-'+id);
+    if(!encEl)continue;
+    const stat=st.statistics||{},evs=(raw.evMap||{})[id]||[];
+    const encState=st.state||'',srcState=stat.source_state||'',bps=stat.source_bitrate||0;
+    encEl.innerHTML=encState==='running'?pill('p-run','running'):encState?pill('p-err','⚠ '+encState):pill('p-dis','-');
+    srcEl.innerHTML=srcState==='streaming'?pill('p-str','streaming')
+      :srcState==='acquiring_signal'?(evs.length?pill('p-crit','⚠ no signal'):pill('p-acq','acquiring'))
+      :srcState?pill('p-idle',srcState):pill('p-dis','-');
+    if(bpsEl){bpsEl.className='c-bps '+(bps>0?'good':'none');bpsEl.textContent=bps>0?bpsFmt(bps):'';}
+    if(stEl)stEl.innerHTML=streamInfo(st);
+  }
+}
 
-      // ── CHANNELS ──────────────────────────────────────────────────
-      function renderChannels(filter, warnOnly, inUseOnly) {
-        const chs = Array.isArray(raw.channels) ? raw.channels : [];
-        const fm = bfm(raw.flags),
-          em = bev(raw.events);
-        raw.evMap = em;
-        const sm = raw.statusMap || {};
-        const rmgOnly = $("rmg-only").checked;
+function renderView(){
+  const f=$('fi').value.trim().toLowerCase(),w=$('wo').checked,a=$('ao').checked;
+  if(view==='channels')renderChannels(f,w,a);
+  else if(view==='nodes')renderNodes(f,w,a);
+  else if(view==='running')renderRunning(f,w);
+  else if(view==='scheduled')renderScheduled(f,w);
+  else if(view==='logs')renderLogs();
+}
 
-        let rows = chs
-          .filter((c) => c && typeof c === "object")
-          .map((ch) => {
-            const id = ch.id || "?",
-              node = ch.encoder_node_id || ch.target_node_id || "-";
-            const all = fm[id] || [],
-              wm = all.filter((w) => !isInfo(w)),
-              im = all.filter((w) => isInfo(w));
-            const evs = em[id] || [],
-              st = sm[id] || null,
-              stat = (st && st.statistics) || {};
-            return {
-              id,
-              node,
-              jobStarted: !!ch.encoder_job_started,
-              enabled: !!ch.enabled,
-              passthrough: !!ch.passthrough,
-              warnings: wm.length,
-              wm,
-              im,
-              evs,
-              isRmg: id.toUpperCase().startsWith("RMG_"),
-              encState: st ? st.state || "" : "",
-              srcState: stat.source_state || "",
-              bitrate: stat.source_bitrate || 0,
-              st,
-            };
-          });
+// ── CHANNELS ──────────────────────────────────────────────────
+function renderChannels(filter,warnOnly,inUseOnly){
+  const chs=Array.isArray(raw.channels)?raw.channels:[];
+  const fm=bfm(raw.flags),em=bev(raw.events);
+  raw.evMap=em;
+  const sm=raw.statusMap||{},rmgOnly=$('rmg-only').checked;
 
-        if (rmgOnly) rows = rows.filter((r) => r.isRmg);
-        if (filter)
-          rows = rows.filter(
-            (r) =>
-              r.id.toLowerCase().includes(filter) ||
-              r.node.toLowerCase().includes(filter) ||
-              r.evs.some((e) => e.event_name.toLowerCase().includes(filter))
-          );
-        if (warnOnly) rows = rows.filter((r) => r.warnings > 0);
-        if (inUseOnly) rows = rows.filter((r) => r.evs.length > 0);
-
-        const nW = rows.reduce((s, r) => s + r.warnings, 0),
-          nE = rows.reduce((s, r) => s + r.evs.length, 0);
-        const nRun = rows.filter((r) => r.jobStarted).length,
-          nStr = rows.filter((r) => r.srcState === "streaming").length;
-
-        let h = sumBar([
-          ["Channels", rows.length, "ac"],
-          ["Running", nRun, ""],
-          ["Streaming", nStr, nStr ? "ac" : ""],
-          ["Events", nE, nE ? "in" : ""],
-          ["Warnings", nW || "-", nW ? "dg" : ""],
-        ]);
-        h +=
-          '<div class="ch-header"><span>CHANNEL</span><span>NODE</span><span>ENC</span><span>SRC</span><span>BITRATE</span><span>STREAM</span><span style="text-align:right">WARN</span></div>';
-        h += '<div class="ch-list">';
-
-        for (const r of rows) {
-          const hasSub = r.warnings || r.evs.length || r.im.length;
-          const isCrit =
-            r.wm.some((w) => (w.msg || "").includes("No traffic on source")) &&
-            r.evs.length > 0;
-          const encH = r.encState
-            ? r.encState === "running"
-              ? pill("p-run", "running")
-              : pill("p-err", "⚠ " + r.encState)
-            : '<span style="color:var(--muted);font-size:.58rem;font-family:var(--mono)">-</span>';
-          const srcH = r.srcState
-            ? r.srcState === "streaming"
-              ? pill("p-str", "streaming")
-              : r.srcState === "acquiring_signal"
-              ? r.evs.length
-                ? pill("p-crit", "⚠ no signal")
-                : pill("p-acq", "acquiring")
-              : pill("p-idle", r.srcState)
-            : '<span style="color:var(--muted);font-size:.58rem;font-family:var(--mono)">-</span>';
-          const bpsH =
-            r.bitrate > 0
-              ? '<span class="c-bps good">' + bpsFmt(r.bitrate) + "</span>"
-              : '<span class="c-bps none">-</span>';
-          const jpH = r.jobStarted
-            ? ""
-            : r.enabled
-            ? '<span style="color:#f0a500;font-size:.56rem"> idle</span>'
-            : '<span style="color:var(--muted);font-size:.56rem"> dis</span>';
-
-          h +=
-            '<div class="ch-row' +
-            (isCrit ? " crit-row" : "") +
-            '">' +
-            '<div class="c-id">' +
-            chLink(r.id) +
-            (r.passthrough
-              ? ' <span style="color:var(--muted);font-size:.5rem">PT</span>'
-              : "") +
-            "</div>" +
-            '<div class="c-node">' +
-            esc(r.node) +
-            jpH +
-            "</div>" +
-            '<div class="c-enc" id="enc-' +
-            r.id +
-            '">' +
-            encH +
-            "</div>" +
-            '<div class="c-src" id="src-' +
-            r.id +
-            '">' +
-            srcH +
-            "</div>" +
-            '<div id="bps-' +
-            r.id +
-            '" class="c-bps ' +
-            (r.bitrate > 0 ? "good" : "none") +
-            '">' +
-            (r.bitrate > 0 ? bpsFmt(r.bitrate) : "-") +
-            "</div>" +
-            '<div id="str-' +
-            r.id +
-            '" class="c-stream">' +
-            (r.st ? streamInfo(r.st) : '<span></span>') +
-            "</div>" +
-            '<div class="c-warn">' +
-            wb(r.warnings) +
-            "</div>" +
-            "</div>";
-
-          if (hasSub) {
-            h += '<div class="ch-sub visible" id="sub-' + r.id + '">';
-            for (const ev of r.evs)
-              h +=
-                '<div class="ev-strip"><span class="ev-eid">' +
-                evLink(ev.event_id) +
-                '</span><span class="ev-name">' +
-                esc(ev.event_name.slice(0, 80)) +
-                '</span><span class="ev-time">' +
-                esc(ev.start) +
-                " → " +
-                esc(ev.end) +
-                "</span></div>";
-            for (const w of r.wm)
-              h +=
-                '<div class="warn-strip">⚠ <span class="ws-mod">[' +
-                esc(w.module || "") +
-                ']</span><span class="ws-msg">' +
-                esc(w.msg || "") +
-                '</span><span class="ws-rep">(×' +
-                esc(String(w.repeated || 0)) +
-                ")</span></div>";
-            for (const w of r.im)
-              h +=
-                '<div class="info-strip">ℹ [' +
-                esc(w.module || "") +
-                "] " +
-                esc(w.msg || "") +
-                "</div>";
-            h += "</div>";
-          }
-        }
-        h += "</div>";
-        if (!rows.length) h += empty("No channels match filters");
-        $("content").innerHTML = h;
-      }
-
-      // ── NODES ─────────────────────────────────────────────────────
-      function renderNodes(filter, warnOnly, inUseOnly) {
-        const allNodes = Array.isArray(raw.nodes) ? raw.nodes : [];
-        const infoArr = Array.isArray(raw.nodesInfo) ? raw.nodesInfo : [];
-        const chs = Array.isArray(raw.channels) ? raw.channels : [];
-        const fm = bfm(raw.flags),
-          em = bev(raw.events);
-        const im = {};
-        for (const n of infoArr) if (n.id) im[n.id] = n;
-        const cbN = {};
-        for (const ch of chs) {
-          if (!ch || typeof ch !== "object") continue;
-          (cbN[ch.encoder_node_id || ch.target_node_id || "__u__"] =
-            cbN[ch.encoder_node_id || ch.target_node_id || "__u__"] || []).push(
-            ch
-          );
-        }
-
-        let rows = allNodes.map((n) => {
-          const inf = im[n.id] || {},
-            m = inf.metrics || {};
-          const sched = Math.floor(
-            (inf.calculated_usage || inf.calculatedUsage || 0) * 100
-          );
-          const nodeChs = (cbN[n.id] || []).sort((a, b) =>
-            String(a.id).localeCompare(String(b.id))
-          );
-          const chData = nodeChs.map((ch) => {
-            const id = ch.id || "?",
-              all = fm[id] || [],
-              wm = all.filter((w) => !isInfo(w)),
-              evs = em[id] || [];
-            return {
-              id,
-              enabled: !!ch.enabled,
-              jobStarted: !!ch.encoder_job_started,
-              warnings: wm.length,
-              wm,
-              evs,
-              hasEv: evs.length > 0,
-            };
-          });
-          const evRows = [];
-          for (const c of chData)
-            for (const ev of c.evs) evRows.push({ chId: c.id, ev, chData: c });
-          const nW = chData.reduce((s, c) => s + c.warnings, 0);
-          return {
-            id: n.id,
-            host: n.host_name || "",
-            status: n.status || "unknown",
-            allowAlloc: !!n.allow_allocations,
-            capacity: n.max_capacity || n.capacity || 0,
-            cpu: m.cpu || 0,
-            mem: m.memory || 0,
-            gpu: m.gpu || 0,
-            sched,
-            nCh: nodeChs.length,
-            nRn: chData.filter((c) => c.jobStarted).length,
-            nW,
-            chData,
-            evRows,
-            hasEvs: evRows.length > 0,
-          };
-        });
-
-        if (filter)
-          rows = rows.filter(
-            (r) =>
-              r.id.toLowerCase().includes(filter) ||
-              r.host.toLowerCase().includes(filter) ||
-              r.chData.some((c) => c.id.toLowerCase().includes(filter)) ||
-              r.evRows.some((e) =>
-                e.ev.event_name.toLowerCase().includes(filter)
-              )
-          );
-        if (warnOnly)
-          rows = rows.filter(
-            (r) =>
-              r.nW > 0 ||
-              r.cpu >= 80 ||
-              r.mem >= 80 ||
-              r.sched >= 70 ||
-              r.status === "offline"
-          );
-        if (inUseOnly) rows = rows.filter((r) => r.hasEvs);
-        rows = applySort(rows, "nodes");
-
-        const nOn = rows.filter((r) => r.status === "online").length;
-        const nWtot = rows.reduce((s, r) => s + r.nW, 0),
-          nEvTot = rows.reduce((s, r) => s + r.evRows.length, 0);
-        const avgC = rows.length
-          ? Math.round(rows.reduce((s, r) => s + r.cpu, 0) / rows.length)
-          : 0;
-
-        let h = sumBar([
-          ["Nodes", rows.length, "ac"],
-          ["Online", nOn, ""],
-          ["Events", nEvTot, nEvTot ? "in" : ""],
-          ["Avg CPU", avgC + "%", avgC >= 80 ? "dg" : avgC >= 60 ? "wn" : ""],
-          ["Warnings", nWtot || "-", nWtot ? "dg" : ""],
-        ]);
-        h += '<div class="node-grid">';
-
-        for (const r of rows) {
-          const warnCls =
-            r.nW > 0 ? "hw warn-animated" : r.status === "offline" ? "off" : "";
-
-          h +=
-            '<div class="node-card ' +
-            warnCls +
-            '">' +
-            '<div class="node-head">' +
-            '<span class="pill ' +
-            (r.status === "online" ? "p-online" : "p-offline") +
-            '" style="font-size:.52rem">' +
-            esc(r.status) +
-            "</span>" +
-            '<div style="flex:1"><div class="node-id">' +
-            nodeLink(r.id) +
-            "</div>" +
-            (r.host ? '<div class="node-host">' + esc(r.host) + "</div>" : "") +
-            "</div>" +
-            (!r.allowAlloc
-              ? '<span style="font-family:var(--mono);font-size:.52rem;color:var(--warn);margin-right:4px">NO ALLOC</span>'
-              : "") +
-            (r.nW ? '<span class="wb wb-y">⚠ ' + r.nW + "</span>" : "") +
-            "</div>" +
-            '<div class="node-body"><div class="ch-chips">';
-          if (!r.chData.length)
-            h +=
-              '<span style="color:var(--muted);font-size:.58rem;font-family:var(--mono)">(none)</span>';
-          for (const c of r.chData) {
-            const cc = !c.enabled
-              ? "ck-dis"
-              : c.warnings
-              ? "ck-wn"
-              : c.hasEv && !c.jobStarted
-              ? "ck-evw"
-              : !c.jobStarted
-              ? "ck-idle"
-              : "ck-ok";
-            h +=
-              '<span class="ch-chip ' +
-              cc +
-              '" title="' +
-              esc(c.id) +
-              (c.hasEv
-                ? " | " + c.evs.map((e) => e.event_name).join(", ")
-                : "") +
-              '" style="cursor:default">' +
-              esc(c.id) +
-              "</span>";
-          }
-          h +=
-            "</div>" +
-            mBar("CPU", r.cpu) +
-            mBar("MEM", r.mem) +
-            mBarSched("SCH", r.sched) +
-            (r.gpu ? mBar("GPU", r.gpu) : "") +
-            '<div class="nmeta"><span>Jobs: <span class="nmv">' +
-            r.nRn +
-            "/" +
-            r.nCh +
-            "</span></span>" +
-            (r.capacity
-              ? '<span>Cap: <span class="nmv">' + r.capacity + "</span></span>"
-              : "") +
-            "</div>";
-          if (r.evRows.length) {
-            h += '<div class="nev-list">';
-            for (const { chId, ev, chData: cd } of r.evRows) {
-              h +=
-                '<div class="nev-row">' +
-                '<span class="nev-ch">' +
-                chLink(chId) +
-                "</span>" +
-                '<span class="nev-nm" title="' +
-                esc(ev.event_name) +
-                '">' +
-                evLink(ev.event_id) +
-                " " +
-                esc(ev.event_name.slice(0, 28)) +
-                "</span>" +
-                (!cd.jobStarted
-                  ? '<span class="nev-wn">⚠ no signal</span>'
-                  : "") +
-                "</div>";
-            }
-            h += "</div>";
-          }
-          if (r.nW) {
-            h += '<div class="nwarn-list">';
-            for (const c of r.chData.filter((c) => c.warnings > 0))
-              for (const w of c.wm)
-                h +=
-                  '<div class="warn-strip" style="font-size:.55rem">⚠ <span class="ws-mod">' +
-                  esc(c.id) +
-                  '</span><span class="ws-msg">' +
-                  esc(w.msg || "") +
-                  "</span></div>";
-            h += "</div>";
-          }
-          h += "</div></div>";
-        }
-        h += "</div>";
-        if (!rows.length) h += empty("No nodes match");
-        h += ckRow();
-        $("content").innerHTML = h;
-      }
-
-      // ── RUNNING EVENTS ────────────────────────────────────────────
-      function renderRunning(filter, warnOnly) {
-        const events = Array.isArray(raw.events) ? raw.events : [];
-        const fm = bfm(raw.flagsEv);
-        const chIdx = {};
-        for (const ch of Array.isArray(raw.channels) ? raw.channels : []) {
-          if (ch && ch.id) chIdx[ch.id] = !!ch.encoder_job_started;
-        }
-
-        let rows = events
-  .filter((e) => e && typeof e === "object")
-  .map((ev) => {
-    const id = String(ev.id || ""),
-      ch = ev.channel_id || "";
-
-    const s = findSched(ev) || {};
-
-    const flags = fm[ch] || [],
-      wm = flags.filter((w) => !isInfo(w));
-
-    const rawName = stripH(s.description || "");
-    const baseName = rawName.split("|")[0].trim();
-
-    const name =
-      baseName && baseName.length > 60
-        ? baseName.slice(0, 59) + "…"
-        : baseName || "-";
-
-    return {
-      id,
-      ch,
-      name,
-      start: fmtDt(s.start_datetime),
-      end: fmtDt(s.end_datetime),
-      encNode: ev.encoder_node_id || "",
-      pkgNode: ev.packager_node_id || "",
-      startedAt: fmtDt(ev.started_at),
-      warnings: wm.length,
-      wm,
-      evWarn: ch in chIdx && !chIdx[ch],
-    };
+  let rows=chs.filter(c=>c&&typeof c==='object').map(ch=>{
+    const id=ch.id||'?',node=ch.encoder_node_id||ch.target_node_id||'-';
+    const all=fm[id]||[],wm=all.filter(w=>!isInfo(w)),im=all.filter(w=>isInfo(w));
+    const evs=em[id]||[],st=sm[id]||null,stat=(st&&st.statistics)||{};
+    return{id,node,jobStarted:!!ch.encoder_job_started,enabled:!!ch.enabled,passthrough:!!ch.passthrough,
+      warnings:wm.length,wm,im,evs,isRmg:id.toUpperCase().startsWith('RMG_'),
+      encState:st?st.state||'':'',srcState:stat.source_state||'',bitrate:stat.source_bitrate||0,st};
   });
 
-        if (filter)
-          rows = rows.filter(
-            (r) =>
-              r.ch.toLowerCase().includes(filter) ||
-              r.name.toLowerCase().includes(filter) ||
-              r.encNode.toLowerCase().includes(filter) ||
-              r.id.includes(filter)
-          );
-        if (warnOnly) rows = rows.filter((r) => r.warnings > 0 || r.evWarn);
-        rows = applySort(rows, "running");
+  if(rmgOnly)rows=rows.filter(r=>r.isRmg);
+  if(filter)rows=rows.filter(r=>r.id.toLowerCase().includes(filter)||r.node.toLowerCase().includes(filter)||r.evs.some(e=>e.event_name.toLowerCase().includes(filter)));
+  if(warnOnly)rows=rows.filter(r=>r.warnings>0);
+  if(inUseOnly)rows=rows.filter(r=>r.evs.length>0);
 
-        const nW = rows.reduce((s, r) => s + r.warnings, 0),
-          nEvW = rows.filter((r) => r.evWarn).length;
-        let h = sumBar([
-          ["Events", rows.length, "ac"],
-          ["Warnings", nW || "-", nW ? "dg" : ""],
-          ["No signal", nEvW || "-", nEvW ? "wn" : ""],
-        ]);
-        if (!rows.length) {
-          h += empty("No running events");
-          $("content").innerHTML = h;
-          return;
-        }
+  const nW=rows.reduce((s,r)=>s+r.warnings,0),nE=rows.reduce((s,r)=>s+r.evs.length,0);
+  const nRun=rows.filter(r=>r.jobStarted).length,nStr=rows.filter(r=>r.srcState==='streaming').length;
+  let h=sumBar([['Channels',rows.length,'ac'],['Running',nRun,''],['Streaming',nStr,nStr?'ac':''],['Events',nE,nE?'in':''],['Warnings',nW||'-',nW?'dg':'']]);
+  h+='<div class="ch-header"><span>CHANNEL</span><span>NODE</span><span>ENC</span><span>SRC</span><span>BITRATE</span><span>STREAM</span><span style="text-align:right">WARN</span></div>';
+  h+='<div class="ch-list">';
+  for(const r of rows){
+    const hasSub=r.warnings||r.evs.length||r.im.length;
+    const isCrit=r.wm.some(w=>(w.msg||'').includes('No traffic on source'))&&r.evs.length>0;
+    const encH=r.encState?(r.encState==='running'?pill('p-run','running'):pill('p-err','⚠ '+r.encState)):'<span id="enc-'+r.id+'" style="color:var(--muted);font-size:.58rem;font-family:var(--mono)">-</span>';
+    const srcH=r.srcState?(r.srcState==='streaming'?pill('p-str','streaming'):r.srcState==='acquiring_signal'?(r.evs.length?pill('p-crit','⚠ no signal'):pill('p-acq','acquiring')):pill('p-idle',r.srcState)):'<span id="src-'+r.id+'" style="color:var(--muted);font-size:.58rem;font-family:var(--mono)">-</span>';
+    const jpH=r.jobStarted?'':r.enabled?'<span style="color:#f0a500;font-size:.56rem"> idle</span>':'<span style="color:var(--muted);font-size:.56rem"> dis</span>';
+    h+='<div class="ch-row'+(isCrit?' crit-row':'')+'">'+
+      '<div class="c-id">'+chLink(r.id)+(r.passthrough?' <span style="color:var(--muted);font-size:.5rem">PT</span>':'')+'</div>'+
+      '<div class="c-node">'+esc(r.node)+jpH+'</div>'+
+      '<div class="c-enc" id="enc-'+r.id+'">'+encH+'</div>'+
+      '<div class="c-src" id="src-'+r.id+'">'+srcH+'</div>'+
+      '<div id="bps-'+r.id+'" class="c-bps '+(r.bitrate>0?'good':'none')+'">'+(r.bitrate>0?bpsFmt(r.bitrate):'-')+'</div>'+
+      '<div id="str-'+r.id+'" class="c-stream">'+(r.st?streamInfo(r.st):'<span id="str-'+r.id+'"></span>')+'</div>'+
+      '<div class="c-warn">'+wb(r.warnings)+'</div></div>';
+    if(hasSub){
+      h+='<div class="ch-sub visible" id="sub-'+r.id+'">';
+      for(const ev of r.evs)h+='<div class="ev-strip"><span class="ev-eid">'+evLink(ev.event_id)+'</span><span class="ev-name">'+esc(ev.event_name.slice(0,80))+'</span><span class="ev-time">'+esc(ev.start)+' → '+esc(ev.end)+'</span></div>';
+      for(const w of r.wm)h+='<div class="warn-strip">⚠ <span class="ws-mod">['+esc(w.module||'')+']</span><span class="ws-msg">'+esc(w.msg||'')+'</span><span class="ws-rep">(×'+esc(String(w.repeated||0))+')</span></div>';
+      for(const w of r.im)h+='<div class="info-strip">ℹ ['+esc(w.module||'')+'] '+esc(w.msg||'')+'</div>';
+      h+='</div>';
+    }
+  }
+  h+='</div>';
+  if(!rows.length)h+=empty('No channels match filters');
+  $('content').innerHTML=h;
+}
 
-        for (const r of rows) {
-          h +=
-            '<div class="ev-card ' +
-            (r.warnings ? "hw" : r.evWarn ? "ev-warn-card" : "") +
-            '">' +
-            '<div class="ev-head">' +
-            '<span class="ev-eid2">' +
-            evLink(r.id) +
-            "</span>" +
-            '<div class="ev-name2">' +
-            esc(r.name) +
-            "</div>" +
-            (r.evWarn
-              ? '<span class="wb wb-y" style="background:rgba(240,165,0,.15);color:#f0a500;border-color:rgba(240,165,0,.35)">⚠ no signal</span>'
-              : "") +
-            (r.warnings ? wb(r.warnings) : "") +
-            "</div>" +
-            '<div class="ev-meta">' +
-            '<span>CH: <span class="mv">' +
-            chLink(r.ch) +
-            "</span></span>" +
-            '<span>Start: <span class="mv">' +
-            esc(r.start) +
-            "</span></span>" +
-            '<span>End: <span class="mv">' +
-            esc(r.end) +
-            "</span></span>" +
-            (r.encNode
-              ? '<span>Enc: <span class="mv">' +
-                nodeLink(r.encNode) +
-                "</span></span>"
-              : "") +
-            (r.pkgNode
-              ? '<span>Pkg: <span class="mv">' +
-                esc(r.pkgNode) +
-                "</span></span>"
-              : "") +
-            (r.startedAt
-              ? '<span>Started: <span class="mv">' +
-                esc(r.startedAt) +
-                "</span></span>"
-              : "") +
-            "</div>";
-          for (const w of r.wm)
-            h +=
-              '<div class="warn-strip">⚠ <span class="ws-mod">[' +
-              esc(w.module || "") +
-              ']</span><span class="ws-msg">' +
-              esc(w.msg || "") +
-              '</span><span class="ws-rep">(×' +
-              (w.repeated || 0) +
-              ")</span></div>";
-          h += "</div>";
-        }
-        $("content").innerHTML = h;
+// ── NODES ─────────────────────────────────────────────────────
+function renderNodes(filter,warnOnly,inUseOnly){
+  const allNodes=Array.isArray(raw.nodes)?raw.nodes:[];
+  const infoArr=Array.isArray(raw.nodesInfo)?raw.nodesInfo:[];
+  const chs=Array.isArray(raw.channels)?raw.channels:[];
+  const fm=bfm(raw.flags),em=bev(raw.events);
+  const im={};for(const n of infoArr)if(n.id)im[n.id]=n;
+  const cbN={};
+  for(const ch of chs){
+    if(!ch||typeof ch!=='object')continue;
+    const nid=ch.encoder_node_id||ch.target_node_id||'__u__';
+    (cbN[nid]=cbN[nid]||[]).push(ch);
+  }
+
+  let rows=allNodes.map(n=>{
+    const inf=im[n.id]||{},m=inf.metrics||{};
+    const sched=Math.floor((inf.calculated_usage||inf.calculatedUsage||0)*100);
+    const nodeChs=(cbN[n.id]||[]).sort((a,b)=>String(a.id).localeCompare(String(b.id)));
+    const chData=nodeChs.map(ch=>{
+      const id=ch.id||'?',all=fm[id]||[],wm=all.filter(w=>!isInfo(w)),evs=em[id]||[];
+      return{id,enabled:!!ch.enabled,jobStarted:!!ch.encoder_job_started,warnings:wm.length,wm,evs,hasEv:evs.length>0};
+    });
+    const evRows=[];
+    for(const c of chData)for(const ev of c.evs)evRows.push({chId:c.id,ev,chData:c});
+    const nW=chData.reduce((s,c)=>s+c.warnings,0);
+    return{id:n.id,host:n.host_name||'',status:n.status||'unknown',allowAlloc:!!n.allow_allocations,
+      capacity:n.max_capacity||n.capacity||0,cpu:m.cpu||0,mem:m.memory||0,gpu:m.gpu||0,sched,
+      nCh:nodeChs.length,nRn:chData.filter(c=>c.jobStarted).length,nW,chData,evRows,hasEvs:evRows.length>0};
+  });
+
+  if(filter)rows=rows.filter(r=>r.id.toLowerCase().includes(filter)||r.host.toLowerCase().includes(filter)||r.chData.some(c=>c.id.toLowerCase().includes(filter))||r.evRows.some(e=>e.ev.event_name.toLowerCase().includes(filter)));
+  if(warnOnly)rows=rows.filter(r=>r.nW>0||r.cpu>=80||r.mem>=80||r.sched>=70||r.status==='offline');
+  if(inUseOnly)rows=rows.filter(r=>r.hasEvs);
+  rows=applySort(rows,'nodes');
+
+  const nOn=rows.filter(r=>r.status==='online').length;
+  const nWtot=rows.reduce((s,r)=>s+r.nW,0),nEvTot=rows.reduce((s,r)=>s+r.evRows.length,0);
+  const avgC=rows.length?Math.round(rows.reduce((s,r)=>s+r.cpu,0)/rows.length):0;
+  let h=sumBar([['Nodes',rows.length,'ac'],['Online',nOn,''],['Events',nEvTot,nEvTot?'in':''],['Avg CPU',avgC+'%',avgC>=80?'dg':avgC>=60?'wn':''],['Warnings',nWtot||'-',nWtot?'dg':'']]);
+  h+='<div class="node-grid">';
+
+  for(const r of rows){
+    // warn-animated adds a gentle glow pulse on cards with active flag warnings (useful for kiosk)
+    const cardCls=r.nW>0?'hw warn-animated':r.status==='offline'?'off':'';
+    h+='<div class="node-card '+cardCls+'">'+
+      '<div class="node-head">'+
+        '<span class="pill '+(r.status==='online'?'p-online':'p-offline')+'" style="font-size:.52rem">'+esc(r.status)+'</span>'+
+        '<div style="flex:1"><div class="node-id">'+nodeLink(r.id)+'</div>'+(r.host?'<div class="node-host">'+esc(r.host)+'</div>':'')+'</div>'+
+        (!r.allowAlloc?'<span style="font-family:var(--mono);font-size:.52rem;color:var(--warn);margin-right:4px">NO ALLOC</span>':'')+
+        (r.nW?'<span class="wb wb-y">⚠ '+r.nW+'</span>':'')+
+      '</div>'+
+      '<div class="node-body"><div class="ch-chips">';
+    if(!r.chData.length)h+='<span style="color:var(--muted);font-size:.58rem;font-family:var(--mono)">(none)</span>';
+    for(const c of r.chData){
+      const cc=!c.enabled?'ck-dis':c.warnings?'ck-wn':c.hasEv&&!c.jobStarted?'ck-evw':!c.jobStarted?'ck-idle':'ck-ok';
+      h+='<span class="ch-chip '+cc+'" title="'+esc(c.id)+(c.hasEv?' | '+c.evs.map(e=>e.event_name).join(', '):'')+'" style="cursor:default">'+esc(c.id)+'</span>';
+    }
+    h+='</div>'+mBar('CPU',r.cpu)+mBar('MEM',r.mem)+mBarSched('SCH',r.sched)+(r.gpu?mBar('GPU',r.gpu):'')+
+      '<div class="nmeta"><span>Jobs: <span class="nmv">'+r.nRn+'/'+r.nCh+'</span></span>'+(r.capacity?'<span>Cap: <span class="nmv">'+r.capacity+'</span></span>':'')+
+    '</div>';
+    if(r.evRows.length){
+      h+='<div class="nev-list">';
+      for(const{chId,ev,chData:cd}of r.evRows){
+        h+='<div class="nev-row">'+
+          '<span class="nev-ch">'+chLink(chId)+'</span>'+
+          '<span class="nev-nm" title="'+esc(ev.event_name)+'">'+evLink(ev.event_id)+' '+esc(ev.event_name.slice(0,28))+'</span>'+
+          (!cd.jobStarted?'<span class="nev-wn">⚠ no signal</span>':'')+
+        '</div>';
       }
+      h+='</div>';
+    }
+    if(r.nW){
+      h+='<div class="nwarn-list">';
+      for(const c of r.chData.filter(c=>c.warnings>0))for(const w of c.wm)
+        h+='<div class="warn-strip" style="font-size:.55rem">⚠ <span class="ws-mod">'+esc(c.id)+'</span><span class="ws-msg">'+esc(w.msg||'')+'</span></div>';
+      h+='</div>';
+    }
+    h+='</div></div>';
+  }
+  h+='</div>';
+  if(!rows.length)h+=empty('No nodes match');
+  h+=ckRow();
+  $('content').innerHTML=h;
+}
 
-      // ── SCHEDULED ─────────────────────────────────────────────────
-      function renderScheduled(filter) {
-        const events = Array.isArray(raw.events) ? raw.events : [];
-        const specMap = raw.specMap || {};
-        const now = new Date();
-        let rows = events
-          .filter((e) => e && typeof e === "object")
-          .map((ev) => {
-            // channel_id: try root, then specifier→channel map
-            const spec = ev.primary_source_specifier || "";
-            const ch = ev.channel_id || specMap[spec] || "";
-            const id = String(ev.id || "");
-            const name = stripH(ev.description || "") || "-";
-            const startRaw = ev.start_datetime || null;
-            const endRaw = ev.end_datetime || null;
-            return {
-              id,
-              name,
-              ch,
-              spec,
-              start: fmtDt(startRaw),
-              end: fmtDt(endRaw),
-              startRaw: startRaw ? new Date(startRaw) : null,
-            };
-          });
+// ── RUNNING EVENTS ────────────────────────────────────────────
+function renderRunning(filter,warnOnly){
+  const events=Array.isArray(raw.events)?raw.events:[];
+  const fm=bfm(raw.flagsEv);
+  const chIdx={};for(const ch of Array.isArray(raw.channels)?raw.channels:[]){if(ch&&ch.id)chIdx[ch.id]=!!ch.encoder_job_started;}
 
-        if (schedHorizonDays > 0) {
-          const cutoff = new Date(now.getTime() + schedHorizonDays * 86400000);
-          rows = rows.filter((r) => !r.startRaw || r.startRaw <= cutoff);
-        }
-        rows.sort((a, b) => (a.startRaw || 0) - (b.startRaw || 0));
-        if (filter)
-          rows = rows.filter(
-            (r) =>
-              r.name.toLowerCase().includes(filter) ||
-              r.ch.toLowerCase().includes(filter) ||
-              r.id.includes(filter)
-          );
+  let rows=events.filter(e=>e&&typeof e==='object').map(ev=>{
+    const id=String(ev.id||''),ch=ev.channel_id||'';
+    const s=findSched(ev)||{},flags=fm[ch]||[],wm=flags.filter(w=>!isInfo(w));
+    return{id,ch,name:stripH(s.description||'')||'-',start:fmtDt(s.start_datetime),end:fmtDt(s.end_datetime),
+      encNode:ev.encoder_node_id||'',pkgNode:ev.packager_node_id||'',startedAt:fmtDt(ev.started_at),
+      warnings:wm.length,wm,evWarn:ch in chIdx&&!chIdx[ch]};
+  });
 
-        let h = sumBar([
-          ["Scheduled", rows.length, "ac"],
-          [
-            "Horizon",
-            schedHorizonDays > 0 ? schedHorizonDays + "d" : "all",
-            "",
-          ],
-        ]);
-        if (!rows.length) {
-          h += empty("No scheduled events");
-          $("content").innerHTML = h;
-          return;
-        }
-        h +=
-          '<table class="ct"><thead><tr><th>ID</th><th>Event</th><th>Channel</th><th>Start</th><th>End</th></tr></thead><tbody>';
-        for (const r of rows) {
-          h +=
-            "<tr>" +
-            '<td style="color:var(--muted);font-family:var(--mono);font-size:.58rem">' +
-            evLink(r.id) +
-            "</td>" +
-            '<td style="color:#f0c060;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' +
-            esc(r.name) +
-            '">' +
-            esc(r.name) +
-            "</td>" +
-            '<td class="c-ch">' +
-            (r.ch
-              ? chLink(r.ch)
-              : r.spec
-              ? '<span style="font-family:var(--mono);font-size:.58rem;color:var(--muted)">' +
-                esc(r.spec) +
-                "</span>"
-              : "-") +
-            "</td>" +
-            '<td style="font-family:var(--mono);font-size:.58rem;color:var(--muted)">' +
-            esc(r.start) +
-            "</td>" +
-            '<td style="font-family:var(--mono);font-size:.58rem;color:var(--muted)">' +
-            esc(r.end) +
-            "</td>" +
-            "</tr>";
-        }
-        h += "</tbody></table>";
-        $("content").innerHTML = h;
-      }
+  if(filter)rows=rows.filter(r=>r.ch.toLowerCase().includes(filter)||r.name.toLowerCase().includes(filter)||r.encNode.toLowerCase().includes(filter)||r.id.includes(filter));
+  if(warnOnly)rows=rows.filter(r=>r.warnings>0||r.evWarn);
+  rows=applySort(rows,'running');
+
+  const nW=rows.reduce((s,r)=>s+r.warnings,0),nEvW=rows.filter(r=>r.evWarn).length;
+  let h=sumBar([['Events',rows.length,'ac'],['Warnings',nW||'-',nW?'dg':''],['No signal',nEvW||'-',nEvW?'wn':'']]);
+  if(!rows.length){h+=empty('No running events');$('content').innerHTML=h;return;}
+
+  for(const r of rows){
+    h+='<div class="ev-card '+(r.warnings?'hw':r.evWarn?'ev-warn-card':'')+'">'+
+      '<div class="ev-head"><span class="ev-eid2">'+evLink(r.id)+'</span><div class="ev-name2">'+esc(r.name)+'</div>'+
+      (r.evWarn?'<span class="wb wb-y" style="background:rgba(240,165,0,.15);color:#f0a500;border-color:rgba(240,165,0,.35)">⚠ no signal</span>':'')+
+      (r.warnings?wb(r.warnings):'')+
+      '</div><div class="ev-meta">'+
+      '<span>CH: <span class="mv">'+chLink(r.ch)+'</span></span>'+
+      '<span>Start: <span class="mv">'+esc(r.start)+'</span></span>'+
+      '<span>End: <span class="mv">'+esc(r.end)+'</span></span>'+
+      (r.encNode?'<span>Enc: <span class="mv">'+nodeLink(r.encNode)+'</span></span>':'')+
+      (r.pkgNode?'<span>Pkg: <span class="mv">'+esc(r.pkgNode)+'</span></span>':'')+
+      (r.startedAt?'<span>Started: <span class="mv">'+esc(r.startedAt)+'</span></span>':'')+
+      '</div>';
+    for(const w of r.wm)h+='<div class="warn-strip">⚠ <span class="ws-mod">['+esc(w.module||'')+']</span><span class="ws-msg">'+esc(w.msg||'')+'</span><span class="ws-rep">(×'+(w.repeated||0)+')</span></div>';
+    h+='</div>';
+  }
+  $('content').innerHTML=h;
+}
+
+// ── SCHEDULED ─────────────────────────────────────────────────
+function renderScheduled(filter){
+  const events=Array.isArray(raw.events)?raw.events:[];
+  const specMap=raw.specMap||{},now=new Date();
+
+  let rows=events.filter(e=>e&&typeof e==='object').map(ev=>{
+    const spec=ev.primary_source_specifier||'';
+    const ch=ev.channel_id||specMap[spec]||'';
+    return{id:String(ev.id||''),name:stripH(ev.description||'')||'-',ch,spec,
+      start:fmtDt(ev.start_datetime),end:fmtDt(ev.end_datetime),
+      startRaw:ev.start_datetime?new Date(ev.start_datetime):null};
+  });
+
+  if(schedHorizonDays>0){const cutoff=new Date(now.getTime()+schedHorizonDays*86400000);rows=rows.filter(r=>!r.startRaw||r.startRaw<=cutoff);}
+  rows.sort((a,b)=>(a.startRaw||0)-(b.startRaw||0));
+  if(filter)rows=rows.filter(r=>r.name.toLowerCase().includes(filter)||r.ch.toLowerCase().includes(filter)||r.id.includes(filter));
+
+  let h=sumBar([['Scheduled',rows.length,'ac'],['Horizon',schedHorizonDays>0?schedHorizonDays+'d':'all','']]);
+  if(!rows.length){h+=empty('No scheduled events');$('content').innerHTML=h;return;}
+  h+='<table class="ct"><thead><tr><th>ID</th><th>Event</th><th>Channel</th><th>Start</th><th>End</th></tr></thead><tbody>';
+  for(const r of rows){
+    h+='<tr>'+
+      '<td style="color:var(--muted);font-family:var(--mono);font-size:.58rem">'+evLink(r.id)+'</td>'+
+      '<td style="color:#f0c060;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(r.name)+'">'+esc(r.name)+'</td>'+
+      '<td class="c-ch">'+(r.ch?chLink(r.ch):r.spec?'<span style="font-family:var(--mono);font-size:.58rem;color:var(--muted)">'+esc(r.spec)+'</span>':'-')+'</td>'+
+      '<td style="font-family:var(--mono);font-size:.58rem;color:var(--muted)">'+esc(r.start)+'</td>'+
+      '<td style="font-family:var(--mono);font-size:.58rem;color:var(--muted)">'+esc(r.end)+'</td>'+
+    '</tr>';
+  }
+  h+='</tbody></table>';
+  $('content').innerHTML=h;
+}
 
 // ── LOGS ──────────────────────────────────────────────────────
-function todayUTC(){
-  const n=new Date();
-  return n.getUTCFullYear()+'-'+String(n.getUTCMonth()+1).padStart(2,'0')+'-'+String(n.getUTCDate()).padStart(2,'0');
-}
+function todayUTC(){const n=new Date();return n.getUTCFullYear()+'-'+String(n.getUTCMonth()+1).padStart(2,'0')+'-'+String(n.getUTCDate()).padStart(2,'0');}
+
 function dateRange(from,to){
   if(!from)return[todayUTC().replace(/-/g,'/')];
   const t=to||from;
   const a=new Date(from+'T00:00:00Z'),b=new Date(t+'T00:00:00Z');
   if(isNaN(a)||isNaN(b)||a>b)return[from.replace(/-/g,'/')];
   const days=[];let cur=new Date(a);
-  while(cur<=b&&days.length<14){
-    days.push(cur.toISOString().slice(0,10).replace(/-/g,'/'));
-    cur=new Date(cur.getTime()+86400000);
-  }
+  while(cur<=b&&days.length<14){days.push(cur.toISOString().slice(0,10).replace(/-/g,'/'));cur=new Date(cur.getTime()+86400000);}
   return days;
 }
 
-// log suggestion cache — populated once per DC
+// Node and channel lists for the log search form dropdowns, cached per DC
 let logSuggestCache={nodes:[],channels:[]};
 
 async function ensureLogSuggestions(){
   if(logSuggestCache.nodes.length&&logSuggestCache.channels.length)return;
   try{
-    const[nd,chD,chR]=await Promise.all([
-      apiSoft('/nodes'),
-      apiSoft('/channels/default'),
-      apiSoft('/channels/racing_uk').catch(()=>[])
-    ]);
-    logSuggestCache.nodes  =(nd ||[]).map(n=>n.id).filter(Boolean).sort();
+    const[nd,chD,chR]=await Promise.all([apiSoft('/nodes'),apiSoft('/channels/default'),apiSoft('/channels/racing_uk').catch(()=>[])]);
+    logSuggestCache.nodes=(nd||[]).map(n=>n.id).filter(Boolean).sort();
     logSuggestCache.channels=[...(chD||[]),...(chR||[])].map(c=>c.id).filter(Boolean).sort();
   }catch{}
 }
 
+// Renders the log search form into #content.
+// Dropdowns are populated from logSuggestCache (fetched from API on first open).
 function showLogForm(){
   const td=todayUTC();
-  const nodes=logSuggestCache.nodes, channels=logSuggestCache.channels;
-  const nodeOpts='<option value="">— all nodes —</option>'+nodes.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
-  const chOpts  ='<option value="">— all channels —</option>'+channels.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  const nodeOpts='<option value="">— all nodes —</option>'+logSuggestCache.nodes.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  const chOpts  ='<option value="">— all channels —</option>'+logSuggestCache.channels.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
 
   $('content').innerHTML=`
     <div class="log-form">
       <h3>📋 Log Search</h3>
       <div class="lf-row">
-        <div class="lf-field">
-          <label>Date from</label>
-          <input class="date-input" id="lf-date-from" type="date" value="${td}"/>
-        </div>
-        <div class="lf-field">
-          <label>Date to</label>
-          <input class="date-input" id="lf-date-to" type="date" value="${td}"/>
-        </div>
+        <div class="lf-field"><label>Date from</label><input class="date-input" id="lf-date-from" type="date" value="${td}"/></div>
+        <div class="lf-field"><label>Date to</label><input class="date-input" id="lf-date-to" type="date" value="${td}"/></div>
         <div class="lf-field">
           <label>Level</label>
           <select class="lf-select" id="lf-sel-lvl">
@@ -2277,61 +853,38 @@ function showLogForm(){
         </div>
       </div>
       <div class="lf-row">
-        <div class="lf-field">
-          <label>Node</label>
-          <select class="lf-select" id="lf-sel-node">${nodeOpts}</select>
-        </div>
-        <div class="lf-field">
-          <label>Channel</label>
-          <select class="lf-select" id="lf-sel-ch">${chOpts}</select>
-        </div>
-        <div class="lf-field" style="flex:1;min-width:160px">
-          <label>Grep (free text)</label>
-          <input class="tb-input" id="lf-grep" placeholder="e.g. timeout, encoder…" style="width:100%;height:30px"/>
-        </div>
+        <div class="lf-field"><label>Node</label><select class="lf-select" id="lf-sel-node">${nodeOpts}</select></div>
+        <div class="lf-field"><label>Channel</label><select class="lf-select" id="lf-sel-ch">${chOpts}</select></div>
+        <div class="lf-field" style="flex:1;min-width:160px"><label>Grep (free text)</label><input class="tb-input" id="lf-grep" placeholder="e.g. timeout, encoder…" style="width:100%;height:30px"/></div>
       </div>
-      <div class="lf-row">
-        <button class="lf-load-btn" id="lf-submit-btn">Load Logs</button>
-      </div>
+      <div class="lf-row"><button class="lf-load-btn" id="lf-submit-btn">Load Logs</button></div>
       <div class="lf-hint">Leave fields empty to load all. Max 14 days at once.</div>
     </div>`;
 
-  $('lf-submit-btn').addEventListener('click',()=>{
-    logLevel=($('lf-sel-lvl')||{}).value||'';
-    hasData=false;load();
-  });
-  // Enter key on grep field
+  $('lf-submit-btn').addEventListener('click',()=>{logLevel=($('lf-sel-lvl')||{}).value||'';hasData=false;load();});
   $('lf-grep').addEventListener('keydown',e=>{if(e.key==='Enter'){logLevel=($('lf-sel-lvl')||{}).value||'';hasData=false;load();}});
 }
 
 function renderLogs(){
-  // show level filter bar
+  // Show the post-load toolbar (level filter, live grep, back button)
   $('log-controls').style.display='flex';
   $('sub-toolbar').style.display='';
 
   let events=Array.isArray(logEvents)?[...logEvents]:[];
-  const fNode=raw.fNode||'',fCh=raw.fCh||'',fGrep=raw.fGrep||'';
+  const{fNode='',fCh='',fGrep=''}=raw;
   const fMain=$('fi').value.trim().toLowerCase();
   const grep=$('lg')?$('lg').value.trim().toLowerCase():'';
 
-  // apply filters captured at fetch time
-  if(raw.fromDate||raw.toDate){} // already fetched correct days
+  // Apply filters from the search form (captured at fetch time)
   if(logLevel)events=events.filter(e=>(e.level||'').toLowerCase()===logLevel);
   if(fNode)events=events.filter(e=>((e.category||'')+' '+(e.message||'')).toLowerCase().includes(fNode.toLowerCase()));
   if(fCh)  events=events.filter(e=>((e.category||'')+' '+(e.message||'')).toLowerCase().includes(fCh.toLowerCase()));
-  if(fGrep){
-    const terms=fGrep.split(',').map(s=>s.trim()).filter(Boolean);
-    events=events.filter(e=>{const h=((e.category||'')+' '+(e.message||'')).toLowerCase();return terms.every(t=>h.includes(t));});
-  }
-  // live grep from sub-toolbar
-  if(grep){
-    const terms=grep.split(',').map(s=>s.trim()).filter(Boolean);
-    events=events.filter(e=>{const h=((e.id||'')+' '+(e.category||'')+' '+(e.level||'')+' '+(e.message||'')).toLowerCase();return terms.every(t=>h.includes(t));});
-  }
+  if(fGrep){const terms=fGrep.split(',').map(s=>s.trim()).filter(Boolean);events=events.filter(e=>{const h=((e.category||'')+' '+(e.message||'')).toLowerCase();return terms.every(t=>h.includes(t));});}
+  // Live grep from sub-toolbar (applied on top of form filters)
+  if(grep){const terms=grep.split(',').map(s=>s.trim()).filter(Boolean);events=events.filter(e=>{const h=((e.id||'')+' '+(e.category||'')+' '+(e.level||'')+' '+(e.message||'')).toLowerCase();return terms.every(t=>h.includes(t));});}
   if(fMain)events=events.filter(e=>((e.id||'')+' '+(e.category||'')+' '+(e.message||'')).toLowerCase().includes(fMain));
 
   $('log-count').textContent=events.length+' / '+logEvents.length;
-
   const lc={info:'lv-info',warning:'lv-warning',error:'lv-error',critical:'lv-critical'};
   let h='<div class="log-list">';
   for(const ev of events){
@@ -2346,47 +899,36 @@ function renderLogs(){
 
 // ── TOOLBAR VISIBILITY ────────────────────────────────────────
 function updateToolbarForView(){
-  $('sort-wrap').style.display = SORT_FIELDS[view] ? '' : 'none';
-
-  if (SORT_FIELDS[view]) {
-    if (!sortState[view]) sortState[view] = getSort(view);
-    updateSortUI(view);
-  }
-
-  const isLog = view === 'logs';
-  const isSched = view === 'scheduled';
-
-  $('sub-toolbar').style.display = (isLog || isSched) ? '' : 'none';
-
-  $('log-controls').style.display = isLog ? '' : 'none';
-
-  const sched = $('sched-controls');
-  if (sched) sched.style.display = isSched ? 'flex' : 'none';
-
-  $('rmg-wrap').style.display = view === 'channels' ? '' : 'none';
-
-  if (isLog) {
-    ensureLogSuggestions().then(showLogForm);
-  }
+  $('sort-wrap').style.display=SORT_FIELDS[view]?'':'none';
+  if(SORT_FIELDS[view]){if(!sortState[view])sortState[view]=getSort(view);updateSortUI(view);}
+  const isLog=view==='logs',isSched=view==='scheduled';
+  $('sub-toolbar').style.display=isSched?'':'none'; // logs manages its own sub-toolbar state
+  $('log-controls').style.display='none';           // hidden until log results are loaded
+  $('sched-controls').style.display=isSched?'flex':'none';
+  $('rmg-wrap').style.display=view==='channels'?'':'none';
+  // For logs: fetch node/channel suggestions then show the search form
+  if(isLog)ensureLogSuggestions().then(showLogForm);
 }
 
-// ── WIRING ────────────────────────────────────────────────────
+// ── EVENT WIRING ─────────────────────────────────────────────
 document.querySelectorAll('#dc-g .grp-btn').forEach(btn=>btn.addEventListener('click',()=>{
   document.querySelectorAll('#dc-g .grp-btn').forEach(b=>b.classList.remove('adc'));
   btn.classList.add('adc');dc=btn.dataset.dc;hasData=false;
   logEvents=[];logSuggestCache={nodes:[],channels:[]};
-  load();
+  pushURL();load();
 }));
+
 document.querySelectorAll('#vw-g .grp-btn').forEach(btn=>btn.addEventListener('click',()=>{
   document.querySelectorAll('#vw-g .grp-btn').forEach(b=>b.classList.remove('avw'));
   btn.classList.add('avw');view=btn.dataset.view;hasData=false;
-  updateToolbarForView();
-  if(view!=='logs')load(); // logs shows prompt, waits for explicit Fetch
+  pushURL();updateToolbarForView();
+  if(view!=='logs')load(); // logs view shows the search form first; fetch only on submit
 }));
+
 $('rb').addEventListener('click',load);
 $('fi').addEventListener('input',()=>{if(hasData)renderView();});
-$('wo').addEventListener('change',()=>{localStorage.setItem('warningsOnly',$('wo').checked?'1':'0');if(hasData)renderView();});
-$('ao').addEventListener('change',()=>{localStorage.setItem('activeOnly',$('ao').checked?'1':'0');if(hasData)renderView();});
+$('wo').addEventListener('change',()=>{localStorage.setItem('warningsOnly',$('wo').checked?'1':'0');pushURL();if(hasData)renderView();});
+$('ao').addEventListener('change',()=>{localStorage.setItem('activeOnly',$('ao').checked?'1':'0');pushURL();if(hasData)renderView();});
 $('rmg-only').addEventListener('change',()=>{if(hasData)renderView();});
 
 document.querySelectorAll('#lvl-g .log-lvl').forEach(btn=>btn.addEventListener('click',()=>{
@@ -2395,7 +937,7 @@ document.querySelectorAll('#lvl-g .log-lvl').forEach(btn=>btn.addEventListener('
   if(hasData&&view==='logs')renderLogs();
 }));
 $('lg').addEventListener('input',()=>{if(hasData&&view==='logs')renderLogs();});
-// "← New search" goes back to the form
+
 $('log-back-btn').addEventListener('click',()=>{
   logEvents=[];hasData=false;logLevel='';
   $('log-controls').style.display='none';
@@ -2409,20 +951,17 @@ document.querySelectorAll('.hz-btn').forEach(btn=>btn.addEventListener('click',(
   if(hasData)renderView();
 }));
 
-      // restore checkbox state
-      //try{$('ao').checked=localStorage.getItem('activeOnly')==='1';$('wo').checked=localStorage.getItem('warningsOnly')==='1';}catch{}
+// Restore checkbox state from localStorage (URL params take precedence — handled in initFromURL)
+try{
+  if(localStorage.getItem('activeOnly')==='1')$('ao').checked=true;
+  if(localStorage.getItem('warningsOnly')==='1')$('wo').checked=true;
+}catch{}
 
-      // restore handled via URL init
-      try {
-      } catch {}
+// Initialise sort state from localStorage (URL params take precedence — handled in initSortFromURL)
+['nodes','running'].forEach(v=>{if(!sortState[v])sortState[v]=getSort(v);});
 
-// init sort state
-['nodes','running'].forEach(v=>{sortState[v]=getSort(v);});
-
-      // auto-refresh 30s — skip logs (manual fetch only)
-      setInterval(() => {
-        if (hasData && view !== "logs") load();
-      }, 30000);
-    </script>
-  </body>
+// Auto-refresh every 30 seconds — logs are manual-fetch only (too expensive to auto-refresh)
+setInterval(()=>{if(hasData&&view!=='logs')load();},30000);
+</script>
+</body>
 </html>
