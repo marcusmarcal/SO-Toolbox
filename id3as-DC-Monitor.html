@@ -125,7 +125,7 @@
     .stream-codec{color:#b0b0d0;}.stream-audio{color:#7070a0;}
     .ev-strip{display:flex;align-items:baseline;gap:8px;font-family:var(--mono);font-size:.61rem;padding:3px 0 1px;flex-wrap:wrap;}
     .ev-eid{color:var(--muted);font-size:.58rem;}
-    .ev-name{color:#f0c060;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .ev-name{color:#f0c060;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
     .ev-time{color:var(--muted);font-size:.58rem;white-space:nowrap;}
     .warn-strip{display:flex;align-items:baseline;gap:6px;font-family:var(--mono);font-size:.6rem;padding:1px 0;color:var(--danger);}
     .ws-mod{color:var(--muted);min-width:75px;}.ws-msg{color:#ffb0b8;}.ws-rep{color:var(--muted);}
@@ -171,9 +171,20 @@
     .ev-card.ev-warn-card{border-color:rgba(240,165,0,.35);}
     .ev-head{display:flex;align-items:flex-start;gap:9px;margin-bottom:5px;}
     .ev-eid2{font-family:var(--mono);font-size:.58rem;color:var(--muted);white-space:nowrap;padding-top:2px;}
-    .ev-name2{font-family:var(--display);font-size:.8rem;font-weight:600;color:#f0c060;flex:1;}
+    .ev-name2{font-family:var(--display);font-size:.8rem;font-weight:600;color:#f0c060;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .ev-meta{display:flex;gap:10px;font-family:var(--mono);font-size:.58rem;color:var(--muted);flex-wrap:wrap;margin-bottom:5px;}
     .ev-meta .mv{color:var(--text);}
+
+    /* ── FLAGS/EVENTS BANNER ── */
+    #flags-banner{display:none;padding:4px 12px;background:rgba(240,165,0,.07);border-bottom:1px solid rgba(240,165,0,.25);flex-shrink:0;overflow:hidden;}
+    .fb-inner{display:flex;align-items:center;gap:0;overflow:hidden;white-space:nowrap;}
+    .fb-label{font-family:var(--mono);font-size:.56rem;font-weight:700;color:#f0a500;text-transform:uppercase;letter-spacing:.1em;flex-shrink:0;margin-right:8px;}
+    .fb-items{display:flex;gap:10px;overflow:hidden;flex:1;min-width:0;}
+    .fb-item{font-family:var(--mono);font-size:.56rem;color:#f0c060;display:flex;align-items:baseline;gap:4px;flex-shrink:0;max-width:340px;min-width:0;overflow:hidden;}
+    .fb-item .fb-sys{color:var(--muted);flex-shrink:0;}
+    .fb-item .fb-rep{color:var(--muted);font-size:.52rem;flex-shrink:0;}
+    .fb-item .fb-msg{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+    .fb-more{font-family:var(--mono);font-size:.55rem;color:var(--muted);flex-shrink:0;margin-left:8px;}
 
     /* ── TABLE (Scheduled) ── */
     .ct{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.66rem;}
@@ -263,6 +274,8 @@
     </div>
   </div>
 
+  <div id="flags-banner"><div class="fb-inner"><span class="fb-label">&#9888; Event Flags</span><div class="fb-items" id="fb-items"></div><span class="fb-more" id="fb-more"></span></div></div>
+
   <div id="content">
     <div class="state-msg"><div class="ico">&#9736;</div><div>Select a DC and view</div></div>
   </div>
@@ -280,7 +293,7 @@ const DC_URLS={
 };
 
 // ── STATE ─────────────────────────────────────────────────────
-let dc='ix', view='channels', raw={}, logEvents=[], logLevel='', schedHorizonDays=3, hasData=false;
+let dc='ix', view='channels', raw={}, logEvents=[], logLevel='', schedHorizonDays=3, hasData=false, flagsEvData=[];
 
 // Log form values are captured here before load() replaces #content (avoids null-ref on form fields)
 let pendingLogParams={from:'',to:'',fNode:'',fCh:'',fGrep:'',fLvl:''};
@@ -499,6 +512,7 @@ async function load(){
         api('/running_events')
       ]);
       raw={channels:[...chD,...chR],flags,events:evs,statusMap:raw.statusMap||{}};
+      flagsEvData=await apiSoft('/flags/events').then(r=>Array.isArray(r)?r:[]).catch(()=>[]);
       // Fetch statuses for all active channels (default + racing_uk) to populate bitrate/enc/src cells
       const activeIds=[...chD,...chR].filter(c=>c&&c.encoder_job_started).map(c=>c.id);
       renderChannels($('fi').value.trim().toLowerCase(),$('wo').checked,$('ao').checked);
@@ -515,6 +529,7 @@ async function load(){
         api('/flags/channels'),api('/running_events')
       ]);
       raw={nodes,nodesInfo:info,channels:[...chD,...chR],flags,events:evs};
+      flagsEvData=await apiSoft('/flags/events').then(r=>Array.isArray(r)?r:[]).catch(()=>[]);
 
     } else if(view==='running'){
       const[evs,fev,chD,chR]=await Promise.all([
@@ -522,6 +537,7 @@ async function load(){
         api('/channels/default'),api('/channels/racing_uk').catch(()=>[])
       ]);
       raw={events:evs,flagsEv:fev,channels:[...chD,...chR]};
+      flagsEvData=Array.isArray(fev)?fev:[];
 
     } else if(view==='scheduled'){
       const[evs,chD,chR]=await Promise.all([
@@ -534,6 +550,7 @@ async function load(){
       const specMap={};
       for(const ch of[...chD,...chR]){if(ch&&ch.input_address&&ch.id)specMap[ch.input_address]=ch.id;}
       raw={events:evs,specMap};
+      flagsEvData=await apiSoft('/flags/events').then(r=>Array.isArray(r)?r:[]).catch(()=>[]);
 
     } else if(view==='logs'){
       const{from,to,fNode,fCh,fGrep,fLvl}=pendingLogParams;
@@ -546,6 +563,7 @@ async function load(){
     }
 
     renderView();
+    renderFlagsBanner();
     setSt(dc.toUpperCase()+' · '+new Date().toLocaleTimeString(),'ok');
     hasData=true;
   }catch(e){
@@ -580,6 +598,38 @@ function updateStatusCells(){
     if(bpsEl){bpsEl.className='c-bps '+(bps>0?'good':'none');bpsEl.textContent=bps>0?bpsFmt(bps):'';}
     if(stEl)stEl.innerHTML=streamInfo(st);
   }
+}
+
+// ── FLAGS/EVENTS BANNER ───────────────────────────────────────
+// Renders a persistent warning strip beneath the toolbar for flags/events warnings.
+// Visible on all views whenever flagsEvData contains entries.
+function renderFlagsBanner(){
+  const banner=$('flags-banner');
+  if(!Array.isArray(flagsEvData)||!flagsEvData.length){
+    banner.style.display='none';
+    return;
+  }
+  // Sort: highest repeated count first; break ties by created desc
+  const sorted=[...flagsEvData].sort((a,b)=>{
+    const rd=(b.repeated||0)-(a.repeated||0);
+    if(rd!==0)return rd;
+    return(b.created||'').localeCompare(a.created||'');
+  });
+  const MAX_VISIBLE=6;
+  const visible=sorted.slice(0,MAX_VISIBLE);
+  const overflow=sorted.length-MAX_VISIBLE;
+  $('fb-items').innerHTML=visible.map(f=>{
+    const sys=f.system_id?'['+esc(String(f.system_id))+']':'';
+    const mod=f.module?'['+esc(f.module)+']':'';
+    const tag=sys||mod;
+    const rep=f.repeated>0?'×'+f.repeated:'';
+    const msg=esc((f.msg||'').trim());
+    return'<span class="fb-item" title="'+esc((f.msg||'').trim())+'">'+(tag?'<span class="fb-sys">'+tag+'</span>':'')+
+      '<span class="fb-msg">'+msg+'</span>'+(rep?'<span class="fb-rep">'+rep+'</span>':'')+
+      '</span>';
+  }).join('');
+  $('fb-more').textContent=overflow>0?'+'+overflow+' more':'';
+  banner.style.display='';
 }
 
 function renderView(){
