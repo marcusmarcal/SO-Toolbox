@@ -80,17 +80,21 @@ def start_chromium():
 
     p = run([
         CHROMIUM_PATH,
-        "--kiosk",
-        "--start-fullscreen",
-        "--disable-infobars",
-        "--noerrdialogs",
-        "--disable-session-crashed-bubble",
-        "--disable-features=TranslateUI",
+    "--disable-gpu",
+    "--disable-software-rasterizer",
+    "--disable-dev-shm-usage",
+    "--no-sandbox",
+    "--disable-background-networking",
+    "--disable-extensions",
+    "--autoplay-policy=no-user-gesture-required",
+    "--ignore-certificate-errors",
+    "--allow-insecure-localhost",
+    "--unsafely-treat-insecure-origin-as-secure=https://10.11.203.239",
         HTML_URL
     ], env=env)
 
     processes.append(p)
-    time.sleep(5)
+    time.sleep(10)
 
 # ============================================================
 # FFMPEG (SRT PUSH)
