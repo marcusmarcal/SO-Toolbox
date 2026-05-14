@@ -6,6 +6,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.17.1] - 2026-05-14
+
+### Fixed
+
+- Channel Monitor modal now triggered via dedicated ⧉ button beside channel ID,
+  preserving the external link click to id3as GUI; previously `onclick` on the
+  row captured all clicks including on the `<a>` ext-lnk.
+  
 ## [2.17.0] - 2026-05-14
 
 ### Added
