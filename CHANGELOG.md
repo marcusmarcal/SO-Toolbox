@@ -7,6 +7,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.15.3] - 2026-05-14
+
+### Changed
+
+- Log results now displayed in reverse chronological order (newest first).
+
 ## [2.15.2] - 2026-05-14
 
 ### Fixed
