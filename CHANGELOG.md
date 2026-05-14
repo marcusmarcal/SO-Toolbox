@@ -6,6 +6,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.17.0] - 2026-05-14
+
+### Added
+
+- **Channel Monitor modal** — click any channel in Channels view to open detailed monitor
+- Modal displays live bitrate graph (SVG, up to 2min history @ 1Hz polling)
+- Channel encoder/packager nodes as external links to id3as GUI
+- Active events list with IDs, timestamps, and encoder node links
+- Warnings list filtered by channel ID with module, message, repeat count
+- Encoder/Source state status, current bitrate, stream codec/audio info
+- Modal auto-closes on close button or backdrop click; polling cleanup on close
+
 
 ## [2.16.0] - 2026-05-14
 

@@ -220,6 +220,37 @@
     .ck-row{display:flex;gap:12px;font-family:var(--mono);font-size:.56rem;color:var(--muted);margin-top:9px;flex-wrap:wrap;}
     .ck-item{display:flex;align-items:center;gap:4px;}
     .ck-dot{width:7px;height:7px;border-radius:50%;}
+
+    /* ── CHANNEL MONITOR MODAL ── */
+    .ch-modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(4px);}
+    .ch-modal-content{background:var(--surface);border:1px solid var(--border);border-radius:12px;max-width:900px;width:90%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.8);}
+    .ch-modal-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);background:var(--card);position:sticky;top:0;z-index:1001;}
+    .ch-modal-header h2{font-family:var(--display);font-size:.85rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin:0;}
+    .ch-modal-close{background:transparent;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;padding:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:4px;transition:all .15s;}
+    .ch-modal-close:hover{background:rgba(255,255,255,.05);color:var(--accent);}
+    .ch-modal-body{padding:16px;}
+    .chm-info-strip{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:6px;margin-bottom:12px;font-family:var(--mono);font-size:.6rem;flex-wrap:wrap;}
+    .chm-label{color:var(--muted);text-transform:uppercase;letter-spacing:.06em;}
+    .chm-id,.chm-node{color:var(--accent);font-weight:700;}
+    .chm-status-box{display:grid;grid-template-columns:150px 1fr;gap:8px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:6px;margin-bottom:14px;font-family:var(--mono);font-size:.58rem;}
+    .chm-stat-row{display:contents;}
+    .chm-stat-label{color:var(--muted);text-transform:uppercase;letter-spacing:.06em;}
+    .chm-stat-value{color:var(--text);}
+    .chm-warnings-section,.chm-events-section{margin-bottom:14px;}
+    .chm-warning-item{display:flex;gap:6px;padding:6px 8px;background:rgba(255,78,106,.08);border-left:2px solid var(--danger);border-radius:4px;margin-bottom:4px;font-family:var(--mono);font-size:.57rem;color:var(--text);}
+    .chm-w-mod{color:var(--muted);flex-shrink:0;min-width:80px;}
+    .chm-w-msg{color:#ffb0b8;flex:1;overflow:hidden;text-overflow:ellipsis;}
+    .chm-w-rep{color:var(--muted);flex-shrink:0;}
+    .chm-event-item{padding:8px 10px;background:rgba(0,255,200,.08);border-left:2px solid var(--accent);border-radius:4px;margin-bottom:6px;font-family:var(--mono);font-size:.56rem;}
+    .chm-ev-id{color:var(--accent);font-weight:700;margin-bottom:2px;}
+    .chm-ev-name{color:#f0c060;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .chm-ev-time{color:var(--muted);font-size:.54rem;margin-bottom:2px;}
+    .chm-ev-node{color:var(--muted);font-size:.54rem;}
+    .ch-modal-content::-webkit-scrollbar{width:6px;}
+    .ch-modal-content::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+    .ch-modal-content::-webkit-scrollbar-thumb:hover{background:var(--accent);}
+    .ch-row[onclick]{cursor:pointer;transition:background .1s;}
+    .ch-row[onclick]:hover{background:rgba(0,255,200,.04) !important;}
   </style>
 </head>
 <body>
@@ -673,7 +704,7 @@ function renderChannels(filter,warnOnly,inUseOnly){
     const encH=r.encState?(r.encState==='running'?pill('p-run','running'):pill('p-err','⚠ '+r.encState)):'<span id="enc-'+r.id+'" style="color:var(--muted);font-size:.58rem;font-family:var(--mono)">-</span>';
     const srcH=r.srcState?(r.srcState==='streaming'?pill('p-str','streaming'):r.srcState==='acquiring_signal'?(r.evs.length?pill('p-crit','⚠ no signal'):pill('p-acq','acquiring')):pill('p-idle',r.srcState)):'<span id="src-'+r.id+'" style="color:var(--muted);font-size:.58rem;font-family:var(--mono)">-</span>';
     const jpH=r.jobStarted?'':r.enabled?'<span style="color:#f0a500;font-size:.56rem"> idle</span>':'<span style="color:var(--muted);font-size:.56rem"> dis</span>';
-    h+='<div class="ch-row'+(isCrit?' crit-row':'')+'">'+
+      h+='<div class="ch-row'+(isCrit?' crit-row':'')+'" data-ch="'+esc(r.id)+'" onclick="openChannelMonitorFromRow(this);event.stopPropagation()">'+
       '<div class="c-id">'+chLink(r.id)+(r.passthrough?' <span style="color:var(--muted);font-size:.5rem">PT</span>':'')+'</div>'+
       '<div class="c-node">'+nodeLink(r.node)+jpH+'</div>'+
       '<div class="c-enc" id="enc-'+r.id+'">'+encH+'</div>'+
@@ -1016,6 +1047,260 @@ try{
 
 // Auto-refresh every 30 seconds — logs are manual-fetch only (too expensive to auto-refresh)
 setInterval(()=>{if(hasData&&view!=='logs')load();},30000);
+
+// ── CHANNEL MONITOR MODAL v2.17.0 ────────────────────────────────
+// Adicionar este código inline antes de </script> final
+
+let chMonState={isOpen:false,chId:null,chData:null,statusData:null,flagsData:null,bitrateHistory:[],pollInterval:null,maxHistoryPoints:120};
+
+function openChannelMonitor(chId,chData,statusData,flagsData){
+  chMonState.chId=chId;
+  chMonState.chData=chData||{};
+  chMonState.statusData=statusData||{};
+  chMonState.flagsData=Array.isArray(flagsData)?flagsData:[];
+  chMonState.bitrateHistory=[];
+  chMonState.isOpen=true;
+  renderChannelMonitorModal();
+  if(chMonState.pollInterval)clearInterval(chMonState.pollInterval);
+  chMonState.pollInterval=setInterval(pollChannelBitrate,1000);
+  pollChannelBitrate();
+}
+
+function closeChannelMonitor(){
+  chMonState.isOpen=false;
+  if(chMonState.pollInterval)clearInterval(chMonState.pollInterval);
+  const modal=document.getElementById('ch-monitor-modal');
+  if(modal)modal.remove();
+}
+
+async function pollChannelBitrate(){
+  if(!chMonState.isOpen||!chMonState.chId)return;
+  try{
+    const path=`/id3as/${dc}/channel/${encodeURIComponent(chMonState.chId)}/status`;
+    const r=await fetch(PROXY+path);
+    if(!r.ok)return;
+    const st=await r.json();
+    const bps=st.statistics?.source_bitrate||0;
+    const now=new Date();
+    chMonState.bitrateHistory.push({ts:now,bps});
+    if(chMonState.bitrateHistory.length>chMonState.maxHistoryPoints)chMonState.bitrateHistory.shift();
+    updateChannelMonitorChart();
+    updateChannelMonitorStatus(st);
+  }catch(e){console.error('Poll bitrate error:',e);}
+}
+
+function renderChannelMonitorModal(){
+  const modal=document.createElement('div');
+  modal.id='ch-monitor-modal';
+  modal.className='ch-modal-overlay';
+  modal.innerHTML=`
+    <div class="ch-modal-content">
+      <div class="ch-modal-header">
+        <h2>Channel Monitor</h2>
+        <button class="ch-modal-close" onclick="closeChannelMonitor()">✕</button>
+      </div>
+      <div class="ch-modal-body">
+        <div class="chm-info-strip">
+          <span class="chm-label">Channel:</span>
+          <span class="chm-id">${chLink(chMonState.chId)}</span>
+          <span class="chm-label">Node:</span>
+          <span class="chm-node">${nodeLink(chMonState.chData.encoder_node_id||chMonState.chData.target_node_id||'-')}</span>
+        </div>
+
+        <div id="ch-chart-container" style="width:100%;height:280px;margin:12px 0;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px;">
+          <div style="font-family:var(--mono);font-size:.58rem;color:var(--muted);padding:12px;text-align:center;">
+            Initializing chart…
+          </div>
+        </div>
+
+        <div class="chm-status-box">
+          <div class="chm-stat-row">
+            <span class="chm-stat-label">Enc State:</span>
+            <span id="chm-enc-state" class="chm-stat-value"></span>
+          </div>
+          <div class="chm-stat-row">
+            <span class="chm-stat-label">Src State:</span>
+            <span id="chm-src-state" class="chm-stat-value"></span>
+          </div>
+          <div class="chm-stat-row">
+            <span class="chm-stat-label">Current Bitrate:</span>
+            <span id="chm-cur-bps" class="chm-stat-value"></span>
+          </div>
+          <div class="chm-stat-row">
+            <span class="chm-stat-label">Stream Info:</span>
+            <div id="chm-stream-info" style="grid-column:2"></div>
+          </div>
+        </div>
+
+        <div class="chm-warnings-section">
+          <h3 style="font-family:var(--mono);font-size:.64rem;margin-bottom:8px;color:var(--text)">
+            ⚠ Warnings
+          </h3>
+          <div id="chm-warnings-list"></div>
+        </div>
+
+        <div class="chm-events-section">
+          <h3 style="font-family:var(--mono);font-size:.64rem;margin-bottom:8px;color:var(--text)">
+            📅 Active Events
+          </h3>
+          <div id="chm-events-list"></div>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  renderChannelMonitorWarnings();
+  renderChannelMonitorEvents();
+  renderChannelMonitorChart();
+}
+
+function renderChannelMonitorChart(){
+  const container=document.getElementById('ch-chart-container');
+  if(!container)return;
+  const data=chMonState.bitrateHistory.map((pt,i)=>({
+    time:i,
+    bps:Math.round(pt.bps/1e6*100)/100,
+    tsHuman:pt.ts.toLocaleTimeString()
+  }));
+  renderFallbackChart(container,data);
+}
+
+function renderFallbackChart(container,data){
+  const w=container.clientWidth-16;
+  const h=container.clientHeight-16;
+  if(data.length===0){
+    container.innerHTML='<div style="padding:12px;font-family:var(--mono);font-size:.58rem;color:var(--muted);text-align:center;">No bitrate data yet…</div>';
+    return;
+  }
+  const maxBps=Math.max(...data.map(d=>d.bps),1)*1.1;
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('width',w);
+  svg.setAttribute('height',h);
+  svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
+  svg.style.backgroundColor='transparent';
+
+  const gridLine=document.createElementNS('http://www.w3.org/2000/svg','line');
+  gridLine.setAttribute('x1','40');
+  gridLine.setAttribute('y1',h-30);
+  gridLine.setAttribute('x2',w-10);
+  gridLine.setAttribute('y2',h-30);
+  gridLine.setAttribute('stroke','rgba(255,255,255,.1)');
+  gridLine.setAttribute('stroke-width','1');
+  svg.appendChild(gridLine);
+
+  const points=data.map((d,i)=>{
+    const x=40+(i/(data.length-1||1))*(w-50);
+    const y=h-30-(d.bps/maxBps)*(h-50);
+    return `${x},${y}`;
+  }).join(' ');
+
+  const polyline=document.createElementNS('http://www.w3.org/2000/svg','polyline');
+  polyline.setAttribute('points',points);
+  polyline.setAttribute('fill','none');
+  polyline.setAttribute('stroke','var(--accent)');
+  polyline.setAttribute('stroke-width','2');
+  svg.appendChild(polyline);
+
+  const yLabel=document.createElementNS('http://www.w3.org/2000/svg','text');
+  yLabel.setAttribute('x','5');
+  yLabel.setAttribute('y','15');
+  yLabel.setAttribute('font-family','var(--mono)');
+  yLabel.setAttribute('font-size','11');
+  yLabel.setAttribute('fill','var(--muted)');
+  yLabel.textContent=maxBps.toFixed(1)+' Mbps';
+  svg.appendChild(yLabel);
+
+  const zeroLabel=document.createElementNS('http://www.w3.org/2000/svg','text');
+  zeroLabel.setAttribute('x','5');
+  zeroLabel.setAttribute('y',h-25);
+  zeroLabel.setAttribute('font-family','var(--mono)');
+  zeroLabel.setAttribute('font-size','11');
+  zeroLabel.setAttribute('fill','var(--muted)');
+  zeroLabel.textContent='0 Mbps';
+  svg.appendChild(zeroLabel);
+
+  container.innerHTML='';
+  container.appendChild(svg);
+}
+
+function updateChannelMonitorStatus(st){
+  const encState=st.state||'';
+  const stat=st.statistics||{};
+  const srcState=stat.source_state||'';
+  const bps=stat.source_bitrate||0;
+
+  const encEl=document.getElementById('chm-enc-state');
+  if(encEl){
+    if(encState==='running')encEl.innerHTML=pill('p-run','running');
+    else if(encState)encEl.innerHTML=pill('p-err','⚠ '+encState);
+    else encEl.innerHTML=pill('p-dis','-');
+  }
+
+  const srcEl=document.getElementById('chm-src-state');
+  if(srcEl){
+    if(srcState==='streaming')srcEl.innerHTML=pill('p-str','streaming');
+    else if(srcState==='acquiring_signal')srcEl.innerHTML=pill('p-acq','acquiring');
+    else if(srcState)srcEl.innerHTML=pill('p-idle',srcState);
+    else srcEl.innerHTML=pill('p-dis','-');
+  }
+
+  const bpsEl=document.getElementById('chm-cur-bps');
+  if(bpsEl){
+    bpsEl.textContent=bps>0?bpsFmt(bps):'-';
+    bpsEl.style.color=bps>0?'#00ffc8':'var(--muted)';
+  }
+
+  const infoEl=document.getElementById('chm-stream-info');
+  if(infoEl)infoEl.innerHTML=streamInfo(st);
+}
+
+function updateChannelMonitorChart(){
+  renderChannelMonitorChart();
+}
+
+function renderChannelMonitorWarnings(){
+  const list=document.getElementById('chm-warnings-list');
+  if(!list)return;
+  const chId=chMonState.chId;
+  const flagsMap=bfm(chMonState.flagsData);
+  const warnings=(flagsMap[chId]||[]).filter(w=>!isInfo(w));
+  if(!warnings.length){
+    list.innerHTML='<div style="font-family:var(--mono);font-size:.56rem;color:var(--muted);padding:6px">No warnings</div>';
+    return;
+  }
+  let h='';
+  for(const w of warnings){
+    h+=`<div class="chm-warning-item"><span class="chm-w-mod">[${esc(w.module||'')}]</span><span class="chm-w-msg">${esc(w.msg||'')}</span><span class="chm-w-rep">×${w.repeated||0}</span></div>`;
+  }
+  list.innerHTML=h;
+}
+
+function renderChannelMonitorEvents(){
+  const list=document.getElementById('chm-events-list');
+  if(!list)return;
+  const chId=chMonState.chId;
+  const em=bev(chMonState.chData.events||[]);
+  const events=em[chId]||[];
+  if(!events.length){
+    list.innerHTML='<div style="font-family:var(--mono);font-size:.56rem;color:var(--muted);padding:6px">No active events</div>';
+    return;
+  }
+  let h='';
+  for(const ev of events){
+    h+=`<div class="chm-event-item"><div class="chm-ev-id">${evLink(ev.event_id)}</div><div class="chm-ev-name">${esc(ev.event_name.slice(0,100))}</div><div class="chm-ev-time">${esc(ev.start)} → ${esc(ev.end)}</div>${ev.enc_node?`<div class="chm-ev-node">Node: ${nodeLink(ev.enc_node)}</div>`:''}</div>`;
+  }
+  list.innerHTML=h;
+}
+
+function openChannelMonitorFromRow(el){
+  const chId=el.dataset.ch||el.getAttribute('data-ch');
+  if(!chId)return;
+  const chs=Array.isArray(raw.channels)?raw.channels:[];
+  const chData=chs.find(c=>c&&c.id===chId)||{};
+  const fm=bfm(raw.flags);
+  const flags=fm[chId]||[];
+  openChannelMonitor(chId,chData,null,flags);
+}
 </script>
 </body>
 </html>
