@@ -448,6 +448,8 @@ function findSched(obj){
 }
 function stripH(s){if(!s)return'';return s.replace(/<br\s*\/?>/gi,' | ').replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim();}
 function bfm(arr){const m={};if(!Array.isArray(arr))return m;for(const f of arr){const s=f.system_id||'';if(s)(m[s]=m[s]||[]).push(f);}return m;}
+// bfmEv: index flags/events by system_id which equals the event id
+function bfmEv(arr){return bfm(arr);}
 function bev(events){
   const m={};
   if(!Array.isArray(events))return m;
@@ -645,6 +647,8 @@ function renderView(){
 function renderChannels(filter,warnOnly,inUseOnly){
   const chs=Array.isArray(raw.channels)?raw.channels:[];
   const fm=bfm(raw.flags),em=bev(raw.events);
+  // evFm: event_id → flags from flags/events (system_id = event id)
+  const evFm=bfmEv(flagsEvData);
   raw.evMap=em;
   const sm=raw.statusMap||{},rmgOnly=$('rmg-only').checked;
 
@@ -683,7 +687,16 @@ function renderChannels(filter,warnOnly,inUseOnly){
       '<div class="c-warn">'+wb(r.warnings)+'</div></div>';
     if(hasSub){
       h+='<div class="ch-sub visible" id="sub-'+r.id+'">';
-      for(const ev of r.evs)h+='<div class="ev-strip"><span class="ev-eid">'+evLink(ev.event_id)+'</span><span class="ev-name">'+esc(ev.event_name.slice(0,80))+'</span><span class="ev-time">'+esc(ev.start)+' → '+esc(ev.end)+'</span></div>';
+      for(const ev of r.evs){
+        const efm=evFm[ev.event_id]||[];
+        const ewm=efm.filter(w=>!isInfo(w));
+        h+='<div class="ev-strip"><span class="ev-eid">'+evLink(ev.event_id)+'</span>';
+        h+='<span class="ev-name">'+esc(ev.event_name.slice(0,80))+'</span>';
+        h+='<span class="ev-time">'+esc(ev.start)+' → '+esc(ev.end)+'</span>';
+        if(ewm.length)h+='<span class="wb wb-y" style="font-size:.52rem">⚠ '+ewm.length+' flag'+(ewm.length>1?'s':'')+'</span>';
+        h+='</div>';
+        for(const w of ewm)h+='<div class="warn-strip" style="margin-left:12px">⚠ <span class="ws-mod">['+esc(w.module||'')+']</span><span class="ws-msg">'+esc(w.msg||'')+'</span><span class="ws-rep">(×'+(w.repeated||0)+')</span></div>';
+      }
       for(const w of r.wm)h+='<div class="warn-strip">⚠ <span class="ws-mod">['+esc(w.module||'')+']</span><span class="ws-msg">'+esc(w.msg||'')+'</span><span class="ws-rep">(×'+esc(String(w.repeated||0))+')</span></div>';
       for(const w of r.im)h+='<div class="info-strip">ℹ ['+esc(w.module||'')+'] '+esc(w.msg||'')+'</div>';
       h+='</div>';
@@ -760,6 +773,7 @@ function renderNodes(filter,warnOnly,inUseOnly){
         h+='<div class="nev-row">'+
           '<span class="nev-ch">'+chLink(chId)+'</span>'+
           '<span class="nev-nm" title="'+esc(ev.event_name)+'">'+evLink(ev.event_id)+' '+esc(ev.event_name.slice(0,28))+'</span>'+
+          ((evFm[ev.event_id]||[]).filter(w=>!isInfo(w)).length?'<span class="nev-wn">⚠ '+(evFm[ev.event_id]||[]).filter(w=>!isInfo(w)).length+' flag(s)</span>':'')+
           (!cd.jobStarted?'<span class="nev-wn">⚠ no signal</span>':'')+
         '</div>';
       }
@@ -782,12 +796,13 @@ function renderNodes(filter,warnOnly,inUseOnly){
 // ── RUNNING EVENTS ────────────────────────────────────────────
 function renderRunning(filter,warnOnly){
   const events=Array.isArray(raw.events)?raw.events:[];
-  const fm=bfm(raw.flagsEv);
+  // Index flags/events by system_id (= event id) so fm[event_id] returns its flags
+  const fm=bfmEv(flagsEvData);
   const chIdx={};for(const ch of Array.isArray(raw.channels)?raw.channels:[]){if(ch&&ch.id)chIdx[ch.id]=!!ch.encoder_job_started;}
 
   let rows=events.filter(e=>e&&typeof e==='object').map(ev=>{
     const id=String(ev.id||''),ch=ev.channel_id||'';
-    const s=findSched(ev)||{},flags=fm[ch]||[],wm=flags.filter(w=>!isInfo(w));
+    const s=findSched(ev)||{},flags=(fm[id]||fm[ch]||[]),wm=flags.filter(w=>!isInfo(w));
     return{id,ch,name:stripH(s.description||'')||'-',start:fmtDt(s.start_datetime),end:fmtDt(s.end_datetime),
       encNode:ev.encoder_node_id||'',pkgNode:ev.packager_node_id||'',startedAt:fmtDt(ev.started_at),
       warnings:wm.length,wm,evWarn:ch in chIdx&&!chIdx[ch]};
@@ -802,7 +817,8 @@ function renderRunning(filter,warnOnly){
   if(!rows.length){h+=empty('No running events');$('content').innerHTML=h;return;}
 
   for(const r of rows){
-    h+='<div class="ev-card '+(r.warnings?'hw':r.evWarn?'ev-warn-card':'')+'">'+
+    const eflagCount=(bfmEv(flagsEvData)[r.id]||[]).filter(w=>!isInfo(w)).length;
+    h+='<div class="ev-card '+((r.warnings||eflagCount)?'hw':r.evWarn?'ev-warn-card':'')+'">'+
       '<div class="ev-head"><span class="ev-eid2">'+evLink(r.id)+'</span><div class="ev-name2">'+esc(r.name)+'</div>'+
       (r.evWarn?'<span class="wb wb-y" style="background:rgba(240,165,0,.15);color:#f0a500;border-color:rgba(240,165,0,.35)">⚠ no signal</span>':'')+
       (r.warnings?wb(r.warnings):'')+
