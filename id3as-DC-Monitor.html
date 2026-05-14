@@ -707,8 +707,7 @@ function renderChannels(filter,warnOnly,inUseOnly){
       h+='<div class="ch-row'+(isCrit?' crit-row':'')+'">'+
       '<div class="c-id">'+chLink(r.id)+
       (r.passthrough?' <span style="color:var(--muted);font-size:.5rem">PT</span>':'')+
-      ' <button onclick="openChannelMonitorFromRow('+esc(r.id)+');event.stopPropagation()" title="Channel Monitor" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:.6rem;padding:0 2px;vertical-align:middle;font-family:var(--mono);opacity:.6;transition:opacity .15s;line-height:1" onmouseover="this.style.opacity=1;this.style.color=\'var(--accent)\'" onmouseout="this.style.opacity=.6;this.style.color=\'var(--muted)\'">⧉</button>'+
-      '</div>'+
+      '<button onclick="openChannelMonitorFromRow(\''+esc(r.id)+'\');event.stopPropagation()" title="Channel Monitor" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:.6rem;padding:0 2px;vertical-align:middle;font-family:var(--mono);opacity:.6;transition:opacity .15s;line-height:1" onmouseover="this.style.opacity=1;this.style.color=\'var(--accent)\'" onmouseout="this.style.opacity=.6;this.style.color=\'var(--muted)\'">⧉</button>'+      '</div>'+
       '<div class="c-node">'+nodeLink(r.node)+jpH+'</div>'+
       '<div class="c-enc" id="enc-'+r.id+'">'+encH+'</div>'+
       '<div class="c-src" id="src-'+r.id+'">'+srcH+'</div>'+
