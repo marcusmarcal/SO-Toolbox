@@ -7,23 +7,54 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.15.2] - 2026-05-14
+
+### Fixed
+
+- `evFm is not defined` in Nodes view — `evFm` is now declared locally
+  inside `renderChannels` and `renderNodes` (not as a global variable).
+- Flags/events (keyed by `system_id` = event id) now count as warnings
+  in Channels and Nodes: `evWm` added to `r.warnings` / `c.warnings`, so
+  "Warnings only" filters them correctly and the WARN counter in the sumBar reflects them.
+- `renderRunning`: `fm` now uses `bfmEv(flagsEvData)` indexed by event id
+  instead of `bfm(raw.flagsEv)` indexed by channel id — lookup fixed to
+  `fm[id]` (event id) with fallback to `fm[ch]`.
+- Channels: flag/event warn-strips appear indented below each event
+  in the ev-strip, with badge `⚠ N flag(s)`.
+- Nodes: nwarn-list shows flags/events with `[ev]` label to distinguish
+  them from channel flags.
+
+## [2.15.1] - 2026-05-14
+
+### Fixed
+
+- Flags/events were not appearing in any view because the code indexed by
+  `channel_id`, while `system_id` in flags/events corresponds to the **event ID**.
+- `renderRunning`: `fm` is now indexed by event ID (`bfmEv(flagsEvData)`),
+  lookup fixed to `fm[id]` (event ID) with fallback to `fm[ch]`.
+- `renderChannels`: added `evFm` indexed by event ID; each event
+  in the ev-strip shows a `⚠ N flag(s)` badge and warning-strip details below.
+- `renderNodes`: nev-row displays an event-level flags badge via `evFm`.
+- `renderRunning` ev-card: `hw` border activates when there are event flags,
+  even if there are no channel flags.
+
 ## [2.15.0] - 2026-05-13
 
 ### Added
 
-- **Flags/Events banner** — faixa de aviso persistente imediatamente abaixo da toolbar,
-  visível em todas as views, populada por `/flags/events`; ordenada por `repeated`
-  decrescente; mostra até 6 flags com indicador `+N more`; desaparece automaticamente
-  quando não há entradas.
-- `flagsEvData` carregado em todos os views: `channels`, `nodes` e `scheduled` fazem
-  um fetch extra de `/flags/events`; `running` reutiliza o `fev` já presente no
-  `Promise.all` sem chamada adicional.
+- **Flags/Events banner** — persistent alert bar immediately below the toolbar,
+  visible across all views, populated from `/flags/events`; sorted by `repeated`
+  in descending order; displays up to 6 flags with a `+N more` indicator; automatically
+  hides when there are no entries.
+- `flagsEvData` loaded across all views: `channels`, `nodes`, and `scheduled` perform
+  an additional fetch to `/flags/events`; `running` reuses the `fev` already present in
+  the `Promise.all` without making an extra request.
 
 ### Fixed
 
-- Nome de evento truncado com `text-overflow: ellipsis` em `.ev-name2` (cards da view
-  Running Events) e em `.ev-name` (linhas de evento inline nos cards de canal/nó),
-  evitando overflow quando a API devolve descrições longas.
+- Event name truncated using `text-overflow: ellipsis` in `.ev-name2` (cards in the
+  Running Events view) and in `.ev-name` (inline event rows in channel/node cards),
+  preventing overflow when the API returns long descriptions.
 
 ## [2.14.5] - 2026-05-12
 
