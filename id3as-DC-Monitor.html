@@ -704,7 +704,7 @@ function renderChannels(filter,warnOnly,inUseOnly){
     const encH=r.encState?(r.encState==='running'?pill('p-run','running'):pill('p-err','⚠ '+r.encState)):'<span id="enc-'+r.id+'" style="color:var(--muted);font-size:.58rem;font-family:var(--mono)">-</span>';
     const srcH=r.srcState?(r.srcState==='streaming'?pill('p-str','streaming'):r.srcState==='acquiring_signal'?(r.evs.length?pill('p-crit','⚠ no signal'):pill('p-acq','acquiring')):pill('p-idle',r.srcState)):'<span id="src-'+r.id+'" style="color:var(--muted);font-size:.58rem;font-family:var(--mono)">-</span>';
     const jpH=r.jobStarted?'':r.enabled?'<span style="color:#f0a500;font-size:.56rem"> idle</span>':'<span style="color:var(--muted);font-size:.56rem"> dis</span>';
-      h+='<div class="ch-row'+(isCrit?' crit-row':'')+'" data-ch="'+esc(r.id)+'" onclick="openChannelMonitorFromRow(this);event.stopPropagation()">'+
+      h+='<div class="ch-row'+(isCrit?' crit-row':'')+'">'+
       '<div class="c-id">'+chLink(r.id)+
       (r.passthrough?' <span style="color:var(--muted);font-size:.5rem">PT</span>':'')+
       ' <button onclick="openChannelMonitorFromRow(\''+esc(r.id)+'\');event.stopPropagation()" title="Channel Monitor" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:.6rem;padding:0 2px;vertical-align:middle;font-family:var(--mono);opacity:.6;transition:opacity .15s;line-height:1" onmouseover="this.style.opacity=1;this.style.color=\'var(--accent)\'" onmouseout="this.style.opacity=.6;this.style.color=\'var(--muted)\'">⧉</button>'+
