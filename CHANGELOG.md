@@ -7,6 +7,17 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.16.0] - 2026-05-14
+
+### Added
+
+- Channel node column now renders as an external link (`nodeLink`) to the id3as admin UI.
+- Each event in the channels ev-strip shows its actual encoder node beside the event id;
+  highlighted in amber when the event node differs from the channel's node.
+- Each event row in the nodes nev-list shows its encoder node with `↗` prefix in amber
+  when it differs from the node card it appears under.
+- `bev()` now carries `encoder_node_id` from the running event payload into the event map.
+
 ## [2.15.3] - 2026-05-14
 
 ### Changed
