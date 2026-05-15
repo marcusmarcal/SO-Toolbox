@@ -7,6 +7,14 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.17.4] - 2026-05-15
+
+### Changed
+
+- Channel Monitor bitrate chart: Y grid lines with Mbps scale (4 divisions,
+  rounded to clean values), X grid lines with time offset labels (-Ns to now),
+  area fill, live value label with dot at last point
+
 ## [2.17.3] - 2026-05-15
 
 ### Fixed
