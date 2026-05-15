@@ -1736,7 +1736,7 @@ def gop_status(job_id):
 def gop_results():
     files = sorted([f for f in os.listdir(GOP_DIR) if f.endswith(".json")], reverse=True)
     items = []
-    for f in files[:50]:
+    for f in files[:500]:
         try:
             with open(os.path.join(GOP_DIR, f)) as fh:
                 d = json.load(fh)
