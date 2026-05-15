@@ -6,6 +6,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.17.2] - 2026-05-15
+
+### Fixed
+
+- Channel Monitor: events not shown — `renderChannelMonitorEvents` now reads
+  `raw.events` via `bev()` instead of non-existent `chData.events`
+- Channel Monitor: warnings not shown — `renderChannelMonitorWarnings` now
+  merges `raw.flags` + `flagsEvData` directly instead of relying on
+  `chMonState.flagsData` which was always empty
+  
 ## [2.17.1] - 2026-05-14
 
 ### Fixed

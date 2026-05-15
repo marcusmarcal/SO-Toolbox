@@ -1050,8 +1050,7 @@ try{
 // Auto-refresh every 30 seconds — logs are manual-fetch only (too expensive to auto-refresh)
 setInterval(()=>{if(hasData&&view!=='logs')load();},30000);
 
-// ── CHANNEL MONITOR MODAL v2.17.0 ────────────────────────────────
-// Adicionar este código inline antes de </script> final
+// ── CHANNEL MONITOR MODAL v2.17.1 ────────────────────────────────
 
 let chMonState={isOpen:false,chId:null,chData:null,statusData:null,flagsData:null,bitrateHistory:[],pollInterval:null,maxHistoryPoints:120};
 
@@ -1264,15 +1263,17 @@ function renderChannelMonitorWarnings(){
   const list=document.getElementById('chm-warnings-list');
   if(!list)return;
   const chId=chMonState.chId;
-  const flagsMap=bfm(chMonState.flagsData);
-  const warnings=(flagsMap[chId]||[]).filter(w=>!isInfo(w));
+  // Merge channel-level flags (raw.flags) + event-level flags (flagsEvData), both keyed by system_id
+  const allFlags=[...(Array.isArray(raw.flags)?raw.flags:[]),...(Array.isArray(flagsEvData)?flagsEvData:[])];
+  const flagsMap=bfm(allFlags);
+  const warnings=flagsMap[chId]||[];
   if(!warnings.length){
     list.innerHTML='<div style="font-family:var(--mono);font-size:.56rem;color:var(--muted);padding:6px">No warnings</div>';
     return;
   }
   let h='';
   for(const w of warnings){
-    h+=`<div class="chm-warning-item"><span class="chm-w-mod">[${esc(w.module||'')}]</span><span class="chm-w-msg">${esc(w.msg||'')}</span><span class="chm-w-rep">×${w.repeated||0}</span></div>`;
+    h+=`<div class="chm-warning-item"><span class="chm-w-mod">[${esc(w.module||'')}]</span><span class="chm-w-msg">${esc(w.msg||'')}</span><span class="chm-w-rep">\xd7${w.repeated||0}</span></div>`;
   }
   list.innerHTML=h;
 }
@@ -1281,7 +1282,8 @@ function renderChannelMonitorEvents(){
   const list=document.getElementById('chm-events-list');
   if(!list)return;
   const chId=chMonState.chId;
-  const em=bev(chMonState.chData.events||[]);
+  // raw.events is authoritative — bev() indexes by channel_id
+  const em=bev(Array.isArray(raw.events)?raw.events:[]);
   const events=em[chId]||[];
   if(!events.length){
     list.innerHTML='<div style="font-family:var(--mono);font-size:.56rem;color:var(--muted);padding:6px">No active events</div>';
@@ -1289,7 +1291,14 @@ function renderChannelMonitorEvents(){
   }
   let h='';
   for(const ev of events){
-    h+=`<div class="chm-event-item"><div class="chm-ev-id">${evLink(ev.event_id)}</div><div class="chm-ev-name">${esc(ev.event_name.slice(0,100))}</div><div class="chm-ev-time">${esc(ev.start)} → ${esc(ev.end)}</div>${ev.enc_node?`<div class="chm-ev-node">Node: ${nodeLink(ev.enc_node)}</div>`:''}</div>`;
+    const chNode=chMonState.chData.encoder_node_id||chMonState.chData.target_node_id||'';
+    const evNdDiff=ev.enc_node&&ev.enc_node!==chNode;
+    h+=`<div class="chm-event-item">
+      <div class="chm-ev-id">${evLink(ev.event_id)}</div>
+      <div class="chm-ev-name">${esc(ev.event_name.slice(0,100))}</div>
+      <div class="chm-ev-time">${esc(ev.start)} \u2192 ${esc(ev.end)}</div>
+      ${ev.enc_node?`<div class="chm-ev-node" style="color:${evNdDiff?'var(--warn)':'var(--muted)'}">Node: ${nodeLink(ev.enc_node)}</div>`:''}
+    </div>`;
   }
   list.innerHTML=h;
 }
@@ -1297,8 +1306,8 @@ function renderChannelMonitorEvents(){
 function openChannelMonitorFromRow(chId){
   const chs=Array.isArray(raw.channels)?raw.channels:[];
   const chData=chs.find(c=>c&&c.id===chId)||{};
-  const fm=bfm(raw.flags);
-  openChannelMonitor(chId,chData,null,fm[chId]||[]);
+  // flags and events are read directly from raw/flagsEvData inside the render functions
+  openChannelMonitor(chId,chData,null,[]);
 }
 </script>
 </body>
