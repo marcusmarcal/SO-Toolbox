@@ -7,6 +7,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.18.0] - 2026-05-15
+
+### Fixed
+
+- Removed limit of JSONs on GOP lists
+
 ## [2.17.5] - 2026-05-15
 
 ### Fixed
