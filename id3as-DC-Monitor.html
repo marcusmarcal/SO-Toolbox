@@ -1215,16 +1215,20 @@ function renderFallbackChart(container,data){
     svg.appendChild(txt(ML-4,y+3.5,label,{'text-anchor':'end',fill:'rgba(255,255,255,.3)'}));
   }
 
-  // ── X grid lines + time labels ──
-  // Show marks at 0%, 25%, 50%, 75%, 100% of the sample window
-  const totalSamples=chMonState.maxHistoryPoints;
+  // ── X grid lines + UTC time labels ──
+  // Map 5 evenly-spaced grid lines to real timestamps from bitrateHistory
   const xDivs=4;
   for(let i=0;i<=xDivs;i++){
     const x=ML+(i/xDivs)*cW;
     svg.appendChild(mkEl('line',{x1:x,y1:MT,x2:x,y2:MT+cH,stroke:'rgba(255,255,255,.07)','stroke-width':'1','stroke-dasharray':i===0||i===xDivs?'none':'3,4'}));
-    // Time offset from oldest point in window
-    const secsAgo=Math.round(((xDivs-i)/xDivs)*totalSamples);
-    const xLabel=i===xDivs?'now':'-'+secsAgo+'s';
+    // Pick the sample closest to this grid position
+    const sampleIdx=Math.round((i/xDivs)*(data.length-1));
+    const sampleTs=chMonState.bitrateHistory[sampleIdx]&&chMonState.bitrateHistory[sampleIdx].ts;
+    let xLabel='';
+    if(sampleTs){
+      // Format as HH:MM:SS UTC
+      xLabel=sampleTs.toUTCString().slice(17,25); // "HH:MM:SS"
+    }
     svg.appendChild(txt(x,MT+cH+MB-4,xLabel,{'text-anchor':'middle',fill:'rgba(255,255,255,.25)'}));
   }
 

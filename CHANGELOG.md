@@ -7,6 +7,14 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.17.5] - 2026-05-15
+
+### Fixed
+
+- Channel Monitor chart: X axis labels now show real UTC timestamps (HH:MM:SS)
+  derived from the actual sample timestamps in `bitrateHistory`, updating live
+  on every poll instead of static relative offsets
+
 ## [2.17.4] - 2026-05-15
 
 ### Changed
