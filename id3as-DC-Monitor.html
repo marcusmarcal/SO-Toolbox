@@ -683,14 +683,15 @@ function renderChannels(filter,warnOnly,inUseOnly){
     const id=ch.id||'?',node=ch.encoder_node_id||ch.target_node_id||'-';
     const all=fm[id]||[],wm=all.filter(w=>!isInfo(w)),im=all.filter(w=>isInfo(w));
     const evs=em[id]||[],st=sm[id]||null,stat=(st&&st.statistics)||{};
+    const encState=st?st.state||'':'',encWarn=!!encState&&encState!=='running';
     return{id,node,jobStarted:!!ch.encoder_job_started,enabled:!!ch.enabled,passthrough:!!ch.passthrough,
       warnings:wm.length,wm,im,evs,isRmg:id.toUpperCase().startsWith('RMG_'),
-      encState:st?st.state||'':'',srcState:stat.source_state||'',bitrate:stat.source_bitrate||0,st};
+      encState,encWarn,srcState:stat.source_state||'',bitrate:stat.source_bitrate||0,st};
   });
 
   if(rmgOnly)rows=rows.filter(r=>r.isRmg);
   if(filter)rows=rows.filter(r=>r.id.toLowerCase().includes(filter)||r.node.toLowerCase().includes(filter)||r.evs.some(e=>e.event_name.toLowerCase().includes(filter)));
-  if(warnOnly)rows=rows.filter(r=>r.warnings>0);
+  if(warnOnly)rows=rows.filter(r=>r.warnings>0||r.encWarn);
   if(inUseOnly)rows=rows.filter(r=>r.evs.length>0);
 
   const nW=rows.reduce((s,r)=>s+r.warnings,0),nE=rows.reduce((s,r)=>s+r.evs.length,0);
@@ -750,11 +751,12 @@ function renderNodes(filter,warnOnly,inUseOnly){
     const nodeChs=(cbN[n.id]||[]).sort((a,b)=>String(a.id).localeCompare(String(b.id)));
     const chData=nodeChs.map(ch=>{
       const id=ch.id||'?',all=fm[id]||[],wm=all.filter(w=>!isInfo(w)),evs=em[id]||[];
-      return{id,enabled:!!ch.enabled,jobStarted:!!ch.encoder_job_started,warnings:wm.length,wm,evs,hasEv:evs.length>0};
+      const chSt=raw.statusMap&&raw.statusMap[id],chEncState=chSt?chSt.state||'':'',encWarn=!!chEncState&&chEncState!=='running';
+      return{id,enabled:!!ch.enabled,jobStarted:!!ch.encoder_job_started,warnings:wm.length,wm,evs,hasEv:evs.length>0,encWarn,encState:chEncState};
     });
     const evRows=[];
     for(const c of chData)for(const ev of c.evs)evRows.push({chId:c.id,ev,chData:c});
-    const nW=chData.reduce((s,c)=>s+c.warnings,0);
+    const nW=chData.reduce((s,c)=>s+c.warnings+(c.encWarn?1:0),0);
     return{id:n.id,host:n.host_name||'',status:n.status||'unknown',allowAlloc:!!n.allow_allocations,
       capacity:n.max_capacity||n.capacity||0,cpu:m.cpu||0,mem:m.memory||0,gpu:m.gpu||0,sched,
       nCh:nodeChs.length,nRn:chData.filter(c=>c.jobStarted).length,nW,chData,evRows,hasEvs:evRows.length>0};
@@ -784,7 +786,7 @@ function renderNodes(filter,warnOnly,inUseOnly){
       '<div class="node-body"><div class="ch-chips">';
     if(!r.chData.length)h+='<span style="color:var(--muted);font-size:.58rem;font-family:var(--mono)">(none)</span>';
     for(const c of r.chData){
-      const cc=!c.enabled?'ck-dis':c.warnings?'ck-wn':c.hasEv&&!c.jobStarted?'ck-evw':!c.jobStarted?'ck-idle':'ck-ok';
+      const cc=!c.enabled?'ck-dis':(c.warnings||c.encWarn)?'ck-wn':c.hasEv&&!c.jobStarted?'ck-evw':!c.jobStarted?'ck-idle':'ck-ok';
       h+='<span class="ch-chip '+cc+'" title="'+esc(c.id)+(c.hasEv?' | '+c.evs.map(e=>e.event_name).join(', '):'')+'" style="cursor:default">'+esc(c.id)+'</span>';
     }
     h+='</div>'+mBar('CPU',r.cpu)+mBar('MEM',r.mem)+mBarSched('SCH',r.sched)+(r.gpu?mBar('GPU',r.gpu):'')+
