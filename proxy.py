@@ -2078,7 +2078,63 @@ def gop_specs_reset():
         return jsonify({"success": True, "specs": DEFAULT_SPECS})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
-
+@app.route("/server-stats", methods=["GET"])
+def server_stats():
+    import subprocess
+    try:
+        # CPU usage
+        cpu_result = subprocess.run(
+            ["top", "-bn1"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=5
+        )
+        cpu_line = [line for line in cpu_result.stdout.decode().split('\n') if 'Cpu(s)' in line]
+        cpu_usage = 0
+        if cpu_line:
+            cpu_str = cpu_line[0]
+            idle = float(cpu_str.split('id,')[0].split()[-1].replace('%', ''))
+            cpu_usage = 100 - idle
+        
+        # Memory usage
+        mem_result = subprocess.run(
+            ["free", "-b"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=5
+        )
+        mem_lines = mem_result.stdout.decode().split('\n')
+        mem_usage = 0
+        for line in mem_lines:
+            if 'Mem:' in line:
+                parts = line.split()
+                total = float(parts[1])
+                used = float(parts[2])
+                mem_usage = (used / total) * 100
+                break
+        
+        # Disk usage
+        disk_result = subprocess.run(
+            ["df", "-B1", "/"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=5
+        )
+        disk_lines = disk_result.stdout.decode().split('\n')
+        disk_usage = 0
+        if len(disk_lines) > 1:
+            parts = disk_lines[1].split()
+            total = float(parts[1])
+            used = float(parts[2])
+            disk_usage = (used / total) * 100
+        
+        return jsonify({
+            "cpu": round(cpu_usage, 1),
+            "memory": round(mem_usage, 1),
+            "disk": round(disk_usage, 1)
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":

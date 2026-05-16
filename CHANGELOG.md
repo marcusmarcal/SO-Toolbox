@@ -6,6 +6,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.18.0] - 2026-05-15
+
+### Added
+- Real-time server resources monitor in topbar displaying CPU, memory, and disk usage
+- Color-coded status indicators (green/ok, yellow/warning, red/error) based on configurable thresholds
+- `/server-stats` endpoint in proxy.py for fetching system metrics (top, free, df commands)
+- Auto-refresh of resource stats every 5 seconds
+
+### Changed
+- Topbar layout expanded to include server metrics display on the right side
+- Resource thresholds: CPU (warn: 70%, error: 85%), Memory (warn: 75%, error: 90%), Disk (warn: 80%, error: 90%)
 
 ## [2.17.5] - 2026-05-15
 
