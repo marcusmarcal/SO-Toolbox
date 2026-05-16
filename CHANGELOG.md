@@ -18,6 +18,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Topbar layout expanded to include server metrics display on the right side
 - Resource thresholds: CPU (warn: 70%, error: 85%), Memory (warn: 75%, error: 90%), Disk (warn: 80%, error: 90%)
 
+## [2.18.0] - 2026-05-15
+
+### Fixed
+
+- Removed limit of JSONs on GOP lists
+
 ## [2.17.5] - 2026-05-15
 
 ### Fixed
