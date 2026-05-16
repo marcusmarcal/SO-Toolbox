@@ -9,9 +9,9 @@ A browser-based internal operations toolbox for the SP Support & Operations team
 ## Architecture
 
 ```
-index.html              — Main shell (sidebar, tabs, welcome screen, git update button)
+index.html              — Main shell (sidebar, tabs, welcome screen, git update button, real-time server resource monitor in topbar)
 CHANGELOG.md            — Version history (Keep a Changelog format); read by index.html at runtime for version badge and changelog modal
-proxy.py                — Flask CORS proxy: serves config, PhenixRTS API, MTR, Ingest Analyzer
+proxy.py                — Flask CORS proxy: serves config, PhenixRTS API, MTR, Ingest Analyzer, server resource stats
 nginx.conf              — Clean nginx config (CentOS/RHEL)
 nginx-debian.conf       — nginx site config (Debian/Ubuntu/WSL)
 so-proxy.service    — systemd service for the proxy
@@ -106,6 +106,7 @@ PRFAUTH=your-prfauth-token-here
 | `/so-proxy/id3as/<dc>/logs` | GET | System event log (today UTC) |
 | `/so-proxy/id3as/<dc>/logs/<y>/<m>/<d>` | GET | System event log for specific date |
 | `/so-proxy/id3as/<dc>/channel/<id>/status` | GET | Single channel enc/src state |
+| `/so-proxy/server-stats` | GET | Live CPU, memory and disk usage (refreshed every 5 s in topbar) |
 
 ---
 
