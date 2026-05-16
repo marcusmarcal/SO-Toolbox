@@ -26,46 +26,52 @@ from flask import Blueprint, jsonify
 
 id3as_bp = Blueprint("id3as", __name__)
 
-ID3AS_DC_HOSTS = {
-    "ix": "ID3AS_HOST_IX_PLACEHOLDER",
-    "eq": "ID3AS_HOST_EQ_PLACEHOLDER",
-}
-
-ID3AS_PACKAGING_BASE = {
-    "ix": "http://ID3AS_PACKAGING_IX_PLACEHOLDER/ctl/api/packaging",
-    "eq": "http://ID3AS_PACKAGING_EQ_PLACEHOLDER/ctl/api/packaging",
-}
-
-# ── Cache ───────────────────────────────────────────────────────────
-
-_CACHE = {}
-_LAST_GOOD = {}
-
-CACHE_SECONDS = 10
-
-# ── Auth ────────────────────────────────────────────────────────────
-
-
-def _read_prfauth():
+def _read_env() -> dict:
+    """Read all key=value pairs from .env next to this file."""
     env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
-
+    env: dict = {}
     try:
         with open(env_path, "r", encoding="utf-8", errors="ignore") as fh:
             for raw in fh:
                 line = raw.strip()
-
                 if not line or line.startswith("#") or "=" not in line:
                     continue
-
                 k, v = line.split("=", 1)
-
-                if k.strip() == "PRFAUTH":
-                    return v.strip().strip("'").strip('"')
-
+                env[k.strip()] = v.strip().strip("'").strip('"')
     except Exception:
         pass
+    return env
 
-    return None
+
+def _get_dc_hosts() -> dict:
+    """DC host map built from .env (ID3AS_HOST_IX, ID3AS_HOST_EQ)."""
+    env = _read_env()
+    return {
+        "ix": env.get("ID3AS_HOST_IX", ""),
+        "eq": env.get("ID3AS_HOST_EQ", ""),
+    }
+
+
+def _get_packaging_base() -> dict:
+    """Packaging API base URLs derived from the same DC hosts."""
+    hosts = _get_dc_hosts()
+    return {
+        dc: f"http://id3as.prod.{dc}.perform.local/ctl/api/packaging"
+        for dc in hosts
+        if hosts[dc]
+    }
+
+
+def _read_prfauth() -> Optional[str]:
+    return _read_env().get("PRFAUTH")
+
+
+# ── Cache ───────────────────────────────────────────────────────────
+
+_CACHE: dict = {}
+_LAST_GOOD: dict = {}
+
+CACHE_SECONDS = 10
 
 
 def _debug_log(msg):
@@ -144,11 +150,11 @@ def _flatten_flags(data):
 
 
 def _id3as_get(dc, path, expect_list=True):
-    host = ID3AS_DC_HOSTS.get(dc)
+    host = _get_dc_hosts().get(dc)
 
     if not host:
         return None, None, (
-            jsonify({"error": f"Unknown DC: {dc}"}),
+            jsonify({"error": f"Unknown DC: {dc} (check ID3AS_HOST_{dc.upper()} in .env)"}),
             400,
         )
 
@@ -290,7 +296,7 @@ def _id3as_get(dc, path, expect_list=True):
 
 
 def _packaging_get(dc, path):
-    base = ID3AS_PACKAGING_BASE.get(dc)
+    base = _get_packaging_base().get(dc)
 
     if not base:
         return None, (
@@ -513,7 +519,7 @@ def id3as_logs(dc, year=None, month=None, day=None):
 
     token = _read_prfauth()
 
-    host = ID3AS_DC_HOSTS.get(dc)
+    host = _get_dc_hosts().get(dc)
 
     if not host or not token:
         return jsonify(

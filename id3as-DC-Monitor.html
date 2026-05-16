@@ -317,11 +317,16 @@
 
 <script>
 const PROXY='/so-proxy';
-// Base URLs for id3as web GUI deep links — used by nodeLink(), chLink(), evLink()
-const DC_URLS={
-  ix:'https://ID3AS_HOST_IX_PLACEHOLDER/ctl/admin',
-  eq:'https://ID3AS_HOST_EQ_PLACEHOLDER/ctl/admin'
-};
+// DC_URLS is loaded from the proxy at startup (GET /so-proxy/id3as/config).
+// No hostnames are hardcoded here — they live only in .env on the server.
+let DC_URLS={ix:'',eq:''};
+
+(async function loadDCConfig(){
+  try{
+    const r=await fetch(PROXY+'/id3as/config');
+    if(r.ok){const cfg=await r.json();if(cfg&&typeof cfg==='object')DC_URLS=cfg;}
+  }catch(e){console.warn('Could not load DC config:',e);}
+})();
 
 // ── STATE ─────────────────────────────────────────────────────
 let dc='ix', view='channels', raw={}, logEvents=[], logLevel='', schedHorizonDays=3, hasData=false, flagsEvData=[];

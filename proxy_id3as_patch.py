@@ -9,35 +9,60 @@
 
 import os as _os
 
-_DC_HOSTS = {
-    "ix": "ID3AS_HOST_IX_PLACEHOLDER",
-    "eq": "ID3AS_HOST_EQ_PLACEHOLDER",
-}
-
 # Dedicated session — does NOT conflict with the global `session` used by PhenixRTS routes
 _dc_session = requests.Session()
 
 
-def _dc_read_prfauth():
+def _dc_read_env():
     """
-    Read PRFAUTH from .env next to proxy.py.
+    Read key=value pairs from .env next to proxy.py.
+    Returns a dict with all defined keys.
     Mirrors the same pattern used by _get_admin_password() above.
     """
     env_path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), ".env")
+    env = {}
     try:
         with open(env_path, "r", encoding="utf-8", errors="ignore") as fh:
             for raw in fh:
                 line = raw.strip()
-                if not line or line.startswith("#"):
-                    continue
-                if "=" not in line:
+                if not line or line.startswith("#") or "=" not in line:
                     continue
                 k, v = line.split("=", 1)
-                if k.strip() == "PRFAUTH":
-                    return v.strip().strip("'").strip('"')
+                env[k.strip()] = v.strip().strip("'").strip('"')
     except Exception:
         pass
-    return None
+    return env
+
+
+def _dc_read_prfauth():
+    return _dc_read_env().get("PRFAUTH")
+
+
+def _dc_get_hosts():
+    """
+    Build DC host map from .env.
+    Expected keys: ID3AS_HOST_IX, ID3AS_HOST_EQ
+    """
+    env = _dc_read_env()
+    return {
+        "ix": env.get("ID3AS_HOST_IX", ""),
+        "eq": env.get("ID3AS_HOST_EQ", ""),
+    }
+
+
+# ── /id3as/config — serves DC GUI base URLs to the browser ────
+# The HTML fetches this on startup so no hostname is hardcoded client-side.
+
+@app.route("/id3as/config", methods=["GET"])
+def id3as_config():
+    """GET /so-proxy/id3as/config — returns DC GUI URLs for the browser."""
+    env = _dc_read_env()
+    hosts = {
+        "ix": env.get("ID3AS_HOST_IX", ""),
+        "eq": env.get("ID3AS_HOST_EQ", ""),
+    }
+    dc_urls = {dc: f"https://{host}/ctl/admin" for dc, host in hosts.items() if host}
+    return jsonify(dc_urls)
 
 
 def _dc_fetch(dc, api_path):
@@ -49,9 +74,9 @@ def _dc_fetch(dc, api_path):
     IMPORTANT: always returns a SINGLE value or a tuple(response, status_code).
     Never returns (data, error) — that was the bug in v1.
     """
-    host = _DC_HOSTS.get(dc)
+    host = _dc_get_hosts().get(dc)
     if not host:
-        return jsonify({"error": f"Unknown DC: {dc}"}), 400
+        return jsonify({"error": f"Unknown DC: {dc} (check ID3AS_HOST_{dc.upper()} in .env)"}), 400
 
     token = _dc_read_prfauth()
     if not token:
@@ -157,7 +182,7 @@ def id3as_logs(dc, year=None, month=None, day=None):
     result = _dc_fetch(dc, f"system_events/{year}/{month}/{day}")
     if _dc_is_error(result):
         # Upstream returned non-200; try raw text fetch to handle partial JSON
-        host  = _DC_HOSTS.get(dc, "")
+        host  = _dc_get_hosts().get(dc, "")
         token = _dc_read_prfauth()
         if not host or not token:
             return result
