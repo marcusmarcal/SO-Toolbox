@@ -2092,13 +2092,16 @@ def server_stats():
             timeout=5
         )
         cpu_usage = 0
+
         for line in cpu_result.stdout.decode().split('\n'):
             if 'Cpu(s)' in line or 'cpu' in line.lower():
-                match = re.search(r'([\d.]+)\s*%?\s*id', line)
+                match = re.search(r'(\d+(?:\.\d+)?)\s*id', line)
+
                 if match:
                     idle = float(match.group(1))
-                    cpu_usage = 100 - idle
-                    break
+                    cpu_usage = round(100 - idle, 2)
+
+                break
 
         # Memory usage
         mem_result = subprocess.run(
