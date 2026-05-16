@@ -683,14 +683,15 @@ function renderChannels(filter,warnOnly,inUseOnly){
     const id=ch.id||'?',node=ch.encoder_node_id||ch.target_node_id||'-';
     const all=fm[id]||[],wm=all.filter(w=>!isInfo(w)),im=all.filter(w=>isInfo(w));
     const evs=em[id]||[],st=sm[id]||null,stat=(st&&st.statistics)||{};
+    const encState=st?st.state||'':'',encWarn=!!encState&&encState!=='running';
     return{id,node,jobStarted:!!ch.encoder_job_started,enabled:!!ch.enabled,passthrough:!!ch.passthrough,
       warnings:wm.length,wm,im,evs,isRmg:id.toUpperCase().startsWith('RMG_'),
-      encState:st?st.state||'':'',srcState:stat.source_state||'',bitrate:stat.source_bitrate||0,st};
+      encState,encWarn,srcState:stat.source_state||'',bitrate:stat.source_bitrate||0,st};
   });
 
   if(rmgOnly)rows=rows.filter(r=>r.isRmg);
   if(filter)rows=rows.filter(r=>r.id.toLowerCase().includes(filter)||r.node.toLowerCase().includes(filter)||r.evs.some(e=>e.event_name.toLowerCase().includes(filter)));
-  if(warnOnly)rows=rows.filter(r=>r.warnings>0);
+  if(warnOnly)rows=rows.filter(r=>r.warnings>0||r.encWarn);
   if(inUseOnly)rows=rows.filter(r=>r.evs.length>0);
 
   const nW=rows.reduce((s,r)=>s+r.warnings,0),nE=rows.reduce((s,r)=>s+r.evs.length,0);
@@ -750,11 +751,12 @@ function renderNodes(filter,warnOnly,inUseOnly){
     const nodeChs=(cbN[n.id]||[]).sort((a,b)=>String(a.id).localeCompare(String(b.id)));
     const chData=nodeChs.map(ch=>{
       const id=ch.id||'?',all=fm[id]||[],wm=all.filter(w=>!isInfo(w)),evs=em[id]||[];
-      return{id,enabled:!!ch.enabled,jobStarted:!!ch.encoder_job_started,warnings:wm.length,wm,evs,hasEv:evs.length>0};
+      const chSt=raw.statusMap&&raw.statusMap[id],chEncState=chSt?chSt.state||'':'',encWarn=!!chEncState&&chEncState!=='running';
+      return{id,enabled:!!ch.enabled,jobStarted:!!ch.encoder_job_started,warnings:wm.length,wm,evs,hasEv:evs.length>0,encWarn,encState:chEncState};
     });
     const evRows=[];
     for(const c of chData)for(const ev of c.evs)evRows.push({chId:c.id,ev,chData:c});
-    const nW=chData.reduce((s,c)=>s+c.warnings,0);
+    const nW=chData.reduce((s,c)=>s+c.warnings+(c.encWarn?1:0),0);
     return{id:n.id,host:n.host_name||'',status:n.status||'unknown',allowAlloc:!!n.allow_allocations,
       capacity:n.max_capacity||n.capacity||0,cpu:m.cpu||0,mem:m.memory||0,gpu:m.gpu||0,sched,
       nCh:nodeChs.length,nRn:chData.filter(c=>c.jobStarted).length,nW,chData,evRows,hasEvs:evRows.length>0};
@@ -784,7 +786,7 @@ function renderNodes(filter,warnOnly,inUseOnly){
       '<div class="node-body"><div class="ch-chips">';
     if(!r.chData.length)h+='<span style="color:var(--muted);font-size:.58rem;font-family:var(--mono)">(none)</span>';
     for(const c of r.chData){
-      const cc=!c.enabled?'ck-dis':c.warnings?'ck-wn':c.hasEv&&!c.jobStarted?'ck-evw':!c.jobStarted?'ck-idle':'ck-ok';
+      const cc=!c.enabled?'ck-dis':(c.warnings||c.encWarn)?'ck-wn':c.hasEv&&!c.jobStarted?'ck-evw':!c.jobStarted?'ck-idle':'ck-ok';
       h+='<span class="ch-chip '+cc+'" title="'+esc(c.id)+(c.hasEv?' | '+c.evs.map(e=>e.event_name).join(', '):'')+'" style="cursor:default">'+esc(c.id)+'</span>';
     }
     h+='</div>'+mBar('CPU',r.cpu)+mBar('MEM',r.mem)+mBarSched('SCH',r.sched)+(r.gpu?mBar('GPU',r.gpu):'')+
@@ -1167,58 +1169,106 @@ function renderChannelMonitorChart(){
 }
 
 function renderFallbackChart(container,data){
-  const w=container.clientWidth-16;
-  const h=container.clientHeight-16;
+  const W=container.clientWidth-16;
+  const H=container.clientHeight-16;
   if(data.length===0){
-    container.innerHTML='<div style="padding:12px;font-family:var(--mono);font-size:.58rem;color:var(--muted);text-align:center;">No bitrate data yet…</div>';
+    container.innerHTML='<div style="padding:12px;font-family:var(--mono);font-size:.58rem;color:var(--muted);text-align:center;">No bitrate data yet\u2026</div>';
     return;
   }
-  const maxBps=Math.max(...data.map(d=>d.bps),1)*1.1;
+
+  // Layout margins: left for Y labels, right for live label, bottom for X labels
+  const ML=52,MR=72,MT=12,MB=28;
+  const cW=W-ML-MR, cH=H-MT-MB;
+
+  const rawMax=Math.max(...data.map(d=>d.bps),0.1);
+  // Round up to a nice number for Y axis
+  const magnitude=Math.pow(10,Math.floor(Math.log10(rawMax)));
+  const niceMax=Math.ceil(rawMax/magnitude)*magnitude*1.1;
+  const maxBps=niceMax;
+
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
-  svg.setAttribute('width',w);
-  svg.setAttribute('height',h);
-  svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
+  svg.setAttribute('width',W);
+  svg.setAttribute('height',H);
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
   svg.style.backgroundColor='transparent';
 
-  const gridLine=document.createElementNS('http://www.w3.org/2000/svg','line');
-  gridLine.setAttribute('x1','40');
-  gridLine.setAttribute('y1',h-30);
-  gridLine.setAttribute('x2',w-10);
-  gridLine.setAttribute('y2',h-30);
-  gridLine.setAttribute('stroke','rgba(255,255,255,.1)');
-  gridLine.setAttribute('stroke-width','1');
-  svg.appendChild(gridLine);
+  function mkEl(tag,attrs){
+    const el=document.createElementNS('http://www.w3.org/2000/svg',tag);
+    for(const[k,v]of Object.entries(attrs))el.setAttribute(k,v);
+    return el;
+  }
+  function txt(x,y,s,attrs={}){
+    const el=mkEl('text',{x,y,'font-family':'Space Mono,monospace','font-size':'10',fill:'rgba(255,255,255,.35)',...attrs});
+    el.textContent=s;
+    return el;
+  }
 
+  // ── Y grid lines + labels (4 divisions) ──
+  const yDivs=4;
+  for(let i=0;i<=yDivs;i++){
+    const val=(maxBps/yDivs)*i;
+    const y=MT+cH-(val/maxBps)*cH;
+    // grid line
+    svg.appendChild(mkEl('line',{x1:ML,y1:y,x2:ML+cW,y2:y,stroke:'rgba(255,255,255,.07)','stroke-width':'1','stroke-dasharray':i===0?'none':'3,4'}));
+    // Y label
+    const label=val>=1?val.toFixed(1)+' Mbps':(val*1000).toFixed(0)+' kbps';
+    svg.appendChild(txt(ML-4,y+3.5,label,{'text-anchor':'end',fill:'rgba(255,255,255,.3)'}));
+  }
+
+  // ── X grid lines + UTC time labels ──
+  // Map 5 evenly-spaced grid lines to real timestamps from bitrateHistory
+  const xDivs=4;
+  for(let i=0;i<=xDivs;i++){
+    const x=ML+(i/xDivs)*cW;
+    svg.appendChild(mkEl('line',{x1:x,y1:MT,x2:x,y2:MT+cH,stroke:'rgba(255,255,255,.07)','stroke-width':'1','stroke-dasharray':i===0||i===xDivs?'none':'3,4'}));
+    // Pick the sample closest to this grid position
+    const sampleIdx=Math.round((i/xDivs)*(data.length-1));
+    const sampleTs=chMonState.bitrateHistory[sampleIdx]&&chMonState.bitrateHistory[sampleIdx].ts;
+    let xLabel='';
+    if(sampleTs){
+      // Format as HH:MM:SS UTC
+      xLabel=sampleTs.toUTCString().slice(17,25); // "HH:MM:SS"
+    }
+    svg.appendChild(txt(x,MT+cH+MB-4,xLabel,{'text-anchor':'middle',fill:'rgba(255,255,255,.25)'}));
+  }
+
+  // ── Area fill ──
+  if(data.length>1){
+    const ptCoords=data.map((d,i)=>{
+      const x=ML+(i/(data.length-1))*cW;
+      const y=MT+cH-(d.bps/maxBps)*cH;
+      return[x,y];
+    });
+    const areaPoints=ptCoords.map(([x,y])=>x+','+y).join(' ');
+    const firstX=ptCoords[0][0], lastX=ptCoords[ptCoords.length-1][0];
+    const areaPath='M '+firstX+','+(MT+cH)+' L '+areaPoints+' L '+lastX+','+(MT+cH)+' Z';
+    svg.appendChild(mkEl('path',{d:areaPath,fill:'rgba(0,255,200,.06)',stroke:'none'}));
+  }
+
+  // ── Polyline ──
   const points=data.map((d,i)=>{
-    const x=40+(i/(data.length-1||1))*(w-50);
-    const y=h-30-(d.bps/maxBps)*(h-50);
-    return `${x},${y}`;
+    const x=ML+(i/(data.length-1||1))*cW;
+    const y=MT+cH-(d.bps/maxBps)*cH;
+    return x+','+y;
   }).join(' ');
+  svg.appendChild(mkEl('polyline',{points,fill:'none',stroke:'#00ffc8','stroke-width':'1.5','stroke-linejoin':'round'}));
 
-  const polyline=document.createElementNS('http://www.w3.org/2000/svg','polyline');
-  polyline.setAttribute('points',points);
-  polyline.setAttribute('fill','none');
-  polyline.setAttribute('stroke','var(--accent)');
-  polyline.setAttribute('stroke-width','2');
-  svg.appendChild(polyline);
+  // ── Live dot + label at last point ──
+  if(data.length>=1){
+    const last=data[data.length-1];
+    const lx=ML+cW;
+    const ly=MT+cH-(last.bps/maxBps)*cH;
 
-  const yLabel=document.createElementNS('http://www.w3.org/2000/svg','text');
-  yLabel.setAttribute('x','5');
-  yLabel.setAttribute('y','15');
-  yLabel.setAttribute('font-family','var(--mono)');
-  yLabel.setAttribute('font-size','11');
-  yLabel.setAttribute('fill','var(--muted)');
-  yLabel.textContent=maxBps.toFixed(1)+' Mbps';
-  svg.appendChild(yLabel);
+    // Dot
+    svg.appendChild(mkEl('circle',{cx:lx,cy:ly,r:'3',fill:'#00ffc8'}));
 
-  const zeroLabel=document.createElementNS('http://www.w3.org/2000/svg','text');
-  zeroLabel.setAttribute('x','5');
-  zeroLabel.setAttribute('y',h-25);
-  zeroLabel.setAttribute('font-family','var(--mono)');
-  zeroLabel.setAttribute('font-size','11');
-  zeroLabel.setAttribute('fill','var(--muted)');
-  zeroLabel.textContent='0 Mbps';
-  svg.appendChild(zeroLabel);
+    // Live value label — right of chart area
+    const liveLabel=last.bps>=1?last.bps.toFixed(2)+' Mbps':(last.bps*1000).toFixed(0)+' kbps';
+    svg.appendChild(txt(lx+8,ly+4,liveLabel,{fill:'#00ffc8','font-size':'11','font-weight':'bold'}));
+
+    // Horizontal dashed line from dot to label
+    svg.appendChild(mkEl('line',{x1:lx+1,y1:ly,x2:lx+6,y2:ly,stroke:'rgba(0,255,200,.4)','stroke-width':'1','stroke-dasharray':'2,2'}));
+  }
 
   container.innerHTML='';
   container.appendChild(svg);

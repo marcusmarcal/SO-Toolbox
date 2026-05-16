@@ -6,6 +6,32 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+
+## [2.17.5] - 2026-05-15
+
+### Fixed
+
+- Channel Monitor chart: X axis labels now show real UTC timestamps (HH:MM:SS)
+  derived from the actual sample timestamps in `bitrateHistory`, updating live
+  on every poll instead of static relative offsets
+
+## [2.17.4] - 2026-05-15
+
+### Changed
+
+- Channel Monitor bitrate chart: Y grid lines with Mbps scale (4 divisions,
+  rounded to clean values), X grid lines with time offset labels (-Ns to now),
+  area fill, live value label with dot at last point
+
+## [2.17.3] - 2026-05-15
+
+### Fixed
+
+- Channels: encoder state other than `running` now counted as warning —
+  `warnOnly` filter surfaces channels with e.g. `initializing`, `stopped`, etc.
+- Nodes: channels with non-running enc state now contribute to node warning
+  count (`nW`) and appear with amber chip; node visible in `warnOnly` filter
+
 ## [2.17.2] - 2026-05-15
 
 ### Fixed
@@ -15,7 +41,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Channel Monitor: warnings not shown — `renderChannelMonitorWarnings` now
   merges `raw.flags` + `flagsEvData` directly instead of relying on
   `chMonState.flagsData` which was always empty
-  
+
 ## [2.17.1] - 2026-05-14
 
 ### Fixed
@@ -23,7 +49,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Channel Monitor modal now triggered via dedicated ⧉ button beside channel ID,
   preserving the external link click to id3as GUI; previously `onclick` on the
   row captured all clicks including on the `<a>` ext-lnk.
-  
+
 ## [2.17.0] - 2026-05-14
 
 ### Added
@@ -35,7 +61,6 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Warnings list filtered by channel ID with module, message, repeat count
 - Encoder/Source state status, current bitrate, stream codec/audio info
 - Modal auto-closes on close button or backdrop click; polling cleanup on close
-
 
 ## [2.16.0] - 2026-05-14
 
