@@ -33,6 +33,41 @@
         --danger: #ff4e6a;
         --mono: "Space Mono", monospace;
         --display: "Syne", sans-serif;
+        --res-ok: #00ff88;
+        --res-warn: #ffaa00;
+        --res-error: #ff4e6a;
+      }
+
+      /* ── SERVER RESOURCES ── */
+      #server-resources {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-left: auto;
+        margin-right: 8px;
+      }
+      .res-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 9px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        color: var(--muted);
+        transition: all 0.4s;
+        white-space: nowrap;
+      }
+      .res-item.ok   { border-color: rgba(0,255,136,.3); background: rgba(0,255,136,.07); color: var(--res-ok); }
+      .res-item.warn { border-color: rgba(255,170,0,.3); background: rgba(255,170,0,.07); color: var(--res-warn); }
+      .res-item.err  { border-color: rgba(255,78,106,.3); background: rgba(255,78,106,.07); color: var(--res-error); }
+      .res-dot {
+        width: 5px; height: 5px;
+        border-radius: 50%;
+        background: currentColor;
+        flex-shrink: 0;
       }
 
       html,
@@ -874,6 +909,25 @@
           >…</span
         >
         <span id="git-branch" class="git-branch"></span>
+
+        <!-- Server Resources Monitor -->
+        <div id="server-resources">
+          <div class="res-item" id="cpu-item">
+            <span class="res-dot"></span>
+            <span>CPU</span>
+            <span id="cpu-value">--</span>
+          </div>
+          <div class="res-item" id="mem-item">
+            <span class="res-dot"></span>
+            <span>MEM</span>
+            <span id="mem-value">--</span>
+          </div>
+          <div class="res-item" id="disk-item">
+            <span class="res-dot"></span>
+            <span>DSK</span>
+            <span id="disk-value">--</span>
+          </div>
+        </div>
       </header>
 
       <aside id="sidebar">
@@ -1212,6 +1266,37 @@
 
       const PROXY_URL = "/so-proxy";
       let _hasAdminPw = false;
+
+      // ── Server Resources Monitor ──────────────────────────────────
+      const _RES_T = { cpu: { warn: 70, error: 85 }, mem: { warn: 75, error: 90 }, disk: { warn: 80, error: 90 } };
+
+      function _setRes(type, value) {
+        const t = _RES_T[type];
+        const n = parseFloat(value);
+        const status = isNaN(n) ? "err" : n >= t.error ? "err" : n >= t.warn ? "warn" : "ok";
+        const item = document.getElementById(`${type}-item`);
+        const val  = document.getElementById(`${type}-value`);
+        if (item) item.className = `res-item ${status}`;
+        if (val)  val.textContent = isNaN(n) ? "??" : n.toFixed(1) + "%";
+      }
+
+      async function _fetchResources() {
+        try {
+          const r = await fetch(`${PROXY_URL}/server-stats`, { cache: "no-cache" });
+          if (!r.ok) throw new Error("no data");
+          const d = await r.json();
+          _setRes("cpu",  d.cpu);
+          _setRes("mem",  d.memory);
+          _setRes("disk", d.disk);
+        } catch {
+          ["cpu", "mem", "disk"].forEach(t => {
+            const el = document.getElementById(`${t}-item`);
+            if (el) el.className = "res-item err";
+          });
+        }
+      }
+      _fetchResources();
+      setInterval(_fetchResources, 5000);
 
       // ── Clocks ────────────────────────────────────────────────────
       function updateClocks() {
