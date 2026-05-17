@@ -453,14 +453,27 @@ function pushURL(){
 }
 
 // ── EXTERNAL LINKS ────────────────────────────────────────────
-function dcBase(){return DC_URLS[dc]||DC_URLS.ix;}
-function nodeLink(id){return`<a class="ext-lnk" href="${dcBase()}#nodes/${esc(id)}" target="_blank" rel="noopener">${esc(id)}</a>`;}
+// Links are rendered with data-frag; href is resolved lazily on click via extLinkClick().
+// This avoids any race between DC_URLS loading and the first render.
+function dcBase(){return DC_URLS[dc]||DC_URLS.ix||'';}
+
+function extLinkClick(el,e){
+  const b=dcBase();
+  if(!b){e.preventDefault();console.warn('DC config not loaded yet');return;}
+  el.href=b+'#'+el.dataset.frag;
+}
+
+function nodeLink(id){
+  return`<a class="ext-lnk" href="#" data-frag="nodes/${esc(id)}" target="_blank" rel="noopener" onclick="extLinkClick(this,event)">${esc(id)}</a>`;
+}
 function chLink(id){
   if(!id)return'-';
   const frag=id.toUpperCase().startsWith('RMG_')?`ruk_channels/${id}`:`channels/${id}`;
-  return`<a class="ext-lnk" href="${dcBase()}#${esc(frag)}" target="_blank" rel="noopener">${esc(id)}</a>`;
+  return`<a class="ext-lnk" href="#" data-frag="${esc(frag)}" target="_blank" rel="noopener" onclick="extLinkClick(this,event)">${esc(id)}</a>`;
 }
-function evLink(evId){return`<a class="ext-lnk" href="${dcBase()}#events/${esc(evId)}" target="_blank" rel="noopener">#${esc(evId)}</a>`;}
+function evLink(evId){
+  return`<a class="ext-lnk" href="#" data-frag="events/${esc(evId)}" target="_blank" rel="noopener" onclick="extLinkClick(this,event)">#${esc(evId)}</a>`;
+}
 
 // ── UTILITIES ─────────────────────────────────────────────────
 function setSt(msg,type){
