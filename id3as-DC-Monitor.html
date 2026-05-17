@@ -698,8 +698,6 @@ function renderChannels(filter,warnOnly,inUseOnly){
 
   const nW=rows.reduce((s,r)=>s+r.warnings,0),nE=rows.reduce((s,r)=>s+r.evs.length,0);
   const nRun=rows.filter(r=>r.jobStarted).length,nStr=rows.filter(r=>r.srcState==='streaming').length;
-    const nW=rows.reduce((s,r)=>s+r.warnings,0),nE=rows.reduce((s,r)=>s+r.evs.length,0);
-  const nRun=rows.filter(r=>r.jobStarted).length,nStr=rows.filter(r=>r.srcState==='streaming').length;
   let h=sumBar([['Channels',rows.length,'ac'],['Running',nRun,''],['Streaming',nStr,nStr?'ac':''],['Events',nE,nE?'in':''],['Warnings',nW||'-',nW?'dg':'']]);
   if(!rows.length){h+=empty('No channels match filters');$('content').innerHTML=h;return;}
   for(const r of rows){
@@ -714,7 +712,7 @@ function renderChannels(filter,warnOnly,inUseOnly){
           '<span class="c-id" style="font-size:.8rem">'+chLink(r.id)+
             (r.passthrough?' <span style="color:var(--muted);font-size:.5rem">PT</span>':'')+
           '</span>'+
-          '<button onclick="openChannelMonitorFromRow(''+esc(r.id)+'');event.stopPropagation()" title="Channel Monitor" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:.6rem;padding:0 2px;font-family:var(--mono);opacity:.6;transition:opacity .15s;line-height:1" onmouseover="this.style.opacity=1;this.style.color='var(--accent)'" onmouseout="this.style.opacity=.6;this.style.color='var(--muted)'">⧉</button>'+
+          '<button onclick="openChannelMonitorFromRow(\''+esc(r.id)+'\');event.stopPropagation()" title="Channel Monitor" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:.6rem;padding:0 2px;font-family:var(--mono);opacity:.6;transition:opacity .15s;line-height:1" onmouseover="this.style.opacity=1;this.style.color=\'var(--accent)\'" onmouseout="this.style.opacity=.6;this.style.color=\'var(--muted)\'">⧉</button>'+
         '</div>'+
         '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'+
           (r.warnings?wb(r.warnings):'')+
