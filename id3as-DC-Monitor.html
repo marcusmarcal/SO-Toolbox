@@ -317,17 +317,10 @@
 
 <script>
 const PROXY='/so-proxy';
-// DC_URLS is loaded from the proxy at startup (GET /so-proxy/id3as/config).
-// No hostnames are hardcoded here — they live only in .env on the server.
-let DC_URLS={ix:'',eq:''};
-
-// Store the promise so initFromURL can await it before the first load().
-const _dcConfigReady=(async function(){
-  try{
-    const r=await fetch(PROXY+'/id3as/config');
-    if(r.ok){const cfg=await r.json();if(cfg&&typeof cfg==='object')DC_URLS=cfg;}
-  }catch(e){console.warn('Could not load DC config:',e);}
-})();
+// DC_URLS is fetched from the proxy at startup — never hardcoded here.
+// The proxy reads ID3AS_HOST_IX / ID3AS_HOST_EQ from .env and returns them.
+// No render happens until this resolves.
+let DC_URLS={};
 
 // ── STATE ─────────────────────────────────────────────────────
 let dc='ix', view='channels', raw={}, logEvents=[], logLevel='', schedHorizonDays=3, hasData=false, flagsEvData=[];
@@ -339,8 +332,7 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
 // ── URL PARAM INITIALISATION ──────────────────────────────────
-// Reads ?view=, ?dc=, ?inuse=, ?warn=, ?sort=, ?dir= on load.
-// This allows bookmarking or kiosk links with a specific state.
+// Waits for DC config before first render so external links are always correct.
 (function initFromURL(){
   const p=new URLSearchParams(window.location.search);
 
@@ -350,14 +342,18 @@ const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'
   const d=p.get('dc');
   if(d&&['ix','eq'].includes(d))dc=d;
 
-  // Await DC config before first load so external links are populated.
-  document.addEventListener('DOMContentLoaded',()=>{
+  document.addEventListener('DOMContentLoaded',async()=>{
     if(p.get('inuse')==='1'){$('ao').checked=true;localStorage.setItem('activeOnly','1');}
     if(p.get('warn') ==='1'){$('wo').checked=true;localStorage.setItem('warningsOnly','1');}
     syncViewButtons();
     syncDCButtons();
     updateToolbarForView();
-    if(view!=='logs')_dcConfigReady.then(()=>load());
+    // Fetch DC config first — blocks render until hosts are available
+    try{
+      const r=await fetch(PROXY+'/id3as/config');
+      if(r.ok) DC_URLS=await r.json();
+    }catch(e){console.error('[id3as] Failed to load DC config:',e);}
+    if(view!=='logs')load();
   });
 })();
 
@@ -453,27 +449,14 @@ function pushURL(){
 }
 
 // ── EXTERNAL LINKS ────────────────────────────────────────────
-// Links are rendered with data-frag; href is resolved lazily on click via extLinkClick().
-// This avoids any race between DC_URLS loading and the first render.
-function dcBase(){return DC_URLS[dc]||DC_URLS.ix||'';}
-
-function extLinkClick(el,e){
-  const b=dcBase();
-  if(!b){e.preventDefault();console.warn('DC config not loaded yet');return;}
-  el.href=b+'#'+el.dataset.frag;
-}
-
-function nodeLink(id){
-  return`<a class="ext-lnk" href="#" data-frag="nodes/${esc(id)}" target="_blank" rel="noopener" onclick="extLinkClick(this,event)">${esc(id)}</a>`;
-}
+function dcBase(){return DC_URLS[dc]||DC_URLS.ix;}
+function nodeLink(id){return`<a class="ext-lnk" href="${dcBase()}#nodes/${esc(id)}" target="_blank" rel="noopener">${esc(id)}</a>`;}
 function chLink(id){
   if(!id)return'-';
   const frag=id.toUpperCase().startsWith('RMG_')?`ruk_channels/${id}`:`channels/${id}`;
-  return`<a class="ext-lnk" href="#" data-frag="${esc(frag)}" target="_blank" rel="noopener" onclick="extLinkClick(this,event)">${esc(id)}</a>`;
+  return`<a class="ext-lnk" href="${dcBase()}#${esc(frag)}" target="_blank" rel="noopener">${esc(id)}</a>`;
 }
-function evLink(evId){
-  return`<a class="ext-lnk" href="#" data-frag="events/${esc(evId)}" target="_blank" rel="noopener" onclick="extLinkClick(this,event)">#${esc(evId)}</a>`;
-}
+function evLink(evId){return`<a class="ext-lnk" href="${dcBase()}#events/${esc(evId)}" target="_blank" rel="noopener">#${esc(evId)}</a>`;}
 
 // ── UTILITIES ─────────────────────────────────────────────────
 function setSt(msg,type){

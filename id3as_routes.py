@@ -350,6 +350,22 @@ def _packaging_get(dc, path):
         )
 
 
+# ── Config route ────────────────────────────────────────────────────
+
+
+@id3as_bp.route("/id3as/config", methods=["GET"])
+def id3as_config():
+    """GET /so-proxy/id3as/config — returns DC GUI base URLs for the browser.
+    Allows the HTML to build external deep-links without hardcoding hostnames.
+    """
+    hosts = _get_dc_hosts()
+    return jsonify({
+        dc: f"https://{host}/ctl/admin"
+        for dc, host in hosts.items()
+        if host
+    })
+
+
 # ── Channel routes ──────────────────────────────────────────────────
 
 
