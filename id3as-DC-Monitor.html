@@ -698,38 +698,51 @@ function renderChannels(filter,warnOnly,inUseOnly){
 
   const nW=rows.reduce((s,r)=>s+r.warnings,0),nE=rows.reduce((s,r)=>s+r.evs.length,0);
   const nRun=rows.filter(r=>r.jobStarted).length,nStr=rows.filter(r=>r.srcState==='streaming').length;
+    const nW=rows.reduce((s,r)=>s+r.warnings,0),nE=rows.reduce((s,r)=>s+r.evs.length,0);
+  const nRun=rows.filter(r=>r.jobStarted).length,nStr=rows.filter(r=>r.srcState==='streaming').length;
   let h=sumBar([['Channels',rows.length,'ac'],['Running',nRun,''],['Streaming',nStr,nStr?'ac':''],['Events',nE,nE?'in':''],['Warnings',nW||'-',nW?'dg':'']]);
-  h+='<div class="ch-header"><span>CHANNEL</span><span>NODE</span><span>ENC</span><span>SRC</span><span>BITRATE</span><span>STREAM</span><span style="text-align:right">WARN</span></div>';
-  h+='<div class="ch-list">';
+  if(!rows.length){h+=empty('No channels match filters');$('content').innerHTML=h;return;}
   for(const r of rows){
-    const hasSub=r.warnings||r.evs.length||r.im.length;
     const isCrit=r.wm.some(w=>(w.msg||'').includes('No traffic on source'))&&r.evs.length>0;
     const encH=r.encState?(r.encState==='running'?pill('p-run','running'):pill('p-err','⚠ '+r.encState)):'<span id="enc-'+r.id+'" style="color:var(--muted);font-size:.58rem;font-family:var(--mono)">-</span>';
     const srcH=r.srcState?(r.srcState==='streaming'?pill('p-str','streaming'):r.srcState==='acquiring_signal'?(r.evs.length?pill('p-crit','⚠ no signal'):pill('p-acq','acquiring')):pill('p-idle',r.srcState)):'<span id="src-'+r.id+'" style="color:var(--muted);font-size:.58rem;font-family:var(--mono)">-</span>';
     const jpH=r.jobStarted?'':r.enabled?'<span style="color:#f0a500;font-size:.56rem"> idle</span>':'<span style="color:var(--muted);font-size:.56rem"> dis</span>';
-      h+='<div class="ch-row'+(isCrit?' crit-row':'')+'">'+
-      '<div class="c-id">'+chLink(r.id)+
-      (r.passthrough?' <span style="color:var(--muted);font-size:.5rem">PT</span>':'')+
-      '<button onclick="openChannelMonitorFromRow(\''+esc(r.id)+'\');event.stopPropagation()" title="Channel Monitor" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:.6rem;padding:0 2px;vertical-align:middle;font-family:var(--mono);opacity:.6;transition:opacity .15s;line-height:1" onmouseover="this.style.opacity=1;this.style.color=\'var(--accent)\'" onmouseout="this.style.opacity=.6;this.style.color=\'var(--muted)\'">⧉</button>'+      '</div>'+
-      '<div class="c-node">'+nodeLink(r.node)+jpH+'</div>'+
-      '<div class="c-enc" id="enc-'+r.id+'">'+encH+'</div>'+
-      '<div class="c-src" id="src-'+r.id+'">'+srcH+'</div>'+
-      '<div id="bps-'+r.id+'" class="c-bps '+(r.bitrate>0?'good':'none')+'">'+(r.bitrate>0?bpsFmt(r.bitrate):'-')+'</div>'+
-      '<div id="str-'+r.id+'" class="c-stream">'+(r.st?streamInfo(r.st):'<span id="str-'+r.id+'"></span>')+'</div>'+
-      '<div class="c-warn">'+wb(r.warnings)+'</div></div>';
-    if(hasSub){
-      h+='<div class="ch-sub visible" id="sub-'+r.id+'">';
-      for(const ev of r.evs){
-        const evNdDiff=ev.enc_node&&ev.enc_node!==r.node;
-        h+='<div class="ev-strip"><span class="ev-eid">'+evLink(ev.event_id)+'</span>'+(ev.enc_node?'<span style="font-family:var(--mono);font-size:.54rem;color:'+(evNdDiff?'var(--warn)':'var(--muted)')+'">node:'+nodeLink(ev.enc_node)+'</span>':'')+'<span class="ev-name">'+esc(ev.event_name.slice(0,80))+'</span><span class="ev-time">'+esc(ev.start)+' → '+esc(ev.end)+'</span></div>';
-      }
-      for(const w of r.wm)h+='<div class="warn-strip">⚠ <span class="ws-mod">['+esc(w.module||'')+']</span><span class="ws-msg">'+esc(w.msg||'')+'</span><span class="ws-rep">(×'+esc(String(w.repeated||0))+')</span></div>';
-      for(const w of r.im)h+='<div class="info-strip">ℹ ['+esc(w.module||'')+'] '+esc(w.msg||'')+'</div>';
-      h+='</div>';
+    // ── card header: channel id + monitor button + node + job state ──
+    h+='<div class="ev-card'+(isCrit?' hw':r.warnings?' hw':'')+'" style="margin-bottom:6px">'+
+      '<div class="ev-head">'+
+        '<div style="display:flex;align-items:center;gap:7px;flex:1;min-width:0">'+
+          '<span class="c-id" style="font-size:.8rem">'+chLink(r.id)+
+            (r.passthrough?' <span style="color:var(--muted);font-size:.5rem">PT</span>':'')+
+          '</span>'+
+          '<button onclick="openChannelMonitorFromRow(''+esc(r.id)+'');event.stopPropagation()" title="Channel Monitor" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:.6rem;padding:0 2px;font-family:var(--mono);opacity:.6;transition:opacity .15s;line-height:1" onmouseover="this.style.opacity=1;this.style.color='var(--accent)'" onmouseout="this.style.opacity=.6;this.style.color='var(--muted)'">⧉</button>'+
+        '</div>'+
+        '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">'+
+          (r.warnings?wb(r.warnings):'')+
+        '</div>'+
+      '</div>'+
+      // ── meta row: node + enc + src + bitrate + stream ──
+      '<div class="ev-meta" style="margin-top:4px">'+
+        '<span>Node: <span class="mv" id="nd-'+r.id+'">'+nodeLink(r.node)+jpH+'</span></span>'+
+        '<span>Enc: <span id="enc-'+r.id+'">'+encH+'</span></span>'+
+        '<span>Src: <span id="src-'+r.id+'">'+srcH+'</span></span>'+
+        (r.bitrate>0?'<span>Bitrate: <span class="mv c-bps good" id="bps-'+r.id+'">'+bpsFmt(r.bitrate)+'</span></span>':'<span style="display:none"><span id="bps-'+r.id+'"></span></span>')+
+        '<span id="str-'+r.id+'" style="color:#8888aa;font-size:.58rem">'+(r.st?streamInfo(r.st):'')+' </span>'+
+      '</div>';
+    // ── events ──
+    for(const ev of r.evs){
+      const evNdDiff=ev.enc_node&&ev.enc_node!==r.node;
+      h+='<div class="ev-strip" style="margin-top:4px">'+
+        '<span class="ev-eid">'+evLink(ev.event_id)+'</span>'+
+        (ev.enc_node?'<span style="font-family:var(--mono);font-size:.54rem;color:'+(evNdDiff?'var(--warn)':'var(--muted)')+'">node:'+nodeLink(ev.enc_node)+'</span>':'')+
+        '<span class="ev-name">'+esc(ev.event_name.slice(0,80))+'</span>'+
+        '<span class="ev-time">'+esc(ev.start)+' → '+esc(ev.end)+'</span>'+
+      '</div>';
     }
+    // ── warnings ──
+    for(const w of r.wm)h+='<div class="warn-strip">⚠ <span class="ws-mod">['+esc(w.module||'')+']</span><span class="ws-msg">'+esc(w.msg||'')+'</span><span class="ws-rep">(×'+esc(String(w.repeated||0))+')</span></div>';
+    for(const w of r.im)h+='<div class="info-strip">ℹ ['+esc(w.module||'')+'] '+esc(w.msg||'')+'</div>';
+    h+='</div>';
   }
-  h+='</div>';
-  if(!rows.length)h+=empty('No channels match filters');
   $('content').innerHTML=h;
 }
 
@@ -993,7 +1006,7 @@ function updateToolbarForView(){
   $('sort-wrap').style.display=SORT_FIELDS[view]?'':'none';
   if(SORT_FIELDS[view]){if(!sortState[view])sortState[view]=getSort(view);updateSortUI(view);}
   const isLog=view==='logs',isSched=view==='scheduled';
-  $('sub-toolbar').style.display=isSched?'':'none'; // logs manages its own sub-toolbar state
+  $('sub-toolbar').style.display=isSched?'block':'none'; // logs manages its own sub-toolbar state
   $('log-controls').style.display='none';           // hidden until log results are loaded
   $('sched-controls').style.display=isSched?'flex':'none';
   $('rmg-wrap').style.display=view==='channels'?'':'none';
