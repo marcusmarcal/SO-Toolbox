@@ -321,7 +321,8 @@ const PROXY='/so-proxy';
 // No hostnames are hardcoded here — they live only in .env on the server.
 let DC_URLS={ix:'',eq:''};
 
-(async function loadDCConfig(){
+// Store the promise so initFromURL can await it before the first load().
+const _dcConfigReady=(async function(){
   try{
     const r=await fetch(PROXY+'/id3as/config');
     if(r.ok){const cfg=await r.json();if(cfg&&typeof cfg==='object')DC_URLS=cfg;}
@@ -349,14 +350,14 @@ const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'
   const d=p.get('dc');
   if(d&&['ix','eq'].includes(d))dc=d;
 
-  // Checkbox state from URL (overrides localStorage)
+  // Await DC config before first load so external links are populated.
   document.addEventListener('DOMContentLoaded',()=>{
     if(p.get('inuse')==='1'){$('ao').checked=true;localStorage.setItem('activeOnly','1');}
     if(p.get('warn') ==='1'){$('wo').checked=true;localStorage.setItem('warningsOnly','1');}
     syncViewButtons();
     syncDCButtons();
     updateToolbarForView();
-    if(view!=='logs')load();
+    if(view!=='logs')_dcConfigReady.then(()=>load());
   });
 })();
 
