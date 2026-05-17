@@ -8,9 +8,24 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ---
 ## [2.19.1] - 2026-05-17
 
-### Fixed
-- Fixed external URLs
+### Added
+- `id3as_routes.py`: new `/id3as/config` endpoint on the blueprint — returns DC GUI base URLs
+  (`ID3AS_HOST_IX`, `ID3AS_HOST_EQ`) read from `.env`, so the browser never needs them hardcoded
 
+### Changed
+- **Channels view**: rows replaced by cards matching the Running Events style — bordered blocks
+  with channel ID, node, enc/src/bitrate/stream in a meta row, events and warnings inline below;
+  in-place status updates (`enc-X`, `src-X`, `bps-X`, `str-X` IDs) preserved
+- **Scheduled view**: horizon selector (3d / 7d / 14d / All) now correctly appears in the
+  sub-toolbar — `display:''` fixed to `display:'block'` so the CSS default no longer wins
+- `id3as-DC-Monitor.html`: `DC_URLS` no longer hardcoded — fetched at startup from
+  `/so-proxy/id3as/config` before first render, so hostnames are absent from the source file
+
+### Security
+- Removed `proxy_id3as_patch.py` — routes consolidated into `id3as_routes.py` (Blueprint),
+  which was already the correct integration point via `app.register_blueprint(id3as_bp)`
+- DC hostnames moved out of all source files; now stored exclusively in `.env` under `ID3AS_HOST_IX` / `ID3AS_HOST_EQ`
+  
 ## [2.19.0] - 2026-05-17
 
 ### Changed
