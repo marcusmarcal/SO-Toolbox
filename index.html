@@ -840,6 +840,171 @@
         display: none !important;
       }
 
+      /* ── TOOL REORDER (drag-and-drop) ── */
+      .tool-item.dragging {
+        opacity: 0.4;
+        background: rgba(0,255,200,0.05);
+        border-color: var(--accent) !important;
+      }
+      .tool-item.drag-over {
+        border-color: var(--accent) !important;
+        background: rgba(0,255,200,0.08);
+      }
+      .tool-drag-handle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 14px;
+        flex-shrink: 0;
+        color: var(--border);
+        font-size: 0.65rem;
+        cursor: grab;
+        opacity: 0;
+        transition: opacity 0.15s, color 0.15s;
+        user-select: none;
+      }
+      .tool-item:hover .tool-drag-handle {
+        opacity: 1;
+      }
+      .tool-drag-handle:active {
+        cursor: grabbing;
+        color: var(--accent);
+      }
+
+      /* ── RESET ORDER BUTTON ── */
+      .reset-order-btn {
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        padding: 4px 12px;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--muted);
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .reset-order-btn:hover {
+        border-color: rgba(240,165,0,.5);
+        color: #f0c060;
+        background: rgba(240,165,0,.07);
+      }
+
+      /* ── README RENDERED MARKDOWN ── */
+      .readme-rendered {
+        font-family: var(--display);
+        font-size: 0.78rem;
+        color: var(--text);
+        line-height: 1.75;
+      }
+      .readme-rendered h1 {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: var(--accent);
+        margin: 0 0 0.6rem;
+        padding-bottom: 0.4rem;
+        border-bottom: 1px solid var(--border);
+        letter-spacing: 0.04em;
+      }
+      .readme-rendered h2 {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text);
+        margin: 1.4rem 0 0.4rem;
+        padding-bottom: 0.25rem;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .readme-rendered h3 {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #80c8ff;
+        margin: 1rem 0 0.25rem;
+      }
+      .readme-rendered p {
+        margin: 0.4rem 0 0.7rem;
+        color: #c0c0d8;
+      }
+      .readme-rendered ul, .readme-rendered ol {
+        margin: 0.3rem 0 0.7rem 1.2rem;
+        color: #c0c0d8;
+      }
+      .readme-rendered li {
+        margin-bottom: 0.2rem;
+      }
+      .readme-rendered code {
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        background: rgba(0,255,200,0.08);
+        color: var(--accent);
+        padding: 1px 5px;
+        border-radius: 3px;
+        border: 1px solid rgba(0,255,200,0.15);
+      }
+      .readme-rendered pre {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 0.8rem 1rem;
+        overflow-x: auto;
+        margin: 0.6rem 0;
+      }
+      .readme-rendered pre code {
+        background: none;
+        border: none;
+        padding: 0;
+        color: #a0d8c8;
+        font-size: 0.68rem;
+      }
+      .readme-rendered blockquote {
+        border-left: 3px solid var(--accent2);
+        margin: 0.5rem 0;
+        padding: 0.3rem 0.8rem;
+        background: rgba(123,94,167,0.07);
+        border-radius: 0 4px 4px 0;
+        color: var(--muted);
+        font-style: italic;
+      }
+      .readme-rendered hr {
+        border: none;
+        border-top: 1px solid var(--border);
+        margin: 1rem 0;
+      }
+      .readme-rendered a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+      .readme-rendered a:hover {
+        text-decoration: underline;
+      }
+      .readme-rendered strong { color: var(--text); }
+      .readme-rendered em { color: #b0b0cc; font-style: italic; }
+      .readme-rendered table {
+        width: 100%;
+        border-collapse: collapse;
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        margin: 0.6rem 0;
+      }
+      .readme-rendered th {
+        background: var(--card);
+        color: var(--accent);
+        padding: 6px 10px;
+        border: 1px solid var(--border);
+        text-align: left;
+        letter-spacing: 0.06em;
+      }
+      .readme-rendered td {
+        padding: 5px 10px;
+        border: 1px solid var(--border);
+        color: #c0c0d8;
+      }
+      .readme-rendered tr:nth-child(even) td {
+        background: rgba(255,255,255,0.02);
+      }
+
       [data-tip] {
         position: relative;
       }
@@ -899,6 +1064,15 @@
           style="border-color: rgba(88, 166, 255, 0.4); color: var(--accent)"
         >
           📖 README
+        </button>
+        <button
+          class="reset-order-btn"
+          data-tip="Reset tool order to server default"
+          onclick="resetToolOrder()"
+          id="btn-reset-order"
+          style="display:none"
+        >
+          ↺ Reset Order
         </button>
         <span
           class="version"
@@ -1128,14 +1302,11 @@
         </div>
         <div
           id="readme-content"
+          class="readme-rendered"
           style="
             flex: 1;
             overflow-y: auto;
-            font-family: var(--mono);
-            font-size: 0.7rem;
-            color: var(--text);
-            line-height: 1.8;
-            white-space: pre-wrap;
+            padding-right: 4px;
           "
         >
           Loading...
@@ -1407,19 +1578,143 @@
         }
       }
 
+      // ── Lightweight Markdown → HTML renderer ──────────────────────
+      function renderMarkdown(md) {
+        // Escape HTML
+        const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+        const lines = md.split(/\r?\n/);
+        let html = '';
+        let inCode = false, codeLang = '', codeBuf = [];
+        let inList = false, listType = '';
+        let inTable = false, tableRows = [];
+
+        function flushList() {
+          if (!inList) return;
+          const tag = listType === 'ol' ? 'ol' : 'ul';
+          html += `<${tag}>` + inList.map(i=>`<li>${inlineFormat(i)}</li>`).join('') + `</${tag}>`;
+          inList = false; listType = '';
+        }
+        function flushTable() {
+          if (!inTable || !tableRows.length) return;
+          let t = '<table>';
+          tableRows.forEach((row, i) => {
+            if (i === 1) return; // separator row
+            const tag = i === 0 ? 'th' : 'td';
+            t += '<tr>' + row.map(c=>`<${tag}>${inlineFormat(c)}</${tag}>`).join('') + '</tr>';
+          });
+          t += '</table>';
+          html += t;
+          inTable = false; tableRows = [];
+        }
+        function inlineFormat(s) {
+          // code spans first
+          s = s.replace(/`([^`]+)`/g, (_,c) => `<code>${esc(c)}</code>`);
+          // bold+italic
+          s = s.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+          s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+          s = s.replace(/__(.+?)__/g, '<strong>$1</strong>');
+          s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
+          s = s.replace(/_([^_]+)_/g, '<em>$1</em>');
+          // links
+          s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+          // inline images → skip
+          s = s.replace(/!\[[^\]]*\]\([^)]+\)/g, '');
+          return s;
+        }
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+
+          // fenced code block
+          if (/^```/.test(line)) {
+            if (!inCode) {
+              flushList(); flushTable();
+              codeLang = line.slice(3).trim();
+              inCode = true; codeBuf = [];
+            } else {
+              html += `<pre><code class="lang-${esc(codeLang)}">${esc(codeBuf.join('\n'))}</code></pre>`;
+              inCode = false;
+            }
+            continue;
+          }
+          if (inCode) { codeBuf.push(line); continue; }
+
+          // table
+          if (/^\|/.test(line)) {
+            flushList();
+            if (!inTable) inTable = true;
+            const cols = line.replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
+            // skip separator rows (---)
+            if (!cols.every(c=>/^[-: ]+$/.test(c))) tableRows.push(cols);
+            else tableRows.push(null); // placeholder for separator
+            continue;
+          } else if (inTable) { flushTable(); }
+
+          // HR
+          if (/^(-{3,}|\*{3,}|_{3,})$/.test(line.trim())) {
+            flushList();
+            html += '<hr>'; continue;
+          }
+
+          // headings
+          const hm = line.match(/^(#{1,6})\s+(.*)/);
+          if (hm) {
+            flushList();
+            const lvl = hm[1].length;
+            html += `<h${lvl}>${inlineFormat(hm[2])}</h${lvl}>`;
+            continue;
+          }
+
+          // blockquote
+          if (/^> /.test(line)) {
+            flushList();
+            html += `<blockquote>${inlineFormat(line.slice(2))}</blockquote>`;
+            continue;
+          }
+
+          // unordered list
+          const ulm = line.match(/^[\-\*\+] (.*)/);
+          if (ulm) {
+            if (inList && listType !== 'ul') flushList();
+            if (!inList) { inList = []; listType = 'ul'; }
+            inList.push(ulm[1]); continue;
+          }
+
+          // ordered list
+          const olm = line.match(/^\d+\. (.*)/);
+          if (olm) {
+            if (inList && listType !== 'ol') flushList();
+            if (!inList) { inList = []; listType = 'ol'; }
+            inList.push(olm[1]); continue;
+          }
+
+          flushList();
+
+          // blank line → paragraph break
+          if (line.trim() === '') { html += ''; continue; }
+
+          // paragraph
+          html += `<p>${inlineFormat(line)}</p>`;
+        }
+        flushList(); flushTable();
+        if (inCode) html += `<pre><code>${esc(codeBuf.join('\n'))}</code></pre>`;
+        return html;
+      }
+
       // README modal
       async function openReadme() {
         const modal = document.getElementById("readme-modal");
         const content = document.getElementById("readme-content");
         modal.style.display = "flex";
-        content.textContent = "Loading README...";
+        content.innerHTML = '<p style="color:var(--muted);font-family:var(--mono);font-size:.7rem">Loading README…</p>';
         try {
           const res = await fetch("README.md", { cache: "no-cache" });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const text = await res.text();
-          content.textContent = text;
+          content.innerHTML = renderMarkdown(text);
         } catch (e) {
-          content.textContent = `Could not load README.md: ${e.message}\n\nMake sure README.md is served alongside index.html.`;
+          content.innerHTML = `<p style="color:#ffb3be;font-family:var(--mono);font-size:.7rem">Could not load README.md: ${e.message}<br><br>Make sure README.md is served alongside index.html.</p>`;
         }
       }
       function closeReadme() {
@@ -1478,6 +1773,8 @@
         let tools = [];
         let tabs = [];
         let activeTab = null;
+        // expose for reset
+        window._tools = tools;
 
         // ═══════════════════════════════════════════════════
         //  Badge colour palette (by badge text)
@@ -1559,7 +1856,8 @@
               $catTools.append(`
                             <div class="tool-item ${
                               isActive ? "active" : ""
-                            }" data-tool-id="${tool.id}">
+                            }" data-tool-id="${tool.id}" draggable="true">
+                              <span class="tool-drag-handle" title="Drag to reorder">⠿</span>
                               <span class="tool-icon">${tool.icon}</span>
                               <div class="tool-info">
                                 <div class="tool-name">${tool.name}</div>
@@ -1681,6 +1979,57 @@
           $("#status-msg").text(msg);
         }
 
+        // Expose for global reset
+        window._renderSidebarFn = () => renderSidebar($("#search").val());
+        window._renderWelcomeCardsFn = renderWelcomeCards;
+
+        // ═══════════════════════════════════════════════════
+        //  Drag-and-drop tool reorder
+        // ═══════════════════════════════════════════════════
+        let _dragSrcId = null;
+
+        $(document).on("dragstart", ".tool-item", function (e) {
+          _dragSrcId = $(this).data("toolId");
+          $(this).addClass("dragging");
+          e.originalEvent.dataTransfer.effectAllowed = "move";
+        });
+        $(document).on("dragend", ".tool-item", function () {
+          $(".tool-item").removeClass("dragging drag-over");
+          _dragSrcId = null;
+        });
+        $(document).on("dragover", ".tool-item", function (e) {
+          e.preventDefault();
+          e.originalEvent.dataTransfer.dropEffect = "move";
+          if ($(this).data("toolId") !== _dragSrcId) {
+            $(".tool-item").removeClass("drag-over");
+            $(this).addClass("drag-over");
+          }
+        });
+        $(document).on("dragleave", ".tool-item", function () {
+          $(this).removeClass("drag-over");
+        });
+        $(document).on("drop", ".tool-item", function (e) {
+          e.preventDefault();
+          const destId = $(this).data("toolId");
+          if (!_dragSrcId || _dragSrcId === destId) return;
+
+          const srcIdx = tools.findIndex(t => t.id === _dragSrcId);
+          const dstIdx = tools.findIndex(t => t.id === destId);
+          if (srcIdx === -1 || dstIdx === -1) return;
+
+          // Reorder in-place
+          const [moved] = tools.splice(srcIdx, 1);
+          tools.splice(dstIdx, 0, moved);
+
+          // Save to cookie
+          setToolOrderCookie(tools.map(t => t.id));
+
+          // Re-render
+          renderSidebar($("#search").val());
+          renderWelcomeCards();
+          setStatus(`Moved: ${moved.name}`);
+        });
+
         // ═══════════════════════════════════════════════════
         //  Events
         // ═══════════════════════════════════════════════════
@@ -1736,6 +2085,22 @@
         loadEnv()
           .then((env) => {
             tools = parseTools(env);
+            window._tools = tools;
+
+            // Save server order (original .env order)
+            window._serverToolOrder = tools.map(t => t.id);
+
+            // Apply saved cookie order if exists
+            const savedOrder = getToolOrderCookie();
+            if (savedOrder && savedOrder.length) {
+              tools.sort((a, b) => {
+                const ia = savedOrder.indexOf(a.id);
+                const ib = savedOrder.indexOf(b.id);
+                // unknown tools go to the end
+                return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+              });
+              updateResetBtn(savedOrder);
+            }
 
             // Update title from env (version now comes from CHANGELOG.md)
             const title = env.APP_TITLE || "SP SO Web Toolbox";
@@ -1794,6 +2159,40 @@
         }
       }
       loadBranch();
+
+      // ── Tool order cookie helpers ─────────────────────────────────
+      const TOOL_ORDER_COOKIE = 'sotb-tool-order';
+      function getToolOrderCookie() {
+        try {
+          const m = document.cookie.match(/(?:^|; )sotb-tool-order=([^;]*)/);
+          return m ? JSON.parse(decodeURIComponent(m[1])) : null;
+        } catch { return null; }
+      }
+      function setToolOrderCookie(ids) {
+        const val = encodeURIComponent(JSON.stringify(ids));
+        const exp = new Date(Date.now() + 365*24*60*60*1000).toUTCString();
+        document.cookie = `${TOOL_ORDER_COOKIE}=${val}; expires=${exp}; path=/; SameSite=Lax`;
+        updateResetBtn(ids);
+      }
+      function clearToolOrderCookie() {
+        document.cookie = `${TOOL_ORDER_COOKIE}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+        updateResetBtn(null);
+      }
+      function updateResetBtn(ids) {
+        const btn = document.getElementById('btn-reset-order');
+        if (btn) btn.style.display = (ids && ids.length) ? '' : 'none';
+      }
+      function resetToolOrder() {
+        clearToolOrderCookie();
+        // Re-sort tools to server order and re-render
+        if (window._serverToolOrder && window._tools) {
+          window._tools.sort((a,b) => {
+            return window._serverToolOrder.indexOf(a.id) - window._serverToolOrder.indexOf(b.id);
+          });
+          window._renderSidebarFn && window._renderSidebarFn();
+          window._renderWelcomeCardsFn && window._renderWelcomeCardsFn();
+        }
+      }
     </script>
   </body>
 </html>
