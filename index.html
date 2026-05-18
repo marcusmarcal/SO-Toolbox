@@ -22,19 +22,19 @@
       }
 
       :root {
-        --bg: #0a0a0f;
-        --surface: #111118;
-        --card: #161621;
-        --border: #2a2a3a;
-        --accent: #00ffc8;
-        --accent2: #7b5ea7;
-        --text: #e8e8f0;
-        --muted: #6a6a8a;
+        --bg: #200A35;
+        --surface: #2a0f45;
+        --card: #3F1568;
+        --border: #5a2d8a;
+        --accent: #FAA51A;
+        --accent2: #A18BF5;
+        --text: #F2F2F2;
+        --muted: #9B9B9B;
         --danger: #ff4e6a;
         --mono: "Space Mono", monospace;
         --display: "Syne", sans-serif;
-        --res-ok: #00ff88;
-        --res-warn: #ffaa00;
+        --res-ok: #3fb950;
+        --res-warn: #FAA51A;
         --res-error: #ff4e6a;
       }
 
@@ -171,9 +171,9 @@
         transition: all 0.3s;
       }
       #env-pill.ok {
-        border-color: rgba(0, 255, 200, 0.4);
-        color: #80ffdf;
-        background: rgba(0, 255, 200, 0.07);
+        border-color: rgba(250, 165, 26, 0.5);
+        color: #ffd08a;
+        background: rgba(250, 165, 26, 0.08);
       }
       #env-pill.warn {
         border-color: rgba(255, 78, 106, 0.4);
@@ -318,8 +318,8 @@
         border-color: var(--border);
       }
       .tool-item.active {
-        background: rgba(0, 255, 200, 0.07);
-        border-color: rgba(0, 255, 200, 0.3);
+        background: rgba(250, 165, 26, 0.08);
+        border-color: rgba(250, 165, 26, 0.4);
       }
       .tool-item.active .tool-name {
         color: var(--accent);
@@ -521,7 +521,7 @@
           0% 25%
         );
         animation: rotate-hex 5s linear infinite;
-        filter: drop-shadow(0 0 20px rgba(0, 255, 200, 0.3));
+        filter: drop-shadow(0 0 20px rgba(250, 165, 26, 0.4));
       }
       @keyframes rotate-hex {
         from {
@@ -535,7 +535,7 @@
         font-size: 2rem;
         font-weight: 800;
         text-align: center;
-        background: linear-gradient(135deg, var(--text), var(--muted));
+        background: linear-gradient(135deg, #F2F2F2, #A18BF5);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
       }
@@ -566,7 +566,7 @@
       }
       .welcome-card:hover {
         border-color: var(--accent);
-        background: rgba(0, 255, 200, 0.05);
+        background: rgba(250, 165, 26, 0.06);
         transform: translateY(-3px);
       }
       .welcome-card .wc-icon {
@@ -668,7 +668,7 @@
       .git-pull-btn:hover {
         border-color: var(--accent);
         color: var(--accent);
-        background: rgba(0, 255, 200, 0.07);
+        background: rgba(250, 165, 26, 0.08);
       }
       .git-pull-btn.loading {
         color: var(--accent);
@@ -815,7 +815,7 @@
         line-height: 1.6;
       }
       .git-output.ok {
-        color: #80ffdf;
+        color: #ffd08a;
       }
       .git-output.err {
         color: #ffb3be;
