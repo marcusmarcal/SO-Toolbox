@@ -42,7 +42,7 @@ Launcher page for the PhenixRTS external multiview dashboard. Since `dashboard.p
 Frontend for the `run-ingest-analysis.sh` script. Accepts SRT, RTMP, UDP, custom URLs, or server-side `.ts` file paths. Runs the analysis as a background job (~2 minutes) and polls for completion. On finish, the full report directory (HTML + charts) and ZIP archive are copied to `ingest-results/`. Results can be opened directly in the browser or downloaded as a ZIP. Supports tag labeling. SRT local host presets are loaded from `SRT_LOCAL_*` in `.env`, and the passphrase is pre-filled from `SRT_PASSPHRASE`.
 
 ### ⛨ id3as DC Monitor (`id3as-DC-Monitor.html`)
-Web frontend for monitoring id3as data-centre infrastructure. Communicates with the id3as API via the SO proxy using `PRFAUTH` from `.env` — credentials never reach the browser. Supports two DCs (IX and EQ) and four views: **Channels** (all default channels with job state, warnings, and active events), **Nodes** (per-node channel allocation grid with colour-coded chips), **RMG** (Racing UK channels with per-channel event list), and **Logs** (system event log with level filter, date picker, and grep). Auto-refreshes every 30 seconds. Filter and warnings-only toggle apply across all views.
+Web frontend for monitoring id3as data-centre infrastructure. Communicates with the id3as API via the SO proxy using `PRFAUTH` from `.env` — credentials never reach the browser. DC hostnames are stored in `.env` (`ID3AS_HOST_IX`, `ID3AS_HOST_EQ`) and served to the browser at startup via `/so-proxy/id3as/config` — no hostnames are hardcoded in source files. Routes are registered via a Flask Blueprint (`id3as_routes.py`). Supports two DCs (IX and EQ) and four views: **Channels** (card-based layout with job state, enc/src status, warnings, and active events), **Nodes** (per-node channel allocation grid with colour-coded chips), **RMG** (Racing UK channels with per-channel event list), and **Logs** (system event log with level filter, date picker, and grep). Auto-refreshes every 30 seconds. Filter and warnings-only toggle apply across all views. Scheduled view includes a horizon selector (3d / 7d / 14d / All).
 
 ---
 
@@ -76,6 +76,10 @@ PHENIXRTS_PASSWORD=your-password
 
 # id3as authentication — server-side only, never sent to browser
 PRFAUTH=your-prfauth-token-here
+
+# id3as DC hosts — server-side only, never hardcoded in source files
+ID3AS_HOST_IX=id3as-ix.example.co.uk
+ID3AS_HOST_EQ=id3as-eq.example.co.uk
 ```
 
 ---
@@ -99,6 +103,7 @@ PRFAUTH=your-prfauth-token-here
 | `/so-proxy/ingest/results` | GET | List saved ingest results |
 | `/so-proxy/ingest/report/<dir>/<file>` | GET | Serve report file (HTML/charts) |
 | `/so-proxy/ingest/download/<file>` | GET | Download ZIP |
+| `/so-proxy/id3as/config` | GET | DC GUI base URLs built from `ID3AS_HOST_*` in `.env` |
 | `/so-proxy/id3as/<dc>/channels/<variant>` | GET | id3as channel list (default \| racing_uk) |
 | `/so-proxy/id3as/<dc>/flags/channels` | GET | Active warnings per channel |
 | `/so-proxy/id3as/<dc>/running_events` | GET | Currently running events |

@@ -6,40 +6,54 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
-## [2.19.1] - 2026-05-17
+
+## [2.19.1] - 2026-05-18
 
 ### Added
-- `id3as_routes.py`: new `/id3as/config` endpoint on the blueprint — returns DC GUI base URLs
-  (`ID3AS_HOST_IX`, `ID3AS_HOST_EQ`) read from `.env`, so the browser never needs them hardcoded
+
+- `id3as_routes.py`: new `/id3as/config` endpoint on the Blueprint — returns DC GUI base URLs
+  built from `ID3AS_HOST_IX` / `ID3AS_HOST_EQ` in `.env`; used by the browser to build
+  external deep-links without any hostname hardcoded in source files
+- `DEPLOY_id3as.md`: updated deployment instructions to reflect Blueprint architecture;
+  added `ID3AS_HOST_IX` / `ID3AS_HOST_EQ` to required `.env` entries
 
 ### Changed
-- **Channels view**: rows replaced by cards matching the Running Events style — bordered blocks
-  with channel ID, node, enc/src/bitrate/stream in a meta row, events and warnings inline below;
-  in-place status updates (`enc-X`, `src-X`, `bps-X`, `str-X` IDs) preserved
+
+- **Channels view**: rows replaced by cards matching the Running Events visual style —
+  bordered blocks with channel ID, node, enc/src/bitrate/stream meta row, and events/warnings
+  inline below; in-place status cell updates preserved (`enc-X`, `src-X`, `bps-X`, `str-X`)
 - **Scheduled view**: horizon selector (3d / 7d / 14d / All) now correctly appears in the
   sub-toolbar — `display:''` fixed to `display:'block'` so the CSS default no longer wins
-- `id3as-DC-Monitor.html`: `DC_URLS` no longer hardcoded — fetched at startup from
-  `/so-proxy/id3as/config` before first render, so hostnames are absent from the source file
+- `id3as-DC-Monitor.html`: `DC_URLS` no longer hardcoded — fetched at startup via
+  `await fetch('/so-proxy/id3as/config')` before first render; no hostnames in source
+- `README.md`: added `/so-proxy/id3as/config` to proxy endpoint table; updated id3as DC
+  Monitor description; added `ID3AS_HOST_IX` / `ID3AS_HOST_EQ` to `.env` format section
+- `SERVER_REBUILD.md`: added `PRFAUTH`, `ID3AS_HOST_IX`, `ID3AS_HOST_EQ` to `.env` template
 
 ### Security
-- Removed `proxy_id3as_patch.py` — routes consolidated into `id3as_routes.py` (Blueprint),
-  which was already the correct integration point via `app.register_blueprint(id3as_bp)`
-- DC hostnames moved out of all source files; now stored exclusively in `.env` under `ID3AS_HOST_IX` / `ID3AS_HOST_EQ`
-  
+
+- Removed `proxy_id3as_patch.py` — all id3as routes consolidated into `id3as_routes.py`
+  (Flask Blueprint), the correct integration point via `app.register_blueprint(id3as_bp)`
+- DC hostnames moved out of all source files; stored exclusively in `.env` and never
+  committed to Git; Git history rewritten with `git filter-repo` to remove prior occurrences
+
 ## [2.19.0] - 2026-05-17
 
 ### Changed
+
 - Security: hiding Id3as URLs
 
 ## [2.18.0] - 2026-05-15
 
 ### Added
+
 - Real-time server resources monitor in topbar displaying CPU, memory, and disk usage
 - Color-coded status indicators (green/ok, yellow/warning, red/error) based on configurable thresholds
 - `/server-stats` endpoint in proxy.py for fetching system metrics (top, free, df commands)
 - Auto-refresh of resource stats every 5 seconds
 
 ### Changed
+
 - Topbar layout expanded to include server metrics display on the right side
 - Resource thresholds: CPU (warn: 70%, error: 85%), Memory (warn: 75%, error: 90%), Disk (warn: 80%, error: 90%)
 

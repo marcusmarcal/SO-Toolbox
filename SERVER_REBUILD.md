@@ -119,6 +119,13 @@ SRT_SERVER_2=10.x.x.x|Server Name 2
 # NOT exposed to browser — only read server-side by proxy.py
 PHENIXRTS_APP_ID=your-app-id
 PHENIXRTS_PASSWORD=your-password
+
+# id3as authentication — server-side only, never sent to browser
+PRFAUTH=your-prfauth-token-here
+
+# id3as DC hosts — server-side only, never hardcoded in source files
+ID3AS_HOST_IX=id3as-ix.example.co.uk
+ID3AS_HOST_EQ=id3as-eq.example.co.uk
 ```
 
 > ⚠️ `SRT_PASSPHRASE`, `PHENIXRTS_APP_ID`, and `PHENIXRTS_PASSWORD` are sensitive.

@@ -7,30 +7,28 @@
 # id3as authentication — server-side only, never sent to browser
 PRFAUTH=your-prfauth-token-here
 
+# id3as DC hosts — server-side only, never hardcoded in source files
+ID3AS_HOST_IX=id3as-ix.example.co.uk
+ID3AS_HOST_EQ=id3as-eq.example.co.uk
+
 # Add to TOOL_* list in .env:
 TOOL_6=id3as-DC-Monitor.html|id3as DC Monitor|id3as channel & node monitoring|⛨|Monitoring|
 
 # ────────────────────────────────────────────────────────────
-# 2. Append proxy_id3as_patch.py into proxy.py
-#    (before the `if __name__ == "__main__":` line)
+# 2. Routes are loaded automatically via Blueprint — no changes to proxy.py needed.
+#    proxy.py already contains:
+#
+#      from id3as_routes import id3as_bp
+#      app.register_blueprint(id3as_bp)
+#
+#    id3as_routes.py must be present in the same directory as proxy.py.
 # ────────────────────────────────────────────────────────────
-#
-#    cat proxy_id3as_patch.py >> proxy_tmp.py
-#    # Then manually merge above the __main__ block, or:
-#    head -n -3 proxy.py > proxy_new.py
-#    cat proxy_id3as_patch.py >> proxy_new.py
-#    echo "" >> proxy_new.py
-#    echo "if __name__ == '__main__':" >> proxy_new.py
-#    echo "    app.run(host='0.0.0.0', port=5050, threaded=True)" >> proxy_new.py
-#    mv proxy_new.py proxy.py
-#
-# 3. Copy HTML to toolbox directory:
-#    cp id3as-DC-Monitor.html /path/to/SO-Toolbox/
-#
-# 4. Restart proxy:
+
+# 3. Restart proxy:
 #    systemctl restart so-proxy
-#
-# 5. Verify endpoints work:
+
+# 4. Verify endpoints work:
+#    curl http://localhost:5050/id3as/config
 #    curl http://localhost:5050/id3as/ix/channels/default
 #    curl http://localhost:5050/id3as/ix/flags/channels
 #    curl http://localhost:5050/id3as/ix/running_events
@@ -38,6 +36,7 @@ TOOL_6=id3as-DC-Monitor.html|id3as DC Monitor|id3as channel & node monitoring|�
 # ────────────────────────────────────────────────────────────
 # Proxy endpoint summary (id3as routes):
 # ────────────────────────────────────────────────────────────
+# GET /so-proxy/id3as/config                        → DC GUI base URLs (read from .env, used by browser)
 # GET /so-proxy/id3as/<dc>/channels/<variant>       → channel list (default | racing_uk)
 # GET /so-proxy/id3as/<dc>/flags/channels           → active warnings
 # GET /so-proxy/id3as/<dc>/running_events           → active events
