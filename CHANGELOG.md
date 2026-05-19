@@ -7,6 +7,19 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.21.0] - 2026-05-14
+
+### Fixed
+
+- Flags/events banner and per-event warn-strips were lost after manual code edits;
+  restored `bfmEv`, `evFm`, `evWm` across `renderChannels`, `renderNodes`, and
+  `renderRunning`.
+- `renderChannels` early `return` was again missing `renderFlagsBanner()` call.
+- `renderRunning` was looking up flags by `channel_id` instead of event `id`;
+  corrected to `fm[id]` with `fm[ch]` fallback using `bfmEv(flagsEvData)`.
+- Flags/events warnings now correctly counted in `r.warnings` / `nW` so
+  "Warnings only" filter works for both channels and nodes views.
+
 ## [2.20.0] - 2026-05-19
 
 ### Changed
