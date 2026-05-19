@@ -7,6 +7,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.22.0] - 2026-05-14
+
+### Added
+
+- Viewing logs to RTS monitor.
+
 ## [2.21.0] - 2026-05-14
 
 ### Fixed
