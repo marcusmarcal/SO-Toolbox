@@ -59,3 +59,51 @@ def get_publishers_count(channel_id):
         return Response(resp.text, status=resp.status_code, content_type="text/plain")
     except Exception as e:
         return jsonify({"error": str(e)}), 502
+
+
+@rts_bp.route("/rts/viewing-report", methods=["POST"])
+def rts_viewing_report():
+    """Proxy for the Phenix RTS viewing report endpoint.
+    Expects JSON body: { channel_alias, start, end }
+    Returns the raw CSV from Phenix.
+    """
+    app_id   = request.headers.get("X-App-Id")
+    password = request.headers.get("X-Password")
+    if not app_id or not password:
+        return jsonify({"error": "Missing credentials headers"}), 400
+
+    data          = request.get_json(silent=True) or {}
+    channel_alias = (data.get("channel_alias") or "").strip()
+    start         = (data.get("start") or "").strip()
+    end           = (data.get("end") or "").strip()
+
+    if not channel_alias or not start or not end:
+        return jsonify({"error": "channel_alias, start and end are required"}), 400
+
+    payload = {
+        "viewingReport": {
+            "kind": "RealTime",
+            "channelAliases": [channel_alias],
+            "start": start,
+            "end": end,
+        }
+    }
+
+    try:
+        resp = _get_session().put(
+            f"{PHENIX_BASE}/pcast/reporting/viewing",
+            auth=(app_id, password),
+            headers={
+                "Accept": "text/csv",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=30,
+        )
+        return Response(
+            resp.content,
+            status=resp.status_code,
+            content_type=resp.headers.get("Content-Type", "text/csv"),
+        )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
