@@ -290,53 +290,9 @@
         color: var(--red);
       }
 
-      .btn-sm.update:hover { border-color: var(--cyan); color: var(--cyan); }
-
-      /* ── Git Pull Modal ─────────────────────────────────────────── */
-      #git-modal {
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: #000a;
-        z-index: 100;
-        align-items: center;
-        justify-content: center;
-      }
-      #git-modal.open { display: flex; }
-      .git-card {
-        background: var(--bg2);
-        border: 1px solid var(--border);
-        border-radius: 4px;
-        padding: 1.5rem 2rem;
-        width: 480px;
-        max-width: 90vw;
-      }
-      .git-card-title {
-        font-family: var(--font-mono);
-        font-size: 12px;
-        font-weight: 700;
+      .btn-sm.update:hover {
+        border-color: var(--cyan);
         color: var(--cyan);
-        text-transform: uppercase;
-        margin-bottom: 1rem;
-      }
-      .git-output {
-        background: var(--bg);
-        border: 1px solid var(--border);
-        border-radius: 3px;
-        padding: 0.8rem 1rem;
-        font-family: var(--font-mono);
-        font-size: 12px;
-        color: var(--text);
-        white-space: pre-wrap;
-        min-height: 60px;
-        margin-bottom: 1rem;
-      }
-      .git-output.ok  { color: var(--green); }
-      .git-output.err { color: var(--red); }
-        padding: 50px;
-        text-align: center;
-        color: var(--text-dim);
-        font-family: var(--font-mono);
       }
 
       /* ── Tabs ────────────────────────────────────────────────────── */
@@ -359,12 +315,24 @@
         cursor: pointer;
         letter-spacing: 0.05em;
       }
-      .tab-btn:hover { color: var(--cyan); }
-      .tab-btn.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+      .tab-btn:hover {
+        color: var(--cyan);
+      }
+      .tab-btn.active {
+        color: var(--cyan);
+        border-bottom-color: var(--cyan);
+      }
 
       /* ── Tab Panels ─────────────────────────────────────────────── */
-      .tab-panel { display: none; flex: 1; overflow: hidden; flex-direction: column; }
-      .tab-panel.active { display: flex; }
+      .tab-panel {
+        display: none;
+        flex: 1;
+        overflow: hidden;
+        flex-direction: column;
+      }
+      .tab-panel.active {
+        display: flex;
+      }
 
       /* ── Viewing Report ─────────────────────────────────────────── */
       .vr-layout {
@@ -404,8 +372,12 @@
         outline: none;
         width: 200px;
       }
-      .vr-field input:focus { border-color: var(--cyan); }
-      .vr-field input[type="number"] { width: 110px; }
+      .vr-field input:focus {
+        border-color: var(--cyan);
+      }
+      .vr-field input[type="number"] {
+        width: 110px;
+      }
       .btn-run {
         background: var(--cyan);
         color: #000;
@@ -419,7 +391,10 @@
         text-transform: uppercase;
         white-space: nowrap;
       }
-      .btn-run:disabled { opacity: 0.4; cursor: not-allowed; }
+      .btn-run:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
       .btn-csv {
         background: transparent;
         border: 1px solid var(--cyan);
@@ -434,7 +409,10 @@
         white-space: nowrap;
         display: none;
       }
-      .btn-csv:hover { background: var(--cyan); color: #000; }
+      .btn-csv:hover {
+        background: var(--cyan);
+        color: #000;
+      }
       .vr-status {
         padding: 6px 1.5rem;
         font-family: var(--font-mono);
@@ -444,8 +422,12 @@
         border-bottom: 1px solid var(--border);
         min-height: 28px;
       }
-      .vr-status.ok  { color: var(--green); }
-      .vr-status.err { color: var(--red); }
+      .vr-status.ok {
+        color: var(--green);
+      }
+      .vr-status.err {
+        color: var(--red);
+      }
       .vr-table-wrap {
         flex: 1;
         overflow: auto;
@@ -500,103 +482,107 @@
             Critical: <span id="stat-offline" style="color: var(--red)">—</span>
           </div>
           <div id="pulse" class="idle"></div>
-          <!--<button class="btn-sm" onclick="gitPull()">⟳ UPDATE</button>-->
           <button class="btn-sm" onclick="disconnect()">LOGOUT</button>
         </div>
       </div>
 
       <div class="tab-bar">
-        <button class="tab-btn active" onclick="switchTab('channels')">Channels</button>
-        <button class="tab-btn" onclick="switchTab('viewing-report')">Viewing Report</button>
+        <button class="tab-btn active" onclick="switchTab('channels')">
+          Channels
+        </button>
+        <button class="tab-btn" onclick="switchTab('viewing-report')">
+          Viewing Report
+        </button>
       </div>
 
       <!-- ── TAB: Channels ──────────────────────────────────────── -->
       <div id="tab-channels" class="tab-panel active">
-      <div class="toolbar">
-        <div style="display: flex; gap: 20px; align-items: center">
-          <input
-            type="text"
-            id="search-box"
-            class="search-input"
-            placeholder="Search by name..."
-            oninput="handleFilterChange()"
-          />
-          <label
+        <div class="toolbar">
+          <div style="display: flex; gap: 20px; align-items: center">
+            <input
+              type="text"
+              id="search-box"
+              class="search-input"
+              placeholder="Search by name..."
+              oninput="handleFilterChange()"
+            />
+            <label
+              style="
+                font-family: var(--font-mono);
+                font-size: 11px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+              "
+            >
+              <input
+                type="checkbox"
+                id="filter-active"
+                onchange="handleFilterChange()"
+              />
+              ONLY ACTIVE
+            </label>
+          </div>
+          <div
+            id="pagination-controls"
             style="
               font-family: var(--font-mono);
               font-size: 11px;
-              cursor: pointer;
               display: flex;
+              gap: 10px;
               align-items: center;
-              gap: 5px;
             "
           >
-            <input
-              type="checkbox"
-              id="filter-active"
-              onchange="handleFilterChange()"
-            />
-            ONLY ACTIVE
-          </label>
+            <button class="btn-sm" id="btn-prev" onclick="changePage(-1)">
+              PREV
+            </button>
+            <span
+              >PAGE <span id="curr-page">1</span> /
+              <span id="total-pages">1</span></span
+            >
+            <button class="btn-sm" id="btn-next" onclick="changePage(1)">
+              NEXT
+            </button>
+          </div>
         </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>CHANNEL NAME</th>
+                <th>EVENT ID (ALIAS)</th>
+                <th>CREATED</th>
+                <th style="text-align: center">PUBLISHERS (PRI/BCK)</th>
+                <th style="text-align: center">STATUS</th>
+              </tr>
+            </thead>
+            <tbody id="table-body">
+              <tr>
+                <td colspan="5" class="table-message">Connecting...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
         <div
-          id="pagination-controls"
           style="
+            padding: 5px 1.5rem;
+            background: var(--bg2);
+            border-top: 1px solid var(--border);
             font-family: var(--font-mono);
-            font-size: 11px;
+            font-size: 10px;
+            color: var(--text-dim);
             display: flex;
-            gap: 10px;
-            align-items: center;
+            justify-content: space-between;
           "
         >
-          <button class="btn-sm" id="btn-prev" onclick="changePage(-1)">
-            PREV
-          </button>
-          <span
-            >PAGE <span id="curr-page">1</span> /
-            <span id="total-pages">1</span></span
-          >
-          <button class="btn-sm" id="btn-next" onclick="changePage(1)">
-            NEXT
-          </button>
+          <div>Last Sync: <span id="last-update">—</span></div>
+          <div id="next-refresh">Next update in —s</div>
         </div>
       </div>
-
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>CHANNEL NAME</th>
-              <th>EVENT ID (ALIAS)</th>
-              <th>CREATED</th>
-              <th style="text-align: center">PUBLISHERS (PRI/BCK)</th>
-              <th style="text-align: center">STATUS</th>
-            </tr>
-          </thead>
-          <tbody id="table-body">
-            <tr>
-              <td colspan="5" class="table-message">Connecting...</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div
-        style="
-          padding: 5px 1.5rem;
-          background: var(--bg2);
-          border-top: 1px solid var(--border);
-          font-family: var(--font-mono);
-          font-size: 10px;
-          color: var(--text-dim);
-          display: flex;
-          justify-content: space-between;
-        "
-      >
-        <div>Last Sync: <span id="last-update">—</span></div>
-        <div id="next-refresh">Next update in —s</div>
-      </div>
-      </div><!-- /tab-channels -->
+      <!-- /tab-channels -->
 
       <!-- ── TAB: Viewing Report ───────────────────────────────── -->
       <div id="tab-viewing-report" class="tab-panel">
@@ -614,56 +600,35 @@
               <label>End (UTC)</label>
               <input id="vr-end" type="datetime-local" step="1" />
             </div>
-            <button id="vr-run-btn" class="btn-run" onclick="runViewingReport()">Run</button>
-            <button id="vr-csv-btn" class="btn-csv" onclick="downloadCsv()">↓ CSV</button>
+            <button
+              id="vr-run-btn"
+              class="btn-run"
+              onclick="runViewingReport()"
+            >
+              Run
+            </button>
+            <button id="vr-csv-btn" class="btn-csv" onclick="downloadCsv()">
+              ↓ CSV
+            </button>
           </div>
-          <div id="vr-status" class="vr-status">Enter parameters and press Run.</div>
+          <div id="vr-status" class="vr-status">
+            Enter parameters and press Run.
+          </div>
           <div class="vr-table-wrap">
             <table id="vr-table">
-              <thead id="vr-thead"><tr></tr></thead>
+              <thead id="vr-thead">
+                <tr></tr>
+              </thead>
               <tbody id="vr-tbody"></tbody>
             </table>
           </div>
         </div>
-      </div><!-- /tab-viewing-report -->
-
-    </div><!-- /#dashboard -->
-
-    <!-- ── Git Pull Modal ──────────────────────────────────────────── -->
-    <div id="git-modal">
-      <div class="git-card">
-        <div class="git-card-title">⟳ Update from Git</div>
-        <div id="git-output" class="git-output">Running git pull...</div>
-        <button class="btn-sm" onclick="closeGitModal()">Close</button>
       </div>
+      <!-- /tab-viewing-report -->
     </div>
+    <!-- /#dashboard -->
 
     <script>
-      async function gitPull() {
-        const modal = document.getElementById("git-modal");
-        const output = document.getElementById("git-output");
-        output.textContent = "Running git pull...";
-        output.className = "git-output";
-        modal.classList.add("open");
-
-        try {
-          const res = await fetch(`${PROXY}/git-pull`, {
-            method: "POST",
-            headers: headers(),
-          });
-          const data = await res.json();
-          output.textContent = data.output || "(no output)";
-          output.classList.add(data.success ? "ok" : "err");
-        } catch (e) {
-          output.textContent = `Error: ${e.message}`;
-          output.classList.add("err");
-        }
-      }
-
-      function closeGitModal() {
-        document.getElementById("git-modal").classList.remove("open");
-      }
-
       const PROXY = "/so-proxy";
 
       let appId, password, interval, timer, countdown;
@@ -880,11 +845,14 @@
 
       // ── Tab switching ───────────────────────────────────────────
       function switchTab(name) {
-        document.querySelectorAll('.tab-btn').forEach((b, i) => {
-          b.classList.toggle('active', b.getAttribute('onclick').includes("'" + name + "'"));
+        document.querySelectorAll(".tab-btn").forEach((b, i) => {
+          b.classList.toggle(
+            "active",
+            b.getAttribute("onclick").includes("'" + name + "'")
+          );
         });
-        document.querySelectorAll('.tab-panel').forEach(p => {
-          p.classList.toggle('active', p.id === 'tab-' + name);
+        document.querySelectorAll(".tab-panel").forEach((p) => {
+          p.classList.toggle("active", p.id === "tab-" + name);
         });
       }
 
@@ -893,113 +861,138 @@
 
       function _toIso(dtLocal) {
         // datetime-local gives "YYYY-MM-DDTHH:MM:SS" — treat as UTC
-        return dtLocal ? dtLocal.replace('T', 'T') + 'Z' : '';
+        return dtLocal ? dtLocal.replace("T", "T") + "Z" : "";
       }
 
       function _parseCsv(text) {
-        const lines = text.trim().split('\n');
+        const lines = text.trim().split("\n");
         if (lines.length < 1) return { headers: [], rows: [] };
-        const parse = line => {
+        const parse = (line) => {
           const result = [];
-          let cur = '', inQ = false;
+          let cur = "",
+            inQ = false;
           for (let i = 0; i < line.length; i++) {
             const c = line[i];
-            if (c === '"') { inQ = !inQ; }
-            else if (c === ',' && !inQ) { result.push(cur); cur = ''; }
-            else { cur += c; }
+            if (c === '"') {
+              inQ = !inQ;
+            } else if (c === "," && !inQ) {
+              result.push(cur);
+              cur = "";
+            } else {
+              cur += c;
+            }
           }
           result.push(cur);
           return result;
         };
         const headers = parse(lines[0]);
-        const rows = lines.slice(1).filter(l => l.trim()).map(parse);
+        const rows = lines
+          .slice(1)
+          .filter((l) => l.trim())
+          .map(parse);
         return { headers, rows };
       }
 
       // Columns to show in the table (subset of the full CSV)
       const VR_COLS = [
-        'ChannelAlias','StartTimestamp','EndTimestamp',
-        'ViewedMinutesDuringPeriod','ViewedMinutesTotal',
-        'TotalBytes','Region','Country','City',
-        'RemoteAddress','UserAgent','Tags'
+        "ChannelAlias",
+        "StartTimestamp",
+        "EndTimestamp",
+        "ViewedMinutesDuringPeriod",
+        "ViewedMinutesTotal",
+        "TotalBytes",
+        "Region",
+        "Country",
+        "City",
+        "RemoteAddress",
+        "UserAgent",
+        "Tags",
       ];
 
       function _renderVrTable(csv) {
         const { headers, rows } = _parseCsv(csv);
-        const thead = document.getElementById('vr-thead');
-        const tbody = document.getElementById('vr-tbody');
+        const thead = document.getElementById("vr-thead");
+        const tbody = document.getElementById("vr-tbody");
 
         // Pick columns to display (subset + preserve order)
-        const colIdxs = VR_COLS
-          .map(c => headers.indexOf(c))
-          .filter(i => i >= 0);
-        const displayHeaders = colIdxs.map(i => headers[i]);
+        const colIdxs = VR_COLS.map((c) => headers.indexOf(c)).filter(
+          (i) => i >= 0
+        );
+        const displayHeaders = colIdxs.map((i) => headers[i]);
 
         // Header row
-        thead.innerHTML = '<tr>' + displayHeaders.map(h =>
-          `<th>${h}</th>`
-        ).join('') + '</tr>';
+        thead.innerHTML =
+          "<tr>" +
+          displayHeaders.map((h) => `<th>${h}</th>`).join("") +
+          "</tr>";
 
         // Body rows
         if (rows.length === 0) {
           tbody.innerHTML = `<tr><td colspan="${displayHeaders.length}" class="table-message">No sessions in this period.</td></tr>`;
           return rows.length;
         }
-        tbody.innerHTML = rows.map(row => {
-          const cells = colIdxs.map(i => {
-            let v = (row[i] || '').trim();
-            // Format timestamps
-            if (v.match(/^\d{4}-\d{2}-\d{2}T/)) {
-              try { v = new Date(v).toLocaleString('en-GB', { dateStyle:'short', timeStyle:'medium' }); } catch {}
-            }
-            // Format bytes -> MB
-            if (displayHeaders[colIdxs.indexOf(i)] === 'TotalBytes' && v) {
-              const n = parseInt(v);
-              if (!isNaN(n)) v = (n / 1e6).toFixed(2) + ' MB';
-            }
-            return `<td>${v || '—'}</td>`;
-          });
-          return '<tr>' + cells.join('') + '</tr>';
-        }).join('');
+        tbody.innerHTML = rows
+          .map((row) => {
+            const cells = colIdxs.map((i) => {
+              let v = (row[i] || "").trim();
+              // Format timestamps
+              if (v.match(/^\d{4}-\d{2}-\d{2}T/)) {
+                try {
+                  v = new Date(v).toLocaleString("en-GB", {
+                    dateStyle: "short",
+                    timeStyle: "medium",
+                  });
+                } catch {}
+              }
+              // Format bytes -> MB
+              if (displayHeaders[colIdxs.indexOf(i)] === "TotalBytes" && v) {
+                const n = parseInt(v);
+                if (!isNaN(n)) v = (n / 1e6).toFixed(2) + " MB";
+              }
+              return `<td>${v || "—"}</td>`;
+            });
+            return "<tr>" + cells.join("") + "</tr>";
+          })
+          .join("");
         return rows.length;
       }
 
       async function runViewingReport() {
-        const alias = document.getElementById('vr-alias').value.trim();
-        const start = document.getElementById('vr-start').value;
-        const end   = document.getElementById('vr-end').value;
-        const statusEl = document.getElementById('vr-status');
-        const btn = document.getElementById('vr-run-btn');
+        const alias = document.getElementById("vr-alias").value.trim();
+        const start = document.getElementById("vr-start").value;
+        const end = document.getElementById("vr-end").value;
+        const statusEl = document.getElementById("vr-status");
+        const btn = document.getElementById("vr-run-btn");
 
         if (!alias || !start || !end) {
-          statusEl.className = 'vr-status err';
-          statusEl.textContent = 'Please fill in all fields.';
+          statusEl.className = "vr-status err";
+          statusEl.textContent = "Please fill in all fields.";
           return;
         }
 
         btn.disabled = true;
-        document.getElementById('vr-csv-btn').style.display = 'none';
-        statusEl.className = 'vr-status';
-        statusEl.textContent = 'Fetching report…';
-        document.getElementById('vr-thead').innerHTML = '<tr></tr>';
-        document.getElementById('vr-tbody').innerHTML = '';
+        document.getElementById("vr-csv-btn").style.display = "none";
+        statusEl.className = "vr-status";
+        statusEl.textContent = "Fetching report…";
+        document.getElementById("vr-thead").innerHTML = "<tr></tr>";
+        document.getElementById("vr-tbody").innerHTML = "";
         _vrRawCsv = null;
 
         try {
           const res = await fetch(`${PROXY}/rts/viewing-report`, {
-            method: 'POST',
-            headers: { ...headers(), 'Content-Type': 'application/json' },
+            method: "POST",
+            headers: { ...headers(), "Content-Type": "application/json" },
             body: JSON.stringify({
               channel_alias: alias,
               start: _toIso(start),
-              end:   _toIso(end),
-            })
+              end: _toIso(end),
+            }),
           });
 
           const text = await res.text();
 
           if (!res.ok) {
-            statusEl.className = 'vr-status err';
+            statusEl.className = "vr-status err";
             statusEl.textContent = `Error ${res.status}: ${text.slice(0, 200)}`;
             btn.disabled = false;
             return;
@@ -1007,12 +1000,15 @@
 
           _vrRawCsv = text;
           const count = _renderVrTable(text);
-          statusEl.className = 'vr-status ok';
-          statusEl.textContent = `${count} session${count !== 1 ? 's' : ''} found  ·  Period: ${start} → ${end} UTC`;
-          if (count > 0) document.getElementById('vr-csv-btn').style.display = 'inline-block';
-
+          statusEl.className = "vr-status ok";
+          statusEl.textContent = `${count} session${
+            count !== 1 ? "s" : ""
+          } found  ·  Period: ${start} → ${end} UTC`;
+          if (count > 0)
+            document.getElementById("vr-csv-btn").style.display =
+              "inline-block";
         } catch (e) {
-          statusEl.className = 'vr-status err';
+          statusEl.className = "vr-status err";
           statusEl.textContent = `Request failed: ${e.message}`;
         }
 
@@ -1021,14 +1017,13 @@
 
       function downloadCsv() {
         if (!_vrRawCsv) return;
-        const alias = document.getElementById('vr-alias').value.trim();
-        const blob = new Blob([_vrRawCsv], { type: 'text/csv' });
-        const a = document.createElement('a');
+        const alias = document.getElementById("vr-alias").value.trim();
+        const blob = new Blob([_vrRawCsv], { type: "text/csv" });
+        const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
         a.download = `viewing-report-${alias}-${Date.now()}.csv`;
         a.click();
       }
-
     </script>
   </body>
 </html>
