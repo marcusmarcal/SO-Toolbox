@@ -7,6 +7,13 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.20.0] - 2026-05-19
+
+### Changed
+
+- Extracted RTS/Phenix routes (`/channels`, `/publishers/count/<channel_id>`) from `proxy.py` into a dedicated `rts_routes.py` Blueprint, registered via `app.register_blueprint(rts_bp)`.
+- The existing `requests.Session` is shared with the new Blueprint (`rts_bp.session = session`) to preserve connection-pool reuse.
+
 ## [2.19.1] - 2026-05-18
 
 ### Added

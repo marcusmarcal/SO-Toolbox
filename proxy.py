@@ -9,6 +9,9 @@ app = Flask(__name__)
 from id3as_routes import id3as_bp
 app.register_blueprint(id3as_bp)
 
+from rts_routes import rts_bp
+app.register_blueprint(rts_bp)
+
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024 * 1024  # 2 GB upload limit
 CORS(app)
 
@@ -16,40 +19,13 @@ CORS(app)
 session = requests.Session()
 PHENIX_BASE = "https://pcast.phenixrts.com"
 
+# Share the session with the RTS blueprint so it reuses the same connection pool
+rts_bp.session = session
+
 def make_auth_header(app_id, password):
     credentials = f"{app_id}:{password}"
     return "Basic " + base64.b64encode(credentials.encode()).decode()
 
-@app.route("/channels", methods=["GET"])
-def get_channels():
-    app_id = request.headers.get("X-App-Id")
-    password = request.headers.get("X-Password")
-    if not app_id or not password:
-        return jsonify({"error": "Missing headers"}), 400
-    try:
-        resp = session.get(
-            f"{PHENIX_BASE}/pcast/channels",
-            headers={"Authorization": make_auth_header(app_id, password), "Accept": "application/json"},
-            timeout=15
-        )
-        return Response(resp.content, status=resp.status_code, content_type="application/json")
-    except Exception as e:
-        return jsonify({"error": str(e)}), 502
-
-@app.route("/publishers/count/<path:channel_id>", methods=["GET"])
-def get_publishers_count(channel_id):
-    app_id = request.headers.get("X-App-Id")
-    password = request.headers.get("X-Password")
-    try:
-        encoded_id = quote(channel_id, safe="")
-        resp = session.get(
-            f"{PHENIX_BASE}/pcast/channel/{encoded_id}/publishers/count",
-            headers={"Authorization": make_auth_header(app_id, password), "Accept": "application/json"},
-            timeout=10
-        )
-        return Response(resp.text, status=resp.status_code, content_type="text/plain")
-    except Exception as e:
-        return jsonify({"error": str(e)}), 502
 
 @app.route("/config", methods=["GET"])
 def get_config():
