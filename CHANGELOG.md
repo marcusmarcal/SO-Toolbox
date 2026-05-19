@@ -7,11 +7,13 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-## [2.22.0] - 2026-05-14
+## [2.22.0] - 2026-05-19
 
 ### Added
 
-- Viewing logs to RTS monitor.
+- New route `POST /rts/viewing-report` in `rts_routes.py` — proxies the Phenix `PUT /pcast/reporting/viewing` endpoint with `kind: RealTime`, accepting `{ channel_alias, start, end }` in the request body and returning the raw CSV response.
+- **Viewing Report tab** in `monitor.html`: form with Event ID (channel alias), Start and End datetime inputs (treated as UTC), status bar with session count and period, scrollable table showing key CSV columns (ChannelAlias, timestamps, ViewedMinutesDuringPeriod, ViewedMinutesTotal, TotalBytes in MB, Region, Country, City, RemoteAddress, UserAgent, Tags), and a download button for the raw CSV.
+- Tab bar in the dashboard to switch between **Channels** and **Viewing Report** views.
 
 ## [2.21.0] - 2026-05-14
 
