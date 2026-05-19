@@ -22,12 +22,13 @@
       }
 
       :root {
-        --bg: #200A35;
-        --surface: #2a0f45;
-        --card: #3F1568;
-        --border: #5a2d8a;
-        --accent: #FAA51A;
-        --accent2: #A18BF5;
+        --bg: #1a1a1a;
+        --surface: #222222;
+        --card: #2e2e2e;
+        --border: #444444;
+        --accent: #A18BF5;
+        --accent2: #FAA51A;
+        --accent3: #3F1568;
         --text: #F2F2F2;
         --muted: #9B9B9B;
         --danger: #ff4e6a;
@@ -171,9 +172,9 @@
         transition: all 0.3s;
       }
       #env-pill.ok {
-        border-color: rgba(250, 165, 26, 0.5);
-        color: #ffd08a;
-        background: rgba(250, 165, 26, 0.08);
+        border-color: rgba(161, 139, 245, 0.4);
+        color: #c9b8ff;
+        background: rgba(161, 139, 245, 0.08);
       }
       #env-pill.warn {
         border-color: rgba(255, 78, 106, 0.4);
@@ -318,8 +319,8 @@
         border-color: var(--border);
       }
       .tool-item.active {
-        background: rgba(250, 165, 26, 0.08);
-        border-color: rgba(250, 165, 26, 0.4);
+        background: rgba(161, 139, 245, 0.08);
+        border-color: rgba(161, 139, 245, 0.35);
       }
       .tool-item.active .tool-name {
         color: var(--accent);
@@ -383,7 +384,7 @@
       }
       .tool-open-btn:hover {
         background: var(--accent);
-        color: var(--bg);
+        color: #000;
         border-color: var(--accent);
       }
       /* ── SIDEBAR FOOTER (count only, no add-tool button) ── */
@@ -521,7 +522,7 @@
           0% 25%
         );
         animation: rotate-hex 5s linear infinite;
-        filter: drop-shadow(0 0 20px rgba(250, 165, 26, 0.4));
+        filter: drop-shadow(0 0 20px rgba(161, 139, 245, 0.35));
       }
       @keyframes rotate-hex {
         from {
@@ -566,7 +567,7 @@
       }
       .welcome-card:hover {
         border-color: var(--accent);
-        background: rgba(250, 165, 26, 0.06);
+        background: rgba(161, 139, 245, 0.06);
         transform: translateY(-3px);
       }
       .welcome-card .wc-icon {
@@ -610,7 +611,7 @@
         left: 0;
         right: 0;
         height: 22px;
-        background: var(--accent);
+        background: #3F1568;
         display: flex;
         align-items: center;
         padding: 0 16px;
@@ -620,7 +621,7 @@
       #statusbar span {
         font-family: var(--mono);
         font-size: 0.58rem;
-        color: var(--bg);
+        color: #F2F2F2;
         font-weight: 700;
       }
       #statusbar .sep {
@@ -668,7 +669,7 @@
       .git-pull-btn:hover {
         border-color: var(--accent);
         color: var(--accent);
-        background: rgba(250, 165, 26, 0.08);
+        background: rgba(161, 139, 245, 0.08);
       }
       .git-pull-btn.loading {
         color: var(--accent);
@@ -815,7 +816,7 @@
         line-height: 1.6;
       }
       .git-output.ok {
-        color: #ffd08a;
+        color: #c9b8ff;
       }
       .git-output.err {
         color: #ffb3be;
