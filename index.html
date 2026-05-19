@@ -26,16 +26,16 @@
         --surface: #222222;
         --card: #2e2e2e;
         --border: #444444;
-        --accent: #A18BF5;
-        --accent2: #FAA51A;
-        --accent3: #3F1568;
-        --text: #F2F2F2;
-        --muted: #9B9B9B;
+        --accent: #a18bf5;
+        --accent2: #faa51a;
+        --accent3: #3f1568;
+        --text: #f2f2f2;
+        --muted: #9b9b9b;
         --danger: #ff4e6a;
         --mono: "Space Mono", monospace;
         --display: "Syne", sans-serif;
         --res-ok: #3fb950;
-        --res-warn: #FAA51A;
+        --res-warn: #faa51a;
         --res-error: #ff4e6a;
       }
 
@@ -61,11 +61,24 @@
         transition: all 0.4s;
         white-space: nowrap;
       }
-      .res-item.ok   { border-color: rgba(0,255,136,.3); background: rgba(0,255,136,.07); color: var(--res-ok); }
-      .res-item.warn { border-color: rgba(255,170,0,.3); background: rgba(255,170,0,.07); color: var(--res-warn); }
-      .res-item.err  { border-color: rgba(255,78,106,.3); background: rgba(255,78,106,.07); color: var(--res-error); }
+      .res-item.ok {
+        border-color: rgba(0, 255, 136, 0.3);
+        background: rgba(0, 255, 136, 0.07);
+        color: var(--res-ok);
+      }
+      .res-item.warn {
+        border-color: rgba(255, 170, 0, 0.3);
+        background: rgba(255, 170, 0, 0.07);
+        color: var(--res-warn);
+      }
+      .res-item.err {
+        border-color: rgba(255, 78, 106, 0.3);
+        background: rgba(255, 78, 106, 0.07);
+        color: var(--res-error);
+      }
       .res-dot {
-        width: 5px; height: 5px;
+        width: 5px;
+        height: 5px;
         border-radius: 50%;
         background: currentColor;
         flex-shrink: 0;
@@ -536,7 +549,7 @@
         font-size: 2rem;
         font-weight: 800;
         text-align: center;
-        background: linear-gradient(135deg, #F2F2F2, #A18BF5);
+        background: linear-gradient(135deg, #f2f2f2, #a18bf5);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
       }
@@ -611,7 +624,7 @@
         left: 0;
         right: 0;
         height: 22px;
-        background: #3F1568;
+        background: #3f1568;
         display: flex;
         align-items: center;
         padding: 0 16px;
@@ -621,7 +634,7 @@
       #statusbar span {
         font-family: var(--mono);
         font-size: 0.58rem;
-        color: #F2F2F2;
+        color: #f2f2f2;
         font-weight: 700;
       }
       #statusbar .sep {
@@ -844,12 +857,12 @@
       /* ── TOOL REORDER (drag-and-drop) ── */
       .tool-item.dragging {
         opacity: 0.4;
-        background: rgba(0,255,200,0.05);
+        background: rgba(0, 255, 200, 0.05);
         border-color: var(--accent) !important;
       }
       .tool-item.drag-over {
         border-color: var(--accent) !important;
-        background: rgba(0,255,200,0.08);
+        background: rgba(0, 255, 200, 0.08);
       }
       .tool-drag-handle {
         display: flex;
@@ -887,9 +900,9 @@
         transition: all 0.2s;
       }
       .reset-order-btn:hover {
-        border-color: rgba(240,165,0,.5);
+        border-color: rgba(240, 165, 0, 0.5);
         color: #f0c060;
-        background: rgba(240,165,0,.07);
+        background: rgba(240, 165, 0, 0.07);
       }
 
       /* ── README RENDERED MARKDOWN ── */
@@ -914,7 +927,7 @@
         color: var(--text);
         margin: 1.4rem 0 0.4rem;
         padding-bottom: 0.25rem;
-        border-bottom: 1px solid rgba(255,255,255,0.06);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         text-transform: uppercase;
         letter-spacing: 0.08em;
       }
@@ -928,7 +941,8 @@
         margin: 0.4rem 0 0.7rem;
         color: #c0c0d8;
       }
-      .readme-rendered ul, .readme-rendered ol {
+      .readme-rendered ul,
+      .readme-rendered ol {
         margin: 0.3rem 0 0.7rem 1.2rem;
         color: #c0c0d8;
       }
@@ -938,11 +952,11 @@
       .readme-rendered code {
         font-family: var(--mono);
         font-size: 0.68rem;
-        background: rgba(0,255,200,0.08);
+        background: rgba(0, 255, 200, 0.08);
         color: var(--accent);
         padding: 1px 5px;
         border-radius: 3px;
-        border: 1px solid rgba(0,255,200,0.15);
+        border: 1px solid rgba(0, 255, 200, 0.15);
       }
       .readme-rendered pre {
         background: var(--bg);
@@ -963,7 +977,7 @@
         border-left: 3px solid var(--accent2);
         margin: 0.5rem 0;
         padding: 0.3rem 0.8rem;
-        background: rgba(123,94,167,0.07);
+        background: rgba(123, 94, 167, 0.07);
         border-radius: 0 4px 4px 0;
         color: var(--muted);
         font-style: italic;
@@ -980,8 +994,13 @@
       .readme-rendered a:hover {
         text-decoration: underline;
       }
-      .readme-rendered strong { color: var(--text); }
-      .readme-rendered em { color: #b0b0cc; font-style: italic; }
+      .readme-rendered strong {
+        color: var(--text);
+      }
+      .readme-rendered em {
+        color: #b0b0cc;
+        font-style: italic;
+      }
       .readme-rendered table {
         width: 100%;
         border-collapse: collapse;
@@ -1003,7 +1022,7 @@
         color: #c0c0d8;
       }
       .readme-rendered tr:nth-child(even) td {
-        background: rgba(255,255,255,0.02);
+        background: rgba(255, 255, 255, 0.02);
       }
 
       [data-tip] {
@@ -1071,7 +1090,7 @@
           data-tip="Reset tool order to server default"
           onclick="resetToolOrder()"
           id="btn-reset-order"
-          style="display:none"
+          style="display: none"
         >
           ↺ Reset Order
         </button>
@@ -1304,11 +1323,7 @@
         <div
           id="readme-content"
           class="readme-rendered"
-          style="
-            flex: 1;
-            overflow-y: auto;
-            padding-right: 4px;
-          "
+          style="flex: 1; overflow-y: auto; padding-right: 4px"
         >
           Loading...
         </div>
@@ -1316,7 +1331,7 @@
     </div>
 
     <div id="statusbar">
-      <span>● SP SO WEB TOOLBOX</span>
+      <span>● SP SO WEB TOOLBOX by MM</span>
       <span class="sep">|</span>
       <span id="status-msg">Loading…</span>
       <span class="sep">|</span>
@@ -1439,28 +1454,40 @@
       let _hasAdminPw = false;
 
       // ── Server Resources Monitor ──────────────────────────────────
-      const _RES_T = { cpu: { warn: 70, error: 85 }, mem: { warn: 75, error: 90 }, disk: { warn: 80, error: 90 } };
+      const _RES_T = {
+        cpu: { warn: 70, error: 85 },
+        mem: { warn: 75, error: 90 },
+        disk: { warn: 80, error: 90 },
+      };
 
       function _setRes(type, value) {
         const t = _RES_T[type];
         const n = parseFloat(value);
-        const status = isNaN(n) ? "err" : n >= t.error ? "err" : n >= t.warn ? "warn" : "ok";
+        const status = isNaN(n)
+          ? "err"
+          : n >= t.error
+          ? "err"
+          : n >= t.warn
+          ? "warn"
+          : "ok";
         const item = document.getElementById(`${type}-item`);
-        const val  = document.getElementById(`${type}-value`);
+        const val = document.getElementById(`${type}-value`);
         if (item) item.className = `res-item ${status}`;
-        if (val)  val.textContent = isNaN(n) ? "??" : n.toFixed(1) + "%";
+        if (val) val.textContent = isNaN(n) ? "??" : n.toFixed(1) + "%";
       }
 
       async function _fetchResources() {
         try {
-          const r = await fetch(`${PROXY_URL}/server-stats`, { cache: "no-cache" });
+          const r = await fetch(`${PROXY_URL}/server-stats`, {
+            cache: "no-cache",
+          });
           if (!r.ok) throw new Error("no data");
           const d = await r.json();
-          _setRes("cpu",  d.cpu);
-          _setRes("mem",  d.memory);
+          _setRes("cpu", d.cpu);
+          _setRes("mem", d.memory);
           _setRes("disk", d.disk);
         } catch {
-          ["cpu", "mem", "disk"].forEach(t => {
+          ["cpu", "mem", "disk"].forEach((t) => {
             const el = document.getElementById(`${t}-item`);
             if (el) el.className = "res-item err";
           });
@@ -1582,45 +1609,61 @@
       // ── Lightweight Markdown → HTML renderer ──────────────────────
       function renderMarkdown(md) {
         // Escape HTML
-        const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const esc = (s) =>
+          s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
         const lines = md.split(/\r?\n/);
-        let html = '';
-        let inCode = false, codeLang = '', codeBuf = [];
-        let inList = false, listType = '';
-        let inTable = false, tableRows = [];
+        let html = "";
+        let inCode = false,
+          codeLang = "",
+          codeBuf = [];
+        let inList = false,
+          listType = "";
+        let inTable = false,
+          tableRows = [];
 
         function flushList() {
           if (!inList) return;
-          const tag = listType === 'ol' ? 'ol' : 'ul';
-          html += `<${tag}>` + inList.map(i=>`<li>${inlineFormat(i)}</li>`).join('') + `</${tag}>`;
-          inList = false; listType = '';
+          const tag = listType === "ol" ? "ol" : "ul";
+          html +=
+            `<${tag}>` +
+            inList.map((i) => `<li>${inlineFormat(i)}</li>`).join("") +
+            `</${tag}>`;
+          inList = false;
+          listType = "";
         }
         function flushTable() {
           if (!inTable || !tableRows.length) return;
-          let t = '<table>';
+          let t = "<table>";
           tableRows.forEach((row, i) => {
             if (i === 1) return; // separator row
-            const tag = i === 0 ? 'th' : 'td';
-            t += '<tr>' + row.map(c=>`<${tag}>${inlineFormat(c)}</${tag}>`).join('') + '</tr>';
+            const tag = i === 0 ? "th" : "td";
+            t +=
+              "<tr>" +
+              row.map((c) => `<${tag}>${inlineFormat(c)}</${tag}>`).join("") +
+              "</tr>";
           });
-          t += '</table>';
+          t += "</table>";
           html += t;
-          inTable = false; tableRows = [];
+          inTable = false;
+          tableRows = [];
         }
         function inlineFormat(s) {
           // code spans first
-          s = s.replace(/`([^`]+)`/g, (_,c) => `<code>${esc(c)}</code>`);
+          s = s.replace(/`([^`]+)`/g, (_, c) => `<code>${esc(c)}</code>`);
           // bold+italic
-          s = s.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
-          s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-          s = s.replace(/__(.+?)__/g, '<strong>$1</strong>');
-          s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
-          s = s.replace(/_([^_]+)_/g, '<em>$1</em>');
+          s = s.replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>");
+          s = s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+          s = s.replace(/__(.+?)__/g, "<strong>$1</strong>");
+          s = s.replace(/\*(.+?)\*/g, "<em>$1</em>");
+          s = s.replace(/_([^_]+)_/g, "<em>$1</em>");
           // links
-          s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+          s = s.replace(
+            /\[([^\]]+)\]\(([^)]+)\)/g,
+            '<a href="$2" target="_blank">$1</a>'
+          );
           // inline images → skip
-          s = s.replace(/!\[[^\]]*\]\([^)]+\)/g, '');
+          s = s.replace(/!\[[^\]]*\]\([^)]+\)/g, "");
           return s;
         }
 
@@ -1630,32 +1673,45 @@
           // fenced code block
           if (/^```/.test(line)) {
             if (!inCode) {
-              flushList(); flushTable();
+              flushList();
+              flushTable();
               codeLang = line.slice(3).trim();
-              inCode = true; codeBuf = [];
+              inCode = true;
+              codeBuf = [];
             } else {
-              html += `<pre><code class="lang-${esc(codeLang)}">${esc(codeBuf.join('\n'))}</code></pre>`;
+              html += `<pre><code class="lang-${esc(codeLang)}">${esc(
+                codeBuf.join("\n")
+              )}</code></pre>`;
               inCode = false;
             }
             continue;
           }
-          if (inCode) { codeBuf.push(line); continue; }
+          if (inCode) {
+            codeBuf.push(line);
+            continue;
+          }
 
           // table
           if (/^\|/.test(line)) {
             flushList();
             if (!inTable) inTable = true;
-            const cols = line.replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
+            const cols = line
+              .replace(/^\||\|$/g, "")
+              .split("|")
+              .map((c) => c.trim());
             // skip separator rows (---)
-            if (!cols.every(c=>/^[-: ]+$/.test(c))) tableRows.push(cols);
+            if (!cols.every((c) => /^[-: ]+$/.test(c))) tableRows.push(cols);
             else tableRows.push(null); // placeholder for separator
             continue;
-          } else if (inTable) { flushTable(); }
+          } else if (inTable) {
+            flushTable();
+          }
 
           // HR
           if (/^(-{3,}|\*{3,}|_{3,})$/.test(line.trim())) {
             flushList();
-            html += '<hr>'; continue;
+            html += "<hr>";
+            continue;
           }
 
           // headings
@@ -1677,29 +1733,42 @@
           // unordered list
           const ulm = line.match(/^[\-\*\+] (.*)/);
           if (ulm) {
-            if (inList && listType !== 'ul') flushList();
-            if (!inList) { inList = []; listType = 'ul'; }
-            inList.push(ulm[1]); continue;
+            if (inList && listType !== "ul") flushList();
+            if (!inList) {
+              inList = [];
+              listType = "ul";
+            }
+            inList.push(ulm[1]);
+            continue;
           }
 
           // ordered list
           const olm = line.match(/^\d+\. (.*)/);
           if (olm) {
-            if (inList && listType !== 'ol') flushList();
-            if (!inList) { inList = []; listType = 'ol'; }
-            inList.push(olm[1]); continue;
+            if (inList && listType !== "ol") flushList();
+            if (!inList) {
+              inList = [];
+              listType = "ol";
+            }
+            inList.push(olm[1]);
+            continue;
           }
 
           flushList();
 
           // blank line → paragraph break
-          if (line.trim() === '') { html += ''; continue; }
+          if (line.trim() === "") {
+            html += "";
+            continue;
+          }
 
           // paragraph
           html += `<p>${inlineFormat(line)}</p>`;
         }
-        flushList(); flushTable();
-        if (inCode) html += `<pre><code>${esc(codeBuf.join('\n'))}</code></pre>`;
+        flushList();
+        flushTable();
+        if (inCode)
+          html += `<pre><code>${esc(codeBuf.join("\n"))}</code></pre>`;
         return html;
       }
 
@@ -1708,7 +1777,8 @@
         const modal = document.getElementById("readme-modal");
         const content = document.getElementById("readme-content");
         modal.style.display = "flex";
-        content.innerHTML = '<p style="color:var(--muted);font-family:var(--mono);font-size:.7rem">Loading README…</p>';
+        content.innerHTML =
+          '<p style="color:var(--muted);font-family:var(--mono);font-size:.7rem">Loading README…</p>';
         try {
           const res = await fetch("README.md", { cache: "no-cache" });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -2014,8 +2084,8 @@
           const destId = $(this).data("toolId");
           if (!_dragSrcId || _dragSrcId === destId) return;
 
-          const srcIdx = tools.findIndex(t => t.id === _dragSrcId);
-          const dstIdx = tools.findIndex(t => t.id === destId);
+          const srcIdx = tools.findIndex((t) => t.id === _dragSrcId);
+          const dstIdx = tools.findIndex((t) => t.id === destId);
           if (srcIdx === -1 || dstIdx === -1) return;
 
           // Reorder in-place
@@ -2023,7 +2093,7 @@
           tools.splice(dstIdx, 0, moved);
 
           // Save to cookie
-          setToolOrderCookie(tools.map(t => t.id));
+          setToolOrderCookie(tools.map((t) => t.id));
 
           // Re-render
           renderSidebar($("#search").val());
@@ -2089,7 +2159,7 @@
             window._tools = tools;
 
             // Save server order (original .env order)
-            window._serverToolOrder = tools.map(t => t.id);
+            window._serverToolOrder = tools.map((t) => t.id);
 
             // Apply saved cookie order if exists
             const savedOrder = getToolOrderCookie();
@@ -2162,16 +2232,20 @@
       loadBranch();
 
       // ── Tool order cookie helpers ─────────────────────────────────
-      const TOOL_ORDER_COOKIE = 'sotb-tool-order';
+      const TOOL_ORDER_COOKIE = "sotb-tool-order";
       function getToolOrderCookie() {
         try {
           const m = document.cookie.match(/(?:^|; )sotb-tool-order=([^;]*)/);
           return m ? JSON.parse(decodeURIComponent(m[1])) : null;
-        } catch { return null; }
+        } catch {
+          return null;
+        }
       }
       function setToolOrderCookie(ids) {
         const val = encodeURIComponent(JSON.stringify(ids));
-        const exp = new Date(Date.now() + 365*24*60*60*1000).toUTCString();
+        const exp = new Date(
+          Date.now() + 365 * 24 * 60 * 60 * 1000
+        ).toUTCString();
         document.cookie = `${TOOL_ORDER_COOKIE}=${val}; expires=${exp}; path=/; SameSite=Lax`;
         updateResetBtn(ids);
       }
@@ -2180,15 +2254,18 @@
         updateResetBtn(null);
       }
       function updateResetBtn(ids) {
-        const btn = document.getElementById('btn-reset-order');
-        if (btn) btn.style.display = (ids && ids.length) ? '' : 'none';
+        const btn = document.getElementById("btn-reset-order");
+        if (btn) btn.style.display = ids && ids.length ? "" : "none";
       }
       function resetToolOrder() {
         clearToolOrderCookie();
         // Re-sort tools to server order and re-render
         if (window._serverToolOrder && window._tools) {
-          window._tools.sort((a,b) => {
-            return window._serverToolOrder.indexOf(a.id) - window._serverToolOrder.indexOf(b.id);
+          window._tools.sort((a, b) => {
+            return (
+              window._serverToolOrder.indexOf(a.id) -
+              window._serverToolOrder.indexOf(b.id)
+            );
           });
           window._renderSidebarFn && window._renderSidebarFn();
           window._renderWelcomeCardsFn && window._renderWelcomeCardsFn();
