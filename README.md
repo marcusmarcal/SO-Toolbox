@@ -48,7 +48,7 @@ All RTS-related proxy routes (`/channels`, `/publishers/count`, `/rts/viewing-re
 
 Visual design aligned with the SO-Toolbox index: Space Mono + Syne fonts, purple accent (`#a18bf5`), animated hex logo mark, and noise texture overlay.
 
-## BTV Video Analyser
+## BTV Video Analyser (`BTV-Video-Analyser.html`)
 
 BTV Analyser (Better Than VISA) is a web-based tool designed to capture, inspect, and validate video streams—primarily over SRT—by analyzing their encoding structure, GOP behavior, and compliance against predefined broadcast specifications.
 
