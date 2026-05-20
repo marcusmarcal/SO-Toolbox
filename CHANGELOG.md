@@ -7,6 +7,18 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.22.1] - 2026-05-20
+
+### Changed
+
+- `warnOnly` filter in Channels now triggers on any encoder/source state that is not
+  healthy: `encWarn` (encoder not `running`), `srcWarn` (source not `streaming`;
+  `acquiring_signal` only counts as warning when there is an active event, i.e. "no
+  signal"), and `evWm` (flags/events warnings). All three contribute to `r.warnings`
+  so the counter in the summary bar reflects them correctly.
+- Nodes view follows the same logic: `chSrcWarn` and `encWarn` per channel are now
+  included in `nW`, driving the node-level `warnOnly` filter.
+
 ## [2.22.0] - 2026-05-19
 
 ### Added
