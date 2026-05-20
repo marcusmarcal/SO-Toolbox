@@ -98,7 +98,7 @@ def rts_viewing_report():
                 "Content-Type": "application/json",
             },
             json=payload,
-            timeout=(5, 120),
+            timeout=120,
         )
         return Response(
             resp.content,
