@@ -7,6 +7,18 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.22.2] - 2026-05-20
+
+### Fixed
+
+- Channels with `acquiring_signal` + active event (no signal) now correctly appear
+  in Warnings Only — `srcWarn` is included in `r.warnings` count, and `warnOnly`
+  filter simplified to `r.warnings > 0`.
+- `bfmEv` helper restored (was lost on manual edits); `evFm`, `evWm`, and `srcWarn`
+  re-applied to `renderChannels` and `renderNodes`.
+- `renderRunning` uses `bfmEv(flagsEvData)` keyed by event id with `fm[id]` lookup.
+- `nW` in Nodes no longer double-counts `encWarn` (already included in `c.warnings`).
+
 ## [2.22.1] - 2026-05-20
 
 ### Changed
