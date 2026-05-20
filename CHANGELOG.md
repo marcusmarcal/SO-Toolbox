@@ -7,6 +7,19 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.23.1] - 2026-05-20
+
+### Fixed
+
+- Timestamps in the Viewing Report table (`StartTimestamp`, `EndTimestamp`) now always display in UTC (`YYYY-MM-DD HH:MM:SS UTC`) instead of the browser's local timezone.
+
+## [2.23.0] - 2026-05-20
+
+### Changed
+
+- `POST /rts/viewing-report` timeout increased from 30s to 120s to accommodate large CSV responses from Phenix.
+- Viewing Report table now paginates in batches of 100 rows — initial load renders the first 100 sessions, with a **Load more** button showing progress (`loaded / total — N remaining`) to avoid blocking the browser on large reports.
+
 ## [2.22.2] - 2026-05-20
 
 ### Fixed
