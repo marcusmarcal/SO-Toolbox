@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>RTS — Channel Health Monitor</title>
     <link
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@300;400;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@600;700;800&display=swap"
       rel="stylesheet"
     />
     <style>
@@ -19,22 +19,24 @@
       }
 
       :root {
-        --bg: #0a0e13;
-        --bg2: #111720;
-        --bg3: #1a2230;
-        --border: #1e2d40;
-        --cyan: #00d4ff;
-        --cyan-dim: #007a99;
-        --green: #00e676;
-        --green-dim: #004d26;
-        --red: #ff3d5a;
-        --red-dim: #4d0012;
-        --orange: #ff9100;
-        --orange-dim: #5e3a00;
-        --text: #c8d8e8;
-        --text-dim: #506070;
-        --font-mono: "IBM Plex Mono", monospace;
-        --font-sans: "IBM Plex Sans", sans-serif;
+        --bg:        #1a1a1a;
+        --bg2:       #222222;
+        --bg3:       #2e2e2e;
+        --border:    #444444;
+        --cyan:      #a18bf5;
+        --cyan-dim:  #3f1568;
+        --green:     #3fb950;
+        --green-dim: rgba(63,185,80,0.12);
+        --red:       #ff4e6a;
+        --red-dim:   rgba(255,78,106,0.12);
+        --orange:    #faa51a;
+        --orange-dim:rgba(250,165,26,0.12);
+        --text:      #f2f2f2;
+        --text-dim:  #9b9b9b;
+        --accent:    #a18bf5;
+        --accent2:   #faa51a;
+        --font-mono: "Space Mono", monospace;
+        --font-sans: "Syne", sans-serif;
       }
 
       html,
@@ -43,7 +45,7 @@
         background: var(--bg);
         color: var(--text);
         font-family: var(--font-sans);
-        font-size: 14px;
+        font-size: 13px;
         line-height: 1.5;
         overflow: hidden;
       }
@@ -57,7 +59,7 @@
         padding: 2rem;
         background: radial-gradient(
             ellipse 80% 60% at 50% 0%,
-            #00d4ff12 0%,
+            rgba(161,139,245,0.07) 0%,
             transparent 70%
           ),
           var(--bg);
@@ -70,7 +72,7 @@
         border: 1px solid var(--border);
         border-radius: 4px;
         padding: 2.5rem;
-        box-shadow: 0 0 60px #00d4ff08;
+        box-shadow: 0 0 60px rgba(161,139,245,0.08);
       }
 
       .login-title {
@@ -135,9 +137,11 @@
 
       .topbar-brand {
         font-family: var(--font-mono);
-        font-size: 12px;
-        font-weight: 700;
-        color: var(--cyan);
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text);
       }
 
       .stat-pill {
@@ -470,12 +474,63 @@
         width: max-content;
         min-width: 100%;
       }
+
+      /* ── Noise overlay ─────────────────────────────────────────── */
+      .noise-overlay {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+        pointer-events: none;
+        z-index: 9999;
+        opacity: 0.35;
+      }
+
+      /* ── Logo mark hex ─────────────────────────────────────────── */
+      .logo-mark {
+        width: 22px;
+        height: 22px;
+        background: var(--accent);
+        clip-path: polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+        flex-shrink: 0;
+        animation: pulse-hex 3s ease-in-out infinite;
+      }
+      @keyframes pulse-hex {
+        0%,100% { filter: drop-shadow(0 0 4px var(--accent)); }
+        50%      { filter: drop-shadow(0 0 12px var(--accent)); }
+      }
+
+      /* ── Server resource pills ─────────────────────────────────── */
+      .res-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 9px;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        background: var(--bg3);
+        font-family: var(--font-mono);
+        font-size: 0.6rem;
+        color: var(--text-dim);
+        transition: all 0.4s;
+        white-space: nowrap;
+      }
+      .res-item.ok   { border-color: rgba(63,185,80,0.35);  background: var(--green-dim);  color: var(--green);  }
+      .res-item.warn { border-color: rgba(250,165,26,0.35); background: var(--orange-dim); color: var(--orange); }
+      .res-item.err  { border-color: rgba(255,78,106,0.35); background: var(--red-dim);    color: var(--red);    }
+      .res-dot {
+        width: 5px; height: 5px;
+        border-radius: 50%;
+        background: currentColor;
+        flex-shrink: 0;
+      }
     </style>
   </head>
   <body>
+    <div class="noise-overlay"></div>
     <div id="login-screen">
       <div class="login-card">
-        <div class="login-title">RTS MONITOR</div>
+        <div class="login-title" style="background:linear-gradient(135deg,#f2f2f2,#a18bf5);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">RTS MONITOR</div>
         <div class="field">
           <label>App ID</label>
           <input id="inp-appid" type="text" placeholder="your-app-id" />
@@ -503,9 +558,10 @@
 
     <div id="dashboard">
       <div class="topbar">
-        <div class="topbar-brand">
-          SP RTS SYSTEM MONITOR —
-          <span id="sb-appid" style="color: var(--text-dim)"></span>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="logo-mark"></div>
+          <div class="topbar-brand">RTS <span style="color:var(--accent)">Monitor</span></div>
+          <div class="topbar-brand" style="color:var(--text-dim);font-size:10px;font-weight:400" id="sb-appid"></div>
         </div>
         <div style="display: flex; gap: 20px; align-items: center">
           <div class="stat-pill">Total: <span id="stat-total">—</span></div>

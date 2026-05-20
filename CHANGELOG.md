@@ -7,6 +7,16 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.23.2] - 2026-05-20
+
+### Changed
+
+- Visual redesign to align with SO-Toolbox index colour scheme: replaced IBM Plex fonts with **Space Mono** + **Syne**, adopted `#1a1a1a` dark surface palette, purple accent (`#a18bf5`), and matching green/orange/red status colours.
+- Added animated hexagonal logo mark and noise texture overlay to match index aesthetic.
+- Login card gradient and box-shadow updated to use the new accent colour.
+- Login title now uses gradient text (white → purple).
+- Server resource pills restyled with rounded pill shape and updated colour tokens.
+
 ## [2.23.1] - 2026-05-20
 
 ### Fixed
