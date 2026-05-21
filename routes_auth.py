@@ -2,7 +2,7 @@
 routes_auth.py — Authentication & User Management Blueprint
 SO-Toolbox v2.24.0
 
-Registers all /so-proxy/auth/* and /so-proxy/users/* routes.
+Registers all /login, /logout, /me, /users/* routes (nginx strips /so-proxy prefix) routes.
 User database lives in users.json (next to proxy.py) — NOT in Git.
 """
 
@@ -138,7 +138,7 @@ def require_admin(f):
 #  AUTH ROUTES
 # ════════════════════════════════════════════════════════════════════════════
 
-@auth_bp.route('/so-proxy/login', methods=['POST'])
+@auth_bp.route('/login', methods=['POST'])
 def login():
     data     = request.get_json(silent=True) or {}
     username = str(data.get('username', '')).strip()
@@ -165,7 +165,7 @@ def login():
     return resp
 
 
-@auth_bp.route('/so-proxy/logout', methods=['POST'])
+@auth_bp.route('/logout', methods=['POST'])
 def logout():
     token = _token_from_request()
     _invalidate_session(token)
@@ -174,7 +174,7 @@ def logout():
     return resp
 
 
-@auth_bp.route('/so-proxy/me', methods=['GET'])
+@auth_bp.route('/me', methods=['GET'])
 @require_auth
 def me():
     return jsonify({'ok': True, 'username': request.session['username'], 'role': request.session['role']})
@@ -184,7 +184,7 @@ def me():
 #  USER MANAGEMENT ROUTES
 # ════════════════════════════════════════════════════════════════════════════
 
-@auth_bp.route('/so-proxy/users', methods=['GET'])
+@auth_bp.route('/users', methods=['GET'])
 @require_admin
 def list_users():
     users = _load_users()
@@ -195,7 +195,7 @@ def list_users():
     return jsonify({'ok': True, 'users': safe})
 
 
-@auth_bp.route('/so-proxy/users', methods=['POST'])
+@auth_bp.route('/users', methods=['POST'])
 @require_admin
 def create_user():
     data     = request.get_json(silent=True) or {}
@@ -223,7 +223,7 @@ def create_user():
     return jsonify({'ok': True, 'username': username}), 201
 
 
-@auth_bp.route('/so-proxy/users/<username>', methods=['PUT'])
+@auth_bp.route('/users/<username>', methods=['PUT'])
 @require_admin
 def update_user(username):
     users = _load_users()
@@ -245,7 +245,7 @@ def update_user(username):
     return jsonify({'ok': True, 'username': username})
 
 
-@auth_bp.route('/so-proxy/users/<username>', methods=['DELETE'])
+@auth_bp.route('/users/<username>', methods=['DELETE'])
 @require_admin
 def delete_user(username):
     users = _load_users()
