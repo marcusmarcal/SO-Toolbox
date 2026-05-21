@@ -7,6 +7,20 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.25.0] - 2026-05-21
+
+### Changed
+
+- Password hashing upgraded from SHA-256 to bcrypt (cost factor 12); existing
+  hashes from legacy systems (`$2a$`, `$2b$`, `$2y$`) are accepted without migration
+
+### Added
+
+- SQL export query (`import_users.sql`) to extract users and bcrypt hashes
+  from a legacy MariaDB database
+- Python import script to convert the SQL export into `users.json` format,
+  preserving the existing `admin` entry
+
 ## [2.24.0] - 2026-05-20
 
 ### Added
