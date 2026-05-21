@@ -88,6 +88,62 @@ nginx -t && systemctl enable nginx && systemctl start nginx
 
 ---
 
+### What the nginx config now includes (auth)
+
+The nginx configs already contain everything below — no manual edits needed.
+This section documents what was added and why.
+
+**Sensitive file blocking** — `.env` and `users.json` both return 404:
+
+```nginx
+location ~ ^/(\.env|users\.json) {
+    deny all;
+    return 404;
+}
+```
+
+**Auth check endpoint** — nginx calls `/so-proxy/_auth_check` silently before
+serving any protected file. The Flask proxy validates the session cookie and
+returns 200 (valid) or 401 (not authenticated):
+
+```nginx
+location = /so-proxy/_auth_check {
+    internal;
+    proxy_pass         http://127.0.0.1:5050/me;
+    proxy_pass_request_body off;
+    proxy_set_header   Content-Length "";
+    proxy_set_header   Cookie $http_cookie;
+}
+```
+
+**Public pages** — `login.html` and `users-admin.html` are served without
+auth (they manage their own authentication):
+
+```nginx
+location = /login.html    { root /opt/web; }
+location = /users-admin.html { root /opt/web; }
+```
+
+**Protected zone** — everything else requires a valid session; unauthenticated
+requests are redirected to `/login.html?next=<original-url>`:
+
+```nginx
+location / {
+    auth_request /so-proxy/_auth_check;
+    error_page 401 = @login_redirect;
+    try_files $uri $uri/ =404;
+}
+
+location @login_redirect {
+    return 302 /login.html?next=$request_uri;
+}
+```
+
+> `/so-proxy/*` is never subject to `auth_request` — it passes directly to
+> Flask which manages its own auth (session tokens, admin password).
+
+---
+
 ## 5. .env file
 
 Create `/opt/web/.env` — this file is NOT in Git (intentionally).
@@ -291,16 +347,6 @@ users.json
 ```
 
 `users.json` stores password hashes. It must never be committed.
-
-### nginx — block users.json
-
-Add to your nginx config alongside the existing `.env` block:
-
-```nginx
-location ~ ^/(\.env|users\.json) {
-    return 404;
-}
-```
 
 ### Protecting the main app (optional)
 
