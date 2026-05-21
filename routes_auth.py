@@ -2,6 +2,9 @@
 routes_auth.py — Authentication & User Management Blueprint
 SO-Toolbox v2.24.0
 
+Passwords are hashed with bcrypt (cost 12). Compatible with $2a$/$2b$/$2y$ hashes
+imported from other systems — no migration needed.
+
 Registers all /login, /logout, /me, /users/* routes (nginx strips /so-proxy prefix) routes.
 User database lives in users.json (next to proxy.py) — NOT in Git.
 """
@@ -9,6 +12,7 @@ User database lives in users.json (next to proxy.py) — NOT in Git.
 import json
 import hashlib
 import hmac
+import bcrypt
 import secrets
 import time
 import os
@@ -49,11 +53,16 @@ def _save_users(users: dict) -> None:
 
 
 def _hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode()).hexdigest()
+    """Return a bcrypt hash ($2b$12$...). Compatible with $2a$ hashes from other systems."""
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=12)).decode()
 
 
 def _verify_password(password: str, hashed: str) -> bool:
-    return hmac.compare_digest(_hash_password(password), hashed)
+    """Verify against bcrypt hash. Accepts $2a$, $2b$, $2y$ prefixes."""
+    try:
+        return bcrypt.checkpw(password.encode(), hashed.encode())
+    except Exception:
+        return False
 
 
 # ════════════════════════════════════════════════════════════════════════════

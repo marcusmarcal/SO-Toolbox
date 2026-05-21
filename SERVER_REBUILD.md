@@ -12,6 +12,7 @@ The application code lives in Git — this document covers everything that does 
 ```bash
 yum install nginx git python3 python3-pip ffmpeg curl mtr -y
 pip3 install flask flask-cors requests
+pip3 install bcrypt --break-system-packages
 ```
 
 ### Debian / Ubuntu (incl. WSL)
@@ -21,6 +22,7 @@ apt update
 apt install nginx git python3 python3-flask python3-requests ffmpeg curl mtr -y
 apt install python3-pip -y
 pip3 install flask-cors --break-system-packages
+pip3 install bcrypt --break-system-packages
 ```
 
 > On newer Debian/Ubuntu, `flask` and `requests` are available via `apt` as
