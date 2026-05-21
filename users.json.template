@@ -1,0 +1,7 @@
+{
+  "admin": {
+    "password_hash": "REPLACE_WITH_SHA256_OF_YOUR_PASSWORD",
+    "role": "admin",
+    "created_at": "2026-05-20T00:00:00Z"
+  }
+}

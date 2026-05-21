@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>User Management — SO-Toolbox</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #1a1a1a;
+      --surface: #222222;
+      --card: #2e2e2e;
+      --border: #444444;
+      --accent: #a18bf5;
+      --accent2: #faa51a;
+      --text: #f2f2f2;
+      --muted: #9b9b9b;
+      --danger: #ff4e6a;
+      --ok: #3fb950;
+      --mono: "Space Mono", monospace;
+      --display: "Syne", sans-serif;
+    }
+
+    html, body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--display);
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0.35;
+    }
+
+    /* ── TOPBAR ── */
+    #topbar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 28px;
+      height: 58px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo-mark {
+      width: 26px; height: 26px;
+      background: var(--accent);
+      clip-path: polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+      animation: pulse-hex 3s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    @keyframes pulse-hex {
+      0%,100% { filter: drop-shadow(0 0 4px var(--accent)); }
+      50%      { filter: drop-shadow(0 0 12px var(--accent)); }
+    }
+    #topbar h1 {
+      font-size: 1.05rem; font-weight: 800;
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    #topbar h1 span { color: var(--accent); }
+    .topbar-badge {
+      font-family: var(--mono); font-size: 0.58rem;
+      padding: 2px 9px; border-radius: 20px;
+      border: 1px solid rgba(255,78,106,0.4);
+      color: #ffb3be; background: rgba(255,78,106,0.06);
+    }
+    .topbar-sep { flex: 1; }
+    #auth-status {
+      font-family: var(--mono); font-size: 0.6rem;
+      color: var(--muted); display: flex; align-items: center; gap: 6px;
+    }
+    .status-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--ok); flex-shrink: 0;
+    }
+    .status-dot.locked { background: var(--danger); }
+
+    /* ── LAYOUT ── */
+    #page {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 36px 24px 60px;
+    }
+
+    /* ── ADMIN UNLOCK ── */
+    #admin-gate {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem;
+      margin-bottom: 28px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+    }
+    #admin-gate label {
+      font-family: var(--mono); font-size: 0.62rem;
+      color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em;
+      display: block; margin-bottom: 6px;
+    }
+    #admin-gate input {
+      flex: 1;
+      background: var(--card); border: 1px solid var(--border);
+      color: var(--text); font-family: var(--mono); font-size: 0.75rem;
+      padding: 9px 14px; border-radius: 7px; outline: none;
+      transition: border-color 0.2s;
+    }
+    #admin-gate input:focus { border-color: var(--accent); }
+    #admin-gate input.err { border-color: var(--danger); }
+    .btn {
+      font-family: var(--mono); font-size: 0.65rem; font-weight: 700;
+      letter-spacing: 0.07em; padding: 9px 18px; border-radius: 7px;
+      border: 1px solid var(--border); cursor: pointer;
+      background: var(--card); color: var(--muted);
+      transition: all 0.18s; white-space: nowrap;
+    }
+    .btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(161,139,245,0.08); }
+    .btn.primary {
+      background: rgba(161,139,245,0.15); border-color: rgba(161,139,245,0.5);
+      color: var(--accent);
+    }
+    .btn.primary:hover { background: rgba(161,139,245,0.25); }
+    .btn.danger { border-color: rgba(255,78,106,0.4); color: #ffb3be; background: rgba(255,78,106,0.06); }
+    .btn.danger:hover { background: rgba(255,78,106,0.15); border-color: var(--danger); color: var(--danger); }
+    .btn.ok { border-color: rgba(63,185,80,0.4); color: #9ee6a6; background: rgba(63,185,80,0.06); }
+    .btn.ok:hover { background: rgba(63,185,80,0.15); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+
+    /* ── SECTION HEADER ── */
+    .section-header {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 16px;
+    }
+    .section-title {
+      font-family: var(--mono); font-size: 0.6rem;
+      letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted);
+    }
+    .section-line { flex: 1; height: 1px; background: var(--border); }
+
+    /* ── USER LIST ── */
+    #user-list {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+    .user-row {
+      display: grid;
+      grid-template-columns: 1fr auto auto auto;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+    .user-row:last-child { border-bottom: none; }
+    .user-row:hover { background: rgba(255,255,255,0.02); }
+    .user-row.header {
+      font-family: var(--mono); font-size: 0.56rem;
+      color: var(--muted); text-transform: uppercase; letter-spacing: 0.15em;
+      background: var(--card); padding: 10px 20px;
+      font-weight: 700;
+    }
+    .user-name {
+      font-size: 0.82rem; font-weight: 600;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .user-role {
+      font-family: var(--mono); font-size: 0.52rem; font-weight: 700;
+      padding: 2px 7px; border-radius: 4px;
+      letter-spacing: 0.06em;
+    }
+    .user-role.admin { background: rgba(161,139,245,0.15); color: var(--accent); border: 1px solid rgba(161,139,245,0.3); }
+    .user-role.user  { background: rgba(250,165,26,0.12); color: #fcc97a; border: 1px solid rgba(250,165,26,0.25); }
+    .user-created {
+      font-family: var(--mono); font-size: 0.6rem; color: var(--muted);
+    }
+    .row-actions { display: flex; gap: 6px; }
+    .empty-state {
+      padding: 40px; text-align: center;
+      font-family: var(--mono); font-size: 0.7rem; color: var(--muted);
+    }
+
+    /* ── ADD/EDIT FORM ── */
+    #form-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+    }
+    #form-panel.editing {
+      border-color: rgba(250,165,26,0.35);
+      background: rgba(250,165,26,0.03);
+    }
+    .form-title {
+      font-family: var(--mono); font-size: 0.65rem;
+      color: var(--accent); font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; margin-bottom: 18px;
+    }
+    .form-title.edit { color: var(--accent2); }
+    .form-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 16px; margin-bottom: 16px;
+    }
+    .form-group { display: flex; flex-direction: column; }
+    .form-group.full { grid-column: 1 / -1; }
+    .form-group label {
+      font-family: var(--mono); font-size: 0.56rem;
+      color: var(--muted); text-transform: uppercase;
+      letter-spacing: 0.14em; margin-bottom: 6px;
+    }
+    .form-group input,
+    .form-group select {
+      background: var(--card); border: 1px solid var(--border);
+      color: var(--text); font-family: var(--mono); font-size: 0.75rem;
+      padding: 9px 14px; border-radius: 7px; outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-group input:focus,
+    .form-group select:focus { border-color: var(--accent); }
+    .form-group input.err { border-color: var(--danger); }
+    .form-group select option { background: var(--card); }
+    .form-hint {
+      font-family: var(--mono); font-size: 0.55rem;
+      color: var(--muted); margin-top: 4px;
+    }
+    .form-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed; bottom: 28px; right: 28px;
+      font-family: var(--mono); font-size: 0.7rem;
+      padding: 10px 18px; border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface); color: var(--text);
+      opacity: 0; transform: translateY(8px);
+      transition: opacity 0.25s, transform 0.25s;
+      pointer-events: none; z-index: 999;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+    #toast.ok  { border-color: rgba(63,185,80,0.5); color: #9ee6a6; background: rgba(63,185,80,0.08); }
+    #toast.err { border-color: rgba(255,78,106,0.5); color: #ffb3be; background: rgba(255,78,106,0.08); }
+
+    /* ── CONFIRM MODAL ── */
+    #confirm-modal {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.65); z-index: 500;
+      align-items: center; justify-content: center;
+    }
+    #confirm-modal.open { display: flex; }
+    .confirm-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 2rem; width: 380px; max-width: 90vw;
+      box-shadow: 0 0 40px rgba(0,0,0,0.6);
+    }
+    .confirm-title {
+      font-family: var(--mono); font-size: 0.7rem; font-weight: 700;
+      color: var(--danger); text-transform: uppercase;
+      letter-spacing: 0.12em; margin-bottom: 10px;
+    }
+    .confirm-msg {
+      font-family: var(--mono); font-size: 0.7rem;
+      color: var(--muted); line-height: 1.6; margin-bottom: 20px;
+    }
+    .confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+    /* ── LOCK OVERLAY ── */
+    .locked-overlay {
+      opacity: 0.35; pointer-events: none; user-select: none;
+      filter: blur(1px);
+    }
+  </style>
+</head>
+<body>
+
+<header id="topbar">
+  <div class="logo-mark"></div>
+  <h1>SP SO <span>Web Toolbox</span></h1>
+  <span class="topbar-badge">👥 User Management</span>
+  <div class="topbar-sep"></div>
+  <div id="auth-status">
+    <span class="status-dot locked" id="auth-dot"></span>
+    <span id="auth-label">Admin not authenticated</span>
+  </div>
+</header>
+
+<div id="page">
+
+  <!-- ── Admin Auth ── -->
+  <div class="section-header">
+    <div class="section-title">Admin Authentication</div>
+    <div class="section-line"></div>
+  </div>
+  <div id="admin-gate">
+    <div style="flex:1">
+      <label for="admin-pass-input">Admin Password</label>
+      <input type="password" id="admin-pass-input" placeholder="Enter ADMIN_PASSWORD from .env…"
+             onkeydown="if(event.key==='Enter') unlockAdmin()" />
+    </div>
+    <button class="btn primary" onclick="unlockAdmin()">🔓 Unlock</button>
+  </div>
+
+  <!-- ── User List ── -->
+  <div id="main-content" class="locked-overlay">
+    <div class="section-header">
+      <div class="section-title">Users</div>
+      <div class="section-line"></div>
+      <button class="btn ok" onclick="newUser()" id="btn-new">＋ New User</button>
+      <button class="btn" onclick="loadUsers()" style="font-size:0.6rem">⟳ Refresh</button>
+    </div>
+
+    <div id="user-list">
+      <div class="user-row header">
+        <span>Username</span><span>Role</span><span>Created</span><span>Actions</span>
+      </div>
+      <div id="user-rows">
+        <div class="empty-state">Unlock admin to load users</div>
+      </div>
+    </div>
+
+    <!-- ── Add / Edit Form ── -->
+    <div class="section-header">
+      <div class="section-title" id="form-section-label">Add User</div>
+      <div class="section-line"></div>
+    </div>
+
+    <div id="form-panel">
+      <div class="form-title" id="form-title">＋ New User</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="f-username">Username</label>
+          <input type="text" id="f-username" placeholder="jsmith" autocomplete="off" />
+        </div>
+        <div class="form-group">
+          <label for="f-role">Role</label>
+          <select id="f-role">
+            <option value="user">user</option>
+            <option value="admin">admin</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="f-password">Password</label>
+          <input type="password" id="f-password" placeholder="New password" autocomplete="new-password" />
+          <span class="form-hint" id="f-pass-hint">Required for new users</span>
+        </div>
+        <div class="form-group">
+          <label for="f-password2">Confirm Password</label>
+          <input type="password" id="f-password2" placeholder="Repeat password" autocomplete="new-password" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn" id="btn-cancel" onclick="cancelEdit()" style="display:none">Cancel</button>
+        <button class="btn primary" id="btn-submit" onclick="submitUser()">＋ Create User</button>
+      </div>
+    </div>
+  </div><!-- /main-content -->
+
+</div><!-- /page -->
+
+<!-- ── Confirm Modal ── -->
+<div id="confirm-modal">
+  <div class="confirm-card">
+    <div class="confirm-title">⚠ Confirm Delete</div>
+    <div class="confirm-msg" id="confirm-msg">Delete this user?</div>
+    <div class="confirm-actions">
+      <button class="btn" onclick="closeConfirm()">Cancel</button>
+      <button class="btn danger" id="confirm-ok-btn" onclick="confirmDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast ── -->
+<div id="toast"></div>
+
+<script>
+  // ── Config ─────────────────────────────────────────────────────
+  const PROXY = '/so-proxy';
+  let adminPassword = '';
+  let editingUser   = null;
+  let pendingDelete = null;
+
+  // ── Admin unlock ────────────────────────────────────────────────
+  function unlockAdmin() {
+    const pass = document.getElementById('admin-pass-input').value.trim();
+    if (!pass) { shakeInput('admin-pass-input'); return; }
+
+    // Verify by pinging a protected endpoint
+    fetch(`${PROXY}/users`, {
+      headers: { 'X-Admin-Password': pass }
+    }).then(r => {
+      if (r.ok) {
+        adminPassword = pass;
+        document.getElementById('admin-dot').classList.remove('locked');
+        document.getElementById('auth-label').textContent = 'Admin authenticated';
+        document.getElementById('main-content').classList.remove('locked-overlay');
+        document.getElementById('admin-pass-input').value = '';
+        loadUsers();
+        toast('Admin access granted', 'ok');
+      } else {
+        shakeInput('admin-pass-input');
+        toast('Wrong admin password', 'err');
+      }
+    }).catch(() => toast('Cannot reach proxy', 'err'));
+  }
+
+  // ── Load users ──────────────────────────────────────────────────
+  function loadUsers() {
+    if (!adminPassword) return;
+    fetch(`${PROXY}/users`, { headers: { 'X-Admin-Password': adminPassword } })
+      .then(r => r.json())
+      .then(data => renderUsers(data.users || []))
+      .catch(() => toast('Failed to load users', 'err'));
+  }
+
+  function renderUsers(users) {
+    const el = document.getElementById('user-rows');
+    if (!users.length) {
+      el.innerHTML = '<div class="empty-state">No users yet — create one below</div>';
+      return;
+    }
+    el.innerHTML = users.map(u => `
+      <div class="user-row">
+        <div class="user-name">
+          ${escHtml(u.username)}
+          <span class="user-role ${u.role}">${escHtml(u.role)}</span>
+        </div>
+        <div></div>
+        <div class="user-created">${u.created_at ? u.created_at.split('T')[0] : '—'}</div>
+        <div class="row-actions">
+          <button class="btn" style="font-size:0.58rem;padding:5px 10px"
+            onclick="editUser(${JSON.stringify(JSON.stringify(u))})">✎ Edit</button>
+          <button class="btn danger" style="font-size:0.58rem;padding:5px 10px"
+            onclick="askDelete('${escHtml(u.username)}')">✕ Delete</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // ── Create / Edit ───────────────────────────────────────────────
+  function newUser() {
+    editingUser = null;
+    document.getElementById('f-username').value = '';
+    document.getElementById('f-password').value = '';
+    document.getElementById('f-password2').value = '';
+    document.getElementById('f-role').value = 'user';
+    document.getElementById('f-username').disabled = false;
+    document.getElementById('f-pass-hint').textContent = 'Required for new users';
+    document.getElementById('form-title').textContent = '＋ New User';
+    document.getElementById('form-title').classList.remove('edit');
+    document.getElementById('form-panel').classList.remove('editing');
+    document.getElementById('btn-submit').textContent = '＋ Create User';
+    document.getElementById('btn-cancel').style.display = 'none';
+    document.getElementById('form-section-label').textContent = 'Add User';
+    document.getElementById('f-username').focus();
+    document.getElementById('form-panel').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function editUser(jsonStr) {
+    const u = JSON.parse(jsonStr);
+    editingUser = u.username;
+    document.getElementById('f-username').value = u.username;
+    document.getElementById('f-username').disabled = true; // username is immutable
+    document.getElementById('f-role').value = u.role || 'user';
+    document.getElementById('f-password').value = '';
+    document.getElementById('f-password2').value = '';
+    document.getElementById('f-pass-hint').textContent = 'Leave blank to keep current password';
+    document.getElementById('form-title').textContent = `✎ Edit — ${u.username}`;
+    document.getElementById('form-title').classList.add('edit');
+    document.getElementById('form-panel').classList.add('editing');
+    document.getElementById('btn-submit').textContent = '✔ Save Changes';
+    document.getElementById('btn-cancel').style.display = '';
+    document.getElementById('form-section-label').textContent = 'Edit User';
+    document.getElementById('f-password').focus();
+    document.getElementById('form-panel').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function cancelEdit() { newUser(); }
+
+  function submitUser() {
+    const username = document.getElementById('f-username').value.trim();
+    const password = document.getElementById('f-password').value;
+    const password2 = document.getElementById('f-password2').value;
+    const role = document.getElementById('f-role').value;
+
+    if (!editingUser && !username) { shakeInput('f-username'); toast('Username required', 'err'); return; }
+    if (!editingUser && !password) { shakeInput('f-password'); toast('Password required for new user', 'err'); return; }
+    if (password && password !== password2) {
+      shakeInput('f-password2'); toast('Passwords do not match', 'err'); return;
+    }
+
+    const body = { role };
+    if (!editingUser) body.username = username;
+    if (password) body.password = password;
+
+    const method = editingUser ? 'PUT' : 'POST';
+    const url    = editingUser ? `${PROXY}/users/${encodeURIComponent(editingUser)}` : `${PROXY}/users`;
+
+    fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Password': adminPassword },
+      body: JSON.stringify(body)
+    }).then(r => r.json()).then(data => {
+      if (data.ok) {
+        toast(editingUser ? `User "${editingUser}" updated` : `User "${username}" created`, 'ok');
+        loadUsers();
+        newUser();
+      } else {
+        toast(data.error || 'Error saving user', 'err');
+      }
+    }).catch(() => toast('Request failed', 'err'));
+  }
+
+  // ── Delete ──────────────────────────────────────────────────────
+  function askDelete(username) {
+    pendingDelete = username;
+    document.getElementById('confirm-msg').textContent =
+      `Permanently delete user "${username}"? This cannot be undone.`;
+    document.getElementById('confirm-modal').classList.add('open');
+  }
+  function closeConfirm() {
+    document.getElementById('confirm-modal').classList.remove('open');
+    pendingDelete = null;
+  }
+  function confirmDelete() {
+    if (!pendingDelete) return;
+    fetch(`${PROXY}/users/${encodeURIComponent(pendingDelete)}`, {
+      method: 'DELETE',
+      headers: { 'X-Admin-Password': adminPassword }
+    }).then(r => r.json()).then(data => {
+      closeConfirm();
+      if (data.ok) {
+        toast(`User "${pendingDelete}" deleted`, 'ok');
+        loadUsers();
+      } else {
+        toast(data.error || 'Delete failed', 'err');
+      }
+    }).catch(() => { closeConfirm(); toast('Request failed', 'err'); });
+  }
+
+  // ── Helpers ─────────────────────────────────────────────────────
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  let _toastTimer;
+  function toast(msg, type='') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'show ' + type;
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => { el.className = ''; }, 3000);
+  }
+  function shakeInput(id) {
+    const el = document.getElementById(id);
+    el.classList.add('err');
+    el.animate([{transform:'translateX(0)'},{transform:'translateX(-6px)'},{transform:'translateX(6px)'},{transform:'translateX(0)'}],
+               {duration:300, iterations:2});
+    setTimeout(() => el.classList.remove('err'), 1500);
+  }
+
+  // ── Admin gate: Enter key ───────────────────────────────────────
+  document.getElementById('admin-pass-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') unlockAdmin();
+  });
+  // Close confirm on backdrop click
+  document.getElementById('confirm-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('confirm-modal')) closeConfirm();
+  });
+</script>
+</body>
+</html>

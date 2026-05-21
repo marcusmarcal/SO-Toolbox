@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login — SP SO Web Toolbox</title>
+  <link rel="icon" href="favicon.ico" type="image/x-icon" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #1a1a1a;
+      --surface: #222222;
+      --card: #2e2e2e;
+      --border: #444444;
+      --accent: #a18bf5;
+      --accent2: #faa51a;
+      --text: #f2f2f2;
+      --muted: #9b9b9b;
+      --danger: #ff4e6a;
+      --ok: #3fb950;
+      --mono: "Space Mono", monospace;
+      --display: "Syne", sans-serif;
+    }
+
+    html, body {
+      height: 100%; background: var(--bg);
+      color: var(--text); font-family: var(--display);
+      overflow: hidden;
+    }
+
+    /* Noise texture */
+    body::before {
+      content: "";
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 9999; opacity: 0.35;
+    }
+
+    /* Animated grid background */
+    body::after {
+      content: "";
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(161,139,245,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(161,139,245,0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none; z-index: 0;
+    }
+
+    .scene {
+      position: relative; z-index: 1;
+      height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* Glow orb behind card */
+    .glow-orb {
+      position: absolute;
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(161,139,245,0.12) 0%, transparent 70%);
+      border-radius: 50%;
+      pointer-events: none;
+      animation: breathe 6s ease-in-out infinite;
+    }
+    @keyframes breathe {
+      0%,100% { transform: scale(1); opacity: 0.8; }
+      50%      { transform: scale(1.1); opacity: 1; }
+    }
+
+    .login-card {
+      position: relative; z-index: 2;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 3rem 2.5rem 2.5rem;
+      width: 380px; max-width: 94vw;
+      box-shadow: 0 0 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(161,139,245,0.06);
+      animation: card-in 0.4s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    @keyframes card-in {
+      from { opacity: 0; transform: translateY(24px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* Logo area */
+    .login-logo {
+      display: flex; flex-direction: column; align-items: center; gap: 14px;
+      margin-bottom: 2.4rem;
+    }
+    .hex-mark {
+      width: 52px; height: 52px;
+      background: linear-gradient(135deg, var(--accent), #7b5ff5);
+      clip-path: polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+      animation: pulse-hex 3s ease-in-out infinite;
+      filter: drop-shadow(0 0 16px rgba(161,139,245,0.5));
+    }
+    @keyframes pulse-hex {
+      0%,100% { filter: drop-shadow(0 0 8px rgba(161,139,245,0.4)); }
+      50%      { filter: drop-shadow(0 0 22px rgba(161,139,245,0.7)); }
+    }
+    .login-title {
+      font-size: 1.3rem; font-weight: 800;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      text-align: center;
+    }
+    .login-title span { color: var(--accent); }
+    .login-sub {
+      font-family: var(--mono); font-size: 0.6rem;
+      color: var(--muted); text-align: center;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      margin-top: -8px;
+    }
+
+    /* Form */
+    .field { margin-bottom: 16px; }
+    .field label {
+      display: block;
+      font-family: var(--mono); font-size: 0.56rem;
+      color: var(--muted); text-transform: uppercase;
+      letter-spacing: 0.16em; margin-bottom: 7px;
+    }
+    .field input {
+      width: 100%;
+      background: var(--card); border: 1px solid var(--border);
+      color: var(--text); font-family: var(--mono); font-size: 0.78rem;
+      padding: 11px 16px; border-radius: 8px; outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .field input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(161,139,245,0.12);
+    }
+    .field input.err { border-color: var(--danger); }
+
+    .login-btn {
+      width: 100%; margin-top: 8px;
+      padding: 13px;
+      background: linear-gradient(135deg, rgba(161,139,245,0.2), rgba(161,139,245,0.1));
+      border: 1px solid rgba(161,139,245,0.45);
+      color: var(--accent); font-family: var(--mono);
+      font-size: 0.72rem; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      border-radius: 8px; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .login-btn:hover {
+      background: rgba(161,139,245,0.25);
+      box-shadow: 0 0 20px rgba(161,139,245,0.15);
+    }
+    .login-btn:active { transform: scale(0.99); }
+    .login-btn:disabled {
+      opacity: 0.45; cursor: not-allowed; pointer-events: none;
+    }
+    .login-btn .btn-spinner {
+      display: inline-block; width: 10px; height: 10px;
+      border: 1.5px solid rgba(161,139,245,0.3);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      margin-right: 6px; vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Error message */
+    #error-msg {
+      display: none;
+      margin-top: 14px;
+      font-family: var(--mono); font-size: 0.64rem;
+      color: #ffb3be; background: rgba(255,78,106,0.08);
+      border: 1px solid rgba(255,78,106,0.25);
+      padding: 8px 14px; border-radius: 6px; text-align: center;
+    }
+    #error-msg.show { display: block; }
+
+    /* Footer */
+    .login-footer {
+      margin-top: 2rem; text-align: center;
+      font-family: var(--mono); font-size: 0.54rem;
+      color: #555; letter-spacing: 0.08em;
+    }
+  </style>
+</head>
+<body>
+<div class="scene">
+  <div class="glow-orb"></div>
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="hex-mark"></div>
+      <div>
+        <div class="login-title">SP SO <span>Web Toolbox</span></div>
+        <div class="login-sub">Secure Access</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="username">Username</label>
+      <input type="text" id="username" placeholder="Enter your username"
+             autocomplete="username" autocorrect="off" autocapitalize="none" spellcheck="false" />
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input type="password" id="password" placeholder="Enter your password"
+             autocomplete="current-password" />
+    </div>
+
+    <button class="login-btn" id="login-btn" onclick="doLogin()">Sign In</button>
+    <div id="error-msg"></div>
+
+    <div class="login-footer">Stats Perform — SO Engineering</div>
+  </div>
+</div>
+
+<script>
+  const PROXY = '/so-proxy';
+
+  // Focus username on load
+  document.getElementById('username').focus();
+
+  // Enter key on password field
+  document.getElementById('password').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+  document.getElementById('username').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('password').focus();
+  });
+
+  async function doLogin() {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+
+    if (!username || !password) {
+      showError('Username and password are required.');
+      if (!username) shake('username');
+      if (!password) shake('password');
+      return;
+    }
+
+    const btn = document.getElementById('login-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="btn-spinner"></span>Signing in…';
+    hideError();
+
+    try {
+      const r = await fetch(`${PROXY}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+        credentials: 'same-origin'
+      });
+      const data = await r.json();
+
+      if (data.ok) {
+        // Store token in sessionStorage as fallback (cookie is set by server)
+        sessionStorage.setItem('sotb-token', data.token);
+        sessionStorage.setItem('sotb-user', data.username);
+        sessionStorage.setItem('sotb-role', data.role);
+
+        // Redirect to main app
+        const redir = new URLSearchParams(location.search).get('next') || '/';
+        window.location.href = redir;
+      } else {
+        showError(data.error || 'Login failed. Check your credentials.');
+        shake('password');
+        document.getElementById('password').value = '';
+        document.getElementById('password').focus();
+      }
+    } catch (err) {
+      showError('Cannot reach server. Is the proxy running?');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Sign In';
+    }
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('error-msg');
+    el.textContent = msg;
+    el.classList.add('show');
+  }
+  function hideError() {
+    document.getElementById('error-msg').classList.remove('show');
+  }
+  function shake(id) {
+    const el = document.getElementById(id);
+    el.classList.add('err');
+    el.animate(
+      [{transform:'translateX(0)'},{transform:'translateX(-7px)'},{transform:'translateX(7px)'},{transform:'translateX(0)'}],
+      {duration:280, iterations:2}
+    );
+    setTimeout(() => el.classList.remove('err'), 1200);
+  }
+</script>
+</body>
+</html>

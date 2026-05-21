@@ -256,3 +256,72 @@ sudo systemctl enable srt-push
 sudo systemctl start srt-push
 
 ```
+
+---
+
+## 10. Authentication setup
+
+### First run — seed the user database
+
+`users.json` is NOT in Git. Create it manually before starting the proxy:
+
+```bash
+# Copy the committed template
+cp /opt/web/users.json.template /opt/web/users.json
+
+# Generate a SHA-256 hash for the initial admin password
+echo -n "your-password-here" | sha256sum
+# → e.g.  5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
+
+# Edit users.json and replace REPLACE_WITH_SHA256_OF_YOUR_PASSWORD
+nano /opt/web/users.json
+```
+
+Alternatively, use the `users-admin.html` tool after the proxy is running —
+it can create users (including the first admin) via the `POST /so-proxy/users`
+endpoint protected by `ADMIN_PASSWORD`.
+
+> ⚠️ `ADMIN_PASSWORD` in `.env` controls write access to the user database.
+> It is independent of any user account — set it to a strong, unique value.
+
+### .gitignore entries (add if not present)
+
+```
+users.json
+```
+
+`users.json` stores password hashes. It must never be committed.
+
+### nginx — block users.json
+
+Add to your nginx config alongside the existing `.env` block:
+
+```nginx
+location ~ ^/(\.env|users\.json) {
+    return 404;
+}
+```
+
+### Protecting the main app (optional)
+
+To redirect unauthenticated browsers to `login.html`, add to `proxy.py`:
+
+```python
+@app.route('/')
+def index():
+    token = request.cookies.get('sotb-session', '')
+    if not _get_session(token):
+        return redirect('/login.html')
+    return send_from_directory('/opt/web', 'index.html')
+```
+
+Or enforce it at the nginx level with `auth_request` pointing to `/so-proxy/me`.
+
+### Quick rebuild checklist (auth additions)
+
+- [ ] Copy `users.json.template` → `users.json` and set initial admin hash
+- [ ] Verify `users.json` is in `.gitignore`
+- [ ] Add `users.json` block to nginx config and reload nginx
+- [ ] Confirm `ADMIN_PASSWORD` is set in `.env`
+- [ ] Open `users-admin.html` and create any additional users
+- [ ] Test login at `/login.html`

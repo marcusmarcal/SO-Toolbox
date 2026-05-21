@@ -7,6 +7,36 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.24.0] - 2026-05-20
+
+### Added
+
+- **Authentication system** — login wall protecting the main application; session tokens are issued on successful login and stored as `HttpOnly` cookies (TTL 8 h); fallback via `sessionStorage` for environments that strip cookies
+- **`login.html`** — standalone login page matching the SO-Toolbox visual identity; animated hex logo, grid background, shake-on-error UX, `?next=` redirect support after successful sign-in
+- **`users-admin.html`** — new tool for managing the local user database; full CRUD (create, edit, delete) gated behind `ADMIN_PASSWORD`; role assignment (`user` / `admin`); password change without revealing current hash; toast notifications and confirm-before-delete modal
+- **`proxy.py` — auth routes**:
+  - `POST /so-proxy/login` — validates credentials against `users.json`, creates in-memory session, sets `sotb-session` cookie
+  - `POST /so-proxy/logout` — invalidates session and clears cookie
+  - `GET  /so-proxy/me` — returns current session username and role
+  - `GET  /so-proxy/users` — lists all users (admin-only, via `X-Admin-Password`)
+  - `POST /so-proxy/users` — creates a user (admin-only)
+  - `PUT  /so-proxy/users/<username>` — updates role and/or password (admin-only)
+  - `DELETE /so-proxy/users/<username>` — removes user and invalidates their active sessions (admin-only)
+- **`users.json`** — local user database file (SHA-256 hashed passwords); excluded from Git via `.gitignore`; `users.json.template` committed as reference
+- **`@require_auth` / `@require_admin` decorators** in `proxy.py` for protecting existing and future routes
+- **Brute-force delay** — 400 ms constant-time penalty on failed login attempts
+
+### Changed
+
+- `SERVER_REBUILD.md` — added Section 10 documenting the auth setup, first-run user seeding, and `.gitignore` entries
+
+### Security
+
+- `users.json` written with mode `0o600`; never served by nginx (blocked by existing `.env` rule pattern — extend to include `users.json`)
+- Password hashes use `hmac.compare_digest` for constant-time comparison
+- Admin endpoints authenticated via `ADMIN_PASSWORD` from `.env` (never exposed to the browser)
+- Sessions invalidated immediately on user deletion
+
 ## [2.23.2] - 2026-05-20
 
 ### Changed
