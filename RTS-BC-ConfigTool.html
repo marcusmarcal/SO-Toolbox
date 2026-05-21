@@ -23,9 +23,24 @@
 
       #loginContainer {
         display: flex;
+        flex-direction: column; /* 👈 isto resolve o layout */
         justify-content: center;
         align-items: center;
         height: 100%;
+        gap: 12px; /* espaço entre botão e texto */
+      }
+
+      button {
+        padding: 12px 20px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+
+      /* estilo da mensagem */
+      .hint {
+        font-size: 13px;
+        color: #666;
+        opacity: 0.8;
       }
 
       #appFrame {
@@ -33,12 +48,6 @@
         height: 100%;
         border: none;
         display: none;
-      }
-
-      button {
-        padding: 12px 20px;
-        font-size: 16px;
-        cursor: pointer;
       }
     </style>
   </head>
@@ -48,7 +57,7 @@
       <!-- Tela de login -->
       <div id="loginContainer">
         <button onclick="loginSSO()">Login with SSO</button>
-        <span>-- close popup if already logged in --</span>
+        <span class="hint">Close popup if already logged in</span>
       </div>
 
       <!-- Iframe -->
