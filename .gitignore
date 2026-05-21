@@ -6,3 +6,4 @@ specs.json
 __pycache__/
 .vscode/
 patches/
+users.json
