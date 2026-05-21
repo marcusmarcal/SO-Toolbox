@@ -20,11 +20,9 @@ from flask import Blueprint, request, jsonify, redirect
 auth_bp = Blueprint('auth', __name__)
 
 # ── Config ────────────────────────────────────────────────────────────────
-USERS_FILE  = os.path.join(os.path.dirname(__file__), 'users.json')
+_BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
+USERS_FILE  = os.path.join(_BASE_DIR, 'users.json')
 SESSION_TTL = 8 * 3600   # 8 hours
-
-# Injected by register_routes(); avoids circular import with proxy.py
-_ENV = {}
 
 # ── Session store (in-memory; resets on proxy restart) ───────────────────
 _sessions: dict = {}   # token → { username, role, expires }
@@ -109,11 +107,25 @@ def require_auth(f):
     return decorated
 
 
+def _get_admin_password() -> str:
+    """Read ADMIN_PASSWORD from .env — same pattern as proxy.py."""
+    env_path = os.path.join(_BASE_DIR, '.env')
+    try:
+        with open(env_path) as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith('ADMIN_PASSWORD='):
+                    return line.split('=', 1)[1].strip()
+    except Exception:
+        pass
+    return ''
+
+
 def require_admin(f):
     """Require ADMIN_PASSWORD in X-Admin-Password header."""
     @wraps(f)
     def decorated(*args, **kwargs):
-        admin_pw = _ENV.get('ADMIN_PASSWORD', '')
+        admin_pw = _get_admin_password()
         if not admin_pw:
             return jsonify({'error': 'ADMIN_PASSWORD not configured'}), 500
         if not hmac.compare_digest(request.headers.get('X-Admin-Password', ''), admin_pw):
@@ -254,8 +266,6 @@ def delete_user(username):
 #  REGISTRATION
 # ════════════════════════════════════════════════════════════════════════════
 
-def register_routes(app, env: dict) -> None:
+def register_routes(app) -> None:
     """Call this from proxy.py exactly like the other blueprint modules."""
-    global _ENV
-    _ENV = env
     app.register_blueprint(auth_bp)

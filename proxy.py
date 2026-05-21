@@ -14,8 +14,6 @@ app.register_blueprint(id3as_bp)
 from rts_routes import rts_bp
 app.register_blueprint(rts_bp)
 
-routes_auth.register_routes(app, ENV)       
-
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024 * 1024  # 2 GB upload limit
 CORS(app)
 
@@ -2122,6 +2120,7 @@ def server_stats():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+routes_auth.register_routes(app)
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5050, threaded=True)
