@@ -404,7 +404,7 @@
     }).then(r => {
       if (r.ok) {
         adminPassword = pass;
-        document.getElementById('admin-dot').classList.remove('locked');
+        document.getElementById('auth-dot').classList.remove('locked');
         document.getElementById('auth-label').textContent = 'Admin authenticated';
         document.getElementById('main-content').classList.remove('locked-overlay');
         document.getElementById('admin-pass-input').value = '';
