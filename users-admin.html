@@ -77,15 +77,7 @@
       color: #ffb3be; background: rgba(255,78,106,0.06);
     }
     .topbar-sep { flex: 1; }
-    #auth-status {
-      font-family: var(--mono); font-size: 0.6rem;
-      color: var(--muted); display: flex; align-items: center; gap: 6px;
-    }
-    .status-dot {
-      width: 6px; height: 6px; border-radius: 50%;
-      background: var(--ok); flex-shrink: 0;
-    }
-    .status-dot.locked { background: var(--danger); }
+
 
     /* ── LAYOUT ── */
     #page {
@@ -94,31 +86,7 @@
       padding: 36px 24px 60px;
     }
 
-    /* ── ADMIN UNLOCK ── */
-    #admin-gate {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 2rem;
-      margin-bottom: 28px;
-      display: flex;
-      gap: 12px;
-      align-items: flex-end;
-    }
-    #admin-gate label {
-      font-family: var(--mono); font-size: 0.62rem;
-      color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em;
-      display: block; margin-bottom: 6px;
-    }
-    #admin-gate input {
-      flex: 1;
-      background: var(--card); border: 1px solid var(--border);
-      color: var(--text); font-family: var(--mono); font-size: 0.75rem;
-      padding: 9px 14px; border-radius: 7px; outline: none;
-      transition: border-color 0.2s;
-    }
-    #admin-gate input:focus { border-color: var(--accent); }
-    #admin-gate input.err { border-color: var(--danger); }
+
     .btn {
       font-family: var(--mono); font-size: 0.65rem; font-weight: 700;
       letter-spacing: 0.07em; padding: 9px 18px; border-radius: 7px;
@@ -277,11 +245,7 @@
     }
     .confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
 
-    /* ── LOCK OVERLAY ── */
-    .locked-overlay {
-      opacity: 0.35; pointer-events: none; user-select: none;
-      filter: blur(1px);
-    }
+
   </style>
 </head>
 <body>
@@ -291,31 +255,16 @@
   <h1>SP SO <span>Web Toolbox</span></h1>
   <span class="topbar-badge">👥 User Management</span>
   <div class="topbar-sep"></div>
-  <div id="auth-status">
-    <span class="status-dot locked" id="auth-dot"></span>
-    <span id="auth-label">Admin not authenticated</span>
+  <div id="session-info" style="font-family:var(--mono);font-size:0.6rem;color:var(--muted);display:flex;align-items:center;gap:10px;">
+    <span id="session-username" style="color:var(--accent);font-weight:700;">…</span>
+    <a href="/" style="font-family:var(--mono);font-size:0.6rem;color:var(--muted);text-decoration:none;border:1px solid var(--border);padding:3px 10px;border-radius:5px;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">← Back to App</a>
   </div>
 </header>
 
 <div id="page">
 
-  <!-- ── Admin Auth ── -->
-  <div class="section-header">
-    <div class="section-title">Admin Authentication</div>
-    <div class="section-line"></div>
-  </div>
-  <div id="admin-gate">
-    <div style="flex:1">
-      <label for="admin-pass-input">Admin Password</label>
-      <input type="password" id="admin-pass-input" placeholder="Enter ADMIN_PASSWORD from .env…"
-             autocomplete="new-password" name="sotb-admin-pass"
-             onkeydown="if(event.key==='Enter') unlockAdmin()" />
-    </div>
-    <button class="btn primary" onclick="unlockAdmin()">🔓 Unlock</button>
-  </div>
-
   <!-- ── User List ── -->
-  <div id="main-content" class="locked-overlay">
+  <div id="main-content">
     <div class="section-header">
       <div class="section-title">Users</div>
       <div class="section-line"></div>
@@ -389,38 +338,34 @@
 <script>
   // ── Config ─────────────────────────────────────────────────────
   const PROXY = '/so-proxy';
-  let adminPassword = '';
   let editingUser   = null;
   let pendingDelete = null;
 
-  // ── Admin unlock ────────────────────────────────────────────────
-  function unlockAdmin() {
-    const pass = (document.getElementById('admin-pass-input').value || '').trim();
-    if (!pass) { shakeInput('admin-pass-input'); return; }
+  // ── Session init ────────────────────────────────────────────────
+  (function initSession() {
+    const stored = sessionStorage.getItem('sotb-user');
+    if (stored) document.getElementById('session-username').textContent = stored;
 
-    // Verify by pinging a protected endpoint
-    fetch(`${PROXY}/users`, {
-      headers: { 'X-Admin-Password': pass }
-    }).then(r => {
-      if (r.ok) {
-        adminPassword = pass;
-        document.getElementById('auth-dot').classList.remove('locked');
-        document.getElementById('auth-label').textContent = 'Admin authenticated';
-        document.getElementById('main-content').classList.remove('locked-overlay');
-        document.getElementById('admin-pass-input').value = '';
+    fetch(`${PROXY}/me`, { credentials: 'same-origin' })
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(d => {
+        document.getElementById('session-username').textContent = d.username;
+        sessionStorage.setItem('sotb-user', d.username);
+        if (d.role !== 'admin') {
+          document.getElementById('main-content').innerHTML =
+            '<div style="padding:3rem;text-align:center;font-family:var(--mono);font-size:0.75rem;color:var(--danger)">⛔ Admin role required to manage users.</div>';
+          return;
+        }
         loadUsers();
-        toast('Admin access granted', 'ok');
-      } else {
-        shakeInput('admin-pass-input');
-        toast('Wrong admin password', 'err');
-      }
-    }).catch(() => toast('Cannot reach proxy', 'err'));
-  }
+      })
+      .catch(() => {
+        window.location.href = '/login.html?next=/users-admin.html';
+      });
+  })();
 
   // ── Load users ──────────────────────────────────────────────────
   function loadUsers() {
-    if (!adminPassword) return;
-    fetch(`${PROXY}/users`, { headers: { 'X-Admin-Password': adminPassword } })
+    fetch(`${PROXY}/users`, { credentials: 'same-origin' })
       .then(r => r.json())
       .then(data => renderUsers(data.users || []))
       .catch(() => toast('Failed to load users', 'err'));
@@ -512,7 +457,8 @@
 
     fetch(url, {
       method,
-      headers: { 'Content-Type': 'application/json', 'X-Admin-Password': adminPassword },
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
       body: JSON.stringify(body)
     }).then(r => r.json()).then(data => {
       if (data.ok) {
@@ -540,7 +486,7 @@
     if (!pendingDelete) return;
     fetch(`${PROXY}/users/${encodeURIComponent(pendingDelete)}`, {
       method: 'DELETE',
-      headers: { 'X-Admin-Password': adminPassword }
+      credentials: 'same-origin'
     }).then(r => r.json()).then(data => {
       closeConfirm();
       if (data.ok) {
@@ -575,10 +521,6 @@
     setTimeout(() => el.classList.remove('err'), 1500);
   }
 
-  // ── Admin gate: Enter key ───────────────────────────────────────
-  document.getElementById('admin-pass-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') unlockAdmin();
-  });
   // Close confirm on backdrop click
   document.getElementById('confirm-modal').addEventListener('click', e => {
     if (e.target === document.getElementById('confirm-modal')) closeConfirm();

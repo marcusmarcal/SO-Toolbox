@@ -107,6 +107,19 @@ def require_auth(f):
     return decorated
 
 
+def require_admin_role(f):
+    """Require a valid session AND role == admin."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        session = _get_session(_token_from_request())
+        if not session:
+            return jsonify({'error': 'Unauthorized'}), 401
+        if session.get('role') != 'admin':
+            return jsonify({'error': 'Forbidden — admin role required'}), 403
+        request.session = session
+        return f(*args, **kwargs)
+    return decorated
+
 def _get_admin_password() -> str:
     """Read ADMIN_PASSWORD from .env — same pattern as proxy.py."""
     env_path = os.path.join(_BASE_DIR, '.env')
@@ -185,7 +198,7 @@ def me():
 # ════════════════════════════════════════════════════════════════════════════
 
 @auth_bp.route('/users', methods=['GET'])
-@require_admin
+@require_admin_role
 def list_users():
     users = _load_users()
     safe  = sorted([
@@ -196,7 +209,7 @@ def list_users():
 
 
 @auth_bp.route('/users', methods=['POST'])
-@require_admin
+@require_admin_role
 def create_user():
     data     = request.get_json(silent=True) or {}
     username = str(data.get('username', '')).strip()
@@ -224,7 +237,7 @@ def create_user():
 
 
 @auth_bp.route('/users/<username>', methods=['PUT'])
-@require_admin
+@require_admin_role
 def update_user(username):
     users = _load_users()
     if username not in users:
@@ -246,7 +259,7 @@ def update_user(username):
 
 
 @auth_bp.route('/users/<username>', methods=['DELETE'])
-@require_admin
+@require_admin_role
 def delete_user(username):
     users = _load_users()
     if username not in users:
