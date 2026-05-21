@@ -7,6 +7,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.26.0] - 2026-05-21
+
+### Added
+
+- RTS Channel Publisher (`RTS-StatsChannelPublisher.html`) to load StatsChannelPublisher with given publishing token.
+
 ## [2.25.0] - 2026-05-21
 
 ### Changed

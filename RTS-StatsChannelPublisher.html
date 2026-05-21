@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Stats Perform RTS Channel Publisher</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial,
+          sans-serif;
+        line-height: 1.35;
+        display: flex;
+        flex-direction: column;
+        background: #0f172a;
+        color: #f8fafc;
+      }
+
+      /* ===== WRAPPER ===== */
+      .wrap {
+        padding: 0.5rem 1rem;
+      }
+
+      /* ===== HEADER INLINE ===== */
+      .header-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 1cm;
+        max-width: 2000px;
+        margin: 0 auto;
+      }
+
+      .header-row h1 {
+        margin: 0;
+        font-size: 1.5rem;
+        white-space: nowrap;
+      }
+
+      label {
+        font-weight: 600;
+        margin-left: 0.5rem;
+        white-space: nowrap;
+      }
+
+      .controls {
+        display: flex;
+        flex: 1;
+        gap: 10px;
+        align-items: center;
+      }
+
+      input[type="text"] {
+        flex: 1;
+        padding: 0.5rem 0.75rem;
+        font-size: 1rem;
+        border: 1px solid #bbb;
+        border-radius: 6px;
+      }
+
+      .buttons {
+        display: flex;
+        gap: 10px;
+      }
+
+      button {
+        background: #0a66c2;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+        font-size: 1rem;
+        white-space: nowrap;
+      }
+
+      button.secondary {
+        background: #666;
+      }
+
+      .msg {
+        min-width: 200px;
+        font-size: 0.95rem;
+        margin-left: 10px;
+      }
+
+      .error {
+        color: #b00020;
+      }
+
+      .ok {
+        color: #1b5e20;
+      }
+
+      /* ===== VIEWER ===== */
+      .viewer-container {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+      }
+
+      iframe {
+        width: 100%;
+        height: 100%;
+        border: 0;
+        background: #f2f2f2;
+      }
+
+      /* ===== RESPONSIVE ===== */
+      @media (max-width: 820px) {
+        .header-row {
+          flex-direction: column;
+          height: auto;
+          gap: 5px;
+        }
+        input[type="text"],
+        button {
+          width: 100%;
+        }
+        .msg {
+          margin-left: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="header-row">
+        <h1>RTS Viewer Loader</h1>
+        <label for="token">View Token:</label>
+        <div class="controls">
+          <input
+            type="text"
+            id="token"
+            name="token"
+            placeholder="Paste your token here"
+            autocomplete="off"
+          />
+        </div>
+        <div class="buttons">
+          <button id="loadBtn">Load</button>
+          <button id="openTabBtn" class="secondary">Open in New Tab</button>
+        </div>
+        <div id="feedback" class="msg"></div>
+      </div>
+    </div>
+
+    <div class="viewer-container">
+      <iframe
+        id="viewerFrame"
+        title="Phenix Viewer"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+      ></iframe>
+    </div>
+
+    <script>
+      (function () {
+        const BASE =
+          "https://samples.phenixrts.app/StatsChannelPublisher/?token=";
+        const tokenInput = document.getElementById("token");
+        const loadBtn = document.getElementById("loadBtn");
+        const openTabBtn = document.getElementById("openTabBtn");
+        const feedback = document.getElementById("feedback");
+        const frame = document.getElementById("viewerFrame");
+
+        function buildUrl(rawToken) {
+          const trimmed = (rawToken ?? "").trim();
+          if (!trimmed) {
+            return { ok: false, msg: "Please enter a token.", url: "" };
+          }
+          const encoded = encodeURIComponent(trimmed);
+          const url = `${BASE}?token=${encoded}&showCharts=true`;
+          return { ok: true, msg: "", url };
+        }
+
+        function clearMsg() {
+          feedback.textContent = "";
+          feedback.className = "msg";
+        }
+
+        loadBtn.addEventListener("click", () => {
+          clearMsg();
+          const { ok, msg, url } = buildUrl(tokenInput.value);
+          if (!ok) {
+            feedback.className = "msg error";
+            feedback.textContent = msg;
+            frame.removeAttribute("src");
+            return;
+          }
+          try {
+            frame.src = url;
+            feedback.className = "msg ok";
+            feedback.textContent = "Loading publisher in the frame…";
+          } catch (e) {
+            feedback.className = "msg error";
+            feedback.textContent =
+              "Failed to load in the frame. Try 'Open in New Tab'.";
+          }
+        });
+
+        openTabBtn.addEventListener("click", () => {
+          clearMsg();
+          const { ok, msg, url } = buildUrl(tokenInput.value);
+          if (!ok) {
+            feedback.className = "msg error";
+            feedback.textContent = msg;
+            return;
+          }
+          window.open(url, "_blank", "noopener");
+        });
+
+        clearMsg();
+      })();
+    </script>
+  </body>
+</html>
