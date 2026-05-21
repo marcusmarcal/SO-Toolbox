@@ -29,7 +29,7 @@ USERS_FILE  = os.path.join(_BASE_DIR, 'users.json')
 SESSION_TTL = 8 * 3600   # 8 hours
 
 # ── Session store (in-memory; resets on proxy restart) ───────────────────
-_sessions: dict = {}   # token → { username, role, expires }
+_sessions = {}   # token → { username, role, expires }
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -79,7 +79,7 @@ def _create_session(username: str, role: str) -> str:
     return token
 
 
-def _get_session(token: str) -> dict | None:
+def _get_session(token: str) -> dict:
     s = _sessions.get(token)
     if not s:
         return None
