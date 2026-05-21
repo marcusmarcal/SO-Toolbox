@@ -1050,6 +1050,47 @@
       [data-tip]:hover::after {
         opacity: 1;
       }
+
+      /* ── USER SESSION (topbar) ── */
+      #user-pill {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 10px 4px 8px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        color: var(--muted);
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      #user-pill .user-icon {
+        font-size: 0.7rem;
+        opacity: 0.7;
+      }
+      #user-pill #session-username {
+        color: var(--accent);
+        font-weight: 700;
+      }
+      #btn-logout {
+        background: transparent;
+        border: 1px solid rgba(255, 78, 106, 0.3);
+        border-radius: 5px;
+        color: rgba(255, 78, 106, 0.7);
+        font-family: var(--mono);
+        font-size: 0.58rem;
+        padding: 2px 8px;
+        cursor: pointer;
+        transition: all 0.15s;
+        white-space: nowrap;
+      }
+      #btn-logout:hover {
+        border-color: var(--danger);
+        color: var(--danger);
+        background: rgba(255, 78, 106, 0.08);
+      }
     </style>
   </head>
   <body>
@@ -1120,6 +1161,12 @@
             <span>DSK</span>
             <span id="disk-value">--</span>
           </div>
+        </div>
+        <!-- User Session -->
+        <div id="user-pill">
+          <span class="user-icon">◈</span>
+          <span id="session-username">…</span>
+          <button id="btn-logout" onclick="doLogout()" data-tip="Sign out">⏻</button>
         </div>
       </header>
 
@@ -2271,6 +2318,34 @@
           window._renderWelcomeCardsFn && window._renderWelcomeCardsFn();
         }
       }
-    </script>
+    
+  // ── Session: show username + logout ─────────────────────────────
+  (function initSession() {
+    const stored = sessionStorage.getItem('sotb-user');
+    if (stored) {
+      document.getElementById('session-username').textContent = stored;
+    }
+    fetch('/so-proxy/me', { credentials: 'same-origin' })
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(d => {
+        document.getElementById('session-username').textContent = d.username;
+        sessionStorage.setItem('sotb-user', d.username);
+      })
+      .catch(() => {
+        // Session expired — redirect to login
+        window.location.href = '/login.html?next=' + encodeURIComponent(location.pathname);
+      });
+  })();
+
+  function doLogout() {
+    fetch('/so-proxy/logout', { method: 'POST', credentials: 'same-origin' })
+      .finally(() => {
+        sessionStorage.removeItem('sotb-token');
+        sessionStorage.removeItem('sotb-user');
+        sessionStorage.removeItem('sotb-role');
+        window.location.href = '/login.html';
+      });
+  }
+</script>
   </body>
 </html>
