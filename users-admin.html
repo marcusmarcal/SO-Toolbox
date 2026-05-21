@@ -307,7 +307,10 @@
   <div id="admin-gate">
     <div style="flex:1">
       <label for="admin-pass-input">Admin Password</label>
-      <input type="password" id="admin-pass-input" placeholder="Enter ADMIN_PASSWORD from .env…"
+      <input type="text" id="admin-pass-input" placeholder="Enter ADMIN_PASSWORD from .env…"
+             autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+             style="-webkit-text-security:disc"
+             oninput="_adminPassCache=this.value"
              onkeydown="if(event.key==='Enter') unlockAdmin()" />
     </div>
     <button class="btn primary" onclick="unlockAdmin()">🔓 Unlock</button>
@@ -389,12 +392,13 @@
   // ── Config ─────────────────────────────────────────────────────
   const PROXY = '/so-proxy';
   let adminPassword = '';
+  let _adminPassCache = '';
   let editingUser   = null;
   let pendingDelete = null;
 
   // ── Admin unlock ────────────────────────────────────────────────
   function unlockAdmin() {
-    const pass = document.getElementById('admin-pass-input').value.trim();
+    const pass = (_adminPassCache || document.getElementById('admin-pass-input').value).trim();
     if (!pass) { shakeInput('admin-pass-input'); return; }
 
     // Verify by pinging a protected endpoint
@@ -406,7 +410,7 @@
         document.getElementById('admin-dot').classList.remove('locked');
         document.getElementById('auth-label').textContent = 'Admin authenticated';
         document.getElementById('main-content').classList.remove('locked-overlay');
-        document.getElementById('admin-pass-input').value = '';
+        document.getElementById('admin-pass-input').value = ''; _adminPassCache = '';
         loadUsers();
         toast('Admin access granted', 'ok');
       } else {
