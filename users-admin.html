@@ -442,7 +442,8 @@
         <div class="user-created">${u.created_at ? u.created_at.split('T')[0] : '—'}</div>
         <div class="row-actions">
           <button class="btn" style="font-size:0.58rem;padding:5px 10px"
-            onclick="editUser(${JSON.stringify(JSON.stringify(u))})">✎ Edit</button>
+            data-user='${escAttr(JSON.stringify(u))}'
+            onclick="editUser(this.dataset.user)">✎ Edit</button>
           <button class="btn danger" style="font-size:0.58rem;padding:5px 10px"
             onclick="askDelete('${escHtml(u.username)}')">✕ Delete</button>
         </div>
@@ -552,6 +553,9 @@
   }
 
   // ── Helpers ─────────────────────────────────────────────────────
+  function escAttr(s) {
+    return String(s).replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+  }
   function escHtml(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
