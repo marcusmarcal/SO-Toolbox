@@ -7,6 +7,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.28.0] - 2026-05-25
+
+### Changed
+
+- Refactored the ingest results endpoint (`/ingest/results`) to scan and sort by analysis directories instead of `.zip` files, ensuring incomplete or uncompressed execution outputs are properly listed.
+
 ## [2.27.0] - 2026-05-25
 
 ### Added
