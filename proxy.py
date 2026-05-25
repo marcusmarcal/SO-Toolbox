@@ -754,33 +754,53 @@ def ingest_status(job_id):
 
 @app.route("/ingest/results", methods=["GET"])
 def ingest_results():
-    """List saved ingest results (ZIP + report dir), reading meta.json for tag/url/dates."""
-    files = set(os.listdir(INGEST_RESULTS_DIR))
-    zips  = sorted([f for f in files if f.endswith(".zip")], reverse=True)
+    """List saved ingest results based on directories, reading meta.json for tag/url/dates."""
+    try:
+        all_entries = os.listdir(INGEST_RESULTS_DIR)
+    except Exception:
+        return jsonify([])
+
+    # Filter only actual directories
+    dirs = []
+    for entry in all_entries:
+        full_path = os.path.join(INGEST_RESULTS_DIR, entry)
+        if os.path.isdir(full_path):
+            dirs.append(entry)
+    
+    # Sort directories in descending order (newest first)
+    dirs = sorted(dirs, reverse=True)
+    
     items = []
-    for z in zips[:50]:
-        dirname = z.replace(".zip", "")
-        has_dir = dirname in files and os.path.isdir(os.path.join(INGEST_RESULTS_DIR, dirname))
+    # Limit to the 50 most recent directories
+    for dirname in dirs[:50]:
+        # Check if the corresponding .zip file exists
+        zip_name = f"{dirname}.zip"
+        has_zip = zip_name in all_entries
+        
         meta = {}
-        if has_dir:
-            meta_path = os.path.join(INGEST_RESULTS_DIR, dirname, "meta.json")
-            if os.path.isfile(meta_path):
-                try:
-                    with open(meta_path) as f:
-                        meta = json.load(f)
-                except Exception:
-                    pass
-            # Fallback: try report.json for tag
-            if not meta:
-                rj = os.path.join(INGEST_RESULTS_DIR, dirname, "report.json")
+        meta_path = os.path.join(INGEST_RESULTS_DIR, dirname, "meta.json")
+        
+        # Try to read meta.json
+        if os.path.isfile(meta_path):
+            try:
+                with open(meta_path) as f:
+                    meta = json.load(f)
+            except Exception:
+                pass
+                
+        # Fallback: try report.json if meta is empty
+        if not meta:
+            rj = os.path.join(INGEST_RESULTS_DIR, dirname, "report.json")
+            if os.path.isfile(rj):
                 try:
                     with open(rj) as f:
                         meta = {"tag": json.load(f).get("tag", "")}
                 except Exception:
                     pass
+                    
         items.append({
-            "zip":        z,
-            "dir":        dirname if has_dir else None,
+            "zip":        zip_name if has_zip else None,
+            "dir":        dirname,
             "name":       dirname,
             "tag":        meta.get("tag", ""),
             "url":        meta.get("url", ""),
@@ -789,6 +809,7 @@ def ingest_results():
             "status":     meta.get("status", ""),
             "exit_code":  meta.get("exit_code"),
         })
+        
     return jsonify(items)
 
 
