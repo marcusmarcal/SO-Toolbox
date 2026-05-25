@@ -7,6 +7,17 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.28.1] - 2026-05-25
+
+### Added
+
+- History user filter: new input field to filter results by username.
+- "My Checks" toggle button: one-click filter to show only the current user's tests; reads session from `/me`, falls back to `anonymous`.
+- Username badge displayed on each history item (first part of email, before `@`).
+- GOP Structure section in Generate Report (visual HTML): per-GOP frame grid (I/P/B colour-coded cells), frame counts and avg GOP size.
+- `username` field added to both visual and text/monospace report formats (`Tested by`).
+- Manual: showing username on GOP check
+
 ## [2.28.0] - 2026-05-25
 
 ### Changed
