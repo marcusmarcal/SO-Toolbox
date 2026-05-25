@@ -683,6 +683,27 @@
         min-width: 60px;
         cursor: pointer;
       }
+      .hist-filters input.f-user {
+        width: 82px;
+      }
+      .btn-my-checks {
+        background: transparent;
+        border: 1px solid var(--purple);
+        border-radius: 3px;
+        color: var(--purple);
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        padding: 3px 7px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background 0.15s, color 0.15s;
+        flex-shrink: 0;
+      }
+      .btn-my-checks:hover,
+      .btn-my-checks.active {
+        background: var(--purple);
+        color: #fff;
+      }
       .btn-sm {
         background: transparent;
         border: none;
@@ -1535,6 +1556,20 @@
             <select class="f-server" id="hist-server" onchange="loadHistory()">
               <option value="">All servers</option>
             </select>
+            <input
+              class="f-user"
+              id="hist-user"
+              type="text"
+              placeholder="user…"
+              oninput="loadHistory();document.getElementById('btn-my-checks').classList.remove('active')"
+              title="Filter by username"
+            />
+            <button
+              id="btn-my-checks"
+              class="btn-my-checks"
+              onclick="filterMyChecks()"
+              title="Show only my checks"
+            >👤 My Checks</button>
           </div>
           <div class="history-list" id="history-list">
             <div class="hist-empty">No analyses yet</div>
@@ -2697,6 +2732,9 @@
           const server = (
             document.getElementById("hist-server").value || ""
           ).trim();
+          const userFilter = (
+            document.getElementById("hist-user").value || ""
+          ).toLowerCase().trim();
 
           // Remember which files are currently checked before rebuilding
           const checkedFiles = new Set(
@@ -2739,6 +2777,7 @@
             if (date && !(item.started_at || "").startsWith(date)) return false;
             if (tag && !tagParts.some((t) => t.includes(tag))) return false;
             if (server && item.url_host !== server) return false;
+            if (userFilter && !(item.username || "anonymous").toLowerCase().includes(userFilter)) return false;
             return true;
           });
 
@@ -2861,6 +2900,7 @@
                 : ""
             }
             <span class="hi-badge ${statusCls}">${statusLabel}</span>
+            <span style="font-family:var(--mono);font-size:.58rem;color:var(--muted);opacity:.7" title="Tested by ${item.username || 'anonymous'}">👤 ${(item.username || 'anonymous').split('@')[0]}</span>
             ${schedBadge}${logBadge}${rerunBtn}${tagBadges}${tsLink}
           </div>
         </div>
@@ -3230,6 +3270,7 @@
       <div><span style="color:#6e7681">Generated: </span>${now}</div>
       <div><span style="color:#6e7681">Test Date: </span>${testDate}</div>
       <div><span style="color:#6e7681">Tags: </span><span style="color:#e3b341">${tags}</span></div>
+      <div style="grid-column:1/-1"><span style="color:#6e7681">Tested by: </span><span style="color:#a18bf5">${r.username || 'anonymous'}</span></div>
     </div>
     <table style="width:100%;border-collapse:collapse">
       <thead><tr style="border-bottom:1px solid rgba(255,255,255,.12)">
@@ -3366,6 +3407,39 @@
         ? `<div style="margin-top:.6rem;padding:.45rem .6rem;background:rgba(227,179,65,.08);border:1px solid rgba(227,179,65,.3);border-radius:5px;font-size:.67rem"><span style="color:#e3b341;font-weight:700">⚡ OVERRIDE: </span>${_overrideReason}</div>`
         : ""
     }
+    ${(() => {
+      const gops = r.gops || [];
+      const pats = r.gop_patterns || [];
+      if (!gops.length && !pats.length) return '';
+      const all = gops.flat();
+      const iCnt = all.filter(f => f.key).length;
+      const pCnt = all.filter(f => f.type === 'P').length;
+      const bCnt = all.filter(f => f.type === 'B').length;
+      const frameCell = (f) => {
+        const col = f.idr ? '#3fb950' : f.key ? '#58d68d' : f.type === 'P' ? '#58a6ff' : f.type === 'B' ? '#faa51a' : '#6e7681';
+        const bg = f.idr ? 'rgba(63,185,80,.18)' : f.key ? 'rgba(63,185,80,.08)' : f.type === 'P' ? 'rgba(88,166,255,.12)' : f.type === 'B' ? 'rgba(250,165,26,.12)' : 'rgba(255,255,255,.04)';
+        const lbl = f.idr ? 'I' : f.type || '?';
+        return `<span style="display:inline-block;width:13px;height:13px;line-height:13px;text-align:center;font-size:.48rem;font-weight:700;border-radius:2px;background:${bg};color:${col};margin:1px" title="${f.idr ? 'IDR' : f.type}">${lbl}</span>`;
+      };
+      const gopRows = gops.slice(0, 12).map((g, i) =>
+        `<div style="display:flex;align-items:center;gap:3px;margin-bottom:2px">
+          <span style="color:#6e7681;font-size:.58rem;width:32px;flex-shrink:0">GOP ${i+1}</span>
+          <span style="display:flex;flex-wrap:wrap;gap:0">${g.map(frameCell).join('')}</span>
+          <span style="color:#484f58;font-size:.55rem;margin-left:3px">${g.length}f</span>
+        </div>`
+      ).join('');
+      return `<div style="margin-top:.65rem;padding:.5rem .6rem;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:5px">
+        <div style="font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:#6e7681;margin-bottom:.4rem">GOP Structure</div>
+        <div style="display:flex;gap:1rem;font-size:.65rem;margin-bottom:.4rem">
+          <span><span style="color:#3fb950;font-weight:700">I</span> <span style="color:#8b949e">${iCnt} IDR</span></span>
+          <span><span style="color:#58a6ff;font-weight:700">P</span> <span style="color:#8b949e">${pCnt} frames</span></span>
+          <span><span style="color:#faa51a;font-weight:700">B</span> <span style="color:#8b949e">${bCnt} frames</span></span>
+          <span style="color:#8b949e">Avg GOP: ${r.gop_avg || '—'}f</span>
+        </div>
+        ${gopRows}
+        ${gops.length > 12 ? `<div style="color:#484f58;font-size:.58rem;margin-top:2px">…and ${gops.length - 12} more GOPs</div>` : ''}
+      </div>`;
+    })()}
     <div style="margin-top:.6rem;font-size:.58rem;color:#484f58;text-align:center">SP SO Web Toolbox · SO Video Analyser · Pre-validation only — not a formal compliance certification</div>
   </div>`;
 
@@ -3391,6 +3465,7 @@
           `Test ID   : ${testId}`,
           `Generated : ${now}`,
           `Test Date : ${testDate}`,
+          `Tested by : ${r.username || "anonymous"}`,
           `Server    : ${serverName}:${port}`,
           `URL       : ${r.url || "—"}`,
           `Tags      : ${tags}`,
@@ -3585,12 +3660,14 @@
       }
 
       function clearHistFilters() {
-        ["hist-search", "hist-date", "hist-tag"].forEach((id) => {
+        ["hist-search", "hist-date", "hist-tag", "hist-user"].forEach((id) => {
           const el = document.getElementById(id);
           if (el) el.value = "";
         });
         const sv = document.getElementById("hist-server");
         if (sv) sv.value = "";
+        const mc = document.getElementById("btn-my-checks");
+        if (mc) mc.classList.remove("active");
         loadHistory();
       }
 
@@ -4206,6 +4283,34 @@
         } catch (e) {
           alert(`Failed to load log: ${e.message}`);
         }
+      }
+
+      let _currentUser = null;
+      (async () => {
+        try {
+          const r = await fetch(`${PROXY}/me`);
+          if (r.ok) { const d = await r.json(); _currentUser = d.username || null; }
+        } catch {}
+      })();
+
+      function filterMyChecks() {
+        const btn = document.getElementById('btn-my-checks');
+        const userEl = document.getElementById('hist-user');
+        if (!_currentUser) {
+          userEl.value = 'anonymous';
+          btn.classList.add('active');
+          loadHistory();
+          return;
+        }
+        const isActive = btn.classList.contains('active');
+        if (isActive) {
+          btn.classList.remove('active');
+          userEl.value = '';
+        } else {
+          btn.classList.add('active');
+          userEl.value = _currentUser;
+        }
+        loadHistory();
       }
 
       loadConfig();
