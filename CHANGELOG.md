@@ -7,6 +7,18 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.27.0] - 2026-05-25
+
+### Added
+
+- `routes_gop.py` — all `/gop/*` routes extracted from `proxy.py` into an independent blueprint, following the pattern of `routes_auth.py`.
+- Mandatory `username` field in all GOP test results (JSON saved to disk and `/gop/results` endpoint). The value is the active session’s `username` (e.g., `marcus.marcal@statsperform.com`); if there is no valid session, `"anonymous"` is recorded.
+
+### Changed
+
+- `proxy.py` imports and registers `routes_gop` via `routes_gop.register_routes(app)`.
+- GOP Analyzer and Specs Editor section removed from `proxy.py`.
+
 ## [2.26.0] - 2026-05-21
 
 ### Added
