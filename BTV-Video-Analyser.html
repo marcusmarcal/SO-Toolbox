@@ -704,6 +704,27 @@
         background: var(--purple);
         color: #fff;
       }
+      .hist-filters input.f-user {
+        width: 82px;
+      }
+      .btn-my-checks {
+        background: transparent;
+        border: 1px solid var(--purple);
+        border-radius: 3px;
+        color: var(--purple);
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        padding: 3px 7px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background 0.15s, color 0.15s;
+        flex-shrink: 0;
+      }
+      .btn-my-checks:hover,
+      .btn-my-checks.active {
+        background: var(--purple);
+        color: #fff;
+      }
       .btn-sm {
         background: transparent;
         border: none;
@@ -2124,2251 +2145,2210 @@
     </div>
 
     <script>
-      const PROXY = "/so-proxy";
-      let pollTimer = null,
-        _progTimer = null;
-      let _srtPresets = {},
-        _hasAdminPw = false;
-      let _pendingDeleteFiles = [];
+          const PROXY = "/so-proxy";
+          let pollTimer = null,
+            _progTimer = null;
+          let _srtPresets = {},
+            _hasAdminPw = false;
+          let _pendingDeleteFiles = [];
 
-      // ── Boot ─────────────────────────────────────────────────────────
-      async function loadConfig() {
-        try {
-          const res = await fetch(`${PROXY}/config`);
-          const d = await res.json();
-          const env = d.config || {};
-          _hasAdminPw = env.HAS_ADMIN_PASSWORD === "true";
+          // ── Boot ─────────────────────────────────────────────────────────
+          async function loadConfig() {
+            try {
+              const res = await fetch(`${PROXY}/config`);
+              const d = await res.json();
+              const env = d.config || {};
+              _hasAdminPw = env.HAS_ADMIN_PASSWORD === "true";
 
-          const dl = document.getElementById("srt-host-presets");
-          dl.innerHTML = "";
-          _srtPresets = {};
-          Object.keys(env)
-            .filter((k) => /^SRT_LOCAL_\d+$/.test(k))
-            .sort(
-              (a, b) => parseInt(a.split("_")[2]) - parseInt(b.split("_")[2])
-            )
-            .forEach((k) => {
-              const [ip, label] = env[k].split("|").map((s) => s.trim());
-              if (!ip) return;
-              _srtPresets[ip] = label || ip;
-              const opt = document.createElement("option");
-              opt.value = ip;
-              opt.textContent = `${label || ip} (${ip})`;
-              dl.appendChild(opt);
-            });
+              const dl = document.getElementById("srt-host-presets");
+              dl.innerHTML = "";
+              _srtPresets = {};
+              Object.keys(env)
+                .filter((k) => /^SRT_LOCAL_\d+$/.test(k))
+                .sort(
+                  (a, b) => parseInt(a.split("_")[2]) - parseInt(b.split("_")[2])
+                )
+                .forEach((k) => {
+                  const [ip, label] = env[k].split("|").map((s) => s.trim());
+                  if (!ip) return;
+                  _srtPresets[ip] = label || ip;
+                  const opt = document.createElement("option");
+                  opt.value = ip;
+                  opt.textContent = `${label || ip} (${ip})`;
+                  dl.appendChild(opt);
+                });
 
-          // Populate server filter dropdown
-          const sf = document.getElementById("hist-server");
-          if (sf) {
-            // Keep existing "All servers" option
-            while (sf.options.length > 1) sf.remove(1);
-            Object.entries(_srtPresets).forEach(([ip, label]) => {
-              const o = document.createElement("option");
-              o.value = ip;
-              o.textContent = label;
-              sf.appendChild(o);
-            });
+              // Populate server filter dropdown
+              const sf = document.getElementById("hist-server");
+              if (sf) {
+                // Keep existing "All servers" option
+                while (sf.options.length > 1) sf.remove(1);
+                Object.entries(_srtPresets).forEach(([ip, label]) => {
+                  const o = document.createElement("option");
+                  o.value = ip;
+                  o.textContent = label;
+                  sf.appendChild(o);
+                });
+              }
+
+              if (env.SRT_PASSPHRASE) {
+                const el = document.getElementById("inp-pass");
+                el.value = env.SRT_PASSPHRASE;
+                el.classList.add("from-env");
+                el.addEventListener(
+                  "input",
+                  function () {
+                    this.classList.remove("from-env");
+                  },
+                  { once: true }
+                );
+              }
+            } catch (e) {
+              console.warn(e);
+            }
           }
 
-          if (env.SRT_PASSPHRASE) {
-            const el = document.getElementById("inp-pass");
-            el.value = env.SRT_PASSPHRASE;
-            el.classList.add("from-env");
-            el.addEventListener(
-              "input",
-              function () {
-                this.classList.remove("from-env");
-              },
-              { once: true }
-            );
+          // ── Run ───────────────────────────────────────────────────────────
+          async function runAnalysis() {
+            const host = document.getElementById("inp-host").value.trim();
+            const port = document.getElementById("inp-port").value.trim();
+            const pass = document.getElementById("inp-pass").value.trim();
+            const dur = parseInt(document.getElementById("inp-dur").value) || 30;
+            const tag = document.getElementById("inp-tag").value.trim();
+
+            if (!host || !port) {
+              setStatus("err", "Host and Port are required.");
+              return;
+            }
+
+            const url = `srt://${host}:${port}?mode=caller`;
+
+            const btnUp = document.getElementById("btn-upload");
+            if (btnUp) btnUp.disabled = true;
+            document.getElementById("placeholder").style.display = "none";
+            document.getElementById("results-content").style.display = "none";
+            document.getElementById("log-card").style.display = "";
+            document.getElementById("log-output").textContent = "";
+            startProgress(dur);
+            setStatus("running", `Capturing ${dur}s from ${host}:${port}…`);
+
+            try {
+              const res = await fetch(`${PROXY}/gop/run`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ url, duration: dur, passphrase: pass, tag }),
+              });
+              const data = await res.json();
+              if (!data.job_id) throw new Error(data.error || "No job_id");
+              pollStatus(data.job_id, dur, host, port);
+            } catch (e) {
+              setStatus("err", `Error: ${e.message}`);
+              document.getElementById("btn-run").disabled = false;
+              stopProgress(false);
+            }
           }
-        } catch (e) {
-          console.warn(e);
-        }
-      }
 
-      // ── Run ───────────────────────────────────────────────────────────
-      async function runAnalysis() {
-        const host = document.getElementById("inp-host").value.trim();
-        const port = document.getElementById("inp-port").value.trim();
-        const pass = document.getElementById("inp-pass").value.trim();
-        const dur = parseInt(document.getElementById("inp-dur").value) || 30;
-        const tag = document.getElementById("inp-tag").value.trim();
-
-        if (!host || !port) {
-          setStatus("err", "Host and Port are required.");
-          return;
-        }
-
-        const url = `srt://${host}:${port}?mode=caller`;
-
-        const btnUp = document.getElementById("btn-upload");
-        if (btnUp) btnUp.disabled = true;
-        document.getElementById("placeholder").style.display = "none";
-        document.getElementById("results-content").style.display = "none";
-        document.getElementById("log-card").style.display = "";
-        document.getElementById("log-output").textContent = "";
-        startProgress(dur);
-        setStatus("running", `Capturing ${dur}s from ${host}:${port}…`);
-
-        try {
-          const res = await fetch(`${PROXY}/gop/run`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url, duration: dur, passphrase: pass, tag }),
-          });
-          const data = await res.json();
-          if (!data.job_id) throw new Error(data.error || "No job_id");
-          pollStatus(data.job_id, dur, host, port);
-        } catch (e) {
-          setStatus("err", `Error: ${e.message}`);
-          document.getElementById("btn-run").disabled = false;
-          stopProgress(false);
-        }
-      }
-
-      function pollStatus(job_id, dur, host, port) {
-        clearInterval(pollTimer);
-        // Reset _currentResultFile so we get the new one from this run
-        _currentResultFile = null;
-
-        pollTimer = setInterval(async () => {
-          try {
-            const res = await fetch(`${PROXY}/gop/status/${job_id}`);
-            const job = await res.json();
-            const logEl = document.getElementById("log-output");
-            logEl.textContent = (job.log || []).join("\n");
-            logEl.scrollTop = logEl.scrollHeight;
-
-            if (job.status === "running") return;
-
+          function pollStatus(job_id, dur, host, port) {
             clearInterval(pollTimer);
-            pollTimer = null;
-            stopProgress(job.status === "done");
-            document.getElementById("btn-run").disabled = false;
+            // Reset _currentResultFile so we get the new one from this run
+            _currentResultFile = null;
 
-            // Store res_file so override/re-run works on the new result
-            if (job.res_file) _currentResultFile = job.res_file;
+            pollTimer = setInterval(async () => {
+              try {
+                const res = await fetch(`${PROXY}/gop/status/${job_id}`);
+                const job = await res.json();
+                const logEl = document.getElementById("log-output");
+                logEl.textContent = (job.log || []).join("\n");
+                logEl.scrollTop = logEl.scrollHeight;
 
-            if (job.status === "done" && job.result) {
-              // Inject res_file into result so renderResult can use it
-              if (job.res_file) job.result.res_file = job.res_file;
-              renderResult(job.result);
-              setStatus("ok", `Done — ${host}:${port}`);
+                if (job.status === "running") return;
+
+                clearInterval(pollTimer);
+                pollTimer = null;
+                stopProgress(job.status === "done");
+                document.getElementById("btn-run").disabled = false;
+
+                // Store res_file so override/re-run works on the new result
+                if (job.res_file) _currentResultFile = job.res_file;
+
+                if (job.status === "done" && job.result) {
+                  // Inject res_file into result so renderResult can use it
+                  if (job.res_file) job.result.res_file = job.res_file;
+                  renderResult(job.result);
+                  setStatus("ok", `Done — ${host}:${port}`);
+                } else {
+                  // failed / error — show log, update status
+                  const errMsg =
+                    (job.result && job.result.error) || `Analysis ${job.status}`;
+                  setStatus("err", errMsg);
+                  if (job.result && job.result.error) {
+                    document.getElementById("log-card").style.display = "";
+                  }
+                }
+
+                // Always refresh history — failed/error runs also save a JSON now
+                loadHistory();
+              } catch (e) {
+                console.error(e);
+              }
+            }, 1500);
+          }
+
+          // ── Render result ─────────────────────────────────────────────────
+          function renderResult(r) {
+            _currentResult = r;
+            _currentResultFile = r.res_file || _currentResultFile; // keep track of file
+            _overrideReason = r.override ? r.override.reason : null;
+            // Reset override UI
+            document.getElementById("override-notice").style.display = "none";
+            document.getElementById("btn-override").textContent = "⚡ Override";
+            document.getElementById("btn-override").style.borderColor =
+              "var(--yellow)";
+            document.getElementById("btn-override").style.color = "var(--yellow)";
+            document.getElementById("btn-override").onclick = openOverrideModal;
+
+            // Show override button only for REJECTED results (or if already overridden)
+            const overrideBtn = document.getElementById("btn-override");
+            const isRejected = (r.overall_status || "").includes("REJECTED");
+            const hasOverride = !!r.override;
+
+            if (hasOverride) {
+              // Already overridden — show in green as info button
+              overrideBtn.style.display = "";
+              _overrideReason = r.override.reason;
+              applyOverride(r.override.reason);
+            } else if (isRejected) {
+              // REJECTED — show override option
+              overrideBtn.style.display = "";
+              overrideBtn.textContent = "⚡ Override";
+              overrideBtn.style.borderColor = "var(--yellow)";
+              overrideBtn.style.color = "var(--yellow)";
+              overrideBtn.onclick = openOverrideModal;
             } else {
-              // failed / error — show log, update status
-              const errMsg =
-                (job.result && job.result.error) || `Analysis ${job.status}`;
-              setStatus("err", errMsg);
-              if (job.result && job.result.error) {
-                document.getElementById("log-card").style.display = "";
+              // COMPLIANT / ACCEPTED — hide override
+              overrideBtn.style.display = "none";
+              document.getElementById("override-notice").style.display = "none";
+            }
+
+            document.getElementById("results-content").style.display = "";
+            document.getElementById("log-card").style.display = "none";
+            document.getElementById("placeholder").style.display = "none";
+
+            // Test metadata bar
+            const serverName = resolveHost(r.url_host);
+            const testDate = r.started_at
+              ? r.started_at.replace("T", " ").slice(0, 19) + " UTC"
+              : "—";
+            const tags = (r.tag || "")
+              .split(",")
+              .map((t) => t.trim())
+              .filter(Boolean)
+              .join(" · ");
+            document.getElementById("meta-date").textContent = "📅 " + testDate;
+            document.getElementById("meta-server").textContent = "🖥 " + serverName;
+            document.getElementById("meta-port").textContent =
+              "🔌 :" + (r.url_port || "?");
+            document.getElementById("meta-tags").textContent = tags
+              ? "🏷 " + tags
+              : "";
+            document.getElementById("meta-user").textContent = "👨‍🔬 " + r.username;
+            // TS download button
+            const tsEl = document.getElementById("meta-ts-download");
+            if (r.ts_file && r.res_file) {
+              const tsFile = r.res_file.replace(".json", ".ts");
+              tsEl.innerHTML = `<a href="${PROXY}/gop/ts/${encodeURIComponent(
+                tsFile
+              )}" download style="font-family:var(--mono);font-size:.7rem;color:var(--cyan);text-decoration:none;border:1px solid var(--border);border-radius:3px;padding:2px 8px">⬇ Download .ts</a>`;
+            } else {
+              tsEl.innerHTML = "";
+            }
+            document.getElementById("log-card").style.display = "none";
+            document.getElementById("placeholder").style.display = "none";
+
+            // IDR check
+            const idrBadge = document.getElementById("idr-badge");
+            if (r.has_idr) {
+              idrBadge.className = "idr-badge pass";
+              idrBadge.innerHTML = `✓ IDR Frames Present`;
+            } else {
+              idrBadge.className = "idr-badge fail";
+              idrBadge.innerHTML = `✗ No IDR Frames (NAL type 5)`;
+            }
+
+            const gop_type_color =
+              r.gop_type === "CLOSED" ? "var(--green)" : "var(--yellow)";
+            document.getElementById("idr-detail").innerHTML = [
+              `IDR count: <strong style="color:${
+                r.has_idr ? "var(--green)" : "var(--red)"
+              }">${r.idr_count}</strong>`,
+              `Non-IDR keyframes: <strong>${r.non_idr_keyframes || 0}</strong>`,
+              `GOP type: <strong style="color:${gop_type_color}">${
+                r.gop_type || "—"
+              }</strong>`,
+              `B-frames: <strong style="color:${
+                r.has_b_frames ? "var(--yellow)" : "var(--green)"
+              }">` +
+                `${
+                  r.has_b_frames ? "YES (" + r.b_frame_count + ")" : "No"
+                }</strong>`,
+              `Total frames: <strong>${r.total_frames}</strong>`,
+            ].join("  ·  ");
+
+            // Overall badge
+            const os = r.overall_status || "UNKNOWN";
+            document.getElementById(
+              "overall-badge"
+            ).innerHTML = `<span class="status-pill ${os}" style="font-size:.72rem;padding:3px 12px">${os}</span>`;
+
+            // Compliance table
+            renderComplianceTable(r);
+
+            // Container
+            infoRows("tbl-container", [
+              ["Container", r.container, "cyan"],
+              ["File Size", r.file_size ? fmtBytes(r.file_size) : "—"],
+              ["Duration", r.file_dur ? r.file_dur.toFixed(3) + "s" : "—"],
+              ["File Bitrate", r.file_br ? fmtBps(r.file_br) : "—"],
+              ["Num programs", r.num_programs],
+              ["Num streams", r.num_streams],
+              ["Have Video", r.have_video],
+              ["Have Audio", r.have_audio],
+            ]);
+
+            const vfpsCol =
+              (r.v_fps_compliance || r.v_fps_val) > 30.5
+                ? "red"
+                : r.v_scan === "interlaced"
+                ? "yellow"
+                : "green";
+            const fpsDisplay =
+              r.v_scan === "interlaced" && r.v_fps_val > 30
+                ? `${r.v_fps} → ${(r.v_fps_compliance || r.v_fps_val / 2).toFixed(
+                    3
+                  )} fps effective (interlaced)`
+                : r.v_fps;
+
+            const aCodecDisplay =
+              r.a_codec_display || (r.a_codec || "?").toUpperCase();
+            const aCodecCol =
+              aCodecDisplay.startsWith("AAC") ||
+              ["MP1", "MP2", "MP3"].includes(aCodecDisplay)
+                ? "green"
+                : "yellow";
+            // Video
+            infoRows("tbl-video", [
+              [
+                "[V] Codec",
+                (r.v_codec || "?").toUpperCase() + " | " + (r.v_codec || "?"),
+                "green",
+              ],
+              [
+                "[V] Codec Profile",
+                r.v_profile,
+                r.v_profile === "High" ? "yellow" : "",
+              ],
+              ["[V] Codec Level", r.v_level],
+              ["[V] Width", r.v_width],
+              ["[V] Height", r.v_height],
+              ["[V] Aspect Ratio", r.v_dar || "—"],
+              ["[V] B Frames", r.v_b_frames, r.v_b_frames > 0 ? "yellow" : "green"],
+              ["[V] Reference Frames", r.v_refs],
+              ["[V] FPS", fpsDisplay, vfpsCol],
+              ["[V] Field Order", r.v_field],
+              ["[V] Pixel Format", r.v_pix_fmt],
+              ["[V] Color Space", r.v_color_combined || "—"],
+              ["[V] Bits per Sample", r.v_bits],
+              ["[V] ChromaSubSample", r.v_chroma],
+              ["[V] Bitrate", r.v_br ? fmtBps(r.v_br) : "—"],
+              ["[V] Entropy", r.v_entropy || "—"],
+              ["[V] Scan Type", r.v_scan || "—"],
+              ["[V] HDR/SDR", r.v_hdr || "SDR"],
+            ]);
+
+            infoRows("tbl-audio", [
+              ["[A] Codec", aCodecDisplay, aCodecCol],
+              ["[A] Channels", r.a_channels],
+              ["[A] Layout", r.a_layout],
+              ["[A] Sampling Rate", r.a_rate ? r.a_rate + " Hz" : "—"],
+              ["[A] Bitrate", r.a_br ? fmtBps(r.a_br) : "—"],
+              ["[A] Bits per Sample", r.a_bps],
+              ["[A] Language", r.a_lang],
+              [
+                "[A] Audio Tracks",
+                r.audio_tracks,
+                r.audio_tracks > 2 ? "yellow" : "",
+              ],
+            ]);
+
+            // GOP stats info rows
+            infoRows("tbl-gop-stats", [
+              ["IDR frames", r.idr_count, r.has_idr ? "green" : "red"],
+              [
+                "GOP type",
+                r.gop_type,
+                r.gop_type === "CLOSED" ? "green" : "yellow",
+              ],
+              ["Total GOPs (complete)", r.gop_count],
+              ["GOP avg size", r.gop_avg + " frames"],
+              ["GOP min size", r.gop_min + " frames"],
+              ["GOP max size", r.gop_max + " frames"],
+              [
+                "Has B-frames",
+                r.has_b_frames ? "YES" : "No",
+                r.has_b_frames ? "yellow" : "green",
+              ],
+              ["B-frame count", r.b_frame_count],
+              ["Total frames", r.total_frames],
+              [
+                "AV Sync Avg",
+                r.av_sync_avg_ms != null ? r.av_sync_avg_ms + " ms" : "—",
+                r.av_sync_avg_ms != null
+                  ? r.av_sync_avg_ms < 15
+                    ? "green"
+                    : r.av_sync_avg_ms < 175
+                    ? "yellow"
+                    : "red"
+                  : "",
+              ],
+              [
+                "AV Sync Max",
+                r.av_sync_max_ms != null ? r.av_sync_max_ms + " ms" : "—",
+                r.av_sync_max_ms != null
+                  ? r.av_sync_max_ms < 175
+                    ? "green"
+                    : r.av_sync_max_ms < 230
+                    ? "yellow"
+                    : "red"
+                  : "",
+              ],
+              [
+                "Video PTS Jitter",
+                r.v_pts_jitter_ms != null ? r.v_pts_jitter_ms + " ms" : "—",
+                r.v_pts_jitter_ms != null
+                  ? r.v_pts_jitter_ms < 5
+                    ? "green"
+                    : "yellow"
+                  : "",
+              ],
+              [
+                "Audio PTS Jitter",
+                r.a_pts_jitter_ms != null ? r.a_pts_jitter_ms + " ms" : "—",
+                r.a_pts_jitter_ms != null
+                  ? r.a_pts_jitter_ms < 5
+                    ? "green"
+                    : "yellow"
+                  : "",
+              ],
+            ]);
+
+            // GOP hero numbers
+            const heroAvg = document.getElementById("gop-hero-avg");
+            if (heroAvg) {
+              heroAvg.textContent = r.gop_avg || "—";
+              heroAvg.style.color =
+                r.gop_avg === 30 || r.gop_avg === 50
+                  ? "var(--green)"
+                  : r.gop_avg > 0
+                  ? "var(--yellow)"
+                  : "var(--muted)";
+            }
+            const heroDetail = document.getElementById("gop-hero-detail");
+            if (heroDetail) {
+              const gopTypeColor =
+                r.gop_type === "CLOSED" ? "var(--green)" : "var(--yellow)";
+              heroDetail.innerHTML = [
+                { val: r.gop_count, lbl: "GOPs total", col: "var(--cyan)" },
+                { val: r.gop_min, lbl: "Min size", col: "var(--text)" },
+                { val: r.gop_max, lbl: "Max size", col: "var(--text)" },
+                { val: r.gop_type || "—", lbl: "GOP type", col: gopTypeColor },
+                {
+                  val: r.idr_count,
+                  lbl: "IDR frames",
+                  col: r.has_idr ? "var(--green)" : "var(--red)",
+                },
+              ]
+                .map(
+                  (s) => `<div class="gop-hero-stat">
+          <div class="gop-hero-stat-val" style="color:${s.col}">${s.val}</div>
+          <div class="gop-hero-stat-lbl">${s.lbl}</div>
+        </div>`
+                )
+                .join("");
+            }
+
+            // GOP viz
+            renderGopViz(r.gops || [], r.gop_patterns || []);
+          }
+
+          function renderComplianceTable(r) {
+            const c = r.compliance || {};
+            const spec = {
+              overall_br: ["Overall Bitrate (Mbps)", "5.0–18.0 (8.0–15.0)"],
+              idr: ["IDR Frames", "Required"],
+              gop_size: ["GOP Size", "30, 50"],
+              gop_type: ["GOP Type", "CLOSED"],
+              b_frames: ["B-Frames", "Absent (preferred)"],
+              frame_size: ["Frame Size", "1280×720, 1920×1080"],
+              aspect_ratio: ["Aspect Ratio", "16:9"],
+              chroma: ["Chroma Subsampling", "4:2:0"],
+              scan_type: ["Scan Type", "progressive / interlaced"],
+              bit_depth: ["Bit Depth", "8"],
+              colour_gamut: ["Colour Gamut", "bt709"],
+              codec: ["Coding Algorithm", "AVC H.264"],
+              codec_level: ["CODEC Level", "4.0–4.2"],
+              codec_profile: ["CODEC Profile", "Main, High"],
+              entropy: ["Entropy", "CABAC"],
+              rate_ctrl_v: ["Rate Control (Video)", "VBR, CBR"],
+              v_br: ["Video Bitrate (Mbps)", "5.0–18.0 (8.0–15.0)"],
+              hdr_scheme: ["SDR/HDR Scheme", "SDR"],
+              fps: ["Frame Rate", "25.0, 29.97, 30.0"],
+              a_codec: ["Audio Coding", "AAC-LC, MP1, MP2"],
+              a_streams: ["Audio Streams", "1–32"],
+              a_channels: ["Audio Channels", "2"],
+              a_rate_ctrl: ["Audio Rate Control", "VBR, CBR"],
+              a_sample_rate: ["Sample Rate (kHz)", "44.1–48.0"],
+              a_bits: ["Audio Bits per Sample", "FLTP, 16"],
+              a_br_kbps: ["Audio Bitrate (Kbps)", "118–512"],
+            };
+
+            const sections = {
+              "MEDIA PROFILE": ["overall_br"],
+              VIDEO: [
+                "idr",
+                "gop_size",
+                "gop_type",
+                "b_frames",
+                "frame_size",
+                "aspect_ratio",
+                "chroma",
+                "scan_type",
+                "bit_depth",
+                "colour_gamut",
+                "codec",
+                "codec_level",
+                "codec_profile",
+                "entropy",
+                "rate_ctrl_v",
+                "v_br",
+                "hdr_scheme",
+                "fps",
+              ],
+              AUDIO: [
+                "a_codec",
+                "a_streams",
+                "a_channels",
+                "a_rate_ctrl",
+                "a_sample_rate",
+                "a_bits",
+                "a_br_kbps",
+              ],
+              "AV SYNC & TIMING": [
+                "av_sync_warn",
+                "av_sync_max",
+                "v_pts_jitter",
+                "a_pts_jitter",
+              ],
+            };
+
+            const avSyncSpec = {
+              av_sync_warn: ["AV Sync Avg Offset", "< 15 ms (preferred)"],
+              av_sync_max: ["AV Sync Max Offset", "< 175 ms (hard limit 230ms)"],
+              v_pts_jitter: ["Video PTS Jitter", "< 5.0 ms"],
+              a_pts_jitter: ["Audio PTS Jitter", "< 5.0 ms"],
+            };
+
+            let html = "";
+            for (const [section, keys] of Object.entries(sections)) {
+              html += `<tr class="section-hdr"><td colspan="4">${section}</td></tr>`;
+              for (const key of keys) {
+                const info = avSyncSpec[key] || spec[key] || [key, "—"];
+                const [status, measured, note] = c[key] || ["UNKNOWN", "—", ""];
+                html += `<tr>
+            <td>${info[0]}</td>
+            <td style="color:var(--muted)">${info[1]}</td>
+            <td>${measured}${
+                  note
+                    ? ` <span style="color:var(--muted);font-size:.58rem">(${note})</span>`
+                    : ""
+                }</td>
+            <td><span class="status-pill ${status}">${status}</span></td>
+          </tr>`;
+              }
+            }
+            document.getElementById("compliance-body").innerHTML = html;
+          }
+
+          function infoRows(id, rows) {
+            document.getElementById(id).innerHTML = rows
+              .map(
+                ([k, v, cls]) =>
+                  `<div class="info-row"><span class="info-key">${k}</span><span class="info-val ${
+                    cls || ""
+                  }">${v ?? "—"}</span></div>`
+              )
+              .join("");
+          }
+
+          function renderGopViz(gops, patterns) {
+            const el = document.getElementById("gop-viz");
+            if (!gops.length) {
+              el.innerHTML =
+                '<div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);padding:.5rem">No GOP data (stream may lack IDR frames)</div>';
+              document.getElementById("gop-stats-bar").innerHTML = "";
+              return;
+            }
+            el.innerHTML = gops
+              .map((frames, i) => {
+                const frameHtml = frames
+                  .map((f) => {
+                    const cls = f.idr
+                      ? "IDR"
+                      : ["I", "P", "B"].includes(f.type)
+                      ? f.type
+                      : "S";
+                    return `<div class="gop-frame ${cls}" title="${
+                      f.idr ? "IDR" : ""
+                    }${f.type} frame">${f.type}</div>`;
+                  })
+                  .join("");
+                const pat = patterns[i] || frames.map((f) => f.type).join("");
+                const short = pat.length > 28 ? pat.slice(0, 26) + "…" : pat;
+                return `<div class="gop-row">
+          <div class="gop-label">GOP ${i + 1}</div>
+          <div class="gop-frames">${frameHtml}</div>
+          <div class="gop-pattern">${short} (${frames.length}f)</div>
+        </div>`;
+              })
+              .join("");
+
+            const all = gops.flat();
+            const iCount = all.filter((f) => f.key).length;
+            const pCount = all.filter((f) => f.type === "P").length;
+            const bCount = all.filter((f) => f.type === "B").length;
+            const avg = (
+              gops.map((g) => g.length).reduce((a, b) => a + b, 0) / gops.length
+            ).toFixed(1);
+            document.getElementById("gop-stats-bar").innerHTML = [
+              `GOPs: <span>${gops.length}</span>`,
+              `Avg: <span>${avg}f</span>`,
+              `I: <span style="color:var(--green)">${iCount}</span>`,
+              `P: <span style="color:var(--cyan)">${pCount}</span>`,
+              `B: <span style="color:var(--yellow)">${bCount}</span>`,
+            ]
+              .map((s) => `<div class="gop-stat">${s}</div>`)
+              .join("");
+          }
+
+          // ── History ───────────────────────────────────────────────────────
+          async function loadHistory() {
+            try {
+              const res = await fetch(`${PROXY}/gop/results`);
+              const items = await res.json();
+              const list = document.getElementById("history-list");
+              const search = (
+                document.getElementById("hist-search").value || ""
+              ).toLowerCase();
+              const date = (
+                document.getElementById("hist-date").value || ""
+              ).trim();
+              const tag = (
+                document.getElementById("hist-tag").value || ""
+              ).toLowerCase();
+              const server = (
+                document.getElementById("hist-server").value || ""
+              ).trim();
+              const userFilter = (
+                document.getElementById("hist-user").value || ""
+              ).toLowerCase().trim();
+
+              // Remember which files are currently checked before rebuilding
+              const checkedFiles = new Set(
+                [...document.querySelectorAll(".hist-item-cb:checked")].map(
+                  (cb) => cb.dataset.file
+                )
+              );
+
+              // Populate tag datalist
+              const allTags = [
+                ...new Set(
+                  items.flatMap((i) =>
+                    (i.tag || "")
+                      .split(",")
+                      .map((t) => t.trim())
+                      .filter(Boolean)
+                  )
+                ),
+              ];
+              document.getElementById("hist-tag-list").innerHTML = allTags
+                .map((t) => `<option value="${t}">`)
+                .join("");
+
+              const filtered = items.filter((item) => {
+                const searchable = [
+                  resolveHost(item.url_host),
+                  item.url_host,
+                  item.url_port,
+                  item.tag,
+                  item.test_id,
+                  item.v_codec,
+                  item.url,
+                ]
+                  .map((v) => (v || "").toLowerCase())
+                  .join(" ");
+                const tagParts = (item.tag || "")
+                  .split(",")
+                  .map((t) => t.trim().toLowerCase());
+                if (search && !searchable.includes(search)) return false;
+                if (date && !(item.started_at || "").startsWith(date)) return false;
+                if (tag && !tagParts.some((t) => t.includes(tag))) return false;
+                if (server && item.url_host !== server) return false;
+                if (userFilter && !(item.username || "anonymous").toLowerCase().includes(userFilter)) return false;
+                return true;
+              });
+
+              if (!filtered.length) {
+                list.innerHTML = '<div class="hist-empty">No analyses found</div>';
+                updateBulkBar();
+                return;
+              }
+
+              list.innerHTML = filtered
+                .map((item) => {
+                  const isUpload = item.url_host === "upload";
+                  const serverName = isUpload
+                    ? (item.url || "").replace(/^upload:/, "Upload: ")
+                    : resolveHost(item.url_host);
+                  const port = isUpload ? "" : item.url_port || "?";
+                  const isOverride = !!item.override;
+                  const runStatus = item.run_status || "done";
+                  const isFailed = runStatus === "failed" || runStatus === "error";
+                  // Status badge
+                  let statusCls, statusLabel;
+                  if (isOverride) {
+                    statusCls = "accepted";
+                    statusLabel = "⚡ Override";
+                  } else if (isFailed) {
+                    statusCls = "rejected";
+                    statusLabel = runStatus === "error" ? "✗ ERROR" : "✗ FAILED";
+                  } else {
+                    statusCls = (item.overall_status || "unknown")
+                      .toLowerCase()
+                      .replace(/[^a-z]/g, "");
+                    statusLabel = item.overall_status || "UNKNOWN";
+                  }
+
+                  const idrCls = item.has_idr ? "compliant" : "rejected";
+                  const gopTypeCls =
+                    item.gop_type === "CLOSED" ? "compliant" : "accepted";
+                  const fpsEff =
+                    item.v_fps_compliance ||
+                    (item.v_scan === "interlaced" && (item.v_fps_val || 0) > 30
+                      ? (item.v_fps_val || 0) / 2
+                      : item.v_fps_val || 0);
+                  const res = item.v_width
+                    ? `${item.v_width}×${item.v_height}`
+                    : "";
+                  const tagBadges = (item.tag || "")
+                    .split(",")
+                    .map((t) => t.trim())
+                    .filter(Boolean)
+                    .map((t) => `<span class="hi-badge">${t}</span>`)
+                    .join("");
+                  const tsLink = item.ts_file
+                    ? `<a class="hi-badge" href="${PROXY}/gop/ts/${encodeURIComponent(
+                        item.ts_file
+                      )}" download onclick="event.stopPropagation()" style="color:var(--cyan)">⬇ .ts</a>`
+                    : "";
+                  const schedBadge = item.is_scheduled
+                    ? `<span class="hi-badge" style="color:var(--cyan);border-color:var(--cyan);background:var(--cyan-d)">🕐 Sched</span>`
+                    : "";
+                  const logBadge =
+                    isFailed && item.log_count
+                      ? `<span class="hi-badge" style="cursor:pointer;color:var(--muted)" onclick="event.stopPropagation();viewErrorLog('${item.file}')" title="View error log">📋 ${item.log_count} log lines</span>`
+                      : "";
+                  const rerunBtn = `<button onclick="event.stopPropagation();rerunFromItem(${JSON.stringify(
+                    item
+                  ).replace(
+                    /"/g,
+                    "&quot;"
+                  )})" style="background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:.62rem;cursor:pointer;padding:0" title="Re-run this analysis" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">↺</button>`;
+                  const errorHint =
+                    isFailed && item.error
+                      ? `<div style="font-family:var(--mono);font-size:.62rem;color:var(--red);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.error}</div>`
+                      : "";
+                  const clickFn = isFailed
+                    ? `viewErrorLog('${item.file}')`
+                    : `loadResult('${item.file}')`;
+
+                  // Subtitle: date · codec · resolution · fps  (replaces IP/tags/codec mess)
+                  const dateStr = item.started_at
+                    ? item.started_at.slice(0, 16).replace("T", " ") + " UTC"
+                    : "—";
+                  const codecStr = (item.v_codec || "?").toUpperCase();
+                  const fpsDisp = fpsEff
+                    ? fpsEff.toFixed(2) +
+                      "fps" +
+                      (item.v_scan === "interlaced" && (item.v_fps_val || 0) > 30
+                        ? " (i)"
+                        : "")
+                    : "?";
+                  const subLine = isFailed
+                    ? dateStr
+                    : `${dateStr} · ${codecStr} · ${res || "?×?"} · ${fpsDisp}`;
+                  const testIdBit = item.test_id
+                    ? `<div style="font-family:var(--mono);font-size:.58rem;color:var(--muted);margin-top:1px;opacity:.6" title="Test ID — searchable">${item.test_id}</div>`
+                    : "";
+
+                  return `<div class="hist-item" id="hist-${item.file.replace(
+                    /\W/g,
+                    "_"
+                  )}">
+            <input type="checkbox" class="hist-item-cb" data-file="${item.file}"
+              ${_checkedFiles.has(item.file) ? "checked" : ""}
+              onchange="updateBulkBar()" />
+            <div class="hist-item-body" onclick="${clickFn};event.stopPropagation()">
+              <div class="hi-dest">${serverName}${port ? ":" + port : ""}</div>
+              <div class="hi-sub">${subLine}</div>
+              ${testIdBit}
+              ${errorHint}
+              <div class="hi-badges">
+                ${
+                  !isFailed
+                    ? `<span class="hi-badge ${idrCls}">${
+                        item.has_idr ? "✓ IDR" : "✗ No IDR"
+                      }</span>`
+                    : ""
+                }
+                ${
+                  !isFailed && item.gop_type
+                    ? `<span class="hi-badge ${gopTypeCls}">GOP ${item.gop_type}</span>`
+                    : ""
+                }
+                <span class="hi-badge ${statusCls}">${statusLabel}</span>
+                <span style="font-family:var(--mono);font-size:.58rem;color:var(--muted);opacity:.7" title="Tested by ${item.username || 'anonymous'}">👤 ${(item.username || 'anonymous').split('@')[0]}</span>
+                ${schedBadge}${logBadge}${rerunBtn}${tagBadges}${tsLink}
+              </div>
+            </div>
+          </div>`;
+                })
+                .join("");
+
+              // Update bulk bar to reflect persistent selection
+              const bar = document.getElementById("bulk-bar");
+              document.getElementById(
+                "bulk-count"
+              ).textContent = `${_checkedFiles.size} selected`;
+              bar.classList.toggle("visible", _checkedFiles.size > 0);
+            } catch (e) {
+              console.error(e);
+            }
+          }
+
+          function resolveHost(ip) {
+            return _srtPresets[ip] || ip || "—";
+          }
+
+          let _currentResultFile = null;
+
+          async function loadResult(file) {
+            try {
+              const res = await fetch(
+                `${PROXY}/gop/result/${encodeURIComponent(file)}`
+              );
+              const data = await res.json();
+              _currentResultFile = file; // store so override knows which file to patch
+              data.res_file = file; // inject so renderResult TS download works
+              document.getElementById("placeholder").style.display = "none";
+              document.getElementById("log-card").style.display = "none";
+              renderResult(data);
+              setStatus("ok", `Loaded: ${file}`);
+            } catch (e) {
+              setStatus("err", "Failed to load result.");
+            }
+          }
+
+          // ── Bulk delete ───────────────────────────────────────────────────
+          function updateBulkBar() {
+            const checked = [...document.querySelectorAll(".hist-item-cb:checked")];
+            const bar = document.getElementById("bulk-bar");
+            document.getElementById(
+              "bulk-count"
+            ).textContent = `${checked.length} selected`;
+            bar.classList.toggle("visible", checked.length > 0);
+          }
+
+          function openBulkDeleteModal() {
+            _pendingDeleteFiles = [..._checkedFiles];
+            if (!_pendingDeleteFiles.length) return;
+            document.getElementById(
+              "delete-modal-body"
+            ).innerHTML = `Permanently delete <strong style="color:var(--red)">${_pendingDeleteFiles.length}</strong> result(s)?<br>This action is <strong style="color:var(--red)">irreversible</strong>.`;
+            document.getElementById("delete-pw").value = "";
+            document.getElementById("delete-pw").style.display = _hasAdminPw
+              ? ""
+              : "none";
+            document.getElementById("delete-err").textContent = "";
+            document.getElementById("delete-modal").classList.add("open");
+          }
+
+          function closeDeleteModal() {
+            document.getElementById("delete-modal").classList.remove("open");
+            _pendingDeleteFiles = [];
+          }
+
+          async function confirmDelete() {
+            const pw = document.getElementById("delete-pw").value;
+            const errEl = document.getElementById("delete-err");
+            errEl.textContent = "";
+            const headers = {};
+            if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
+
+            let anyFailed = false;
+            for (const file of _pendingDeleteFiles) {
+              try {
+                const res = await fetch(
+                  `${PROXY}/gop/delete/${encodeURIComponent(file)}`,
+                  { method: "DELETE", headers }
+                );
+                const data = await res.json();
+                if (res.status === 403) {
+                  document.getElementById("delete-pw").classList.add("error");
+                  errEl.textContent = "❌ Invalid password";
+                  return;
+                }
+                if (!data.success) anyFailed = true;
+              } catch (e) {
+                anyFailed = true;
               }
             }
 
-            // Always refresh history — failed/error runs also save a JSON now
+            closeDeleteModal();
+            _checkedFiles.clear();
+            document.getElementById("bulk-bar").classList.remove("visible");
             loadHistory();
-          } catch (e) {
-            console.error(e);
-          }
-        }, 1500);
-      }
-
-      // ── Render result ─────────────────────────────────────────────────
-      function renderResult(r) {
-        _currentResult = r;
-        _currentResultFile = r.res_file || _currentResultFile; // keep track of file
-        _overrideReason = r.override ? r.override.reason : null;
-        // Reset override UI
-        document.getElementById("override-notice").style.display = "none";
-        document.getElementById("btn-override").textContent = "⚡ Override";
-        document.getElementById("btn-override").style.borderColor =
-          "var(--yellow)";
-        document.getElementById("btn-override").style.color = "var(--yellow)";
-        document.getElementById("btn-override").onclick = openOverrideModal;
-
-        // Show override button only for REJECTED results (or if already overridden)
-        const overrideBtn = document.getElementById("btn-override");
-        const isRejected = (r.overall_status || "").includes("REJECTED");
-        const hasOverride = !!r.override;
-
-        if (hasOverride) {
-          // Already overridden — show in green as info button
-          overrideBtn.style.display = "";
-          _overrideReason = r.override.reason;
-          applyOverride(r.override.reason);
-        } else if (isRejected) {
-          // REJECTED — show override option
-          overrideBtn.style.display = "";
-          overrideBtn.textContent = "⚡ Override";
-          overrideBtn.style.borderColor = "var(--yellow)";
-          overrideBtn.style.color = "var(--yellow)";
-          overrideBtn.onclick = openOverrideModal;
-        } else {
-          // COMPLIANT / ACCEPTED — hide override
-          overrideBtn.style.display = "none";
-          document.getElementById("override-notice").style.display = "none";
-        }
-
-        document.getElementById("results-content").style.display = "";
-        document.getElementById("log-card").style.display = "none";
-        document.getElementById("placeholder").style.display = "none";
-
-        // Test metadata bar
-        const serverName = resolveHost(r.url_host);
-        const testDate = r.started_at
-          ? r.started_at.replace("T", " ").slice(0, 19) + " UTC"
-          : "—";
-        const tags = (r.tag || "")
-          .split(",")
-          .map((t) => t.trim())
-          .filter(Boolean)
-          .join(" · ");
-        document.getElementById("meta-date").textContent = "📅 " + testDate;
-        document.getElementById("meta-server").textContent = "🖥 " + serverName;
-        document.getElementById("meta-port").textContent =
-          "🔌 :" + (r.url_port || "?");
-        document.getElementById("meta-tags").textContent = tags
-          ? "🏷 " + tags
-          : "";
-        document.getElementById("meta-user").textContent = "👨‍🔬 " + r.username;
-        // TS download button
-        const tsEl = document.getElementById("meta-ts-download");
-        if (r.ts_file && r.res_file) {
-          const tsFile = r.res_file.replace(".json", ".ts");
-          tsEl.innerHTML = `<a href="${PROXY}/gop/ts/${encodeURIComponent(
-            tsFile
-          )}" download style="font-family:var(--mono);font-size:.7rem;color:var(--cyan);text-decoration:none;border:1px solid var(--border);border-radius:3px;padding:2px 8px">⬇ Download .ts</a>`;
-        } else {
-          tsEl.innerHTML = "";
-        }
-        document.getElementById("log-card").style.display = "none";
-        document.getElementById("placeholder").style.display = "none";
-
-        // IDR check
-        const idrBadge = document.getElementById("idr-badge");
-        if (r.has_idr) {
-          idrBadge.className = "idr-badge pass";
-          idrBadge.innerHTML = `✓ IDR Frames Present`;
-        } else {
-          idrBadge.className = "idr-badge fail";
-          idrBadge.innerHTML = `✗ No IDR Frames (NAL type 5)`;
-        }
-
-        const gop_type_color =
-          r.gop_type === "CLOSED" ? "var(--green)" : "var(--yellow)";
-        document.getElementById("idr-detail").innerHTML = [
-          `IDR count: <strong style="color:${
-            r.has_idr ? "var(--green)" : "var(--red)"
-          }">${r.idr_count}</strong>`,
-          `Non-IDR keyframes: <strong>${r.non_idr_keyframes || 0}</strong>`,
-          `GOP type: <strong style="color:${gop_type_color}">${
-            r.gop_type || "—"
-          }</strong>`,
-          `B-frames: <strong style="color:${
-            r.has_b_frames ? "var(--yellow)" : "var(--green)"
-          }">` +
-            `${
-              r.has_b_frames ? "YES (" + r.b_frame_count + ")" : "No"
-            }</strong>`,
-          `Total frames: <strong>${r.total_frames}</strong>`,
-        ].join("  ·  ");
-
-        // Overall badge
-        const os = r.overall_status || "UNKNOWN";
-        document.getElementById(
-          "overall-badge"
-        ).innerHTML = `<span class="status-pill ${os}" style="font-size:.72rem;padding:3px 12px">${os}</span>`;
-
-        // Compliance table
-        renderComplianceTable(r);
-
-        // Container
-        infoRows("tbl-container", [
-          ["Container", r.container, "cyan"],
-          ["File Size", r.file_size ? fmtBytes(r.file_size) : "—"],
-          ["Duration", r.file_dur ? r.file_dur.toFixed(3) + "s" : "—"],
-          ["File Bitrate", r.file_br ? fmtBps(r.file_br) : "—"],
-          ["Num programs", r.num_programs],
-          ["Num streams", r.num_streams],
-          ["Have Video", r.have_video],
-          ["Have Audio", r.have_audio],
-        ]);
-
-        const vfpsCol =
-          (r.v_fps_compliance || r.v_fps_val) > 30.5
-            ? "red"
-            : r.v_scan === "interlaced"
-            ? "yellow"
-            : "green";
-        const fpsDisplay =
-          r.v_scan === "interlaced" && r.v_fps_val > 30
-            ? `${r.v_fps} → ${(r.v_fps_compliance || r.v_fps_val / 2).toFixed(
-                3
-              )} fps effective (interlaced)`
-            : r.v_fps;
-
-        const aCodecDisplay =
-          r.a_codec_display || (r.a_codec || "?").toUpperCase();
-        const aCodecCol =
-          aCodecDisplay.startsWith("AAC") ||
-          ["MP1", "MP2", "MP3"].includes(aCodecDisplay)
-            ? "green"
-            : "yellow";
-        // Video
-        infoRows("tbl-video", [
-          [
-            "[V] Codec",
-            (r.v_codec || "?").toUpperCase() + " | " + (r.v_codec || "?"),
-            "green",
-          ],
-          [
-            "[V] Codec Profile",
-            r.v_profile,
-            r.v_profile === "High" ? "yellow" : "",
-          ],
-          ["[V] Codec Level", r.v_level],
-          ["[V] Width", r.v_width],
-          ["[V] Height", r.v_height],
-          ["[V] Aspect Ratio", r.v_dar || "—"],
-          ["[V] B Frames", r.v_b_frames, r.v_b_frames > 0 ? "yellow" : "green"],
-          ["[V] Reference Frames", r.v_refs],
-          ["[V] FPS", fpsDisplay, vfpsCol],
-          ["[V] Field Order", r.v_field],
-          ["[V] Pixel Format", r.v_pix_fmt],
-          ["[V] Color Space", r.v_color_combined || "—"],
-          ["[V] Bits per Sample", r.v_bits],
-          ["[V] ChromaSubSample", r.v_chroma],
-          ["[V] Bitrate", r.v_br ? fmtBps(r.v_br) : "—"],
-          ["[V] Entropy", r.v_entropy || "—"],
-          ["[V] Scan Type", r.v_scan || "—"],
-          ["[V] HDR/SDR", r.v_hdr || "SDR"],
-        ]);
-
-        infoRows("tbl-audio", [
-          ["[A] Codec", aCodecDisplay, aCodecCol],
-          ["[A] Channels", r.a_channels],
-          ["[A] Layout", r.a_layout],
-          ["[A] Sampling Rate", r.a_rate ? r.a_rate + " Hz" : "—"],
-          ["[A] Bitrate", r.a_br ? fmtBps(r.a_br) : "—"],
-          ["[A] Bits per Sample", r.a_bps],
-          ["[A] Language", r.a_lang],
-          [
-            "[A] Audio Tracks",
-            r.audio_tracks,
-            r.audio_tracks > 2 ? "yellow" : "",
-          ],
-        ]);
-
-        // GOP stats info rows
-        infoRows("tbl-gop-stats", [
-          ["IDR frames", r.idr_count, r.has_idr ? "green" : "red"],
-          [
-            "GOP type",
-            r.gop_type,
-            r.gop_type === "CLOSED" ? "green" : "yellow",
-          ],
-          ["Total GOPs (complete)", r.gop_count],
-          ["GOP avg size", r.gop_avg + " frames"],
-          ["GOP min size", r.gop_min + " frames"],
-          ["GOP max size", r.gop_max + " frames"],
-          [
-            "Has B-frames",
-            r.has_b_frames ? "YES" : "No",
-            r.has_b_frames ? "yellow" : "green",
-          ],
-          ["B-frame count", r.b_frame_count],
-          ["Total frames", r.total_frames],
-          [
-            "AV Sync Avg",
-            r.av_sync_avg_ms != null ? r.av_sync_avg_ms + " ms" : "—",
-            r.av_sync_avg_ms != null
-              ? r.av_sync_avg_ms < 15
-                ? "green"
-                : r.av_sync_avg_ms < 175
-                ? "yellow"
-                : "red"
-              : "",
-          ],
-          [
-            "AV Sync Max",
-            r.av_sync_max_ms != null ? r.av_sync_max_ms + " ms" : "—",
-            r.av_sync_max_ms != null
-              ? r.av_sync_max_ms < 175
-                ? "green"
-                : r.av_sync_max_ms < 230
-                ? "yellow"
-                : "red"
-              : "",
-          ],
-          [
-            "Video PTS Jitter",
-            r.v_pts_jitter_ms != null ? r.v_pts_jitter_ms + " ms" : "—",
-            r.v_pts_jitter_ms != null
-              ? r.v_pts_jitter_ms < 5
-                ? "green"
-                : "yellow"
-              : "",
-          ],
-          [
-            "Audio PTS Jitter",
-            r.a_pts_jitter_ms != null ? r.a_pts_jitter_ms + " ms" : "—",
-            r.a_pts_jitter_ms != null
-              ? r.a_pts_jitter_ms < 5
-                ? "green"
-                : "yellow"
-              : "",
-          ],
-        ]);
-
-        // GOP hero numbers
-        const heroAvg = document.getElementById("gop-hero-avg");
-        if (heroAvg) {
-          heroAvg.textContent = r.gop_avg || "—";
-          heroAvg.style.color =
-            r.gop_avg === 30 || r.gop_avg === 50
-              ? "var(--green)"
-              : r.gop_avg > 0
-              ? "var(--yellow)"
-              : "var(--muted)";
-        }
-        const heroDetail = document.getElementById("gop-hero-detail");
-        if (heroDetail) {
-          const gopTypeColor =
-            r.gop_type === "CLOSED" ? "var(--green)" : "var(--yellow)";
-          heroDetail.innerHTML = [
-            { val: r.gop_count, lbl: "GOPs total", col: "var(--cyan)" },
-            { val: r.gop_min, lbl: "Min size", col: "var(--text)" },
-            { val: r.gop_max, lbl: "Max size", col: "var(--text)" },
-            { val: r.gop_type || "—", lbl: "GOP type", col: gopTypeColor },
-            {
-              val: r.idr_count,
-              lbl: "IDR frames",
-              col: r.has_idr ? "var(--green)" : "var(--red)",
-            },
-          ]
-            .map(
-              (s) => `<div class="gop-hero-stat">
-      <div class="gop-hero-stat-val" style="color:${s.col}">${s.val}</div>
-      <div class="gop-hero-stat-lbl">${s.lbl}</div>
-    </div>`
-            )
-            .join("");
-        }
-
-        // GOP viz
-        renderGopViz(r.gops || [], r.gop_patterns || []);
-      }
-
-      function renderComplianceTable(r) {
-        const c = r.compliance || {};
-        const spec = {
-          overall_br: ["Overall Bitrate (Mbps)", "5.0–18.0 (8.0–15.0)"],
-          idr: ["IDR Frames", "Required"],
-          gop_size: ["GOP Size", "30, 50"],
-          gop_type: ["GOP Type", "CLOSED"],
-          b_frames: ["B-Frames", "Absent (preferred)"],
-          frame_size: ["Frame Size", "1280×720, 1920×1080"],
-          aspect_ratio: ["Aspect Ratio", "16:9"],
-          chroma: ["Chroma Subsampling", "4:2:0"],
-          scan_type: ["Scan Type", "progressive / interlaced"],
-          bit_depth: ["Bit Depth", "8"],
-          colour_gamut: ["Colour Gamut", "bt709"],
-          codec: ["Coding Algorithm", "AVC H.264"],
-          codec_level: ["CODEC Level", "4.0–4.2"],
-          codec_profile: ["CODEC Profile", "Main, High"],
-          entropy: ["Entropy", "CABAC"],
-          rate_ctrl_v: ["Rate Control (Video)", "VBR, CBR"],
-          v_br: ["Video Bitrate (Mbps)", "5.0–18.0 (8.0–15.0)"],
-          hdr_scheme: ["SDR/HDR Scheme", "SDR"],
-          fps: ["Frame Rate", "25.0, 29.97, 30.0"],
-          a_codec: ["Audio Coding", "AAC-LC, MP1, MP2"],
-          a_streams: ["Audio Streams", "1–32"],
-          a_channels: ["Audio Channels", "2"],
-          a_rate_ctrl: ["Audio Rate Control", "VBR, CBR"],
-          a_sample_rate: ["Sample Rate (kHz)", "44.1–48.0"],
-          a_bits: ["Audio Bits per Sample", "FLTP, 16"],
-          a_br_kbps: ["Audio Bitrate (Kbps)", "118–512"],
-        };
-
-        const sections = {
-          "MEDIA PROFILE": ["overall_br"],
-          VIDEO: [
-            "idr",
-            "gop_size",
-            "gop_type",
-            "b_frames",
-            "frame_size",
-            "aspect_ratio",
-            "chroma",
-            "scan_type",
-            "bit_depth",
-            "colour_gamut",
-            "codec",
-            "codec_level",
-            "codec_profile",
-            "entropy",
-            "rate_ctrl_v",
-            "v_br",
-            "hdr_scheme",
-            "fps",
-          ],
-          AUDIO: [
-            "a_codec",
-            "a_streams",
-            "a_channels",
-            "a_rate_ctrl",
-            "a_sample_rate",
-            "a_bits",
-            "a_br_kbps",
-          ],
-          "AV SYNC & TIMING": [
-            "av_sync_warn",
-            "av_sync_max",
-            "v_pts_jitter",
-            "a_pts_jitter",
-          ],
-        };
-
-        const avSyncSpec = {
-          av_sync_warn: ["AV Sync Avg Offset", "< 15 ms (preferred)"],
-          av_sync_max: ["AV Sync Max Offset", "< 175 ms (hard limit 230ms)"],
-          v_pts_jitter: ["Video PTS Jitter", "< 5.0 ms"],
-          a_pts_jitter: ["Audio PTS Jitter", "< 5.0 ms"],
-        };
-
-        let html = "";
-        for (const [section, keys] of Object.entries(sections)) {
-          html += `<tr class="section-hdr"><td colspan="4">${section}</td></tr>`;
-          for (const key of keys) {
-            const info = avSyncSpec[key] || spec[key] || [key, "—"];
-            const [status, measured, note] = c[key] || ["UNKNOWN", "—", ""];
-            html += `<tr>
-        <td>${info[0]}</td>
-        <td style="color:var(--muted)">${info[1]}</td>
-        <td>${measured}${
-              note
-                ? ` <span style="color:var(--muted);font-size:.58rem">(${note})</span>`
-                : ""
-            }</td>
-        <td><span class="status-pill ${status}">${status}</span></td>
-      </tr>`;
-          }
-        }
-        document.getElementById("compliance-body").innerHTML = html;
-      }
-
-      function infoRows(id, rows) {
-        document.getElementById(id).innerHTML = rows
-          .map(
-            ([k, v, cls]) =>
-              `<div class="info-row"><span class="info-key">${k}</span><span class="info-val ${
-                cls || ""
-              }">${v ?? "—"}</span></div>`
-          )
-          .join("");
-      }
-
-      function renderGopViz(gops, patterns) {
-        const el = document.getElementById("gop-viz");
-        if (!gops.length) {
-          el.innerHTML =
-            '<div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);padding:.5rem">No GOP data (stream may lack IDR frames)</div>';
-          document.getElementById("gop-stats-bar").innerHTML = "";
-          return;
-        }
-        el.innerHTML = gops
-          .map((frames, i) => {
-            const frameHtml = frames
-              .map((f) => {
-                const cls = f.idr
-                  ? "IDR"
-                  : ["I", "P", "B"].includes(f.type)
-                  ? f.type
-                  : "S";
-                return `<div class="gop-frame ${cls}" title="${
-                  f.idr ? "IDR" : ""
-                }${f.type} frame">${f.type}</div>`;
-              })
-              .join("");
-            const pat = patterns[i] || frames.map((f) => f.type).join("");
-            const short = pat.length > 28 ? pat.slice(0, 26) + "…" : pat;
-            return `<div class="gop-row">
-      <div class="gop-label">GOP ${i + 1}</div>
-      <div class="gop-frames">${frameHtml}</div>
-      <div class="gop-pattern">${short} (${frames.length}f)</div>
-    </div>`;
-          })
-          .join("");
-
-        const all = gops.flat();
-        const iCount = all.filter((f) => f.key).length;
-        const pCount = all.filter((f) => f.type === "P").length;
-        const bCount = all.filter((f) => f.type === "B").length;
-        const avg = (
-          gops.map((g) => g.length).reduce((a, b) => a + b, 0) / gops.length
-        ).toFixed(1);
-        document.getElementById("gop-stats-bar").innerHTML = [
-          `GOPs: <span>${gops.length}</span>`,
-          `Avg: <span>${avg}f</span>`,
-          `I: <span style="color:var(--green)">${iCount}</span>`,
-          `P: <span style="color:var(--cyan)">${pCount}</span>`,
-          `B: <span style="color:var(--yellow)">${bCount}</span>`,
-        ]
-          .map((s) => `<div class="gop-stat">${s}</div>`)
-          .join("");
-      }
-
-      // ── History ───────────────────────────────────────────────────────
-      async function loadHistory() {
-        try {
-          const res = await fetch(`${PROXY}/gop/results`);
-          const items = await res.json();
-          const list = document.getElementById("history-list");
-          const search = (
-            document.getElementById("hist-search").value || ""
-          ).toLowerCase();
-          const date = (
-            document.getElementById("hist-date").value || ""
-          ).trim();
-          const tag = (
-            document.getElementById("hist-tag").value || ""
-          ).toLowerCase();
-          const server = (
-            document.getElementById("hist-server").value || ""
-          ).trim();
-          const userFilter = (document.getElementById("hist-user").value || "")
-            .toLowerCase()
-            .trim();
-
-          // Remember which files are currently checked before rebuilding
-          const checkedFiles = new Set(
-            [...document.querySelectorAll(".hist-item-cb:checked")].map(
-              (cb) => cb.dataset.file
-            )
-          );
-
-          // Populate tag datalist
-          const allTags = [
-            ...new Set(
-              items.flatMap((i) =>
-                (i.tag || "")
-                  .split(",")
-                  .map((t) => t.trim())
-                  .filter(Boolean)
-              )
-            ),
-          ];
-          document.getElementById("hist-tag-list").innerHTML = allTags
-            .map((t) => `<option value="${t}">`)
-            .join("");
-
-          const filtered = items.filter((item) => {
-            const searchable = [
-              resolveHost(item.url_host),
-              item.url_host,
-              item.url_port,
-              item.tag,
-              item.test_id,
-              item.v_codec,
-              item.url,
-            ]
-              .map((v) => (v || "").toLowerCase())
-              .join(" ");
-            const tagParts = (item.tag || "")
-              .split(",")
-              .map((t) => t.trim().toLowerCase());
-            if (search && !searchable.includes(search)) return false;
-            if (date && !(item.started_at || "").startsWith(date)) return false;
-            if (tag && !tagParts.some((t) => t.includes(tag))) return false;
-            if (server && item.url_host !== server) return false;
-            if (
-              userFilter &&
-              !(item.username || "anonymous").toLowerCase().includes(userFilter)
-            )
-              return false;
-            return true;
-          });
-
-          if (!filtered.length) {
-            list.innerHTML = '<div class="hist-empty">No analyses found</div>';
-            updateBulkBar();
-            return;
           }
 
-          list.innerHTML = filtered
-            .map((item) => {
-              const isUpload = item.url_host === "upload";
-              const serverName = isUpload
-                ? (item.url || "").replace(/^upload:/, "Upload: ")
-                : resolveHost(item.url_host);
-              const port = isUpload ? "" : item.url_port || "?";
-              const isOverride = !!item.override;
-              const runStatus = item.run_status || "done";
-              const isFailed = runStatus === "failed" || runStatus === "error";
-              // Status badge
-              let statusCls, statusLabel;
-              if (isOverride) {
-                statusCls = "accepted";
-                statusLabel = "⚡ Override";
-              } else if (isFailed) {
-                statusCls = "rejected";
-                statusLabel = runStatus === "error" ? "✗ ERROR" : "✗ FAILED";
-              } else {
-                statusCls = (item.overall_status || "unknown")
-                  .toLowerCase()
-                  .replace(/[^a-z]/g, "");
-                statusLabel = item.overall_status || "UNKNOWN";
+          // ── Progress ─────────────────────────────────────────────────────
+          function startProgress(dur) {
+            clearInterval(_progTimer);
+            let pct = 0;
+            const fill = document.getElementById("progress-fill");
+            fill.style.background = "var(--purple)";
+            _progTimer = setInterval(() => {
+              pct = pct + (95 - pct) * (1.2 / dur);
+              fill.style.width = Math.min(pct, 95) + "%";
+            }, 1000);
+          }
+          function stopProgress(ok) {
+            clearInterval(_progTimer);
+            const fill = document.getElementById("progress-fill");
+            fill.style.width = "100%";
+            fill.style.background = ok ? "var(--green)" : "var(--red)";
+            setTimeout(() => {
+              fill.style.width = "0%";
+              fill.style.background = "var(--purple)";
+            }, 2500);
+          }
+
+          function setStatus(t, m) {
+            document.getElementById("dot").className =
+              "dot " + (t === "running" ? "running" : t === "ok" ? "ok" : "err");
+            document.getElementById("status-text").textContent = m;
+          }
+          function fmtBytes(b) {
+            return b > 1e9
+              ? (b / 1e9).toFixed(2) + "GB"
+              : b > 1e6
+              ? (b / 1e6).toFixed(1) + "MB"
+              : (b / 1e3).toFixed(0) + "KB";
+          }
+          function fmtBps(b) {
+            return b > 1e6
+              ? (b / 1e6).toFixed(2) + " Mbps"
+              : b > 1e3
+              ? (b / 1e3).toFixed(0) + " Kbps"
+              : b + " bps";
+          }
+
+          document
+            .getElementById("delete-modal")
+            .addEventListener("click", function (e) {
+              if (e.target === this) closeDeleteModal();
+            });
+
+          // ── Override ──────────────────────────────────────────────────────
+          let _currentResult = null;
+          let _overrideReason = null;
+
+          function openOverrideModal() {
+            document.getElementById("override-reason").value =
+              _overrideReason || "";
+            document.getElementById("override-reason-err").textContent = "";
+            document.getElementById("override-modal").classList.add("open");
+            setTimeout(
+              () => document.getElementById("override-reason").focus(),
+              100
+            );
+          }
+          function closeOverrideModal() {
+            document.getElementById("override-modal").classList.remove("open");
+          }
+          async function confirmOverride() {
+            const reason = document.getElementById("override-reason").value.trim();
+            if (!reason) {
+              document.getElementById("override-reason-err").textContent =
+                "Justification is required.";
+              return;
+            }
+            const file =
+              _currentResultFile || (_currentResult && _currentResult.res_file);
+            if (file) {
+              try {
+                await fetch(`${PROXY}/gop/override/${encodeURIComponent(file)}`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ reason }),
+                });
+                if (_currentResult) {
+                  _currentResult.override = {
+                    reason,
+                    applied_at: new Date().toISOString(),
+                  };
+                  _currentResult.overall_status = "ACCEPTED (Override)";
+                }
+              } catch (e) {
+                console.error("Override save failed:", e);
               }
+            }
+            _overrideReason = reason;
+            closeOverrideModal();
+            applyOverride(reason);
+            loadHistory();
+          }
+          function applyOverride(reason) {
+            document.getElementById(
+              "overall-badge"
+            ).innerHTML = `<span class="status-pill" style="background:rgba(227,179,65,.15);color:var(--yellow);border:1px solid var(--yellow);font-size:.72rem;padding:3px 12px;cursor:pointer" onclick="document.getElementById('override-detail-modal').classList.add('open')">⚡ ACCEPTED (Override) ℹ</span>`;
+            document.getElementById("override-reason-display").textContent = reason;
+            document.getElementById("override-notice").style.display = "";
+            document.getElementById("override-detail-reason").textContent = reason;
+            document.getElementById("btn-override").textContent = "⚡ Override ℹ";
+            document.getElementById("btn-override").style.borderColor =
+              "var(--green)";
+            document.getElementById("btn-override").style.color = "var(--green)";
+            document.getElementById("btn-override").onclick = () =>
+              document
+                .getElementById("override-detail-modal")
+                .classList.add("open");
+          }
+          async function resetOverride() {
+            const file =
+              _currentResultFile || (_currentResult && _currentResult.res_file);
+            if (file) {
+              try {
+                const res = await fetch(
+                  `${PROXY}/gop/override/${encodeURIComponent(file)}`,
+                  { method: "DELETE" }
+                );
+                const d = await res.json();
+                if (_currentResult)
+                  _currentResult.overall_status = d.overall_status || "UNKNOWN";
+              } catch (e) {
+                console.error("Override remove failed:", e);
+              }
+            }
+            _overrideReason = null;
+            if (_currentResult) _currentResult.override = null;
+            document
+              .getElementById("override-detail-modal")
+              .classList.remove("open");
+            document.getElementById("override-notice").style.display = "none";
+            const os = _currentResult
+              ? _currentResult.overall_status || "UNKNOWN"
+              : "UNKNOWN";
+            const overrideBtn = document.getElementById("btn-override");
+            if (os.includes("REJECTED")) {
+              overrideBtn.style.display = "";
+              overrideBtn.textContent = "⚡ Override";
+              overrideBtn.style.borderColor = "var(--yellow)";
+              overrideBtn.style.color = "var(--yellow)";
+              overrideBtn.onclick = openOverrideModal;
+            } else {
+              overrideBtn.style.display = "none";
+            }
+            if (_currentResult) {
+              document.getElementById(
+                "overall-badge"
+              ).innerHTML = `<span class="status-pill ${os}" style="font-size:.72rem;padding:3px 12px">${os}</span>`;
+            }
+            loadHistory();
+          }
 
-              const idrCls = item.has_idr ? "compliant" : "rejected";
-              const gopTypeCls =
-                item.gop_type === "CLOSED" ? "compliant" : "accepted";
-              const fpsEff =
-                item.v_fps_compliance ||
-                (item.v_scan === "interlaced" && (item.v_fps_val || 0) > 30
-                  ? (item.v_fps_val || 0) / 2
-                  : item.v_fps_val || 0);
-              const res = item.v_width
-                ? `${item.v_width}×${item.v_height}`
-                : "";
-              const tagBadges = (item.tag || "")
+          // ── Generate Report ───────────────────────────────────────────────
+          // ── Report modal tabs ─────────────────────────────────────────────
+          function showReportTab(tab) {
+            const isVis = tab === "visual";
+            document.getElementById("report-visual-pane").style.display = isVis
+              ? "flex"
+              : "none";
+            document.getElementById("report-text-pane").style.display = isVis
+              ? "none"
+              : "flex";
+            const tabVis = document.getElementById("tab-visual");
+            const tabTxt = document.getElementById("tab-text");
+            tabVis.style.background = isVis ? "var(--cyan)" : "transparent";
+            tabVis.style.color = isVis ? "#000" : "var(--muted)";
+            tabVis.style.border = isVis ? "none" : "1px solid var(--border)";
+            tabTxt.style.background = isVis ? "transparent" : "var(--cyan)";
+            tabTxt.style.color = isVis ? "var(--muted)" : "#000";
+            tabTxt.style.border = isVis ? "1px solid var(--border)" : "none";
+          }
+          function closeReportModal() {
+            document.getElementById("report-modal").classList.remove("open");
+          }
+
+          function generateReport() {
+            if (!_currentResult) return;
+            const r = _currentResult;
+            const now =
+              new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC";
+            const testDate =
+              (r.started_at || "").replace("T", " ").slice(0, 19) + " UTC";
+            const serverName = resolveHost(r.url_host) || r.url_host;
+            const port = r.url_port || "?";
+            const tags =
+              (r.tag || "")
                 .split(",")
                 .map((t) => t.trim())
                 .filter(Boolean)
-                .map((t) => `<span class="hi-badge">${t}</span>`)
-                .join("");
-              const tsLink = item.ts_file
-                ? `<a class="hi-badge" href="${PROXY}/gop/ts/${encodeURIComponent(
-                    item.ts_file
-                  )}" download onclick="event.stopPropagation()" style="color:var(--cyan)">⬇ .ts</a>`
-                : "";
-              const schedBadge = item.is_scheduled
-                ? `<span class="hi-badge" style="color:var(--cyan);border-color:var(--cyan);background:var(--cyan-d)">🕐 Sched</span>`
-                : "";
-              const logBadge =
-                isFailed && item.log_count
-                  ? `<span class="hi-badge" style="cursor:pointer;color:var(--muted)" onclick="event.stopPropagation();viewErrorLog('${item.file}')" title="View error log">📋 ${item.log_count} log lines</span>`
-                  : "";
-              const rerunBtn = `<button onclick="event.stopPropagation();rerunFromItem(${JSON.stringify(
-                item
-              ).replace(
-                /"/g,
-                "&quot;"
-              )})" style="background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:.62rem;cursor:pointer;padding:0" title="Re-run this analysis" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">↺</button>`;
-              const errorHint =
-                isFailed && item.error
-                  ? `<div style="font-family:var(--mono);font-size:.62rem;color:var(--red);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.error}</div>`
-                  : "";
-              const clickFn = isFailed
-                ? `viewErrorLog('${item.file}')`
-                : `loadResult('${item.file}')`;
+                .join(", ") || "—";
+            const testId = r.test_id || "—";
+            const overallStat = _overrideReason
+              ? "ACCEPTED (Override)"
+              : r.overall_status || "UNKNOWN";
+            const aCodec = r.a_codec_display || (r.a_codec || "?").toUpperCase();
+            const fps_eff = r.v_fps_compliance || r.v_fps_val || 0;
+            const c = r.compliance || {};
 
-              // Subtitle: date · codec · resolution · fps  (replaces IP/tags/codec mess)
-              const dateStr = item.started_at
-                ? item.started_at.slice(0, 16).replace("T", " ") + " UTC"
-                : "—";
-              const codecStr = (item.v_codec || "?").toUpperCase();
-              const fpsDisp = fpsEff
-                ? fpsEff.toFixed(2) +
-                  "fps" +
-                  (item.v_scan === "interlaced" && (item.v_fps_val || 0) > 30
-                    ? " (i)"
-                    : "")
-                : "?";
-              const subLine = isFailed
-                ? dateStr
-                : `${dateStr} · ${codecStr} · ${res || "?×?"} · ${fpsDisp}`;
-              const testIdBit = item.test_id
-                ? `<div style="font-family:var(--mono);font-size:.58rem;color:var(--muted);margin-top:1px;opacity:.6" title="Test ID — searchable">${item.test_id}</div>`
-                : "";
+            // Status colours
+            const statusCol = overallStat.includes("COMPLIANT")
+              ? "#3fb950"
+              : overallStat.includes("ACCEPTED")
+              ? "#e3b341"
+              : overallStat.includes("REJECTED")
+              ? "#f85149"
+              : "#58a6ff";
 
-              return `<div class="hist-item" id="hist-${item.file.replace(
-                /\W/g,
-                "_"
-              )}">
-        <input type="checkbox" class="hist-item-cb" data-file="${item.file}"
-          ${_checkedFiles.has(item.file) ? "checked" : ""}
-          onchange="updateBulkBar()" />
-        <div class="hist-item-body" onclick="${clickFn};event.stopPropagation()">
-          <div class="hi-dest">${serverName}${port ? ":" + port : ""}</div>
-          <div class="hi-sub">${subLine}</div>
-          ${testIdBit}
-          ${errorHint}
-          <div class="hi-badges">
+            // Pill helper for visual
+            const pill = (status) => {
+              const bg =
+                {
+                  COMPLIANT: "rgba(63,185,80,.15)",
+                  ACCEPTED: "rgba(227,179,65,.15)",
+                  REJECTED: "rgba(248,81,73,.15)",
+                }[status] || "rgba(255,255,255,.04)";
+              const col =
+                { COMPLIANT: "#3fb950", ACCEPTED: "#e3b341", REJECTED: "#f85149" }[
+                  status
+                ] || "#6e7681";
+              return `<span style="display:inline-block;background:${bg};color:${col};border:1px solid ${col};border-radius:3px;padding:1px 7px;font-size:.62rem;font-weight:700">${
+                status || "—"
+              }</span>`;
+            };
+
+            // Visual table row
+            const vrow = (label, spec, measured, key) => {
+              const [s] = c[key] || ["—"];
+              return `<tr style="border-bottom:1px solid rgba(255,255,255,.05)">
+          <td style="padding:.22rem .5rem;color:#8b949e;white-space:nowrap;font-size:.7rem">${label}</td>
+          <td style="padding:.22rem .5rem;color:#6e7681;font-size:.64rem">${spec}</td>
+          <td style="padding:.22rem .5rem;font-weight:600;font-size:.7rem">${
+            measured || "—"
+          }</td>
+          <td style="padding:.22rem .5rem;text-align:right">${pill(s)}</td></tr>`;
+            };
+            const vsec = (t) =>
+              `<tr><td colspan="4" style="padding:.28rem .5rem .1rem;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:#6e7681;background:rgba(255,255,255,.02)">${t}</td></tr>`;
+
+            // ── VISUAL HTML ──────────────────────────────────────────────────
+            document.getElementById("report-visual-content").innerHTML = `
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:#c9d1d9;background:#080c10;border-radius:8px;padding:.85rem;max-width:100%;margin:0 auto">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.85rem;flex-wrap:wrap;gap:.4rem">
+          <div>
+            <div style="font-size:.95rem;font-weight:700;color:#fff">SP SO Video Analyser</div>
+            <div style="color:#58a6ff;font-size:.72rem;margin-top:2px">${serverName}:${port}</div>
+            <div style="color:#484f58;font-size:.63rem;margin-top:2px">${
+              r.url || "—"
+            }</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:1.3rem;font-weight:700;color:${statusCol};line-height:1.1">${overallStat}</div>
             ${
-              !isFailed
-                ? `<span class="hi-badge ${idrCls}">${
-                    item.has_idr ? "✓ IDR" : "✗ No IDR"
-                  }</span>`
+              _overrideReason
+                ? `<div style="color:#e3b341;font-size:.62rem;margin-top:2px">⚡ ${_overrideReason}</div>`
                 : ""
             }
-            ${
-              !isFailed && item.gop_type
-                ? `<span class="hi-badge ${gopTypeCls}">GOP ${item.gop_type}</span>`
-                : ""
-            }
-            <span class="hi-badge ${statusCls}">${statusLabel}</span>
-            <span style="font-family:var(--mono);font-size:.58rem;color:var(--muted);opacity:.7" title="Tested by ${
-              item.username || "anonymous"
-            }">👤 ${(item.username || "anonymous").split("@")[0]}</span>
-            ${schedBadge}${logBadge}${rerunBtn}${tagBadges}${tsLink}
           </div>
         </div>
-      </div>`;
-            })
-            .join("");
-
-          // Update bulk bar to reflect persistent selection
-          const bar = document.getElementById("bulk-bar");
-          document.getElementById(
-            "bulk-count"
-          ).textContent = `${_checkedFiles.size} selected`;
-          bar.classList.toggle("visible", _checkedFiles.size > 0);
-        } catch (e) {
-          console.error(e);
-        }
-      }
-
-      function resolveHost(ip) {
-        return _srtPresets[ip] || ip || "—";
-      }
-
-      let _currentResultFile = null;
-
-      async function loadResult(file) {
-        try {
-          const res = await fetch(
-            `${PROXY}/gop/result/${encodeURIComponent(file)}`
-          );
-          const data = await res.json();
-          _currentResultFile = file; // store so override knows which file to patch
-          data.res_file = file; // inject so renderResult TS download works
-          document.getElementById("placeholder").style.display = "none";
-          document.getElementById("log-card").style.display = "none";
-          renderResult(data);
-          setStatus("ok", `Loaded: ${file}`);
-        } catch (e) {
-          setStatus("err", "Failed to load result.");
-        }
-      }
-
-      // ── Bulk delete ───────────────────────────────────────────────────
-      function updateBulkBar() {
-        const checked = [...document.querySelectorAll(".hist-item-cb:checked")];
-        const bar = document.getElementById("bulk-bar");
-        document.getElementById(
-          "bulk-count"
-        ).textContent = `${checked.length} selected`;
-        bar.classList.toggle("visible", checked.length > 0);
-      }
-
-      function openBulkDeleteModal() {
-        _pendingDeleteFiles = [..._checkedFiles];
-        if (!_pendingDeleteFiles.length) return;
-        document.getElementById(
-          "delete-modal-body"
-        ).innerHTML = `Permanently delete <strong style="color:var(--red)">${_pendingDeleteFiles.length}</strong> result(s)?<br>This action is <strong style="color:var(--red)">irreversible</strong>.`;
-        document.getElementById("delete-pw").value = "";
-        document.getElementById("delete-pw").style.display = _hasAdminPw
-          ? ""
-          : "none";
-        document.getElementById("delete-err").textContent = "";
-        document.getElementById("delete-modal").classList.add("open");
-      }
-
-      function closeDeleteModal() {
-        document.getElementById("delete-modal").classList.remove("open");
-        _pendingDeleteFiles = [];
-      }
-
-      async function confirmDelete() {
-        const pw = document.getElementById("delete-pw").value;
-        const errEl = document.getElementById("delete-err");
-        errEl.textContent = "";
-        const headers = {};
-        if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
-
-        let anyFailed = false;
-        for (const file of _pendingDeleteFiles) {
-          try {
-            const res = await fetch(
-              `${PROXY}/gop/delete/${encodeURIComponent(file)}`,
-              { method: "DELETE", headers }
-            );
-            const data = await res.json();
-            if (res.status === 403) {
-              document.getElementById("delete-pw").classList.add("error");
-              errEl.textContent = "❌ Invalid password";
-              return;
-            }
-            if (!data.success) anyFailed = true;
-          } catch (e) {
-            anyFailed = true;
-          }
-        }
-
-        closeDeleteModal();
-        _checkedFiles.clear();
-        document.getElementById("bulk-bar").classList.remove("visible");
-        loadHistory();
-      }
-
-      // ── Progress ─────────────────────────────────────────────────────
-      function startProgress(dur) {
-        clearInterval(_progTimer);
-        let pct = 0;
-        const fill = document.getElementById("progress-fill");
-        fill.style.background = "var(--purple)";
-        _progTimer = setInterval(() => {
-          pct = pct + (95 - pct) * (1.2 / dur);
-          fill.style.width = Math.min(pct, 95) + "%";
-        }, 1000);
-      }
-      function stopProgress(ok) {
-        clearInterval(_progTimer);
-        const fill = document.getElementById("progress-fill");
-        fill.style.width = "100%";
-        fill.style.background = ok ? "var(--green)" : "var(--red)";
-        setTimeout(() => {
-          fill.style.width = "0%";
-          fill.style.background = "var(--purple)";
-        }, 2500);
-      }
-
-      function setStatus(t, m) {
-        document.getElementById("dot").className =
-          "dot " + (t === "running" ? "running" : t === "ok" ? "ok" : "err");
-        document.getElementById("status-text").textContent = m;
-      }
-      function fmtBytes(b) {
-        return b > 1e9
-          ? (b / 1e9).toFixed(2) + "GB"
-          : b > 1e6
-          ? (b / 1e6).toFixed(1) + "MB"
-          : (b / 1e3).toFixed(0) + "KB";
-      }
-      function fmtBps(b) {
-        return b > 1e6
-          ? (b / 1e6).toFixed(2) + " Mbps"
-          : b > 1e3
-          ? (b / 1e3).toFixed(0) + " Kbps"
-          : b + " bps";
-      }
-
-      document
-        .getElementById("delete-modal")
-        .addEventListener("click", function (e) {
-          if (e.target === this) closeDeleteModal();
-        });
-
-      // ── Override ──────────────────────────────────────────────────────
-      let _currentResult = null;
-      let _overrideReason = null;
-
-      function openOverrideModal() {
-        document.getElementById("override-reason").value =
-          _overrideReason || "";
-        document.getElementById("override-reason-err").textContent = "";
-        document.getElementById("override-modal").classList.add("open");
-        setTimeout(
-          () => document.getElementById("override-reason").focus(),
-          100
-        );
-      }
-      function closeOverrideModal() {
-        document.getElementById("override-modal").classList.remove("open");
-      }
-      async function confirmOverride() {
-        const reason = document.getElementById("override-reason").value.trim();
-        if (!reason) {
-          document.getElementById("override-reason-err").textContent =
-            "Justification is required.";
-          return;
-        }
-        const file =
-          _currentResultFile || (_currentResult && _currentResult.res_file);
-        if (file) {
-          try {
-            await fetch(`${PROXY}/gop/override/${encodeURIComponent(file)}`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ reason }),
-            });
-            if (_currentResult) {
-              _currentResult.override = {
-                reason,
-                applied_at: new Date().toISOString(),
-              };
-              _currentResult.overall_status = "ACCEPTED (Override)";
-            }
-          } catch (e) {
-            console.error("Override save failed:", e);
-          }
-        }
-        _overrideReason = reason;
-        closeOverrideModal();
-        applyOverride(reason);
-        loadHistory();
-      }
-      function applyOverride(reason) {
-        document.getElementById(
-          "overall-badge"
-        ).innerHTML = `<span class="status-pill" style="background:rgba(227,179,65,.15);color:var(--yellow);border:1px solid var(--yellow);font-size:.72rem;padding:3px 12px;cursor:pointer" onclick="document.getElementById('override-detail-modal').classList.add('open')">⚡ ACCEPTED (Override) ℹ</span>`;
-        document.getElementById("override-reason-display").textContent = reason;
-        document.getElementById("override-notice").style.display = "";
-        document.getElementById("override-detail-reason").textContent = reason;
-        document.getElementById("btn-override").textContent = "⚡ Override ℹ";
-        document.getElementById("btn-override").style.borderColor =
-          "var(--green)";
-        document.getElementById("btn-override").style.color = "var(--green)";
-        document.getElementById("btn-override").onclick = () =>
-          document
-            .getElementById("override-detail-modal")
-            .classList.add("open");
-      }
-      async function resetOverride() {
-        const file =
-          _currentResultFile || (_currentResult && _currentResult.res_file);
-        if (file) {
-          try {
-            const res = await fetch(
-              `${PROXY}/gop/override/${encodeURIComponent(file)}`,
-              { method: "DELETE" }
-            );
-            const d = await res.json();
-            if (_currentResult)
-              _currentResult.overall_status = d.overall_status || "UNKNOWN";
-          } catch (e) {
-            console.error("Override remove failed:", e);
-          }
-        }
-        _overrideReason = null;
-        if (_currentResult) _currentResult.override = null;
-        document
-          .getElementById("override-detail-modal")
-          .classList.remove("open");
-        document.getElementById("override-notice").style.display = "none";
-        const os = _currentResult
-          ? _currentResult.overall_status || "UNKNOWN"
-          : "UNKNOWN";
-        const overrideBtn = document.getElementById("btn-override");
-        if (os.includes("REJECTED")) {
-          overrideBtn.style.display = "";
-          overrideBtn.textContent = "⚡ Override";
-          overrideBtn.style.borderColor = "var(--yellow)";
-          overrideBtn.style.color = "var(--yellow)";
-          overrideBtn.onclick = openOverrideModal;
-        } else {
-          overrideBtn.style.display = "none";
-        }
-        if (_currentResult) {
-          document.getElementById(
-            "overall-badge"
-          ).innerHTML = `<span class="status-pill ${os}" style="font-size:.72rem;padding:3px 12px">${os}</span>`;
-        }
-        loadHistory();
-      }
-
-      // ── Generate Report ───────────────────────────────────────────────
-      // ── Report modal tabs ─────────────────────────────────────────────
-      function showReportTab(tab) {
-        const isVis = tab === "visual";
-        document.getElementById("report-visual-pane").style.display = isVis
-          ? "flex"
-          : "none";
-        document.getElementById("report-text-pane").style.display = isVis
-          ? "none"
-          : "flex";
-        const tabVis = document.getElementById("tab-visual");
-        const tabTxt = document.getElementById("tab-text");
-        tabVis.style.background = isVis ? "var(--cyan)" : "transparent";
-        tabVis.style.color = isVis ? "#000" : "var(--muted)";
-        tabVis.style.border = isVis ? "none" : "1px solid var(--border)";
-        tabTxt.style.background = isVis ? "transparent" : "var(--cyan)";
-        tabTxt.style.color = isVis ? "var(--muted)" : "#000";
-        tabTxt.style.border = isVis ? "1px solid var(--border)" : "none";
-      }
-      function closeReportModal() {
-        document.getElementById("report-modal").classList.remove("open");
-      }
-
-      function generateReport() {
-        if (!_currentResult) return;
-        const r = _currentResult;
-        const now =
-          new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC";
-        const testDate =
-          (r.started_at || "").replace("T", " ").slice(0, 19) + " UTC";
-        const serverName = resolveHost(r.url_host) || r.url_host;
-        const port = r.url_port || "?";
-        const tags =
-          (r.tag || "")
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean)
-            .join(", ") || "—";
-        const testId = r.test_id || "—";
-        const overallStat = _overrideReason
-          ? "ACCEPTED (Override)"
-          : r.overall_status || "UNKNOWN";
-        const aCodec = r.a_codec_display || (r.a_codec || "?").toUpperCase();
-        const fps_eff = r.v_fps_compliance || r.v_fps_val || 0;
-        const c = r.compliance || {};
-
-        // Status colours
-        const statusCol = overallStat.includes("COMPLIANT")
-          ? "#3fb950"
-          : overallStat.includes("ACCEPTED")
-          ? "#e3b341"
-          : overallStat.includes("REJECTED")
-          ? "#f85149"
-          : "#58a6ff";
-
-        // Pill helper for visual
-        const pill = (status) => {
-          const bg =
-            {
-              COMPLIANT: "rgba(63,185,80,.15)",
-              ACCEPTED: "rgba(227,179,65,.15)",
-              REJECTED: "rgba(248,81,73,.15)",
-            }[status] || "rgba(255,255,255,.04)";
-          const col =
-            { COMPLIANT: "#3fb950", ACCEPTED: "#e3b341", REJECTED: "#f85149" }[
-              status
-            ] || "#6e7681";
-          return `<span style="display:inline-block;background:${bg};color:${col};border:1px solid ${col};border-radius:3px;padding:1px 7px;font-size:.62rem;font-weight:700">${
-            status || "—"
-          }</span>`;
-        };
-
-        // Visual table row
-        const vrow = (label, spec, measured, key) => {
-          const [s] = c[key] || ["—"];
-          return `<tr style="border-bottom:1px solid rgba(255,255,255,.05)">
-      <td style="padding:.22rem .5rem;color:#8b949e;white-space:nowrap;font-size:.7rem">${label}</td>
-      <td style="padding:.22rem .5rem;color:#6e7681;font-size:.64rem">${spec}</td>
-      <td style="padding:.22rem .5rem;font-weight:600;font-size:.7rem">${
-        measured || "—"
-      }</td>
-      <td style="padding:.22rem .5rem;text-align:right">${pill(s)}</td></tr>`;
-        };
-        const vsec = (t) =>
-          `<tr><td colspan="4" style="padding:.28rem .5rem .1rem;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:#6e7681;background:rgba(255,255,255,.02)">${t}</td></tr>`;
-
-        // ── VISUAL HTML ──────────────────────────────────────────────────
-        document.getElementById("report-visual-content").innerHTML = `
-  <div style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:#c9d1d9;background:#080c10;border-radius:8px;padding:.85rem;max-width:100%;margin:0 auto">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.85rem;flex-wrap:wrap;gap:.4rem">
-      <div>
-        <div style="font-size:.95rem;font-weight:700;color:#fff">SP SO Video Analyser</div>
-        <div style="color:#58a6ff;font-size:.72rem;margin-top:2px">${serverName}:${port}</div>
-        <div style="color:#484f58;font-size:.63rem;margin-top:2px">${
-          r.url || "—"
-        }</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-size:1.3rem;font-weight:700;color:${statusCol};line-height:1.1">${overallStat}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.2rem .75rem;margin-bottom:.75rem;font-size:.67rem;border:1px solid rgba(255,255,255,.07);border-radius:5px;padding:.5rem .6rem;background:rgba(255,255,255,.02)">
+          <div><span style="color:#6e7681">Test ID: </span><span style="color:#fff">${testId}</span></div>
+          <div><span style="color:#6e7681">Generated: </span>${now}</div>
+          <div><span style="color:#6e7681">Test Date: </span>${testDate}</div>
+          <div><span style="color:#6e7681">Tags: </span><span style="color:#e3b341">${tags}</span></div>
+          <div style="grid-column:1/-1"><span style="color:#6e7681">Tested by: </span><span style="color:#a18bf5">${r.username || 'anonymous'}</span></div>
+        </div>
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="border-bottom:1px solid rgba(255,255,255,.12)">
+            <th style="text-align:left;padding:.28rem .5rem;color:#6e7681;font-size:.6rem;text-transform:uppercase">Element</th>
+            <th style="text-align:left;padding:.28rem .5rem;color:#6e7681;font-size:.6rem;text-transform:uppercase">Spec</th>
+            <th style="text-align:left;padding:.28rem .5rem;color:#6e7681;font-size:.6rem;text-transform:uppercase">Measured</th>
+            <th style="text-align:right;padding:.28rem .5rem;color:#6e7681;font-size:.6rem;text-transform:uppercase">Result</th>
+          </thead><tbody>
+            ${vsec("MEDIA PROFILE")}
+            ${vrow(
+              "Overall Bitrate",
+              "5.0–18.0 (8–15) Mbps",
+              `${r.file_br_mbps || "—"} Mbps`,
+              "overall_br"
+            )}
+            ${vsec("VIDEO")}
+            ${vrow(
+              "GOP Size",
+              "30 or 50 frames",
+              `${r.gop_avg || "—"} frames`,
+              "gop_size"
+            )}
+            ${vrow("GOP Type", "CLOSED", r.gop_type || "—", "gop_type")}
+            ${vrow(
+              "IDR Frames",
+              "Required",
+              r.has_idr ? "Present" : "ABSENT",
+              "idr"
+            )}
+            ${vrow(
+              "B-Frames",
+              "Absent (preferred)",
+              r.has_b_frames ? "Present" : "Absent",
+              "b_frames"
+            )}
+            ${vrow(
+              "Frame Size",
+              "1920×1080",
+              `${r.v_width || "?"}×${r.v_height || "?"}`,
+              "frame_size"
+            )}
+            ${vrow("Aspect Ratio", "16:9", r.v_dar || "—", "aspect_ratio")}
+            ${vrow("Chroma", "4:2:0", r.v_chroma || "—", "chroma")}
+            ${vrow(
+              "Scan Type",
+              "progressive / interlaced",
+              r.v_scan || "—",
+              "scan_type"
+            )}
+            ${vrow("Bit Depth", "8", String(r.v_bits || "—"), "bit_depth")}
+            ${vrow("Colour Gamut", "bt709", r.v_color_sp || "—", "colour_gamut")}
+            ${vrow("Codec", "AVC H.264", (r.v_codec || "?").toUpperCase(), "codec")}
+            ${vrow("CODEC Level", "4.0–4.2", r.v_level || "—", "codec_level")}
+            ${vrow(
+              "CODEC Profile",
+              "Main / High",
+              r.v_profile || "—",
+              "codec_profile"
+            )}
+            ${vrow("Entropy", "CABAC", r.v_entropy || "—", "entropy")}
+            ${vrow(
+              "Video Bitrate",
+              "5.0–18.0 Mbps",
+              `${r.v_br_mbps || "—"} Mbps`,
+              "v_br"
+            )}
+            ${vrow("SDR/HDR", "SDR", r.v_hdr || "—", "hdr_scheme")}
+            ${vrow(
+              "Frame Rate",
+              "25.0 / 29.97 / 30.0",
+              `${fps_eff.toFixed(3)}${
+                r.v_scan === "interlaced" && (r.v_fps_val || 0) > 30
+                  ? " (50i→25fps)"
+                  : ""
+              }`,
+              "fps"
+            )}
+            ${vsec("AUDIO")}
+            ${vrow("Audio Coding", "AAC-LC / MP1 / MP2", aCodec, "a_codec")}
+            ${vrow(
+              "Audio Streams",
+              "1–32 (prefer 2)",
+              String(r.audio_tracks || "—"),
+              "a_streams"
+            )}
+            ${vrow(
+              "Audio Channels",
+              "2",
+              String(r.a_channels || "—"),
+              "a_channels"
+            )}
+            ${vrow(
+              "Sample Rate",
+              "44.1–48.0 kHz",
+              r.a_rate_khz ? r.a_rate_khz + " kHz" : "—",
+              "a_sample_rate"
+            )}
+            ${vrow("Bits per Sample", "FLTP / 16", r.a_bps || "—", "a_bits")}
+            ${vrow(
+              "Audio Bitrate",
+              "118–512 Kbps",
+              r.a_br_kbps ? r.a_br_kbps + " Kbps" : "—",
+              "a_br_kbps"
+            )}
+            ${vsec("AV SYNC & TIMING")}
+            ${vrow(
+              "AV Sync Avg Offset",
+              "< 15 ms preferred",
+              r.av_sync_avg_ms != null ? r.av_sync_avg_ms + " ms" : "—",
+              "av_sync_warn"
+            )}
+            ${vrow(
+              "AV Sync Max Offset",
+              "< 175 ms hard limit",
+              r.av_sync_max_ms != null ? r.av_sync_max_ms + " ms" : "—",
+              "av_sync_max"
+            )}
+            ${vrow(
+              "Video PTS Jitter",
+              "< 5.0 ms",
+              r.v_pts_jitter_ms != null ? r.v_pts_jitter_ms + " ms" : "—",
+              "v_pts_jitter"
+            )}
+            ${vrow(
+              "Audio PTS Jitter",
+              "< 5.0 ms",
+              r.a_pts_jitter_ms != null ? r.a_pts_jitter_ms + " ms" : "—",
+              "a_pts_jitter"
+            )}
+          </tbody>
+        </table>
         ${
           _overrideReason
-            ? `<div style="color:#e3b341;font-size:.62rem;margin-top:2px">⚡ ${_overrideReason}</div>`
+            ? `<div style="margin-top:.6rem;padding:.45rem .6rem;background:rgba(227,179,65,.08);border:1px solid rgba(227,179,65,.3);border-radius:5px;font-size:.67rem"><span style="color:#e3b341;font-weight:700">⚡ OVERRIDE: </span>${_overrideReason}</div>`
             : ""
         }
-      </div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.2rem .75rem;margin-bottom:.75rem;font-size:.67rem;border:1px solid rgba(255,255,255,.07);border-radius:5px;padding:.5rem .6rem;background:rgba(255,255,255,.02)">
-      <div><span style="color:#6e7681">Test ID: </span><span style="color:#fff">${testId}</span></div>
-      <div><span style="color:#6e7681">Generated: </span>${now}</div>
-      <div><span style="color:#6e7681">Test Date: </span>${testDate}</div>
-      <div><span style="color:#6e7681">Tags: </span><span style="color:#e3b341">${tags}</span></div>
-      <div style="grid-column:1/-1"><span style="color:#6e7681">Tested by: </span><span style="color:#a18bf5">${
-        r.username || "anonymous"
-      }</span></div>
-    </div>
-    <table style="width:100%;border-collapse:collapse">
-      <thead><tr style="border-bottom:1px solid rgba(255,255,255,.12)">
-        <th style="text-align:left;padding:.28rem .5rem;color:#6e7681;font-size:.6rem;text-transform:uppercase">Element</th>
-        <th style="text-align:left;padding:.28rem .5rem;color:#6e7681;font-size:.6rem;text-transform:uppercase">Spec</th>
-        <th style="text-align:left;padding:.28rem .5rem;color:#6e7681;font-size:.6rem;text-transform:uppercase">Measured</th>
-        <th style="text-align:right;padding:.28rem .5rem;color:#6e7681;font-size:.6rem;text-transform:uppercase">Result</th>
-      </thead><tbody>
-        ${vsec("MEDIA PROFILE")}
-        ${vrow(
-          "Overall Bitrate",
-          "5.0–18.0 (8–15) Mbps",
-          `${r.file_br_mbps || "—"} Mbps`,
-          "overall_br"
-        )}
-        ${vsec("VIDEO")}
-        ${vrow(
-          "GOP Size",
-          "30 or 50 frames",
-          `${r.gop_avg || "—"} frames`,
-          "gop_size"
-        )}
-        ${vrow("GOP Type", "CLOSED", r.gop_type || "—", "gop_type")}
-        ${vrow(
-          "IDR Frames",
-          "Required",
-          r.has_idr ? "Present" : "ABSENT",
-          "idr"
-        )}
-        ${vrow(
-          "B-Frames",
-          "Absent (preferred)",
-          r.has_b_frames ? "Present" : "Absent",
-          "b_frames"
-        )}
-        ${vrow(
-          "Frame Size",
-          "1920×1080",
-          `${r.v_width || "?"}×${r.v_height || "?"}`,
-          "frame_size"
-        )}
-        ${vrow("Aspect Ratio", "16:9", r.v_dar || "—", "aspect_ratio")}
-        ${vrow("Chroma", "4:2:0", r.v_chroma || "—", "chroma")}
-        ${vrow(
-          "Scan Type",
-          "progressive / interlaced",
-          r.v_scan || "—",
-          "scan_type"
-        )}
-        ${vrow("Bit Depth", "8", String(r.v_bits || "—"), "bit_depth")}
-        ${vrow("Colour Gamut", "bt709", r.v_color_sp || "—", "colour_gamut")}
-        ${vrow("Codec", "AVC H.264", (r.v_codec || "?").toUpperCase(), "codec")}
-        ${vrow("CODEC Level", "4.0–4.2", r.v_level || "—", "codec_level")}
-        ${vrow(
-          "CODEC Profile",
-          "Main / High",
-          r.v_profile || "—",
-          "codec_profile"
-        )}
-        ${vrow("Entropy", "CABAC", r.v_entropy || "—", "entropy")}
-        ${vrow(
-          "Video Bitrate",
-          "5.0–18.0 Mbps",
-          `${r.v_br_mbps || "—"} Mbps`,
-          "v_br"
-        )}
-        ${vrow("SDR/HDR", "SDR", r.v_hdr || "—", "hdr_scheme")}
-        ${vrow(
-          "Frame Rate",
-          "25.0 / 29.97 / 30.0",
-          `${fps_eff.toFixed(3)}${
-            r.v_scan === "interlaced" && (r.v_fps_val || 0) > 30
-              ? " (50i→25fps)"
-              : ""
-          }`,
-          "fps"
-        )}
-        ${vsec("AUDIO")}
-        ${vrow("Audio Coding", "AAC-LC / MP1 / MP2", aCodec, "a_codec")}
-        ${vrow(
-          "Audio Streams",
-          "1–32 (prefer 2)",
-          String(r.audio_tracks || "—"),
-          "a_streams"
-        )}
-        ${vrow(
-          "Audio Channels",
-          "2",
-          String(r.a_channels || "—"),
-          "a_channels"
-        )}
-        ${vrow(
-          "Sample Rate",
-          "44.1–48.0 kHz",
-          r.a_rate_khz ? r.a_rate_khz + " kHz" : "—",
-          "a_sample_rate"
-        )}
-        ${vrow("Bits per Sample", "FLTP / 16", r.a_bps || "—", "a_bits")}
-        ${vrow(
-          "Audio Bitrate",
-          "118–512 Kbps",
-          r.a_br_kbps ? r.a_br_kbps + " Kbps" : "—",
-          "a_br_kbps"
-        )}
-        ${vsec("AV SYNC & TIMING")}
-        ${vrow(
-          "AV Sync Avg Offset",
-          "< 15 ms preferred",
-          r.av_sync_avg_ms != null ? r.av_sync_avg_ms + " ms" : "—",
-          "av_sync_warn"
-        )}
-        ${vrow(
-          "AV Sync Max Offset",
-          "< 175 ms hard limit",
-          r.av_sync_max_ms != null ? r.av_sync_max_ms + " ms" : "—",
-          "av_sync_max"
-        )}
-        ${vrow(
-          "Video PTS Jitter",
-          "< 5.0 ms",
-          r.v_pts_jitter_ms != null ? r.v_pts_jitter_ms + " ms" : "—",
-          "v_pts_jitter"
-        )}
-        ${vrow(
-          "Audio PTS Jitter",
-          "< 5.0 ms",
-          r.a_pts_jitter_ms != null ? r.a_pts_jitter_ms + " ms" : "—",
-          "a_pts_jitter"
-        )}
-      </tbody>
-    </table>
-    ${
-      _overrideReason
-        ? `<div style="margin-top:.6rem;padding:.45rem .6rem;background:rgba(227,179,65,.08);border:1px solid rgba(227,179,65,.3);border-radius:5px;font-size:.67rem"><span style="color:#e3b341;font-weight:700">⚡ OVERRIDE: </span>${_overrideReason}</div>`
-        : ""
-    }
-    ${(() => {
-      const gops = r.gops || [];
-      const pats = r.gop_patterns || [];
-      if (!gops.length && !pats.length) return "";
-      const all = gops.flat();
-      const iCnt = all.filter((f) => f.key).length;
-      const pCnt = all.filter((f) => f.type === "P").length;
-      const bCnt = all.filter((f) => f.type === "B").length;
-      const frameCell = (f) => {
-        const col = f.idr
-          ? "#3fb950"
-          : f.key
-          ? "#58d68d"
-          : f.type === "P"
-          ? "#58a6ff"
-          : f.type === "B"
-          ? "#faa51a"
-          : "#6e7681";
-        const bg = f.idr
-          ? "rgba(63,185,80,.18)"
-          : f.key
-          ? "rgba(63,185,80,.08)"
-          : f.type === "P"
-          ? "rgba(88,166,255,.12)"
-          : f.type === "B"
-          ? "rgba(250,165,26,.12)"
-          : "rgba(255,255,255,.04)";
-        const lbl = f.idr ? "I" : f.type || "?";
-        return `<span style="display:inline-block;width:13px;height:13px;line-height:13px;text-align:center;font-size:.48rem;font-weight:700;border-radius:2px;background:${bg};color:${col};margin:1px" title="${
-          f.idr ? "IDR" : f.type
-        }">${lbl}</span>`;
-      };
-      const gopRows = gops
-        .slice(0, 12)
-        .map(
-          (g, i) =>
+        ${(() => {
+          const gops = r.gops || [];
+          const pats = r.gop_patterns || [];
+          if (!gops.length && !pats.length) return '';
+          const all = gops.flat();
+          const iCnt = all.filter(f => f.key).length;
+          const pCnt = all.filter(f => f.type === 'P').length;
+          const bCnt = all.filter(f => f.type === 'B').length;
+          const frameCell = (f) => {
+            const col = f.idr ? '#3fb950' : f.key ? '#58d68d' : f.type === 'P' ? '#58a6ff' : f.type === 'B' ? '#faa51a' : '#6e7681';
+            const bg = f.idr ? 'rgba(63,185,80,.18)' : f.key ? 'rgba(63,185,80,.08)' : f.type === 'P' ? 'rgba(88,166,255,.12)' : f.type === 'B' ? 'rgba(250,165,26,.12)' : 'rgba(255,255,255,.04)';
+            const lbl = f.idr ? 'I' : f.type || '?';
+            return `<span style="display:inline-block;width:13px;height:13px;line-height:13px;text-align:center;font-size:.48rem;font-weight:700;border-radius:2px;background:${bg};color:${col};margin:1px" title="${f.idr ? 'IDR' : f.type}">${lbl}</span>`;
+          };
+          const gopRows = gops.slice(0, 12).map((g, i) =>
             `<div style="display:flex;align-items:center;gap:3px;margin-bottom:2px">
-          <span style="color:#6e7681;font-size:.58rem;width:32px;flex-shrink:0">GOP ${
-            i + 1
-          }</span>
-          <span style="display:flex;flex-wrap:wrap;gap:0">${g
-            .map(frameCell)
-            .join("")}</span>
-          <span style="color:#484f58;font-size:.55rem;margin-left:3px">${
-            g.length
-          }f</span>
-        </div>`
-        )
-        .join("");
-      return `<div style="margin-top:.65rem;padding:.5rem .6rem;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:5px">
-        <div style="font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:#6e7681;margin-bottom:.4rem">GOP Structure</div>
-        <div style="display:flex;gap:1rem;font-size:.65rem;margin-bottom:.4rem">
-          <span><span style="color:#3fb950;font-weight:700">I</span> <span style="color:#8b949e">${iCnt} IDR</span></span>
-          <span><span style="color:#58a6ff;font-weight:700">P</span> <span style="color:#8b949e">${pCnt} frames</span></span>
-          <span><span style="color:#faa51a;font-weight:700">B</span> <span style="color:#8b949e">${bCnt} frames</span></span>
-          <span style="color:#8b949e">Avg GOP: ${r.gop_avg || "—"}f</span>
-        </div>
-        ${gopRows}
-        ${
-          gops.length > 12
-            ? `<div style="color:#484f58;font-size:.58rem;margin-top:2px">…and ${
-                gops.length - 12
-              } more GOPs</div>`
-            : ""
-        }
+              <span style="color:#6e7681;font-size:.58rem;width:32px;flex-shrink:0">GOP ${i+1}</span>
+              <span style="display:flex;flex-wrap:wrap;gap:0">${g.map(frameCell).join('')}</span>
+              <span style="color:#484f58;font-size:.55rem;margin-left:3px">${g.length}f</span>
+            </div>`
+          ).join('');
+          return `<div style="margin-top:.65rem;padding:.5rem .6rem;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:5px">
+            <div style="font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:#6e7681;margin-bottom:.4rem">GOP Structure</div>
+            <div style="display:flex;gap:1rem;font-size:.65rem;margin-bottom:.4rem">
+              <span><span style="color:#3fb950;font-weight:700">I</span> <span style="color:#8b949e">${iCnt} IDR</span></span>
+              <span><span style="color:#58a6ff;font-weight:700">P</span> <span style="color:#8b949e">${pCnt} frames</span></span>
+              <span><span style="color:#faa51a;font-weight:700">B</span> <span style="color:#8b949e">${bCnt} frames</span></span>
+              <span style="color:#8b949e">Avg GOP: ${r.gop_avg || '—'}f</span>
+            </div>
+            ${gopRows}
+            ${gops.length > 12 ? `<div style="color:#484f58;font-size:.58rem;margin-top:2px">…and ${gops.length - 12} more GOPs</div>` : ''}
+          </div>`;
+        })()}
+        <div style="margin-top:.6rem;font-size:.58rem;color:#484f58;text-align:center">SP SO Web Toolbox · SO Video Analyser · Pre-validation only — not a formal compliance certification</div>
       </div>`;
-    })()}
-    <div style="margin-top:.6rem;font-size:.58rem;color:#484f58;text-align:center">SP SO Web Toolbox · SO Video Analyser · Pre-validation only — not a formal compliance certification</div>
-  </div>`;
 
-        // ── TEXT (monospaced, copy-paste for ServiceNow / Jira) ──────────
-        const W1 = 28,
-          W2 = 20,
-          W3 = 18,
-          W4 = 12;
-        const hdr = `${"ELEMENT".padEnd(W1)} ${"SPEC".padEnd(
-          W2
-        )} ${"MEASURED".padEnd(W3)} RESULT`;
-        const sep = "─".repeat(W1 + W2 + W3 + W4 + 3);
-        const tr = (el, spec, meas, key) => {
-          const [s] = c[key] || ["—"];
-          return `${el.padEnd(W1)} ${spec.padEnd(W2)} ${String(
-            meas || "—"
-          ).padEnd(W3)} ${s}`;
-        };
+            // ── TEXT (monospaced, copy-paste for ServiceNow / Jira) ──────────
+            const W1 = 28,
+              W2 = 20,
+              W3 = 18,
+              W4 = 12;
+            const hdr = `${"ELEMENT".padEnd(W1)} ${"SPEC".padEnd(
+              W2
+            )} ${"MEASURED".padEnd(W3)} RESULT`;
+            const sep = "─".repeat(W1 + W2 + W3 + W4 + 3);
+            const tr = (el, spec, meas, key) => {
+              const [s] = c[key] || ["—"];
+              return `${el.padEnd(W1)} ${spec.padEnd(W2)} ${String(
+                meas || "—"
+              ).padEnd(W3)} ${s}`;
+            };
 
-        document.getElementById("report-text").value = [
-          `SO VIDEO ANALYSER — TEST REPORT`,
-          sep,
-          `Test ID   : ${testId}`,
-          `Generated : ${now}`,
-          `Test Date : ${testDate}`,
-          `Tested by : ${r.username || "anonymous"}`,
-          `Server    : ${serverName}:${port}`,
-          `URL       : ${r.url || "—"}`,
-          `Tags      : ${tags}`,
-          ``,
-          `OVERALL RESULT: ${overallStat}`,
-          _overrideReason ? `OVERRIDE  : ${_overrideReason}` : null,
-          sep,
-          ``,
-          hdr,
-          sep,
-          `MEDIA PROFILE`,
-          tr(
-            "Overall Bitrate (Mbps)",
-            "5.0–18.0 (8–15)",
-            `${r.file_br_mbps || "—"} Mbps`,
-            "overall_br"
-          ),
-          ``,
-          `VIDEO`,
-          tr(
-            "GOP Size",
-            "30 or 50 frames",
-            `${r.gop_avg || "—"} frames`,
-            "gop_size"
-          ),
-          tr("GOP Type", "CLOSED", r.gop_type || "—", "gop_type"),
-          tr("IDR Frames", "Required", r.has_idr ? "Present" : "ABSENT", "idr"),
-          tr(
-            "B-Frames",
-            "Absent (preferred)",
-            r.has_b_frames ? "Present" : "Absent",
-            "b_frames"
-          ),
-          tr(
-            "Frame Size",
-            "1920×1080",
-            `${r.v_width || "?"}x${r.v_height || "?"}`,
-            "frame_size"
-          ),
-          tr("Aspect Ratio", "16:9", r.v_dar || "—", "aspect_ratio"),
-          tr("Chroma", "4:2:0", r.v_chroma || "—", "chroma"),
-          tr("Scan Type", "prog/interlaced", r.v_scan || "—", "scan_type"),
-          tr("Bit Depth", "8", String(r.v_bits || "—"), "bit_depth"),
-          tr("Colour Gamut", "bt709", r.v_color_sp || "—", "colour_gamut"),
-          tr("Codec", "AVC H.264", (r.v_codec || "?").toUpperCase(), "codec"),
-          tr("CODEC Level", "4.0–4.2", r.v_level || "—", "codec_level"),
-          tr(
-            "CODEC Profile",
-            "Main / High",
-            r.v_profile || "—",
-            "codec_profile"
-          ),
-          tr("Entropy", "CABAC", r.v_entropy || "—", "entropy"),
-          tr(
-            "Video Bitrate",
-            "5.0–18.0 Mbps",
-            `${r.v_br_mbps || "—"} Mbps`,
-            "v_br"
-          ),
-          tr("SDR/HDR", "SDR", r.v_hdr || "—", "hdr_scheme"),
-          tr(
-            "Frame Rate",
-            "25.0/29.97/30.0",
-            `${fps_eff.toFixed(3)}${
-              r.v_scan === "interlaced" && (r.v_fps_val || 0) > 30
-                ? " (50i)"
-                : ""
-            }`,
-            "fps"
-          ),
-          ``,
-          `AUDIO`,
-          tr("Audio Coding", "AAC-LC/MP1/MP2", aCodec, "a_codec"),
-          tr(
-            "Audio Streams",
-            "1–32 (prefer 2)",
-            String(r.audio_tracks || "—"),
-            "a_streams"
-          ),
-          tr("Audio Channels", "2", String(r.a_channels || "—"), "a_channels"),
-          tr(
-            "Sample Rate",
-            "44.1–48.0 kHz",
-            r.a_rate_khz ? r.a_rate_khz + " kHz" : "—",
-            "a_sample_rate"
-          ),
-          tr("Bits per Sample", "FLTP / 16", r.a_bps || "—", "a_bits"),
-          tr(
-            "Audio Bitrate",
-            "118–512 Kbps",
-            r.a_br_kbps ? r.a_br_kbps + " Kbps" : "—",
-            "a_br_kbps"
-          ),
-          ``,
-          `AV SYNC & TIMING`,
-          tr(
-            "AV Sync Avg Offset",
-            "< 15 ms preferred",
-            r.av_sync_avg_ms != null ? r.av_sync_avg_ms + " ms" : "—",
-            "av_sync_warn"
-          ),
-          tr(
-            "AV Sync Max Offset",
-            "< 175 ms hard limit",
-            r.av_sync_max_ms != null ? r.av_sync_max_ms + " ms" : "—",
-            "av_sync_max"
-          ),
-          tr(
-            "Video PTS Jitter",
-            "< 5.0 ms",
-            r.v_pts_jitter_ms != null ? r.v_pts_jitter_ms + " ms" : "—",
-            "v_pts_jitter"
-          ),
-          tr(
-            "Audio PTS Jitter",
-            "< 5.0 ms",
-            r.a_pts_jitter_ms != null ? r.a_pts_jitter_ms + " ms" : "—",
-            "a_pts_jitter"
-          ),
-          sep,
-          `GOP STRUCTURE`,
-          ...(() => {
-            const gops = r.gop_patterns || [];
-            if (!gops.length) return ["(no GOP data available)"];
-            return gops
-              .slice(0, 15)
-              .map(
-                (pat, i) =>
-                  `  GOP ${String(i + 1).padStart(2)}: ${pat} (${pat.length}f)`
-              );
-          })(),
-          sep,
-          `SP SO Web Toolbox — SO Video Analyser`,
-          `Pre-validation only. Not a formal compliance certification.`,
-        ]
-          .filter((l) => l !== null)
-          .join("\n");
+            document.getElementById("report-text").value = [
+              `SO VIDEO ANALYSER — TEST REPORT`,
+              sep,
+              `Test ID   : ${testId}`,
+              `Generated : ${now}`,
+              `Test Date : ${testDate}`,
+              `Tested by : ${r.username || "anonymous"}`,
+              `Tested by : ${r.username || "anonymous"}`,
+              `Server    : ${serverName}:${port}`,
+              `URL       : ${r.url || "—"}`,
+              `Tags      : ${tags}`,
+              ``,
+              `OVERALL RESULT: ${overallStat}`,
+              _overrideReason ? `OVERRIDE  : ${_overrideReason}` : null,
+              sep,
+              ``,
+              hdr,
+              sep,
+              `MEDIA PROFILE`,
+              tr(
+                "Overall Bitrate (Mbps)",
+                "5.0–18.0 (8–15)",
+                `${r.file_br_mbps || "—"} Mbps`,
+                "overall_br"
+              ),
+              ``,
+              `VIDEO`,
+              tr(
+                "GOP Size",
+                "30 or 50 frames",
+                `${r.gop_avg || "—"} frames`,
+                "gop_size"
+              ),
+              tr("GOP Type", "CLOSED", r.gop_type || "—", "gop_type"),
+              tr("IDR Frames", "Required", r.has_idr ? "Present" : "ABSENT", "idr"),
+              tr(
+                "B-Frames",
+                "Absent (preferred)",
+                r.has_b_frames ? "Present" : "Absent",
+                "b_frames"
+              ),
+              tr(
+                "Frame Size",
+                "1920×1080",
+                `${r.v_width || "?"}x${r.v_height || "?"}`,
+                "frame_size"
+              ),
+              tr("Aspect Ratio", "16:9", r.v_dar || "—", "aspect_ratio"),
+              tr("Chroma", "4:2:0", r.v_chroma || "—", "chroma"),
+              tr("Scan Type", "prog/interlaced", r.v_scan || "—", "scan_type"),
+              tr("Bit Depth", "8", String(r.v_bits || "—"), "bit_depth"),
+              tr("Colour Gamut", "bt709", r.v_color_sp || "—", "colour_gamut"),
+              tr("Codec", "AVC H.264", (r.v_codec || "?").toUpperCase(), "codec"),
+              tr("CODEC Level", "4.0–4.2", r.v_level || "—", "codec_level"),
+              tr(
+                "CODEC Profile",
+                "Main / High",
+                r.v_profile || "—",
+                "codec_profile"
+              ),
+              tr("Entropy", "CABAC", r.v_entropy || "—", "entropy"),
+              tr(
+                "Video Bitrate",
+                "5.0–18.0 Mbps",
+                `${r.v_br_mbps || "—"} Mbps`,
+                "v_br"
+              ),
+              tr("SDR/HDR", "SDR", r.v_hdr || "—", "hdr_scheme"),
+              tr(
+                "Frame Rate",
+                "25.0/29.97/30.0",
+                `${fps_eff.toFixed(3)}${
+                  r.v_scan === "interlaced" && (r.v_fps_val || 0) > 30
+                    ? " (50i)"
+                    : ""
+                }`,
+                "fps"
+              ),
+              ``,
+              `AUDIO`,
+              tr("Audio Coding", "AAC-LC/MP1/MP2", aCodec, "a_codec"),
+              tr(
+                "Audio Streams",
+                "1–32 (prefer 2)",
+                String(r.audio_tracks || "—"),
+                "a_streams"
+              ),
+              tr("Audio Channels", "2", String(r.a_channels || "—"), "a_channels"),
+              tr(
+                "Sample Rate",
+                "44.1–48.0 kHz",
+                r.a_rate_khz ? r.a_rate_khz + " kHz" : "—",
+                "a_sample_rate"
+              ),
+              tr("Bits per Sample", "FLTP / 16", r.a_bps || "—", "a_bits"),
+              tr(
+                "Audio Bitrate",
+                "118–512 Kbps",
+                r.a_br_kbps ? r.a_br_kbps + " Kbps" : "—",
+                "a_br_kbps"
+              ),
+              ``,
+              `AV SYNC & TIMING`,
+              tr(
+                "AV Sync Avg Offset",
+                "< 15 ms preferred",
+                r.av_sync_avg_ms != null ? r.av_sync_avg_ms + " ms" : "—",
+                "av_sync_warn"
+              ),
+              tr(
+                "AV Sync Max Offset",
+                "< 175 ms hard limit",
+                r.av_sync_max_ms != null ? r.av_sync_max_ms + " ms" : "—",
+                "av_sync_max"
+              ),
+              tr(
+                "Video PTS Jitter",
+                "< 5.0 ms",
+                r.v_pts_jitter_ms != null ? r.v_pts_jitter_ms + " ms" : "—",
+                "v_pts_jitter"
+              ),
+              tr(
+                "Audio PTS Jitter",
+                "< 5.0 ms",
+                r.a_pts_jitter_ms != null ? r.a_pts_jitter_ms + " ms" : "—",
+                "a_pts_jitter"
+              ),
+              sep,
+              `GOP STRUCTURE`,
+              ...(() => {
+                const gops = r.gop_patterns || [];
+                if (!gops.length) return ["(no GOP data available)"];
+                return gops
+                  .slice(0, 15)
+                  .map(
+                    (pat, i) =>
+                      `  GOP ${String(i + 1).padStart(2)}: ${pat} (${pat.length}f)`
+                  );
+              })(),
+              sep,
+              `SP SO Web Toolbox — SO Video Analyser`,
+              `Pre-validation only. Not a formal compliance certification.`,
+            ]
+              .filter((l) => l !== null)
+              .join("\n");
 
-        showReportTab("visual");
-        document.getElementById("report-modal").classList.add("open");
-      }
-
-      async function copyReport() {
-        const text = document.getElementById("report-text").value;
-        if (!text) {
-          showReportTab("text");
-          return;
-        }
-        try {
-          await navigator.clipboard.writeText(text);
-        } catch {
-          document.getElementById("report-text").select();
-          document.execCommand("copy");
-        }
-        const ok = document.getElementById("report-copy-ok");
-        ok.style.display = "";
-        setTimeout(() => (ok.style.display = "none"), 2500);
-      }
-
-      // ── Clear functions ───────────────────────────────────────────────
-      function clearForm() {
-        document.getElementById("inp-host").value = "";
-        document.getElementById("inp-port").value = "";
-        document.getElementById("inp-pass").value = "";
-        document.getElementById("inp-tag").value = "";
-        document.getElementById("inp-dur").value = "30";
-        const tagUp = document.getElementById("inp-tag-upload");
-        if (tagUp) tagUp.value = "";
-        const lbl = document.getElementById("upload-drop-label");
-        if (lbl) lbl.textContent = "Choose or drop a .ts file…";
-        const fi = document.getElementById("ts-upload-input");
-        if (fi) fi.value = "";
-      }
-
-      // ── Input mode toggle (SRT / Upload) ──────────────────────────────
-      function setInputMode(mode) {
-        const isSrt = mode === "srt";
-        document.getElementById("form-srt").style.display = isSrt ? "" : "none";
-        document.getElementById("form-upload").style.display = isSrt
-          ? "none"
-          : "";
-        const tabSrt = document.getElementById("tab-srt");
-        const tabUpload = document.getElementById("tab-upload");
-        tabSrt.style.borderBottomColor = isSrt
-          ? "var(--purple)"
-          : "transparent";
-        tabSrt.style.color = isSrt ? "#fff" : "var(--muted)";
-        tabUpload.style.borderBottomColor = isSrt
-          ? "transparent"
-          : "var(--purple)";
-        tabUpload.style.color = isSrt ? "var(--muted)" : "#fff";
-      }
-
-      function clearHistFilters() {
-        ["hist-search", "hist-date", "hist-tag", "hist-user"].forEach((id) => {
-          const el = document.getElementById(id);
-          if (el) el.value = "";
-        });
-        const sv = document.getElementById("hist-server");
-        if (sv) sv.value = "";
-        const mc = document.getElementById("btn-my-checks");
-        if (mc) mc.classList.remove("active");
-        loadHistory();
-      }
-
-      // ── TS Upload ─────────────────────────────────────────────────────
-      async function uploadTS(input) {
-        const file = input.files[0];
-        if (!file) return;
-        input.value = ""; // reset so same file can be re-selected
-
-        const tag = (
-          document.getElementById("inp-tag-upload") ||
-          document.getElementById("inp-tag")
-        ).value.trim();
-        const fd = new FormData();
-        fd.append("file", file);
-        fd.append("tag", tag);
-
-        document.getElementById("btn-run").disabled = true;
-        document.getElementById("placeholder").style.display = "none";
-        document.getElementById("results-content").style.display = "none";
-        document.getElementById("log-card").style.display = "";
-        const dropLbl = document.getElementById("upload-drop-label");
-        if (dropLbl) dropLbl.textContent = file.name;
-        document.getElementById(
-          "log-output"
-        ).textContent = `Uploading ${file.name}…`;
-        startProgress(60);
-        setStatus("running", `Uploading and analysing ${file.name}…`);
-
-        try {
-          const res = await fetch(`${PROXY}/gop/upload`, {
-            method: "POST",
-            body: fd,
-          });
-          let data;
-          const ct = res.headers.get("content-type") || "";
-          if (!ct.includes("application/json")) {
-            const body = await res.text();
-            if (res.status === 413)
-              throw new Error(
-                "File too large — increase client_max_body_size in nginx config"
-              );
-            throw new Error(
-              `Server returned HTTP ${res.status}: ${body.slice(0, 120)}`
-            );
+            showReportTab("visual");
+            document.getElementById("report-modal").classList.add("open");
           }
-          data = await res.json();
-          if (!data.job_id) throw new Error(data.error || "No job_id");
-          _currentResultFile = null;
-          pollStatus(data.job_id, 60, "upload", file.name);
-        } catch (e) {
-          setStatus("err", `Upload failed: ${e.message}`);
-          const btnUp2 = document.getElementById("btn-upload");
-          if (btnUp2) btnUp2.disabled = false;
-          stopProgress(false);
-        }
-      }
 
-      // ── History checkbox persistence ──────────────────────────────────
-      let _checkedFiles = new Set();
-
-      function updateBulkBar() {
-        // Sync _checkedFiles with current checkboxes
-        document.querySelectorAll(".hist-item-cb").forEach((cb) => {
-          if (cb.checked) _checkedFiles.add(cb.dataset.file);
-          else _checkedFiles.delete(cb.dataset.file);
-        });
-        const bar = document.getElementById("bulk-bar");
-        document.getElementById(
-          "bulk-count"
-        ).textContent = `${_checkedFiles.size} selected`;
-        bar.classList.toggle("visible", _checkedFiles.size > 0);
-      }
-      let _pendingCancelSchedId = null;
-
-      function openScheduleModal() {
-        const host = document.getElementById("inp-host").value.trim();
-        const port = document.getElementById("inp-port").value.trim();
-        if (!host || !port) {
-          setStatus("err", "Fill in Host and Port before scheduling.");
-          return;
-        }
-        // Default to UTC + 30 minutes
-        const utcNow = new Date();
-        utcNow.setUTCMinutes(utcNow.getUTCMinutes() + 30);
-        const pad = (n) => String(n).padStart(2, "0");
-        const utcStr = `${utcNow.getUTCFullYear()}-${pad(
-          utcNow.getUTCMonth() + 1
-        )}-${pad(utcNow.getUTCDate())}T${pad(utcNow.getUTCHours())}:${pad(
-          utcNow.getUTCMinutes()
-        )}`;
-        document.getElementById("sched-datetime").value = utcStr;
-        document.getElementById("sched-err").textContent = "";
-        updateSchedUTCHint();
-        document.getElementById("schedule-modal").classList.add("open");
-      }
-      function closeScheduleModal() {
-        document.getElementById("schedule-modal").classList.remove("open");
-      }
-      function _fmtEU(date) {
-        // European format: HH:mm:ss dd/mm/yyyy
-        const pad = (n) => String(n).padStart(2, "0");
-        return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(
-          date.getSeconds()
-        )} ${pad(date.getDate())}/${pad(
-          date.getMonth() + 1
-        )}/${date.getFullYear()}`;
-      }
-      function _fmtEU_UTC(date) {
-        const pad = (n) => String(n).padStart(2, "0");
-        return `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(
-          date.getUTCSeconds()
-        )} ${pad(date.getUTCDate())}/${pad(
-          date.getUTCMonth() + 1
-        )}/${date.getUTCFullYear()} UTC`;
-      }
-      function updateSchedUTCHint() {
-        const val = document.getElementById("sched-datetime").value;
-        if (!val) return;
-        const utcDt = new Date(val + "Z");
-        document.getElementById("sched-local-time").textContent = `= ${_fmtEU(
-          utcDt
-        )} local`;
-      }
-      document.addEventListener("DOMContentLoaded", () => {
-        const dtEl = document.getElementById("sched-datetime");
-        if (dtEl) dtEl.addEventListener("input", updateSchedUTCHint);
-      });
-
-      async function confirmSchedule() {
-        const host = document.getElementById("inp-host").value.trim();
-        const port = document.getElementById("inp-port").value.trim();
-        const pass = document.getElementById("inp-pass").value.trim();
-        const dur = parseInt(document.getElementById("inp-dur").value) || 30;
-        const tag = document.getElementById("inp-tag").value.trim();
-        const dtVal = document.getElementById("sched-datetime").value;
-        const errEl = document.getElementById("sched-err");
-
-        if (!dtVal) {
-          errEl.textContent = "Please select a date and time (UTC).";
-          return;
-        }
-
-        // Treat input as UTC (append Z)
-        const utcDt = new Date(dtVal + "Z");
-        const utcStr = utcDt.toISOString();
-        if (utcDt <= new Date()) {
-          errEl.textContent = "Scheduled time must be in the future (UTC).";
-          return;
-        }
-
-        const url = `srt://${host}:${port}?mode=caller`;
-
-        try {
-          const res = await fetch(`${PROXY}/gop/schedule`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              url,
-              run_at_utc: utcStr,
-              duration: dur,
-              passphrase: pass,
-              tag,
-            }),
-          });
-          const data = await res.json();
-          if (data.error) {
-            errEl.textContent = data.error;
-            return;
+          async function copyReport() {
+            const text = document.getElementById("report-text").value;
+            if (!text) {
+              showReportTab("text");
+              return;
+            }
+            try {
+              await navigator.clipboard.writeText(text);
+            } catch {
+              document.getElementById("report-text").select();
+              document.execCommand("copy");
+            }
+            const ok = document.getElementById("report-copy-ok");
+            ok.style.display = "";
+            setTimeout(() => (ok.style.display = "none"), 2500);
           }
-          closeScheduleModal();
-          setStatus("ok", `Scheduled for ${dtVal} UTC`);
-          loadScheduled();
-        } catch (e) {
-          errEl.textContent = `Error: ${e.message}`;
-        }
-      }
 
-      async function loadScheduled() {
-        try {
-          const res = await fetch(`${PROXY}/gop/schedule`);
-          const items = await res.json();
-          const list = document.getElementById("scheduled-list");
-          const active = items.filter(
-            (i) => i.status === "pending" || i.status === "running"
-          );
-          const justDone = items.filter(
-            (i) => i.status === "done" && i._notified !== true
-          );
+          // ── Clear functions ───────────────────────────────────────────────
+          function clearForm() {
+            document.getElementById("inp-host").value = "";
+            document.getElementById("inp-port").value = "";
+            document.getElementById("inp-pass").value = "";
+            document.getElementById("inp-tag").value = "";
+            document.getElementById("inp-dur").value = "30";
+            const tagUp = document.getElementById("inp-tag-upload");
+            if (tagUp) tagUp.value = "";
+            const lbl = document.getElementById("upload-drop-label");
+            if (lbl) lbl.textContent = "Choose or drop a .ts file…";
+            const fi = document.getElementById("ts-upload-input");
+            if (fi) fi.value = "";
+          }
 
-          // Auto-refresh history for newly completed scheduled jobs
-          if (justDone.length) {
+          // ── Input mode toggle (SRT / Upload) ──────────────────────────────
+          function setInputMode(mode) {
+            const isSrt = mode === "srt";
+            document.getElementById("form-srt").style.display = isSrt ? "" : "none";
+            document.getElementById("form-upload").style.display = isSrt
+              ? "none"
+              : "";
+            const tabSrt = document.getElementById("tab-srt");
+            const tabUpload = document.getElementById("tab-upload");
+            tabSrt.style.borderBottomColor = isSrt
+              ? "var(--purple)"
+              : "transparent";
+            tabSrt.style.color = isSrt ? "#fff" : "var(--muted)";
+            tabUpload.style.borderBottomColor = isSrt
+              ? "transparent"
+              : "var(--purple)";
+            tabUpload.style.color = isSrt ? "var(--muted)" : "#fff";
+          }
+
+          function clearHistFilters() {
+            ["hist-search", "hist-date", "hist-tag", "hist-user"].forEach((id) => {
+            ["hist-search", "hist-date", "hist-tag", "hist-user"].forEach((id) => {
+              const el = document.getElementById(id);
+              if (el) el.value = "";
+            });
+            const sv = document.getElementById("hist-server");
+            if (sv) sv.value = "";
+            const mc = document.getElementById("btn-my-checks");
+            if (mc) mc.classList.remove("active");
+            const mc = document.getElementById("btn-my-checks");
+            if (mc) mc.classList.remove("active");
             loadHistory();
           }
 
-          if (!active.length) {
-            list.innerHTML =
-              '<div class="hist-empty">No scheduled analyses</div>';
-            return;
+          // ── TS Upload ─────────────────────────────────────────────────────
+          async function uploadTS(input) {
+            const file = input.files[0];
+            if (!file) return;
+            input.value = ""; // reset so same file can be re-selected
+
+            const tag = (
+              document.getElementById("inp-tag-upload") ||
+              document.getElementById("inp-tag")
+            ).value.trim();
+            const fd = new FormData();
+            fd.append("file", file);
+            fd.append("tag", tag);
+
+            document.getElementById("btn-run").disabled = true;
+            document.getElementById("placeholder").style.display = "none";
+            document.getElementById("results-content").style.display = "none";
+            document.getElementById("log-card").style.display = "";
+            const dropLbl = document.getElementById("upload-drop-label");
+            if (dropLbl) dropLbl.textContent = file.name;
+            document.getElementById(
+              "log-output"
+            ).textContent = `Uploading ${file.name}…`;
+            startProgress(60);
+            setStatus("running", `Uploading and analysing ${file.name}…`);
+
+            try {
+              const res = await fetch(`${PROXY}/gop/upload`, {
+                method: "POST",
+                body: fd,
+              });
+              let data;
+              const ct = res.headers.get("content-type") || "";
+              if (!ct.includes("application/json")) {
+                const body = await res.text();
+                if (res.status === 413)
+                  throw new Error(
+                    "File too large — increase client_max_body_size in nginx config"
+                  );
+                throw new Error(
+                  `Server returned HTTP ${res.status}: ${body.slice(0, 120)}`
+                );
+              }
+              data = await res.json();
+              if (!data.job_id) throw new Error(data.error || "No job_id");
+              _currentResultFile = null;
+              pollStatus(data.job_id, 60, "upload", file.name);
+            } catch (e) {
+              setStatus("err", `Upload failed: ${e.message}`);
+              const btnUp2 = document.getElementById("btn-upload");
+              if (btnUp2) btnUp2.disabled = false;
+              stopProgress(false);
+            }
           }
-          list.innerHTML = active
-            .map((item) => {
-              const runAt = item.run_at_utc
-                ? item.run_at_utc.slice(0, 16).replace("T", " ") + " UTC"
-                : "—";
-              const urlHost = (item.url || "")
+
+          // ── History checkbox persistence ──────────────────────────────────
+          let _checkedFiles = new Set();
+
+          function updateBulkBar() {
+            // Sync _checkedFiles with current checkboxes
+            document.querySelectorAll(".hist-item-cb").forEach((cb) => {
+              if (cb.checked) _checkedFiles.add(cb.dataset.file);
+              else _checkedFiles.delete(cb.dataset.file);
+            });
+            const bar = document.getElementById("bulk-bar");
+            document.getElementById(
+              "bulk-count"
+            ).textContent = `${_checkedFiles.size} selected`;
+            bar.classList.toggle("visible", _checkedFiles.size > 0);
+          }
+          let _pendingCancelSchedId = null;
+
+          function openScheduleModal() {
+            const host = document.getElementById("inp-host").value.trim();
+            const port = document.getElementById("inp-port").value.trim();
+            if (!host || !port) {
+              setStatus("err", "Fill in Host and Port before scheduling.");
+              return;
+            }
+            // Default to UTC + 30 minutes
+            const utcNow = new Date();
+            utcNow.setUTCMinutes(utcNow.getUTCMinutes() + 30);
+            const pad = (n) => String(n).padStart(2, "0");
+            const utcStr = `${utcNow.getUTCFullYear()}-${pad(
+              utcNow.getUTCMonth() + 1
+            )}-${pad(utcNow.getUTCDate())}T${pad(utcNow.getUTCHours())}:${pad(
+              utcNow.getUTCMinutes()
+            )}`;
+            document.getElementById("sched-datetime").value = utcStr;
+            document.getElementById("sched-err").textContent = "";
+            updateSchedUTCHint();
+            document.getElementById("schedule-modal").classList.add("open");
+          }
+          function closeScheduleModal() {
+            document.getElementById("schedule-modal").classList.remove("open");
+          }
+          function _fmtEU(date) {
+            // European format: HH:mm:ss dd/mm/yyyy
+            const pad = (n) => String(n).padStart(2, "0");
+            return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(
+              date.getSeconds()
+            )} ${pad(date.getDate())}/${pad(
+              date.getMonth() + 1
+            )}/${date.getFullYear()}`;
+          }
+          function _fmtEU_UTC(date) {
+            const pad = (n) => String(n).padStart(2, "0");
+            return `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(
+              date.getUTCSeconds()
+            )} ${pad(date.getUTCDate())}/${pad(
+              date.getUTCMonth() + 1
+            )}/${date.getUTCFullYear()} UTC`;
+          }
+          function updateSchedUTCHint() {
+            const val = document.getElementById("sched-datetime").value;
+            if (!val) return;
+            const utcDt = new Date(val + "Z");
+            document.getElementById("sched-local-time").textContent = `= ${_fmtEU(
+              utcDt
+            )} local`;
+          }
+          document.addEventListener("DOMContentLoaded", () => {
+            const dtEl = document.getElementById("sched-datetime");
+            if (dtEl) dtEl.addEventListener("input", updateSchedUTCHint);
+          });
+
+          async function confirmSchedule() {
+            const host = document.getElementById("inp-host").value.trim();
+            const port = document.getElementById("inp-port").value.trim();
+            const pass = document.getElementById("inp-pass").value.trim();
+            const dur = parseInt(document.getElementById("inp-dur").value) || 30;
+            const tag = document.getElementById("inp-tag").value.trim();
+            const dtVal = document.getElementById("sched-datetime").value;
+            const errEl = document.getElementById("sched-err");
+
+            if (!dtVal) {
+              errEl.textContent = "Please select a date and time (UTC).";
+              return;
+            }
+
+            // Treat input as UTC (append Z)
+            const utcDt = new Date(dtVal + "Z");
+            const utcStr = utcDt.toISOString();
+            if (utcDt <= new Date()) {
+              errEl.textContent = "Scheduled time must be in the future (UTC).";
+              return;
+            }
+
+            const url = `srt://${host}:${port}?mode=caller`;
+
+            try {
+              const res = await fetch(`${PROXY}/gop/schedule`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  url,
+                  run_at_utc: utcStr,
+                  duration: dur,
+                  passphrase: pass,
+                  tag,
+                }),
+              });
+              const data = await res.json();
+              if (data.error) {
+                errEl.textContent = data.error;
+                return;
+              }
+              closeScheduleModal();
+              setStatus("ok", `Scheduled for ${dtVal} UTC`);
+              loadScheduled();
+            } catch (e) {
+              errEl.textContent = `Error: ${e.message}`;
+            }
+          }
+
+          async function loadScheduled() {
+            try {
+              const res = await fetch(`${PROXY}/gop/schedule`);
+              const items = await res.json();
+              const list = document.getElementById("scheduled-list");
+              const active = items.filter(
+                (i) => i.status === "pending" || i.status === "running"
+              );
+              const justDone = items.filter(
+                (i) => i.status === "done" && i._notified !== true
+              );
+
+              // Auto-refresh history for newly completed scheduled jobs
+              if (justDone.length) {
+                loadHistory();
+              }
+
+              if (!active.length) {
+                list.innerHTML =
+                  '<div class="hist-empty">No scheduled analyses</div>';
+                return;
+              }
+              list.innerHTML = active
+                .map((item) => {
+                  const runAt = item.run_at_utc
+                    ? item.run_at_utc.slice(0, 16).replace("T", " ") + " UTC"
+                    : "—";
+                  const urlHost = (item.url || "")
+                    .replace(/^srt:\/\//, "")
+                    .split(":")[0]
+                    .split("?")[0];
+                  const host = resolveHost(urlHost);
+                  const portMatch = (item.url || "").match(/:(\d+)/);
+                  const port = portMatch ? portMatch[1] : "?";
+                  const isRunning = item.status === "running";
+                  return `<div style="padding:.45rem .65rem;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:.68rem">
+            <div style="color:#fff;font-weight:600">${host}:${port}</div>
+            <div style="color:var(--muted);margin-top:1px">🕐 ${runAt}${
+                    item.tag ? " · " + item.tag : ""
+                  }</div>
+            <div style="margin-top:4px;display:flex;gap:.4rem">
+              <span style="color:${
+                isRunning ? "var(--yellow)" : "var(--cyan)"
+              }">● ${item.status}</span>
+              ${
+                !isRunning
+                  ? `<button onclick="openCancelSchedModal('${item.sched_id}','${host}:${port}')" style="background:transparent;border:1px solid var(--border);border-radius:3px;color:var(--muted);font-family:var(--mono);font-size:.6rem;padding:0 6px;cursor:pointer" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--muted)'">✕ Cancel</button>`
+                  : ""
+              }
+            </div>
+          </div>`;
+                })
+                .join("");
+            } catch (e) {
+              console.error(e);
+            }
+          }
+
+          function openCancelSchedModal(schedId, dest) {
+            _pendingCancelSchedId = schedId;
+            document.getElementById("cancel-sched-dest").textContent = dest;
+            document.getElementById("cancel-sched-pw").style.display = _hasAdminPw
+              ? ""
+              : "none";
+            document.getElementById("cancel-sched-pw").value = "";
+            document.getElementById("cancel-sched-err").textContent = "";
+            document.getElementById("cancel-sched-modal").classList.add("open");
+          }
+          async function confirmCancelSched() {
+            if (!_pendingCancelSchedId) return;
+            const pw = document.getElementById("cancel-sched-pw").value;
+            const err = document.getElementById("cancel-sched-err");
+            const headers = {};
+            if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
+            try {
+              const res = await fetch(
+                `${PROXY}/gop/schedule/${_pendingCancelSchedId}/cancel`,
+                { method: "POST", headers }
+              );
+              const data = await res.json();
+              if (res.status === 403) {
+                err.textContent = "❌ Invalid password";
+                return;
+              }
+              document
+                .getElementById("cancel-sched-modal")
+                .classList.remove("open");
+              _pendingCancelSchedId = null;
+              loadScheduled();
+            } catch (e) {
+              err.textContent = `Error: ${e.message}`;
+            }
+          }
+
+          // Close modals on backdrop
+          [
+            "override-modal",
+            "override-detail-modal",
+            "report-modal",
+            "schedule-modal",
+            "cancel-sched-modal",
+            "specs-modal",
+          ].forEach((id) => {
+            const el = document.getElementById(id);
+            if (el)
+              el.addEventListener("click", function (e) {
+                if (e.target === this) this.classList.remove("open");
+              });
+          });
+
+          // ── Specs Editor ─────────────────────────────────────────────────
+          let _currentSpecs = null;
+
+          async function openSpecsEditor() {
+            document.getElementById("specs-err").textContent = "";
+            document.getElementById("specs-pw").style.display = _hasAdminPw
+              ? ""
+              : "none";
+            document.getElementById("specs-pw").value = "";
+            document.getElementById("specs-modal").classList.add("open");
+            document.getElementById("specs-editor-body").innerHTML =
+              '<div style="font-family:var(--mono);font-size:.7rem;color:var(--muted);padding:.5rem">Loading…</div>';
+            try {
+              const res = await fetch(`${PROXY}/gop/specs`);
+              _currentSpecs = await res.json();
+              renderSpecsEditor(_currentSpecs);
+            } catch (e) {
+              document.getElementById(
+                "specs-editor-body"
+              ).innerHTML = `<div style="color:var(--red);font-family:var(--mono);font-size:.72rem">Failed to load specs: ${e.message}</div>`;
+            }
+          }
+          function closeSpecsModal() {
+            document.getElementById("specs-modal").classList.remove("open");
+          }
+
+          function renderSpecsEditor(specs) {
+            const sections = {
+              "MEDIA PROFILE": ["overall_br"],
+              VIDEO: [
+                "gop_size",
+                "gop_type",
+                "b_frames",
+                "idr",
+                "frame_size",
+                "aspect_ratio",
+                "chroma",
+                "scan_type",
+                "bit_depth",
+                "colour_gamut",
+                "codec",
+                "codec_level",
+                "codec_profile",
+                "entropy",
+                "rate_ctrl_v",
+                "v_br",
+                "hdr_scheme",
+                "fps",
+              ],
+              AUDIO: [
+                "a_codec",
+                "a_streams",
+                "a_channels",
+                "a_rate_ctrl",
+                "a_sample_rate",
+                "a_bits",
+                "a_br_kbps",
+              ],
+            };
+
+            let html = `<table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.72rem">
+        <thead><tr>
+          <th style="text-align:left;padding:.3rem .6rem;border-bottom:1px solid var(--border);color:var(--muted);font-size:.63rem;text-transform:uppercase">Element</th>
+          <th style="text-align:left;padding:.3rem .6rem;border-bottom:1px solid var(--border);color:var(--muted);font-size:.63rem;text-transform:uppercase">Allowed values / Range</th>
+          <th style="text-align:left;padding:.3rem .6rem;border-bottom:1px solid var(--border);color:var(--muted);font-size:.63rem;text-transform:uppercase">Preferred</th>
+          <th style="text-align:left;padding:.3rem .6rem;border-bottom:1px solid var(--border);color:var(--muted);font-size:.63rem;text-transform:uppercase">Special</th>
+        </tr></thead><tbody>`;
+
+            for (const [section, keys] of Object.entries(sections)) {
+              html += `<tr><td colspan="4" style="background:var(--bg3);color:var(--muted);font-size:.63rem;text-transform:uppercase;letter-spacing:.08em;padding:.22rem .6rem">${section}</td></tr>`;
+              for (const key of keys) {
+                const s = specs[key] || {};
+                const label = s.label || key;
+
+                // Build input fields based on spec type
+                let allowedEl = "",
+                  prefEl = "",
+                  specialEl = "";
+
+                if ("lo" in s) {
+                  // Range spec
+                  allowedEl = `<input data-key="${key}" data-field="lo" type="number" value="${s.lo}" step="0.1" style="${inStyle}" title="Min" /> – <input data-key="${key}" data-field="hi" type="number" value="${s.hi}" step="0.1" style="${inStyle}" title="Max" />`;
+                  if ("pref_lo" in s) {
+                    prefEl = `<input data-key="${key}" data-field="pref_lo" type="number" value="${s.pref_lo}" step="0.1" style="${inStyle}" title="Preferred min" /> – <input data-key="${key}" data-field="pref_hi" type="number" value="${s.pref_hi}" step="0.1" style="${inStyle}" title="Preferred max" />`;
+                  }
+                } else if ("values" in s) {
+                  // Enum spec — values can contain numbers or strings
+                  const valStr = Array.isArray(s.values)
+                    ? s.values.join(", ")
+                    : s.values || "";
+                  const prefStr = Array.isArray(s.preferred)
+                    ? s.preferred.join(", ")
+                    : s.preferred ?? "";
+                  allowedEl = `<input data-key="${key}" data-field="values" type="text" value="${valStr}" style="${inStyle};width:190px" placeholder="comma separated" />`;
+                  prefEl = `<input data-key="${key}" data-field="preferred" type="text" value="${prefStr}" style="${inStyle};width:110px" />`;
+                } else if ("required" in s) {
+                  // Required-value spec (e.g. gop_type)
+                  allowedEl = `<input data-key="${key}" data-field="required" type="text" value="${
+                    s.required || ""
+                  }" style="${inStyle};width:110px" />`;
+                }
+
+                // Special options
+                let specials = [];
+                if ("allow_seconds" in s)
+                  specials.push(
+                    `<label style="cursor:pointer"><input type="checkbox" data-key="${key}" data-field="allow_seconds" ${
+                      s.allow_seconds ? "checked" : ""
+                    } /> Accept GOP in seconds (1s, 2s)</label>`
+                  );
+                if ("allow_50p_720" in s)
+                  specials.push(
+                    `<label style="cursor:pointer"><input type="checkbox" data-key="${key}" data-field="allow_50p_720" ${
+                      s.allow_50p_720 ? "checked" : ""
+                    } /> Accept 50p if 720p</label>`
+                  );
+                if ("tolerance" in s)
+                  specials.push(
+                    `±<input data-key="${key}" data-field="tolerance" type="number" value="${s.tolerance}" step="1" min="0" style="${inStyle};width:50px" title="Tolerance" />`
+                  );
+                specialEl = specials.join(" &nbsp; ");
+
+                html += `<tr style="border-bottom:1px solid rgba(255,255,255,.03)">
+            <td style="padding:.3rem .6rem;color:var(--text)">${label}</td>
+            <td style="padding:.3rem .6rem">${allowedEl}</td>
+            <td style="padding:.3rem .6rem">${prefEl}</td>
+            <td style="padding:.3rem .6rem;font-size:.65rem;color:var(--muted)">${specialEl}</td>
+          </tr>`;
+              }
+            }
+            html += "</tbody></table>";
+
+            document.getElementById("specs-editor-body").innerHTML = html;
+          }
+
+          const inStyle =
+            "background:var(--bg);border:1px solid var(--border);border-radius:3px;color:#fff;font-family:var(--mono);font-size:.68rem;padding:2px 5px;outline:none;width:80px;transition:border-color .15s";
+
+          async function saveSpecs() {
+            const pw = document.getElementById("specs-pw").value;
+            const errEl = document.getElementById("specs-err");
+            errEl.textContent = "";
+
+            // Build specs object from current loaded state + editor inputs
+            const specs = JSON.parse(JSON.stringify(_currentSpecs || {}));
+
+            document.querySelectorAll("[data-key][data-field]").forEach((el) => {
+              const key = el.dataset.key;
+              const field = el.dataset.field;
+              if (!specs[key]) specs[key] = {};
+              if (el.type === "checkbox") {
+                specs[key][field] = el.checked;
+              } else if (field === "values") {
+                specs[key][field] = el.value
+                  .split(",")
+                  .map((v) => v.trim())
+                  .filter(Boolean);
+              } else if (
+                ["lo", "hi", "pref_lo", "pref_hi", "tolerance"].includes(field)
+              ) {
+                const n = parseFloat(el.value);
+                specs[key][field] = isNaN(n) ? 0 : n;
+              } else if (field === "preferred") {
+                // Try to parse as number first (for fps preferred)
+                const n = parseFloat(el.value);
+                specs[key][field] = isNaN(n) ? el.value.trim() : n;
+              } else {
+                specs[key][field] = el.value.trim();
+              }
+            });
+
+            const headers = { "Content-Type": "application/json" };
+            if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
+
+            try {
+              const res = await fetch(`${PROXY}/gop/specs`, {
+                method: "POST",
+                headers,
+                body: JSON.stringify(specs),
+              });
+              const data = await res.json();
+              if (res.status === 403) {
+                errEl.textContent = "❌ Invalid password";
+                return;
+              }
+              if (!data.success) {
+                errEl.textContent = data.error || "Save failed";
+                return;
+              }
+              _currentSpecs = specs;
+              errEl.style.color = "var(--green)";
+              errEl.textContent = "✓ Saved — new analyses will use these specs";
+              setTimeout(() => {
+                errEl.textContent = "";
+                errEl.style.color = "";
+              }, 3000);
+            } catch (e) {
+              errEl.textContent = `Error: ${e.message}`;
+            }
+          }
+
+          async function resetSpecs() {
+            if (!confirm("Reset all specs to defaults?")) return;
+            const pw = document.getElementById("specs-pw").value;
+            const headers = {};
+            if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
+            try {
+              const res = await fetch(`${PROXY}/gop/specs/reset`, {
+                method: "POST",
+                headers,
+              });
+              const data = await res.json();
+              if (data.success) {
+                _currentSpecs = data.specs;
+                renderSpecsEditor(_currentSpecs);
+              }
+            } catch (e) {
+              console.error(e);
+            }
+          }
+
+          // ── Clear results ─────────────────────────────────────────────────
+          function clearResults() {
+            _currentResult = null;
+            _currentResultFile = null;
+            _overrideReason = null;
+            document.getElementById("results-content").style.display = "none";
+            document.getElementById("log-card").style.display = "none";
+            document.getElementById("placeholder").style.display = "";
+            document.getElementById("log-output").textContent = "";
+            document.getElementById("dot").className = "dot";
+            document.getElementById("status-text").textContent =
+              "Ready — fill in SRT details and click Analyse Now";
+            document.getElementById("progress-fill").style.width = "0%";
+            // Reset form
+            document.getElementById("inp-host").value = "";
+            document.getElementById("inp-port").value = "";
+            document.getElementById("inp-tag").value = "";
+            document.getElementById("inp-pass").value = "";
+            document.getElementById("inp-pass").classList.remove("from-env");
+            // Reload passphrase from env
+            loadConfig();
+          }
+          function rerunCurrent() {
+            if (!_currentResult) return;
+            _fillFormFromResult(_currentResult);
+            // Scroll to top and run
+            document.getElementById("result-panel").scrollTop = 0;
+            runAnalysis();
+          }
+
+          function rerunFromItem(item) {
+            // item from history list — may not have full result, fetch it first if needed
+            const host =
+              item.url_host ||
+              (item.url || "")
                 .replace(/^srt:\/\//, "")
                 .split(":")[0]
                 .split("?")[0];
-              const host = resolveHost(urlHost);
-              const portMatch = (item.url || "").match(/:(\d+)/);
-              const port = portMatch ? portMatch[1] : "?";
-              const isRunning = item.status === "running";
-              return `<div style="padding:.45rem .65rem;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:.68rem">
-        <div style="color:#fff;font-weight:600">${host}:${port}</div>
-        <div style="color:var(--muted);margin-top:1px">🕐 ${runAt}${
-                item.tag ? " · " + item.tag : ""
-              }</div>
-        <div style="margin-top:4px;display:flex;gap:.4rem">
-          <span style="color:${
-            isRunning ? "var(--yellow)" : "var(--cyan)"
-          }">● ${item.status}</span>
-          ${
-            !isRunning
-              ? `<button onclick="openCancelSchedModal('${item.sched_id}','${host}:${port}')" style="background:transparent;border:1px solid var(--border);border-radius:3px;color:var(--muted);font-family:var(--mono);font-size:.6rem;padding:0 6px;cursor:pointer" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--muted)'">✕ Cancel</button>`
-              : ""
+            const port =
+              item.url_port || ((item.url || "").match(/:(\d+)/) || [])[1] || "";
+            // Extract passphrase from stored url (if not stripped)
+            const passMatch = (item.url_full || item.url || "").match(
+              /[?&]passphrase=([^&]+)/
+            );
+            const pass = passMatch ? decodeURIComponent(passMatch[1]) : "";
+
+            _fillFormFromValues(host, port, pass, item.tag || "");
+            document.getElementById("inp-dur").value = "30"; // default duration
+            runAnalysis();
           }
-        </div>
-      </div>`;
-            })
-            .join("");
-        } catch (e) {
-          console.error(e);
-        }
-      }
 
-      function openCancelSchedModal(schedId, dest) {
-        _pendingCancelSchedId = schedId;
-        document.getElementById("cancel-sched-dest").textContent = dest;
-        document.getElementById("cancel-sched-pw").style.display = _hasAdminPw
-          ? ""
-          : "none";
-        document.getElementById("cancel-sched-pw").value = "";
-        document.getElementById("cancel-sched-err").textContent = "";
-        document.getElementById("cancel-sched-modal").classList.add("open");
-      }
-      async function confirmCancelSched() {
-        if (!_pendingCancelSchedId) return;
-        const pw = document.getElementById("cancel-sched-pw").value;
-        const err = document.getElementById("cancel-sched-err");
-        const headers = {};
-        if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
-        try {
-          const res = await fetch(
-            `${PROXY}/gop/schedule/${_pendingCancelSchedId}/cancel`,
-            { method: "POST", headers }
-          );
-          const data = await res.json();
-          if (res.status === 403) {
-            err.textContent = "❌ Invalid password";
-            return;
+          function _fillFormFromResult(r) {
+            const host = r.url_host || "";
+            const port = r.url_port || "";
+            const passMatch = (r.url_full || r.url || "").match(
+              /[?&]passphrase=([^&]+)/
+            );
+            const pass = passMatch ? decodeURIComponent(passMatch[1]) : "";
+            _fillFormFromValues(host, port, pass, r.tag || "");
           }
-          document
-            .getElementById("cancel-sched-modal")
-            .classList.remove("open");
-          _pendingCancelSchedId = null;
-          loadScheduled();
-        } catch (e) {
-          err.textContent = `Error: ${e.message}`;
-        }
-      }
 
-      // Close modals on backdrop
-      [
-        "override-modal",
-        "override-detail-modal",
-        "report-modal",
-        "schedule-modal",
-        "cancel-sched-modal",
-        "specs-modal",
-      ].forEach((id) => {
-        const el = document.getElementById(id);
-        if (el)
-          el.addEventListener("click", function (e) {
-            if (e.target === this) this.classList.remove("open");
-          });
-      });
-
-      // ── Specs Editor ─────────────────────────────────────────────────
-      let _currentSpecs = null;
-
-      async function openSpecsEditor() {
-        document.getElementById("specs-err").textContent = "";
-        document.getElementById("specs-pw").style.display = _hasAdminPw
-          ? ""
-          : "none";
-        document.getElementById("specs-pw").value = "";
-        document.getElementById("specs-modal").classList.add("open");
-        document.getElementById("specs-editor-body").innerHTML =
-          '<div style="font-family:var(--mono);font-size:.7rem;color:var(--muted);padding:.5rem">Loading…</div>';
-        try {
-          const res = await fetch(`${PROXY}/gop/specs`);
-          _currentSpecs = await res.json();
-          renderSpecsEditor(_currentSpecs);
-        } catch (e) {
-          document.getElementById(
-            "specs-editor-body"
-          ).innerHTML = `<div style="color:var(--red);font-family:var(--mono);font-size:.72rem">Failed to load specs: ${e.message}</div>`;
-        }
-      }
-      function closeSpecsModal() {
-        document.getElementById("specs-modal").classList.remove("open");
-      }
-
-      function renderSpecsEditor(specs) {
-        const sections = {
-          "MEDIA PROFILE": ["overall_br"],
-          VIDEO: [
-            "gop_size",
-            "gop_type",
-            "b_frames",
-            "idr",
-            "frame_size",
-            "aspect_ratio",
-            "chroma",
-            "scan_type",
-            "bit_depth",
-            "colour_gamut",
-            "codec",
-            "codec_level",
-            "codec_profile",
-            "entropy",
-            "rate_ctrl_v",
-            "v_br",
-            "hdr_scheme",
-            "fps",
-          ],
-          AUDIO: [
-            "a_codec",
-            "a_streams",
-            "a_channels",
-            "a_rate_ctrl",
-            "a_sample_rate",
-            "a_bits",
-            "a_br_kbps",
-          ],
-        };
-
-        let html = `<table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.72rem">
-    <thead><tr>
-      <th style="text-align:left;padding:.3rem .6rem;border-bottom:1px solid var(--border);color:var(--muted);font-size:.63rem;text-transform:uppercase">Element</th>
-      <th style="text-align:left;padding:.3rem .6rem;border-bottom:1px solid var(--border);color:var(--muted);font-size:.63rem;text-transform:uppercase">Allowed values / Range</th>
-      <th style="text-align:left;padding:.3rem .6rem;border-bottom:1px solid var(--border);color:var(--muted);font-size:.63rem;text-transform:uppercase">Preferred</th>
-      <th style="text-align:left;padding:.3rem .6rem;border-bottom:1px solid var(--border);color:var(--muted);font-size:.63rem;text-transform:uppercase">Special</th>
-    </tr></thead><tbody>`;
-
-        for (const [section, keys] of Object.entries(sections)) {
-          html += `<tr><td colspan="4" style="background:var(--bg3);color:var(--muted);font-size:.63rem;text-transform:uppercase;letter-spacing:.08em;padding:.22rem .6rem">${section}</td></tr>`;
-          for (const key of keys) {
-            const s = specs[key] || {};
-            const label = s.label || key;
-
-            // Build input fields based on spec type
-            let allowedEl = "",
-              prefEl = "",
-              specialEl = "";
-
-            if ("lo" in s) {
-              // Range spec
-              allowedEl = `<input data-key="${key}" data-field="lo" type="number" value="${s.lo}" step="0.1" style="${inStyle}" title="Min" /> – <input data-key="${key}" data-field="hi" type="number" value="${s.hi}" step="0.1" style="${inStyle}" title="Max" />`;
-              if ("pref_lo" in s) {
-                prefEl = `<input data-key="${key}" data-field="pref_lo" type="number" value="${s.pref_lo}" step="0.1" style="${inStyle}" title="Preferred min" /> – <input data-key="${key}" data-field="pref_hi" type="number" value="${s.pref_hi}" step="0.1" style="${inStyle}" title="Preferred max" />`;
-              }
-            } else if ("values" in s) {
-              // Enum spec — values can contain numbers or strings
-              const valStr = Array.isArray(s.values)
-                ? s.values.join(", ")
-                : s.values || "";
-              const prefStr = Array.isArray(s.preferred)
-                ? s.preferred.join(", ")
-                : s.preferred ?? "";
-              allowedEl = `<input data-key="${key}" data-field="values" type="text" value="${valStr}" style="${inStyle};width:190px" placeholder="comma separated" />`;
-              prefEl = `<input data-key="${key}" data-field="preferred" type="text" value="${prefStr}" style="${inStyle};width:110px" />`;
-            } else if ("required" in s) {
-              // Required-value spec (e.g. gop_type)
-              allowedEl = `<input data-key="${key}" data-field="required" type="text" value="${
-                s.required || ""
-              }" style="${inStyle};width:110px" />`;
+          function _fillFormFromValues(host, port, pass, tag) {
+            if (host) document.getElementById("inp-host").value = host;
+            if (port) document.getElementById("inp-port").value = port;
+            // Only pre-fill passphrase from env if it wasn't overridden
+            if (pass) {
+              const passEl = document.getElementById("inp-pass");
+              passEl.value = pass;
+              passEl.classList.remove("from-env");
             }
-
-            // Special options
-            let specials = [];
-            if ("allow_seconds" in s)
-              specials.push(
-                `<label style="cursor:pointer"><input type="checkbox" data-key="${key}" data-field="allow_seconds" ${
-                  s.allow_seconds ? "checked" : ""
-                } /> Accept GOP in seconds (1s, 2s)</label>`
+            if (tag) document.getElementById("inp-tag").value = tag;
+            // Scroll result panel back to top so user sees progress
+            const panel = document.getElementById("result-panel");
+            if (panel) panel.scrollTop = 0;
+          }
+          async function viewErrorLog(file) {
+            try {
+              const res = await fetch(
+                `${PROXY}/gop/result/${encodeURIComponent(file)}`
               );
-            if ("allow_50p_720" in s)
-              specials.push(
-                `<label style="cursor:pointer"><input type="checkbox" data-key="${key}" data-field="allow_50p_720" ${
-                  s.allow_50p_720 ? "checked" : ""
-                } /> Accept 50p if 720p</label>`
-              );
-            if ("tolerance" in s)
-              specials.push(
-                `±<input data-key="${key}" data-field="tolerance" type="number" value="${s.tolerance}" step="1" min="0" style="${inStyle};width:50px" title="Tolerance" />`
-              );
-            specialEl = specials.join(" &nbsp; ");
+              const d = await res.json();
+              const logs = (d.log || []).join("\n") || "(no log lines saved)";
+              const err = d.error || "";
+              const ts =
+                (d.started_at || "").replace("T", " ").slice(0, 19) + " UTC";
+              const serverName = resolveHost(d.url_host || "");
+              const port = d.url_port || "?";
 
-            html += `<tr style="border-bottom:1px solid rgba(255,255,255,.03)">
-        <td style="padding:.3rem .6rem;color:var(--text)">${label}</td>
-        <td style="padding:.3rem .6rem">${allowedEl}</td>
-        <td style="padding:.3rem .6rem">${prefEl}</td>
-        <td style="padding:.3rem .6rem;font-size:.65rem;color:var(--muted)">${specialEl}</td>
-      </tr>`;
+              // Re-use report modal for log display
+              document.getElementById("report-text").value =
+                `FAILED ANALYSIS LOG\n` +
+                `${"─".repeat(50)}\n` +
+                `Date      : ${ts}\n` +
+                `Server    : ${serverName}:${port}\n` +
+                `URL       : ${d.url || "—"}\n` +
+                `Tag       : ${d.tag || "—"}\n` +
+                `Status    : ${d.status || "?"}\n` +
+                (err ? `Error     : ${err}\n` : "") +
+                `${"─".repeat(50)}\n` +
+                logs;
+              document.querySelector("#report-modal .modal-title").textContent =
+                "📋 Error Log";
+              document.getElementById("report-modal").classList.add("open");
+            } catch (e) {
+              alert(`Failed to load log: ${e.message}`);
+            }
           }
-        }
-        html += "</tbody></table>";
 
-        document.getElementById("specs-editor-body").innerHTML = html;
-      }
+          let _currentUser = null;
+          (async () => {
+            try {
+              const r = await fetch(`${PROXY}/me`);
+              if (r.ok) { const d = await r.json(); _currentUser = d.username || null; }
+            } catch {}
+          })();
 
-      const inStyle =
-        "background:var(--bg);border:1px solid var(--border);border-radius:3px;color:#fff;font-family:var(--mono);font-size:.68rem;padding:2px 5px;outline:none;width:80px;transition:border-color .15s";
-
-      async function saveSpecs() {
-        const pw = document.getElementById("specs-pw").value;
-        const errEl = document.getElementById("specs-err");
-        errEl.textContent = "";
-
-        // Build specs object from current loaded state + editor inputs
-        const specs = JSON.parse(JSON.stringify(_currentSpecs || {}));
-
-        document.querySelectorAll("[data-key][data-field]").forEach((el) => {
-          const key = el.dataset.key;
-          const field = el.dataset.field;
-          if (!specs[key]) specs[key] = {};
-          if (el.type === "checkbox") {
-            specs[key][field] = el.checked;
-          } else if (field === "values") {
-            specs[key][field] = el.value
-              .split(",")
-              .map((v) => v.trim())
-              .filter(Boolean);
-          } else if (
-            ["lo", "hi", "pref_lo", "pref_hi", "tolerance"].includes(field)
-          ) {
-            const n = parseFloat(el.value);
-            specs[key][field] = isNaN(n) ? 0 : n;
-          } else if (field === "preferred") {
-            // Try to parse as number first (for fps preferred)
-            const n = parseFloat(el.value);
-            specs[key][field] = isNaN(n) ? el.value.trim() : n;
-          } else {
-            specs[key][field] = el.value.trim();
+          function filterMyChecks() {
+            const btn = document.getElementById('btn-my-checks');
+            const userEl = document.getElementById('hist-user');
+            if (!_currentUser) {
+              userEl.value = 'anonymous';
+              btn.classList.add('active');
+              loadHistory();
+              return;
+            }
+            const isActive = btn.classList.contains('active');
+            if (isActive) {
+              btn.classList.remove('active');
+              userEl.value = '';
+            } else {
+              btn.classList.add('active');
+              userEl.value = _currentUser;
+            }
+            loadHistory();
           }
-        });
 
-        const headers = { "Content-Type": "application/json" };
-        if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
-
-        try {
-          const res = await fetch(`${PROXY}/gop/specs`, {
-            method: "POST",
-            headers,
-            body: JSON.stringify(specs),
-          });
-          const data = await res.json();
-          if (res.status === 403) {
-            errEl.textContent = "❌ Invalid password";
-            return;
-          }
-          if (!data.success) {
-            errEl.textContent = data.error || "Save failed";
-            return;
-          }
-          _currentSpecs = specs;
-          errEl.style.color = "var(--green)";
-          errEl.textContent = "✓ Saved — new analyses will use these specs";
-          setTimeout(() => {
-            errEl.textContent = "";
-            errEl.style.color = "";
-          }, 3000);
-        } catch (e) {
-          errEl.textContent = `Error: ${e.message}`;
-        }
-      }
-
-      async function resetSpecs() {
-        if (!confirm("Reset all specs to defaults?")) return;
-        const pw = document.getElementById("specs-pw").value;
-        const headers = {};
-        if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
-        try {
-          const res = await fetch(`${PROXY}/gop/specs/reset`, {
-            method: "POST",
-            headers,
-          });
-          const data = await res.json();
-          if (data.success) {
-            _currentSpecs = data.specs;
-            renderSpecsEditor(_currentSpecs);
-          }
-        } catch (e) {
-          console.error(e);
-        }
-      }
-
-      // ── Clear results ─────────────────────────────────────────────────
-      function clearResults() {
-        _currentResult = null;
-        _currentResultFile = null;
-        _overrideReason = null;
-        document.getElementById("results-content").style.display = "none";
-        document.getElementById("log-card").style.display = "none";
-        document.getElementById("placeholder").style.display = "";
-        document.getElementById("log-output").textContent = "";
-        document.getElementById("dot").className = "dot";
-        document.getElementById("status-text").textContent =
-          "Ready — fill in SRT details and click Analyse Now";
-        document.getElementById("progress-fill").style.width = "0%";
-        // Reset form
-        document.getElementById("inp-host").value = "";
-        document.getElementById("inp-port").value = "";
-        document.getElementById("inp-tag").value = "";
-        document.getElementById("inp-pass").value = "";
-        document.getElementById("inp-pass").classList.remove("from-env");
-        // Reload passphrase from env
-        loadConfig();
-      }
-      function rerunCurrent() {
-        if (!_currentResult) return;
-        _fillFormFromResult(_currentResult);
-        // Scroll to top and run
-        document.getElementById("result-panel").scrollTop = 0;
-        runAnalysis();
-      }
-
-      function rerunFromItem(item) {
-        // item from history list — may not have full result, fetch it first if needed
-        const host =
-          item.url_host ||
-          (item.url || "")
-            .replace(/^srt:\/\//, "")
-            .split(":")[0]
-            .split("?")[0];
-        const port =
-          item.url_port || ((item.url || "").match(/:(\d+)/) || [])[1] || "";
-        // Extract passphrase from stored url (if not stripped)
-        const passMatch = (item.url_full || item.url || "").match(
-          /[?&]passphrase=([^&]+)/
-        );
-        const pass = passMatch ? decodeURIComponent(passMatch[1]) : "";
-
-        _fillFormFromValues(host, port, pass, item.tag || "");
-        document.getElementById("inp-dur").value = "30"; // default duration
-        runAnalysis();
-      }
-
-      function _fillFormFromResult(r) {
-        const host = r.url_host || "";
-        const port = r.url_port || "";
-        const passMatch = (r.url_full || r.url || "").match(
-          /[?&]passphrase=([^&]+)/
-        );
-        const pass = passMatch ? decodeURIComponent(passMatch[1]) : "";
-        _fillFormFromValues(host, port, pass, r.tag || "");
-      }
-
-      function _fillFormFromValues(host, port, pass, tag) {
-        if (host) document.getElementById("inp-host").value = host;
-        if (port) document.getElementById("inp-port").value = port;
-        // Only pre-fill passphrase from env if it wasn't overridden
-        if (pass) {
-          const passEl = document.getElementById("inp-pass");
-          passEl.value = pass;
-          passEl.classList.remove("from-env");
-        }
-        if (tag) document.getElementById("inp-tag").value = tag;
-        // Scroll result panel back to top so user sees progress
-        const panel = document.getElementById("result-panel");
-        if (panel) panel.scrollTop = 0;
-      }
-      async function viewErrorLog(file) {
-        try {
-          const res = await fetch(
-            `${PROXY}/gop/result/${encodeURIComponent(file)}`
-          );
-          const d = await res.json();
-          const logs = (d.log || []).join("\n") || "(no log lines saved)";
-          const err = d.error || "";
-          const ts =
-            (d.started_at || "").replace("T", " ").slice(0, 19) + " UTC";
-          const serverName = resolveHost(d.url_host || "");
-          const port = d.url_port || "?";
-
-          // Re-use report modal for log display
-          document.getElementById("report-text").value =
-            `FAILED ANALYSIS LOG\n` +
-            `${"─".repeat(50)}\n` +
-            `Date      : ${ts}\n` +
-            `Server    : ${serverName}:${port}\n` +
-            `URL       : ${d.url || "—"}\n` +
-            `Tag       : ${d.tag || "—"}\n` +
-            `Status    : ${d.status || "?"}\n` +
-            (err ? `Error     : ${err}\n` : "") +
-            `${"─".repeat(50)}\n` +
-            logs;
-          document.querySelector("#report-modal .modal-title").textContent =
-            "📋 Error Log";
-          document.getElementById("report-modal").classList.add("open");
-        } catch (e) {
-          alert(`Failed to load log: ${e.message}`);
-        }
-      }
-
-      let _currentUser = null;
-      (async () => {
-        try {
-          const r = await fetch(`${PROXY}/me`);
-          if (r.ok) {
-            const d = await r.json();
-            _currentUser = d.username || null;
-          }
-        } catch {}
-      })();
-
-      function filterMyChecks() {
-        const btn = document.getElementById("btn-my-checks");
-        const userEl = document.getElementById("hist-user");
-        if (!_currentUser) {
-          userEl.value = "anonymous";
-          btn.classList.add("active");
+          loadConfig();
           loadHistory();
-          return;
-        }
-        const isActive = btn.classList.contains("active");
-        if (isActive) {
-          btn.classList.remove("active");
-          userEl.value = "";
-        } else {
-          btn.classList.add("active");
-          userEl.value = _currentUser;
-        }
-        loadHistory();
-      }
-
-      loadConfig();
-      loadHistory();
-      loadScheduled();
-      setInterval(loadScheduled, 5000); // poll every 5s — detects completion + auto-refreshes history
-      setInterval(() => {
-        if (!pollTimer) loadHistory();
-      }, 30000); // background history refresh
+          loadScheduled();
+          setInterval(loadScheduled, 5000); // poll every 5s — detects completion + auto-refreshes history
+          setInterval(() => {
+            if (!pollTimer) loadHistory();
+          }, 30000); // background history refresh
     </script>
   </body>
 </html>
