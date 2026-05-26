@@ -236,10 +236,17 @@
         width: var(--sidebar-w);
         transition: width 0.25s ease;
         position: relative;
+        z-index: 20;
       }
 
       #app.sidebar-collapsed #sidebar {
         width: var(--sidebar-collapsed-w);
+        overflow: visible; /* allow tooltip to escape */
+      }
+
+      /* need tools-list itself to also be visible so tooltip exits */
+      #app.sidebar-collapsed .tools-list {
+        overflow: visible;
       }
 
       /* hide text/search/footer when collapsed */
@@ -267,6 +274,7 @@
         justify-content: center;
         padding: 8px 0;
         position: relative;
+        overflow: visible;
       }
 
       #app.sidebar-collapsed .tool-icon {
@@ -277,31 +285,39 @@
       #app.sidebar-collapsed .category-label {
         justify-content: center;
         padding: 8px 0 4px;
+        overflow: visible;
       }
 
-      /* tooltip on hover when collapsed */
-      #app.sidebar-collapsed .tool-item[data-tool-name]::after {
-        content: attr(data-tool-name);
-        position: absolute;
-        left: calc(var(--sidebar-collapsed-w) + 6px);
-        top: 50%;
-        transform: translateY(-50%);
-        background: #1e1e2e;
+      /* ── COLLAPSED SIDEBAR TOOLTIP ──
+         Rendered as a floating label that slides out to the right,
+         matching the design reference (icon + label inline style). */
+      #sidebar-tooltip {
+        position: fixed;
+        left: var(--sidebar-collapsed-w);
+        padding: 0 14px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        background: var(--surface);
         border: 1px solid var(--border);
+        border-left: none;
+        border-radius: 0 8px 8px 0;
         color: var(--text);
-        font-family: var(--mono);
-        font-size: 0.6rem;
-        padding: 4px 10px;
-        border-radius: 5px;
+        font-family: var(--display);
+        font-size: 0.78rem;
+        font-weight: 600;
         white-space: nowrap;
         pointer-events: none;
         opacity: 0;
-        transition: opacity 0.15s;
-        z-index: 200;
+        transform: translateX(-6px);
+        transition: opacity 0.15s ease, transform 0.15s ease;
+        z-index: 500;
+        box-shadow: 4px 0 12px rgba(0,0,0,0.3);
       }
 
-      #app.sidebar-collapsed .tool-item[data-tool-name]:hover::after {
+      #sidebar-tooltip.visible {
         opacity: 1;
+        transform: translateX(0);
       }
 
       #app.sidebar-collapsed .sidebar-footer {
@@ -1340,6 +1356,9 @@
       </main>
     </div>
 
+    <!-- ── Sidebar collapsed tooltip ── -->
+    <div id="sidebar-tooltip"></div>
+
     <!-- ── Changelog Modal ──────────────────────────────────── -->
     <div id="changelog-modal">
       <div class="cl-card">
@@ -1633,6 +1652,35 @@
         .addEventListener("click", function (e) {
           if (e.target === this) closeChangelog();
         });
+
+      // ── Sidebar collapsed tooltip ─────────────────────────────
+      (function () {
+        const tip = document.getElementById("sidebar-tooltip");
+        let hideTimer = null;
+
+        function isCollapsed() {
+          return document.getElementById("app").classList.contains("sidebar-collapsed");
+        }
+
+        document.addEventListener("mouseover", function (e) {
+          if (!isCollapsed()) return;
+          const item = e.target.closest(".tool-item[data-tool-name]");
+          if (!item) return;
+          clearTimeout(hideTimer);
+          const name = item.getAttribute("data-tool-name");
+          const rect = item.getBoundingClientRect();
+          tip.textContent = name;
+          tip.style.top = rect.top + (rect.height / 2) - 18 + "px";
+          tip.classList.add("visible");
+        });
+
+        document.addEventListener("mouseout", function (e) {
+          if (!isCollapsed()) return;
+          const item = e.target.closest(".tool-item[data-tool-name]");
+          if (!item) return;
+          hideTimer = setTimeout(() => tip.classList.remove("visible"), 80);
+        });
+      })();
 
       // ── Sidebar toggle ────────────────────────────────────────
       (function () {
