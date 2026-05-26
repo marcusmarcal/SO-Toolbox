@@ -7,6 +7,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.29.0] - 2026-05-26
+
+### Changed
+
+- id3as routes: disable SSL certificate verification to support local HTTPS endpoints with self-signed or hostname-mismatched certificates
+
 ## [2.28.1] - 2026-05-25
 
 ### Added

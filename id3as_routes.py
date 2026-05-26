@@ -15,6 +15,7 @@ import os
 import re
 import json
 import html as _html
+import urllib3; urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 import sys
 import time
 from datetime import datetime, timezone
@@ -193,7 +194,7 @@ def _id3as_get(dc, path, expect_list=True):
                 cookies={"prfauth": token},
                 headers={"Accept": "application/json"},
                 timeout=25,
-                verify=True,
+                verify=False,
             )
 
             body = resp.text.strip() if resp.text else ""
@@ -553,7 +554,7 @@ def id3as_logs(dc, year=None, month=None, day=None):
             cookies={"prfauth": token},
             headers={"Accept": "application/json"},
             timeout=25,
-            verify=True,
+            verify=False,
         )
 
         raw = resp.text or ""
