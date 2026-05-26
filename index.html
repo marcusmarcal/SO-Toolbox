@@ -103,11 +103,21 @@
         opacity: 0.35;
       }
 
+      :root {
+        --sidebar-w: 280px;
+        --sidebar-collapsed-w: 52px;
+      }
+
       #app {
         display: grid;
-        grid-template-columns: 280px 1fr;
+        grid-template-columns: var(--sidebar-w) 1fr;
         grid-template-rows: 60px 1fr;
         height: 100vh;
+        transition: grid-template-columns 0.25s ease;
+      }
+
+      #app.sidebar-collapsed {
+        grid-template-columns: var(--sidebar-collapsed-w) 1fr;
       }
 
       /* ── TOPBAR ── */
@@ -223,6 +233,129 @@
         display: flex;
         flex-direction: column;
         overflow: hidden;
+        width: var(--sidebar-w);
+        transition: width 0.25s ease;
+        position: relative;
+      }
+
+      #app.sidebar-collapsed #sidebar {
+        width: var(--sidebar-collapsed-w);
+      }
+
+      /* hide text/search/footer when collapsed */
+      #app.sidebar-collapsed .sidebar-label,
+      #app.sidebar-collapsed #search,
+      #app.sidebar-collapsed .tool-info,
+      #app.sidebar-collapsed .tool-badge,
+      #app.sidebar-collapsed .tool-open-btn,
+      #app.sidebar-collapsed .tool-drag-handle,
+      #app.sidebar-collapsed .category-label .cat-arrow,
+      #app.sidebar-collapsed .category-label .cat-count,
+      #app.sidebar-collapsed .category-label span:not(.cat-arrow),
+      #app.sidebar-collapsed .sidebar-footer-info {
+        display: none !important;
+      }
+
+      /* tighten padding in collapsed mode */
+      #app.sidebar-collapsed .sidebar-header {
+        padding: 10px 6px;
+        display: flex;
+        justify-content: center;
+      }
+
+      #app.sidebar-collapsed .tool-item {
+        justify-content: center;
+        padding: 8px 0;
+        position: relative;
+      }
+
+      #app.sidebar-collapsed .tool-icon {
+        font-size: 1.1rem;
+        width: auto;
+      }
+
+      #app.sidebar-collapsed .category-label {
+        justify-content: center;
+        padding: 8px 0 4px;
+      }
+
+      /* tooltip on hover when collapsed */
+      #app.sidebar-collapsed .tool-item[data-tool-name]::after {
+        content: attr(data-tool-name);
+        position: absolute;
+        left: calc(var(--sidebar-collapsed-w) + 6px);
+        top: 50%;
+        transform: translateY(-50%);
+        background: #1e1e2e;
+        border: 1px solid var(--border);
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        padding: 4px 10px;
+        border-radius: 5px;
+        white-space: nowrap;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.15s;
+        z-index: 200;
+      }
+
+      #app.sidebar-collapsed .tool-item[data-tool-name]:hover::after {
+        opacity: 1;
+      }
+
+      #app.sidebar-collapsed .sidebar-footer {
+        padding: 8px 0;
+        display: flex;
+        justify-content: center;
+      }
+
+      /* ── HAMBURGER BUTTON ── */
+      #btn-sidebar-toggle {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 4px;
+        width: 30px;
+        height: 30px;
+        padding: 5px;
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: border-color 0.15s, background 0.15s;
+      }
+
+      #btn-sidebar-toggle:hover {
+        border-color: var(--accent);
+        background: rgba(161, 139, 245, 0.08);
+      }
+
+      #btn-sidebar-toggle span {
+        display: block;
+        width: 100%;
+        height: 1.5px;
+        background: var(--muted);
+        border-radius: 2px;
+        transition: transform 0.25s ease, opacity 0.25s ease, background 0.15s;
+      }
+
+      #btn-sidebar-toggle:hover span {
+        background: var(--accent);
+      }
+
+      /* animate to X when collapsed */
+      #app.sidebar-collapsed #btn-sidebar-toggle span:nth-child(1) {
+        transform: translateY(5.5px) rotate(45deg);
+      }
+
+      #app.sidebar-collapsed #btn-sidebar-toggle span:nth-child(2) {
+        opacity: 0;
+      }
+
+      #app.sidebar-collapsed #btn-sidebar-toggle span:nth-child(3) {
+        transform: translateY(-5.5px) rotate(-45deg);
       }
 
       .sidebar-header {
@@ -1096,6 +1229,10 @@
   <body>
     <div id="app">
       <header id="topbar">
+        <!-- Sidebar toggle (hamburger) -->
+        <button id="btn-sidebar-toggle" onclick="toggleSidebar()" data-tip="Toggle sidebar" aria-label="Toggle sidebar">
+          <span></span><span></span><span></span>
+        </button>
         <div class="logo-mark"></div>
         <h1>SP SO <span>Web Toolbox</span></h1>
         <div id="env-pill">
@@ -1496,6 +1633,21 @@
         .addEventListener("click", function (e) {
           if (e.target === this) closeChangelog();
         });
+
+      // ── Sidebar toggle ────────────────────────────────────────
+      (function () {
+        const STORAGE_KEY = "sotb-sidebar-collapsed";
+        function applyState(collapsed) {
+          document.getElementById("app").classList.toggle("sidebar-collapsed", collapsed);
+        }
+        // Restore persisted state
+        applyState(localStorage.getItem(STORAGE_KEY) === "1");
+        window.toggleSidebar = function () {
+          const collapsed = !document.getElementById("app").classList.contains("sidebar-collapsed");
+          applyState(collapsed);
+          localStorage.setItem(STORAGE_KEY, collapsed ? "1" : "0");
+        };
+      })();
 
       const PROXY_URL = "/so-proxy";
       let _hasAdminPw = false;
@@ -1974,7 +2126,7 @@
               $catTools.append(`
                             <div class="tool-item ${
                               isActive ? "active" : ""
-                            }" data-tool-id="${tool.id}" draggable="true">
+                            }" data-tool-id="${tool.id}" data-tool-name="${tool.name.replace(/"/g, '&quot;')}" draggable="true">
                               <span class="tool-drag-handle" title="Drag to reorder">⠿</span>
                               <span class="tool-icon">${tool.icon}</span>
                               <div class="tool-info">
