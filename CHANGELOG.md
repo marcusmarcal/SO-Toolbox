@@ -7,6 +7,15 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.30.0] - 2026-05-26
+
+### Added
+
+- Collapsible sidebar with hamburger button in the topbar
+- Collapsed state shows icons only; hovering a tool reveals its name in a tooltip
+- Sidebar open/collapsed state persists across sessions via `localStorage`
+- Hamburger animates into an X when the sidebar is collapsed
+
 ## [2.29.0] - 2026-05-26
 
 ### Changed
