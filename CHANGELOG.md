@@ -7,6 +7,14 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.30.1] - 2026-05-26
+
+### Fixed
+
+- Collapsed sidebar tooltip was hidden due to `overflow: hidden` on sidebar element
+- Replaced CSS `::after` tooltip (clipped by sidebar bounds) with a JS-driven fixed-position label
+- Tooltip now slides in from the right edge of the collapsed sidebar, matching the design reference
+
 ## [2.30.0] - 2026-05-26
 
 ### Added
