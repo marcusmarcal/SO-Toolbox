@@ -142,6 +142,15 @@
       transition:background .15s;
     }
     .btn-stop-job:hover { background:rgba(255,59,92,.15); }
+
+    .host-combo { display: flex; gap: 8px; }
+    .host-combo select {
+      background: var(--bg); border: 1px solid var(--border); color: var(--text);
+      font-family: var(--mono); font-size: 12px; padding: 9px 10px; border-radius: 3px;
+      outline: none; flex-shrink: 0; max-width: 140px;
+    }
+    .host-combo select:focus { border-color: var(--accent); }
+    .host-combo input { flex: 1; }
     .no-jobs { text-align:center; color:var(--muted); font-family:var(--mono); font-size:12px; padding:30px 0; }
     .stats-bar { display:flex; gap:24px; margin-bottom:16px; font-family:var(--mono); font-size:11px; color:var(--muted); }
     .stat-val { color:var(--text); font-size:18px; font-weight:700; display:block; }
@@ -218,10 +227,18 @@
   <div class="card single">
     <div class="card-title">Single Destination <span class="tag">1:1</span></div>
     <div class="field"><label>Input File</label><input type="text" id="s-input" value="test.mp4" /></div>
-    <div class="field"><label>Host</label><input type="text" id="s-host" placeholder="primaryingest.statsperform.technology" /></div>
+    <div class="field">
+      <label>Host / Server</label>
+      <div class="host-combo">
+        <select id="s-server-select" onchange="applyServerSelect('s')">
+          <option value="">— quick select —</option>
+        </select>
+        <input type="text" id="s-host" placeholder="host or IP" />
+      </div>
+    </div>
     <div class="row">
       <div class="field"><label>Port</label><input type="number" id="s-port" placeholder="4001" min="1" max="65535" /></div>
-      <div class="field"><label>Passphrase</label><input type="password" id="s-pass" placeholder="••••••••" /></div>
+      <div class="field"><label>Passphrase <span style="color:var(--muted);font-size:9px">(optional)</span></label><input type="password" id="s-pass" placeholder="leave empty if none" /></div>
     </div>
     <div class="field"><label>Target Bitrate (Mbps)</label><input type="number" id="s-bitrate" value="8" min="1" max="50" step="0.5" /></div>
     <div class="preview-label">Command Preview</div>
@@ -233,13 +250,21 @@
   <div class="card multi">
     <div class="card-title">Multi Destination <span class="tag">1:N</span></div>
     <div class="field"><label>Input File</label><input type="text" id="m-input" value="test.mp4" /></div>
-    <div class="field"><label>Host</label><input type="text" id="m-host" placeholder="primaryingest.statsperform.technology" /></div>
+    <div class="field">
+      <label>Host / Server</label>
+      <div class="host-combo">
+        <select id="m-server-select" onchange="applyServerSelect('m')">
+          <option value="">— quick select —</option>
+        </select>
+        <input type="text" id="m-host" placeholder="host or IP" />
+      </div>
+    </div>
     <div class="row">
       <div class="field"><label>Port Start</label><input type="number" id="m-port-start" placeholder="4001" min="1" max="65535" /></div>
       <div class="field"><label>Port End</label><input type="number" id="m-port-end" placeholder="4010" min="1" max="65535" /></div>
     </div>
     <div class="row">
-      <div class="field"><label>Passphrase</label><input type="password" id="m-pass" placeholder="••••••••" /></div>
+      <div class="field"><label>Passphrase <span style="color:var(--muted);font-size:9px">(optional)</span></label><input type="password" id="m-pass" placeholder="leave empty if none" /></div>
       <div class="field"><label>Target Bitrate (Mbps)</label><input type="number" id="m-bitrate" value="8" min="1" max="50" step="0.5" /></div>
     </div>
     <div class="preview-label">Destinations Preview</div>
@@ -519,7 +544,7 @@ function disconnectSSE(finished = false) {
 function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 function buildCmd(input, host, port, pass, bitrate) {
-  if (!host || !port || !pass || !input) return null;
+  if (!host || !port || !input) return null;
   const vbr = `${bitrate}M`;
   const buf = `${bitrate * 2}M`;
   return `ffmpeg -re -i <span class="hl">${esc(input)}</span>\n`
@@ -529,7 +554,7 @@ function buildCmd(input, host, port, pass, bitrate) {
     + `<span class="hlg">-b:v ${vbr} -minrate ${vbr} -maxrate ${vbr} -bufsize ${buf}</span>\n`
     + `-c:a aac -ar 48000 -ac 2\n`
     + `-vf "scale=1920:1080" -f mpegts -muxdelay 0 -muxpreload 0\n`
-    + `<span class="hl2">srt://${esc(host)}:${port}?passphrase=***</span>`;
+    + `<span class="hl2">srt://${esc(host)}:${port}${pass ? "?passphrase=***" : ""}</span>`;
 }
 
 function updateSinglePreview() {
@@ -576,7 +601,7 @@ async function startSingle() {
     passphrase:  document.getElementById('s-pass').value.trim(),
     bitrate_mbps: parseFloat(document.getElementById('s-bitrate').value) || 8,
   };
-  if (!body.host || !body.port || !body.passphrase) { toast('Fill all fields.','err'); return; }
+  if (!body.host || !body.port) { toast('Host and port are required.','err'); return; }
   try {
     const r = await fetch(`${BASE}/ingest/single`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
     const d = await r.json();
@@ -598,7 +623,7 @@ async function startMulti() {
     passphrase:   document.getElementById('m-pass').value.trim(),
     bitrate_mbps: parseFloat(document.getElementById('m-bitrate').value) || 8,
   };
-  if (!body.host || !body.port_start || !body.port_end || !body.passphrase) { toast('Fill all fields.','err'); return; }
+  if (!body.host || !body.port_start || !body.port_end) { toast('Host and port range are required.','err'); return; }
   try {
     const r = await fetch(`${BASE}/ingest/multi`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
     const d = await r.json();
@@ -692,6 +717,55 @@ function toast(msg, type='info') {
   c.appendChild(t);
   setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity .4s'; setTimeout(()=>t.remove(),400); }, 3500);
 }
+
+
+// ── Config loader — SRT_LOCAL_X servers ──────────────────────────────────────
+async function loadConfig() {
+  try {
+    const r = await fetch('/so-proxy/config');
+    if (!r.ok) return;
+    const d = await r.json();
+    const cfg = d.config || {};
+    const servers = [];
+    Object.entries(cfg).forEach(([k, v]) => {
+      if (/^SRT_LOCAL_\d+$/.test(k)) {
+        const [ip, label] = v.split('|');
+        if (ip) servers.push({ ip: ip.trim(), label: (label || ip).trim() });
+      }
+    });
+    ['s-server-select','m-server-select'].forEach(id => {
+      const sel = document.getElementById(id);
+      // Keep first placeholder option
+      while (sel.options.length > 1) sel.remove(1);
+      servers.forEach(s => {
+        const o = document.createElement('option');
+        o.value = s.ip;
+        o.textContent = `${s.label} (${s.ip})`;
+        sel.appendChild(o);
+      });
+      if (servers.length === 0) {
+        const o = document.createElement('option');
+        o.disabled = true;
+        o.textContent = 'No servers in config';
+        sel.appendChild(o);
+      }
+    });
+  } catch(e) {
+    console.warn('Could not load /so-proxy/config:', e);
+  }
+}
+
+function applyServerSelect(prefix) {
+  const sel = document.getElementById(`${prefix}-server-select`);
+  const ip  = sel.value;
+  if (!ip) return;
+  document.getElementById(`${prefix}-host`).value = ip;
+  // Trigger preview update
+  if (prefix === 's') updateSinglePreview();
+  else updateMultiPreview();
+}
+
+loadConfig();
 
 // ── Auto-refresh ─────────────────────────────────────────────────────────────
 setInterval(refreshJobs, 5000);
