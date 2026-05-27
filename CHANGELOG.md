@@ -6,6 +6,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [3.1.2] - 2026-05-27
+
+### Changed
+- ffmpeg: added `-stream_loop -1` to loop input file indefinitely until job is stopped
+
 ## [3.1.1] - 2026-05-27
 
 ### Added

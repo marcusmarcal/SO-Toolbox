@@ -44,7 +44,7 @@ def _build_ffmpeg_cmd(
     vbr = f"{bitrate_mbps}M"
     bufsize = f"{bitrate_mbps * CBR_BUFSIZE_FACTOR}M"
     return [
-        "ffmpeg", "-re",
+        "ffmpeg", "-stream_loop", "-1", "-re",
         "-i", input_file,
         "-map", "0:v:0",
         "-map", "0:a:0",
