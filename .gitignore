@@ -7,3 +7,4 @@ __pycache__/
 .vscode/
 patches/
 users.json
+*.mp4
