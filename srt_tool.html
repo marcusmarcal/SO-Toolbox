@@ -429,8 +429,7 @@
 <div class="toast-container" id="toasts"></div>
 
 <script>
-  const BASE = "/srt";
-
+const BASE = `${location.protocol}//${location.hostname}:5000/srt`;
   // ── Preview builders ──────────────────────────────────────────────────────
 
   function buildCmd(input, host, port, pass) {
