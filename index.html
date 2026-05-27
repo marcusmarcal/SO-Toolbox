@@ -361,16 +361,16 @@
         background: var(--accent);
       }
 
-      /* animate to X when collapsed */
-      #app.sidebar-collapsed #btn-sidebar-toggle span:nth-child(1) {
+      /* animate to X when expanded */
+      #app:not(.sidebar-collapsed) #btn-sidebar-toggle span:nth-child(1) {
         transform: translateY(5.5px) rotate(45deg);
       }
 
-      #app.sidebar-collapsed #btn-sidebar-toggle span:nth-child(2) {
+      #app:not(.sidebar-collapsed) #btn-sidebar-toggle span:nth-child(2) {
         opacity: 0;
       }
 
-      #app.sidebar-collapsed #btn-sidebar-toggle span:nth-child(3) {
+      #app:not(.sidebar-collapsed) #btn-sidebar-toggle span:nth-child(3) {
         transform: translateY(-5.5px) rotate(-45deg);
       }
 
@@ -1706,7 +1706,7 @@
             .getElementById("app")
             .classList.contains("sidebar-collapsed");
           applyState(collapsed);
-          localStorage.setItem(STORAGE_KEY, collapsed ? "0" : "1");
+          localStorage.setItem(STORAGE_KEY, collapsed ? "1" : "0");
         };
       })();
 
