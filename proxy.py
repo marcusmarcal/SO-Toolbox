@@ -15,6 +15,11 @@ app.register_blueprint(id3as_bp)
 from rts_routes import rts_bp
 app.register_blueprint(rts_bp)
 
+
+from router_srt import srt_bp
+app.register_blueprint(srt_bp)
+
+
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024 * 1024  # 2 GB upload limit
 CORS(app)
 

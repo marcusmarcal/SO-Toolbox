@@ -6,6 +6,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [3.0.0] - 2026-05-27
+
+### Added
+- `router_srt.py`: Flask Blueprint for SRT ingest routes
+  - `POST /srt/ingest/single` — start a single ffmpeg SRT ingest job
+  - `POST /srt/ingest/multi` — start ingest to a port range (up to 100 destinations simultaneously)
+  - `GET /srt/jobs` — list all registered jobs with status
+  - `GET /srt/jobs/<id>` — get status of a specific job
+  - `POST /srt/jobs/<id>/stop` — send SIGTERM to a running job
+  - `POST /srt/jobs/stop-all` — stop every running job
+- `templates/srt_tool.html`: browser-based SRT ingest control panel
+  - Single-destination form with live ffmpeg command preview
+  - Multi-destination form with port-range selector and destinations preview
+  - Active jobs monitor with auto-refresh (5 s), per-job stop button and Stop All
+  - Real-time stats counters: total / running / finished / errors
+  - Toast notifications for API feedback
+- `app.py`: main Flask proxy entry point; registers `srt_bp` blueprint
+- ffmpeg encoding profile: libx264, force-cfr, 25 fps, GOP 50, AAC 48 kHz stereo, 1920×1080, mpegts over SRT
 
 ## [2.30.1] - 2026-05-26
 
