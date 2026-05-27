@@ -438,7 +438,7 @@
     return `ffmpeg -re -i <span class="hl">${esc(input)}</span>\n`
       + `-map 0:v:0 -map 0:a:0\n`
       + `-c:v libx264 -x264-params "force-cfr=1:pic-struct=1" -bf 0 -flags +cgop\n`
-      + `-r 25 -g 50 -keyint_min 50\n`
+      + `-r 25 -g 50 -keyint_min 50 -sc_threshold 0\n`
       + `-c:a aac -ar 48000 -ac 2\n`
       + `-vf "scale=1920:1080" -f mpegts\n`
       + `-muxdelay 0 -muxpreload 0\n`

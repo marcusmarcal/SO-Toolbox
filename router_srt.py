@@ -43,6 +43,7 @@ def _build_ffmpeg_cmd(
         "-r", "25",
         "-g", "50",
         "-keyint_min", "50",
+        "-sc_threshold", "0",
         "-c:a", "aac",
         "-ar", "48000",
         "-ac", "2",
