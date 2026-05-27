@@ -6,24 +6,36 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+
+## [3.2.2] - 2026-05-27
+
+### Fixed
+
+- `router_srt.py`: replaced Python 3.10+ union type syntax (`dict | None`, `list[str]`)
+  with `typing.Optional` and `list` for compatibility with Python 3.9
+
 ## [3.1.2] - 2026-05-27
 
 ### Changed
+
 - ffmpeg: added `-stream_loop -1` to loop input file indefinitely until job is stopped
 
 ## [3.1.1] - 2026-05-27
 
 ### Added
+
 - Server quick-select dropdown populated from `SRT_LOCAL_N` keys in `/so-proxy/config`
 - Manual host input remains editable alongside the dropdown
 
 ### Changed
+
 - Passphrase is now optional in both frontend and backend
 - SRT URL omits `?passphrase=` entirely when passphrase is empty
 
 ## [3.1.0] - 2026-05-27
 
 ### Added
+
 - ffmpeg strict CBR profile: `-b:v`, `-minrate`, `-maxrate`, `-bufsize` (2× target)
 - `bitrate_mbps` parameter on ingest endpoints (default 8 Mbps)
 - SSE endpoint `GET /srt/jobs/<id>/stats` streams live ffmpeg stats
@@ -34,6 +46,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [3.0.0] - 2026-05-27
 
 ### Added
+
 - `router_srt.py`: Flask Blueprint for SRT ingest routes
   - `POST /srt/ingest/single` — start a single ffmpeg SRT ingest job
   - `POST /srt/ingest/multi` — start ingest to a port range (up to 100 destinations simultaneously)

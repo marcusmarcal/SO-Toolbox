@@ -12,6 +12,7 @@ import signal
 import time
 from collections import deque
 from datetime import datetime, timezone
+from typing import Optional, Generator
 from flask import Blueprint, request, jsonify, render_template, Response, stream_with_context
 
 srt_bp = Blueprint("srt_bp", __name__, url_prefix="/srt")
@@ -38,7 +39,7 @@ def _build_ffmpeg_cmd(
     port: int,
     passphrase: str,
     bitrate_mbps: float = CBR_DEFAULT_MBPS,
-) -> list[str]:
+) -> list:
     """Build ffmpeg command for a single SRT destination with strict CBR."""
     srt_url = f"srt://{host}:{port}?passphrase={passphrase}" if passphrase else f"srt://{host}:{port}"
     vbr = f"{bitrate_mbps}M"
@@ -83,7 +84,7 @@ _FFMPEG_RE = re.compile(
 )
 
 
-def _parse_ffmpeg_line(line: str) -> dict | None:
+def _parse_ffmpeg_line(line: str) -> Optional[dict]:
     """Extract stats from a ffmpeg progress stderr line."""
     m = _FFMPEG_RE.search(line)
     if not m:
