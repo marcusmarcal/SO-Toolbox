@@ -40,7 +40,7 @@ def _build_ffmpeg_cmd(
     bitrate_mbps: float = CBR_DEFAULT_MBPS,
 ) -> list[str]:
     """Build ffmpeg command for a single SRT destination with strict CBR."""
-    srt_url = f"srt://{host}:{port}?passphrase={passphrase}"
+    srt_url = f"srt://{host}:{port}?passphrase={passphrase}" if passphrase else f"srt://{host}:{port}"
     vbr = f"{bitrate_mbps}M"
     bufsize = f"{bitrate_mbps * CBR_BUFSIZE_FACTOR}M"
     return [
@@ -198,8 +198,8 @@ def ingest_single():
     input_file = data.get("input_file", "test.mp4").strip()
     bitrate_mbps = float(data.get("bitrate_mbps", CBR_DEFAULT_MBPS))
 
-    if not host or not port or not passphrase:
-        return jsonify({"error": "host, port and passphrase are required"}), 400
+    if not host or not port:
+        return jsonify({"error": "host and port are required"}), 400
     if not os.path.isfile(input_file):
         return jsonify({"error": f"Input file not found: {input_file}"}), 400
 
@@ -221,8 +221,8 @@ def ingest_multi():
     input_file = data.get("input_file", "test.mp4").strip()
     bitrate_mbps = float(data.get("bitrate_mbps", CBR_DEFAULT_MBPS))
 
-    if not host or not port_start or not port_end or not passphrase:
-        return jsonify({"error": "host, port_start, port_end and passphrase are required"}), 400
+    if not host or not port_start or not port_end:
+        return jsonify({"error": "host, port_start and port_end are required"}), 400
     if port_start > port_end:
         return jsonify({"error": "port_start must be <= port_end"}), 400
     if (port_end - port_start) > 99:

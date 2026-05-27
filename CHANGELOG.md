@@ -6,12 +6,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
-# Changelog
+## [3.1.1] - 2026-05-27
 
-All notable changes to this project will be documented in this file.
+### Added
+- Server quick-select dropdown populated from `SRT_LOCAL_N` keys in `/so-proxy/config`
+- Manual host input remains editable alongside the dropdown
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+### Changed
+- Passphrase is now optional in both frontend and backend
+- SRT URL omits `?passphrase=` entirely when passphrase is empty
 
 ## [3.1.0] - 2026-05-27
 
