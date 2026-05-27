@@ -38,6 +38,8 @@ def _build_ffmpeg_cmd(
         "-map", "0:a:0",
         "-c:v", "libx264",
         "-x264-params", "force-cfr=1:pic-struct=1",
+        "-bf", "0",
+        "-flags", "+cgop",
         "-r", "25",
         "-g", "50",
         "-keyint_min", "50",
