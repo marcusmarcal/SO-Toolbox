@@ -13,6 +13,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-05-27
+
+### Added
+- ffmpeg strict CBR profile: `-b:v`, `-minrate`, `-maxrate`, `-bufsize` (2× target)
+- `bitrate_mbps` parameter on ingest endpoints (default 8 Mbps)
+- SSE endpoint `GET /srt/jobs/<id>/stats` streams live ffmpeg stats
+- Real-time bitrate canvas chart with UTC time axis and CBR target line
+- UTC wall-clock (HH:MM:SS.mmm) updated every 50 ms
+- Colour-coded bitrate deviation indicator (green/yellow/red vs target)
+
 ## [3.0.0] - 2026-05-27
 
 ### Added
