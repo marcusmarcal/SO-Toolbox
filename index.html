@@ -312,7 +312,7 @@
         transform: translateX(-6px);
         transition: opacity 0.15s ease, transform 0.15s ease;
         z-index: 500;
-        box-shadow: 4px 0 12px rgba(0,0,0,0.3);
+        box-shadow: 4px 0 12px rgba(0, 0, 0, 0.3);
       }
 
       #sidebar-tooltip.visible {
@@ -361,16 +361,16 @@
         background: var(--accent);
       }
 
-      /* animate to X when collapsed */
-      #app.sidebar-collapsed #btn-sidebar-toggle span:nth-child(1) {
+      /* animate to X when expanded */
+      #app:not(.sidebar-collapsed) #btn-sidebar-toggle span:nth-child(1) {
         transform: translateY(5.5px) rotate(45deg);
       }
 
-      #app.sidebar-collapsed #btn-sidebar-toggle span:nth-child(2) {
+      #app:not(.sidebar-collapsed) #btn-sidebar-toggle span:nth-child(2) {
         opacity: 0;
       }
 
-      #app.sidebar-collapsed #btn-sidebar-toggle span:nth-child(3) {
+      #app:not(.sidebar-collapsed) #btn-sidebar-toggle span:nth-child(3) {
         transform: translateY(-5.5px) rotate(-45deg);
       }
 
@@ -1246,7 +1246,12 @@
     <div id="app">
       <header id="topbar">
         <!-- Sidebar toggle (hamburger) -->
-        <button id="btn-sidebar-toggle" onclick="toggleSidebar()" data-tip="Toggle sidebar" aria-label="Toggle sidebar">
+        <button
+          id="btn-sidebar-toggle"
+          onclick="toggleSidebar()"
+          data-tip="Toggle sidebar"
+          aria-label="Toggle sidebar"
+        >
           <span></span><span></span><span></span>
         </button>
         <div class="logo-mark"></div>
@@ -1319,7 +1324,9 @@
         <div id="user-pill">
           <span class="user-icon">◈</span>
           <span id="session-username">…</span>
-          <button id="btn-logout" onclick="doLogout()" data-tip="Sign out">⏻</button>
+          <button id="btn-logout" onclick="doLogout()" data-tip="Sign out">
+            ⏻
+          </button>
         </div>
       </header>
 
@@ -1659,7 +1666,9 @@
         let hideTimer = null;
 
         function isCollapsed() {
-          return document.getElementById("app").classList.contains("sidebar-collapsed");
+          return document
+            .getElementById("app")
+            .classList.contains("sidebar-collapsed");
         }
 
         document.addEventListener("mouseover", function (e) {
@@ -1670,7 +1679,7 @@
           const name = item.getAttribute("data-tool-name");
           const rect = item.getBoundingClientRect();
           tip.textContent = name;
-          tip.style.top = rect.top + (rect.height / 2) - 18 + "px";
+          tip.style.top = rect.top + rect.height / 2 - 18 + "px";
           tip.classList.add("visible");
         });
 
@@ -1686,12 +1695,16 @@
       (function () {
         const STORAGE_KEY = "sotb-sidebar-collapsed";
         function applyState(collapsed) {
-          document.getElementById("app").classList.toggle("sidebar-collapsed", collapsed);
+          document
+            .getElementById("app")
+            .classList.toggle("sidebar-collapsed", collapsed);
         }
         // Restore persisted state
-        applyState(localStorage.getItem(STORAGE_KEY) === "1");
+        applyState(localStorage.getItem(STORAGE_KEY) !== "0");
         window.toggleSidebar = function () {
-          const collapsed = !document.getElementById("app").classList.contains("sidebar-collapsed");
+          const collapsed = !document
+            .getElementById("app")
+            .classList.contains("sidebar-collapsed");
           applyState(collapsed);
           localStorage.setItem(STORAGE_KEY, collapsed ? "1" : "0");
         };
@@ -2174,7 +2187,12 @@
               $catTools.append(`
                             <div class="tool-item ${
                               isActive ? "active" : ""
-                            }" data-tool-id="${tool.id}" data-tool-name="${tool.name.replace(/"/g, '&quot;')}" draggable="true">
+                            }" data-tool-id="${
+                tool.id
+              }" data-tool-name="${tool.name.replace(
+                /"/g,
+                "&quot;"
+              )}" draggable="true">
                               <span class="tool-drag-handle" title="Drag to reorder">⠿</span>
                               <span class="tool-icon">${tool.icon}</span>
                               <div class="tool-info">
@@ -2518,34 +2536,38 @@
           window._renderWelcomeCardsFn && window._renderWelcomeCardsFn();
         }
       }
-    
-  // ── Session: show username + logout ─────────────────────────────
-  (function initSession() {
-    const stored = sessionStorage.getItem('sotb-user');
-    if (stored) {
-      document.getElementById('session-username').textContent = stored;
-    }
-    fetch('/so-proxy/me', { credentials: 'same-origin' })
-      .then(r => r.ok ? r.json() : Promise.reject(r.status))
-      .then(d => {
-        document.getElementById('session-username').textContent = d.username;
-        sessionStorage.setItem('sotb-user', d.username);
-      })
-      .catch(() => {
-        // Session expired — redirect to login
-        window.location.href = '/login.html?next=' + encodeURIComponent(location.pathname);
-      });
-  })();
 
-  function doLogout() {
-    fetch('/so-proxy/logout', { method: 'POST', credentials: 'same-origin' })
-      .finally(() => {
-        sessionStorage.removeItem('sotb-token');
-        sessionStorage.removeItem('sotb-user');
-        sessionStorage.removeItem('sotb-role');
-        window.location.href = '/login.html';
-      });
-  }
-</script>
+      // ── Session: show username + logout ─────────────────────────────
+      (function initSession() {
+        const stored = sessionStorage.getItem("sotb-user");
+        if (stored) {
+          document.getElementById("session-username").textContent = stored;
+        }
+        fetch("/so-proxy/me", { credentials: "same-origin" })
+          .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+          .then((d) => {
+            document.getElementById("session-username").textContent =
+              d.username;
+            sessionStorage.setItem("sotb-user", d.username);
+          })
+          .catch(() => {
+            // Session expired — redirect to login
+            window.location.href =
+              "/login.html?next=" + encodeURIComponent(location.pathname);
+          });
+      })();
+
+      function doLogout() {
+        fetch("/so-proxy/logout", {
+          method: "POST",
+          credentials: "same-origin",
+        }).finally(() => {
+          sessionStorage.removeItem("sotb-token");
+          sessionStorage.removeItem("sotb-user");
+          sessionStorage.removeItem("sotb-role");
+          window.location.href = "/login.html";
+        });
+      }
+    </script>
   </body>
 </html>

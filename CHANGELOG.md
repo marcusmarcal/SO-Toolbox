@@ -7,6 +7,13 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.3.0] - 2026-05-27
+
+### Changed
+
+- Sidebar now starts collapsed by default; expands on hamburger click
+- Persisted state still respected on subsequent visits
+
 ## [3.2.2] - 2026-05-27
 
 ### Fixed
