@@ -7,6 +7,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.6.0] - 2026-05-29
+
+### Added
+
+- Size of buttons and order of tags adjusted on BTV Video Analyser
+
 ## [3.5.1] - 2026-05-29
 
 ### Added
