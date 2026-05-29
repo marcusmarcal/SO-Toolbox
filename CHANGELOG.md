@@ -7,6 +7,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [4.0.0] - 2026-05-29
+
+### Added
+
+- Rota started
+
 ## [3.4.0] - 2026-05-28
 
 ### Changed
