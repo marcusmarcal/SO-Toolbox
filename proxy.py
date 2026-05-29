@@ -2,6 +2,7 @@ import base64
 import requests
 import routes_auth
 import routes_gop
+import routes_rota
 
 from flask import Flask, request, jsonify, Response, send_from_directory
 from flask_cors import CORS
@@ -15,9 +16,10 @@ app.register_blueprint(id3as_bp)
 from rts_routes import rts_bp
 app.register_blueprint(rts_bp)
 
-
 from router_srt import srt_bp
 app.register_blueprint(srt_bp)
+
+routes_rota.register_routes(app)
 
 
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024 * 1024  # 2 GB upload limit
