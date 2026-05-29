@@ -2472,7 +2472,7 @@
           .map((t) => t.trim())
           .filter(Boolean)
           .join(" · ");
-        document.getElementById("meta-id").textContent = "🆔 "; // + item.test_id;
+        document.getElementById("meta-id").textContent = "🆔 " + r.test_id;
         document.getElementById("meta-date").textContent = "📅 " + testDate;
         document.getElementById("meta-server").textContent = "🖥 " + serverName;
         document.getElementById("meta-port").textContent =
