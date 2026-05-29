@@ -7,6 +7,15 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.5.0] - 2026-05-29
+
+### Added
+
+- Tag editor for past analyses: click the ✎ button on any history item to add, remove, or rename tags
+- Chip-based tag input UI with keyboard shortcuts (Enter/comma to confirm, Backspace to remove last)
+- Tag suggestions populated from existing tags in the current history view
+- Saves via POST /gop/tag/:file with { tag } payload, same pattern as override endpoint
+
 ## [3.4.0] - 2026-05-28
 
 ### Changed
