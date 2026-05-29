@@ -7,6 +7,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.5.1] - 2026-05-29
+
+### Added
+
+- feat: PATCH /gop/result/:file to update tag field
+
 ## [3.5.0] - 2026-05-29
 
 ### Added
