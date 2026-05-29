@@ -850,7 +850,9 @@
         cursor: text;
         transition: border-color 0.15s;
       }
-      .tag-chip-list:focus-within { border-color: var(--purple); }
+      .tag-chip-list:focus-within {
+        border-color: var(--purple);
+      }
       .tag-chip {
         display: inline-flex;
         align-items: center;
@@ -871,7 +873,9 @@
         line-height: 1;
         padding: 0 1px;
       }
-      .tag-chip-x:hover { color: var(--red); }
+      .tag-chip-x:hover {
+        color: var(--red);
+      }
       .tag-chip-input {
         background: transparent;
         border: none;
@@ -1394,7 +1398,7 @@
                       border-radius: 5px;
                       color: var(--green);
                       font-family: var(--mono);
-                      font-size: 0.7rem;
+                      font-size: 1.4rem;
                       font-weight: 700;
                       padding: 4px 12px;
                       cursor: pointer;
@@ -2145,23 +2149,95 @@
 
     <!-- Tag edit modal -->
     <div class="modal-overlay" id="tag-edit-modal">
-      <div class="modal-card" style="width:460px">
-        <div class="modal-title" style="color:var(--purple)">🏷 Edit Tags</div>
-        <div class="modal-body" style="margin-bottom:.6rem">
-          <div style="font-size:.7rem;color:var(--muted);margin-bottom:.5rem">
-            Type a tag and press <kbd style="background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-size:.68rem">Enter</kbd> or <kbd style="background:var(--bg3);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-size:.68rem">,</kbd> to add. Click × to remove.
+      <div class="modal-card" style="width: 460px">
+        <div class="modal-title" style="color: var(--purple)">🏷 Edit Tags</div>
+        <div class="modal-body" style="margin-bottom: 0.6rem">
+          <div
+            style="
+              font-size: 0.7rem;
+              color: var(--muted);
+              margin-bottom: 0.5rem;
+            "
+          >
+            Type a tag and press
+            <kbd
+              style="
+                background: var(--bg3);
+                border: 1px solid var(--border);
+                border-radius: 3px;
+                padding: 1px 5px;
+                font-size: 0.68rem;
+              "
+              >Enter</kbd
+            >
+            or
+            <kbd
+              style="
+                background: var(--bg3);
+                border: 1px solid var(--border);
+                border-radius: 3px;
+                padding: 1px 5px;
+                font-size: 0.68rem;
+              "
+              >,</kbd
+            >
+            to add. Click × to remove.
           </div>
-          <div class="tag-chip-list" id="tag-chip-list" onclick="document.getElementById('tag-chip-input').focus()"></div>
-          <input id="tag-chip-input" class="tag-chip-input" placeholder="add tag…"
-            style="margin-top:.4rem;width:100%;background:transparent;border:none;outline:none;color:#fff;font-family:var(--mono);font-size:.78rem;"
-            onkeydown="tagInputKeydown(event)" />
-          <div style="margin-top:.5rem;font-size:.65rem;color:var(--muted)" id="tag-suggest-row"></div>
+          <div
+            class="tag-chip-list"
+            id="tag-chip-list"
+            onclick="document.getElementById('tag-chip-input').focus()"
+          ></div>
+          <input
+            id="tag-chip-input"
+            class="tag-chip-input"
+            placeholder="add tag…"
+            style="
+              margin-top: 0.4rem;
+              width: 100%;
+              background: transparent;
+              border: none;
+              outline: none;
+              color: #fff;
+              font-family: var(--mono);
+              font-size: 0.78rem;
+            "
+            onkeydown="tagInputKeydown(event)"
+          />
+          <div
+            style="margin-top: 0.5rem; font-size: 0.65rem; color: var(--muted)"
+            id="tag-suggest-row"
+          ></div>
         </div>
         <div class="modal-actions">
-          <button class="btn-run" style="background:var(--purple);height:32px;padding:0 1.1rem" onclick="saveTagEdit()">Save</button>
-          <button class="btn-cancel" onclick="closeTagEditModal()">Cancel</button>
-          <span id="tag-edit-ok" style="font-family:var(--mono);font-size:.68rem;color:var(--green);display:none">✓ Saved</span>
-          <span id="tag-edit-err" style="font-family:var(--mono);font-size:.68rem;color:var(--red)"></span>
+          <button
+            class="btn-run"
+            style="background: var(--purple); height: 32px; padding: 0 1.1rem"
+            onclick="saveTagEdit()"
+          >
+            Save
+          </button>
+          <button class="btn-cancel" onclick="closeTagEditModal()">
+            Cancel
+          </button>
+          <span
+            id="tag-edit-ok"
+            style="
+              font-family: var(--mono);
+              font-size: 0.68rem;
+              color: var(--green);
+              display: none;
+            "
+            >✓ Saved</span
+          >
+          <span
+            id="tag-edit-err"
+            style="
+              font-family: var(--mono);
+              font-size: 0.68rem;
+              color: var(--red);
+            "
+          ></span>
         </div>
       </div>
     </div>
@@ -2924,8 +3000,13 @@
               ).replace(
                 /"/g,
                 "&quot;"
-              )})" style="background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:.62rem;cursor:pointer;padding:0" title="Re-run this analysis" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">↺</button>`;
-              const editTagBtn = `<button onclick="event.stopPropagation();openTagEditModal('${item.file}',${JSON.stringify(item.tag||'').replace(/"/g,'&quot;')})" style="background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:.62rem;cursor:pointer;padding:0" title="Edit tags" onmouseover="this.style.color='var(--purple)'" onmouseout="this.style.color='var(--muted)'">✎</button>`;
+              )})" style="background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:1.2rem;cursor:pointer;padding:0" title="Re-run this analysis" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">↺</button>`;
+              const editTagBtn = `<button onclick="event.stopPropagation();openTagEditModal('${
+                item.file
+              }',${JSON.stringify(item.tag || "").replace(
+                /"/g,
+                "&quot;"
+              )})" style="background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:1.2rem;cursor:pointer;padding:0" title="Edit tags" onmouseover="this.style.color='var(--purple)'" onmouseout="this.style.color='var(--muted)'">✎</button>`;
               const errorHint =
                 isFailed && item.error
                   ? `<div style="font-family:var(--mono);font-size:.62rem;color:var(--red);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.error}</div>`
@@ -3260,7 +3341,8 @@
         tabTxt.style.border = isVis ? "1px solid var(--border)" : "none";
         // Sync copy button label to active tab
         const copyBtn = document.getElementById("btn-copy-report");
-        if (copyBtn) copyBtn.textContent = isVis ? "📋 Copy Visual" : "📋 Copy Text";
+        if (copyBtn)
+          copyBtn.textContent = isVis ? "📋 Copy Visual" : "📋 Copy Text";
       }
       function closeReportModal() {
         document.getElementById("report-modal").classList.remove("open");
@@ -3729,7 +3811,9 @@
       }
 
       async function copyReport() {
-        const isVisual = document.getElementById("report-visual-pane").style.display !== "none";
+        const isVisual =
+          document.getElementById("report-visual-pane").style.display !==
+          "none";
         const ok = document.getElementById("report-copy-ok");
 
         if (isVisual) {
@@ -3740,10 +3824,18 @@
           // so that getComputedStyle resolves all CSS variables to real colour values
           const wrapper = document.createElement("div");
           wrapper.style.cssText = [
-            "position:fixed", "top:0", "left:0", "width:900px",
-            "background:#ffffff", "color:#1a1a1a", "padding:20px",
-            "font-family:'JetBrains Mono',monospace", "font-size:13px",
-            "z-index:-9999", "pointer-events:none", "opacity:0"
+            "position:fixed",
+            "top:0",
+            "left:0",
+            "width:900px",
+            "background:#ffffff",
+            "color:#1a1a1a",
+            "padding:20px",
+            "font-family:'JetBrains Mono',monospace",
+            "font-size:13px",
+            "z-index:-9999",
+            "pointer-events:none",
+            "opacity:0",
           ].join(";");
           document.body.appendChild(wrapper);
 
@@ -3756,24 +3848,50 @@
           const all = [wrapper, ...wrapper.querySelectorAll("*")];
           const liveAll = [source, ...source.querySelectorAll("*")];
           const propsToInline = [
-            "color", "background-color", "border-color",
-            "border-top-color", "border-bottom-color",
-            "border-left-color", "border-right-color",
-            "font-family", "font-size", "font-weight",
-            "padding", "padding-top", "padding-bottom", "padding-left", "padding-right",
-            "margin", "margin-top", "margin-bottom", "margin-left", "margin-right",
-            "border", "border-top", "border-bottom", "border-left", "border-right",
-            "border-radius", "border-collapse",
-            "display", "text-align", "vertical-align",
-            "text-transform", "letter-spacing", "white-space", "line-height",
-            "width", "min-width", "max-width"
+            "color",
+            "background-color",
+            "border-color",
+            "border-top-color",
+            "border-bottom-color",
+            "border-left-color",
+            "border-right-color",
+            "font-family",
+            "font-size",
+            "font-weight",
+            "padding",
+            "padding-top",
+            "padding-bottom",
+            "padding-left",
+            "padding-right",
+            "margin",
+            "margin-top",
+            "margin-bottom",
+            "margin-left",
+            "margin-right",
+            "border",
+            "border-top",
+            "border-bottom",
+            "border-left",
+            "border-right",
+            "border-radius",
+            "border-collapse",
+            "display",
+            "text-align",
+            "vertical-align",
+            "text-transform",
+            "letter-spacing",
+            "white-space",
+            "line-height",
+            "width",
+            "min-width",
+            "max-width",
           ];
           for (let i = 0; i < liveAll.length; i++) {
             if (!(liveAll[i] instanceof HTMLElement)) continue;
             const computed = getComputedStyle(liveAll[i]);
             const cloneEl = all[i + 1]; // +1 because all[0] is wrapper
             if (!cloneEl || !(cloneEl instanceof HTMLElement)) continue;
-            propsToInline.forEach(prop => {
+            propsToInline.forEach((prop) => {
               const val = computed.getPropertyValue(prop);
               if (val) cloneEl.style.setProperty(prop, val);
             });
@@ -3799,7 +3917,6 @@
           sel.removeAllRanges();
 
           document.body.removeChild(wrapper);
-
         } else {
           // Text tab — plain text copy
           const text = document.getElementById("report-text").value;
@@ -4374,21 +4491,46 @@
 
       function openTagEditModal(file, tagStr) {
         _tagEditFile = file;
-        _tagEditChips = (tagStr || "").split(",").map(t => t.trim()).filter(Boolean);
+        _tagEditChips = (tagStr || "")
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean);
         document.getElementById("tag-edit-err").textContent = "";
         document.getElementById("tag-edit-ok").style.display = "none";
         document.getElementById("tag-chip-input").value = "";
         renderTagChips();
         // Populate suggestions from existing tags in history
-        const allTags = [...new Set(
-          [...document.querySelectorAll(".hi-badge")]
-            .map(el => el.textContent.trim())
-            .filter(t => t && !t.startsWith("✓") && !t.startsWith("✗") && !t.startsWith("⬇") && !t.startsWith("↺") && !t.startsWith("🕐") && !t.startsWith("📋") && !t.startsWith("GOP") && !t.startsWith("⚡"))
-        )].filter(t => !_tagEditChips.includes(t)).slice(0, 8);
+        const allTags = [
+          ...new Set(
+            [...document.querySelectorAll(".hi-badge")]
+              .map((el) => el.textContent.trim())
+              .filter(
+                (t) =>
+                  t &&
+                  !t.startsWith("✓") &&
+                  !t.startsWith("✗") &&
+                  !t.startsWith("⬇") &&
+                  !t.startsWith("↺") &&
+                  !t.startsWith("🕐") &&
+                  !t.startsWith("📋") &&
+                  !t.startsWith("GOP") &&
+                  !t.startsWith("⚡")
+              )
+          ),
+        ]
+          .filter((t) => !_tagEditChips.includes(t))
+          .slice(0, 8);
         document.getElementById("tag-suggest-row").innerHTML = allTags.length
-          ? "Suggestions: " + allTags.map(t =>
-              `<span style="cursor:pointer;color:var(--purple);font-family:var(--mono);font-size:.68rem;text-decoration:underline;margin-right:.4rem" onclick="addTagChip('${t.replace(/'/g,"\\'")}');document.getElementById('tag-chip-input').focus()">${t}</span>`
-            ).join("")
+          ? "Suggestions: " +
+            allTags
+              .map(
+                (t) =>
+                  `<span style="cursor:pointer;color:var(--purple);font-family:var(--mono);font-size:.68rem;text-decoration:underline;margin-right:.4rem" onclick="addTagChip('${t.replace(
+                    /'/g,
+                    "\\'"
+                  )}');document.getElementById('tag-chip-input').focus()">${t}</span>`
+              )
+              .join("")
           : "";
         document.getElementById("tag-edit-modal").classList.add("open");
         setTimeout(() => document.getElementById("tag-chip-input").focus(), 80);
@@ -4401,9 +4543,12 @@
 
       function renderTagChips() {
         const list = document.getElementById("tag-chip-list");
-        list.innerHTML = _tagEditChips.map((t, i) =>
-          `<span class="tag-chip">${t}<span class="tag-chip-x" onclick="removeTagChip(${i})">×</span></span>`
-        ).join("");
+        list.innerHTML = _tagEditChips
+          .map(
+            (t, i) =>
+              `<span class="tag-chip">${t}<span class="tag-chip-x" onclick="removeTagChip(${i})">×</span></span>`
+          )
+          .join("");
       }
 
       function addTagChip(val) {
@@ -4427,7 +4572,11 @@
           e.preventDefault();
           addTagChip(input.value);
           input.value = "";
-        } else if (e.key === "Backspace" && input.value === "" && _tagEditChips.length) {
+        } else if (
+          e.key === "Backspace" &&
+          input.value === "" &&
+          _tagEditChips.length
+        ) {
           _tagEditChips.pop();
           renderTagChips();
         }
@@ -4444,15 +4593,21 @@
         const errEl = document.getElementById("tag-edit-err");
         errEl.textContent = "";
         try {
-          const res = await fetch(`${PROXY}/gop/result/${encodeURIComponent(_tagEditFile)}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ tag }),
-          });
+          const res = await fetch(
+            `${PROXY}/gop/result/${encodeURIComponent(_tagEditFile)}`,
+            {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ tag }),
+            }
+          );
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const okEl = document.getElementById("tag-edit-ok");
           okEl.style.display = "";
-          setTimeout(() => { okEl.style.display = "none"; closeTagEditModal(); }, 1200);
+          setTimeout(() => {
+            okEl.style.display = "none";
+            closeTagEditModal();
+          }, 1200);
           loadHistory();
         } catch (e) {
           errEl.textContent = `Error: ${e.message}`;
