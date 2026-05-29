@@ -3663,44 +3663,73 @@
         const ok = document.getElementById("report-copy-ok");
 
         if (isVisual) {
-          // Copy the visual report as rich HTML so it pastes beautifully in Jira
-          const el = document.getElementById("report-visual-content");
-          if (!el) return;
+          const source = document.getElementById("report-visual-content");
+          if (!source) return;
 
-          // Serialise the visual content with white background and inline font stacks
-          const htmlPayload = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<style>
-  body { background: #ffffff; color: #1a1a1a; font-family: "JetBrains Mono", monospace; margin: 0; padding: 16px; }
-  * { box-sizing: border-box; }
-  table { border-collapse: collapse; width: 100%; }
-  th, td { padding: 6px 12px; text-align: left; border-bottom: 1px solid #e0e0e0; font-family: "JetBrains Mono", monospace; font-size: 12px; }
-  th { background: #f5f5f5; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: 0.05em; }
-  tr:last-child td { border-bottom: none; }
-</style>
-</head><body>${el.innerHTML}</body></html>`;
+          // Clone the element into an off-screen container with white background
+          // so that getComputedStyle resolves all CSS variables to real colour values
+          const wrapper = document.createElement("div");
+          wrapper.style.cssText = [
+            "position:fixed", "top:0", "left:0", "width:900px",
+            "background:#ffffff", "color:#1a1a1a", "padding:20px",
+            "font-family:'JetBrains Mono',monospace", "font-size:13px",
+            "z-index:-9999", "pointer-events:none", "opacity:0"
+          ].join(";");
+          document.body.appendChild(wrapper);
 
-          try {
-            if (window.ClipboardItem && navigator.clipboard.write) {
-              const blob = new Blob([htmlPayload], { type: "text/html" });
-              await navigator.clipboard.write([new ClipboardItem({ "text/html": blob })]);
-            } else {
-              // Fallback: render into a temporary off-screen div and use execCommand
-              const tmp = document.createElement("div");
-              tmp.style.cssText = "position:fixed;top:-9999px;left:-9999px;background:#fff;color:#000;padding:16px;";
-              tmp.innerHTML = el.innerHTML;
-              document.body.appendChild(tmp);
-              const range = document.createRange();
-              range.selectNodeContents(tmp);
-              const sel = window.getSelection();
-              sel.removeAllRanges();
-              sel.addRange(range);
-              document.execCommand("copy");
-              sel.removeAllRanges();
-              document.body.removeChild(tmp);
+          // Deep-clone the live DOM (includes rendered elements with resolved styles)
+          const clone = source.cloneNode(true);
+          wrapper.appendChild(clone);
+
+          // Walk every element in the clone and stamp computed styles inline,
+          // so CSS variables are resolved and Jira receives real hex/rgb values
+          const all = [wrapper, ...wrapper.querySelectorAll("*")];
+          const liveAll = [source, ...source.querySelectorAll("*")];
+          const propsToInline = [
+            "color", "background-color", "border-color",
+            "border-top-color", "border-bottom-color",
+            "border-left-color", "border-right-color",
+            "font-family", "font-size", "font-weight",
+            "padding", "padding-top", "padding-bottom", "padding-left", "padding-right",
+            "margin", "margin-top", "margin-bottom", "margin-left", "margin-right",
+            "border", "border-top", "border-bottom", "border-left", "border-right",
+            "border-radius", "border-collapse",
+            "display", "text-align", "vertical-align",
+            "text-transform", "letter-spacing", "white-space", "line-height",
+            "width", "min-width", "max-width"
+          ];
+          for (let i = 0; i < liveAll.length; i++) {
+            if (!(liveAll[i] instanceof HTMLElement)) continue;
+            const computed = getComputedStyle(liveAll[i]);
+            const cloneEl = all[i + 1]; // +1 because all[0] is wrapper
+            if (!cloneEl || !(cloneEl instanceof HTMLElement)) continue;
+            propsToInline.forEach(prop => {
+              const val = computed.getPropertyValue(prop);
+              if (val) cloneEl.style.setProperty(prop, val);
+            });
+            // Force white background on root-level content divs
+            const bg = computed.getPropertyValue("background-color");
+            if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") {
+              cloneEl.style.backgroundColor = bg;
+            } else if (i === 0) {
+              cloneEl.style.backgroundColor = "#ffffff";
             }
-          } catch (e) {
-            console.error("Visual copy failed:", e);
           }
+          // Ensure wrapper itself is white
+          wrapper.style.backgroundColor = "#ffffff";
+          wrapper.style.color = "#1a1a1a";
+
+          // Select the wrapper content and copy — this is exactly what manual Ctrl+A, Copy does
+          const range = document.createRange();
+          range.selectNodeContents(wrapper);
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+          document.execCommand("copy");
+          sel.removeAllRanges();
+
+          document.body.removeChild(wrapper);
+
         } else {
           // Text tab — plain text copy
           const text = document.getElementById("report-text").value;
