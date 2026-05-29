@@ -63,7 +63,7 @@ nginx uses `conf.d/` and a single `nginx.conf`. Replace it with the clean versio
 cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
 cp /opt/web/nginx.conf /etc/nginx/nginx.conf
 rm -f /etc/nginx/conf.d/default.conf
-nginx -t && systemctl enable nginx && systemctl start nginx
+nginx -t && systemctl enable nginx && systemctl restart nginx
 ```
 
 > `nginx.conf` includes `nginx_http_defaults.conf` — this file must exist in `/etc/nginx/`.
@@ -83,7 +83,7 @@ rm -f /etc/nginx/sites-enabled/default
 cp /opt/web/nginx-debian.conf /etc/nginx/sites-available/so-toolbox
 ln -s /etc/nginx/sites-available/so-toolbox /etc/nginx/sites-enabled/so-toolbox
 
-nginx -t && systemctl enable nginx && systemctl start nginx
+nginx -t && systemctl enable nginx && systemctl restart nginx
 ```
 
 > Do NOT replace `/etc/nginx/nginx.conf` on Debian — use `sites-available/` as above.
