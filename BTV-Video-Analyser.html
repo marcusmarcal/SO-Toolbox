@@ -4444,8 +4444,8 @@
         const errEl = document.getElementById("tag-edit-err");
         errEl.textContent = "";
         try {
-          const res = await fetch(`${PROXY}/gop/tag/${encodeURIComponent(_tagEditFile)}`, {
-            method: "POST",
+          const res = await fetch(`${PROXY}/gop/result/${encodeURIComponent(_tagEditFile)}`, {
+            method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ tag }),
           });

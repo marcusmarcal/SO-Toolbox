@@ -983,6 +983,19 @@ def gop_results():
 def gop_result_file(filename):
     return send_from_directory(GOP_DIR, filename)
 
+@gop_bp.route("/gop/result/<path:filename>", methods=["PATCH"])
+def gop_patch_result(filename):
+    filepath = os.path.join(GOP_DIR, filename)
+    if not os.path.isfile(filepath):
+        return jsonify({"error": "not found"}), 404
+    with open(filepath, "r") as f:
+        data = json.load(f)
+    patch = request.get_json(silent=True) or {}
+    if "tag" in patch:
+        data["tag"] = patch["tag"]
+    with open(filepath, "w") as f:
+        json.dump(data, f)
+    return jsonify({"ok": True})
 
 @gop_bp.route("/gop/ts/<path:filename>", methods=["GET"])
 def gop_ts_download(filename):
