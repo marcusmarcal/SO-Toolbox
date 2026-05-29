@@ -3190,7 +3190,8 @@
         tabTxt.style.border = isVis ? "1px solid var(--border)" : "none";
         // Sync copy button label to active tab
         const copyBtn = document.getElementById("btn-copy-report");
-        if (copyBtn) copyBtn.textContent = isVis ? "📋 Copy Visual" : "📋 Copy Text";
+        if (copyBtn)
+          copyBtn.textContent = isVis ? "📋 Copy Visual" : "📋 Copy Text";
       }
       function closeReportModal() {
         document.getElementById("report-modal").classList.remove("open");
@@ -3659,7 +3660,9 @@
       }
 
       async function copyReport() {
-        const isVisual = document.getElementById("report-visual-pane").style.display !== "none";
+        const isVisual =
+          document.getElementById("report-visual-pane").style.display !==
+          "none";
         const ok = document.getElementById("report-copy-ok");
 
         if (isVisual) {
@@ -3670,10 +3673,18 @@
           // so that getComputedStyle resolves all CSS variables to real colour values
           const wrapper = document.createElement("div");
           wrapper.style.cssText = [
-            "position:fixed", "top:0", "left:0", "width:900px",
-            "background:#ffffff", "color:#1a1a1a", "padding:20px",
-            "font-family:'JetBrains Mono',monospace", "font-size:13px",
-            "z-index:-9999", "pointer-events:none", "opacity:0"
+            "position:fixed",
+            "top:0",
+            "left:0",
+            "width:900px",
+            "background:#ffffff",
+            "color:#1a1a1a",
+            "padding:20px",
+            "font-family:'JetBrains Mono',monospace",
+            "font-size:13px",
+            "z-index:-9999",
+            "pointer-events:none",
+            "opacity:0",
           ].join(";");
           document.body.appendChild(wrapper);
 
@@ -3686,24 +3697,50 @@
           const all = [wrapper, ...wrapper.querySelectorAll("*")];
           const liveAll = [source, ...source.querySelectorAll("*")];
           const propsToInline = [
-            "color", "background-color", "border-color",
-            "border-top-color", "border-bottom-color",
-            "border-left-color", "border-right-color",
-            "font-family", "font-size", "font-weight",
-            "padding", "padding-top", "padding-bottom", "padding-left", "padding-right",
-            "margin", "margin-top", "margin-bottom", "margin-left", "margin-right",
-            "border", "border-top", "border-bottom", "border-left", "border-right",
-            "border-radius", "border-collapse",
-            "display", "text-align", "vertical-align",
-            "text-transform", "letter-spacing", "white-space", "line-height",
-            "width", "min-width", "max-width"
+            "color",
+            "background-color",
+            "border-color",
+            "border-top-color",
+            "border-bottom-color",
+            "border-left-color",
+            "border-right-color",
+            "font-family",
+            "font-size",
+            "font-weight",
+            "padding",
+            "padding-top",
+            "padding-bottom",
+            "padding-left",
+            "padding-right",
+            "margin",
+            "margin-top",
+            "margin-bottom",
+            "margin-left",
+            "margin-right",
+            "border",
+            "border-top",
+            "border-bottom",
+            "border-left",
+            "border-right",
+            "border-radius",
+            "border-collapse",
+            "display",
+            "text-align",
+            "vertical-align",
+            "text-transform",
+            "letter-spacing",
+            "white-space",
+            "line-height",
+            "width",
+            "min-width",
+            "max-width",
           ];
           for (let i = 0; i < liveAll.length; i++) {
             if (!(liveAll[i] instanceof HTMLElement)) continue;
             const computed = getComputedStyle(liveAll[i]);
             const cloneEl = all[i + 1]; // +1 because all[0] is wrapper
             if (!cloneEl || !(cloneEl instanceof HTMLElement)) continue;
-            propsToInline.forEach(prop => {
+            propsToInline.forEach((prop) => {
               const val = computed.getPropertyValue(prop);
               if (val) cloneEl.style.setProperty(prop, val);
             });
@@ -3711,7 +3748,7 @@
             const bg = computed.getPropertyValue("background-color");
             if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") {
               cloneEl.style.backgroundColor = bg;
-            } else if (i === 0) {
+            } else {
               cloneEl.style.backgroundColor = "#ffffff";
             }
           }
@@ -3729,7 +3766,6 @@
           sel.removeAllRanges();
 
           document.body.removeChild(wrapper);
-
         } else {
           // Text tab — plain text copy
           const text = document.getElementById("report-text").value;
