@@ -3000,13 +3000,13 @@
               ).replace(
                 /"/g,
                 "&quot;"
-              )})" style="background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:1.2rem;cursor:pointer;padding:0" title="Re-run this analysis" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">↺</button>`;
+              )})" style="background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:0.8rem;cursor:pointer;padding:0" title="Re-run this analysis" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">↺</button>`;
               const editTagBtn = `<button onclick="event.stopPropagation();openTagEditModal('${
                 item.file
               }',${JSON.stringify(item.tag || "").replace(
                 /"/g,
                 "&quot;"
-              )})" style="background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:1.2rem;cursor:pointer;padding:0" title="Edit tags" onmouseover="this.style.color='var(--purple)'" onmouseout="this.style.color='var(--muted)'">✎</button>`;
+              )})" style="background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:0.8rem;cursor:pointer;padding:0" title="Edit tags" onmouseover="this.style.color='var(--purple)'" onmouseout="this.style.color='var(--muted)'">✎</button>`;
               const errorHint =
                 isFailed && item.error
                   ? `<div style="font-family:var(--mono);font-size:.62rem;color:var(--red);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.error}</div>`
