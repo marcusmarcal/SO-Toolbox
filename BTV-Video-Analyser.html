@@ -2051,6 +2051,7 @@
           "
         >
           <button
+            id="btn-copy-report"
             onclick="copyReport()"
             style="
               background: var(--cyan);
@@ -2064,7 +2065,7 @@
               cursor: pointer;
             "
           >
-            📋 Copy Text
+            📋 Copy Visual
           </button>
           <button
             onclick="window.print()"
@@ -3187,6 +3188,9 @@
         tabTxt.style.background = isVis ? "transparent" : "var(--cyan)";
         tabTxt.style.color = isVis ? "var(--muted)" : "#000";
         tabTxt.style.border = isVis ? "1px solid var(--border)" : "none";
+        // Sync copy button label to active tab
+        const copyBtn = document.getElementById("btn-copy-report");
+        if (copyBtn) copyBtn.textContent = isVis ? "📋 Copy Visual" : "📋 Copy Text";
       }
       function closeReportModal() {
         document.getElementById("report-modal").classList.remove("open");
@@ -3655,18 +3659,60 @@
       }
 
       async function copyReport() {
-        const text = document.getElementById("report-text").value;
-        if (!text) {
-          showReportTab("text");
-          return;
-        }
-        try {
-          await navigator.clipboard.writeText(text);
-        } catch {
-          document.getElementById("report-text").select();
-          document.execCommand("copy");
-        }
+        const isVisual = document.getElementById("report-visual-pane").style.display !== "none";
         const ok = document.getElementById("report-copy-ok");
+
+        if (isVisual) {
+          // Copy the visual report as rich HTML so it pastes beautifully in Jira
+          const el = document.getElementById("report-visual-content");
+          if (!el) return;
+
+          // Serialise the visual content with white background and inline font stacks
+          const htmlPayload = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<style>
+  body { background: #ffffff; color: #1a1a1a; font-family: "JetBrains Mono", monospace; margin: 0; padding: 16px; }
+  * { box-sizing: border-box; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { padding: 6px 12px; text-align: left; border-bottom: 1px solid #e0e0e0; font-family: "JetBrains Mono", monospace; font-size: 12px; }
+  th { background: #f5f5f5; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: 0.05em; }
+  tr:last-child td { border-bottom: none; }
+</style>
+</head><body>${el.innerHTML}</body></html>`;
+
+          try {
+            if (window.ClipboardItem && navigator.clipboard.write) {
+              const blob = new Blob([htmlPayload], { type: "text/html" });
+              await navigator.clipboard.write([new ClipboardItem({ "text/html": blob })]);
+            } else {
+              // Fallback: render into a temporary off-screen div and use execCommand
+              const tmp = document.createElement("div");
+              tmp.style.cssText = "position:fixed;top:-9999px;left:-9999px;background:#fff;color:#000;padding:16px;";
+              tmp.innerHTML = el.innerHTML;
+              document.body.appendChild(tmp);
+              const range = document.createRange();
+              range.selectNodeContents(tmp);
+              const sel = window.getSelection();
+              sel.removeAllRanges();
+              sel.addRange(range);
+              document.execCommand("copy");
+              sel.removeAllRanges();
+              document.body.removeChild(tmp);
+            }
+          } catch (e) {
+            console.error("Visual copy failed:", e);
+          }
+        } else {
+          // Text tab — plain text copy
+          const text = document.getElementById("report-text").value;
+          if (!text) return;
+          try {
+            await navigator.clipboard.writeText(text);
+          } catch {
+            document.getElementById("report-text").select();
+            document.execCommand("copy");
+          }
+        }
+
         ok.style.display = "";
         setTimeout(() => (ok.style.display = "none"), 2500);
       }

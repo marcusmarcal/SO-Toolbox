@@ -7,6 +7,15 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.4.0] - 2026-05-28
+
+### Changed
+
+- Copy button in report modal now copies rich HTML when Visual tab is active, enabling formatted paste into Jira comments (table, badges, and layout preserved with white background)
+- Copy button label dynamically updates to **Copy Visual** or **Copy Text** depending on the active tab
+- Added `id="btn-copy-report"` to the copy button for tab-aware label sync
+- Visual copy uses `ClipboardItem` (`text/html` MIME) with fallback to `execCommand` for older browsers
+
 ## [3.3.0] - 2026-05-27
 
 ### Changed
