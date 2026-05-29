@@ -1310,6 +1310,7 @@
               "
               id="test-meta-bar"
             >
+              <span id="meta-id" style="color: var(--muted)"></span>
               <span id="meta-date" style="color: var(--muted)"></span>
               <span id="meta-server" style="color: var(--cyan)"></span>
               <span id="meta-port" style="color: var(--muted)"></span>
@@ -2471,6 +2472,7 @@
           .map((t) => t.trim())
           .filter(Boolean)
           .join(" · ");
+        document.getElementById("meta-id").textContent = "🆔 " + testIdBit;
         document.getElementById("meta-date").textContent = "📅 " + testDate;
         document.getElementById("meta-server").textContent = "🖥 " + serverName;
         document.getElementById("meta-port").textContent =
