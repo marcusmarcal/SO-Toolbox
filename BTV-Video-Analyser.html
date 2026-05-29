@@ -4194,6 +4194,8 @@
                 .replace(/^srt:\/\//, "")
                 .split(":")[0]
                 .split("?")[0];
+              const schedUser = item.username || "anonymous";
+              const schedId = item.sched_id || "unknown";
               const host = resolveHost(urlHost);
               const portMatch = (item.url || "").match(/:(\d+)/);
               const port = portMatch ? portMatch[1] : "?";
@@ -4203,6 +4205,8 @@
         <div style="color:var(--muted);margin-top:1px">🕐 ${runAt}${
                 item.tag ? " · " + item.tag : ""
               }</div>
+        <div style="margin-top:4px;display:flex;gap:.4rem">🧑‍🔬 ${schedUser} · 🆔 ${schedId}</div>
+
         <div style="margin-top:4px;display:flex;gap:.4rem">
           <span style="color:${
             isRunning ? "var(--yellow)" : "var(--cyan)"
