@@ -80,6 +80,7 @@ def start_chromium():
 
     p = run([
         CHROMIUM_PATH,
+            "--incognito",
             "--window-position=0,0",
             "--window-size=1920,1080",
             "--kiosk",
