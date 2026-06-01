@@ -100,7 +100,7 @@ def start_chromium():
             "--ignore-certificate-errors",
             "--allow-insecure-localhost",
             "--touch-events=enabled",
-            "--user-stylesheet=kiosk.css"
+            "--user-stylesheet=kiosk.css",
             "--unsafely-treat-insecure-origin-as-secure=https://127.0.0.1",
         HTML_URL
     ], env=env)
