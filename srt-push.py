@@ -63,8 +63,7 @@ def start_xvfb():
     p = run([
         XVFB_PATH,
         DISPLAY,
-        "-screen", "0",
-        f"{WIDTH}x{HEIGHT}x24",
+        "-screen", "0", f"{WIDTH}x{HEIGHT}x24",
         "-nocursor"
     ])
     processes.append(p)
@@ -81,27 +80,26 @@ def start_chromium():
 
     p = run([
         CHROMIUM_PATH,
-            "--incognito",
-            "--window-position=0,0",
-            "--window-size=1920,1080",
-            "--kiosk",
-            "--start-fullscreen",
-            "--disable-infobars",
-            "--noerrdialogs",
-            "--disable-session-crashed-bubble",
-            "--disable-features=TranslateUI",
-            "--disable-gpu",
-            "--disable-software-rasterizer",
-            "--disable-dev-shm-usage",
-            "--no-sandbox",
-            "--disable-background-networking",
-            "--disable-extensions",
-            "--autoplay-policy=no-user-gesture-required",
-            "--ignore-certificate-errors",
-            "--allow-insecure-localhost",
-            "--touch-events=enabled",
-            "--user-stylesheet=kiosk.css",
-            "--unsafely-treat-insecure-origin-as-secure=https://127.0.0.1",
+        "--incognito",
+        "--window-position=0,0",
+        "--window-size=1920,1080",
+        "--kiosk",
+        "--start-fullscreen",
+        "--disable-infobars",
+        "--noerrdialogs",
+        "--disable-session-crashed-bubble",
+        "--disable-features=TranslateUI",
+        "--disable-gpu",
+        "--disable-software-rasterizer",
+        "--disable-dev-shm-usage",
+        "--no-sandbox",
+        "--disable-background-networking",
+        "--disable-extensions",
+        "--autoplay-policy=no-user-gesture-required",
+        "--ignore-certificate-errors",
+        "--allow-insecure-localhost",
+        "--touch-events=enabled",
+        "--unsafely-treat-insecure-origin-as-secure=https://127.0.0.1",
         HTML_URL
     ], env=env)
 
@@ -115,13 +113,14 @@ def start_chromium():
 def start_ffmpeg():
     print("[INFO] starting ffmpeg...")
 
+    # Mudança crucial: o -draw_mouse 0 DEVE vir antes do input (-i)
     cmd = [
         FFMPEG_PATH,
         "-f", "x11grab",
+        "-draw_mouse", "0",
         "-video_size", f"{WIDTH}x{HEIGHT}",
         "-framerate", str(FPS),
         "-i", f"{DISPLAY}+0,0",
-        "-draw_mouse", "0",
 
         "-vf", "format=yuv420p",
 
