@@ -97,6 +97,7 @@ def start_chromium():
             "--autoplay-policy=no-user-gesture-required",
             "--ignore-certificate-errors",
             "--allow-insecure-localhost",
+            "--touch-events=enabled",
             "--unsafely-treat-insecure-origin-as-secure=https://10.11.203.239",
         HTML_URL
     ], env=env)
