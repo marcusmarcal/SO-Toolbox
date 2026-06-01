@@ -64,6 +64,7 @@ def start_xvfb():
         XVFB_PATH,
         DISPLAY,
         "-screen", "0",
+        "-nocursor",
         f"{WIDTH}x{HEIGHT}x24"
     ])
     processes.append(p)
