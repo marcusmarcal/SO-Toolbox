@@ -11,7 +11,7 @@ import shutil
 # CONFIG
 # ============================================================
 
-HTML_URL = "https://10.11.203.239/id3as-DC-Monitor.html?view=nodes&dc=ix&sort=nW&dir=-1&inuse=1"
+HTML_URL = "https://127.0.0.1/id3as-DC-Monitor.html?view=nodes&dc=ix&sort=nW&dir=-1&inuse=1"
 
 SRT_URL = "srt://10.11.203.1:3292?mode=caller&latency=1000&passphrase=rQ6zgFnfz1WgmJ0AgzI4Zs7Own54K0dU"
 
@@ -98,7 +98,7 @@ def start_chromium():
             "--ignore-certificate-errors",
             "--allow-insecure-localhost",
             "--touch-events=enabled",
-            "--unsafely-treat-insecure-origin-as-secure=https://10.11.203.239",
+            "--unsafely-treat-insecure-origin-as-secure=https://127.0.0.1",
         HTML_URL
     ], env=env)
 
