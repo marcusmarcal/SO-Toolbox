@@ -3908,7 +3908,7 @@
             const bg = computed.getPropertyValue("background-color");
             if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") {
               cloneEl.style.backgroundColor = bg;
-            } else if (i === 0) {
+            } else {
               cloneEl.style.backgroundColor = "#ffffff";
             }
           }
