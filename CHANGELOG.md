@@ -7,6 +7,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.7.0] - 2026-06-02
+
+### Added
+
+- FIFA World Cup 2026 Tool
+
 ## [3.6.0] - 2026-05-29
 
 ### Added
