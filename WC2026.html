@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WC 2026 — Fixtures</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap');
+
+  :root {
+    --bg: #0a0a12;
+    --bg2: #111120;
+    --bg3: #181828;
+    --border: #2a2a3e;
+    --accent: #a18bf5;
+    --accent2: #7c5cbf;
+    --accent-dim: rgba(161,139,245,0.12);
+    --text: #e8e8f0;
+    --muted: #6b6b88;
+    --green: #4ade80;
+    --amber: #fbbf24;
+    --red: #f87171;
+    --font-mono: 'Space Mono', monospace;
+    --font-display: 'Syne', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo svg {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+  }
+
+  .logo-text {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 16px;
+    letter-spacing: 0.04em;
+    color: var(--accent);
+  }
+
+  .logo-sub {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+
+  .header-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .data-source {
+    font-size: 10px;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  /* ── CONTROLS ── */
+  .controls {
+    display: flex;
+    gap: 10px;
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .search-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 180px;
+    max-width: 300px;
+  }
+
+  .search-wrap svg {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0.4;
+  }
+
+  input[type="text"], select {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 7px 10px;
+    border-radius: 4px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .search-wrap input {
+    padding-left: 32px;
+    width: 100%;
+  }
+
+  input:focus, select:focus {
+    border-color: var(--accent);
+  }
+
+  select {
+    cursor: pointer;
+    min-width: 140px;
+  }
+
+  select option {
+    background: var(--bg3);
+  }
+
+  .btn-group {
+    display: flex;
+    gap: 4px;
+  }
+
+  .btn {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .btn:hover { border-color: var(--accent); color: var(--text); }
+  .btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+
+  .utc-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 11px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .toggle-switch {
+    position: relative;
+    width: 32px;
+    height: 18px;
+  }
+
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+
+  .toggle-slider {
+    position: absolute;
+    inset: 0;
+    background: var(--border);
+    border-radius: 18px;
+    transition: 0.2s;
+    cursor: pointer;
+  }
+
+  .toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    left: 3px;
+    top: 3px;
+    background: var(--muted);
+    border-radius: 50%;
+    transition: 0.2s;
+  }
+
+  .toggle-switch input:checked + .toggle-slider { background: var(--accent2); }
+  .toggle-switch input:checked + .toggle-slider::before {
+    transform: translateX(14px);
+    background: var(--accent);
+  }
+
+  /* ── STATS BAR ── */
+  .stats-bar {
+    display: flex;
+    gap: 24px;
+    padding: 10px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    font-size: 11px;
+    color: var(--muted);
+    flex-wrap: wrap;
+  }
+
+  .stat-item strong { color: var(--accent); font-size: 14px; }
+
+  /* ── TABLE ── */
+  .table-wrap {
+    padding: 0 24px 40px;
+    overflow-x: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0;
+  }
+
+  thead th {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.15s;
+    background: var(--bg);
+    position: sticky;
+    top: 0;
+  }
+
+  thead th:hover { color: var(--accent); }
+  thead th.sorted { color: var(--accent); }
+  thead th .sort-icon { margin-left: 4px; opacity: 0.5; }
+
+  .group-header {
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    padding: 14px 14px 6px;
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .group-header::before {
+    content: '';
+    display: inline-block;
+    width: 3px;
+    height: 14px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid rgba(42,42,62,0.6);
+    transition: background 0.12s;
+  }
+
+  tbody tr:hover { background: var(--accent-dim); }
+
+  td {
+    padding: 10px 14px;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  .match-num {
+    color: var(--muted);
+    font-size: 11px;
+    width: 36px;
+  }
+
+  .match-date {
+    color: var(--muted);
+    font-size: 11px;
+    min-width: 90px;
+  }
+
+  .match-time {
+    font-weight: 700;
+    color: var(--text);
+    font-size: 13px;
+    min-width: 70px;
+  }
+
+  .match-time .utc-label {
+    font-size: 9px;
+    color: var(--muted);
+    font-weight: 400;
+    display: block;
+    line-height: 1;
+  }
+
+  .match-utc {
+    color: var(--accent);
+    font-size: 12px;
+    min-width: 80px;
+  }
+
+  .match-utc .utc-date {
+    font-size: 9px;
+    color: var(--muted);
+    display: block;
+  }
+
+  .teams {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 280px;
+  }
+
+  .team-name {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 600;
+    flex: 1;
+    text-align: center;
+  }
+
+  .team-name.home { text-align: right; }
+  .team-name.away { text-align: left; }
+
+  .team-flag {
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  .vs {
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    background: var(--border);
+    padding: 2px 6px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  .match-venue {
+    color: var(--muted);
+    font-size: 11px;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .match-round {
+    font-size: 10px;
+    min-width: 100px;
+  }
+
+  .round-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .round-group { background: rgba(161,139,245,0.12); color: var(--accent); }
+  .round-r32   { background: rgba(251,191,36,0.10);  color: var(--amber); }
+  .round-r16   { background: rgba(251,191,36,0.18);  color: var(--amber); }
+  .round-qf    { background: rgba(251,191,36,0.25);  color: var(--amber); }
+  .round-sf    { background: rgba(248,113,113,0.18); color: var(--red); }
+  .round-3rd   { background: rgba(74,222,128,0.10);  color: var(--green); }
+  .round-final { background: rgba(74,222,128,0.22);  color: var(--green); border: 1px solid rgba(74,222,128,0.4); }
+
+  .match-group-cell {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .score-cell {
+    font-weight: 700;
+    text-align: center;
+    min-width: 60px;
+    letter-spacing: 0.05em;
+  }
+
+  .score-live { color: var(--red); animation: pulse 1.5s infinite; }
+  .score-done { color: var(--text); }
+  .score-sched { color: var(--muted); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* ── EMPTY STATE ── */
+  .empty {
+    text-align: center;
+    padding: 60px 24px;
+    color: var(--muted);
+  }
+
+  .empty svg { opacity: 0.2; margin-bottom: 16px; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent2); }
+
+  /* ── LOADING ── */
+  .loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 60px;
+    color: var(--muted);
+  }
+
+  .spinner {
+    width: 20px; height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── UTC LIVE CLOCK ── */
+  .utc-clock {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: var(--font-mono);
+  }
+
+  .utc-clock strong { color: var(--text); }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 700px) {
+    header { padding: 12px 14px; }
+    .controls { padding: 10px 14px; }
+    .table-wrap { padding: 0 0 40px; }
+    td, th { padding: 8px 8px; }
+    .teams { min-width: 200px; }
+    .team-name { font-size: 11px; }
+  }
+
+  .highlight {
+    background: rgba(161,139,245,0.25);
+    border-radius: 2px;
+    padding: 0 1px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <!-- Animated hexagonal logo from SO-Toolbox style -->
+    <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="16,2 29,9 29,23 16,30 3,23 3,9" fill="none" stroke="#a18bf5" stroke-width="1.5"/>
+      <polygon points="16,7 25,12 25,20 16,25 7,20 7,12" fill="rgba(161,139,245,0.1)" stroke="#a18bf5" stroke-width="0.8" opacity="0.6"/>
+      <text x="16" y="20" text-anchor="middle" font-family="Syne" font-weight="800" font-size="11" fill="#a18bf5">WC</text>
+    </svg>
+    <div>
+      <div class="logo-text">WC 2026 · Fixtures</div>
+      <div class="logo-sub">FIFA World Cup — Canada · México · USA</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="utc-clock">UTC: <strong id="utcClock">--:--:--</strong></div>
+    <div class="data-source">fonte: openfootball/worldcup.json</div>
+  </div>
+</header>
+
+<div class="controls">
+  <div class="search-wrap">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+      <circle cx="6.5" cy="6.5" r="5.5" stroke="#a18bf5" stroke-width="1.5"/>
+      <line x1="10.5" y1="10.5" x2="14.5" y2="14.5" stroke="#a18bf5" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    <input type="text" id="searchInput" placeholder="Pesquisar equipa, local…" autocomplete="off">
+  </div>
+
+  <select id="groupFilter">
+    <option value="">Todos os grupos</option>
+    <option value="Group A">Grupo A</option>
+    <option value="Group B">Grupo B</option>
+    <option value="Group C">Grupo C</option>
+    <option value="Group D">Grupo D</option>
+    <option value="Group E">Grupo E</option>
+    <option value="Group F">Grupo F</option>
+    <option value="Group G">Grupo G</option>
+    <option value="Group H">Grupo H</option>
+    <option value="Group I">Grupo I</option>
+    <option value="Group J">Grupo J</option>
+    <option value="Group K">Grupo K</option>
+    <option value="Group L">Grupo L</option>
+  </select>
+
+  <select id="stageFilter">
+    <option value="">Todas as fases</option>
+    <option value="group">Fase de Grupos</option>
+    <option value="Round of 32">Oitavos de Final</option>
+    <option value="Round of 16">Quartos (R16)</option>
+    <option value="Quarter-final">Quartos-de-final</option>
+    <option value="Semi-final">Meias-finais</option>
+    <option value="Match for third place">3.º lugar</option>
+    <option value="Final">Final</option>
+  </select>
+
+  <div class="btn-group" id="viewBtns">
+    <button class="btn active" data-view="all">Todos</button>
+    <button class="btn" data-view="upcoming">Próximos</button>
+    <button class="btn" data-view="today">Hoje</button>
+  </div>
+
+  <label class="utc-toggle">
+    <div class="toggle-switch">
+      <input type="checkbox" id="groupToggle" checked>
+      <span class="toggle-slider"></span>
+    </div>
+    Agrupar por fase
+  </label>
+</div>
+
+<div class="stats-bar" id="statsBar">
+  <span>A carregar…</span>
+</div>
+
+<div class="table-wrap">
+  <div class="loading" id="loadingState">
+    <div class="spinner"></div>
+    <span>A carregar fixtures…</span>
+  </div>
+  <div id="tableContainer" style="display:none"></div>
+</div>
+
+<script>
+// ────────────────────────────────────────────────
+// DATA SOURCE — openfootball/worldcup.json (public domain)
+// ────────────────────────────────────────────────
+const DATA_URL = 'https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026/worldcup.json';
+
+// Timezone offset map (UTC offset in hours)
+const TZ_OFFSETS = {
+  'UTC-7': -7, 'UTC-6': -6, 'UTC-5': -5, 'UTC-4': -4
+};
+
+// Flag emoji map (best effort, covers all WC 2026 teams)
+const FLAGS = {
+  'Mexico': '🇲🇽', 'South Africa': '🇿🇦', 'South Korea': '🇰🇷',
+  'Canada': '🇨🇦', 'Qatar': '🇶🇦', 'Switzerland': '🇨🇭',
+  'Brazil': '🇧🇷', 'Morocco': '🇲🇦', 'Haiti': '🇭🇹', 'Scotland': '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
+  'USA': '🇺🇸', 'Paraguay': '🇵🇾', 'Australia': '🇦🇺',
+  'Germany': '🇩🇪', 'Curaçao': '🇨🇼', 'Ivory Coast': '🇨🇮', 'Ecuador': '🇪🇨',
+  'Netherlands': '🇳🇱', 'Japan': '🇯🇵', 'Tunisia': '🇹🇳',
+  'Belgium': '🇧🇪', 'Egypt': '🇪🇬', 'Iran': '🇮🇷', 'New Zealand': '🇳🇿',
+  'Spain': '🇪🇸', 'Cape Verde': '🇨🇻', 'Saudi Arabia': '🇸🇦', 'Uruguay': '🇺🇾',
+  'France': '🇫🇷', 'Senegal': '🇸🇳', 'Norway': '🇳🇴',
+  'Argentina': '🇦🇷', 'Algeria': '🇩🇿', 'Austria': '🇦🇹', 'Jordan': '🇯🇴',
+  'Portugal': '🇵🇹', 'Uzbekistan': '🇺🇿', 'Colombia': '🇨🇴',
+  'England': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'Croatia': '🇭🇷', 'Ghana': '🇬🇭', 'Panama': '🇵🇦',
+  'Bosnia & Herzegovina': '🇧🇦', 'Czech Republic': '🇨🇿',
+  'UEFA Path D winner': '🏳️', 'UEFA Path A winner': '🏳️',
+  'UEFA Path B winner': '🏳️', 'UEFA Path C winner': '🏳️',
+  'IC Path 1 winner': '🏳️', 'IC Path 2 winner': '🏳️',
+};
+
+function getFlag(name) {
+  return FLAGS[name] || '🏳️';
+}
+
+// Parse "HH:MM UTC±X" → UTC Date
+function toUTC(dateStr, timeStr) {
+  // timeStr like "13:00 UTC-6" or "19:30 UTC-4"
+  const match = timeStr.match(/^(\d{2}):(\d{2})\s+UTC([+-]\d+)$/);
+  if (!match) return null;
+  const [, hh, mm, offset] = match;
+  const off = parseInt(offset, 10);
+  const [year, month, day] = dateStr.split('-').map(Number);
+  // Create local time then subtract offset to get UTC
+  const localH = parseInt(hh, 10);
+  const localM = parseInt(mm, 10);
+  // UTC = local - offset
+  const utcMs = Date.UTC(year, month - 1, day, localH - off, localM);
+  return new Date(utcMs);
+}
+
+function fmtUTCTime(d) {
+  if (!d) return '—';
+  return d.toUTCString().slice(17, 22); // HH:MM
+}
+
+function fmtUTCDate(d) {
+  if (!d) return '';
+  const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  return `${d.getUTCDate()} ${months[d.getUTCMonth()]}`;
+}
+
+function fmtLocalDate(d) {
+  if (!d) return '';
+  return d.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+// Round label → badge class
+function roundClass(round) {
+  if (!round) return 'round-group';
+  const r = round.toLowerCase();
+  if (r.includes('matchday') || r.includes('group')) return 'round-group';
+  if (r.includes('round of 32')) return 'round-r32';
+  if (r.includes('round of 16')) return 'round-r16';
+  if (r.includes('quarter')) return 'round-qf';
+  if (r.includes('semi')) return 'round-sf';
+  if (r.includes('third')) return 'round-3rd';
+  if (r.includes('final')) return 'round-final';
+  return 'round-group';
+}
+
+function roundLabel(round) {
+  if (!round) return '—';
+  if (round.startsWith('Matchday')) return `MD ${round.replace('Matchday ', '')}`;
+  if (round === 'Round of 32') return 'R32';
+  if (round === 'Round of 16') return 'R16';
+  if (round === 'Quarter-final') return 'QF';
+  if (round === 'Semi-final') return 'SF';
+  if (round === 'Match for third place') return '3.º';
+  if (round === 'Final') return 'FINAL';
+  return round;
+}
+
+function isGroupStage(round) {
+  return round && round.startsWith('Matchday');
+}
+
+// ── STATE ──
+let allMatches = [];
+let filteredMatches = [];
+let currentView = 'all';
+let groupByPhase = true;
+let searchTerm = '';
+let groupFilter = '';
+let stageFilter = '';
+
+// ── FETCH DATA ──
+async function loadData() {
+  try {
+    const resp = await fetch(DATA_URL);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+
+    // Enrich matches with UTC date objects
+    allMatches = data.matches.map((m, i) => {
+      const utcDate = toUTC(m.date, m.time);
+      return { ...m, index: i + 1, utcDate };
+    });
+
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('tableContainer').style.display = 'block';
+    applyFilters();
+  } catch (e) {
+    document.getElementById('loadingState').innerHTML =
+      `<span style="color:var(--red)">Erro ao carregar dados: ${e.message}</span>`;
+  }
+}
+
+// ── FILTER ──
+function applyFilters() {
+  const now = new Date();
+  const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+
+  filteredMatches = allMatches.filter(m => {
+    // View filter
+    if (currentView === 'upcoming' && m.utcDate && m.utcDate < now) return false;
+    if (currentView === 'today') {
+      if (!m.utcDate) return false;
+      const matchDay = new Date(Date.UTC(m.utcDate.getUTCFullYear(), m.utcDate.getUTCMonth(), m.utcDate.getUTCDate()));
+      if (matchDay.getTime() !== todayUTC.getTime()) return false;
+    }
+    // Group filter
+    if (groupFilter && m.group !== groupFilter) return false;
+    // Stage filter
+    if (stageFilter) {
+      if (stageFilter === 'group' && !isGroupStage(m.round)) return false;
+      if (stageFilter !== 'group' && m.round !== stageFilter) return false;
+    }
+    // Search
+    if (searchTerm) {
+      const s = searchTerm.toLowerCase();
+      const haystack = [m.team1, m.team2, m.ground, m.group, m.round].join(' ').toLowerCase();
+      if (!haystack.includes(s)) return false;
+    }
+    return true;
+  });
+
+  renderStats();
+  renderTable();
+}
+
+function renderStats() {
+  const total = filteredMatches.length;
+  const now = new Date();
+  const upcoming = filteredMatches.filter(m => m.utcDate && m.utcDate > now).length;
+  const played = filteredMatches.filter(m => m.utcDate && m.utcDate <= now).length;
+
+  const groups = [...new Set(filteredMatches.filter(m => m.group).map(m => m.group))].length;
+  const venues = [...new Set(filteredMatches.map(m => m.ground))].length;
+
+  document.getElementById('statsBar').innerHTML = `
+    <span><strong>${total}</strong> jogos</span>
+    <span><strong>${played}</strong> realizados</span>
+    <span><strong>${upcoming}</strong> por jogar</span>
+    ${groups ? `<span><strong>${groups}</strong> grupos</span>` : ''}
+    <span><strong>${venues}</strong> estádios</span>
+  `;
+}
+
+// ── RENDER ──
+function highlight(text, term) {
+  if (!term || !text) return text;
+  const idx = text.toLowerCase().indexOf(term.toLowerCase());
+  if (idx < 0) return text;
+  return text.slice(0, idx) +
+    `<span class="highlight">${text.slice(idx, idx + term.length)}</span>` +
+    text.slice(idx + term.length);
+}
+
+function renderTable() {
+  const container = document.getElementById('tableContainer');
+  if (!filteredMatches.length) {
+    container.innerHTML = `
+      <div class="empty">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+          <circle cx="24" cy="24" r="20" stroke="#a18bf5" stroke-width="2"/>
+          <path d="M16 24h16M24 16v16" stroke="#a18bf5" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+        </svg>
+        <div>Nenhum jogo encontrado</div>
+        <div style="font-size:11px;margin-top:6px;opacity:0.5">Tente alterar os filtros</div>
+      </div>`;
+    return;
+  }
+
+  if (groupByPhase) {
+    // Group by round/phase
+    const phases = {};
+    for (const m of filteredMatches) {
+      const key = isGroupStage(m.round) ? (m.group || 'Grupo') : (m.round || 'Knockout');
+      if (!phases[key]) phases[key] = [];
+      phases[key].push(m);
+    }
+
+    let html = '';
+    for (const [phase, matches] of Object.entries(phases)) {
+      html += `<div class="group-header">${phase}</div>`;
+      html += renderTableBody(matches);
+    }
+    container.innerHTML = html;
+  } else {
+    container.innerHTML = `
+      <table>
+        ${renderTableHead()}
+        ${renderTableBody(filteredMatches)}
+      </table>`;
+  }
+}
+
+function renderTableHead() {
+  return `
+    <thead>
+      <tr>
+        <th class="match-num">#</th>
+        <th>Data</th>
+        <th>Hora Local</th>
+        <th>UTC</th>
+        <th>Jogo</th>
+        <th>Local</th>
+        <th>Fase</th>
+        <th>Grupo</th>
+      </tr>
+    </thead>`;
+}
+
+function renderTableBody(matches) {
+  let rows = '';
+  for (const m of matches) {
+    const utcTime = fmtUTCTime(m.utcDate);
+    const utcDate = fmtUTCDate(m.utcDate);
+    const localDate = m.date
+      ? new Date(m.date + 'T00:00:00Z').toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', timeZone: 'UTC' })
+      : '—';
+
+    const num = m.num || m.index;
+    const t1 = highlight(m.team1, searchTerm);
+    const t2 = highlight(m.team2, searchTerm);
+    const ground = highlight(m.ground, searchTerm);
+
+    // Offset label from time string
+    const timeLocal = m.time || '';
+    const offsetMatch = timeLocal.match(/UTC([+-]\d+)/);
+    const offsetLabel = offsetMatch ? `UTC${offsetMatch[1]}` : '';
+
+    // Just the time part
+    const localTime = timeLocal.replace(/\s*UTC[+-]\d+/, '');
+
+    rows += `
+      <tr>
+        <td class="match-num">${num}</td>
+        <td class="match-date">${localDate}</td>
+        <td class="match-time">
+          ${localTime}
+          <span class="utc-label">${offsetLabel}</span>
+        </td>
+        <td class="match-utc">
+          ${utcTime}
+          <span class="utc-date">${utcDate}</span>
+        </td>
+        <td>
+          <div class="teams">
+            <span class="team-flag">${getFlag(m.team1)}</span>
+            <span class="team-name home">${t1}</span>
+            <span class="vs">VS</span>
+            <span class="team-name away">${t2}</span>
+            <span class="team-flag">${getFlag(m.team2)}</span>
+          </div>
+        </td>
+        <td class="match-venue" title="${m.ground}">${ground}</td>
+        <td class="match-round">
+          <span class="round-badge ${roundClass(m.round)}">${roundLabel(m.round)}</span>
+        </td>
+        <td class="match-group-cell">${m.group || '—'}</td>
+      </tr>`;
+  }
+
+  if (groupByPhase) {
+    return `<table>${renderTableHead()}<tbody>${rows}</tbody></table>`;
+  }
+  return `<tbody>${rows}</tbody>`;
+}
+
+// ── UTC CLOCK ──
+function updateClock() {
+  const now = new Date();
+  const hh = String(now.getUTCHours()).padStart(2, '0');
+  const mm = String(now.getUTCMinutes()).padStart(2, '0');
+  const ss = String(now.getUTCSeconds()).padStart(2, '0');
+  document.getElementById('utcClock').textContent = `${hh}:${mm}:${ss}`;
+}
+
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── EVENT LISTENERS ──
+document.getElementById('searchInput').addEventListener('input', e => {
+  searchTerm = e.target.value.trim();
+  applyFilters();
+});
+
+document.getElementById('groupFilter').addEventListener('change', e => {
+  groupFilter = e.target.value;
+  applyFilters();
+});
+
+document.getElementById('stageFilter').addEventListener('change', e => {
+  stageFilter = e.target.value;
+  applyFilters();
+});
+
+document.getElementById('viewBtns').addEventListener('click', e => {
+  const btn = e.target.closest('[data-view]');
+  if (!btn) return;
+  document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentView = btn.dataset.view;
+  applyFilters();
+});
+
+document.getElementById('groupToggle').addEventListener('change', e => {
+  groupByPhase = e.target.checked;
+  renderTable();
+});
+
+// ── BOOT ──
+loadData();
+</script>
+</body>
+</html>
