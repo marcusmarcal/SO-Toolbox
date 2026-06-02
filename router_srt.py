@@ -25,7 +25,7 @@ _job_counter = 0
 # CBR defaults (Mbps) — overridable per request
 CBR_DEFAULT_MBPS = 8.0
 CBR_BUFSIZE_FACTOR = 2  # bufsize = bitrate * factor
-TS_SOURCE_DIR = "/opt/web/gop-results"
+TS_SOURCE_DIR = "/gop-results"
 
 
 def _next_job_id() -> int:
@@ -51,12 +51,15 @@ def _build_ffmpeg_cmd(
 
     if passthrough:
         return [
-            "ffmpeg", "-stream_loop", "-1", "-re",
+            "ffmpeg", "-stream_loop", "-1",
+            "-fflags", "+genpts+discardcorrupt",
+            "-re",
             "-i", input_file,
             "-map", "0:v:0",
             "-map", "0:a:0",
             "-c:v", "copy",
             "-c:a", "copy",
+            "-avoid_negative_ts", "make_zero",
             "-f", "mpegts",
             "-muxdelay", "0",
             "-muxpreload", "0",
