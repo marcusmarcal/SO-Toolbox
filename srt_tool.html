@@ -226,7 +226,21 @@
   <!-- Single -->
   <div class="card single">
     <div class="card-title">Single Destination <span class="tag">1:1</span></div>
-    <div class="field"><label>Input File</label><input type="text" id="s-input" value="test.mp4" /></div>
+    <div class="field">
+      <label>Source File</label>
+      <div class="host-combo">
+        <select id="s-source-select" onchange="applySourceSelect('s')">
+          <option value="test.mp4" data-type="mp4">test.mp4</option>
+        </select>
+        <input type="text" id="s-input" value="test.mp4" placeholder="or type path" />
+      </div>
+    </div>
+    <div class="field" id="s-passthrough-row" style="display:none">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+        <input type="checkbox" id="s-passthrough" onchange="updateSinglePreview()" style="width:auto;accent-color:var(--accent2)" />
+        <span>Passthrough <span style="color:var(--muted);font-size:10px">(copy streams, no re-encode)</span></span>
+      </label>
+    </div>
     <div class="field">
       <label>Host / Server</label>
       <div class="host-combo">
@@ -240,7 +254,7 @@
       <div class="field"><label>Port</label><input type="number" id="s-port" placeholder="4001" min="1" max="65535" /></div>
       <div class="field"><label>Passphrase <span style="color:var(--muted);font-size:9px">(optional)</span></label><input type="password" id="s-pass" placeholder="leave empty if none" /></div>
     </div>
-    <div class="field"><label>Target Bitrate (Mbps)</label><input type="number" id="s-bitrate" value="8" min="1" max="50" step="0.5" /></div>
+    <div class="field" id="s-bitrate-row"><label>Target Bitrate (Mbps)</label><input type="number" id="s-bitrate" value="8" min="1" max="50" step="0.5" /></div>
     <div class="preview-label">Command Preview</div>
     <div class="ffmpeg-preview" id="s-preview">Fill the fields above to preview the command.</div>
     <button class="btn-single" onclick="startSingle()">▶ Start Ingest</button>
@@ -249,7 +263,21 @@
   <!-- Multi -->
   <div class="card multi">
     <div class="card-title">Multi Destination <span class="tag">1:N</span></div>
-    <div class="field"><label>Input File</label><input type="text" id="m-input" value="test.mp4" /></div>
+    <div class="field">
+      <label>Source File</label>
+      <div class="host-combo">
+        <select id="m-source-select" onchange="applySourceSelect('m')">
+          <option value="test.mp4" data-type="mp4">test.mp4</option>
+        </select>
+        <input type="text" id="m-input" value="test.mp4" placeholder="or type path" />
+      </div>
+    </div>
+    <div class="field" id="m-passthrough-row" style="display:none">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+        <input type="checkbox" id="m-passthrough" onchange="updateMultiPreview()" style="width:auto;accent-color:var(--accent2)" />
+        <span>Passthrough <span style="color:var(--muted);font-size:10px">(copy streams, no re-encode)</span></span>
+      </label>
+    </div>
     <div class="field">
       <label>Host / Server</label>
       <div class="host-combo">
@@ -543,18 +571,26 @@ function disconnectSSE(finished = false) {
 // ── Preview builders ─────────────────────────────────────────────────────────
 function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-function buildCmd(input, host, port, pass, bitrate) {
+function buildCmd(input, host, port, pass, bitrate, passthrough) {
   if (!host || !port || !input) return null;
+  const srtUrl = `srt://${esc(host)}:${port}${pass ? "?passphrase=***" : ""}`;
+  if (passthrough) {
+    return `ffmpeg -stream_loop -1 -re -i <span class="hl">${esc(input)}</span>\n`
+      + `-map 0:v:0 -map 0:a:0\n`
+      + `<span class="hl2">-c:v copy -c:a copy</span>\n`
+      + `-f mpegts -muxdelay 0 -muxpreload 0\n`
+      + `<span class="hl2">${srtUrl}</span>`;
+  }
   const vbr = `${bitrate}M`;
   const buf = `${bitrate * 2}M`;
-  return `ffmpeg -re -i <span class="hl">${esc(input)}</span>\n`
+  return `ffmpeg -stream_loop -1 -re -i <span class="hl">${esc(input)}</span>\n`
     + `-map 0:v:0 -map 0:a:0\n`
     + `-c:v libx264 -x264-params "force-cfr=1:pic-struct=1" -bf 0 -flags +cgop\n`
     + `-r 25 -g 50 -keyint_min 50 -sc_threshold 0\n`
     + `<span class="hlg">-b:v ${vbr} -minrate ${vbr} -maxrate ${vbr} -bufsize ${buf}</span>\n`
     + `-c:a aac -ar 48000 -ac 2\n`
     + `-vf "scale=1920:1080" -f mpegts -muxdelay 0 -muxpreload 0\n`
-    + `<span class="hl2">srt://${esc(host)}:${port}${pass ? "?passphrase=***" : ""}</span>`;
+    + `<span class="hl2">${srtUrl}</span>`;
 }
 
 function updateSinglePreview() {
@@ -562,9 +598,10 @@ function updateSinglePreview() {
   const host    = document.getElementById('s-host').value.trim();
   const port    = document.getElementById('s-port').value.trim();
   const pass    = document.getElementById('s-pass').value.trim();
-  const bitrate = parseFloat(document.getElementById('s-bitrate').value) || 8;
+  const bitrate    = parseFloat(document.getElementById('s-bitrate').value) || 8;
+  const passthrough = document.getElementById('s-passthrough').checked;
   const el      = document.getElementById('s-preview');
-  const cmd     = buildCmd(input, host, port, pass, bitrate);
+  const cmd     = buildCmd(input, host, port, pass, bitrate, passthrough);
   el.innerHTML  = cmd || '<span style="color:var(--muted)">Fill the fields above to preview the command.</span>';
 }
 
@@ -579,7 +616,9 @@ function updateMultiPreview() {
   }
   const count = pe - ps + 1;
   const br    = parseFloat(document.getElementById('m-bitrate').value) || 8;
-  let html = `<span class="hl">${count} destination${count>1?'s':''}</span> @ <span class="hlg">${br} Mbps CBR</span> → <span class="hl2">${esc(host)}</span>:\n`;
+  const mPt   = document.getElementById('m-passthrough').checked;
+  const modeLabel = mPt ? '<span class="hl2">passthrough</span>' : `<span class="hlg">${br} Mbps CBR</span>`;
+  let html = `<span class="hl">${count} destination${count>1?'s':''}</span> @ ${modeLabel} → <span class="hl2">${esc(host)}</span>:\n`;
   for (let p = ps; p <= Math.min(pe, ps + 4); p++) {
     html += `  srt://${esc(host)}:<span class="hl2">${p}</span>\n`;
   }
@@ -598,8 +637,9 @@ async function startSingle() {
     input_file:  document.getElementById('s-input').value.trim(),
     host:        document.getElementById('s-host').value.trim(),
     port:        parseInt(document.getElementById('s-port').value),
-    passphrase:  document.getElementById('s-pass').value.trim(),
+    passphrase:   document.getElementById('s-pass').value.trim(),
     bitrate_mbps: parseFloat(document.getElementById('s-bitrate').value) || 8,
+    passthrough:  document.getElementById('s-passthrough').checked,
   };
   if (!body.host || !body.port) { toast('Host and port are required.','err'); return; }
   try {
@@ -622,6 +662,7 @@ async function startMulti() {
     port_end:     parseInt(document.getElementById('m-port-end').value),
     passphrase:   document.getElementById('m-pass').value.trim(),
     bitrate_mbps: parseFloat(document.getElementById('m-bitrate').value) || 8,
+    passthrough:  document.getElementById('m-passthrough').checked,
   };
   if (!body.host || !body.port_start || !body.port_end) { toast('Host and port range are required.','err'); return; }
   try {
@@ -701,7 +742,7 @@ function renderJobs(jobs) {
     return `
       <div class="job-item">
         <span class="job-id">#${j.id}</span>
-        <span class="job-dest">${j.host}:<b>${j.port}</b> <span style="color:var(--muted);font-size:10px">pid:${j.pid}</span>${br}</span>
+        <span class="job-dest">${j.host}:<b>${j.port}</b> <span style="color:var(--muted);font-size:10px">pid:${j.pid}</span> <span style="font-size:9px;padding:2px 5px;border-radius:2px;background:${j.mode==="passthrough"?"rgba(255,107,53,.15)":"rgba(0,212,255,.1)"};color:${j.mode==="passthrough"?"var(--accent2)":"var(--accent)"}">${j.mode||"transcode"}</span>${br}</span>
         <span class="job-status status-${j.status}">${j.status}</span>
         ${j.status === 'running' ? `<button class="btn-stop-job" onclick="stopJob(${j.id})">STOP</button>` : '<span></span>'}
       </div>`;
@@ -718,6 +759,50 @@ function toast(msg, type='info') {
   setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity .4s'; setTimeout(()=>t.remove(),400); }, 3500);
 }
 
+
+
+// ── Source file loader — /gop-results .ts files ──────────────────────────────
+async function loadSources() {
+  try {
+    const r = await fetch(`${BASE}/sources`);
+    if (!r.ok) return;
+    const d = await r.json();
+    ['s-source-select','m-source-select'].forEach(selId => {
+      const sel = document.getElementById(selId);
+      while (sel.options.length) sel.remove(0);
+      d.sources.forEach(s => {
+        const o = document.createElement('option');
+        o.value = s.file;
+        o.dataset.type = s.type;
+        o.textContent = s.type === 'ts' ? `📼 ${s.name}` : `🎬 ${s.file}`;
+        sel.appendChild(o);
+      });
+    });
+    // Set initial input value to first source
+    const first = d.sources[0];
+    if (first) {
+      document.getElementById('s-input').value = first.file;
+      document.getElementById('m-input').value = first.file;
+    }
+  } catch(e) {
+    console.warn('Could not load sources:', e);
+  }
+}
+
+function applySourceSelect(prefix) {
+  const sel  = document.getElementById(`${prefix}-source-select`);
+  const file = sel.value;
+  const type = sel.options[sel.selectedIndex]?.dataset.type;
+  document.getElementById(`${prefix}-input`).value = file;
+  // Show passthrough option only for .ts files
+  const ptRow = document.getElementById(`${prefix}-passthrough-row`);
+  ptRow.style.display = type === 'ts' ? '' : 'none';
+  if (type !== 'ts') document.getElementById(`${prefix}-passthrough`).checked = false;
+  if (prefix === 's') updateSinglePreview();
+  else updateMultiPreview();
+}
+
+loadSources();
 
 // ── Config loader — SRT_LOCAL_X servers ──────────────────────────────────────
 async function loadConfig() {

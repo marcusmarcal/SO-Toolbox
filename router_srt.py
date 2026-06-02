@@ -25,6 +25,7 @@ _job_counter = 0
 # CBR defaults (Mbps) — overridable per request
 CBR_DEFAULT_MBPS = 8.0
 CBR_BUFSIZE_FACTOR = 2  # bufsize = bitrate * factor
+TS_SOURCE_DIR = "/gop-results"
 
 
 def _next_job_id() -> int:
@@ -39,9 +40,29 @@ def _build_ffmpeg_cmd(
     port: int,
     passphrase: str,
     bitrate_mbps: float = CBR_DEFAULT_MBPS,
+    passthrough: bool = False,
 ) -> list:
-    """Build ffmpeg command for a single SRT destination with strict CBR."""
+    """Build ffmpeg command for a single SRT destination.
+
+    passthrough=True: copy streams without re-encoding (for .ts sources).
+    passthrough=False: full CBR transcode with libx264/aac.
+    """
     srt_url = f"srt://{host}:{port}?passphrase={passphrase}" if passphrase else f"srt://{host}:{port}"
+
+    if passthrough:
+        return [
+            "ffmpeg", "-stream_loop", "-1", "-re",
+            "-i", input_file,
+            "-map", "0:v:0",
+            "-map", "0:a:0",
+            "-c:v", "copy",
+            "-c:a", "copy",
+            "-f", "mpegts",
+            "-muxdelay", "0",
+            "-muxpreload", "0",
+            srt_url,
+        ]
+
     vbr = f"{bitrate_mbps}M"
     bufsize = f"{bitrate_mbps * CBR_BUFSIZE_FACTOR}M"
     return [
@@ -107,10 +128,11 @@ def _launch_job(
     port: int,
     passphrase: str,
     bitrate_mbps: float = CBR_DEFAULT_MBPS,
+    passthrough: bool = False,
 ) -> dict:
     """Launch a single ffmpeg process and register it."""
     job_id = _next_job_id()
-    cmd = _build_ffmpeg_cmd(input_file, host, port, passphrase, bitrate_mbps)
+    cmd = _build_ffmpeg_cmd(input_file, host, port, passphrase, bitrate_mbps, passthrough)
 
     process = subprocess.Popen(
         cmd,
@@ -126,6 +148,8 @@ def _launch_job(
         "port": port,
         "pid": process.pid,
         "bitrate_mbps": bitrate_mbps,
+        "passthrough": passthrough,
+        "mode": "passthrough" if passthrough else "transcode",
         "status": "running",
         "process": process,
         "cmd": " ".join(cmd),
@@ -171,6 +195,8 @@ def _job_info(job: dict) -> dict:
         "port": job["port"],
         "pid": job["pid"],
         "bitrate_mbps": job["bitrate_mbps"],
+        "passthrough": job["passthrough"],
+        "mode": job["mode"],
         "status": job["status"],
         "last_stat": job.get("last_stat"),
     }
@@ -198,13 +224,14 @@ def ingest_single():
     passphrase = data.get("passphrase", "").strip()
     input_file = data.get("input_file", "test.mp4").strip()
     bitrate_mbps = float(data.get("bitrate_mbps", CBR_DEFAULT_MBPS))
+    passthrough = bool(data.get("passthrough", False))
 
     if not host or not port:
         return jsonify({"error": "host and port are required"}), 400
     if not os.path.isfile(input_file):
         return jsonify({"error": f"Input file not found: {input_file}"}), 400
 
-    job = _launch_job(input_file, host, port, passphrase, bitrate_mbps)
+    job = _launch_job(input_file, host, port, passphrase, bitrate_mbps, passthrough)
     return jsonify({"message": "Ingest started", "job": _job_info(job)}), 201
 
 
@@ -221,6 +248,7 @@ def ingest_multi():
     passphrase = data.get("passphrase", "").strip()
     input_file = data.get("input_file", "test.mp4").strip()
     bitrate_mbps = float(data.get("bitrate_mbps", CBR_DEFAULT_MBPS))
+    passthrough = bool(data.get("passthrough", False))
 
     if not host or not port_start or not port_end:
         return jsonify({"error": "host, port_start and port_end are required"}), 400
@@ -233,7 +261,7 @@ def ingest_multi():
 
     jobs = []
     for port in range(port_start, port_end + 1):
-        job = _launch_job(input_file, host, port, passphrase, bitrate_mbps)
+        job = _launch_job(input_file, host, port, passphrase, bitrate_mbps, passthrough)
         jobs.append(_job_info(job))
 
     return jsonify({
@@ -294,6 +322,21 @@ def stop_all_jobs():
                     job["status"] = "finished"
 
     return jsonify({"message": f"Stopped {len(stopped)} jobs", "stopped_ids": stopped})
+
+
+@srt_bp.route("/sources", methods=["GET"])
+def list_sources():
+    """List available .ts files in TS_SOURCE_DIR plus test.mp4."""
+    sources = [{"file": "test.mp4", "type": "mp4"}]
+    if os.path.isdir(TS_SOURCE_DIR):
+        for f in sorted(os.listdir(TS_SOURCE_DIR)):
+            if f.lower().endswith(".ts"):
+                sources.append({
+                    "file": os.path.join(TS_SOURCE_DIR, f),
+                    "name": f,
+                    "type": "ts",
+                })
+    return jsonify({"sources": sources})
 
 
 @srt_bp.route("/jobs/<int:job_id>/stats", methods=["GET"])

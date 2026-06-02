@@ -11,6 +11,17 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- SRT Tool
+- `GET /srt/sources`: lists test.mp4 and all .ts files from /gop-results
+- Source file dropdown populated on page load; manual input still available
+- Passthrough mode (-c:v copy -c:a copy) for .ts sources, no re-encode
+- Passthrough checkbox shown only when a .ts source is selected
+- Mode badge (transcode/passthrough) shown per job in the jobs list
+
+## [3.7.0] - 2026-06-02
+
+### Added
+
 - FIFA World Cup 2026 Tool
 
 ## [3.6.0] - 2026-05-29
