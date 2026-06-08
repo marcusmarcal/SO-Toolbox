@@ -154,6 +154,8 @@ main{padding:4px 24px 28px;}
     <div class="stat"><div class="sv" id="s-dual">0</div><div class="sl">Dual⚠</div></div>
   </div>
   <button class="xbtn" onclick="exportCSV()">⬇ Export CSV</button>
+  <button class="xbtn" onclick="document.getElementById('csvFileIn').click()">⬆ Import CSV</button>
+  <input type="file" id="csvFileIn" accept=".csv" style="display:none" onchange="importCSV(this)">
 </header>
 
 <div class="controls">
@@ -359,6 +361,122 @@ M.sort((a,b)=>{
 // ─── STATE ───────────────────────────────────────────────────────────────────
 // Per-match assignment
 const A = {}; // A[id] = 'N'|'G'|'H'|''
+
+// ─── PERSISTENCE (localStorage) ──────────────────────────────────────────────
+const LS_KEY_A     = 'wc2026_assignments';
+const LS_KEY_NAMES = 'wc2026_engnames';
+
+function saveState(){
+  try{
+    localStorage.setItem(LS_KEY_A, JSON.stringify(A));
+    const names={N:document.getElementById('e0').value,G:document.getElementById('e1').value,H:document.getElementById('e2').value};
+    localStorage.setItem(LS_KEY_NAMES, JSON.stringify(names));
+  }catch(e){}
+}
+
+function loadState(){
+  try{
+    const a=localStorage.getItem(LS_KEY_A);
+    if(a){ Object.assign(A, JSON.parse(a)); }
+    const n=localStorage.getItem(LS_KEY_NAMES);
+    if(n){
+      const names=JSON.parse(n);
+      if(names.N) document.getElementById('e0').value=names.N;
+      if(names.G) document.getElementById('e1').value=names.G;
+      if(names.H) document.getElementById('e2').value=names.H;
+    }
+  }catch(e){}
+}
+
+// ─── CSV IMPORT ───────────────────────────────────────────────────────────────
+function importCSV(input){
+  const file=input.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const text=e.target.result;
+    const lines=text.split(/\r?\n/).filter(l=>l.trim());
+    if(lines.length<2){ alert('CSV vazio ou inválido.'); return; }
+
+    // Parse header to find column indices
+    const header=parseCSVRow(lines[0]);
+    const idxID=header.findIndex(h=>h.trim().toLowerCase()==='id');
+    const idxEng=header.findIndex(h=>h.trim().toLowerCase()==='engineer');
+
+    if(idxID<0||idxEng<0){ alert('CSV inválido: colunas "ID" e "Engineer" não encontradas.\nCertifica-te de que usas o CSV exportado por esta ferramenta.'); return; }
+
+    // Also detect engineer names to restore them
+    const nameMap={}; // code→name  e.g. {'N':'Nuno','G':'Goncalo','H':'Hugo'}
+    const ENG_CODES={'N':true,'G':true,'H':true};
+
+    let imported=0,skipped=0;
+    for(let i=1;i<lines.length;i++){
+      const cols=parseCSVRow(lines[i]);
+      if(cols.length<=Math.max(idxID,idxEng)) continue;
+      const id=parseInt(cols[idxID]);
+      const engName=(cols[idxEng]||'').trim();
+      if(!id||isNaN(id)) continue;
+
+      if(!engName){ A[id]=''; imported++; continue; }
+
+      // Map engineer name back to code by matching current names or names in file
+      const code=resolveEngCode(engName);
+      if(code){ A[id]=code; nameMap[code]=engName; imported++; }
+      else { skipped++; }
+    }
+
+    // Restore engineer names if we mapped them
+    if(nameMap.N) document.getElementById('e0').value=nameMap.N;
+    if(nameMap.G) document.getElementById('e1').value=nameMap.G;
+    if(nameMap.H) document.getElementById('e2').value=nameMap.H;
+
+    saveState();
+    renderAll();
+    onRename();
+
+    const msg=`✓ Importadas ${imported} atribuições.`+(skipped?`\n⚠ ${skipped} linhas ignoradas (nome de engenheiro desconhecido).`:'');
+    alert(msg);
+    input.value=''; // reset input so same file can be re-imported
+  };
+  reader.readAsText(file);
+}
+
+// Resolve engineer name → code.
+// Strategy: try exact match against current input values first, then fallback by position.
+function resolveEngCode(name){
+  if(!name) return '';
+  const n=name.trim().toLowerCase();
+  const slots=[['N','e0'],['G','e1'],['H','e2']];
+  for(const [code,inputId] of slots){
+    const cur=(document.getElementById(inputId).value||'').toLowerCase();
+    if(cur&&cur===n) return code;
+  }
+  // Fallback: common default names
+  if(n==='nuno') return 'N';
+  if(n==='goncalo'||n==='gonçalo') return 'G';
+  if(n==='hugo') return 'H';
+  return '';
+}
+
+// Minimal RFC4180 CSV row parser (handles quoted fields)
+function parseCSVRow(line){
+  const result=[];
+  let cur='',inQ=false;
+  for(let i=0;i<line.length;i++){
+    const c=line[i];
+    if(inQ){
+      if(c==='"'&&line[i+1]==='"'){cur+='"';i++;}
+      else if(c==='"'){inQ=false;}
+      else cur+=c;
+    }else{
+      if(c==='"'){inQ=true;}
+      else if(c===','){result.push(cur);cur='';}
+      else cur+=c;
+    }
+  }
+  result.push(cur);
+  return result;
+}
 
 function ename(k){return document.getElementById('e'+['N','G','H'].indexOf(k)).value||['Nuno','Goncalo','Hugo']['NGH'.indexOf(k)];}
 
@@ -667,6 +785,7 @@ function assignMatch(id,val,sel){
   rebuildDayEpg(dayBlock);
   updateStats();
   updateSummary();
+  saveState();
 }
 
 function rebuildDayEpg(block){
@@ -703,10 +822,12 @@ function autoAssign(){
     totH[pick]+=(end-start)/60;
   });
   renderAll();
+  saveState();
 }
 
 function clearAll(){
   M.forEach(m=>delete A[m.id]);
+  saveState();
   renderAll();
 }
 
@@ -727,6 +848,7 @@ function onRename(){
     s.value=v;
   });
   updateSummary();
+  saveState();
 }
 
 // ─── FILTERS ──────────────────────────────────────────────────────────────────
@@ -785,7 +907,9 @@ function exportCSV(){
 }
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
+loadState();
 renderAll();
+onRename();
 </script>
 </body>
 </html>
