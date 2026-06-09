@@ -1,802 +1,2999 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WC 2026 · Engineering Rota</title>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<style>
-:root{
-  --bg:#0a0c10;--surface:#111419;--surface2:#181c23;--border:#252932;
-  --gold:#f5c842;--red:#e84545;--green:#3dd68c;--blue:#4a9eff;--orange:#ff9933;
-  --muted:#5a6070;--text:#d8dde8;--text2:#9aa0b0;
-  --cn:#4a9eff;--cg:#f5c842;--ch:#3dd68c;
-  --cn-bg:#4a9eff14;--cg-bg:#f5c84214;--ch-bg:#3dd68c14;
-  --cn-bd:#1e4070;--cg-bd:#604800;--ch-bd:#0e4830;
-}
-*{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:13px;line-height:1.5;min-height:100vh;}
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WC 2026 · Engineering Rota</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #0a0c10;
+        --surface: #111419;
+        --surface2: #181c23;
+        --border: #252932;
+        --gold: #f5c842;
+        --red: #e84545;
+        --green: #3dd68c;
+        --blue: #4a9eff;
+        --orange: #ff9933;
+        --muted: #5a6070;
+        --text: #d8dde8;
+        --text2: #9aa0b0;
+        --cn: #4a9eff;
+        --cg: #f5c842;
+        --ch: #3dd68c;
+        --cn-bg: #4a9eff14;
+        --cg-bg: #f5c84214;
+        --ch-bg: #3dd68c14;
+        --cn-bd: #1e4070;
+        --cg-bd: #604800;
+        --ch-bd: #0e4830;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: "IBM Plex Sans", sans-serif;
+        font-size: 13px;
+        line-height: 1.5;
+        min-height: 100vh;
+      }
 
-/* HEADER */
-header{background:var(--surface);border-bottom:2px solid var(--gold);padding:16px 24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;}
-.logo{font-family:'Bebas Neue',sans-serif;font-size:2.2rem;color:var(--gold);letter-spacing:2px;line-height:1;}
-.logo span{color:var(--text2);font-size:.75rem;display:block;letter-spacing:4px;font-family:'IBM Plex Mono',monospace;margin-top:1px;}
-.hstats{display:flex;gap:16px;flex-wrap:wrap;margin-left:auto;}
-.stat{text-align:center;}
-.sv{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--gold);line-height:1;}
-.sl{font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;}
-.xbtn{background:transparent;border:1px solid var(--gold);color:var(--gold);padding:4px 12px;border-radius:4px;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:11px;white-space:nowrap;align-self:center;}
-.xbtn:hover{background:var(--gold);color:#000;}
+      /* HEADER */
+      header {
+        background: var(--surface);
+        border-bottom: 2px solid var(--gold);
+        padding: 16px 24px;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        flex-wrap: wrap;
+      }
+      .logo {
+        font-family: "Bebas Neue", sans-serif;
+        font-size: 2.2rem;
+        color: var(--gold);
+        letter-spacing: 2px;
+        line-height: 1;
+      }
+      .logo span {
+        color: var(--text2);
+        font-size: 0.75rem;
+        display: block;
+        letter-spacing: 4px;
+        font-family: "IBM Plex Mono", monospace;
+        margin-top: 1px;
+      }
+      .hstats {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-left: auto;
+      }
+      .stat {
+        text-align: center;
+      }
+      .sv {
+        font-family: "Bebas Neue", sans-serif;
+        font-size: 1.4rem;
+        color: var(--gold);
+        line-height: 1;
+      }
+      .sl {
+        font-size: 9px;
+        color: var(--muted);
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        font-family: "IBM Plex Mono", monospace;
+      }
+      .xbtn {
+        background: transparent;
+        border: 1px solid var(--gold);
+        color: var(--gold);
+        padding: 4px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        white-space: nowrap;
+        align-self: center;
+      }
+      .xbtn:hover {
+        background: var(--gold);
+        color: #000;
+      }
 
-/* CONTROLS */
-.controls{background:var(--surface2);border-bottom:1px solid var(--border);padding:9px 24px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
-.controls label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-family:'IBM Plex Mono',monospace;}
-.fg{display:flex;gap:4px;align-items:center;}
-.fb{background:transparent;border:1px solid var(--border);color:var(--text2);padding:3px 10px;border-radius:3px;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:11px;transition:all .12s;}
-.fb:hover{border-color:var(--gold);color:var(--gold);}
-.fb.active{background:var(--gold);border-color:var(--gold);color:#000;font-weight:700;}
-.sb{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:4px 10px;border-radius:3px;font-family:'IBM Plex Mono',monospace;font-size:11px;width:160px;outline:none;}
-.sb:focus{border-color:var(--gold);}
-.sb::placeholder{color:var(--muted);}
-.vl{width:1px;height:22px;background:var(--border);}
-.engin{display:flex;gap:8px;align-items:center;margin-left:auto;}
-.einp{background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;padding:1px 4px;width:80px;outline:none;}
-.einp:focus{border-color:var(--gold);}
-.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:2px;}
-.dn{background:var(--cn);}.dg{background:var(--cg);}.dh{background:var(--ch);}
+      /* CONTROLS */
+      .controls {
+        background: var(--surface2);
+        border-bottom: 1px solid var(--border);
+        padding: 9px 24px;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .controls label {
+        font-size: 10px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-family: "IBM Plex Mono", monospace;
+      }
+      .fg {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+      }
+      .fb {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text2);
+        padding: 3px 10px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        transition: all 0.12s;
+      }
+      .fb:hover {
+        border-color: var(--gold);
+        color: var(--gold);
+      }
+      .fb.active {
+        background: var(--gold);
+        border-color: var(--gold);
+        color: #000;
+        font-weight: 700;
+      }
+      .sb {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 4px 10px;
+        border-radius: 3px;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        width: 160px;
+        outline: none;
+      }
+      .sb:focus {
+        border-color: var(--gold);
+      }
+      .sb::placeholder {
+        color: var(--muted);
+      }
+      .vl {
+        width: 1px;
+        height: 22px;
+        background: var(--border);
+      }
+      .engin {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-left: auto;
+      }
+      .einp {
+        background: transparent;
+        border: none;
+        border-bottom: 1px solid var(--border);
+        color: var(--text);
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 12px;
+        padding: 1px 4px;
+        width: 80px;
+        outline: none;
+      }
+      .einp:focus {
+        border-color: var(--gold);
+      }
+      .dot {
+        display: inline-block;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        margin-right: 2px;
+      }
+      .dn {
+        background: var(--cn);
+      }
+      .dg {
+        background: var(--cg);
+      }
+      .dh {
+        background: var(--ch);
+      }
 
-/* LEGEND */
-.legend{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 24px;display:flex;gap:16px;flex-wrap:wrap;font-size:11px;font-family:'IBM Plex Mono',monospace;align-items:center;}
-.li{display:flex;align-items:center;gap:4px;}
-.badge{padding:2px 7px;border-radius:3px;font-size:10px;font-weight:700;letter-spacing:.4px;display:inline-block;}
-.bN{background:var(--cn-bd);color:var(--cn);border:1px solid #2a5a90;}
-.bG{background:var(--cg-bd);color:var(--cg);border:1px solid #906000;}
-.bH{background:var(--ch-bd);color:var(--ch);border:1px solid #107840;}
-.dual-tag{background:#3a0808;color:var(--red);border:1px solid #802020;border-radius:3px;font-size:10px;padding:1px 5px;font-weight:700;}
-.late-tag{background:#2a1800;color:var(--orange);border:1px solid #7a4000;border-radius:3px;font-size:9px;padding:1px 4px;vertical-align:middle;margin-left:2px;}
+      /* LEGEND */
+      .legend {
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        padding: 8px 24px;
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        font-size: 11px;
+        font-family: "IBM Plex Mono", monospace;
+        align-items: center;
+      }
+      .li {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .badge {
+        padding: 2px 7px;
+        border-radius: 3px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.4px;
+        display: inline-block;
+      }
+      .bN {
+        background: var(--cn-bd);
+        color: var(--cn);
+        border: 1px solid #2a5a90;
+      }
+      .bG {
+        background: var(--cg-bd);
+        color: var(--cg);
+        border: 1px solid #906000;
+      }
+      .bH {
+        background: var(--ch-bd);
+        color: var(--ch);
+        border: 1px solid #107840;
+      }
+      .dual-tag {
+        background: #3a0808;
+        color: var(--red);
+        border: 1px solid #802020;
+        border-radius: 3px;
+        font-size: 10px;
+        padding: 1px 5px;
+        font-weight: 700;
+      }
+      .late-tag {
+        background: #2a1800;
+        color: var(--orange);
+        border: 1px solid #7a4000;
+        border-radius: 3px;
+        font-size: 9px;
+        padding: 1px 4px;
+        vertical-align: middle;
+        margin-left: 2px;
+      }
 
-/* SUMMARY */
-.sum-wrap{padding:14px 24px 0;}
-.sum-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:14px;}
-.scard{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px 14px;}
-.scname{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:5px;}
-.hrow{display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text2);margin-bottom:3px;}
-.hrow b{color:var(--text);}
-.hbar{height:5px;background:var(--border);border-radius:2px;margin-bottom:8px;overflow:hidden;}
-.hfill{height:100%;border-radius:2px;transition:width .3s;}
-.fn{background:var(--cn);}.fg2{background:var(--cg);}.fh{background:var(--ch);}
+      /* SUMMARY */
+      .sum-wrap {
+        padding: 14px 24px 0;
+      }
+      .sum-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 10px;
+        margin-bottom: 14px;
+      }
+      .scard {
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 12px 14px;
+      }
+      .scname {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 12px;
+        font-weight: 600;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .hrow {
+        display: flex;
+        justify-content: space-between;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        color: var(--text2);
+        margin-bottom: 3px;
+      }
+      .hrow b {
+        color: var(--text);
+      }
+      .hbar {
+        height: 5px;
+        background: var(--border);
+        border-radius: 2px;
+        margin-bottom: 8px;
+        overflow: hidden;
+      }
+      .hfill {
+        height: 100%;
+        border-radius: 2px;
+        transition: width 0.3s;
+      }
+      .fn {
+        background: var(--cn);
+      }
+      .fg2 {
+        background: var(--cg);
+      }
+      .fh {
+        background: var(--ch);
+      }
 
-/* MAIN */
-main{padding:4px 24px 28px;}
+      /* MAIN */
+      main {
+        padding: 4px 24px 28px;
+      }
 
-/* DAY BLOCK */
-.day-block{margin-bottom:18px;border:1px solid var(--border);border-radius:6px;overflow:hidden;}
-.day-block.hidden{display:none;}
-.dh{background:var(--surface2);padding:8px 12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
-.ddate{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--gold);letter-spacing:1px;min-width:110px;}
-.drange{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);background:var(--surface);padding:2px 6px;border-radius:3px;border:1px solid var(--border);white-space:nowrap;}
-.dhours{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text2);white-space:nowrap;}
-.dcnt{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);margin-left:auto;white-space:nowrap;}
+      /* DAY BLOCK */
+      .day-block {
+        margin-bottom: 18px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      .day-block.hidden {
+        display: none;
+      }
+      .dh {
+        background: var(--surface2);
+        padding: 8px 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-bottom: 1px solid var(--border);
+        flex-wrap: wrap;
+      }
+      .ddate {
+        font-family: "Bebas Neue", sans-serif;
+        font-size: 1.1rem;
+        color: var(--gold);
+        letter-spacing: 1px;
+        min-width: 110px;
+      }
+      .drange {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 10px;
+        color: var(--muted);
+        background: var(--surface);
+        padding: 2px 6px;
+        border-radius: 3px;
+        border: 1px solid var(--border);
+        white-space: nowrap;
+      }
+      .dhours {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 10px;
+        color: var(--text2);
+        white-space: nowrap;
+      }
+      .dcnt {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 10px;
+        color: var(--muted);
+        margin-left: auto;
+        white-space: nowrap;
+      }
 
-/* TABLE */
-.mt{width:100%;border-collapse:collapse;}
-.mt th{text-align:left;font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);padding:5px 10px;border-bottom:1px solid var(--border);background:var(--surface);white-space:nowrap;}
-.mr{border-bottom:1px solid var(--border);transition:background .1s;}
-.mr:last-child{border-bottom:none;}
-.mr:hover{background:#13161d;}
-.mr td{padding:7px 10px;vertical-align:middle;}
-.mr.rN{background:#0c1420;}.mr.rG{background:#141208;}.mr.rH{background:#0b1410;}
+      /* TABLE */
+      .mt {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .mt th {
+        text-align: left;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 9px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: var(--muted);
+        padding: 5px 10px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        white-space: nowrap;
+      }
+      .mr {
+        border-bottom: 1px solid var(--border);
+        transition: background 0.1s;
+      }
+      .mr:last-child {
+        border-bottom: none;
+      }
+      .mr:hover {
+        background: #13161d;
+      }
+      .mr td {
+        padding: 7px 10px;
+        vertical-align: middle;
+      }
+      .mr.rN {
+        background: #0c1420;
+      }
+      .mr.rG {
+        background: #141208;
+      }
+      .mr.rH {
+        background: #0b1410;
+      }
 
-/* KO time */
-.kt{font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:.5px;white-space:nowrap;}
-.kt.eve{color:var(--text);}
-.kt.late{color:var(--orange);}
-.kt.deep{color:var(--red);}
-.kt.day{color:var(--text2);}
+      /* KO time */
+      .kt {
+        font-family: "Bebas Neue", sans-serif;
+        font-size: 1rem;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+      }
+      .kt.eve {
+        color: var(--text);
+      }
+      .kt.late {
+        color: var(--orange);
+      }
+      .kt.deep {
+        color: var(--red);
+      }
+      .kt.day {
+        color: var(--text2);
+      }
 
-/* Local time */
-.ltime{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);white-space:nowrap;}
+      /* Local time */
+      .ltime {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 10px;
+        color: var(--muted);
+        white-space: nowrap;
+      }
 
-.matchup{font-size:12px;font-weight:500;white-space:nowrap;}
-.vs{color:var(--muted);margin:0 4px;font-size:10px;}
-.venue-t{font-size:11px;color:var(--text2);white-space:nowrap;}
-.city-t{font-size:10px;color:var(--muted);font-family:'IBM Plex Mono',monospace;}
+      .matchup {
+        font-size: 12px;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+      .vs {
+        color: var(--muted);
+        margin: 0 4px;
+        font-size: 10px;
+      }
+      .venue-t {
+        font-size: 11px;
+        color: var(--text2);
+        white-space: nowrap;
+      }
+      .city-t {
+        font-size: 10px;
+        color: var(--muted);
+        font-family: "IBM Plex Mono", monospace;
+      }
 
-.sbadge{display:inline-block;padding:1px 5px;border-radius:2px;font-size:9px;font-family:'IBM Plex Mono',monospace;font-weight:700;white-space:nowrap;}
-.sGroup{background:#1a2030;color:#7090c0;border:1px solid #2a3a58;}
-.sR32{background:#201a10;color:#c08020;border:1px solid #503a10;}
-.sR16{background:#162016;color:#50a040;border:1px solid #284020;}
-.sQF{background:#201520;color:#b060c0;border:1px solid #401850;}
-.sSF{background:#201010;color:#e06060;border:1px solid #501818;}
-.s3rd{background:#181818;color:#909060;border:1px solid #303018;}
-.sFinal{background:#1e1608;color:var(--gold);border:1px solid #604800;}
+      .sbadge {
+        display: inline-block;
+        padding: 1px 5px;
+        border-radius: 2px;
+        font-size: 9px;
+        font-family: "IBM Plex Mono", monospace;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .sGroup {
+        background: #1a2030;
+        color: #7090c0;
+        border: 1px solid #2a3a58;
+      }
+      .sR32 {
+        background: #201a10;
+        color: #c08020;
+        border: 1px solid #503a10;
+      }
+      .sR16 {
+        background: #162016;
+        color: #50a040;
+        border: 1px solid #284020;
+      }
+      .sQF {
+        background: #201520;
+        color: #b060c0;
+        border: 1px solid #401850;
+      }
+      .sSF {
+        background: #201010;
+        color: #e06060;
+        border: 1px solid #501818;
+      }
+      .s3rd {
+        background: #181818;
+        color: #909060;
+        border: 1px solid #303018;
+      }
+      .sFinal {
+        background: #1e1608;
+        color: var(--gold);
+        border: 1px solid #604800;
+      }
 
-.gbadge{display:inline-block;width:18px;height:18px;line-height:18px;text-align:center;border-radius:3px;font-family:'Bebas Neue',sans-serif;font-size:.75rem;background:var(--surface2);border:1px solid var(--border);color:var(--text2);margin-right:2px;}
+      .gbadge {
+        display: inline-block;
+        width: 18px;
+        height: 18px;
+        line-height: 18px;
+        text-align: center;
+        border-radius: 3px;
+        font-family: "Bebas Neue", sans-serif;
+        font-size: 0.75rem;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        color: var(--text2);
+        margin-right: 2px;
+      }
 
-/* Per-match assign select */
-.asel{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:3px;font-family:'IBM Plex Mono',monospace;font-size:11px;cursor:pointer;outline:none;min-width:110px;}
-.asel:focus{border-color:var(--gold);}
-.asel.aN{background:var(--cn-bg);border-color:var(--cn-bd);color:var(--cn);}
-.asel.aG{background:var(--cg-bg);border-color:var(--cg-bd);color:var(--cg);}
-.asel.aH{background:var(--ch-bg);border-color:var(--ch-bd);color:var(--ch);}
+      /* Per-match assign select */
+      .asel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 3px 6px;
+        border-radius: 3px;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        cursor: pointer;
+        outline: none;
+        min-width: 110px;
+      }
+      .asel:focus {
+        border-color: var(--gold);
+      }
+      .asel.aN {
+        background: var(--cn-bg);
+        border-color: var(--cn-bd);
+        color: var(--cn);
+      }
+      .asel.aG {
+        background: var(--cg-bg);
+        border-color: var(--cg-bd);
+        color: var(--cg);
+      }
+      .asel.aH {
+        background: var(--ch-bg);
+        border-color: var(--ch-bd);
+        color: var(--ch);
+      }
 
-/* ── EPG ── */
-/* EPG in day header: spans 14h window 18:00→08:00+1 */
-.epg-hdr{flex:1;min-width:180px;max-width:500px;position:relative;height:20px;background:#080c12;border:1px solid #1a1e2a;border-radius:3px;overflow:visible;cursor:default;}
-.epg-match-block{position:absolute;top:2px;height:16px;border-radius:2px;pointer-events:none;}
-.epg-shift-bg{position:absolute;top:0;height:100%;border-radius:2px;pointer-events:none;opacity:.18;}
-.epg-tick{position:absolute;top:0;bottom:0;width:1px;background:#ffffff15;pointer-events:none;}
-.epg-tlabel{position:absolute;bottom:-14px;font-size:8px;font-family:'IBM Plex Mono',monospace;color:#ffffff40;transform:translateX(-50%);pointer-events:none;white-space:nowrap;}
-.epg-hdr-wrap{padding-bottom:16px;flex:1;min-width:180px;max-width:500px;}
+      /* ── EPG ── */
+      /* EPG in day header: spans 14h window 18:00→08:00+1 */
+      .epg-hdr {
+        flex: 1;
+        min-width: 180px;
+        max-width: 500px;
+        position: relative;
+        height: 20px;
+        background: #080c12;
+        border: 1px solid #1a1e2a;
+        border-radius: 3px;
+        overflow: visible;
+        cursor: default;
+      }
+      .epg-match-block {
+        position: absolute;
+        top: 2px;
+        height: 16px;
+        border-radius: 2px;
+        pointer-events: none;
+      }
+      .epg-shift-bg {
+        position: absolute;
+        top: 0;
+        height: 100%;
+        border-radius: 2px;
+        pointer-events: none;
+        opacity: 0.18;
+      }
+      .epg-tick {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 1px;
+        background: #ffffff15;
+        pointer-events: none;
+      }
+      .epg-tlabel {
+        position: absolute;
+        bottom: -14px;
+        font-size: 8px;
+        font-family: "IBM Plex Mono", monospace;
+        color: #ffffff40;
+        transform: translateX(-50%);
+        pointer-events: none;
+        white-space: nowrap;
+      }
+      .epg-hdr-wrap {
+        padding-bottom: 16px;
+        flex: 1;
+        min-width: 180px;
+        max-width: 500px;
+      }
 
-/* EPG in match row (mini) */
-.epg-mini{position:relative;height:14px;background:#080c12;border:1px solid #151920;border-radius:2px;overflow:hidden;min-width:120px;}
-.epg-mb{position:absolute;top:1px;height:12px;border-radius:2px;opacity:.9;}
-.epg-mb.bN{background:var(--cn);}
-.epg-mb.bG{background:var(--cg);}
-.epg-mb.bH{background:var(--ch);}
-.epg-mb.bNone{background:#4a5060;}
+      /* EPG in match row (mini) */
+      .epg-mini {
+        position: relative;
+        height: 14px;
+        background: #080c12;
+        border: 1px solid #151920;
+        border-radius: 2px;
+        overflow: hidden;
+        min-width: 120px;
+      }
+      .epg-mb {
+        position: absolute;
+        top: 1px;
+        height: 12px;
+        border-radius: 2px;
+        opacity: 0.9;
+      }
+      .epg-mb.bN {
+        background: var(--cn);
+      }
+      .epg-mb.bG {
+        background: var(--cg);
+      }
+      .epg-mb.bH {
+        background: var(--ch);
+      }
+      .epg-mb.bNone {
+        background: #4a5060;
+      }
 
-.dual-flag{background:#3a0808;color:var(--red);border:1px solid #802020;border-radius:3px;font-size:10px;padding:1px 6px;font-weight:700;white-space:nowrap;}
+      .dual-flag {
+        background: #3a0808;
+        color: var(--red);
+        border: 1px solid #802020;
+        border-radius: 3px;
+        font-size: 10px;
+        padding: 1px 6px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
 
-.shift-cell{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;white-space:nowrap;}
+      .shift-cell {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
 
-@media(max-width:900px){.hsm{display:none;}}
-</style>
-</head>
-<body>
-<header>
-  <div><div class="logo">WC 2026<span>ENGINEERING ROTA</span></div></div>
-  <div class="hstats">
-    <div class="stat"><div class="sv" id="s-total">104</div><div class="sl">Matches</div></div>
-    <div class="stat"><div class="sv" id="s-days">—</div><div class="sl">Days</div></div>
-    <div class="stat"><div class="sv" id="s-asgn">0</div><div class="sl">Assigned</div></div>
-    <div class="stat"><div class="sv" id="s-dual">0</div><div class="sl">Dual⚠</div></div>
-  </div>
-  <button class="xbtn" onclick="exportCSV()">⬇ Export CSV</button>
-  <button class="xbtn" id="btn-import" onclick="document.getElementById('csvFileIn').click()">⬆ Import CSV</button>
-  <input type="file" id="csvFileIn" accept=".csv" style="display:none" onchange="importCSV(this)">
-  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;margin-left:4px;">
-    <span id="user-pill" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text2);letter-spacing:.5px;">…</span>
-    <span id="save-status" style="font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.5px;"></span>
-  </div>
-</header>
+      @media (max-width: 900px) {
+        .hsm {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div>
+        <div class="logo">WC 2026<span>ENGINEERING ROTA</span></div>
+      </div>
+      <div class="hstats">
+        <div class="stat">
+          <div class="sv" id="s-total">104</div>
+          <div class="sl">Matches</div>
+        </div>
+        <div class="stat">
+          <div class="sv" id="s-days">—</div>
+          <div class="sl">Days</div>
+        </div>
+        <div class="stat">
+          <div class="sv" id="s-asgn">0</div>
+          <div class="sl">Assigned</div>
+        </div>
+        <div class="stat">
+          <div class="sv" id="s-dual">0</div>
+          <div class="sl">Dual⚠</div>
+        </div>
+      </div>
+      <button class="xbtn" onclick="exportCSV()">⬇ Export CSV</button>
+      <button
+        class="xbtn"
+        id="btn-import"
+        onclick="document.getElementById('csvFileIn').click()"
+      >
+        ⬆ Import CSV
+      </button>
+      <input
+        type="file"
+        id="csvFileIn"
+        accept=".csv"
+        style="display: none"
+        onchange="importCSV(this)"
+      />
+      <div
+        style="
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 2px;
+          margin-left: 4px;
+        "
+      >
+        <span
+          id="user-pill"
+          style="
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 10px;
+            color: var(--text2);
+            letter-spacing: 0.5px;
+          "
+          >…</span
+        >
+        <span
+          id="save-status"
+          style="
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 9px;
+            letter-spacing: 0.5px;
+          "
+        ></span>
+      </div>
+    </header>
 
-<div class="controls">
-  <div class="fg">
-    <label>Stage:</label>
-    <button class="fb active" data-f="stage" data-v="all">All</button>
-    <button class="fb" data-f="stage" data-v="Group">Group</button>
-    <button class="fb" data-f="stage" data-v="R32">R32</button>
-    <button class="fb" data-f="stage" data-v="R16">R16</button>
-    <button class="fb" data-f="stage" data-v="QF">QF</button>
-    <button class="fb" data-f="stage" data-v="SF">SF</button>
-    <button class="fb" data-f="stage" data-v="Final">Final</button>
-  </div>
-  <div class="vl"></div>
-  <div class="fg">
-    <label>Eng:</label>
-    <button class="fb active" data-f="eng" data-v="all">All</button>
-    <button class="fb" data-f="eng" data-v="N" id="fb-N">Nuno</button>
-    <button class="fb" data-f="eng" data-v="G" id="fb-G">Goncalo</button>
-    <button class="fb" data-f="eng" data-v="H" id="fb-H">Hugo</button>
-    <button class="fb" data-f="eng" data-v="dual">⚠ Dual</button>
-    <button class="fb" data-f="eng" data-v="none">Unassigned</button>
-  </div>
-  <div class="vl"></div>
-  <input class="sb" type="text" placeholder="Search team / city…" id="searchBox" oninput="applyFilters()">
-  <div class="vl"></div>
-  <div class="engin">
-    <span class="dot dn"></span><input class="einp" id="e0" value="Nuno" oninput="onRename()">
-    <span class="dot dg"></span><input class="einp" id="e1" value="Goncalo" oninput="onRename()">
-    <span class="dot dh"></span><input class="einp" id="e2" value="Hugo" oninput="onRename()">
-  </div>
-</div>
+    <div class="controls">
+      <div class="fg">
+        <label>Stage:</label>
+        <button class="fb active" data-f="stage" data-v="all">All</button>
+        <button class="fb" data-f="stage" data-v="Group">Group</button>
+        <button class="fb" data-f="stage" data-v="R32">R32</button>
+        <button class="fb" data-f="stage" data-v="R16">R16</button>
+        <button class="fb" data-f="stage" data-v="QF">QF</button>
+        <button class="fb" data-f="stage" data-v="SF">SF</button>
+        <button class="fb" data-f="stage" data-v="Final">Final</button>
+      </div>
+      <div class="vl"></div>
+      <div class="fg">
+        <label>Eng:</label>
+        <button class="fb active" data-f="eng" data-v="all">All</button>
+        <button class="fb" data-f="eng" data-v="N" id="fb-N">Nuno</button>
+        <button class="fb" data-f="eng" data-v="G" id="fb-G">Goncalo</button>
+        <button class="fb" data-f="eng" data-v="H" id="fb-H">Hugo</button>
+        <button class="fb" data-f="eng" data-v="dual">⚠ Dual</button>
+        <button class="fb" data-f="eng" data-v="none">Unassigned</button>
+      </div>
+      <div class="vl"></div>
+      <input
+        class="sb"
+        type="text"
+        placeholder="Search team / city…"
+        id="searchBox"
+        oninput="applyFilters()"
+      />
+      <div class="vl"></div>
+      <div class="engin">
+        <span class="dot dn"></span
+        ><input class="einp" id="e0" value="Nuno" oninput="onRename()" />
+        <span class="dot dg"></span
+        ><input class="einp" id="e1" value="Goncalo" oninput="onRename()" />
+        <span class="dot dh"></span
+        ><input class="einp" id="e2" value="Hugo" oninput="onRename()" />
+      </div>
+    </div>
 
-<div class="legend">
-  <div class="li"><span class="badge bN" id="l0">Nuno</span></div>
-  <div class="li"><span class="badge bG" id="l1">Goncalo</span></div>
-  <div class="li"><span class="badge bH" id="l2">Hugo</span></div>
-  <div class="li"><span class="dual-tag">⚠ DUAL</span> = day spans &gt;10h effective, needs 2 engineers</div>
-  <div class="li"><span class="late-tag">LATE</span> = KO after midnight BST</div>
-  <div style="margin-left:auto;display:flex;gap:6px;">
-    <button class="fb" id="btn-auto" onclick="autoAssign()">⚡ Auto-assign</button>
-    <button class="fb" id="btn-clear" onclick="clearAll()">✕ Clear</button>
-  </div>
-</div>
+    <div class="legend">
+      <div class="li"><span class="badge bN" id="l0">Nuno</span></div>
+      <div class="li"><span class="badge bG" id="l1">Goncalo</span></div>
+      <div class="li"><span class="badge bH" id="l2">Hugo</span></div>
+      <div class="li">
+        <span class="dual-tag">⚠ DUAL</span> = day spans &gt;10h effective,
+        needs 2 engineers
+      </div>
+      <div class="li">
+        <span class="late-tag">LATE</span> = KO after midnight BST
+      </div>
+      <div style="margin-left: auto; display: flex; gap: 6px">
+        <button class="fb" id="btn-auto" onclick="autoAssign()">
+          ⚡ Auto-assign
+        </button>
+        <button class="fb" id="btn-clear" onclick="clearAll()">✕ Clear</button>
+      </div>
+    </div>
 
-<div class="sum-wrap"><div class="sum-grid" id="sumGrid"></div></div>
-<main id="mc"></main>
+    <div class="sum-wrap"><div class="sum-grid" id="sumGrid"></div></div>
+    <main id="mc"></main>
 
-<script>
-// ─── ALL 104 MATCHES (BST computed from openfootball JSON) ───────────────────
-// Formula: BST = local_time - utc_offset + 1h  (BST=UTC+1)
-// Egypt vs Iran: 20:00 UTC-7 → UTC 03:00 → BST 04:00 ✓
-// NZ vs Belgium: 20:00 UTC-7 → UTC 03:00 → BST 04:00 ✓
+    <script>
+      // ─── ALL 104 MATCHES (BST computed from openfootball JSON) ───────────────────
+      // Formula: BST = local_time - utc_offset + 1h  (BST=UTC+1)
+      // Egypt vs Iran: 20:00 UTC-7 → UTC 03:00 → BST 04:00 ✓
+      // NZ vs Belgium: 20:00 UTC-7 → UTC 03:00 → BST 04:00 ✓
 
-const M = [
-  // ── GROUP A ──────────────────────────────────────────────────────────────
-  {id:1,  date:"2026-06-11",local:"13:00",tz:-6,bst:"20:00",on:false,t1:"Mexico",          t2:"South Africa",      g:"A", venue:"Estadio Azteca",              city:"Mexico City",  stage:"Group"},
-  {id:2,  date:"2026-06-11",local:"20:00",tz:-6,bst:"03:00",on:true, t1:"South Korea",     t2:"Czechia",           g:"A", venue:"Estadio Akron",               city:"Guadalajara",  stage:"Group"},
-  {id:3,  date:"2026-06-18",local:"12:00",tz:-4,bst:"17:00",on:false,t1:"Czechia",         t2:"South Africa",      g:"A", venue:"Mercedes-Benz Stadium",       city:"Atlanta",      stage:"Group"},
-  {id:4,  date:"2026-06-18",local:"19:00",tz:-6,bst:"02:00",on:true, t1:"Mexico",          t2:"South Korea",       g:"A", venue:"Estadio Akron",               city:"Guadalajara",  stage:"Group"},
-  {id:5,  date:"2026-06-24",local:"19:00",tz:-6,bst:"02:00",on:true, t1:"Czechia",         t2:"Mexico",            g:"A", venue:"Estadio Azteca",              city:"Mexico City",  stage:"Group"},
-  {id:6,  date:"2026-06-24",local:"19:00",tz:-6,bst:"02:00",on:true, t1:"South Africa",    t2:"South Korea",       g:"A", venue:"Estadio BBVA",                city:"Monterrey",    stage:"Group"},
-  // ── GROUP B ──────────────────────────────────────────────────────────────
-  {id:7,  date:"2026-06-12",local:"15:00",tz:-4,bst:"20:00",on:false,t1:"Canada",          t2:"Bosnia & Herz",     g:"B", venue:"BMO Field",                   city:"Toronto",      stage:"Group"},
-  {id:8,  date:"2026-06-13",local:"12:00",tz:-7,bst:"20:00",on:false,t1:"Qatar",           t2:"Switzerland",       g:"B", venue:"Levi's Stadium",              city:"San Francisco",stage:"Group"},
-  {id:9,  date:"2026-06-18",local:"12:00",tz:-7,bst:"20:00",on:false,t1:"Switzerland",     t2:"Bosnia & Herz",     g:"B", venue:"SoFi Stadium",                city:"Los Angeles",  stage:"Group"},
-  {id:10, date:"2026-06-18",local:"15:00",tz:-7,bst:"23:00",on:false,t1:"Canada",          t2:"Qatar",             g:"B", venue:"BC Place",                    city:"Vancouver",    stage:"Group"},
-  {id:11, date:"2026-06-24",local:"12:00",tz:-7,bst:"20:00",on:false,t1:"Switzerland",     t2:"Canada",            g:"B", venue:"BC Place",                    city:"Vancouver",    stage:"Group"},
-  {id:12, date:"2026-06-24",local:"12:00",tz:-7,bst:"20:00",on:false,t1:"Bosnia & Herz",   t2:"Qatar",             g:"B", venue:"Lumen Field",                 city:"Seattle",      stage:"Group"},
-  // ── GROUP C ──────────────────────────────────────────────────────────────
-  {id:13, date:"2026-06-13",local:"18:00",tz:-4,bst:"23:00",on:false,t1:"Brazil",          t2:"Morocco",           g:"C", venue:"MetLife Stadium",             city:"New York/NJ",  stage:"Group"},
-  {id:14, date:"2026-06-13",local:"21:00",tz:-4,bst:"02:00",on:true, t1:"Haiti",           t2:"Scotland",          g:"C", venue:"Gillette Stadium",            city:"Boston",       stage:"Group"},
-  {id:15, date:"2026-06-19",local:"18:00",tz:-4,bst:"23:00",on:false,t1:"Scotland",        t2:"Morocco",           g:"C", venue:"Gillette Stadium",            city:"Boston",       stage:"Group"},
-  {id:16, date:"2026-06-19",local:"21:00",tz:-4,bst:"02:00",on:true, t1:"Brazil",          t2:"Haiti",             g:"C", venue:"Lincoln Financial Field",      city:"Philadelphia", stage:"Group"},
-  {id:17, date:"2026-06-24",local:"18:00",tz:-4,bst:"23:00",on:false,t1:"Scotland",        t2:"Brazil",            g:"C", venue:"Hard Rock Stadium",           city:"Miami",        stage:"Group"},
-  {id:18, date:"2026-06-24",local:"18:00",tz:-4,bst:"23:00",on:false,t1:"Morocco",         t2:"Haiti",             g:"C", venue:"Mercedes-Benz Stadium",       city:"Atlanta",      stage:"Group"},
-  // ── GROUP D ──────────────────────────────────────────────────────────────
-  {id:19, date:"2026-06-12",local:"18:00",tz:-7,bst:"02:00",on:true, t1:"USA",             t2:"Paraguay",          g:"D", venue:"SoFi Stadium",                city:"Los Angeles",  stage:"Group"},
-  {id:20, date:"2026-06-13",local:"21:00",tz:-7,bst:"05:00",on:true, t1:"Australia",       t2:"Türkiye",           g:"D", venue:"BC Place",                    city:"Vancouver",    stage:"Group"},
-  {id:21, date:"2026-06-19",local:"12:00",tz:-7,bst:"20:00",on:false,t1:"USA",             t2:"Australia",         g:"D", venue:"Lumen Field",                 city:"Seattle",      stage:"Group"},
-  {id:22, date:"2026-06-19",local:"21:00",tz:-7,bst:"05:00",on:true, t1:"Türkiye",         t2:"Paraguay",          g:"D", venue:"Levi's Stadium",              city:"San Francisco",stage:"Group"},
-  {id:23, date:"2026-06-25",local:"19:00",tz:-7,bst:"03:00",on:true, t1:"Türkiye",         t2:"USA",               g:"D", venue:"SoFi Stadium",                city:"Los Angeles",  stage:"Group"},
-  {id:24, date:"2026-06-25",local:"19:00",tz:-7,bst:"03:00",on:true, t1:"Paraguay",        t2:"Australia",         g:"D", venue:"Levi's Stadium",              city:"San Francisco",stage:"Group"},
-  // ── GROUP E ──────────────────────────────────────────────────────────────
-  {id:25, date:"2026-06-14",local:"12:00",tz:-5,bst:"18:00",on:false,t1:"Germany",         t2:"Curaçao",           g:"E", venue:"NRG Stadium",                 city:"Houston",      stage:"Group"},
-  {id:26, date:"2026-06-14",local:"19:00",tz:-4,bst:"00:00",on:true, t1:"Ivory Coast",     t2:"Ecuador",          g:"E",  venue:"Lincoln Financial Field",      city:"Philadelphia", stage:"Group"},
-  {id:27, date:"2026-06-20",local:"16:00",tz:-4,bst:"21:00",on:false,t1:"Germany",         t2:"Ivory Coast",       g:"E", venue:"BMO Field",                   city:"Toronto",      stage:"Group"},
-  {id:28, date:"2026-06-20",local:"19:00",tz:-5,bst:"01:00",on:true, t1:"Ecuador",         t2:"Curaçao",           g:"E", venue:"Arrowhead Stadium",           city:"Kansas City",  stage:"Group"},
-  {id:29, date:"2026-06-25",local:"16:00",tz:-4,bst:"21:00",on:false,t1:"Curaçao",         t2:"Ivory Coast",       g:"E", venue:"Lincoln Financial Field",      city:"Philadelphia", stage:"Group"},
-  {id:30, date:"2026-06-25",local:"16:00",tz:-4,bst:"21:00",on:false,t1:"Ecuador",         t2:"Germany",           g:"E", venue:"MetLife Stadium",             city:"New York/NJ",  stage:"Group"},
-  // ── GROUP F ──────────────────────────────────────────────────────────────
-  {id:31, date:"2026-06-14",local:"15:00",tz:-5,bst:"21:00",on:false,t1:"Netherlands",     t2:"Japan",             g:"F", venue:"AT&T Stadium",                city:"Dallas",       stage:"Group"},
-  {id:32, date:"2026-06-14",local:"20:00",tz:-6,bst:"03:00",on:true, t1:"Sweden",          t2:"Tunisia",           g:"F", venue:"Estadio BBVA",                city:"Monterrey",    stage:"Group"},
-  {id:33, date:"2026-06-20",local:"12:00",tz:-5,bst:"18:00",on:false,t1:"Netherlands",     t2:"Sweden",            g:"F", venue:"NRG Stadium",                 city:"Houston",      stage:"Group"},
-  {id:34, date:"2026-06-20",local:"22:00",tz:-6,bst:"05:00",on:true, t1:"Tunisia",         t2:"Japan",             g:"F", venue:"Estadio BBVA",                city:"Monterrey",    stage:"Group"},
-  {id:35, date:"2026-06-25",local:"18:00",tz:-5,bst:"00:00",on:true, t1:"Japan",           t2:"Sweden",            g:"F", venue:"AT&T Stadium",                city:"Dallas",       stage:"Group"},
-  {id:36, date:"2026-06-25",local:"18:00",tz:-5,bst:"00:00",on:true, t1:"Tunisia",         t2:"Netherlands",       g:"F", venue:"Arrowhead Stadium",           city:"Kansas City",  stage:"Group"},
-  // ── GROUP G ──────────────────────────────────────────────────────────────
-  {id:37, date:"2026-06-15",local:"12:00",tz:-7,bst:"20:00",on:false,t1:"Belgium",         t2:"Egypt",             g:"G", venue:"Lumen Field",                 city:"Seattle",      stage:"Group"},
-  {id:38, date:"2026-06-15",local:"18:00",tz:-7,bst:"02:00",on:true, t1:"Iran",            t2:"New Zealand",       g:"G", venue:"SoFi Stadium",                city:"Los Angeles",  stage:"Group"},
-  {id:39, date:"2026-06-21",local:"12:00",tz:-7,bst:"20:00",on:false,t1:"Belgium",         t2:"Iran",              g:"G", venue:"SoFi Stadium",                city:"Los Angeles",  stage:"Group"},
-  {id:40, date:"2026-06-21",local:"18:00",tz:-7,bst:"02:00",on:true, t1:"New Zealand",     t2:"Egypt",             g:"G", venue:"BC Place",                    city:"Vancouver",    stage:"Group"},
-  {id:41, date:"2026-06-26",local:"20:00",tz:-7,bst:"04:00",on:true, t1:"Egypt",           t2:"Iran",              g:"G", venue:"Lumen Field",                 city:"Seattle",      stage:"Group"},
-  {id:42, date:"2026-06-26",local:"20:00",tz:-7,bst:"04:00",on:true, t1:"New Zealand",     t2:"Belgium",           g:"G", venue:"BC Place",                    city:"Vancouver",    stage:"Group"},
-  // ── GROUP H ──────────────────────────────────────────────────────────────
-  {id:43, date:"2026-06-15",local:"12:00",tz:-4,bst:"17:00",on:false,t1:"Spain",           t2:"Cape Verde",        g:"H", venue:"Mercedes-Benz Stadium",       city:"Atlanta",      stage:"Group"},
-  {id:44, date:"2026-06-15",local:"18:00",tz:-4,bst:"23:00",on:false,t1:"Saudi Arabia",    t2:"Uruguay",           g:"H", venue:"Hard Rock Stadium",           city:"Miami",        stage:"Group"},
-  {id:45, date:"2026-06-21",local:"12:00",tz:-4,bst:"17:00",on:false,t1:"Spain",           t2:"Saudi Arabia",      g:"H", venue:"Mercedes-Benz Stadium",       city:"Atlanta",      stage:"Group"},
-  {id:46, date:"2026-06-21",local:"18:00",tz:-4,bst:"23:00",on:false,t1:"Uruguay",         t2:"Cape Verde",        g:"H", venue:"Hard Rock Stadium",           city:"Miami",        stage:"Group"},
-  {id:47, date:"2026-06-26",local:"19:00",tz:-5,bst:"01:00",on:true, t1:"Cape Verde",      t2:"Saudi Arabia",      g:"H", venue:"NRG Stadium",                 city:"Houston",      stage:"Group"},
-  {id:48, date:"2026-06-26",local:"18:00",tz:-6,bst:"01:00",on:true, t1:"Uruguay",         t2:"Spain",             g:"H", venue:"Estadio Akron",               city:"Guadalajara",  stage:"Group"},
-  // ── GROUP I ──────────────────────────────────────────────────────────────
-  {id:49, date:"2026-06-16",local:"15:00",tz:-4,bst:"20:00",on:false,t1:"France",          t2:"Senegal",           g:"I", venue:"MetLife Stadium",             city:"New York/NJ",  stage:"Group"},
-  {id:50, date:"2026-06-16",local:"18:00",tz:-4,bst:"23:00",on:false,t1:"Iraq",            t2:"Norway",            g:"I", venue:"Gillette Stadium",            city:"Boston",       stage:"Group"},
-  {id:51, date:"2026-06-22",local:"17:00",tz:-4,bst:"22:00",on:false,t1:"France",          t2:"Iraq",              g:"I", venue:"Lincoln Financial Field",      city:"Philadelphia", stage:"Group"},
-  {id:52, date:"2026-06-22",local:"20:00",tz:-4,bst:"01:00",on:true, t1:"Norway",          t2:"Senegal",           g:"I", venue:"MetLife Stadium",             city:"New York/NJ",  stage:"Group"},
-  {id:53, date:"2026-06-26",local:"15:00",tz:-4,bst:"20:00",on:false,t1:"Norway",          t2:"France",            g:"I", venue:"Gillette Stadium",            city:"Boston",       stage:"Group"},
-  {id:54, date:"2026-06-26",local:"15:00",tz:-4,bst:"20:00",on:false,t1:"Senegal",         t2:"Iraq",              g:"I", venue:"BMO Field",                   city:"Toronto",      stage:"Group"},
-  // ── GROUP J ──────────────────────────────────────────────────────────────
-  {id:55, date:"2026-06-16",local:"20:00",tz:-5,bst:"02:00",on:true, t1:"Argentina",       t2:"Algeria",           g:"J", venue:"Arrowhead Stadium",           city:"Kansas City",  stage:"Group"},
-  {id:56, date:"2026-06-16",local:"21:00",tz:-7,bst:"05:00",on:true, t1:"Austria",         t2:"Jordan",            g:"J", venue:"Levi's Stadium",              city:"San Francisco",stage:"Group"},
-  {id:57, date:"2026-06-22",local:"12:00",tz:-5,bst:"18:00",on:false,t1:"Argentina",       t2:"Austria",           g:"J", venue:"AT&T Stadium",                city:"Dallas",       stage:"Group"},
-  {id:58, date:"2026-06-22",local:"20:00",tz:-7,bst:"04:00",on:true, t1:"Jordan",          t2:"Algeria",           g:"J", venue:"Levi's Stadium",              city:"San Francisco",stage:"Group"},
-  {id:59, date:"2026-06-27",local:"21:00",tz:-5,bst:"03:00",on:true, t1:"Algeria",         t2:"Austria",           g:"J", venue:"Arrowhead Stadium",           city:"Kansas City",  stage:"Group"},
-  {id:60, date:"2026-06-27",local:"21:00",tz:-5,bst:"03:00",on:true, t1:"Jordan",          t2:"Argentina",         g:"J", venue:"AT&T Stadium",                city:"Dallas",       stage:"Group"},
-  // ── GROUP K ──────────────────────────────────────────────────────────────
-  {id:61, date:"2026-06-17",local:"12:00",tz:-5,bst:"18:00",on:false,t1:"Portugal",        t2:"DR Congo",          g:"K", venue:"NRG Stadium",                 city:"Houston",      stage:"Group"},
-  {id:62, date:"2026-06-17",local:"20:00",tz:-6,bst:"03:00",on:true, t1:"Uzbekistan",      t2:"Colombia",          g:"K", venue:"Estadio Azteca",              city:"Mexico City",  stage:"Group"},
-  {id:63, date:"2026-06-23",local:"12:00",tz:-5,bst:"18:00",on:false,t1:"Portugal",        t2:"Uzbekistan",        g:"K", venue:"NRG Stadium",                 city:"Houston",      stage:"Group"},
-  {id:64, date:"2026-06-23",local:"20:00",tz:-6,bst:"03:00",on:true, t1:"Colombia",        t2:"DR Congo",          g:"K", venue:"Estadio Akron",               city:"Guadalajara",  stage:"Group"},
-  {id:65, date:"2026-06-27",local:"19:30",tz:-4,bst:"00:30",on:true, t1:"Colombia",        t2:"Portugal",          g:"K", venue:"Hard Rock Stadium",           city:"Miami",        stage:"Group"},
-  {id:66, date:"2026-06-27",local:"19:30",tz:-4,bst:"00:30",on:true, t1:"DR Congo",        t2:"Uzbekistan",        g:"K", venue:"Mercedes-Benz Stadium",       city:"Atlanta",      stage:"Group"},
-  // ── GROUP L ──────────────────────────────────────────────────────────────
-  {id:67, date:"2026-06-17",local:"15:00",tz:-5,bst:"21:00",on:false,t1:"England",         t2:"Croatia",           g:"L", venue:"AT&T Stadium",                city:"Dallas",       stage:"Group"},
-  {id:68, date:"2026-06-17",local:"19:00",tz:-4,bst:"00:00",on:true, t1:"Ghana",           t2:"Panama",            g:"L", venue:"BMO Field",                   city:"Toronto",      stage:"Group"},
-  {id:69, date:"2026-06-23",local:"16:00",tz:-4,bst:"21:00",on:false,t1:"England",         t2:"Ghana",             g:"L", venue:"Gillette Stadium",            city:"Boston",       stage:"Group"},
-  {id:70, date:"2026-06-23",local:"19:00",tz:-4,bst:"00:00",on:true, t1:"Panama",          t2:"Croatia",           g:"L", venue:"BMO Field",                   city:"Toronto",      stage:"Group"},
-  {id:71, date:"2026-06-27",local:"17:00",tz:-4,bst:"22:00",on:false,t1:"Panama",          t2:"England",           g:"L", venue:"MetLife Stadium",             city:"New York/NJ",  stage:"Group"},
-  {id:72, date:"2026-06-27",local:"17:00",tz:-4,bst:"22:00",on:false,t1:"Croatia",         t2:"Ghana",             g:"L", venue:"Lincoln Financial Field",      city:"Philadelphia", stage:"Group"},
-  // ── ROUND OF 32 ──────────────────────────────────────────────────────────
-  {id:73, date:"2026-06-28",local:"12:00",tz:-7,bst:"20:00",on:false,t1:"2A",t2:"2B",       g:"—",venue:"SoFi Stadium",           city:"Los Angeles",  stage:"R32"},
-  {id:74, date:"2026-06-29",local:"16:30",tz:-4,bst:"21:30",on:false,t1:"1E",t2:"3A/B/C/D/F",g:"—",venue:"Gillette Stadium",       city:"Boston",       stage:"R32"},
-  {id:75, date:"2026-06-29",local:"19:00",tz:-6,bst:"02:00",on:true, t1:"1F",t2:"2C",        g:"—",venue:"Estadio BBVA",           city:"Monterrey",    stage:"R32"},
-  {id:76, date:"2026-06-29",local:"12:00",tz:-5,bst:"18:00",on:false,t1:"1C",t2:"2F",        g:"—",venue:"NRG Stadium",            city:"Houston",      stage:"R32"},
-  {id:77, date:"2026-06-30",local:"17:00",tz:-4,bst:"22:00",on:false,t1:"1I",t2:"3C/D/F/G/H",g:"—",venue:"MetLife Stadium",       city:"New York/NJ",  stage:"R32"},
-  {id:78, date:"2026-06-30",local:"12:00",tz:-5,bst:"18:00",on:false,t1:"2E",t2:"2I",        g:"—",venue:"AT&T Stadium",           city:"Dallas",       stage:"R32"},
-  {id:79, date:"2026-06-30",local:"19:00",tz:-6,bst:"02:00",on:true, t1:"1A",t2:"3C/E/F/H/I",g:"—",venue:"Estadio Azteca",        city:"Mexico City",  stage:"R32"},
-  {id:80, date:"2026-07-01",local:"12:00",tz:-4,bst:"17:00",on:false,t1:"1L",t2:"3E/H/I/J/K",g:"—",venue:"Mercedes-Benz Stadium", city:"Atlanta",      stage:"R32"},
-  {id:81, date:"2026-07-01",local:"17:00",tz:-7,bst:"01:00",on:true, t1:"1D",t2:"3B/E/F/I/J",g:"—",venue:"Levi's Stadium",        city:"San Francisco",stage:"R32"},
-  {id:82, date:"2026-07-01",local:"13:00",tz:-7,bst:"21:00",on:false,t1:"1G",t2:"3A/E/H/I/J",g:"—",venue:"Lumen Field",           city:"Seattle",      stage:"R32"},
-  {id:83, date:"2026-07-02",local:"19:00",tz:-4,bst:"00:00",on:true, t1:"2K",t2:"2L",        g:"—",venue:"BMO Field",              city:"Toronto",      stage:"R32"},
-  {id:84, date:"2026-07-02",local:"12:00",tz:-7,bst:"20:00",on:false,t1:"1H",t2:"2J",        g:"—",venue:"SoFi Stadium",           city:"Los Angeles",  stage:"R32"},
-  {id:85, date:"2026-07-02",local:"20:00",tz:-7,bst:"04:00",on:true, t1:"1B",t2:"3E/F/G/I/J",g:"—",venue:"BC Place",              city:"Vancouver",    stage:"R32"},
-  {id:86, date:"2026-07-03",local:"18:00",tz:-4,bst:"23:00",on:false,t1:"1J",t2:"2H",        g:"—",venue:"Hard Rock Stadium",      city:"Miami",        stage:"R32"},
-  {id:87, date:"2026-07-03",local:"20:30",tz:-5,bst:"02:30",on:true, t1:"1K",t2:"3D/E/I/J/L",g:"—",venue:"Arrowhead Stadium",     city:"Kansas City",  stage:"R32"},
-  {id:88, date:"2026-07-03",local:"13:00",tz:-5,bst:"19:00",on:false,t1:"2D",t2:"2G",        g:"—",venue:"AT&T Stadium",           city:"Dallas",       stage:"R32"},
-  // ── ROUND OF 16 ──────────────────────────────────────────────────────────
-  {id:89, date:"2026-07-04",local:"17:00",tz:-4,bst:"22:00",on:false,t1:"W74",t2:"W77",      g:"—",venue:"Lincoln Financial Field", city:"Philadelphia", stage:"R16"},
-  {id:90, date:"2026-07-04",local:"12:00",tz:-5,bst:"18:00",on:false,t1:"W73",t2:"W75",      g:"—",venue:"NRG Stadium",            city:"Houston",      stage:"R16"},
-  {id:91, date:"2026-07-05",local:"16:00",tz:-4,bst:"21:00",on:false,t1:"W76",t2:"W78",      g:"—",venue:"MetLife Stadium",        city:"New York/NJ",  stage:"R16"},
-  {id:92, date:"2026-07-05",local:"18:00",tz:-6,bst:"01:00",on:true, t1:"W79",t2:"W80",      g:"—",venue:"Estadio Azteca",         city:"Mexico City",  stage:"R16"},
-  {id:93, date:"2026-07-06",local:"14:00",tz:-5,bst:"20:00",on:false,t1:"W83",t2:"W84",      g:"—",venue:"AT&T Stadium",           city:"Dallas",       stage:"R16"},
-  {id:94, date:"2026-07-06",local:"17:00",tz:-7,bst:"01:00",on:true, t1:"W81",t2:"W82",      g:"—",venue:"Lumen Field",            city:"Seattle",      stage:"R16"},
-  {id:95, date:"2026-07-07",local:"12:00",tz:-4,bst:"17:00",on:false,t1:"W86",t2:"W88",      g:"—",venue:"Mercedes-Benz Stadium",  city:"Atlanta",      stage:"R16"},
-  {id:96, date:"2026-07-07",local:"13:00",tz:-7,bst:"21:00",on:false,t1:"W85",t2:"W87",      g:"—",venue:"BC Place",               city:"Vancouver",    stage:"R16"},
-  // ── QUARTER-FINALS ───────────────────────────────────────────────────────
-  {id:97, date:"2026-07-09",local:"16:00",tz:-4,bst:"21:00",on:false,t1:"W89",t2:"W90",      g:"—",venue:"Gillette Stadium",       city:"Boston",       stage:"QF"},
-  {id:98, date:"2026-07-10",local:"12:00",tz:-7,bst:"20:00",on:false,t1:"W93",t2:"W94",      g:"—",venue:"SoFi Stadium",           city:"Los Angeles",  stage:"QF"},
-  {id:99, date:"2026-07-11",local:"17:00",tz:-4,bst:"22:00",on:false,t1:"W91",t2:"W92",      g:"—",venue:"Hard Rock Stadium",      city:"Miami",        stage:"QF"},
-  {id:100,date:"2026-07-11",local:"20:00",tz:-5,bst:"02:00",on:true, t1:"W95",t2:"W96",      g:"—",venue:"Arrowhead Stadium",      city:"Kansas City",  stage:"QF"},
-  // ── SEMI-FINALS ──────────────────────────────────────────────────────────
-  {id:101,date:"2026-07-14",local:"14:00",tz:-5,bst:"20:00",on:false,t1:"W97",t2:"W98",      g:"—",venue:"AT&T Stadium",           city:"Dallas",       stage:"SF"},
-  {id:102,date:"2026-07-15",local:"15:00",tz:-4,bst:"20:00",on:false,t1:"W99",t2:"W100",     g:"—",venue:"Mercedes-Benz Stadium",  city:"Atlanta",      stage:"SF"},
-  // ── 3RD PLACE ────────────────────────────────────────────────────────────
-  {id:103,date:"2026-07-18",local:"17:00",tz:-4,bst:"22:00",on:false,t1:"L101",t2:"L102",    g:"—",venue:"Hard Rock Stadium",      city:"Miami",        stage:"3rd"},
-  // ── FINAL ────────────────────────────────────────────────────────────────
-  {id:104,date:"2026-07-19",local:"15:00",tz:-4,bst:"20:00",on:false,t1:"W101",t2:"W102",    g:"—",venue:"MetLife Stadium",        city:"New York/NJ",  stage:"Final"},
-];
+      const M = [
+        // ── GROUP A ──────────────────────────────────────────────────────────────
+        {
+          id: 1,
+          date: "2026-06-11",
+          local: "13:00",
+          tz: -6,
+          bst: "20:00",
+          on: false,
+          t1: "Mexico",
+          t2: "South Africa",
+          g: "A",
+          venue: "Estadio Azteca",
+          city: "Mexico City",
+          stage: "Group",
+        },
+        {
+          id: 2,
+          date: "2026-06-11",
+          local: "20:00",
+          tz: -6,
+          bst: "03:00",
+          on: true,
+          t1: "South Korea",
+          t2: "Czechia",
+          g: "A",
+          venue: "Estadio Akron",
+          city: "Guadalajara",
+          stage: "Group",
+        },
+        {
+          id: 3,
+          date: "2026-06-18",
+          local: "12:00",
+          tz: -4,
+          bst: "17:00",
+          on: false,
+          t1: "Czechia",
+          t2: "South Africa",
+          g: "A",
+          venue: "Mercedes-Benz Stadium",
+          city: "Atlanta",
+          stage: "Group",
+        },
+        {
+          id: 4,
+          date: "2026-06-18",
+          local: "19:00",
+          tz: -6,
+          bst: "02:00",
+          on: true,
+          t1: "Mexico",
+          t2: "South Korea",
+          g: "A",
+          venue: "Estadio Akron",
+          city: "Guadalajara",
+          stage: "Group",
+        },
+        {
+          id: 5,
+          date: "2026-06-24",
+          local: "19:00",
+          tz: -6,
+          bst: "02:00",
+          on: true,
+          t1: "Czechia",
+          t2: "Mexico",
+          g: "A",
+          venue: "Estadio Azteca",
+          city: "Mexico City",
+          stage: "Group",
+        },
+        {
+          id: 6,
+          date: "2026-06-24",
+          local: "19:00",
+          tz: -6,
+          bst: "02:00",
+          on: true,
+          t1: "South Africa",
+          t2: "South Korea",
+          g: "A",
+          venue: "Estadio BBVA",
+          city: "Monterrey",
+          stage: "Group",
+        },
+        // ── GROUP B ──────────────────────────────────────────────────────────────
+        {
+          id: 7,
+          date: "2026-06-12",
+          local: "15:00",
+          tz: -4,
+          bst: "20:00",
+          on: false,
+          t1: "Canada",
+          t2: "Bosnia & Herz",
+          g: "B",
+          venue: "BMO Field",
+          city: "Toronto",
+          stage: "Group",
+        },
+        {
+          id: 8,
+          date: "2026-06-13",
+          local: "12:00",
+          tz: -7,
+          bst: "20:00",
+          on: false,
+          t1: "Qatar",
+          t2: "Switzerland",
+          g: "B",
+          venue: "Levi's Stadium",
+          city: "San Francisco",
+          stage: "Group",
+        },
+        {
+          id: 9,
+          date: "2026-06-18",
+          local: "12:00",
+          tz: -7,
+          bst: "20:00",
+          on: false,
+          t1: "Switzerland",
+          t2: "Bosnia & Herz",
+          g: "B",
+          venue: "SoFi Stadium",
+          city: "Los Angeles",
+          stage: "Group",
+        },
+        {
+          id: 10,
+          date: "2026-06-18",
+          local: "15:00",
+          tz: -7,
+          bst: "23:00",
+          on: false,
+          t1: "Canada",
+          t2: "Qatar",
+          g: "B",
+          venue: "BC Place",
+          city: "Vancouver",
+          stage: "Group",
+        },
+        {
+          id: 11,
+          date: "2026-06-24",
+          local: "12:00",
+          tz: -7,
+          bst: "20:00",
+          on: false,
+          t1: "Switzerland",
+          t2: "Canada",
+          g: "B",
+          venue: "BC Place",
+          city: "Vancouver",
+          stage: "Group",
+        },
+        {
+          id: 12,
+          date: "2026-06-24",
+          local: "12:00",
+          tz: -7,
+          bst: "20:00",
+          on: false,
+          t1: "Bosnia & Herz",
+          t2: "Qatar",
+          g: "B",
+          venue: "Lumen Field",
+          city: "Seattle",
+          stage: "Group",
+        },
+        // ── GROUP C ──────────────────────────────────────────────────────────────
+        {
+          id: 13,
+          date: "2026-06-13",
+          local: "18:00",
+          tz: -4,
+          bst: "23:00",
+          on: false,
+          t1: "Brazil",
+          t2: "Morocco",
+          g: "C",
+          venue: "MetLife Stadium",
+          city: "New York/NJ",
+          stage: "Group",
+        },
+        {
+          id: 14,
+          date: "2026-06-13",
+          local: "21:00",
+          tz: -4,
+          bst: "02:00",
+          on: true,
+          t1: "Haiti",
+          t2: "Scotland",
+          g: "C",
+          venue: "Gillette Stadium",
+          city: "Boston",
+          stage: "Group",
+        },
+        {
+          id: 15,
+          date: "2026-06-19",
+          local: "18:00",
+          tz: -4,
+          bst: "23:00",
+          on: false,
+          t1: "Scotland",
+          t2: "Morocco",
+          g: "C",
+          venue: "Gillette Stadium",
+          city: "Boston",
+          stage: "Group",
+        },
+        {
+          id: 16,
+          date: "2026-06-19",
+          local: "21:00",
+          tz: -4,
+          bst: "02:00",
+          on: true,
+          t1: "Brazil",
+          t2: "Haiti",
+          g: "C",
+          venue: "Lincoln Financial Field",
+          city: "Philadelphia",
+          stage: "Group",
+        },
+        {
+          id: 17,
+          date: "2026-06-24",
+          local: "18:00",
+          tz: -4,
+          bst: "23:00",
+          on: false,
+          t1: "Scotland",
+          t2: "Brazil",
+          g: "C",
+          venue: "Hard Rock Stadium",
+          city: "Miami",
+          stage: "Group",
+        },
+        {
+          id: 18,
+          date: "2026-06-24",
+          local: "18:00",
+          tz: -4,
+          bst: "23:00",
+          on: false,
+          t1: "Morocco",
+          t2: "Haiti",
+          g: "C",
+          venue: "Mercedes-Benz Stadium",
+          city: "Atlanta",
+          stage: "Group",
+        },
+        // ── GROUP D ──────────────────────────────────────────────────────────────
+        {
+          id: 19,
+          date: "2026-06-12",
+          local: "18:00",
+          tz: -7,
+          bst: "02:00",
+          on: true,
+          t1: "USA",
+          t2: "Paraguay",
+          g: "D",
+          venue: "SoFi Stadium",
+          city: "Los Angeles",
+          stage: "Group",
+        },
+        {
+          id: 20,
+          date: "2026-06-13",
+          local: "21:00",
+          tz: -7,
+          bst: "05:00",
+          on: true,
+          t1: "Australia",
+          t2: "Türkiye",
+          g: "D",
+          venue: "BC Place",
+          city: "Vancouver",
+          stage: "Group",
+        },
+        {
+          id: 21,
+          date: "2026-06-19",
+          local: "12:00",
+          tz: -7,
+          bst: "20:00",
+          on: false,
+          t1: "USA",
+          t2: "Australia",
+          g: "D",
+          venue: "Lumen Field",
+          city: "Seattle",
+          stage: "Group",
+        },
+        {
+          id: 22,
+          date: "2026-06-19",
+          local: "21:00",
+          tz: -7,
+          bst: "05:00",
+          on: true,
+          t1: "Türkiye",
+          t2: "Paraguay",
+          g: "D",
+          venue: "Levi's Stadium",
+          city: "San Francisco",
+          stage: "Group",
+        },
+        {
+          id: 23,
+          date: "2026-06-25",
+          local: "19:00",
+          tz: -7,
+          bst: "03:00",
+          on: true,
+          t1: "Türkiye",
+          t2: "USA",
+          g: "D",
+          venue: "SoFi Stadium",
+          city: "Los Angeles",
+          stage: "Group",
+        },
+        {
+          id: 24,
+          date: "2026-06-25",
+          local: "19:00",
+          tz: -7,
+          bst: "03:00",
+          on: true,
+          t1: "Paraguay",
+          t2: "Australia",
+          g: "D",
+          venue: "Levi's Stadium",
+          city: "San Francisco",
+          stage: "Group",
+        },
+        // ── GROUP E ──────────────────────────────────────────────────────────────
+        {
+          id: 25,
+          date: "2026-06-14",
+          local: "12:00",
+          tz: -5,
+          bst: "18:00",
+          on: false,
+          t1: "Germany",
+          t2: "Curaçao",
+          g: "E",
+          venue: "NRG Stadium",
+          city: "Houston",
+          stage: "Group",
+        },
+        {
+          id: 26,
+          date: "2026-06-14",
+          local: "19:00",
+          tz: -4,
+          bst: "00:00",
+          on: true,
+          t1: "Ivory Coast",
+          t2: "Ecuador",
+          g: "E",
+          venue: "Lincoln Financial Field",
+          city: "Philadelphia",
+          stage: "Group",
+        },
+        {
+          id: 27,
+          date: "2026-06-20",
+          local: "16:00",
+          tz: -4,
+          bst: "21:00",
+          on: false,
+          t1: "Germany",
+          t2: "Ivory Coast",
+          g: "E",
+          venue: "BMO Field",
+          city: "Toronto",
+          stage: "Group",
+        },
+        {
+          id: 28,
+          date: "2026-06-20",
+          local: "19:00",
+          tz: -5,
+          bst: "01:00",
+          on: true,
+          t1: "Ecuador",
+          t2: "Curaçao",
+          g: "E",
+          venue: "Arrowhead Stadium",
+          city: "Kansas City",
+          stage: "Group",
+        },
+        {
+          id: 29,
+          date: "2026-06-25",
+          local: "16:00",
+          tz: -4,
+          bst: "21:00",
+          on: false,
+          t1: "Curaçao",
+          t2: "Ivory Coast",
+          g: "E",
+          venue: "Lincoln Financial Field",
+          city: "Philadelphia",
+          stage: "Group",
+        },
+        {
+          id: 30,
+          date: "2026-06-25",
+          local: "16:00",
+          tz: -4,
+          bst: "21:00",
+          on: false,
+          t1: "Ecuador",
+          t2: "Germany",
+          g: "E",
+          venue: "MetLife Stadium",
+          city: "New York/NJ",
+          stage: "Group",
+        },
+        // ── GROUP F ──────────────────────────────────────────────────────────────
+        {
+          id: 31,
+          date: "2026-06-14",
+          local: "15:00",
+          tz: -5,
+          bst: "21:00",
+          on: false,
+          t1: "Netherlands",
+          t2: "Japan",
+          g: "F",
+          venue: "AT&T Stadium",
+          city: "Dallas",
+          stage: "Group",
+        },
+        {
+          id: 32,
+          date: "2026-06-14",
+          local: "20:00",
+          tz: -6,
+          bst: "03:00",
+          on: true,
+          t1: "Sweden",
+          t2: "Tunisia",
+          g: "F",
+          venue: "Estadio BBVA",
+          city: "Monterrey",
+          stage: "Group",
+        },
+        {
+          id: 33,
+          date: "2026-06-20",
+          local: "12:00",
+          tz: -5,
+          bst: "18:00",
+          on: false,
+          t1: "Netherlands",
+          t2: "Sweden",
+          g: "F",
+          venue: "NRG Stadium",
+          city: "Houston",
+          stage: "Group",
+        },
+        {
+          id: 34,
+          date: "2026-06-20",
+          local: "22:00",
+          tz: -6,
+          bst: "05:00",
+          on: true,
+          t1: "Tunisia",
+          t2: "Japan",
+          g: "F",
+          venue: "Estadio BBVA",
+          city: "Monterrey",
+          stage: "Group",
+        },
+        {
+          id: 35,
+          date: "2026-06-25",
+          local: "18:00",
+          tz: -5,
+          bst: "00:00",
+          on: true,
+          t1: "Japan",
+          t2: "Sweden",
+          g: "F",
+          venue: "AT&T Stadium",
+          city: "Dallas",
+          stage: "Group",
+        },
+        {
+          id: 36,
+          date: "2026-06-25",
+          local: "18:00",
+          tz: -5,
+          bst: "00:00",
+          on: true,
+          t1: "Tunisia",
+          t2: "Netherlands",
+          g: "F",
+          venue: "Arrowhead Stadium",
+          city: "Kansas City",
+          stage: "Group",
+        },
+        // ── GROUP G ──────────────────────────────────────────────────────────────
+        {
+          id: 37,
+          date: "2026-06-15",
+          local: "12:00",
+          tz: -7,
+          bst: "20:00",
+          on: false,
+          t1: "Belgium",
+          t2: "Egypt",
+          g: "G",
+          venue: "Lumen Field",
+          city: "Seattle",
+          stage: "Group",
+        },
+        {
+          id: 38,
+          date: "2026-06-15",
+          local: "18:00",
+          tz: -7,
+          bst: "02:00",
+          on: true,
+          t1: "Iran",
+          t2: "New Zealand",
+          g: "G",
+          venue: "SoFi Stadium",
+          city: "Los Angeles",
+          stage: "Group",
+        },
+        {
+          id: 39,
+          date: "2026-06-21",
+          local: "12:00",
+          tz: -7,
+          bst: "20:00",
+          on: false,
+          t1: "Belgium",
+          t2: "Iran",
+          g: "G",
+          venue: "SoFi Stadium",
+          city: "Los Angeles",
+          stage: "Group",
+        },
+        {
+          id: 40,
+          date: "2026-06-21",
+          local: "18:00",
+          tz: -7,
+          bst: "02:00",
+          on: true,
+          t1: "New Zealand",
+          t2: "Egypt",
+          g: "G",
+          venue: "BC Place",
+          city: "Vancouver",
+          stage: "Group",
+        },
+        {
+          id: 41,
+          date: "2026-06-26",
+          local: "20:00",
+          tz: -7,
+          bst: "04:00",
+          on: true,
+          t1: "Egypt",
+          t2: "Iran",
+          g: "G",
+          venue: "Lumen Field",
+          city: "Seattle",
+          stage: "Group",
+        },
+        {
+          id: 42,
+          date: "2026-06-26",
+          local: "20:00",
+          tz: -7,
+          bst: "04:00",
+          on: true,
+          t1: "New Zealand",
+          t2: "Belgium",
+          g: "G",
+          venue: "BC Place",
+          city: "Vancouver",
+          stage: "Group",
+        },
+        // ── GROUP H ──────────────────────────────────────────────────────────────
+        {
+          id: 43,
+          date: "2026-06-15",
+          local: "12:00",
+          tz: -4,
+          bst: "17:00",
+          on: false,
+          t1: "Spain",
+          t2: "Cape Verde",
+          g: "H",
+          venue: "Mercedes-Benz Stadium",
+          city: "Atlanta",
+          stage: "Group",
+        },
+        {
+          id: 44,
+          date: "2026-06-15",
+          local: "18:00",
+          tz: -4,
+          bst: "23:00",
+          on: false,
+          t1: "Saudi Arabia",
+          t2: "Uruguay",
+          g: "H",
+          venue: "Hard Rock Stadium",
+          city: "Miami",
+          stage: "Group",
+        },
+        {
+          id: 45,
+          date: "2026-06-21",
+          local: "12:00",
+          tz: -4,
+          bst: "17:00",
+          on: false,
+          t1: "Spain",
+          t2: "Saudi Arabia",
+          g: "H",
+          venue: "Mercedes-Benz Stadium",
+          city: "Atlanta",
+          stage: "Group",
+        },
+        {
+          id: 46,
+          date: "2026-06-21",
+          local: "18:00",
+          tz: -4,
+          bst: "23:00",
+          on: false,
+          t1: "Uruguay",
+          t2: "Cape Verde",
+          g: "H",
+          venue: "Hard Rock Stadium",
+          city: "Miami",
+          stage: "Group",
+        },
+        {
+          id: 47,
+          date: "2026-06-26",
+          local: "19:00",
+          tz: -5,
+          bst: "01:00",
+          on: true,
+          t1: "Cape Verde",
+          t2: "Saudi Arabia",
+          g: "H",
+          venue: "NRG Stadium",
+          city: "Houston",
+          stage: "Group",
+        },
+        {
+          id: 48,
+          date: "2026-06-26",
+          local: "18:00",
+          tz: -6,
+          bst: "01:00",
+          on: true,
+          t1: "Uruguay",
+          t2: "Spain",
+          g: "H",
+          venue: "Estadio Akron",
+          city: "Guadalajara",
+          stage: "Group",
+        },
+        // ── GROUP I ──────────────────────────────────────────────────────────────
+        {
+          id: 49,
+          date: "2026-06-16",
+          local: "15:00",
+          tz: -4,
+          bst: "20:00",
+          on: false,
+          t1: "France",
+          t2: "Senegal",
+          g: "I",
+          venue: "MetLife Stadium",
+          city: "New York/NJ",
+          stage: "Group",
+        },
+        {
+          id: 50,
+          date: "2026-06-16",
+          local: "18:00",
+          tz: -4,
+          bst: "23:00",
+          on: false,
+          t1: "Iraq",
+          t2: "Norway",
+          g: "I",
+          venue: "Gillette Stadium",
+          city: "Boston",
+          stage: "Group",
+        },
+        {
+          id: 51,
+          date: "2026-06-22",
+          local: "17:00",
+          tz: -4,
+          bst: "22:00",
+          on: false,
+          t1: "France",
+          t2: "Iraq",
+          g: "I",
+          venue: "Lincoln Financial Field",
+          city: "Philadelphia",
+          stage: "Group",
+        },
+        {
+          id: 52,
+          date: "2026-06-22",
+          local: "20:00",
+          tz: -4,
+          bst: "01:00",
+          on: true,
+          t1: "Norway",
+          t2: "Senegal",
+          g: "I",
+          venue: "MetLife Stadium",
+          city: "New York/NJ",
+          stage: "Group",
+        },
+        {
+          id: 53,
+          date: "2026-06-26",
+          local: "15:00",
+          tz: -4,
+          bst: "20:00",
+          on: false,
+          t1: "Norway",
+          t2: "France",
+          g: "I",
+          venue: "Gillette Stadium",
+          city: "Boston",
+          stage: "Group",
+        },
+        {
+          id: 54,
+          date: "2026-06-26",
+          local: "15:00",
+          tz: -4,
+          bst: "20:00",
+          on: false,
+          t1: "Senegal",
+          t2: "Iraq",
+          g: "I",
+          venue: "BMO Field",
+          city: "Toronto",
+          stage: "Group",
+        },
+        // ── GROUP J ──────────────────────────────────────────────────────────────
+        {
+          id: 55,
+          date: "2026-06-16",
+          local: "20:00",
+          tz: -5,
+          bst: "02:00",
+          on: true,
+          t1: "Argentina",
+          t2: "Algeria",
+          g: "J",
+          venue: "Arrowhead Stadium",
+          city: "Kansas City",
+          stage: "Group",
+        },
+        {
+          id: 56,
+          date: "2026-06-16",
+          local: "21:00",
+          tz: -7,
+          bst: "05:00",
+          on: true,
+          t1: "Austria",
+          t2: "Jordan",
+          g: "J",
+          venue: "Levi's Stadium",
+          city: "San Francisco",
+          stage: "Group",
+        },
+        {
+          id: 57,
+          date: "2026-06-22",
+          local: "12:00",
+          tz: -5,
+          bst: "18:00",
+          on: false,
+          t1: "Argentina",
+          t2: "Austria",
+          g: "J",
+          venue: "AT&T Stadium",
+          city: "Dallas",
+          stage: "Group",
+        },
+        {
+          id: 58,
+          date: "2026-06-22",
+          local: "20:00",
+          tz: -7,
+          bst: "04:00",
+          on: true,
+          t1: "Jordan",
+          t2: "Algeria",
+          g: "J",
+          venue: "Levi's Stadium",
+          city: "San Francisco",
+          stage: "Group",
+        },
+        {
+          id: 59,
+          date: "2026-06-27",
+          local: "21:00",
+          tz: -5,
+          bst: "03:00",
+          on: true,
+          t1: "Algeria",
+          t2: "Austria",
+          g: "J",
+          venue: "Arrowhead Stadium",
+          city: "Kansas City",
+          stage: "Group",
+        },
+        {
+          id: 60,
+          date: "2026-06-27",
+          local: "21:00",
+          tz: -5,
+          bst: "03:00",
+          on: true,
+          t1: "Jordan",
+          t2: "Argentina",
+          g: "J",
+          venue: "AT&T Stadium",
+          city: "Dallas",
+          stage: "Group",
+        },
+        // ── GROUP K ──────────────────────────────────────────────────────────────
+        {
+          id: 61,
+          date: "2026-06-17",
+          local: "12:00",
+          tz: -5,
+          bst: "18:00",
+          on: false,
+          t1: "Portugal",
+          t2: "DR Congo",
+          g: "K",
+          venue: "NRG Stadium",
+          city: "Houston",
+          stage: "Group",
+        },
+        {
+          id: 62,
+          date: "2026-06-17",
+          local: "20:00",
+          tz: -6,
+          bst: "03:00",
+          on: true,
+          t1: "Uzbekistan",
+          t2: "Colombia",
+          g: "K",
+          venue: "Estadio Azteca",
+          city: "Mexico City",
+          stage: "Group",
+        },
+        {
+          id: 63,
+          date: "2026-06-23",
+          local: "12:00",
+          tz: -5,
+          bst: "18:00",
+          on: false,
+          t1: "Portugal",
+          t2: "Uzbekistan",
+          g: "K",
+          venue: "NRG Stadium",
+          city: "Houston",
+          stage: "Group",
+        },
+        {
+          id: 64,
+          date: "2026-06-23",
+          local: "20:00",
+          tz: -6,
+          bst: "03:00",
+          on: true,
+          t1: "Colombia",
+          t2: "DR Congo",
+          g: "K",
+          venue: "Estadio Akron",
+          city: "Guadalajara",
+          stage: "Group",
+        },
+        {
+          id: 65,
+          date: "2026-06-27",
+          local: "19:30",
+          tz: -4,
+          bst: "00:30",
+          on: true,
+          t1: "Colombia",
+          t2: "Portugal",
+          g: "K",
+          venue: "Hard Rock Stadium",
+          city: "Miami",
+          stage: "Group",
+        },
+        {
+          id: 66,
+          date: "2026-06-27",
+          local: "19:30",
+          tz: -4,
+          bst: "00:30",
+          on: true,
+          t1: "DR Congo",
+          t2: "Uzbekistan",
+          g: "K",
+          venue: "Mercedes-Benz Stadium",
+          city: "Atlanta",
+          stage: "Group",
+        },
+        // ── GROUP L ──────────────────────────────────────────────────────────────
+        {
+          id: 67,
+          date: "2026-06-17",
+          local: "15:00",
+          tz: -5,
+          bst: "21:00",
+          on: false,
+          t1: "England",
+          t2: "Croatia",
+          g: "L",
+          venue: "AT&T Stadium",
+          city: "Dallas",
+          stage: "Group",
+        },
+        {
+          id: 68,
+          date: "2026-06-17",
+          local: "19:00",
+          tz: -4,
+          bst: "00:00",
+          on: true,
+          t1: "Ghana",
+          t2: "Panama",
+          g: "L",
+          venue: "BMO Field",
+          city: "Toronto",
+          stage: "Group",
+        },
+        {
+          id: 69,
+          date: "2026-06-23",
+          local: "16:00",
+          tz: -4,
+          bst: "21:00",
+          on: false,
+          t1: "England",
+          t2: "Ghana",
+          g: "L",
+          venue: "Gillette Stadium",
+          city: "Boston",
+          stage: "Group",
+        },
+        {
+          id: 70,
+          date: "2026-06-23",
+          local: "19:00",
+          tz: -4,
+          bst: "00:00",
+          on: true,
+          t1: "Panama",
+          t2: "Croatia",
+          g: "L",
+          venue: "BMO Field",
+          city: "Toronto",
+          stage: "Group",
+        },
+        {
+          id: 71,
+          date: "2026-06-27",
+          local: "17:00",
+          tz: -4,
+          bst: "22:00",
+          on: false,
+          t1: "Panama",
+          t2: "England",
+          g: "L",
+          venue: "MetLife Stadium",
+          city: "New York/NJ",
+          stage: "Group",
+        },
+        {
+          id: 72,
+          date: "2026-06-27",
+          local: "17:00",
+          tz: -4,
+          bst: "22:00",
+          on: false,
+          t1: "Croatia",
+          t2: "Ghana",
+          g: "L",
+          venue: "Lincoln Financial Field",
+          city: "Philadelphia",
+          stage: "Group",
+        },
+        // ── ROUND OF 32 ──────────────────────────────────────────────────────────
+        {
+          id: 73,
+          date: "2026-06-28",
+          local: "12:00",
+          tz: -7,
+          bst: "20:00",
+          on: false,
+          t1: "2A",
+          t2: "2B",
+          g: "—",
+          venue: "SoFi Stadium",
+          city: "Los Angeles",
+          stage: "R32",
+        },
+        {
+          id: 74,
+          date: "2026-06-29",
+          local: "16:30",
+          tz: -4,
+          bst: "21:30",
+          on: false,
+          t1: "1E",
+          t2: "3A/B/C/D/F",
+          g: "—",
+          venue: "Gillette Stadium",
+          city: "Boston",
+          stage: "R32",
+        },
+        {
+          id: 75,
+          date: "2026-06-29",
+          local: "19:00",
+          tz: -6,
+          bst: "02:00",
+          on: true,
+          t1: "1F",
+          t2: "2C",
+          g: "—",
+          venue: "Estadio BBVA",
+          city: "Monterrey",
+          stage: "R32",
+        },
+        {
+          id: 76,
+          date: "2026-06-29",
+          local: "12:00",
+          tz: -5,
+          bst: "18:00",
+          on: false,
+          t1: "1C",
+          t2: "2F",
+          g: "—",
+          venue: "NRG Stadium",
+          city: "Houston",
+          stage: "R32",
+        },
+        {
+          id: 77,
+          date: "2026-06-30",
+          local: "17:00",
+          tz: -4,
+          bst: "22:00",
+          on: false,
+          t1: "1I",
+          t2: "3C/D/F/G/H",
+          g: "—",
+          venue: "MetLife Stadium",
+          city: "New York/NJ",
+          stage: "R32",
+        },
+        {
+          id: 78,
+          date: "2026-06-30",
+          local: "12:00",
+          tz: -5,
+          bst: "18:00",
+          on: false,
+          t1: "2E",
+          t2: "2I",
+          g: "—",
+          venue: "AT&T Stadium",
+          city: "Dallas",
+          stage: "R32",
+        },
+        {
+          id: 79,
+          date: "2026-06-30",
+          local: "19:00",
+          tz: -6,
+          bst: "02:00",
+          on: true,
+          t1: "1A",
+          t2: "3C/E/F/H/I",
+          g: "—",
+          venue: "Estadio Azteca",
+          city: "Mexico City",
+          stage: "R32",
+        },
+        {
+          id: 80,
+          date: "2026-07-01",
+          local: "12:00",
+          tz: -4,
+          bst: "17:00",
+          on: false,
+          t1: "1L",
+          t2: "3E/H/I/J/K",
+          g: "—",
+          venue: "Mercedes-Benz Stadium",
+          city: "Atlanta",
+          stage: "R32",
+        },
+        {
+          id: 81,
+          date: "2026-07-01",
+          local: "17:00",
+          tz: -7,
+          bst: "01:00",
+          on: true,
+          t1: "1D",
+          t2: "3B/E/F/I/J",
+          g: "—",
+          venue: "Levi's Stadium",
+          city: "San Francisco",
+          stage: "R32",
+        },
+        {
+          id: 82,
+          date: "2026-07-01",
+          local: "13:00",
+          tz: -7,
+          bst: "21:00",
+          on: false,
+          t1: "1G",
+          t2: "3A/E/H/I/J",
+          g: "—",
+          venue: "Lumen Field",
+          city: "Seattle",
+          stage: "R32",
+        },
+        {
+          id: 83,
+          date: "2026-07-02",
+          local: "19:00",
+          tz: -4,
+          bst: "00:00",
+          on: true,
+          t1: "2K",
+          t2: "2L",
+          g: "—",
+          venue: "BMO Field",
+          city: "Toronto",
+          stage: "R32",
+        },
+        {
+          id: 84,
+          date: "2026-07-02",
+          local: "12:00",
+          tz: -7,
+          bst: "20:00",
+          on: false,
+          t1: "1H",
+          t2: "2J",
+          g: "—",
+          venue: "SoFi Stadium",
+          city: "Los Angeles",
+          stage: "R32",
+        },
+        {
+          id: 85,
+          date: "2026-07-02",
+          local: "20:00",
+          tz: -7,
+          bst: "04:00",
+          on: true,
+          t1: "1B",
+          t2: "3E/F/G/I/J",
+          g: "—",
+          venue: "BC Place",
+          city: "Vancouver",
+          stage: "R32",
+        },
+        {
+          id: 86,
+          date: "2026-07-03",
+          local: "18:00",
+          tz: -4,
+          bst: "23:00",
+          on: false,
+          t1: "1J",
+          t2: "2H",
+          g: "—",
+          venue: "Hard Rock Stadium",
+          city: "Miami",
+          stage: "R32",
+        },
+        {
+          id: 87,
+          date: "2026-07-03",
+          local: "20:30",
+          tz: -5,
+          bst: "02:30",
+          on: true,
+          t1: "1K",
+          t2: "3D/E/I/J/L",
+          g: "—",
+          venue: "Arrowhead Stadium",
+          city: "Kansas City",
+          stage: "R32",
+        },
+        {
+          id: 88,
+          date: "2026-07-03",
+          local: "13:00",
+          tz: -5,
+          bst: "19:00",
+          on: false,
+          t1: "2D",
+          t2: "2G",
+          g: "—",
+          venue: "AT&T Stadium",
+          city: "Dallas",
+          stage: "R32",
+        },
+        // ── ROUND OF 16 ──────────────────────────────────────────────────────────
+        {
+          id: 89,
+          date: "2026-07-04",
+          local: "17:00",
+          tz: -4,
+          bst: "22:00",
+          on: false,
+          t1: "W74",
+          t2: "W77",
+          g: "—",
+          venue: "Lincoln Financial Field",
+          city: "Philadelphia",
+          stage: "R16",
+        },
+        {
+          id: 90,
+          date: "2026-07-04",
+          local: "12:00",
+          tz: -5,
+          bst: "18:00",
+          on: false,
+          t1: "W73",
+          t2: "W75",
+          g: "—",
+          venue: "NRG Stadium",
+          city: "Houston",
+          stage: "R16",
+        },
+        {
+          id: 91,
+          date: "2026-07-05",
+          local: "16:00",
+          tz: -4,
+          bst: "21:00",
+          on: false,
+          t1: "W76",
+          t2: "W78",
+          g: "—",
+          venue: "MetLife Stadium",
+          city: "New York/NJ",
+          stage: "R16",
+        },
+        {
+          id: 92,
+          date: "2026-07-05",
+          local: "18:00",
+          tz: -6,
+          bst: "01:00",
+          on: true,
+          t1: "W79",
+          t2: "W80",
+          g: "—",
+          venue: "Estadio Azteca",
+          city: "Mexico City",
+          stage: "R16",
+        },
+        {
+          id: 93,
+          date: "2026-07-06",
+          local: "14:00",
+          tz: -5,
+          bst: "20:00",
+          on: false,
+          t1: "W83",
+          t2: "W84",
+          g: "—",
+          venue: "AT&T Stadium",
+          city: "Dallas",
+          stage: "R16",
+        },
+        {
+          id: 94,
+          date: "2026-07-06",
+          local: "17:00",
+          tz: -7,
+          bst: "01:00",
+          on: true,
+          t1: "W81",
+          t2: "W82",
+          g: "—",
+          venue: "Lumen Field",
+          city: "Seattle",
+          stage: "R16",
+        },
+        {
+          id: 95,
+          date: "2026-07-07",
+          local: "12:00",
+          tz: -4,
+          bst: "17:00",
+          on: false,
+          t1: "W86",
+          t2: "W88",
+          g: "—",
+          venue: "Mercedes-Benz Stadium",
+          city: "Atlanta",
+          stage: "R16",
+        },
+        {
+          id: 96,
+          date: "2026-07-07",
+          local: "13:00",
+          tz: -7,
+          bst: "21:00",
+          on: false,
+          t1: "W85",
+          t2: "W87",
+          g: "—",
+          venue: "BC Place",
+          city: "Vancouver",
+          stage: "R16",
+        },
+        // ── QUARTER-FINALS ───────────────────────────────────────────────────────
+        {
+          id: 97,
+          date: "2026-07-09",
+          local: "16:00",
+          tz: -4,
+          bst: "21:00",
+          on: false,
+          t1: "W89",
+          t2: "W90",
+          g: "—",
+          venue: "Gillette Stadium",
+          city: "Boston",
+          stage: "QF",
+        },
+        {
+          id: 98,
+          date: "2026-07-10",
+          local: "12:00",
+          tz: -7,
+          bst: "20:00",
+          on: false,
+          t1: "W93",
+          t2: "W94",
+          g: "—",
+          venue: "SoFi Stadium",
+          city: "Los Angeles",
+          stage: "QF",
+        },
+        {
+          id: 99,
+          date: "2026-07-11",
+          local: "17:00",
+          tz: -4,
+          bst: "22:00",
+          on: false,
+          t1: "W91",
+          t2: "W92",
+          g: "—",
+          venue: "Hard Rock Stadium",
+          city: "Miami",
+          stage: "QF",
+        },
+        {
+          id: 100,
+          date: "2026-07-11",
+          local: "20:00",
+          tz: -5,
+          bst: "02:00",
+          on: true,
+          t1: "W95",
+          t2: "W96",
+          g: "—",
+          venue: "Arrowhead Stadium",
+          city: "Kansas City",
+          stage: "QF",
+        },
+        // ── SEMI-FINALS ──────────────────────────────────────────────────────────
+        {
+          id: 101,
+          date: "2026-07-14",
+          local: "14:00",
+          tz: -5,
+          bst: "20:00",
+          on: false,
+          t1: "W97",
+          t2: "W98",
+          g: "—",
+          venue: "AT&T Stadium",
+          city: "Dallas",
+          stage: "SF",
+        },
+        {
+          id: 102,
+          date: "2026-07-15",
+          local: "15:00",
+          tz: -4,
+          bst: "20:00",
+          on: false,
+          t1: "W99",
+          t2: "W100",
+          g: "—",
+          venue: "Mercedes-Benz Stadium",
+          city: "Atlanta",
+          stage: "SF",
+        },
+        // ── 3RD PLACE ────────────────────────────────────────────────────────────
+        {
+          id: 103,
+          date: "2026-07-18",
+          local: "17:00",
+          tz: -4,
+          bst: "22:00",
+          on: false,
+          t1: "L101",
+          t2: "L102",
+          g: "—",
+          venue: "Hard Rock Stadium",
+          city: "Miami",
+          stage: "3rd",
+        },
+        // ── FINAL ────────────────────────────────────────────────────────────────
+        {
+          id: 104,
+          date: "2026-07-19",
+          local: "15:00",
+          tz: -4,
+          bst: "20:00",
+          on: false,
+          t1: "W101",
+          t2: "W102",
+          g: "—",
+          venue: "MetLife Stadium",
+          city: "New York/NJ",
+          stage: "Final",
+        },
+      ];
 
-// ─── DATE DISPLAY MAP ────────────────────────────────────────────────────────
-const DATE_LABELS = {
-  "2026-06-11":"Thu 11 Jun","2026-06-12":"Fri 12 Jun","2026-06-13":"Sat 13 Jun",
-  "2026-06-14":"Sun 14 Jun","2026-06-15":"Mon 15 Jun","2026-06-16":"Tue 16 Jun",
-  "2026-06-17":"Wed 17 Jun","2026-06-18":"Thu 18 Jun","2026-06-19":"Fri 19 Jun",
-  "2026-06-20":"Sat 20 Jun","2026-06-21":"Sun 21 Jun","2026-06-22":"Mon 22 Jun",
-  "2026-06-23":"Tue 23 Jun","2026-06-24":"Wed 24 Jun","2026-06-25":"Thu 25 Jun",
-  "2026-06-26":"Fri 26 Jun","2026-06-27":"Sat 27 Jun","2026-06-28":"Sun 28 Jun",
-  "2026-06-29":"Mon 29 Jun","2026-06-30":"Tue 30 Jun","2026-07-01":"Wed 1 Jul",
-  "2026-07-02":"Thu 2 Jul", "2026-07-03":"Fri 3 Jul", "2026-07-04":"Sat 4 Jul",
-  "2026-07-05":"Sun 5 Jul", "2026-07-06":"Mon 6 Jul", "2026-07-07":"Tue 7 Jul",
-  "2026-07-09":"Thu 9 Jul", "2026-07-10":"Fri 10 Jul","2026-07-11":"Sat 11 Jul",
-  "2026-07-14":"Tue 14 Jul","2026-07-15":"Wed 15 Jul","2026-07-18":"Sat 18 Jul",
-  "2026-07-19":"Sun 19 Jul"
-};
+      // ─── DATE DISPLAY MAP ────────────────────────────────────────────────────────
+      const DATE_LABELS = {
+        "2026-06-11": "Thu 11 Jun",
+        "2026-06-12": "Fri 12 Jun",
+        "2026-06-13": "Sat 13 Jun",
+        "2026-06-14": "Sun 14 Jun",
+        "2026-06-15": "Mon 15 Jun",
+        "2026-06-16": "Tue 16 Jun",
+        "2026-06-17": "Wed 17 Jun",
+        "2026-06-18": "Thu 18 Jun",
+        "2026-06-19": "Fri 19 Jun",
+        "2026-06-20": "Sat 20 Jun",
+        "2026-06-21": "Sun 21 Jun",
+        "2026-06-22": "Mon 22 Jun",
+        "2026-06-23": "Tue 23 Jun",
+        "2026-06-24": "Wed 24 Jun",
+        "2026-06-25": "Thu 25 Jun",
+        "2026-06-26": "Fri 26 Jun",
+        "2026-06-27": "Sat 27 Jun",
+        "2026-06-28": "Sun 28 Jun",
+        "2026-06-29": "Mon 29 Jun",
+        "2026-06-30": "Tue 30 Jun",
+        "2026-07-01": "Wed 1 Jul",
+        "2026-07-02": "Thu 2 Jul",
+        "2026-07-03": "Fri 3 Jul",
+        "2026-07-04": "Sat 4 Jul",
+        "2026-07-05": "Sun 5 Jul",
+        "2026-07-06": "Mon 6 Jul",
+        "2026-07-07": "Tue 7 Jul",
+        "2026-07-09": "Thu 9 Jul",
+        "2026-07-10": "Fri 10 Jul",
+        "2026-07-11": "Sat 11 Jul",
+        "2026-07-14": "Tue 14 Jul",
+        "2026-07-15": "Wed 15 Jul",
+        "2026-07-18": "Sat 18 Jul",
+        "2026-07-19": "Sun 19 Jul",
+      };
 
-// Sort: by date, then within date by BST treating 00-08 as continuation of previous night
-M.sort((a,b)=>{
-  if(a.date!==b.date) return a.date<b.date?-1:1;
-  const v=t=>{const[h,m]=t.split(':').map(Number);return(h<10?h+24:h)*60+m;};
-  return v(a.bst)-v(b.bst);
-});
+      // Sort: by date, then within date by BST treating 00-08 as continuation of previous night
+      M.sort((a, b) => {
+        if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+        const v = (t) => {
+          const [h, m] = t.split(":").map(Number);
+          return (h < 10 ? h + 24 : h) * 60 + m;
+        };
+        return v(a.bst) - v(b.bst);
+      });
 
-// ─── STATE ───────────────────────────────────────────────────────────────────
-const A = {}; // A[id] = 'N'|'G'|'H'|''
-let CURRENT_USER = null; // { ok, role, username } from /so-proxy/me
-let SAVE_DEBOUNCE = null;
+      // ─── STATE ───────────────────────────────────────────────────────────────────
+      const A = {}; // A[id] = 'N'|'G'|'H'|''
+      let CURRENT_USER = null; // { ok, role, username } from /so-proxy/me
+      let SAVE_DEBOUNCE = null;
 
-// ─── AUTH / SESSION ───────────────────────────────────────────────────────────
-async function fetchMe(){
-  try{
-    const r=await fetch('/so-proxy/me',{credentials:'include'});
-    if(!r.ok) return null;
-    return await r.json();
-  }catch(e){ return null; }
-}
+      // ─── AUTH / SESSION ───────────────────────────────────────────────────────────
+      async function fetchMe() {
+        try {
+          const r = await fetch("/so-proxy/me", { credentials: "include" });
+          if (!r.ok) return null;
+          return await r.json();
+        } catch (e) {
+          return null;
+        }
+      }
 
-function isAdmin(){ return CURRENT_USER && CURRENT_USER.role==='admin'; }
+      function isAdmin() {
+        return CURRENT_USER && CURRENT_USER.role === "admin";
+      }
 
-function applyRoleUI(){
-  const admin=isAdmin();
-  // Header identity pill
-  let pill=document.getElementById('user-pill');
-  if(pill){
-    pill.textContent=CURRENT_USER
-      ? (CURRENT_USER.username||'unknown') + (admin?' ★':'')
-      : '—';
-    pill.style.color=admin?'var(--gold)':'var(--text2)';
-  }
-  // Lock all controls for non-admins
-  document.querySelectorAll('.asel').forEach(s=>{ s.disabled=!admin; });
-  document.getElementById('btn-auto').disabled=!admin;
-  document.getElementById('btn-clear').disabled=!admin;
-  document.getElementById('btn-import').style.display=admin?'':'none';
-  // Engineer name inputs
-  ['e0','e1','e2'].forEach(id=>{ const el=document.getElementById(id); if(el) el.readOnly=!admin; });
-  // Save status
-  updateSaveStatus(admin?'idle':'readonly');
-}
+      function applyRoleUI() {
+        const admin = isAdmin();
+        // Header identity pill
+        let pill = document.getElementById("user-pill");
+        if (pill) {
+          pill.textContent = CURRENT_USER
+            ? (CURRENT_USER.username || "unknown") + (admin ? " ★" : "")
+            : "—";
+          pill.style.color = admin ? "var(--gold)" : "var(--text2)";
+        }
+        // Lock all controls for non-admins
+        document.querySelectorAll(".asel").forEach((s) => {
+          s.disabled = !admin;
+        });
+        document.getElementById("btn-auto").disabled = !admin;
+        document.getElementById("btn-clear").disabled = !admin;
+        document.getElementById("btn-import").style.display = admin
+          ? ""
+          : "none";
+        // Engineer name inputs
+        ["e0", "e1", "e2"].forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.readOnly = !admin;
+        });
+        // Save status
+        updateSaveStatus(admin ? "idle" : "readonly");
+      }
 
-// ─── SERVER PERSISTENCE ───────────────────────────────────────────────────────
-async function loadFromServer(){
-  updateSaveStatus('loading');
-  try{
-    const r=await fetch('/wc2026/assignments',{credentials:'include'});
-    if(!r.ok){ updateSaveStatus('error'); return; }
-    const json=await r.json();
-    if(!json.ok){ updateSaveStatus('error'); return; }
-    const data=json.data||{};
-    // Restore assignments
-    const sa=data.assignments||{};
-    Object.keys(sa).forEach(k=>{ if(sa[k]) A[parseInt(k)]=sa[k]; });
-    // Restore engineer names
-    const sn=data.engNames||{};
-    if(sn.N) document.getElementById('e0').value=sn.N;
-    if(sn.G) document.getElementById('e1').value=sn.G;
-    if(sn.H) document.getElementById('e2').value=sn.H;
-    // Show last save info
-    if(data.updatedBy&&data.updatedAt){
-      const dt=new Date(data.updatedAt).toLocaleString('en-GB',{dateStyle:'short',timeStyle:'short'});
-      updateSaveStatus('saved', `${data.updatedBy} · ${dt}`);
-    } else {
-      updateSaveStatus('idle');
-    }
-  }catch(e){ updateSaveStatus('error'); }
-}
+      // ─── SERVER PERSISTENCE ───────────────────────────────────────────────────────
+      async function loadFromServer() {
+        updateSaveStatus("loading");
+        try {
+          const r = await fetch("/so-proxy/wc2026/assignments", {
+            credentials: "include",
+          });
+          if (!r.ok) {
+            updateSaveStatus("error");
+            return;
+          }
+          const json = await r.json();
+          if (!json.ok) {
+            updateSaveStatus("error");
+            return;
+          }
+          const data = json.data || {};
+          // Restore assignments
+          const sa = data.assignments || {};
+          Object.keys(sa).forEach((k) => {
+            if (sa[k]) A[parseInt(k)] = sa[k];
+          });
+          // Restore engineer names
+          const sn = data.engNames || {};
+          if (sn.N) document.getElementById("e0").value = sn.N;
+          if (sn.G) document.getElementById("e1").value = sn.G;
+          if (sn.H) document.getElementById("e2").value = sn.H;
+          // Show last save info
+          if (data.updatedBy && data.updatedAt) {
+            const dt = new Date(data.updatedAt).toLocaleString("en-GB", {
+              dateStyle: "short",
+              timeStyle: "short",
+            });
+            updateSaveStatus("saved", `${data.updatedBy} · ${dt}`);
+          } else {
+            updateSaveStatus("idle");
+          }
+        } catch (e) {
+          updateSaveStatus("error");
+        }
+      }
 
-function schedSave(){
-  if(!isAdmin()) return;
-  updateSaveStatus('pending');
-  clearTimeout(SAVE_DEBOUNCE);
-  SAVE_DEBOUNCE=setTimeout(()=>saveToServer(), 1200);
-}
+      function schedSave() {
+        if (!isAdmin()) return;
+        updateSaveStatus("pending");
+        clearTimeout(SAVE_DEBOUNCE);
+        SAVE_DEBOUNCE = setTimeout(() => saveToServer(), 1200);
+      }
 
-async function saveToServer(){
-  if(!isAdmin()) return;
-  updateSaveStatus('saving');
-  const engNames={
-    N:document.getElementById('e0').value||'Nuno',
-    G:document.getElementById('e1').value||'Goncalo',
-    H:document.getElementById('e2').value||'Hugo',
-  };
-  try{
-    const r=await fetch('/wc2026/assignments',{
-      method:'POST',credentials:'include',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({assignments:A,engNames}),
-    });
-    const json=await r.json();
-    if(json.ok){
-      const dt=new Date(json.updatedAt).toLocaleString('en-GB',{dateStyle:'short',timeStyle:'short'});
-      updateSaveStatus('saved',`${json.updatedBy} · ${dt}`);
-    } else {
-      updateSaveStatus('error', json.error||'Erro ao guardar');
-    }
-  }catch(e){ updateSaveStatus('error','Sem resposta do servidor'); }
-}
+      async function saveToServer() {
+        if (!isAdmin()) return;
+        updateSaveStatus("saving");
+        const engNames = {
+          N: document.getElementById("e0").value || "Nuno",
+          G: document.getElementById("e1").value || "Goncalo",
+          H: document.getElementById("e2").value || "Hugo",
+        };
+        try {
+          const r = await fetch("/so-proxy/wc2026/assignments", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ assignments: A, engNames }),
+          });
+          const json = await r.json();
+          if (json.ok) {
+            const dt = new Date(json.updatedAt).toLocaleString("en-GB", {
+              dateStyle: "short",
+              timeStyle: "short",
+            });
+            updateSaveStatus("saved", `${json.updatedBy} · ${dt}`);
+          } else {
+            updateSaveStatus("error", json.error || "Erro ao guardar");
+          }
+        } catch (e) {
+          updateSaveStatus("error", "Sem resposta do servidor");
+        }
+      }
 
-function updateSaveStatus(state, detail){
-  const el=document.getElementById('save-status');
-  if(!el) return;
-  const labels={
-    loading: ['⟳ A carregar…','var(--muted)'],
-    idle:    ['','var(--muted)'],
-    pending: ['● Por guardar','var(--orange)'],
-    saving:  ['⟳ A guardar…','var(--text2)'],
-    saved:   ['✓ Guardado','var(--green)'],
-    error:   ['✕ Erro','var(--red)'],
-    readonly:['🔒 Read-only','var(--muted)'],
-  };
-  const [lbl,col]=labels[state]||['','var(--muted)'];
-  el.textContent=detail?`${lbl}  ${detail}`:lbl;
-  el.style.color=col;
-}
+      function updateSaveStatus(state, detail) {
+        const el = document.getElementById("save-status");
+        if (!el) return;
+        const labels = {
+          loading: ["⟳ A carregar…", "var(--muted)"],
+          idle: ["", "var(--muted)"],
+          pending: ["● Por guardar", "var(--orange)"],
+          saving: ["⟳ A guardar…", "var(--text2)"],
+          saved: ["✓ Guardado", "var(--green)"],
+          error: ["✕ Erro", "var(--red)"],
+          readonly: ["🔒 Read-only", "var(--muted)"],
+        };
+        const [lbl, col] = labels[state] || ["", "var(--muted)"];
+        el.textContent = detail ? `${lbl}  ${detail}` : lbl;
+        el.style.color = col;
+      }
 
-// ─── CSV IMPORT ───────────────────────────────────────────────────────────────
-function importCSV(input){
-  if(!isAdmin()){ alert('Só admins podem importar.'); return; }
-  const file=input.files[0];
-  if(!file) return;
-  const reader=new FileReader();
-  reader.onload=function(e){
-    const text=e.target.result;
-    const lines=text.split(/\r?\n/).filter(l=>l.trim());
-    if(lines.length<2){ alert('CSV vazio ou inválido.'); return; }
-    const header=parseCSVRow(lines[0]);
-    const idxID=header.findIndex(h=>h.trim().toLowerCase()==='id');
-    const idxEng=header.findIndex(h=>h.trim().toLowerCase()==='engineer');
-    if(idxID<0||idxEng<0){ alert('CSV inválido: colunas "ID" e "Engineer" não encontradas.'); return; }
-    const nameMap={};
-    let imported=0,skipped=0;
-    for(let i=1;i<lines.length;i++){
-      const cols=parseCSVRow(lines[i]);
-      if(cols.length<=Math.max(idxID,idxEng)) continue;
-      const id=parseInt(cols[idxID]);
-      const engName=(cols[idxEng]||'').trim();
-      if(!id||isNaN(id)) continue;
-      if(!engName){ A[id]=''; imported++; continue; }
-      const code=resolveEngCode(engName);
-      if(code){ A[id]=code; nameMap[code]=engName; imported++; }
-      else { skipped++; }
-    }
-    if(nameMap.N) document.getElementById('e0').value=nameMap.N;
-    if(nameMap.G) document.getElementById('e1').value=nameMap.G;
-    if(nameMap.H) document.getElementById('e2').value=nameMap.H;
-    renderAll(); onRename(); schedSave();
-    const msg=`✓ Importadas ${imported} atribuições.`+(skipped?`\n⚠ ${skipped} linhas ignoradas.`:'');
-    alert(msg);
-    input.value='';
-  };
-  reader.readAsText(file);
-}
+      // ─── CSV IMPORT ───────────────────────────────────────────────────────────────
+      function importCSV(input) {
+        if (!isAdmin()) {
+          alert("Só admins podem importar.");
+          return;
+        }
+        const file = input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const text = e.target.result;
+          const lines = text.split(/\r?\n/).filter((l) => l.trim());
+          if (lines.length < 2) {
+            alert("CSV vazio ou inválido.");
+            return;
+          }
+          const header = parseCSVRow(lines[0]);
+          const idxID = header.findIndex(
+            (h) => h.trim().toLowerCase() === "id"
+          );
+          const idxEng = header.findIndex(
+            (h) => h.trim().toLowerCase() === "engineer"
+          );
+          if (idxID < 0 || idxEng < 0) {
+            alert('CSV inválido: colunas "ID" e "Engineer" não encontradas.');
+            return;
+          }
+          const nameMap = {};
+          let imported = 0,
+            skipped = 0;
+          for (let i = 1; i < lines.length; i++) {
+            const cols = parseCSVRow(lines[i]);
+            if (cols.length <= Math.max(idxID, idxEng)) continue;
+            const id = parseInt(cols[idxID]);
+            const engName = (cols[idxEng] || "").trim();
+            if (!id || isNaN(id)) continue;
+            if (!engName) {
+              A[id] = "";
+              imported++;
+              continue;
+            }
+            const code = resolveEngCode(engName);
+            if (code) {
+              A[id] = code;
+              nameMap[code] = engName;
+              imported++;
+            } else {
+              skipped++;
+            }
+          }
+          if (nameMap.N) document.getElementById("e0").value = nameMap.N;
+          if (nameMap.G) document.getElementById("e1").value = nameMap.G;
+          if (nameMap.H) document.getElementById("e2").value = nameMap.H;
+          renderAll();
+          onRename();
+          schedSave();
+          const msg =
+            `✓ Importadas ${imported} atribuições.` +
+            (skipped ? `\n⚠ ${skipped} linhas ignoradas.` : "");
+          alert(msg);
+          input.value = "";
+        };
+        reader.readAsText(file);
+      }
 
-function resolveEngCode(name){
-  if(!name) return '';
-  const n=name.trim().toLowerCase();
-  const slots=[['N','e0'],['G','e1'],['H','e2']];
-  for(const [code,inputId] of slots){
-    const cur=(document.getElementById(inputId).value||'').toLowerCase();
-    if(cur&&cur===n) return code;
-  }
-  if(n==='nuno') return 'N';
-  if(n==='goncalo'||n==='gonçalo') return 'G';
-  if(n==='hugo') return 'H';
-  return '';
-}
+      function resolveEngCode(name) {
+        if (!name) return "";
+        const n = name.trim().toLowerCase();
+        const slots = [
+          ["N", "e0"],
+          ["G", "e1"],
+          ["H", "e2"],
+        ];
+        for (const [code, inputId] of slots) {
+          const cur = (
+            document.getElementById(inputId).value || ""
+          ).toLowerCase();
+          if (cur && cur === n) return code;
+        }
+        if (n === "nuno") return "N";
+        if (n === "goncalo" || n === "gonçalo") return "G";
+        if (n === "hugo") return "H";
+        return "";
+      }
 
-function parseCSVRow(line){
-  const result=[];let cur='',inQ=false;
-  for(let i=0;i<line.length;i++){
-    const c=line[i];
-    if(inQ){if(c==='"'&&line[i+1]==='"'){cur+='"';i++;}else if(c==='"'){inQ=false;}else cur+=c;}
-    else{if(c==='"'){inQ=true;}else if(c===','){result.push(cur);cur='';}else cur+=c;}
-  }
-  result.push(cur);return result;
-}
+      function parseCSVRow(line) {
+        const result = [];
+        let cur = "",
+          inQ = false;
+        for (let i = 0; i < line.length; i++) {
+          const c = line[i];
+          if (inQ) {
+            if (c === '"' && line[i + 1] === '"') {
+              cur += '"';
+              i++;
+            } else if (c === '"') {
+              inQ = false;
+            } else cur += c;
+          } else {
+            if (c === '"') {
+              inQ = true;
+            } else if (c === ",") {
+              result.push(cur);
+              cur = "";
+            } else cur += c;
+          }
+        }
+        result.push(cur);
+        return result;
+      }
 
-function ename(k){return document.getElementById('e'+['N','G','H'].indexOf(k)).value||['Nuno','Goncalo','Hugo']['NGH'.indexOf(k)];}
+      function ename(k) {
+        return (
+          document.getElementById("e" + ["N", "G", "H"].indexOf(k)).value ||
+          ["Nuno", "Goncalo", "Hugo"]["NGH".indexOf(k)]
+        );
+      }
 
-// ─── TIME UTILS ──────────────────────────────────────────────────────────────
-function bm(t){const[h,m]=t.split(':').map(Number);return h*60+m;}
-// "continuation" minutes: 00-09h treated as next-day (24h+)
-function cm(t){const[h,m]=t.split(':').map(Number);return(h<10?h+24:h)*60+m;}
+      // ─── TIME UTILS ──────────────────────────────────────────────────────────────
+      function bm(t) {
+        const [h, m] = t.split(":").map(Number);
+        return h * 60 + m;
+      }
+      // "continuation" minutes: 00-09h treated as next-day (24h+)
+      function cm(t) {
+        const [h, m] = t.split(":").map(Number);
+        return (h < 10 ? h + 24 : h) * 60 + m;
+      }
 
-// ─── SHIFT CALC per day ──────────────────────────────────────────────────────
-// Match duration: Group = 2h45 (165 min), KO stages = 3h30 (210 min, inc ET/PS)
-// Shift = 1h before first KO → projected end of last match (lastKO + matchDur)
-// Dual flag: total span > 10h
-function matchDur(stage){ return stage==='Group'?165:210; }
-function calcShift(dayMatches){
-  // Use the latest-stage match's duration for the end calculation
-  // (on a mixed day this correctly picks the KO duration when needed)
-  const stageOrder=['Group','R32','R16','QF','SF','3rd','Final'];
-  const topStage=dayMatches.reduce((best,m)=>{
-    return stageOrder.indexOf(m.stage)>stageOrder.indexOf(best)?m.stage:best;
-  },'Group');
-  const dur=matchDur(topStage);
-  const mins = dayMatches.map(m=>cm(m.bst));
-  const firstKO = Math.min(...mins);
-  const lastKO  = Math.max(...mins);
-  const start = firstKO - 60;       // 1h before first KO
-  const end   = lastKO + dur;       // projected end of last match
-  const hours = (end-start)/60;
-  const dual  = hours > 10;
-  return {start, end, hours: Math.min(hours,14), dual, dur};
-}
+      // ─── SHIFT CALC per day ──────────────────────────────────────────────────────
+      // Match duration: Group = 2h45 (165 min), KO stages = 3h30 (210 min, inc ET/PS)
+      // Shift = 1h before first KO → projected end of last match (lastKO + matchDur)
+      // Dual flag: total span > 10h
+      function matchDur(stage) {
+        return stage === "Group" ? 165 : 210;
+      }
+      function calcShift(dayMatches) {
+        // Use the latest-stage match's duration for the end calculation
+        // (on a mixed day this correctly picks the KO duration when needed)
+        const stageOrder = ["Group", "R32", "R16", "QF", "SF", "3rd", "Final"];
+        const topStage = dayMatches.reduce((best, m) => {
+          return stageOrder.indexOf(m.stage) > stageOrder.indexOf(best)
+            ? m.stage
+            : best;
+        }, "Group");
+        const dur = matchDur(topStage);
+        const mins = dayMatches.map((m) => cm(m.bst));
+        const firstKO = Math.min(...mins);
+        const lastKO = Math.max(...mins);
+        const start = firstKO - 60; // 1h before first KO
+        const end = lastKO + dur; // projected end of last match
+        const hours = (end - start) / 60;
+        const dual = hours > 10;
+        return { start, end, hours: Math.min(hours, 14), dual, dur };
+      }
 
-function fmtMins(m){const h=Math.floor(((m%1440)+1440)%1440/60);const mm=((m%60)+60)%60;return`${String(h).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;}
+      function fmtMins(m) {
+        const h = Math.floor((((m % 1440) + 1440) % 1440) / 60);
+        const mm = ((m % 60) + 60) % 60;
+        return `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+      }
 
-// ─── EPG ─────────────────────────────────────────────────────────────────────
-// Window: 16:00 → 10:00+1day = 18h = 1080 min
-const EPG_S = 16*60;   // 16:00
-const EPG_W = 18*60;   // 18 hours
+      // ─── EPG ─────────────────────────────────────────────────────────────────────
+      // Window: 16:00 → 10:00+1day = 18h = 1080 min
+      const EPG_S = 16 * 60; // 16:00
+      const EPG_W = 18 * 60; // 18 hours
 
-function epgX(bst){
-  let m=bm(bst); if(m<10*60) m+=1440;
-  return Math.max(0,Math.min(100,(m-EPG_S)/EPG_W*100));
-}
-function epgW(dur){ return ((dur||165)/EPG_W*100); } // match duration in %
+      function epgX(bst) {
+        let m = bm(bst);
+        if (m < 10 * 60) m += 1440;
+        return Math.max(0, Math.min(100, ((m - EPG_S) / EPG_W) * 100));
+      }
+      function epgW(dur) {
+        return ((dur || 165) / EPG_W) * 100;
+      } // match duration in %
 
-const EPG_TICKS=[16,18,20,22,0,2,4,6,8];
-function tickHTML(){
-  return EPG_TICKS.map(h=>{
-    const m=h<10?h*60+1440:h*60;
-    const pct=((m-EPG_S)/EPG_W*100);
-    if(pct<0||pct>100) return '';
-    return `<div class="epg-tick" style="left:${pct.toFixed(1)}%"></div><div class="epg-tlabel" style="left:${pct.toFixed(1)}%">${String(h).padStart(2,'0')}</div>`;
-  }).join('');
-}
-const TICK_HTML = tickHTML();
+      const EPG_TICKS = [16, 18, 20, 22, 0, 2, 4, 6, 8];
+      function tickHTML() {
+        return EPG_TICKS.map((h) => {
+          const m = h < 10 ? h * 60 + 1440 : h * 60;
+          const pct = ((m - EPG_S) / EPG_W) * 100;
+          if (pct < 0 || pct > 100) return "";
+          return `<div class="epg-tick" style="left:${pct.toFixed(
+            1
+          )}%"></div><div class="epg-tlabel" style="left:${pct.toFixed(
+            1
+          )}%">${String(h).padStart(2, "0")}</div>`;
+        }).join("");
+      }
+      const TICK_HTML = tickHTML();
 
-function colClass(eng){return eng==='N'?'bN':eng==='G'?'bG':eng==='H'?'bH':'bNone';}
-function engColor(eng){return eng==='N'?'var(--cn)':eng==='G'?'var(--cg)':eng==='H'?'var(--ch)':'#4a5060';}
+      function colClass(eng) {
+        return eng === "N"
+          ? "bN"
+          : eng === "G"
+          ? "bG"
+          : eng === "H"
+          ? "bH"
+          : "bNone";
+      }
+      function engColor(eng) {
+        return eng === "N"
+          ? "var(--cn)"
+          : eng === "G"
+          ? "var(--cg)"
+          : eng === "H"
+          ? "var(--ch)"
+          : "#4a5060";
+      }
 
-function buildDayEpg(dayMatches){
-  const {start,end,dur} = calcShift(dayMatches);
-  // Collect per-match assignments for colour
-  const shiftX = Math.max(0,(start-EPG_S)/EPG_W*100);
-  const shiftW = Math.min(100-shiftX,(end-start)/EPG_W*100);
+      function buildDayEpg(dayMatches) {
+        const { start, end, dur } = calcShift(dayMatches);
+        // Collect per-match assignments for colour
+        const shiftX = Math.max(0, ((start - EPG_S) / EPG_W) * 100);
+        const shiftW = Math.min(100 - shiftX, ((end - start) / EPG_W) * 100);
 
-  // Shift background (grey if mixed/unassigned, coloured if all same)
-  const engs = [...new Set(dayMatches.map(m=>A[m.id]||''))].filter(Boolean);
-  const singleEng = engs.length===1?engs[0]:null;
-  const shiftColor = singleEng?engColor(singleEng):'#4a5060';
+        // Shift background (grey if mixed/unassigned, coloured if all same)
+        const engs = [...new Set(dayMatches.map((m) => A[m.id] || ""))].filter(
+          Boolean
+        );
+        const singleEng = engs.length === 1 ? engs[0] : null;
+        const shiftColor = singleEng ? engColor(singleEng) : "#4a5060";
 
-  const shiftBg = `<div class="epg-shift-bg" style="left:${shiftX.toFixed(1)}%;width:${shiftW.toFixed(1)}%;background:${shiftColor};"></div>`;
-  const matchBlks = dayMatches.map(m=>{
-    const eng=A[m.id]||'';
-    const x=epgX(m.bst).toFixed(1);
-    const w=Math.max(epgW(matchDur(m.stage)),0.5).toFixed(1);
-    const col=engColor(eng);
-    return `<div class="epg-match-block" style="left:${x}%;width:${w}%;background:${col};top:2px;height:16px;" title="${m.t1} vs ${m.t2} · ${m.bst} BST"></div>`;
-  }).join('');
+        const shiftBg = `<div class="epg-shift-bg" style="left:${shiftX.toFixed(
+          1
+        )}%;width:${shiftW.toFixed(1)}%;background:${shiftColor};"></div>`;
+        const matchBlks = dayMatches
+          .map((m) => {
+            const eng = A[m.id] || "";
+            const x = epgX(m.bst).toFixed(1);
+            const w = Math.max(epgW(matchDur(m.stage)), 0.5).toFixed(1);
+            const col = engColor(eng);
+            return `<div class="epg-match-block" style="left:${x}%;width:${w}%;background:${col};top:2px;height:16px;" title="${m.t1} vs ${m.t2} · ${m.bst} BST"></div>`;
+          })
+          .join("");
 
-  return `<div class="epg-hdr-wrap">
+        return `<div class="epg-hdr-wrap">
     <div class="epg-hdr">${TICK_HTML}${shiftBg}${matchBlks}</div>
   </div>`;
-}
+      }
 
-// Mini EPG for match row
-function buildMiniEpg(m){
-  const eng=A[m.id]||'';
-  const dur=matchDur(m.stage);
-  const x=epgX(m.bst).toFixed(1);
-  const w=Math.max(epgW(dur),1).toFixed(1);
-  return `<div class="epg-mini" title="${m.bst} BST → ~${fmtMins(cm(m.bst)+dur)} BST">
+      // Mini EPG for match row
+      function buildMiniEpg(m) {
+        const eng = A[m.id] || "";
+        const dur = matchDur(m.stage);
+        const x = epgX(m.bst).toFixed(1);
+        const w = Math.max(epgW(dur), 1).toFixed(1);
+        return `<div class="epg-mini" title="${m.bst} BST → ~${fmtMins(
+          cm(m.bst) + dur
+        )} BST">
     <div class="epg-mb ${colClass(eng)}" style="left:${x}%;width:${w}%;"></div>
   </div>`;
-}
+      }
 
-// ─── GROUP BY DATE ────────────────────────────────────────────────────────────
-function groupByDate(){
-  const g={},ord=[];
-  M.forEach(m=>{if(!g[m.date]){g[m.date]=[];ord.push(m.date);}g[m.date].push(m);});
-  return{g,ord};
-}
+      // ─── GROUP BY DATE ────────────────────────────────────────────────────────────
+      function groupByDate() {
+        const g = {},
+          ord = [];
+        M.forEach((m) => {
+          if (!g[m.date]) {
+            g[m.date] = [];
+            ord.push(m.date);
+          }
+          g[m.date].push(m);
+        });
+        return { g, ord };
+      }
 
-// ─── WEEK NUMBER (Mon-Sun) ────────────────────────────────────────────────────
-function weekNum(dateStr){
-  const d=new Date(dateStr+'T12:00:00Z');
-  const jan4=new Date('2026-01-04T12:00:00Z'); // always in week 1
-  const dayOfYear=(d-new Date('2025-12-29T12:00:00Z'))/(86400000); 
-  // Use ISO week
-  const dow=(d.getUTCDay()+6)%7; // Mon=0
-  const weekStart=new Date(d); weekStart.setUTCDate(d.getUTCDate()-dow);
-  return weekStart.toISOString().slice(0,10);
-}
+      // ─── WEEK NUMBER (Mon-Sun) ────────────────────────────────────────────────────
+      function weekNum(dateStr) {
+        const d = new Date(dateStr + "T12:00:00Z");
+        const jan4 = new Date("2026-01-04T12:00:00Z"); // always in week 1
+        const dayOfYear = (d - new Date("2025-12-29T12:00:00Z")) / 86400000;
+        // Use ISO week
+        const dow = (d.getUTCDay() + 6) % 7; // Mon=0
+        const weekStart = new Date(d);
+        weekStart.setUTCDate(d.getUTCDate() - dow);
+        return weekStart.toISOString().slice(0, 10);
+      }
 
-// ─── SUMMARY ─────────────────────────────────────────────────────────────────
-function updateSummary(){
-  const{g,ord}=groupByDate();
-  // Compute total hours and per-week hours for each engineer
-  // based on per-match assignments + calcShift
-  // We attribute hours proportionally: if a day has matches assigned to eng X,
-  // engineer X gets the shift hours for matches they cover.
-  // Since shifts are per-match, we compute a per-match "coverage window" 
-  // = 1h before KO + 2h match + 1h buffer = 4h per match, but capped by adjacent matches
-  // Simpler: compute per-day shift, then distribute hours to engineers proportionally
+      // ─── SUMMARY ─────────────────────────────────────────────────────────────────
+      function updateSummary() {
+        const { g, ord } = groupByDate();
+        // Compute total hours and per-week hours for each engineer
+        // based on per-match assignments + calcShift
+        // We attribute hours proportionally: if a day has matches assigned to eng X,
+        // engineer X gets the shift hours for matches they cover.
+        // Since shifts are per-match, we compute a per-match "coverage window"
+        // = 1h before KO + 2h match + 1h buffer = 4h per match, but capped by adjacent matches
+        // Simpler: compute per-day shift, then distribute hours to engineers proportionally
 
-  const totH={N:0,G:0,H:0};
-  const weekH={N:{},G:{},H:{}};
-  const dayCnt={N:0,G:0,H:0};
+        const totH = { N: 0, G: 0, H: 0 };
+        const weekH = { N: {}, G: {}, H: {} };
+        const dayCnt = { N: 0, G: 0, H: 0 };
 
-  ord.forEach(date=>{
-    const dm=g[date];
-    const {start,end}=calcShift(dm);
-    // Group matches by assigned engineer
-    const byEng={};
-    dm.forEach(m=>{
-      const e=A[m.id]||'';
-      if(e){if(!byEng[e])byEng[e]=[];byEng[e].push(m);}
-    });
-    // For each engineer, compute their actual window within this day
-    Object.entries(byEng).forEach(([eng,ms])=>{
-      const ems=ms.map(m=>cm(m.bst));
-      const first=Math.min(...ems); const last=Math.max(...ems);
-      const stageOrder=['Group','R32','R16','QF','SF','3rd','Final'];
-      const topStage=ms.reduce((best,m)=>stageOrder.indexOf(m.stage)>stageOrder.indexOf(best)?m.stage:best,'Group');
-      const dur=matchDur(topStage);
-      const s=first-60; const e2=last+dur;
-      const h=(e2-s)/60;
-      totH[eng]=(totH[eng]||0)+h;
-      const wk=weekNum(date);
-      if(!weekH[eng][wk]) weekH[eng][wk]=0;
-      weekH[eng][wk]+=h;
-      dayCnt[eng]=(dayCnt[eng]||0)+1;
-    });
-  });
+        ord.forEach((date) => {
+          const dm = g[date];
+          const { start, end } = calcShift(dm);
+          // Group matches by assigned engineer
+          const byEng = {};
+          dm.forEach((m) => {
+            const e = A[m.id] || "";
+            if (e) {
+              if (!byEng[e]) byEng[e] = [];
+              byEng[e].push(m);
+            }
+          });
+          // For each engineer, compute their actual window within this day
+          Object.entries(byEng).forEach(([eng, ms]) => {
+            const ems = ms.map((m) => cm(m.bst));
+            const first = Math.min(...ems);
+            const last = Math.max(...ems);
+            const stageOrder = [
+              "Group",
+              "R32",
+              "R16",
+              "QF",
+              "SF",
+              "3rd",
+              "Final",
+            ];
+            const topStage = ms.reduce(
+              (best, m) =>
+                stageOrder.indexOf(m.stage) > stageOrder.indexOf(best)
+                  ? m.stage
+                  : best,
+              "Group"
+            );
+            const dur = matchDur(topStage);
+            const s = first - 60;
+            const e2 = last + dur;
+            const h = (e2 - s) / 60;
+            totH[eng] = (totH[eng] || 0) + h;
+            const wk = weekNum(date);
+            if (!weekH[eng][wk]) weekH[eng][wk] = 0;
+            weekH[eng][wk] += h;
+            dayCnt[eng] = (dayCnt[eng] || 0) + 1;
+          });
+        });
 
-  const maxH=Math.max(1,...Object.values(totH));
-  const html=['N','G','H'].map((k,i)=>{
-    const nm=ename(k);
-    const h=totH[k]||0;
-    const weeks=Object.keys(weekH[k]||{});
-    // Average hours per week where they have at least some coverage
-    const avgH=weeks.length?h/weeks.length:0;
-    const pct=(h/maxH*100).toFixed(1);
-    const fcls=['fn','fg2','fh'][i];
-    return `<div class="scard">
-      <div class="scname"><span class="dot ${'dndgdh'.split('').slice(i*2,i*2+2).join('')[0]==='d'?['dn','dg','dh'][i]:'dn'}"></span>${nm}</div>
-      <div class="hrow"><span>Total shift hrs</span><b>${h.toFixed(1)}h</b></div>
+        const maxH = Math.max(1, ...Object.values(totH));
+        const html = ["N", "G", "H"]
+          .map((k, i) => {
+            const nm = ename(k);
+            const h = totH[k] || 0;
+            const weeks = Object.keys(weekH[k] || {});
+            // Average hours per week where they have at least some coverage
+            const avgH = weeks.length ? h / weeks.length : 0;
+            const pct = ((h / maxH) * 100).toFixed(1);
+            const fcls = ["fn", "fg2", "fh"][i];
+            return `<div class="scard">
+      <div class="scname"><span class="dot ${
+        "dndgdh"
+          .split("")
+          .slice(i * 2, i * 2 + 2)
+          .join("")[0] === "d"
+          ? ["dn", "dg", "dh"][i]
+          : "dn"
+      }"></span>${nm}</div>
+      <div class="hrow"><span>Total shift hrs</span><b>${h.toFixed(
+        1
+      )}h</b></div>
       <div class="hbar"><div class="hfill ${fcls}" style="width:${pct}%"></div></div>
       <div class="hrow"><span>Active weeks</span><b>${weeks.length}</b></div>
-      <div class="hrow"><span>Avg hrs/active week</span><b>${avgH.toFixed(1)}h</b></div>
-      <div class="hrow"><span>Days with matches</span><b>${dayCnt[k]||0}</b></div>
+      <div class="hrow"><span>Avg hrs/active week</span><b>${avgH.toFixed(
+        1
+      )}h</b></div>
+      <div class="hrow"><span>Days with matches</span><b>${
+        dayCnt[k] || 0
+      }</b></div>
     </div>`;
-  }).join('');
-  document.getElementById('sumGrid').innerHTML=html;
-}
+          })
+          .join("");
+        document.getElementById("sumGrid").innerHTML = html;
+      }
 
-// ─── STATS BAR ────────────────────────────────────────────────────────────────
-function updateStats(){
-  const{g,ord}=groupByDate();
-  const asgn=M.filter(m=>A[m.id]).length;
-  let dual=0;
-  ord.forEach(date=>{const{dual:d}=calcShift(g[date]);if(d)dual++;});
-  document.getElementById('s-total').textContent=M.length;
-  document.getElementById('s-days').textContent=ord.length;
-  document.getElementById('s-asgn').textContent=asgn;
-  document.getElementById('s-dual').textContent=dual;
-}
+      // ─── STATS BAR ────────────────────────────────────────────────────────────────
+      function updateStats() {
+        const { g, ord } = groupByDate();
+        const asgn = M.filter((m) => A[m.id]).length;
+        let dual = 0;
+        ord.forEach((date) => {
+          const { dual: d } = calcShift(g[date]);
+          if (d) dual++;
+        });
+        document.getElementById("s-total").textContent = M.length;
+        document.getElementById("s-days").textContent = ord.length;
+        document.getElementById("s-asgn").textContent = asgn;
+        document.getElementById("s-dual").textContent = dual;
+      }
 
-// ─── RENDER ───────────────────────────────────────────────────────────────────
-function koClass(bst){
-  const[h]=bst.split(':').map(Number);
-  if(h<10) return 'deep'; // 00-09 overnight
-  if(h>=23) return 'late'; // 23:xx
-  if(h<17) return 'day';
-  return 'eve';
-}
+      // ─── RENDER ───────────────────────────────────────────────────────────────────
+      function koClass(bst) {
+        const [h] = bst.split(":").map(Number);
+        if (h < 10) return "deep"; // 00-09 overnight
+        if (h >= 23) return "late"; // 23:xx
+        if (h < 17) return "day";
+        return "eve";
+      }
 
-function stageBadge(s){return `<span class="sbadge s${s}">${s}</span>`;}
+      function stageBadge(s) {
+        return `<span class="sbadge s${s}">${s}</span>`;
+      }
 
-// ─── SHIFT CELL ───────────────────────────────────────────────────────────────
-// Computes the personal shift window for the engineer assigned to match m
-// = (first KO among their matches on that day) - 1h → (last KO) + matchDur
-function buildShiftCell(m, eng, dayMatches){
-  if(!eng) return `<span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);">—</span>`;
-  const engMs = dayMatches.filter(x=>A[x.id]===eng);
-  const koTimes = engMs.map(x=>cm(x.bst));
-  const firstKO = Math.min(...koTimes);
-  const lastKO  = Math.max(...koTimes);
-  // Use the highest-stage match duration among their assigned matches
-  const stageOrder=['Group','R32','R16','QF','SF','3rd','Final'];
-  const topStage = engMs.reduce((best,x)=>stageOrder.indexOf(x.stage)>stageOrder.indexOf(best)?x.stage:best,'Group');
-  const dur = matchDur(topStage);
-  const s = firstKO - 60;
-  const e = lastKO + dur;
-  const color = engColor(eng);
-  return `<span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:${color};white-space:nowrap;">${fmtMins(s)}–${fmtMins(e)}</span>`;
-}
+      // ─── SHIFT CELL ───────────────────────────────────────────────────────────────
+      // Computes the personal shift window for the engineer assigned to match m
+      // = (first KO among their matches on that day) - 1h → (last KO) + matchDur
+      function buildShiftCell(m, eng, dayMatches) {
+        if (!eng)
+          return `<span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);">—</span>`;
+        const engMs = dayMatches.filter((x) => A[x.id] === eng);
+        const koTimes = engMs.map((x) => cm(x.bst));
+        const firstKO = Math.min(...koTimes);
+        const lastKO = Math.max(...koTimes);
+        // Use the highest-stage match duration among their assigned matches
+        const stageOrder = ["Group", "R32", "R16", "QF", "SF", "3rd", "Final"];
+        const topStage = engMs.reduce(
+          (best, x) =>
+            stageOrder.indexOf(x.stage) > stageOrder.indexOf(best)
+              ? x.stage
+              : best,
+          "Group"
+        );
+        const dur = matchDur(topStage);
+        const s = firstKO - 60;
+        const e = lastKO + dur;
+        const color = engColor(eng);
+        return `<span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:${color};white-space:nowrap;">${fmtMins(
+          s
+        )}–${fmtMins(e)}</span>`;
+      }
 
-function renderAll(){
-  const{g,ord}=groupByDate();
-  const frag=ord.map(date=>{
-    const dm=g[date];
-    const{start,end,hours,dual}=calcShift(dm);
-    const lbl=DATE_LABELS[date]||date;
-    const shiftStr=`${fmtMins(start)}–${fmtMins(end)} BST`;
-    const dualHtml=dual?`<span class="dual-flag">⚠ DUAL (${hours.toFixed(1)}h)</span>`:``;
+      function renderAll() {
+        const { g, ord } = groupByDate();
+        const frag = ord
+          .map((date) => {
+            const dm = g[date];
+            const { start, end, hours, dual } = calcShift(dm);
+            const lbl = DATE_LABELS[date] || date;
+            const shiftStr = `${fmtMins(start)}–${fmtMins(end)} BST`;
+            const dualHtml = dual
+              ? `<span class="dual-flag">⚠ DUAL (${hours.toFixed(1)}h)</span>`
+              : ``;
 
-    // Determine if all matches on this day are assigned to same eng (for day bg)
-    const dayEngs=[...new Set(dm.map(m=>A[m.id]).filter(Boolean))];
-    const dayEng=dayEngs.length===1?dayEngs[0]:null;
+            // Determine if all matches on this day are assigned to same eng (for day bg)
+            const dayEngs = [
+              ...new Set(dm.map((m) => A[m.id]).filter(Boolean)),
+            ];
+            const dayEng = dayEngs.length === 1 ? dayEngs[0] : null;
 
-    const rows=dm.map(m=>{
-      const eng=A[m.id]||'';
-      const lateHtml=m.on?`<span class="late-tag">LATE</span>`:'';
-      const kc=koClass(m.bst);
-      const tzStr=`${m.local} UTC${m.tz>=0?'+':''}${m.tz}`;
-      const shiftCell=buildShiftCell(m,eng,dm);
-      return `<tr class="mr${eng?' r'+eng:''}" data-stage="${m.stage}" data-eng="${eng||'none'}" data-search="${(m.t1+' '+m.t2+' '+m.city+' '+m.venue).toLowerCase()}">
+            const rows = dm
+              .map((m) => {
+                const eng = A[m.id] || "";
+                const lateHtml = m.on
+                  ? `<span class="late-tag">LATE</span>`
+                  : "";
+                const kc = koClass(m.bst);
+                const tzStr = `${m.local} UTC${m.tz >= 0 ? "+" : ""}${m.tz}`;
+                const shiftCell = buildShiftCell(m, eng, dm);
+                return `<tr class="mr${eng ? " r" + eng : ""}" data-stage="${
+                  m.stage
+                }" data-eng="${eng || "none"}" data-search="${(
+                  m.t1 +
+                  " " +
+                  m.t2 +
+                  " " +
+                  m.city +
+                  " " +
+                  m.venue
+                ).toLowerCase()}">
         <td><span class="kt ${kc}">${m.bst}</span>${lateHtml}</td>
         <td class="hsm"><span class="ltime">${tzStr}</span></td>
-        <td><span class="matchup">${m.t1}<span class="vs">vs</span>${m.t2}</span></td>
-        <td class="hsm"><span class="venue-t">${m.venue}</span><br><span class="city-t">${m.city}</span></td>
-        <td class="hsm">${m.g!=='—'?`<span class="gbadge">${m.g}</span>`:''}${stageBadge(m.stage)}</td>
+        <td><span class="matchup">${m.t1}<span class="vs">vs</span>${
+                  m.t2
+                }</span></td>
+        <td class="hsm"><span class="venue-t">${
+          m.venue
+        }</span><br><span class="city-t">${m.city}</span></td>
+        <td class="hsm">${
+          m.g !== "—" ? `<span class="gbadge">${m.g}</span>` : ""
+        }${stageBadge(m.stage)}</td>
         <td>
-          <select class="asel${eng?' a'+eng:''}" onchange="assignMatch(${m.id},this.value,this)">
+          <select class="asel${eng ? " a" + eng : ""}" onchange="assignMatch(${
+                  m.id
+                },this.value,this)">
             <option value="">— assign —</option>
-            <option value="N"${eng==='N'?' selected':''}>${ename('N')}</option>
-            <option value="G"${eng==='G'?' selected':''}>${ename('G')}</option>
-            <option value="H"${eng==='H'?' selected':''}>${ename('H')}</option>
+            <option value="N"${eng === "N" ? " selected" : ""}>${ename(
+                  "N"
+                )}</option>
+            <option value="G"${eng === "G" ? " selected" : ""}>${ename(
+                  "G"
+                )}</option>
+            <option value="H"${eng === "H" ? " selected" : ""}>${ename(
+                  "H"
+                )}</option>
           </select>
         </td>
         <td style="width:130px;">${buildMiniEpg(m)}</td>
         <td style="width:130px;">${shiftCell}</td>
       </tr>`;
-    }).join('');
+              })
+              .join("");
 
-    return `<div class="day-block" data-date="${date}" data-eng="${dayEng||'mixed'}">
+            return `<div class="day-block" data-date="${date}" data-eng="${
+              dayEng || "mixed"
+            }">
       <div class="dh">
         <div class="ddate">${lbl}</div>
         <div class="drange">${shiftStr}</div>
-        <div class="dhours">${hours.toFixed(1)}h${dual?'':''}</div>
+        <div class="dhours">${hours.toFixed(1)}h${dual ? "" : ""}</div>
         ${dualHtml}
         ${buildDayEpg(dm)}
-        <div class="dcnt">${dm.length} match${dm.length>1?'es':''}</div>
+        <div class="dcnt">${dm.length} match${dm.length > 1 ? "es" : ""}</div>
       </div>
       <table class="mt">
         <thead><tr>
@@ -812,166 +3009,230 @@ function renderAll(){
         <tbody>${rows}</tbody>
       </table>
     </div>`;
-  }).join('');
+          })
+          .join("");
 
-  document.getElementById('mc').innerHTML=frag;
-  updateStats();
-  updateSummary();
-  applyFilters();
-}
+        document.getElementById("mc").innerHTML = frag;
+        updateStats();
+        updateSummary();
+        applyFilters();
+      }
 
-function assignMatch(id,val,sel){
-  A[id]=val||'';
-  const row=sel.closest('tr');
-  row.className=`mr${val?' r'+val:''}`;
-  row.dataset.eng=val||'none';
-  sel.className=`asel${val?' a'+val:''}`;
-  // Rebuild the mini EPG for this row
-  const m=M.find(x=>x.id===id);
-  const{g}=groupByDate();
-  const dm=g[m.date];
-  row.querySelector('td:nth-last-child(2)').innerHTML=buildMiniEpg(m);
-  // Rebuild shift cell for ALL rows on this day (other engs' shifts may change too)
-  const dayBlock=row.closest('.day-block');
-  dayBlock.querySelectorAll('.mr').forEach(r=>{
-    const rid=parseInt(r.querySelector('select').getAttribute('onchange').match(/\d+/)[0]);
-    const rm=M.find(x=>x.id===rid);
-    const reng=A[rid]||'';
-    r.querySelector('td:last-child').innerHTML=buildShiftCell(rm,reng,dm);
-  });
-  // Rebuild day header EPG
-  rebuildDayEpg(dayBlock);
-  updateStats();
-  updateSummary();
-  schedSave();
-}
+      function assignMatch(id, val, sel) {
+        A[id] = val || "";
+        const row = sel.closest("tr");
+        row.className = `mr${val ? " r" + val : ""}`;
+        row.dataset.eng = val || "none";
+        sel.className = `asel${val ? " a" + val : ""}`;
+        // Rebuild the mini EPG for this row
+        const m = M.find((x) => x.id === id);
+        const { g } = groupByDate();
+        const dm = g[m.date];
+        row.querySelector("td:nth-last-child(2)").innerHTML = buildMiniEpg(m);
+        // Rebuild shift cell for ALL rows on this day (other engs' shifts may change too)
+        const dayBlock = row.closest(".day-block");
+        dayBlock.querySelectorAll(".mr").forEach((r) => {
+          const rid = parseInt(
+            r.querySelector("select").getAttribute("onchange").match(/\d+/)[0]
+          );
+          const rm = M.find((x) => x.id === rid);
+          const reng = A[rid] || "";
+          r.querySelector("td:last-child").innerHTML = buildShiftCell(
+            rm,
+            reng,
+            dm
+          );
+        });
+        // Rebuild day header EPG
+        rebuildDayEpg(dayBlock);
+        updateStats();
+        updateSummary();
+        schedSave();
+      }
 
-function rebuildDayEpg(block){
-  const date=block.dataset.date;
-  const{g}=groupByDate();
-  const dm=g[date];
-  const{start,end,hours,dual}=calcShift(dm);
-  // Update shift label
-  block.querySelector('.drange').textContent=`${fmtMins(start)}–${fmtMins(end)} BST`;
-  block.querySelector('.dhours').textContent=`${hours.toFixed(1)}h`;
-  // Replace EPG
-  const old=block.querySelector('.epg-hdr-wrap');
-  if(old) old.outerHTML=buildDayEpg(dm);
-  // Update dual flag
-  let df=block.querySelector('.dual-flag');
-  if(dual&&!df){block.querySelector('.dhours').insertAdjacentHTML('afterend',`<span class="dual-flag">⚠ DUAL (${hours.toFixed(1)}h)</span>`);}
-  else if(!dual&&df){df.remove();}
-  // Update day eng for filter
-  const dayEngs=[...new Set(dm.map(m=>A[m.id]).filter(Boolean))];
-  block.dataset.eng=dayEngs.length===1?dayEngs[0]:'mixed';
-}
+      function rebuildDayEpg(block) {
+        const date = block.dataset.date;
+        const { g } = groupByDate();
+        const dm = g[date];
+        const { start, end, hours, dual } = calcShift(dm);
+        // Update shift label
+        block.querySelector(".drange").textContent = `${fmtMins(
+          start
+        )}–${fmtMins(end)} BST`;
+        block.querySelector(".dhours").textContent = `${hours.toFixed(1)}h`;
+        // Replace EPG
+        const old = block.querySelector(".epg-hdr-wrap");
+        if (old) old.outerHTML = buildDayEpg(dm);
+        // Update dual flag
+        let df = block.querySelector(".dual-flag");
+        if (dual && !df) {
+          block
+            .querySelector(".dhours")
+            .insertAdjacentHTML(
+              "afterend",
+              `<span class="dual-flag">⚠ DUAL (${hours.toFixed(1)}h)</span>`
+            );
+        } else if (!dual && df) {
+          df.remove();
+        }
+        // Update day eng for filter
+        const dayEngs = [...new Set(dm.map((m) => A[m.id]).filter(Boolean))];
+        block.dataset.eng = dayEngs.length === 1 ? dayEngs[0] : "mixed";
+      }
 
-// ─── AUTO ASSIGN ──────────────────────────────────────────────────────────────
-function autoAssign(){
-  // Assign round-robin by day, balancing total hours
-  const{g,ord}=groupByDate();
-  const totH={N:0,G:0,H:0};
-  ord.forEach(date=>{
-    const dm=g[date];
-    // pick eng with least hours
-    const pick=['N','G','H'].reduce((a,b)=>totH[a]<=totH[b]?a:b);
-    dm.forEach(m=>{ if(!A[m.id]) A[m.id]=pick; });
-    const{start,end}=calcShift(dm);
-    totH[pick]+=(end-start)/60;
-  });
-  renderAll();
-  schedSave();
-}
+      // ─── AUTO ASSIGN ──────────────────────────────────────────────────────────────
+      function autoAssign() {
+        // Assign round-robin by day, balancing total hours
+        const { g, ord } = groupByDate();
+        const totH = { N: 0, G: 0, H: 0 };
+        ord.forEach((date) => {
+          const dm = g[date];
+          // pick eng with least hours
+          const pick = ["N", "G", "H"].reduce((a, b) =>
+            totH[a] <= totH[b] ? a : b
+          );
+          dm.forEach((m) => {
+            if (!A[m.id]) A[m.id] = pick;
+          });
+          const { start, end } = calcShift(dm);
+          totH[pick] += (end - start) / 60;
+        });
+        renderAll();
+        schedSave();
+      }
 
-function clearAll(){
-  M.forEach(m=>delete A[m.id]);
-  schedSave();
-  renderAll();
-}
+      function clearAll() {
+        M.forEach((m) => delete A[m.id]);
+        schedSave();
+        renderAll();
+      }
 
-// ─── RENAME ENGINEERS ────────────────────────────────────────────────────────
-function onRename(){
-  document.getElementById('l0').textContent=ename('N');
-  document.getElementById('l1').textContent=ename('G');
-  document.getElementById('l2').textContent=ename('H');
-  document.getElementById('fb-N').textContent=ename('N');
-  document.getElementById('fb-G').textContent=ename('G');
-  document.getElementById('fb-H').textContent=ename('H');
-  // Update all selects
-  document.querySelectorAll('.asel').forEach(s=>{
-    const v=s.value;
-    s.options[1].textContent=ename('N');
-    s.options[2].textContent=ename('G');
-    s.options[3].textContent=ename('H');
-    s.value=v;
-  });
-  updateSummary();
-  schedSave();
-}
+      // ─── RENAME ENGINEERS ────────────────────────────────────────────────────────
+      function onRename() {
+        document.getElementById("l0").textContent = ename("N");
+        document.getElementById("l1").textContent = ename("G");
+        document.getElementById("l2").textContent = ename("H");
+        document.getElementById("fb-N").textContent = ename("N");
+        document.getElementById("fb-G").textContent = ename("G");
+        document.getElementById("fb-H").textContent = ename("H");
+        // Update all selects
+        document.querySelectorAll(".asel").forEach((s) => {
+          const v = s.value;
+          s.options[1].textContent = ename("N");
+          s.options[2].textContent = ename("G");
+          s.options[3].textContent = ename("H");
+          s.value = v;
+        });
+        updateSummary();
+        schedSave();
+      }
 
-// ─── FILTERS ──────────────────────────────────────────────────────────────────
-let fStage='all',fEng='all';
-function applyFilters(){
-  const q=document.getElementById('searchBox').value.toLowerCase();
-  document.querySelectorAll('.day-block').forEach(block=>{
-    const rows=[...block.querySelectorAll('.mr')];
-    let vis=false;
-    rows.forEach(r=>{
-      const sok=fStage==='all'||r.dataset.stage===fStage;
-      const eok=fEng==='all'
-        ||(fEng==='none'&&r.dataset.eng==='none')
-        ||(fEng==='dual')  // handled at block level
-        ||fEng===r.dataset.eng;
-      const qok=!q||r.dataset.search.includes(q);
-      const show=sok&&eok&&qok;
-      r.style.display=show?'':'none';
-      if(show) vis=true;
-    });
-    // dual filter: show block if it has dual flag
-    const dualOk=fEng!=='dual'||(block.querySelector('.dual-flag')!=null);
-    block.style.display=(vis&&dualOk)?'':'none';
-  });
-}
+      // ─── FILTERS ──────────────────────────────────────────────────────────────────
+      let fStage = "all",
+        fEng = "all";
+      function applyFilters() {
+        const q = document.getElementById("searchBox").value.toLowerCase();
+        document.querySelectorAll(".day-block").forEach((block) => {
+          const rows = [...block.querySelectorAll(".mr")];
+          let vis = false;
+          rows.forEach((r) => {
+            const sok = fStage === "all" || r.dataset.stage === fStage;
+            const eok =
+              fEng === "all" ||
+              (fEng === "none" && r.dataset.eng === "none") ||
+              fEng === "dual" || // handled at block level
+              fEng === r.dataset.eng;
+            const qok = !q || r.dataset.search.includes(q);
+            const show = sok && eok && qok;
+            r.style.display = show ? "" : "none";
+            if (show) vis = true;
+          });
+          // dual filter: show block if it has dual flag
+          const dualOk =
+            fEng !== "dual" || block.querySelector(".dual-flag") != null;
+          block.style.display = vis && dualOk ? "" : "none";
+        });
+      }
 
-document.querySelectorAll('.fb[data-f]').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    const f=btn.dataset.f;
-    document.querySelectorAll(`.fb[data-f="${f}"]`).forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    if(f==='stage') fStage=btn.dataset.v;
-    if(f==='eng') fEng=btn.dataset.v;
-    applyFilters();
-  });
-});
+      document.querySelectorAll(".fb[data-f]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const f = btn.dataset.f;
+          document
+            .querySelectorAll(`.fb[data-f="${f}"]`)
+            .forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          if (f === "stage") fStage = btn.dataset.v;
+          if (f === "eng") fEng = btn.dataset.v;
+          applyFilters();
+        });
+      });
 
-// ─── CSV EXPORT ───────────────────────────────────────────────────────────────
-function exportCSV(){
-  const{g,ord}=groupByDate();
-  const rows=[['Date','Shift Start BST','Shift End BST','Shift Hours','Dual?','ID','KO BST','Local KO','Home','Away','City','Stage','Engineer','Eng Shift BST']];
-  ord.forEach(date=>{
-    const dm=g[date];
-    const{start,end,hours,dual}=calcShift(dm);
-    dm.forEach(m=>{
-      const eng=A[m.id]||'';
-      const engShift=eng?buildShiftCell(m,eng,dm).replace(/<[^>]+>/g,''):'';
-      rows.push([DATE_LABELS[date],fmtMins(start),fmtMins(end),hours.toFixed(1),dual?'YES':'',m.id,m.bst,`${m.local} UTC${m.tz}`,m.t1,m.t2,m.city,m.stage,eng?ename(eng):'',engShift]);
-    });
-  });
-  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const a=document.createElement('a');
-  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
-  a.download='wc2026_rota.csv';
-  a.click();
-}
+      // ─── CSV EXPORT ───────────────────────────────────────────────────────────────
+      function exportCSV() {
+        const { g, ord } = groupByDate();
+        const rows = [
+          [
+            "Date",
+            "Shift Start BST",
+            "Shift End BST",
+            "Shift Hours",
+            "Dual?",
+            "ID",
+            "KO BST",
+            "Local KO",
+            "Home",
+            "Away",
+            "City",
+            "Stage",
+            "Engineer",
+            "Eng Shift BST",
+          ],
+        ];
+        ord.forEach((date) => {
+          const dm = g[date];
+          const { start, end, hours, dual } = calcShift(dm);
+          dm.forEach((m) => {
+            const eng = A[m.id] || "";
+            const engShift = eng
+              ? buildShiftCell(m, eng, dm).replace(/<[^>]+>/g, "")
+              : "";
+            rows.push([
+              DATE_LABELS[date],
+              fmtMins(start),
+              fmtMins(end),
+              hours.toFixed(1),
+              dual ? "YES" : "",
+              m.id,
+              m.bst,
+              `${m.local} UTC${m.tz}`,
+              m.t1,
+              m.t2,
+              m.city,
+              m.stage,
+              eng ? ename(eng) : "",
+              engShift,
+            ]);
+          });
+        });
+        const csv = rows
+          .map((r) =>
+            r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")
+          )
+          .join("\n");
+        const a = document.createElement("a");
+        a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
+        a.download = "wc2026_rota.csv";
+        a.click();
+      }
 
-// ─── INIT ────────────────────────────────────────────────────────────────────
-(async function(){
-  CURRENT_USER = await fetchMe();
-  applyRoleUI();
-  await loadFromServer();
-  renderAll();
-  onRename();
-})();
-</script>
-</body>
+      // ─── INIT ────────────────────────────────────────────────────────────────────
+      (async function () {
+        CURRENT_USER = await fetchMe();
+        applyRoleUI();
+        await loadFromServer();
+        renderAll();
+        onRename();
+      })();
+    </script>
+  </body>
 </html>
