@@ -1863,8 +1863,8 @@
       }
       function mBar(label, val) {
         const p = Math.min(100, Math.round(val || 0)),
-          cls = p >= 80 ? "mf-cr" : p >= 60 ? "mf-wn" : "mf-ok",
-          vc = p >= 80 ? "dg" : p >= 60 ? "wn" : "";
+          cls = p >= 95 ? "mf-cr" : p >= 60 ? "mf-wn" : "mf-ok",
+          vc = p >= 95 ? "dg" : p >= 60 ? "wn" : "";
         return `<div class="mbar-wrap"><span class="mbar-lbl">${label}</span><div class="mbar"><div class="mbar-fill ${cls}" style="width:${p}%"></div></div><span class="mbar-val${
           vc ? " sv " + vc : ""
         }">${p}%</span></div>`;
