@@ -19,6 +19,8 @@ app.register_blueprint(rts_bp)
 from router_srt import srt_bp
 app.register_blueprint(srt_bp)
 
+from wc2026_routes import wc2026_bp
+app.register_blueprint(wc2026_bp)
 
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024 * 1024  # 2 GB upload limit
 CORS(app)

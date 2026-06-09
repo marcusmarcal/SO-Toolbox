@@ -7,6 +7,20 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.8.0] - 2026-06-09
+
+### Added
+
+- `wc2026_rota.html`: WC 2026 engineering rota planner — assign engineers to
+  matches, auto-assign by round-robin, filter by engineer/venue/date, export CSV
+- `wc2026_routes.py`: Flask blueprint exposing `GET /wc2026/assignments` and
+  `POST /wc2026/assignments`; assignments persisted to `wc2026_assignments.json`
+- Role-based access: only admin users can assign, auto-assign, clear, import CSV
+  or rename engineers; non-admins see the rota in read-only mode
+- CSV import restores assignments and engineer names from a previously exported file
+- Save status indicator in header shows last saved by/when, pending and error states
+- Session resolved via existing `/so-proxy/me` endpoint; no additional auth logic
+
 ## [3.7.0] - 2026-06-02
 
 ### Added

@@ -154,8 +154,12 @@ main{padding:4px 24px 28px;}
     <div class="stat"><div class="sv" id="s-dual">0</div><div class="sl">Dual⚠</div></div>
   </div>
   <button class="xbtn" onclick="exportCSV()">⬇ Export CSV</button>
-  <button class="xbtn" onclick="document.getElementById('csvFileIn').click()">⬆ Import CSV</button>
+  <button class="xbtn" id="btn-import" onclick="document.getElementById('csvFileIn').click()">⬆ Import CSV</button>
   <input type="file" id="csvFileIn" accept=".csv" style="display:none" onchange="importCSV(this)">
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;margin-left:4px;">
+    <span id="user-pill" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text2);letter-spacing:.5px;">…</span>
+    <span id="save-status" style="font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.5px;"></span>
+  </div>
 </header>
 
 <div class="controls">
@@ -196,8 +200,8 @@ main{padding:4px 24px 28px;}
   <div class="li"><span class="dual-tag">⚠ DUAL</span> = day spans &gt;10h effective, needs 2 engineers</div>
   <div class="li"><span class="late-tag">LATE</span> = KO after midnight BST</div>
   <div style="margin-left:auto;display:flex;gap:6px;">
-    <button class="fb" onclick="autoAssign()">⚡ Auto-assign</button>
-    <button class="fb" onclick="clearAll()">✕ Clear</button>
+    <button class="fb" id="btn-auto" onclick="autoAssign()">⚡ Auto-assign</button>
+    <button class="fb" id="btn-clear" onclick="clearAll()">✕ Clear</button>
   </div>
 </div>
 
@@ -359,37 +363,120 @@ M.sort((a,b)=>{
 });
 
 // ─── STATE ───────────────────────────────────────────────────────────────────
-// Per-match assignment
 const A = {}; // A[id] = 'N'|'G'|'H'|''
+let CURRENT_USER = null; // { ok, role, username } from /so-proxy/me
+let SAVE_DEBOUNCE = null;
 
-// ─── PERSISTENCE (localStorage) ──────────────────────────────────────────────
-const LS_KEY_A     = 'wc2026_assignments';
-const LS_KEY_NAMES = 'wc2026_engnames';
-
-function saveState(){
+// ─── AUTH / SESSION ───────────────────────────────────────────────────────────
+async function fetchMe(){
   try{
-    localStorage.setItem(LS_KEY_A, JSON.stringify(A));
-    const names={N:document.getElementById('e0').value,G:document.getElementById('e1').value,H:document.getElementById('e2').value};
-    localStorage.setItem(LS_KEY_NAMES, JSON.stringify(names));
-  }catch(e){}
+    const r=await fetch('/so-proxy/me',{credentials:'include'});
+    if(!r.ok) return null;
+    return await r.json();
+  }catch(e){ return null; }
 }
 
-function loadState(){
+function isAdmin(){ return CURRENT_USER && CURRENT_USER.role==='admin'; }
+
+function applyRoleUI(){
+  const admin=isAdmin();
+  // Header identity pill
+  let pill=document.getElementById('user-pill');
+  if(pill){
+    pill.textContent=CURRENT_USER
+      ? (CURRENT_USER.username||'unknown') + (admin?' ★':'')
+      : '—';
+    pill.style.color=admin?'var(--gold)':'var(--text2)';
+  }
+  // Lock all controls for non-admins
+  document.querySelectorAll('.asel').forEach(s=>{ s.disabled=!admin; });
+  document.getElementById('btn-auto').disabled=!admin;
+  document.getElementById('btn-clear').disabled=!admin;
+  document.getElementById('btn-import').style.display=admin?'':'none';
+  // Engineer name inputs
+  ['e0','e1','e2'].forEach(id=>{ const el=document.getElementById(id); if(el) el.readOnly=!admin; });
+  // Save status
+  updateSaveStatus(admin?'idle':'readonly');
+}
+
+// ─── SERVER PERSISTENCE ───────────────────────────────────────────────────────
+async function loadFromServer(){
+  updateSaveStatus('loading');
   try{
-    const a=localStorage.getItem(LS_KEY_A);
-    if(a){ Object.assign(A, JSON.parse(a)); }
-    const n=localStorage.getItem(LS_KEY_NAMES);
-    if(n){
-      const names=JSON.parse(n);
-      if(names.N) document.getElementById('e0').value=names.N;
-      if(names.G) document.getElementById('e1').value=names.G;
-      if(names.H) document.getElementById('e2').value=names.H;
+    const r=await fetch('/wc2026/assignments',{credentials:'include'});
+    if(!r.ok){ updateSaveStatus('error'); return; }
+    const json=await r.json();
+    if(!json.ok){ updateSaveStatus('error'); return; }
+    const data=json.data||{};
+    // Restore assignments
+    const sa=data.assignments||{};
+    Object.keys(sa).forEach(k=>{ if(sa[k]) A[parseInt(k)]=sa[k]; });
+    // Restore engineer names
+    const sn=data.engNames||{};
+    if(sn.N) document.getElementById('e0').value=sn.N;
+    if(sn.G) document.getElementById('e1').value=sn.G;
+    if(sn.H) document.getElementById('e2').value=sn.H;
+    // Show last save info
+    if(data.updatedBy&&data.updatedAt){
+      const dt=new Date(data.updatedAt).toLocaleString('en-GB',{dateStyle:'short',timeStyle:'short'});
+      updateSaveStatus('saved', `${data.updatedBy} · ${dt}`);
+    } else {
+      updateSaveStatus('idle');
     }
-  }catch(e){}
+  }catch(e){ updateSaveStatus('error'); }
+}
+
+function schedSave(){
+  if(!isAdmin()) return;
+  updateSaveStatus('pending');
+  clearTimeout(SAVE_DEBOUNCE);
+  SAVE_DEBOUNCE=setTimeout(()=>saveToServer(), 1200);
+}
+
+async function saveToServer(){
+  if(!isAdmin()) return;
+  updateSaveStatus('saving');
+  const engNames={
+    N:document.getElementById('e0').value||'Nuno',
+    G:document.getElementById('e1').value||'Goncalo',
+    H:document.getElementById('e2').value||'Hugo',
+  };
+  try{
+    const r=await fetch('/wc2026/assignments',{
+      method:'POST',credentials:'include',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({assignments:A,engNames}),
+    });
+    const json=await r.json();
+    if(json.ok){
+      const dt=new Date(json.updatedAt).toLocaleString('en-GB',{dateStyle:'short',timeStyle:'short'});
+      updateSaveStatus('saved',`${json.updatedBy} · ${dt}`);
+    } else {
+      updateSaveStatus('error', json.error||'Erro ao guardar');
+    }
+  }catch(e){ updateSaveStatus('error','Sem resposta do servidor'); }
+}
+
+function updateSaveStatus(state, detail){
+  const el=document.getElementById('save-status');
+  if(!el) return;
+  const labels={
+    loading: ['⟳ A carregar…','var(--muted)'],
+    idle:    ['','var(--muted)'],
+    pending: ['● Por guardar','var(--orange)'],
+    saving:  ['⟳ A guardar…','var(--text2)'],
+    saved:   ['✓ Guardado','var(--green)'],
+    error:   ['✕ Erro','var(--red)'],
+    readonly:['🔒 Read-only','var(--muted)'],
+  };
+  const [lbl,col]=labels[state]||['','var(--muted)'];
+  el.textContent=detail?`${lbl}  ${detail}`:lbl;
+  el.style.color=col;
 }
 
 // ─── CSV IMPORT ───────────────────────────────────────────────────────────────
 function importCSV(input){
+  if(!isAdmin()){ alert('Só admins podem importar.'); return; }
   const file=input.files[0];
   if(!file) return;
   const reader=new FileReader();
@@ -397,18 +484,11 @@ function importCSV(input){
     const text=e.target.result;
     const lines=text.split(/\r?\n/).filter(l=>l.trim());
     if(lines.length<2){ alert('CSV vazio ou inválido.'); return; }
-
-    // Parse header to find column indices
     const header=parseCSVRow(lines[0]);
     const idxID=header.findIndex(h=>h.trim().toLowerCase()==='id');
     const idxEng=header.findIndex(h=>h.trim().toLowerCase()==='engineer');
-
-    if(idxID<0||idxEng<0){ alert('CSV inválido: colunas "ID" e "Engineer" não encontradas.\nCertifica-te de que usas o CSV exportado por esta ferramenta.'); return; }
-
-    // Also detect engineer names to restore them
-    const nameMap={}; // code→name  e.g. {'N':'Nuno','G':'Goncalo','H':'Hugo'}
-    const ENG_CODES={'N':true,'G':true,'H':true};
-
+    if(idxID<0||idxEng<0){ alert('CSV inválido: colunas "ID" e "Engineer" não encontradas.'); return; }
+    const nameMap={};
     let imported=0,skipped=0;
     for(let i=1;i<lines.length;i++){
       const cols=parseCSVRow(lines[i]);
@@ -416,33 +496,22 @@ function importCSV(input){
       const id=parseInt(cols[idxID]);
       const engName=(cols[idxEng]||'').trim();
       if(!id||isNaN(id)) continue;
-
       if(!engName){ A[id]=''; imported++; continue; }
-
-      // Map engineer name back to code by matching current names or names in file
       const code=resolveEngCode(engName);
       if(code){ A[id]=code; nameMap[code]=engName; imported++; }
       else { skipped++; }
     }
-
-    // Restore engineer names if we mapped them
     if(nameMap.N) document.getElementById('e0').value=nameMap.N;
     if(nameMap.G) document.getElementById('e1').value=nameMap.G;
     if(nameMap.H) document.getElementById('e2').value=nameMap.H;
-
-    saveState();
-    renderAll();
-    onRename();
-
-    const msg=`✓ Importadas ${imported} atribuições.`+(skipped?`\n⚠ ${skipped} linhas ignoradas (nome de engenheiro desconhecido).`:'');
+    renderAll(); onRename(); schedSave();
+    const msg=`✓ Importadas ${imported} atribuições.`+(skipped?`\n⚠ ${skipped} linhas ignoradas.`:'');
     alert(msg);
-    input.value=''; // reset input so same file can be re-imported
+    input.value='';
   };
   reader.readAsText(file);
 }
 
-// Resolve engineer name → code.
-// Strategy: try exact match against current input values first, then fallback by position.
 function resolveEngCode(name){
   if(!name) return '';
   const n=name.trim().toLowerCase();
@@ -451,31 +520,20 @@ function resolveEngCode(name){
     const cur=(document.getElementById(inputId).value||'').toLowerCase();
     if(cur&&cur===n) return code;
   }
-  // Fallback: common default names
   if(n==='nuno') return 'N';
   if(n==='goncalo'||n==='gonçalo') return 'G';
   if(n==='hugo') return 'H';
   return '';
 }
 
-// Minimal RFC4180 CSV row parser (handles quoted fields)
 function parseCSVRow(line){
-  const result=[];
-  let cur='',inQ=false;
+  const result=[];let cur='',inQ=false;
   for(let i=0;i<line.length;i++){
     const c=line[i];
-    if(inQ){
-      if(c==='"'&&line[i+1]==='"'){cur+='"';i++;}
-      else if(c==='"'){inQ=false;}
-      else cur+=c;
-    }else{
-      if(c==='"'){inQ=true;}
-      else if(c===','){result.push(cur);cur='';}
-      else cur+=c;
-    }
+    if(inQ){if(c==='"'&&line[i+1]==='"'){cur+='"';i++;}else if(c==='"'){inQ=false;}else cur+=c;}
+    else{if(c==='"'){inQ=true;}else if(c===','){result.push(cur);cur='';}else cur+=c;}
   }
-  result.push(cur);
-  return result;
+  result.push(cur);return result;
 }
 
 function ename(k){return document.getElementById('e'+['N','G','H'].indexOf(k)).value||['Nuno','Goncalo','Hugo']['NGH'.indexOf(k)];}
@@ -785,7 +843,7 @@ function assignMatch(id,val,sel){
   rebuildDayEpg(dayBlock);
   updateStats();
   updateSummary();
-  saveState();
+  schedSave();
 }
 
 function rebuildDayEpg(block){
@@ -822,12 +880,12 @@ function autoAssign(){
     totH[pick]+=(end-start)/60;
   });
   renderAll();
-  saveState();
+  schedSave();
 }
 
 function clearAll(){
   M.forEach(m=>delete A[m.id]);
-  saveState();
+  schedSave();
   renderAll();
 }
 
@@ -848,7 +906,7 @@ function onRename(){
     s.value=v;
   });
   updateSummary();
-  saveState();
+  schedSave();
 }
 
 // ─── FILTERS ──────────────────────────────────────────────────────────────────
@@ -907,9 +965,13 @@ function exportCSV(){
 }
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
-loadState();
-renderAll();
-onRename();
+(async function(){
+  CURRENT_USER = await fetchMe();
+  applyRoleUI();
+  await loadFromServer();
+  renderAll();
+  onRename();
+})();
 </script>
 </body>
 </html>
