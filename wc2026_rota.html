@@ -2468,12 +2468,12 @@
         const el = document.getElementById("save-status");
         if (!el) return;
         const labels = {
-          loading: ["⟳ A carregar…", "var(--muted)"],
+          loading: ["⟳ Loading…", "var(--muted)"],
           idle: ["", "var(--muted)"],
-          pending: ["● Por guardar", "var(--orange)"],
-          saving: ["⟳ A guardar…", "var(--text2)"],
-          saved: ["✓ Guardado", "var(--green)"],
-          error: ["✕ Erro", "var(--red)"],
+          pending: ["● To be saved", "var(--orange)"],
+          saving: ["⟳ Saving…", "var(--text2)"],
+          saved: ["✓ Safe", "var(--green)"],
+          error: ["✕ Error", "var(--red)"],
           readonly: ["🔒 Read-only", "var(--muted)"],
         };
         const [lbl, col] = labels[state] || ["", "var(--muted)"];
