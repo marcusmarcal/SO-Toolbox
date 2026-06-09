@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -50,8 +50,7 @@
 
       /* Quando a classe estiver ativa, substitui o cursor por uma imagem transparente */
       body.hide-cursor {
-        cursor:
-          url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="),
+        cursor: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="),
           auto !important;
       }
 
@@ -529,9 +528,7 @@
         color: inherit;
         text-decoration: none;
         border-bottom: 1px dotted rgba(255, 255, 255, 0.2);
-        transition:
-          color 0.15s,
-          border-color 0.15s;
+        transition: color 0.15s, border-color 0.15s;
       }
       a.ext-lnk:hover {
         color: var(--accent);
@@ -1623,7 +1620,13 @@
         $("sort-menu").innerHTML = fields
           .map((x) => {
             const active = x.k === s.k;
-            return `<div class="sort-opt${active ? " active" : ""}" onclick="setSort('${v}','${x.k}')">${x.label}<span class="sort-dir">${active ? (s.dir === 1 ? "↑" : "↓") : ""}</span></div>`;
+            return `<div class="sort-opt${
+              active ? " active" : ""
+            }" onclick="setSort('${v}','${x.k}')">${
+              x.label
+            }<span class="sort-dir">${
+              active ? (s.dir === 1 ? "↑" : "↓") : ""
+            }</span></div>`;
           })
           .join("");
       }
@@ -1668,17 +1671,23 @@
         return DC_URLS[dc] || DC_URLS.ix;
       }
       function nodeLink(id) {
-        return `<a class="ext-lnk" href="${dcBase()}#nodes/${esc(id)}" target="_blank" rel="noopener">${esc(id)}</a>`;
+        return `<a class="ext-lnk" href="${dcBase()}#nodes/${esc(
+          id
+        )}" target="_blank" rel="noopener">${esc(id)}</a>`;
       }
       function chLink(id) {
         if (!id) return "-";
         const frag = id.toUpperCase().startsWith("RMG_")
           ? `ruk_channels/${id}`
           : `channels/${id}`;
-        return `<a class="ext-lnk" href="${dcBase()}#${esc(frag)}" target="_blank" rel="noopener">${esc(id)}</a>`;
+        return `<a class="ext-lnk" href="${dcBase()}#${esc(
+          frag
+        )}" target="_blank" rel="noopener">${esc(id)}</a>`;
       }
       function evLink(evId) {
-        return `<a class="ext-lnk" href="${dcBase()}#events/${esc(evId)}" target="_blank" rel="noopener">#${esc(evId)}</a>`;
+        return `<a class="ext-lnk" href="${dcBase()}#events/${esc(
+          evId
+        )}" target="_blank" rel="noopener">#${esc(evId)}</a>`;
       }
 
       // ── UTILITIES ─────────────────────────────────────────────────
@@ -1790,7 +1799,7 @@
                 (c || "") +
                 '">' +
                 v +
-                "</span></div>",
+                "</span></div>"
             )
             .join("") +
           "</div>"
@@ -1856,13 +1865,17 @@
         const p = Math.min(100, Math.round(val || 0)),
           cls = p >= 80 ? "mf-cr" : p >= 60 ? "mf-wn" : "mf-ok",
           vc = p >= 80 ? "dg" : p >= 60 ? "wn" : "";
-        return `<div class="mbar-wrap"><span class="mbar-lbl">${label}</span><div class="mbar"><div class="mbar-fill ${cls}" style="width:${p}%"></div></div><span class="mbar-val${vc ? " sv " + vc : ""}">${p}%</span></div>`;
+        return `<div class="mbar-wrap"><span class="mbar-lbl">${label}</span><div class="mbar"><div class="mbar-fill ${cls}" style="width:${p}%"></div></div><span class="mbar-val${
+          vc ? " sv " + vc : ""
+        }">${p}%</span></div>`;
       }
       function mBarSched(label, val) {
         const p = Math.min(100, Math.round(val || 0)),
           cls = p >= 70 ? "mf-cr" : p >= 30 ? "mf-wn" : "mf-ok",
           vc = p >= 70 ? "dg" : p >= 30 ? "wn" : "";
-        return `<div class="mbar-wrap"><span class="mbar-lbl">${label}</span><div class="mbar"><div class="mbar-fill ${cls}" style="width:${p}%"></div></div><span class="mbar-val${vc ? " sv " + vc : ""}">${p}%</span></div>`;
+        return `<div class="mbar-wrap"><span class="mbar-lbl">${label}</span><div class="mbar"><div class="mbar-fill ${cls}" style="width:${p}%"></div></div><span class="mbar-val${
+          vc ? " sv " + vc : ""
+        }">${p}%</span></div>`;
       }
 
       // Sync active button highlights to current state variables
@@ -1927,12 +1940,12 @@
             renderChannels(
               $("fi").value.trim().toLowerCase(),
               $("wo").checked,
-              $("ao").checked,
+              $("ao").checked
             );
             renderFlagsBanner();
             setSt(
               dc.toUpperCase() + " · " + new Date().toLocaleTimeString(),
-              "ok",
+              "ok"
             );
             hasData = true;
             $("refresh-overlay").classList.remove("vis");
@@ -1988,13 +2001,13 @@
             logLevel = fLvl;
             const days = dateRange(
               from || todayUTC(),
-              to || from || todayUTC(),
+              to || from || todayUTC()
             );
             // Fetch each day in parallel (max 14)
             const results = await Promise.all(
               days.map((d) =>
-                apiSoft("/logs/" + d).then((r) => (Array.isArray(r) ? r : [])),
-              ),
+                apiSoft("/logs/" + d).then((r) => (Array.isArray(r) ? r : []))
+              )
             );
             logEvents = results.flat();
             raw = { logs: logEvents, fNode, fCh, fGrep };
@@ -2004,7 +2017,7 @@
           renderFlagsBanner();
           setSt(
             dc.toUpperCase() + " · " + new Date().toLocaleTimeString(),
-            "ok",
+            "ok"
           );
           hasData = true;
         } catch (e) {
@@ -2025,9 +2038,9 @@
           const results = await Promise.all(
             slice.map((id) =>
               apiSoft("/channel/" + encodeURIComponent(id) + "/status").then(
-                (d) => ({ id, d }),
-              ),
-            ),
+                (d) => ({ id, d })
+              )
+            )
           );
           let changed = false;
           for (const { id, d } of results) {
@@ -2056,18 +2069,18 @@
             encState === "running"
               ? pill("p-run", "running")
               : encState
-                ? pill("p-err", "⚠ " + encState)
-                : pill("p-dis", "-");
+              ? pill("p-err", "⚠ " + encState)
+              : pill("p-dis", "-");
           srcEl.innerHTML =
             srcState === "streaming"
               ? pill("p-str", "streaming")
               : srcState === "acquiring_signal"
-                ? evs.length
-                  ? pill("p-crit", "⚠ no signal")
-                  : pill("p-acq", "acquiring")
-                : srcState
-                  ? pill("p-idle", srcState)
-                  : pill("p-dis", "-");
+              ? evs.length
+                ? pill("p-crit", "⚠ no signal")
+                : pill("p-acq", "acquiring")
+              : srcState
+              ? pill("p-idle", srcState)
+              : pill("p-dis", "-");
           if (bpsEl) {
             bpsEl.className = "c-bps " + (bps > 0 ? "good" : "none");
             bpsEl.textContent = bps > 0 ? bpsFmt(bps) : "";
@@ -2153,7 +2166,7 @@
             const encState = st ? st.state || "" : "",
               encWarn = !!encState && encState !== "running";
             const evWm = evs.flatMap((ev) =>
-              (evFm[ev.event_id] || []).filter((w) => !isInfo(w)),
+              (evFm[ev.event_id] || []).filter((w) => !isInfo(w))
             );
             const srcState = stat.source_state || "";
             // srcWarn: not streaming, and not acquiring without an event (acquiring+event = 'no signal' = warning)
@@ -2189,7 +2202,7 @@
             (r) =>
               r.id.toLowerCase().includes(filter) ||
               r.node.toLowerCase().includes(filter) ||
-              r.evs.some((e) => e.event_name.toLowerCase().includes(filter)),
+              r.evs.some((e) => e.event_name.toLowerCase().includes(filter))
           );
         if (warnOnly) rows = rows.filter((r) => r.warnings > 0);
         if (inUseOnly) rows = rows.filter((r) => r.evs.length > 0);
@@ -2225,18 +2238,18 @@
             ? r.srcState === "streaming"
               ? pill("p-str", "streaming")
               : r.srcState === "acquiring_signal"
-                ? r.evs.length
-                  ? pill("p-crit", "⚠ no signal")
-                  : pill("p-acq", "acquiring")
-                : pill("p-idle", r.srcState)
+              ? r.evs.length
+                ? pill("p-crit", "⚠ no signal")
+                : pill("p-acq", "acquiring")
+              : pill("p-idle", r.srcState)
             : '<span id="src-' +
               r.id +
               '" style="color:var(--muted);font-size:.58rem;font-family:var(--mono)">-</span>';
           const jpH = r.jobStarted
             ? ""
             : r.enabled
-              ? '<span style="color:#f0a500;font-size:.56rem"> idle</span>'
-              : '<span style="color:var(--muted);font-size:.56rem"> dis</span>';
+            ? '<span style="color:#f0a500;font-size:.56rem"> idle</span>'
+            : '<span style="color:var(--muted);font-size:.56rem"> dis</span>';
           // ── card header: channel id + monitor button + node + job state ──
           h +=
             '<div class="ev-card' +
@@ -2375,10 +2388,10 @@
           const inf = im[n.id] || {},
             m = inf.metrics || {};
           const sched = Math.floor(
-            (inf.calculated_usage || inf.calculatedUsage || 0) * 100,
+            (inf.calculated_usage || inf.calculatedUsage || 0) * 100
           );
           const nodeChs = (cbN[n.id] || []).sort((a, b) =>
-            String(a.id).localeCompare(String(b.id)),
+            String(a.id).localeCompare(String(b.id))
           );
           const evFm = bfmEv(flagsEvData);
           const chData = nodeChs.map((ch) => {
@@ -2396,7 +2409,7 @@
               chSrcState !== "streaming" &&
               (chSrcState !== "acquiring_signal" || evs.length > 0);
             const evWm = evs.flatMap((ev) =>
-              (evFm[ev.event_id] || []).filter((w) => !isInfo(w)),
+              (evFm[ev.event_id] || []).filter((w) => !isInfo(w))
             );
             return {
               id,
@@ -2445,17 +2458,17 @@
               r.host.toLowerCase().includes(filter) ||
               r.chData.some((c) => c.id.toLowerCase().includes(filter)) ||
               r.evRows.some((e) =>
-                e.ev.event_name.toLowerCase().includes(filter),
-              ),
+                e.ev.event_name.toLowerCase().includes(filter)
+              )
           );
         if (warnOnly)
           rows = rows.filter(
             (r) =>
               r.nW > 0 ||
               r.cpu >= 80 ||
-              r.mem >= 80 ||
+              r.mem >= 95 ||
               r.sched >= 70 ||
-              r.status === "offline",
+              r.status === "offline"
           );
         if (inUseOnly) rows = rows.filter((r) => r.hasEvs);
         rows = applySort(rows, "nodes");
@@ -2507,12 +2520,12 @@
             const cc = !c.enabled
               ? "ck-dis"
               : c.warnings || c.encWarn
-                ? "ck-wn"
-                : c.hasEv && !c.jobStarted
-                  ? "ck-evw"
-                  : !c.jobStarted
-                    ? "ck-idle"
-                    : "ck-ok";
+              ? "ck-wn"
+              : c.hasEv && !c.jobStarted
+              ? "ck-evw"
+              : !c.jobStarted
+              ? "ck-idle"
+              : "ck-ok";
             h +=
               '<span class="ch-chip ' +
               cc +
@@ -2638,7 +2651,7 @@
               r.ch.toLowerCase().includes(filter) ||
               r.name.toLowerCase().includes(filter) ||
               r.encNode.toLowerCase().includes(filter) ||
-              r.id.includes(filter),
+              r.id.includes(filter)
           );
         if (warnOnly) rows = rows.filter((r) => r.warnings > 0 || r.evWarn);
         rows = applySort(rows, "running");
@@ -2742,7 +2755,7 @@
             (r) =>
               r.name.toLowerCase().includes(filter) ||
               r.ch.toLowerCase().includes(filter) ||
-              r.id.includes(filter),
+              r.id.includes(filter)
           );
 
         let h = sumBar([
@@ -2775,10 +2788,10 @@
             (r.ch
               ? chLink(r.ch)
               : r.spec
-                ? '<span style="font-family:var(--mono);font-size:.58rem;color:var(--muted)">' +
-                  esc(r.spec) +
-                  "</span>"
-                : "-") +
+              ? '<span style="font-family:var(--mono);font-size:.58rem;color:var(--muted)">' +
+                esc(r.spec) +
+                "</span>"
+              : "-") +
             "</td>" +
             '<td style="font-family:var(--mono);font-size:.58rem;color:var(--muted)">' +
             esc(r.start) +
@@ -2910,19 +2923,19 @@
         // Apply filters from the search form (captured at fetch time)
         if (logLevel)
           events = events.filter(
-            (e) => (e.level || "").toLowerCase() === logLevel,
+            (e) => (e.level || "").toLowerCase() === logLevel
           );
         if (fNode)
           events = events.filter((e) =>
             ((e.category || "") + " " + (e.message || ""))
               .toLowerCase()
-              .includes(fNode.toLowerCase()),
+              .includes(fNode.toLowerCase())
           );
         if (fCh)
           events = events.filter((e) =>
             ((e.category || "") + " " + (e.message || ""))
               .toLowerCase()
-              .includes(fCh.toLowerCase()),
+              .includes(fCh.toLowerCase())
           );
         if (fGrep) {
           const terms = fGrep
@@ -2961,7 +2974,7 @@
           events = events.filter((e) =>
             ((e.id || "") + " " + (e.category || "") + " " + (e.message || ""))
               .toLowerCase()
-              .includes(fMain),
+              .includes(fMain)
           );
 
         $("log-count").textContent = events.length + " / " + logEvents.length;
@@ -3029,7 +3042,7 @@
           logSuggestCache = { nodes: [], channels: [] };
           pushURL();
           load();
-        }),
+        })
       );
 
       document.querySelectorAll("#vw-g .grp-btn").forEach((btn) =>
@@ -3043,7 +3056,7 @@
           pushURL();
           updateToolbarForView();
           if (view !== "logs") load(); // logs view shows the search form first; fetch only on submit
-        }),
+        })
       );
 
       $("rb").addEventListener("click", load);
@@ -3072,7 +3085,7 @@
           logLevel = btn.dataset.lvl;
           btn.classList.add(logLevel ? "a-" + logLevel : "a-all");
           if (hasData && view === "logs") renderLogs();
-        }),
+        })
       );
       $("lg").addEventListener("input", () => {
         if (hasData && view === "logs") renderLogs();
@@ -3095,7 +3108,7 @@
           btn.classList.add("active");
           schedHorizonDays = parseInt(btn.dataset.days) || 0;
           if (hasData) renderView();
-        }),
+        })
       );
 
       // Restore checkbox state from localStorage (URL params take precedence — handled in initFromURL)
@@ -3151,7 +3164,9 @@
       async function pollChannelBitrate() {
         if (!chMonState.isOpen || !chMonState.chId) return;
         try {
-          const path = `/id3as/${dc}/channel/${encodeURIComponent(chMonState.chId)}/status`;
+          const path = `/id3as/${dc}/channel/${encodeURIComponent(
+            chMonState.chId
+          )}/status`;
           const r = await fetch(PROXY + path);
           if (!r.ok) return;
           const st = await r.json();
@@ -3182,7 +3197,11 @@
           <span class="chm-label">Channel:</span>
           <span class="chm-id">${chLink(chMonState.chId)}</span>
           <span class="chm-label">Node:</span>
-          <span class="chm-node">${nodeLink(chMonState.chData.encoder_node_id || chMonState.chData.target_node_id || "-")}</span>
+          <span class="chm-node">${nodeLink(
+            chMonState.chData.encoder_node_id ||
+              chMonState.chData.target_node_id ||
+              "-"
+          )}</span>
         </div>
 
         <div id="ch-chart-container" style="width:100%;height:280px;margin:12px 0;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px;">
@@ -3268,7 +3287,7 @@
 
         const svg = document.createElementNS(
           "http://www.w3.org/2000/svg",
-          "svg",
+          "svg"
         );
         svg.setAttribute("width", W);
         svg.setAttribute("height", H);
@@ -3278,7 +3297,7 @@
         function mkEl(tag, attrs) {
           const el = document.createElementNS(
             "http://www.w3.org/2000/svg",
-            tag,
+            tag
           );
           for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
           return el;
@@ -3311,7 +3330,7 @@
               stroke: "rgba(255,255,255,.07)",
               "stroke-width": "1",
               "stroke-dasharray": i === 0 ? "none" : "3,4",
-            }),
+            })
           );
           // Y label
           const label =
@@ -3322,7 +3341,7 @@
             txt(ML - 4, y + 3.5, label, {
               "text-anchor": "end",
               fill: "rgba(255,255,255,.3)",
-            }),
+            })
           );
         }
 
@@ -3340,7 +3359,7 @@
               stroke: "rgba(255,255,255,.07)",
               "stroke-width": "1",
               "stroke-dasharray": i === 0 || i === xDivs ? "none" : "3,4",
-            }),
+            })
           );
           // Pick the sample closest to this grid position
           const sampleIdx = Math.round((i / xDivs) * (data.length - 1));
@@ -3356,7 +3375,7 @@
             txt(x, MT + cH + MB - 4, xLabel, {
               "text-anchor": "middle",
               fill: "rgba(255,255,255,.25)",
-            }),
+            })
           );
         }
 
@@ -3387,7 +3406,7 @@
               d: areaPath,
               fill: "rgba(0,255,200,.06)",
               stroke: "none",
-            }),
+            })
           );
         }
 
@@ -3406,7 +3425,7 @@
             stroke: "#00ffc8",
             "stroke-width": "1.5",
             "stroke-linejoin": "round",
-          }),
+          })
         );
 
         // ── Live dot + label at last point ──
@@ -3417,7 +3436,7 @@
 
           // Dot
           svg.appendChild(
-            mkEl("circle", { cx: lx, cy: ly, r: "3", fill: "#00ffc8" }),
+            mkEl("circle", { cx: lx, cy: ly, r: "3", fill: "#00ffc8" })
           );
 
           // Live value label — right of chart area
@@ -3430,7 +3449,7 @@
               fill: "#00ffc8",
               "font-size": "11",
               "font-weight": "bold",
-            }),
+            })
           );
 
           // Horizontal dashed line from dot to label
@@ -3443,7 +3462,7 @@
               stroke: "rgba(161,139,245,.35)",
               "stroke-width": "1",
               "stroke-dasharray": "2,2",
-            }),
+            })
           );
         }
 
@@ -3507,7 +3526,11 @@
         }
         let h = "";
         for (const w of warnings) {
-          h += `<div class="chm-warning-item"><span class="chm-w-mod">[${esc(w.module || "")}]</span><span class="chm-w-msg">${esc(w.msg || "")}</span><span class="chm-w-rep">\xd7${w.repeated || 0}</span></div>`;
+          h += `<div class="chm-warning-item"><span class="chm-w-mod">[${esc(
+            w.module || ""
+          )}]</span><span class="chm-w-msg">${esc(
+            w.msg || ""
+          )}</span><span class="chm-w-rep">\xd7${w.repeated || 0}</span></div>`;
         }
         list.innerHTML = h;
       }
@@ -3535,7 +3558,13 @@
       <div class="chm-ev-id">${evLink(ev.event_id)}</div>
       <div class="chm-ev-name">${esc(ev.event_name.slice(0, 100))}</div>
       <div class="chm-ev-time">${esc(ev.start)} \u2192 ${esc(ev.end)}</div>
-      ${ev.enc_node ? `<div class="chm-ev-node" style="color:${evNdDiff ? "var(--warn)" : "var(--muted)"}">Node: ${nodeLink(ev.enc_node)}</div>` : ""}
+      ${
+        ev.enc_node
+          ? `<div class="chm-ev-node" style="color:${
+              evNdDiff ? "var(--warn)" : "var(--muted)"
+            }">Node: ${nodeLink(ev.enc_node)}</div>`
+          : ""
+      }
     </div>`;
         }
         list.innerHTML = h;
