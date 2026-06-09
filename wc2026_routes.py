@@ -12,7 +12,7 @@ from flask import Blueprint, jsonify, request
 
 from routes_auth import require_admin_role, require_auth
 
-wc2026_bp = Blueprint('wc2026', __name__, url_prefix='/wc2026')
+wc2026_bp = Blueprint('wc2026', __name__, url_prefix='/so-proxy/wc2026')
 
 ASSIGNMENTS_FILE = os.path.join(os.path.dirname(__file__), 'wc2026_assignments.json')
 
