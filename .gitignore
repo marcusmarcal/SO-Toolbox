@@ -7,4 +7,5 @@ __pycache__/
 .vscode/
 patches/
 users.json
+wc2026_assignments.json
 *.mp4
