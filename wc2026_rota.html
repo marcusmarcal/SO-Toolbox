@@ -2944,7 +2944,11 @@
       function buildScoreCell(m) {
         const sc = R[m.id];
         if (!sc) return `<span class="score-cell score-none">—</span>`;
-        return `<span class="score-cell score-done">${sc.s1} – ${sc.s2}</span>`;
+        let html = `<span class="score-cell score-done">${sc.s1} – ${sc.s2}</span>`;
+        if (sc.ht != null) {
+          html += `<span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);margin-left:4px;">(${sc.ht})</span>`;
+        }
+        return html;
       }
 
       // ─── OPENFOOTBALL SYNC ────────────────────────────────────────────────────────
@@ -2989,7 +2993,7 @@
           if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
           const json = await resp.json();
 
-          let updTeams = 0, updScores = 0;
+          let updTeams = 0, updScores = 0, matched = 0;
 
           // Build a lookup: "YYYY-MM-DD|HH:MM" → match entry from JSON
           const lookup = {};
@@ -3002,6 +3006,7 @@
             const key = `${m.date}|${m.bst}`;
             const jm = lookup[key];
             if (!jm) return;
+            matched++;
 
             // Update team names if changed (and not a placeholder)
             const isPlaceholder = (n) => !n || /^(W|L)\d+$/.test(n) || /^\d[A-Z]$/.test(n) || /UEFA|IC Path|winner/.test(n);
@@ -3015,10 +3020,14 @@
             }
 
             // Update scores if present
-            if (jm.score1 != null && jm.score2 != null) {
+            if (jm.score && jm.score.ft && jm.score.ft.length === 2) {
+              const [s1, s2] = jm.score.ft;
+              const ht = (jm.score.ht && jm.score.ht.length === 2)
+                ? `${jm.score.ht[0]}–${jm.score.ht[1]}`
+                : null;
               const prev = R[m.id];
-              if (!prev || prev.s1 !== jm.score1 || prev.s2 !== jm.score2) {
-                R[m.id] = { s1: jm.score1, s2: jm.score2 };
+              if (!prev || prev.s1 !== s1 || prev.s2 !== s2) {
+                R[m.id] = { s1, s2, ht };
                 updScores++;
               }
             }
@@ -3030,8 +3039,11 @@
           const parts = [];
           if (updTeams) parts.push(`${updTeams} name${updTeams > 1 ? "s" : ""} updated`);
           if (updScores) parts.push(`${updScores} score${updScores > 1 ? "s" : ""} updated`);
+          const matchInfo = `${matched}/${M.length} matched`;
           showToast(
-            parts.length ? `✓ Sync: ${parts.join(", ")}` : "✓ Sync: nothing new",
+            parts.length
+              ? `✓ Sync (${matchInfo}): ${parts.join(", ")}`
+              : `✓ Sync (${matchInfo}): nothing new`,
             "ok"
           );
         } catch (e) {
