@@ -345,6 +345,28 @@
       .day-block.hidden {
         display: none;
       }
+      .day-block.past {
+        opacity: 0.45;
+        filter: grayscale(0.4);
+      }
+      .day-block.past .ddate {
+        color: var(--muted);
+      }
+      #btn-past {
+        border-color: var(--muted);
+        color: var(--muted);
+      }
+      #btn-past:hover {
+        border-color: var(--text2);
+        color: var(--text2);
+        background: transparent;
+      }
+      #btn-past.active {
+        background: var(--surface2);
+        border-color: var(--text2);
+        color: var(--text);
+        font-weight: 700;
+      }
       .dh {
         background: var(--surface2);
         padding: 8px 12px;
@@ -765,6 +787,8 @@
         <button class="fb" data-f="eng" data-v="dual">⚠ Dual</button>
         <button class="fb" data-f="eng" data-v="none">Unassigned</button>
       </div>
+      <div class="vl"></div>
+      <button class="fb" id="btn-past" onclick="togglePast()" title="Toggle visibility of past match days">⏮ Show past</button>
       <div class="vl"></div>
       <input
         class="sb"
@@ -3129,10 +3153,26 @@
 
       // ─── FILTERS ──────────────────────────────────────────────────────────────────
       let fStage = "all",
-        fEng = "all";
+        fEng = "all",
+        showPast = false;
+
+      // TODAY in YYYY-MM-DD (local date, consistent with match date strings)
+      const TODAY = new Date().toLocaleDateString("en-CA"); // "2026-06-12"
+
+      function togglePast() {
+        showPast = !showPast;
+        const btn = document.getElementById("btn-past");
+        btn.classList.toggle("active", showPast);
+        applyFilters();
+      }
+
       function applyFilters() {
         const q = document.getElementById("searchBox").value.toLowerCase();
         document.querySelectorAll(".day-block").forEach((block) => {
+          const isPast = block.dataset.date < TODAY;
+          // Mark past blocks visually
+          block.classList.toggle("past", isPast);
+
           const rows = [...block.querySelectorAll(".mr")];
           let vis = false;
           rows.forEach((r) => {
@@ -3150,7 +3190,9 @@
           // dual filter: show block if it has dual flag
           const dualOk =
             fEng !== "dual" || block.querySelector(".dual-flag") != null;
-          block.style.display = vis && dualOk ? "" : "none";
+          // Hide past blocks unless showPast is active
+          const pastOk = !isPast || showPast;
+          block.style.display = vis && dualOk && pastOk ? "" : "none";
         });
       }
 
