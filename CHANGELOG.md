@@ -7,6 +7,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.9.0] - 2026-06-12
+
+### Added
+
+- Id3as DC: Channel list cards now display the input multicast address and port below the channel ID
+
 ## [3.8.0] - 2026-06-09
 
 ### Added
