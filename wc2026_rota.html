@@ -3009,7 +3009,12 @@
             matched++;
 
             // Update team names if changed (and not a placeholder)
-            const isPlaceholder = (n) => !n || /^(W|L)\d+$/.test(n) || /^\d[A-Z]$/.test(n) || /UEFA|IC Path|winner/.test(n);
+            // Openfootball placeholders: "2A", "1E", "W74", "L101", "3A/B/C/D/F", "UEFA Path A winner", "IC Path 1 winner"
+            const isPlaceholder = (n) =>
+              !n ||
+              /^[WL]\d+$/.test(n) ||           // W73, L101
+              /^\d+[A-Z](\/[A-Z])*$/.test(n) || // 1A, 2B, 3A/B/C/D/F
+              /UEFA|IC Path|winner/i.test(n);   // UEFA Path A winner, IC Path 1 winner
             if (!isPlaceholder(jm.team1) && jm.team1 !== m.t1) {
               m.t1 = jm.team1;
               updTeams++;
