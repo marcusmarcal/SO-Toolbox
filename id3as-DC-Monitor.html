@@ -2193,6 +2193,8 @@
               srcWarn,
               bitrate: stat.source_bitrate || 0,
               st,
+              inputAddr: ch.input_address || "",
+              inputPort: ch.input_port || "",
             };
           });
 
@@ -2263,6 +2265,13 @@
               ? ' <span style="color:var(--muted);font-size:.5rem">PT</span>'
               : "") +
             "</span>" +
+            (r.inputAddr
+              ? '<span style="color:var(--muted);font-size:.55rem;font-family:var(--mono);display:block;line-height:1.2">' +
+                r.inputAddr +
+                ":" +
+                r.inputPort +
+                "</span>"
+              : "") +
             "<button onclick=\"openChannelMonitorFromRow('" +
             esc(r.id) +
             '\');event.stopPropagation()" title="Channel Monitor" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:.6rem;padding:0 2px;font-family:var(--mono);opacity:.6;transition:opacity .15s;line-height:1" onmouseover="this.style.opacity=1;this.style.color=\'var(--accent)\'" onmouseout="this.style.opacity=.6;this.style.color=\'var(--muted)\'">⧉</button>' +
