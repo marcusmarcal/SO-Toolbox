@@ -589,6 +589,42 @@
         color: var(--ch);
       }
 
+      /* ── SCORE ── */
+      .score-cell {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+        letter-spacing: 1px;
+      }
+      .score-cell.score-live {
+        color: var(--green);
+      }
+      .score-cell.score-done {
+        color: var(--text);
+      }
+      .score-cell.score-none {
+        color: var(--muted);
+        font-weight: 400;
+        font-size: 10px;
+      }
+      .sync-toast {
+        position: fixed;
+        bottom: 18px;
+        right: 24px;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        padding: 8px 16px;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 11px;
+        color: var(--text2);
+        z-index: 999;
+        transition: opacity 0.4s;
+      }
+      .sync-toast.ok { border-color: var(--green); color: var(--green); }
+      .sync-toast.err { border-color: var(--red); color: var(--red); }
+
       /* ── EPG ── */
       /* EPG in day header: spans 14h window 18:00→08:00+1 */
       .epg-hdr {
@@ -820,6 +856,7 @@
         <span class="late-tag">LATE</span> = KO after midnight BST
       </div>
       <div style="margin-left: auto; display: flex; gap: 6px">
+        <button class="fb" id="btn-sync" onclick="syncOpenfootball()" title="Fetch latest team names & scores from openfootball GitHub">↻ Sync</button>
         <button class="fb" id="btn-auto" onclick="autoAssign()">
           ⚡ Auto-assign
         </button>
@@ -2363,6 +2400,7 @@
 
       // ─── STATE ───────────────────────────────────────────────────────────────────
       const A = {}; // A[id] = 'N'|'G'|'H'|''
+      const R = {}; // R[id] = {s1, s2}  — scores from openfootball sync
       let CURRENT_USER = null; // { ok, role, username } from /so-proxy/me
       let SAVE_DEBOUNCE = null;
 
@@ -2431,6 +2469,11 @@
           Object.keys(sa).forEach((k) => {
             if (sa[k]) A[parseInt(k)] = sa[k];
           });
+          // Restore scores
+          const sr = data.scores || {};
+          Object.keys(sr).forEach((k) => {
+            if (sr[k]) R[parseInt(k)] = sr[k];
+          });
           // Restore engineer names
           const sn = data.engNames || {};
           if (sn.N) document.getElementById("e0").value = sn.N;
@@ -2471,7 +2514,7 @@
             method: "POST",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ assignments: A, engNames }),
+            body: JSON.stringify({ assignments: A, engNames, scores: R }),
           });
           const json = await r.json();
           if (json.ok) {
@@ -2897,6 +2940,108 @@
       }
 
       // ─── RENDER ───────────────────────────────────────────────────────────────────
+      // ─── SCORE CELL ──────────────────────────────────────────────────────────────
+      function buildScoreCell(m) {
+        const sc = R[m.id];
+        if (!sc) return `<span class="score-cell score-none">—</span>`;
+        return `<span class="score-cell score-done">${sc.s1} – ${sc.s2}</span>`;
+      }
+
+      // ─── OPENFOOTBALL SYNC ────────────────────────────────────────────────────────
+      // Matches by: date + BST time (derived the same way as in M)
+      // JSON time format: "HH:MM UTC±N"  → BST = local + (-tz) + 1
+      function jBST(timeStr) {
+        // e.g. "13:00 UTC-6" → BST
+        const m = timeStr.match(/^(\d+):(\d+)\s*UTC([+-]\d+)/);
+        if (!m) return null;
+        const [, hh, mm, tz] = m;
+        const utcMin = parseInt(hh) * 60 + parseInt(mm) - parseInt(tz) * 60;
+        const bstMin = utcMin + 60; // BST = UTC+1
+        const bh = ((bstMin % 1440) + 1440) % 1440;
+        const rh = Math.floor(bh / 60) % 24;
+        const rm = bh % 60;
+        return `${String(rh).padStart(2, "0")}:${String(rm).padStart(2, "0")}`;
+      }
+
+      function showToast(msg, type) {
+        let t = document.getElementById("sync-toast");
+        if (!t) {
+          t = document.createElement("div");
+          t.id = "sync-toast";
+          t.className = "sync-toast";
+          document.body.appendChild(t);
+        }
+        t.textContent = msg;
+        t.className = `sync-toast ${type}`;
+        t.style.opacity = "1";
+        clearTimeout(t._hide);
+        t._hide = setTimeout(() => { t.style.opacity = "0"; }, 4000);
+      }
+
+      async function syncOpenfootball() {
+        const btn = document.getElementById("btn-sync");
+        btn.textContent = "↻ Syncing…";
+        btn.disabled = true;
+        try {
+          const resp = await fetch(
+            "https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026/worldcup.json"
+          );
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const json = await resp.json();
+
+          let updTeams = 0, updScores = 0;
+
+          // Build a lookup: "YYYY-MM-DD|HH:MM" → match entry from JSON
+          const lookup = {};
+          (json.matches || []).forEach((jm) => {
+            const bst = jBST(jm.time);
+            if (bst) lookup[`${jm.date}|${bst}`] = jm;
+          });
+
+          M.forEach((m) => {
+            const key = `${m.date}|${m.bst}`;
+            const jm = lookup[key];
+            if (!jm) return;
+
+            // Update team names if changed (and not a placeholder)
+            const isPlaceholder = (n) => !n || /^(W|L)\d+$/.test(n) || /^\d[A-Z]$/.test(n) || /UEFA|IC Path|winner/.test(n);
+            if (!isPlaceholder(jm.team1) && jm.team1 !== m.t1) {
+              m.t1 = jm.team1;
+              updTeams++;
+            }
+            if (!isPlaceholder(jm.team2) && jm.team2 !== m.t2) {
+              m.t2 = jm.team2;
+              updTeams++;
+            }
+
+            // Update scores if present
+            if (jm.score1 != null && jm.score2 != null) {
+              const prev = R[m.id];
+              if (!prev || prev.s1 !== jm.score1 || prev.s2 !== jm.score2) {
+                R[m.id] = { s1: jm.score1, s2: jm.score2 };
+                updScores++;
+              }
+            }
+          });
+
+          renderAll();
+          if (isAdmin()) schedSave();
+
+          const parts = [];
+          if (updTeams) parts.push(`${updTeams} name${updTeams > 1 ? "s" : ""} updated`);
+          if (updScores) parts.push(`${updScores} score${updScores > 1 ? "s" : ""} updated`);
+          showToast(
+            parts.length ? `✓ Sync: ${parts.join(", ")}` : "✓ Sync: nothing new",
+            "ok"
+          );
+        } catch (e) {
+          showToast(`✕ Sync failed: ${e.message}`, "err");
+        } finally {
+          btn.textContent = "↻ Sync";
+          btn.disabled = false;
+        }
+      }
+
       function koClass(bst) {
         const [h] = bst.split(":").map(Number);
         if (h < 10) return "deep"; // 00-09 overnight
@@ -2980,6 +3125,7 @@
         <td><span class="matchup">${m.t1}<span class="vs">vs</span>${
                   m.t2
                 }</span></td>
+        <td>${buildScoreCell(m)}</td>
         <td class="hsm"><span class="venue-t">${
           m.venue
         }</span><br><span class="city-t">${m.city}</span></td>
@@ -3024,6 +3170,7 @@
           <th>KO (BST)</th>
           <th class="hsm">Local</th>
           <th>Match</th>
+          <th>Result</th>
           <th class="hsm">Venue / City</th>
           <th class="hsm">Grp / Stage</th>
           <th>Engineer</th>
