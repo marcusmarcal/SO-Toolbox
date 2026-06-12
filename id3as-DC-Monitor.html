@@ -3211,6 +3211,10 @@
               chMonState.chData.target_node_id ||
               "-"
           )}</span>
+          <span class="chm-label">Input:</span>
+          <span class="chm-input">${chMonState.chData.input_address || "-"}:${
+          chMonState.chData.input_port || "-"
+        }</span>
         </div>
 
         <div id="ch-chart-container" style="width:100%;height:280px;margin:12px 0;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px;">
