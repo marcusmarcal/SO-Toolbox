@@ -3330,8 +3330,9 @@
         fEng = "all",
         showPast = false;
 
-      // TODAY in YYYY-MM-DD (local date, consistent with match date strings)
-      const TODAY = new Date().toLocaleDateString("en-CA"); // "2026-06-12"
+      // TODAY in YYYY-MM-DD — construído manualmente para evitar dependência de locale
+      const _now = new Date();
+      const TODAY = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`;
 
       function togglePast() {
         showPast = !showPast;
