@@ -2505,6 +2505,8 @@
           console.warn("saveScores failed:", e);
         }
       }
+
+      function schedSave() {
         if (!isAdmin()) return;
         updateSaveStatus("pending");
         clearTimeout(SAVE_DEBOUNCE);
