@@ -7,6 +7,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.10.0] - 2026-06-15
+
+### Added
+
+- WC2026 rota: Sync is persistent now
+
 ## [3.9.0] - 2026-06-12
 
 ### Added

@@ -2494,7 +2494,17 @@
         }
       }
 
-      function schedSave() {
+      async function saveScores() {
+        try {
+          await fetch("/so-proxy/wc2026/scores", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ scores: R }),
+          });
+        } catch (e) {
+          console.warn("saveScores failed:", e);
+        }
+      }
         if (!isAdmin()) return;
         updateSaveStatus("pending");
         clearTimeout(SAVE_DEBOUNCE);
@@ -3039,7 +3049,7 @@
           });
 
           renderAll();
-          if (isAdmin()) schedSave();
+          saveScores(); // persist scores for all users
 
           const parts = [];
           if (updTeams) parts.push(`${updTeams} name${updTeams > 1 ? "s" : ""} updated`);
