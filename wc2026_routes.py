@@ -84,23 +84,20 @@ def save_assignments():
 # qualquer utilizador autenticado pode fazer sync e persistir resultados.
 # O GET /assignments já devolve scores no mesmo blob, por isso o load não precisa de mudar.
 
-@wc2026_bp.route("/wc2026/scores", methods=["POST"])
-@login_required  # autenticado mas não necessariamente admin
+@wc2026_bp.route('/scores', methods=['POST'])
+@require_auth
 def save_scores():
+    """Persist scores from openfootball sync. Any authenticated user."""
     payload = request.get_json(silent=True) or {}
-    incoming_scores = payload.get("scores", {})
+    incoming_scores = payload.get('scores', {})
     if not isinstance(incoming_scores, dict):
-        return jsonify({"ok": False, "error": "invalid payload"}), 400
+        return jsonify({'ok': False, 'error': 'invalid payload'}), 400
 
-    # Carrega o ficheiro de estado existente (mesmo ficheiro dos assignments)
-    data = _load_data()  # helper já existente no blueprint
-
-    # Merge: só actualiza scores, não toca em assignments/engNames/updatedBy/updatedAt
-    existing_scores = data.get("scores", {})
-    existing_scores.update({str(k): v for k, v in incoming_scores.items()})
-    data["scores"] = existing_scores
-    data["scoresUpdatedAt"] = datetime.utcnow().isoformat() + "Z"
-    data["scoresUpdatedBy"] = current_user.username
-
-    _save_data(data)  # helper já existente no blueprint
-    return jsonify({"ok": True})
+    data = _load()
+    existing = data.get('scores', {})
+    existing.update({str(k): v for k, v in incoming_scores.items()})
+    data['scores'] = existing
+    data['scoresUpdatedAt'] = datetime.now(timezone.utc).isoformat()
+    data['scoresUpdatedBy'] = request.session.get('username', '?')
+    _save(data)
+    return jsonify({'ok': True})
