@@ -502,8 +502,13 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
         if not dar and v_width and v_height:
             from math import gcd; g = gcd(v_width, v_height); dar = f"{v_width//g}:{v_height//g}"
 
-        chroma_map  = {"yuv420p":"4:2:0","yuv422p":"4:2:2","yuv444p":"4:4:4"}
-        v_chroma    = chroma_map.get(v_pix_fmt, v_pix_fmt)
+        chroma_map  = {
+            "yuv420p":  "4:2:0", "yuvj420p":  "4:2:0",
+            "yuv422p":  "4:2:2", "yuvj422p":  "4:2:2",
+            "yuv444p":  "4:4:4", "yuvj444p":  "4:4:4",
+        }
+        v_chroma       = chroma_map.get(v_pix_fmt, v_pix_fmt)
+        v_full_range   = v_pix_fmt.startswith("yuvj")
         v_entropy   = "CABAC" if v_profile in ("High","Main","High 10","High 422","High 444") else "CAVLC"
 
         hdr_transfers = ("smpte2084", "smpte428")
@@ -608,7 +613,19 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
                 return "ACCEPTED", measured, f"Preferred {pref_raw}"
             return "COMPLIANT", measured, ""
 
-        file_br_mbps = round(file_br / 1e6, 5) if file_br else 0
+        def comply_chroma(chroma_val, pix_fmt_val, full_range, key):
+            sp = _s(key)
+            allowed = [str(v).lower() for v in sp.get("values", [])]
+            m = str(chroma_val).strip().lower()
+            if not allowed:
+                return "UNKNOWN", pix_fmt_val, "No spec defined"
+            if m not in allowed:
+                return "REJECTED", pix_fmt_val, f"Expected one of {sp.get('values', [])}"
+            if full_range:
+                return "REJECTED", pix_fmt_val, f"{pix_fmt_val} is full-range; expected limited-range (e.g. yuv420p)"
+            return "COMPLIANT", pix_fmt_val, ""
+
+
         v_br_mbps    = round(v_br   / 1e6, 5) if v_br   else 0
         a_br_kbps_f  = round(a_br   / 1000, 1) if a_br  else 0
         a_rate_khz   = round(float(a_rate) / 1000, 1) if str(a_rate).isdigit() else 0
@@ -675,7 +692,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
                              "Present" if has_idr else "ABSENT", "IDR frames required"),
             "frame_size":   comply_enum_multi(f"{v_width}x{v_height}", "frame_size"),
             "aspect_ratio": comply_enum_multi(dar, "aspect_ratio"),
-            "chroma":       comply_enum_multi(v_chroma, "chroma"),
+            "chroma":       comply_chroma(v_chroma, v_pix_fmt, v_full_range, "chroma"),
             "scan_type":    comply_enum_multi(v_scan, "scan_type"),
             "bit_depth":    comply_enum_multi(str(v_bits), "bit_depth"),
             "colour_gamut": comply_enum_multi(v_color_sp, "colour_gamut"),

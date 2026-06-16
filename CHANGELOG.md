@@ -7,6 +7,18 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.11.1] - 2026-06-16
+
+### Fixed
+
+- GOP chroma compliance check (`routes_gop.py`) no longer conflates pixel
+  format with chroma subsampling. `yuvj420p` (full-range) is now
+  correctly rejected instead of being reported as `ACCEPTED`; `yuv420p`
+  (limited-range) is accepted as before. The compliance report now shows
+  the actual pixel format (e.g. `yuv420p`, `yuvj420p`) as the measured
+  value, distinct from the `4:2:0` chroma subsampling notation used for
+  spec matching.
+
 ## [3.11.0] - 2026-06-16
 
 ### Fixed
