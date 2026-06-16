@@ -4440,9 +4440,13 @@
             const n = parseFloat(el.value);
             specs[key][field] = isNaN(n) ? 0 : n;
           } else if (field === "preferred") {
-            // Try to parse as number first (for fps preferred)
-            const n = parseFloat(el.value);
-            specs[key][field] = isNaN(n) ? el.value.trim() : n;
+            // Only store as number if the ENTIRE value is numeric (e.g. "25" for fps).
+            // Strings like "4:2:0" or "1920x1080" must be kept as strings —
+            // parseFloat("4:2:0") = 4 and parseFloat("1920x1080") = 1920, which
+            // silently truncates them, so we guard with a round-trip check.
+            const v = el.value.trim();
+            const n = parseFloat(v);
+            specs[key][field] = !isNaN(n) && String(n) === v ? n : v;
           } else {
             specs[key][field] = el.value.trim();
           }

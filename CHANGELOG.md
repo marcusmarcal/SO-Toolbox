@@ -7,6 +7,15 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.11.0] - 2026-06-16
+
+### Fixed
+
+- BTV: Specs editor `saveSpecs()` no longer truncates `preferred` values containing
+  `:` or `x` (e.g. `4:2:0`, `1920x1080`) when saving. `parseFloat` was
+  silently parsing only the leading numeric portion; the fix now requires
+  an exact round-trip match before treating a value as numeric.
+
 ## [3.10.0] - 2026-06-15
 
 ### Added
