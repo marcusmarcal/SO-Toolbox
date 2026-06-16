@@ -626,6 +626,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             return "COMPLIANT", pix_fmt_val, ""
 
 
+        file_br_mbps = round(file_br / 1e6, 5) if file_br else 0
         v_br_mbps    = round(v_br   / 1e6, 5) if v_br   else 0
         a_br_kbps_f  = round(a_br   / 1000, 1) if a_br  else 0
         a_rate_khz   = round(float(a_rate) / 1000, 1) if str(a_rate).isdigit() else 0
