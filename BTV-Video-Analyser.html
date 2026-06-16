@@ -4171,10 +4171,21 @@
         try {
           const res = await fetch(`${PROXY}/gop/schedule`);
           const items = await res.json();
+          let extRunning = [];
+          try {
+            const r2 = await fetch(`${PROXY}/gop/jobs/running`);
+            extRunning = (await r2.json()).map((j) => ({
+              ...j,
+              external: true,
+              run_at_utc: j.started_at,
+            }));
+          } catch (e) {
+            console.warn("gop/jobs/running unavailable:", e);
+          }
           const list = document.getElementById("scheduled-list");
-          const active = items.filter(
-            (i) => i.status === "pending" || i.status === "running"
-          );
+          const active = items
+            .filter((i) => i.status === "pending" || i.status === "running")
+            .concat(extRunning);
           const justDone = items.filter(
             (i) => i.status === "done" && i._notified !== true
           );
@@ -4199,7 +4210,7 @@
                 .split(":")[0]
                 .split("?")[0];
               const schedUser = item.username || "anonymous";
-              const schedId = item.sched_id || "unknown";
+              const schedId = item.sched_id || item.job_id || "unknown";
               const host = resolveHost(urlHost);
               const portMatch = (item.url || "").match(/:(\d+)/);
               const port = portMatch ? portMatch[1] : "?";
@@ -4209,14 +4220,18 @@
         <div style="color:var(--muted);margin-top:1px">🕐 ${runAt}${
                 item.tag ? " · " + item.tag : ""
               }</div>
-        <div style="margin-top:4px;display:flex;gap:.4rem">🧑‍🔬 ${schedUser} · 🆔 ${schedId}</div>
+        <div style="margin-top:4px;display:flex;gap:.4rem">🧑‍🔬 ${schedUser} · 🆔 ${schedId}${
+                item.external
+                  ? ` · <span style="color:var(--cyan)">🔌 External</span>`
+                  : ""
+              }</div>
 
         <div style="margin-top:4px;display:flex;gap:.4rem">
           <span style="color:${
             isRunning ? "var(--yellow)" : "var(--cyan)"
           }">● ${item.status}</span>
           ${
-            !isRunning
+            !isRunning && !item.external
               ? `<button onclick="openCancelSchedModal('${item.sched_id}','${host}:${port}')" style="background:transparent;border:1px solid var(--border);border-radius:3px;color:var(--muted);font-family:var(--mono);font-size:.6rem;padding:0 6px;cursor:pointer" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--muted)'">✕ Cancel</button>`
               : ""
           }

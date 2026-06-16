@@ -7,6 +7,17 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.12.0] - 2026-06-16
+
+### Added
+
+- New `GET /gop/jobs/running` endpoint listing all in-progress jobs from
+  the in-memory job store, regardless of the calling client (HTML
+  frontend, Chrome extension, or any other API consumer).
+- The Scheduled panel now also displays jobs started outside the
+  scheduler (e.g. by the Chrome extension calling `/gop/run` directly),
+  marked with a "🔌 External" badge and without a Cancel action.
+
 ## [3.11.2] - 2026-06-16
 
 ### Changed

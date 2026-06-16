@@ -933,6 +933,20 @@ def gop_status(job_id):
     return jsonify(job)
 
 
+@gop_bp.route("/gop/jobs/running", methods=["GET"])
+def gop_jobs_running():
+    """List all in-progress jobs (status == 'running'), regardless of which
+    client started them — HTML frontend, Chrome extension, or any other
+    API caller. Log lines are omitted to keep the polling payload small."""
+    with _gop_lock:
+        running = [
+            {k: v for k, v in job.items() if k != "log"}
+            for job in _gop_jobs.values()
+            if job.get("status") == "running"
+        ]
+    return jsonify(running)
+
+
 @gop_bp.route("/gop/results", methods=["GET"])
 def gop_results():
     files = sorted([f for f in os.listdir(GOP_DIR) if f.endswith(".json")], reverse=True)
