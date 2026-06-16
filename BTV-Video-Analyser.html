@@ -2720,6 +2720,7 @@
           frame_size: ["Frame Size", "1280×720, 1920×1080"],
           aspect_ratio: ["Aspect Ratio", "16:9"],
           chroma: ["Chroma Subsampling", "4:2:0"],
+          colour_range: ["Colour Range", "limited"],
           scan_type: ["Scan Type", "progressive / interlaced"],
           bit_depth: ["Bit Depth", "8"],
           colour_gamut: ["Colour Gamut", "bt709"],
@@ -2750,6 +2751,7 @@
             "frame_size",
             "aspect_ratio",
             "chroma",
+            "colour_range",
             "scan_type",
             "bit_depth",
             "colour_gamut",
@@ -3491,6 +3493,7 @@
         )}
         ${vrow("Aspect Ratio", "16:9", r.v_dar || "—", "aspect_ratio")}
         ${vrow("Chroma", "4:2:0", r.v_chroma || "—", "chroma")}
+        ${vrow("Colour Range", "limited", r.v_pix_fmt || "—", "colour_range")}
         ${vrow(
           "Scan Type",
           "progressive / interlaced",
@@ -3718,6 +3721,7 @@
           ),
           tr("Aspect Ratio", "16:9", r.v_dar || "—", "aspect_ratio"),
           tr("Chroma", "4:2:0", r.v_chroma || "—", "chroma"),
+          tr("Colour Range", "limited", r.v_pix_fmt || "—", "colour_range"),
           tr("Scan Type", "prog/interlaced", r.v_scan || "—", "scan_type"),
           tr("Bit Depth", "8", String(r.v_bits || "—"), "bit_depth"),
           tr("Colour Gamut", "bt709", r.v_color_sp || "—", "colour_gamut"),
@@ -4314,6 +4318,7 @@
             "frame_size",
             "aspect_ratio",
             "chroma",
+            "colour_range",
             "scan_type",
             "bit_depth",
             "colour_gamut",

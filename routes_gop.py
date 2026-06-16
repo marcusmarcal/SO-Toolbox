@@ -87,6 +87,7 @@ DEFAULT_SPECS = {
     "frame_size":   {"values": ["1280x720","1920x1080"], "preferred": "1920x1080", "label": "Frame Size"},
     "aspect_ratio": {"values": ["16:9"], "label": "Aspect Ratio"},
     "chroma":       {"values": ["4:2:0"], "label": "Chroma Subsampling"},
+    "colour_range": {"values": ["limited"], "label": "Colour Range"},
     "scan_type":    {"values": ["progressive","interlaced","mbaff"], "preferred": "interlaced", "label": "Scan Type"},
     "bit_depth":    {"values": ["8"], "label": "Bit Depth"},
     "colour_gamut": {"values": ["unknown","bt709"], "preferred": "bt709", "label": "Colour Gamut"},
@@ -613,19 +614,6 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
                 return "ACCEPTED", measured, f"Preferred {pref_raw}"
             return "COMPLIANT", measured, ""
 
-        def comply_chroma(chroma_val, pix_fmt_val, full_range, key):
-            sp = _s(key)
-            allowed = [str(v).lower() for v in sp.get("values", [])]
-            m = str(chroma_val).strip().lower()
-            if not allowed:
-                return "UNKNOWN", pix_fmt_val, "No spec defined"
-            if m not in allowed:
-                return "REJECTED", pix_fmt_val, f"Expected one of {sp.get('values', [])}"
-            if full_range:
-                return "REJECTED", pix_fmt_val, f"{pix_fmt_val} is full-range; expected limited-range (e.g. yuv420p)"
-            return "COMPLIANT", pix_fmt_val, ""
-
-
         file_br_mbps = round(file_br / 1e6, 5) if file_br else 0
         v_br_mbps    = round(v_br   / 1e6, 5) if v_br   else 0
         a_br_kbps_f  = round(a_br   / 1000, 1) if a_br  else 0
@@ -693,7 +681,9 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
                              "Present" if has_idr else "ABSENT", "IDR frames required"),
             "frame_size":   comply_enum_multi(f"{v_width}x{v_height}", "frame_size"),
             "aspect_ratio": comply_enum_multi(dar, "aspect_ratio"),
-            "chroma":       comply_chroma(v_chroma, v_pix_fmt, v_full_range, "chroma"),
+            "chroma":       comply_enum_multi(v_chroma, "chroma"),
+            "colour_range": (lambda res: (res[0], v_pix_fmt, res[2]))(
+                                comply_enum_multi("full" if v_full_range else "limited", "colour_range")),
             "scan_type":    comply_enum_multi(v_scan, "scan_type"),
             "bit_depth":    comply_enum_multi(str(v_bits), "bit_depth"),
             "colour_gamut": comply_enum_multi(v_color_sp, "colour_gamut"),

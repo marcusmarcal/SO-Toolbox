@@ -7,6 +7,26 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.11.2] - 2026-06-16
+
+### Changed
+
+- Split the chroma compliance check into two independent rows: **Chroma
+  Subsampling** (4:2:0/4:2:2/4:4:4, derived from pixel format) and a new
+  **Colour Range** check (limited vs full). Previously both concepts were
+  conflated into a single `chroma` row, which made full-range formats
+  like `yuvj420p` either incorrectly pass (same subsampling as `yuv420p`)
+  or, after the v2.28.0 fix, correctly reject but under a misleading
+  "Chroma Subsampling" label.
+
+### Added
+
+- New `colour_range` spec (default: `limited`) in `DEFAULT_SPECS`,
+  configurable via the Specs Editor. Pixel formats starting with `yuvj`
+  (e.g. `yuvj420p`) are measured as `full` and rejected against the
+  `limited` requirement; standard formats (`yuv420p`, etc.) measure as
+  `limited` and pass.
+
 ## [3.11.1] - 2026-06-16
 
 ### Fixed
