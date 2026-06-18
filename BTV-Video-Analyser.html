@@ -2758,37 +2758,34 @@
         renderGopViz(r.gops || [], r.gop_patterns || []);
       }
 
+      function formatSpecText(s) {
+        if (!s) return "—";
+        if (s.values) {
+          const vals = s.values.join(", ");
+          return s.preferred !== undefined ? `${vals} (pref. ${s.preferred})` : vals;
+        }
+        if (s.required !== undefined) {
+          return typeof s.required === "string" ? s.required : "Required";
+        }
+        if (s.preferred !== undefined) {
+          return `${s.preferred} (preferred)`;
+        }
+        if (s.lo !== undefined && s.hi !== undefined) {
+          const range = `${s.lo}–${s.hi}`;
+          return s.pref_lo !== undefined
+            ? `${range} (${s.pref_lo}–${s.pref_hi})`
+            : range;
+        }
+        return "—";
+      }
+
       function renderComplianceTable(r) {
         const c = r.compliance || {};
-        const spec = {
-          overall_br: ["Overall Bitrate (Mbps)", "5.0–18.0 (8.0–15.0)"],
-          idr: ["IDR Frames", "Required"],
-          gop_size: ["GOP Size", "30, 50"],
-          gop_type: ["GOP Type", "CLOSED"],
-          b_frames: ["B-Frames", "Absent (preferred)"],
-          frame_size: ["Frame Size", "1280×720, 1920×1080"],
-          aspect_ratio: ["Aspect Ratio", "16:9"],
-          chroma: ["Chroma Subsampling", "4:2:0"],
-          colour_range: ["Colour Range", "limited"],
-          scan_type: ["Scan Type", "progressive / interlaced"],
-          bit_depth: ["Bit Depth", "8"],
-          colour_gamut: ["Colour Gamut", "bt709"],
-          codec: ["Coding Algorithm", "AVC H.264"],
-          codec_level: ["CODEC Level", "4.0–4.2"],
-          codec_profile: ["CODEC Profile", "Main, High"],
-          entropy: ["Entropy", "CABAC"],
-          rate_ctrl_v: ["Rate Control (Video)", "VBR, CBR"],
-          v_br: ["Video Bitrate (Mbps)", "5.0–18.0 (8.0–15.0)"],
-          hdr_scheme: ["SDR/HDR Scheme", "SDR"],
-          fps: ["Frame Rate", "25.0, 29.97, 30.0"],
-          a_codec: ["Audio Coding", "AAC-LC, MP1, MP2"],
-          a_streams: ["Audio Streams", "1–32"],
-          a_channels: ["Audio Channels", "2"],
-          a_rate_ctrl: ["Audio Rate Control", "VBR, CBR"],
-          a_sample_rate: ["Sample Rate (kHz)", "44.1–48.0"],
-          a_bits: ["Audio Bits per Sample", "FLTP, 16"],
-          a_br_kbps: ["Audio Bitrate (Kbps)", "118–512"],
-        };
+        const liveSpecs = r.specs || {};
+        const spec = {};
+        for (const key of Object.keys(liveSpecs)) {
+          spec[key] = [liveSpecs[key].label || key, formatSpecText(liveSpecs[key])];
+        }
 
         const sections = {
           "MEDIA PROFILE": ["overall_br"],
@@ -3458,11 +3455,13 @@
         };
 
         // Visual table row
+        const liveSpecsV = r.specs || {};
         const vrow = (label, spec, measured, key) => {
           const [s] = c[key] || ["—"];
+          const specText = liveSpecsV[key] ? formatSpecText(liveSpecsV[key]) : spec;
           return `<tr style="border-bottom:1px solid rgba(255,255,255,.05)">
       <td style="padding:.22rem .5rem;color:#8b949e;white-space:nowrap;font-size:.7rem">${label}</td>
-      <td style="padding:.22rem .5rem;color:#6e7681;font-size:.64rem">${spec}</td>
+      <td style="padding:.22rem .5rem;color:#6e7681;font-size:.64rem">${specText}</td>
       <td style="padding:.22rem .5rem;font-weight:600;font-size:.7rem">${
         measured || "—"
       }</td>
@@ -3717,7 +3716,8 @@
         const sep = "─".repeat(W1 + W2 + W3 + W4 + 3);
         const tr = (el, spec, meas, key) => {
           const [s] = c[key] || ["—"];
-          return `${el.padEnd(W1)} ${spec.padEnd(W2)} ${String(
+          const specText = liveSpecsV[key] ? formatSpecText(liveSpecsV[key]) : spec;
+          return `${el.padEnd(W1)} ${specText.padEnd(W2)} ${String(
             meas || "—"
           ).padEnd(W3)} ${s}`;
         };

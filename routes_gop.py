@@ -770,6 +770,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             "gops": [[{"type":f["type"],"key":f["key"],"idr":f.get("idr",False)}
                        for f in g] for g in complete_gops[:20]],
             "compliance": compliance,
+            "specs": specs,
             "overall_status": overall_status,
             "test_id": str(uuid.uuid4()),
             "av_sync_min_ms":    av_sync.get("av_sync_min_ms"),

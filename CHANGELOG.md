@@ -7,6 +7,15 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.13.1] - 2026-06-17
+
+### Fixed
+
+- The Specification column in the compliance table, and the matching
+  column in the visual/text test reports, now show the actual specs
+  saved for the workflow used in the test, instead of always showing
+  the original hardcoded defaults.
+
 ## [3.13.0] - 2026-06-18
 
 ### Added
