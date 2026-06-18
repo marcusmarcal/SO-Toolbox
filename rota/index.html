@@ -2,166 +2,1006 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Rota App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Streaming Ops Rota</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet" />
   <style>
-    body { font-family: Arial; margin: 20px; background: #f5f6fa; }
-    h1 { margin-bottom: 10px; }
-    .card {
-      background: white;
-      padding: 15px;
-      margin-bottom: 20px;
-      border-radius: 8px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #1a1a1a;
+      --surface:   #222222;
+      --card:      #2e2e2e;
+      --border:    #444444;
+      --accent:    #a18bf5;
+      --text:      #f2f2f2;
+      --muted:     #9b9b9b;
+      --danger:    #ff4e6a;
+      --ok:        #3fb950;
+      --mono:      "Space Mono", monospace;
+      --display:   "Syne", sans-serif;
+
+      /* Team colours */
+      --mgmt:      #ac74d4;
+      --eng:       #74b4d4;
+      --spec:      #f0b359;
+
+      /* Shift colours */
+      --s-0700:    #49B1E8;
+      --s-0900:    #8474E3;
+      --s-1300:    #04BA9C;
+      --s-1500:    #E8B159;
+      --s-2100:    #5C5C5C;
+      --s-0900s:   #95D6FC;
+      --s-1000:    #4A91BA;
+      --s-mgmt:    #ABD1AD;
+      --s-off:     #2a2a2a;
+      --s-al-app:  #FFEB3B;
+      --s-al-pen:  #F48FB1;
+      --s-parent:  #00BCD4;
+      --s-marital: #3a3a3a;
+      --s-ph:      #FF5722;
     }
-    button { padding: 6px 10px; margin: 2px; }
-    input, select { padding: 5px; margin: 5px 0; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 8px; border-bottom: 1px solid #ddd; }
+
+    html, body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--display);
+      overflow-x: hidden;
+    }
+
+    /* ── NOISE OVERLAY ── */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0.35;
+    }
+
+    /* ── TOPBAR ── */
+    #topbar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 28px;
+      height: 58px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 200;
+    }
+    .logo-mark {
+      width: 26px; height: 26px;
+      background: var(--accent);
+      clip-path: polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+      animation: pulse-hex 3s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    @keyframes pulse-hex {
+      0%,100% { filter: drop-shadow(0 0 4px var(--accent)); }
+      50%      { filter: drop-shadow(0 0 12px var(--accent)); }
+    }
+    #topbar h1 {
+      font-size: 1.05rem; font-weight: 800;
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    #topbar h1 span { color: var(--accent); }
+    .topbar-sep { flex: 1; }
+    #topbar-user {
+      display: flex; align-items: center; gap: 10px;
+      font-family: var(--mono); font-size: 0.65rem;
+    }
+    .team-badge {
+      font-family: var(--mono); font-size: 0.52rem; font-weight: 700;
+      padding: 2px 8px; border-radius: 20px; color: #fff;
+      letter-spacing: 0.05em;
+    }
+    .team-badge.Management  { background: var(--mgmt); }
+    .team-badge.Engineering { background: var(--eng); }
+    .team-badge.Specialists { background: var(--spec); }
+    .team-badge.Guest       { background: var(--muted); }
+
+    /* ── TABS ── */
+    #tab-bar {
+      display: flex; gap: 2px;
+      padding: 0 28px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .tab-btn {
+      font-family: var(--mono); font-size: 0.6rem; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 10px 16px; cursor: pointer;
+      background: transparent; border: none; color: var(--muted);
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    /* ── TAB PANELS ── */
+    .tab-panel { display: none; padding: 24px 28px; }
+    .tab-panel.active { display: block; }
+
+    /* ── TOOLBAR ── */
+    #rota-toolbar {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 16px; flex-wrap: wrap;
+    }
+    .toolbar-group { display: flex; align-items: center; gap: 8px; }
+    .toolbar-label {
+      font-family: var(--mono); font-size: 0.55rem;
+      color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em;
+    }
+    select.toolbar-select {
+      background: var(--card); border: 1px solid var(--border);
+      color: var(--text); font-family: var(--mono); font-size: 0.65rem;
+      padding: 6px 10px; border-radius: 6px; outline: none; cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    select.toolbar-select:focus { border-color: var(--accent); }
+    select.toolbar-select option { background: var(--card); }
+
+    /* Team filter toggles */
+    .team-toggle {
+      font-family: var(--mono); font-size: 0.55rem; font-weight: 700;
+      padding: 5px 12px; border-radius: 20px; cursor: pointer;
+      border: 1px solid transparent; transition: opacity 0.2s;
+      letter-spacing: 0.05em; color: #fff;
+    }
+    .team-toggle.Management  { background: var(--mgmt);  border-color: var(--mgmt); }
+    .team-toggle.Engineering { background: var(--eng);   border-color: var(--eng); }
+    .team-toggle.Specialists { background: var(--spec);  border-color: var(--spec); }
+    .team-toggle.off { opacity: 0.3; }
+
+    .btn {
+      font-family: var(--mono); font-size: 0.6rem; font-weight: 700;
+      letter-spacing: 0.07em; padding: 7px 14px; border-radius: 7px;
+      border: 1px solid var(--border); cursor: pointer;
+      background: var(--card); color: var(--muted); transition: all 0.18s;
+    }
+    .btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(161,139,245,0.08); }
+    .btn.primary { background: rgba(161,139,245,0.15); border-color: rgba(161,139,245,0.5); color: var(--accent); }
+    .btn.today   { background: var(--card); border-color: var(--ok); color: #9ee6a6; }
+    .btn.today:hover { background: rgba(63,185,80,0.1); }
+    .sep { flex: 1; }
+
+    /* ── ROTA TABLE WRAPPER ── */
+    #rota-wrap {
+      overflow: auto;
+      max-height: calc(100vh - 180px);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+    }
+    #rota-wrap::-webkit-scrollbar { width: 6px; height: 6px; }
+    #rota-wrap::-webkit-scrollbar-track { background: var(--bg); }
+    #rota-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    table.rota {
+      border-collapse: collapse;
+      font-family: var(--mono);
+      font-size: 11px;
+      min-width: 100%;
+    }
+    table.rota thead th {
+      background: #111;
+      color: var(--muted);
+      padding: 7px 4px;
+      text-align: center;
+      position: sticky; top: 0; z-index: 10;
+      min-width: 84px;
+      border-bottom: 2px solid #000;
+      font-size: 10px; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      white-space: nowrap;
+    }
+    table.rota thead th.date-col {
+      min-width: 120px; text-align: left;
+      padding-left: 12px;
+      position: sticky; left: 0; z-index: 20;
+      background: #0d0d0d;
+    }
+    table.rota thead th.team-sep { border-left: 2px solid #333; }
+
+    table.rota tbody td {
+      padding: 0; text-align: center;
+      border: 1px solid #1a1a1a;
+      height: 26px;
+    }
+    table.rota tbody td.date-col {
+      background: var(--card);
+      font-weight: 700; font-size: 10.5px;
+      text-align: left; padding: 0 8px;
+      position: sticky; left: 0; z-index: 5;
+      min-width: 120px;
+      border-right: 2px solid #333;
+      color: var(--text);
+      white-space: nowrap;
+    }
+    table.rota tbody td.date-col.is-weekend  { color: var(--muted); background: #242424; }
+    table.rota tbody td.date-col.is-ph       { background: #7f1d0a; color: #ffb39e; }
+    table.rota tbody td.date-col.is-today    { background: #7a4f00; color: #ffd580; }
+    table.rota tbody tr.today-row td         { outline: 1px solid #ffd580; outline-offset: -1px; }
+
+    .shift-cell {
+      display: block; width: 100%; height: 26px;
+      line-height: 26px; font-weight: 700; font-size: 10px;
+      letter-spacing: 0.03em; position: relative;
+    }
+    .shift-cell.dotted {
+      background-image: radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px);
+      background-size: 4px 4px;
+    }
+    td.team-sep { border-left: 2px solid #333 !important; }
+
+    /* ── LEGEND ── */
+    #legend {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      margin-top: 14px;
+    }
+    .legend-item {
+      display: flex; align-items: center; gap: 6px;
+      font-family: var(--mono); font-size: 0.55rem; color: var(--muted);
+    }
+    .legend-swatch {
+      width: 20px; height: 10px; border-radius: 2px; flex-shrink: 0;
+    }
+
+    /* ── LEAVE REQUEST FORM ── */
+    .section-title {
+      font-family: var(--mono); font-size: 0.6rem;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 16px;
+    }
+    .form-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+      max-width: 520px; margin-bottom: 16px;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group label {
+      font-family: var(--mono); font-size: 0.55rem;
+      color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em;
+    }
+    .form-group input, .form-group select {
+      background: var(--card); border: 1px solid var(--border);
+      color: var(--text); font-family: var(--mono); font-size: 0.72rem;
+      padding: 8px 12px; border-radius: 6px; outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-group input:focus, .form-group select:focus { border-color: var(--accent); }
+    .form-group select option { background: var(--card); }
+
+    /* ── LEAVE TABLE ── */
+    .data-table {
+      width: 100%; border-collapse: collapse;
+      font-family: var(--mono); font-size: 0.65rem;
+      margin-top: 24px;
+    }
+    .data-table th {
+      font-size: 0.55rem; color: var(--muted); text-transform: uppercase;
+      letter-spacing: 0.12em; padding: 6px 12px; text-align: left;
+      border-bottom: 1px solid var(--border); font-weight: 700;
+    }
+    .data-table td { padding: 8px 12px; border-bottom: 1px solid #2a2a2a; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .status-badge {
+      font-family: var(--mono); font-size: 0.52rem; font-weight: 700;
+      padding: 2px 8px; border-radius: 4px; letter-spacing: 0.06em;
+    }
+    .status-badge.Pending  { background: rgba(250,165,26,0.15); color: #fcc97a; border: 1px solid rgba(250,165,26,0.3); }
+    .status-badge.Approved { background: rgba(63,185,80,0.15);  color: #9ee6a6; border: 1px solid rgba(63,185,80,0.3); }
+    .status-badge.Rejected { background: rgba(255,78,106,0.12); color: #ffb3be; border: 1px solid rgba(255,78,106,0.3); }
+
+    /* ── LEAVE APPROVALS ── */
+    .approval-row {
+      display: grid;
+      grid-template-columns: 140px 200px 1fr auto auto;
+      gap: 12px; align-items: center;
+      padding: 10px 0; border-bottom: 1px solid #2a2a2a;
+      font-family: var(--mono); font-size: 0.65rem;
+    }
+    .approval-row:last-child { border-bottom: none; }
+    .approval-name { font-weight: 700; color: var(--text); }
+    .approval-dates { color: var(--muted); }
+    .approval-type  { color: var(--text); }
+    .btn.approve { border-color: rgba(63,185,80,0.4); color: #9ee6a6; background: rgba(63,185,80,0.06); }
+    .btn.approve:hover { background: rgba(63,185,80,0.15); }
+    .btn.reject  { border-color: rgba(255,78,106,0.4); color: #ffb3be; background: rgba(255,78,106,0.06); }
+    .btn.reject:hover  { background: rgba(255,78,106,0.15); }
+
+    /* ── TEAM ACCESS ── */
+    .member-row {
+      display: grid;
+      grid-template-columns: 160px 130px 1fr auto;
+      gap: 12px; align-items: center;
+      padding: 10px 0; border-bottom: 1px solid #2a2a2a;
+      font-family: var(--mono); font-size: 0.65rem;
+    }
+    .member-row:last-child { border-bottom: none; }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed; bottom: 28px; right: 28px;
+      font-family: var(--mono); font-size: 0.65rem;
+      padding: 10px 18px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--surface);
+      opacity: 0; transform: translateY(8px);
+      transition: opacity 0.25s, transform 0.25s;
+      pointer-events: none; z-index: 9000;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+    #toast.ok  { border-color: rgba(63,185,80,0.5);  color: #9ee6a6; background: rgba(63,185,80,0.08); }
+    #toast.err { border-color: rgba(255,78,106,0.5); color: #ffb3be; background: rgba(255,78,106,0.08); }
+
+    /* ── LOADING ── */
+    #loading {
+      display: flex; align-items: center; justify-content: center;
+      padding: 60px; font-family: var(--mono); font-size: 0.7rem;
+      color: var(--muted); gap: 10px;
+    }
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .empty-state {
+      padding: 40px; text-align: center;
+      font-family: var(--mono); font-size: 0.7rem; color: var(--muted);
+    }
+
+    /* ── FEEDBACK MODAL ── */
+    #feedback-modal {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.65); z-index: 500;
+      align-items: center; justify-content: center;
+    }
+    #feedback-modal.open { display: flex; }
+    .modal-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 2rem; width: 440px; max-width: 90vw;
+      box-shadow: 0 0 40px rgba(0,0,0,0.6);
+    }
+    .modal-title {
+      font-family: var(--mono); font-size: 0.65rem; font-weight: 700;
+      color: var(--accent); text-transform: uppercase; letter-spacing: 0.12em;
+      margin-bottom: 18px;
+    }
+    .modal-card textarea {
+      background: var(--card); border: 1px solid var(--border);
+      color: var(--text); font-family: var(--mono); font-size: 0.7rem;
+      padding: 8px 12px; border-radius: 6px; outline: none; resize: vertical;
+      width: 100%; transition: border-color 0.2s;
+    }
+    .modal-card textarea:focus { border-color: var(--accent); }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+
+    /* ── FEEDBACK FLOAT BTN ── */
+    #feedback-float {
+      position: fixed; bottom: 28px; left: 28px;
+      font-family: var(--mono); font-size: 0.6rem; font-weight: 700;
+      padding: 8px 16px; border-radius: 20px;
+      background: var(--card); border: 1px solid var(--border);
+      color: var(--muted); cursor: pointer;
+      transition: all 0.2s; z-index: 400;
+    }
+    #feedback-float:hover { border-color: var(--accent); color: var(--accent); }
   </style>
 </head>
 <body>
 
-<h1>Rota App</h1>
+  <!-- ── TOPBAR ── -->
+  <header id="topbar">
+    <div class="logo-mark"></div>
+    <h1>SP SO <span>Rota</span></h1>
+    <div class="topbar-sep"></div>
+    <div id="topbar-user">
+      <span id="topbar-name" style="color:var(--accent);font-weight:700;">…</span>
+      <span id="topbar-badge" class="team-badge"></span>
+      <button class="btn" id="btn-signout" style="font-size:0.55rem;padding:4px 10px;">Sign out</button>
+    </div>
+  </header>
 
-<div id="userInfo" class="card"></div>
+  <!-- ── TAB BAR ── -->
+  <nav id="tab-bar">
+    <button class="tab-btn active" data-tab="rota">📅 Rota</button>
+    <button class="tab-btn" data-tab="leave" id="tab-leave">📝 Request Leave</button>
+    <button class="tab-btn" data-tab="approvals" id="tab-approvals" style="display:none;">✅ Leave Approvals</button>
+    <button class="tab-btn" data-tab="access" id="tab-access" style="display:none;">👥 Team Access</button>
+  </nav>
 
-<div id="membersCard" class="card">
-  <h3>Team Members</h3>
-  <table id="membersTable"></table>
-</div>
+  <!-- ══════════════════════════════════════════
+       TAB: ROTA
+  ══════════════════════════════════════════ -->
+  <div class="tab-panel active" id="panel-rota">
+    <div id="rota-toolbar">
+      <div class="toolbar-group">
+        <span class="toolbar-label">View</span>
+        <select class="toolbar-select" id="view-select">
+          <option value="published">Published (5 weeks)</option>
+          <option value="full">Full Rota</option>
+          <option value="custom">Custom Range</option>
+        </select>
+      </div>
+      <div class="toolbar-group" id="custom-range" style="display:none;">
+        <input type="date" class="toolbar-select" id="date-from" />
+        <span style="color:var(--muted);font-family:var(--mono);font-size:0.6rem;">→</span>
+        <input type="date" class="toolbar-select" id="date-to" />
+      </div>
+      <div class="toolbar-group" id="team-toggles">
+        <button class="team-toggle Management"  data-team="Management">Management</button>
+        <button class="team-toggle Engineering"  data-team="Engineering">Engineering</button>
+        <button class="team-toggle Specialists"  data-team="Specialists">Specialists</button>
+      </div>
+      <div class="sep"></div>
+      <button class="btn today" id="btn-today">⤵ Today</button>
+      <button class="btn" id="btn-refresh">⟳ Refresh</button>
+    </div>
 
-<div id="leaveSubmitCard" class="card">
-  <h3>Submit Leave</h3>
-  <label>Start: <input type="date" id="start"></label><br>
-  <label>End: <input type="date" id="end"></label><br>
-  <label>Type:
-    <select id="type">
-      <option>Annual</option>
-      <option>Sick</option>
-      <option>Other</option>
-    </select>
-  </label><br>
-  <button onclick="submitLeave()">Submit</button>
-</div>
+    <div id="rota-wrap">
+      <div id="loading"><div class="spinner"></div> Loading rota…</div>
+    </div>
 
-<div id="leaveCard" class="card">
-  <h3>Leave Requests</h3>
-  <table id="leaveTable"></table>
-</div>
+    <div id="legend">
+      <div class="legend-item"><div class="legend-swatch" style="background:#49B1E8;"></div>0700-1800</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#8474E3;"></div>0900-2000</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#04BA9C;"></div>1300-0000</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#E8B159;"></div>1500-0200</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#5C5C5C;"></div>2100-0700</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#95D6FC;"></div>0900-1800</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#4A91BA;"></div>1000-2000</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#ABD1AD;"></div>Management</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#FFEB3B;"></div>AL Approved</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#F48FB1;"></div>AL Pending</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#00BCD4;"></div>Parental</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#3a3a3a;border:1px solid #555;"></div>Marital</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#FF5722;"></div>Public Holiday</div>
+    </div>
+  </div>
 
-<script>
-let currentUser = null;
+  <!-- ══════════════════════════════════════════
+       TAB: REQUEST LEAVE
+  ══════════════════════════════════════════ -->
+  <div class="tab-panel" id="panel-leave">
+    <p class="section-title">Request Leave</p>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>From</label>
+        <input type="date" id="leave-from" />
+      </div>
+      <div class="form-group">
+        <label>To</label>
+        <input type="date" id="leave-to" />
+      </div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label>Leave Type</label>
+        <select id="leave-type">
+          <option>Annual Leave</option>
+          <option>Mental Health Day</option>
+          <option>Assiduousness</option>
+          <option>Public Holiday AL</option>
+          <option>Compensatory</option>
+          <option>Parental Leave</option>
+          <option>Marital Leave</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn primary" id="btn-submit-leave">Submit Request</button>
 
-async function api(path, opts = {}) {
-  const res = await fetch(`/so-proxy${path}`, {
-    headers: {'Content-Type': 'application/json'},
-    ...opts
+    <table class="data-table" id="my-leave-table" style="max-width:640px;">
+      <thead>
+        <tr><th>From</th><th>To</th><th>Type</th><th>Status</th></tr>
+      </thead>
+      <tbody id="my-leave-body">
+        <tr><td colspan="4" style="color:var(--muted);padding:20px 12px;">No requests yet.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       TAB: LEAVE APPROVALS (management)
+  ══════════════════════════════════════════ -->
+  <div class="tab-panel" id="panel-approvals">
+    <p class="section-title">Leave Approvals</p>
+    <div id="approvals-list">
+      <div class="empty-state">Loading…</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       TAB: TEAM ACCESS (management)
+  ══════════════════════════════════════════ -->
+  <div class="tab-panel" id="panel-access">
+    <p class="section-title">Team Access</p>
+    <div id="access-list">
+      <div class="empty-state">Loading…</div>
+    </div>
+  </div>
+
+  <!-- ── FEEDBACK FLOAT ── -->
+  <button id="feedback-float">💬 Feedback</button>
+
+  <!-- ── FEEDBACK MODAL ── -->
+  <div id="feedback-modal">
+    <div class="modal-card">
+      <div class="modal-title">Send Feedback</div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label>Type</label>
+        <select id="fb-type">
+          <option value="bug">🐛 Bug Report</option>
+          <option value="enhancement">✨ Feature Request</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label>Title</label>
+        <input type="text" id="fb-title" placeholder="Short title…" />
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea id="fb-body" rows="4" placeholder="Describe in detail…"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" id="fb-cancel">Cancel</button>
+        <button class="btn primary" id="fb-submit">Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TOAST ── -->
+  <div id="toast"></div>
+
+  <script>
+  // ════════════════════════════════════════════════════════════════
+  //  CONFIG
+  // ════════════════════════════════════════════════════════════════
+  const PROXY = '/so-proxy';
+
+  // Shift colour map
+  const SHIFT_COLORS = {
+    '0700-1800': { bg:'#49B1E8', fg:'#000' },
+    '0900-2000': { bg:'#8474E3', fg:'#fff' },
+    '1300-0000': { bg:'#04BA9C', fg:'#000' },
+    '1500-0200': { bg:'#E8B159', fg:'#000' },
+    '2100-0700': { bg:'#5C5C5C', fg:'#eee' },
+    '0900-1800': { bg:'#95D6FC', fg:'#000' },
+    '1000-2000': { bg:'#4A91BA', fg:'#fff' },
+    '0800-1630': { bg:'#ABD1AD', fg:'#000' },
+    '0930-1800': { bg:'#ABD1AD', fg:'#000' },
+    '0900-1730': { bg:'#ABD1AD', fg:'#000' },
+    'OFF':        { bg:'#2a2a2a', fg:'#555' },
+    'AL_APPROVED':{ bg:'#FFEB3B', fg:'#5D4037' },
+    'AL_PENDING': { bg:'#F48FB1', fg:'#5D4037' },
+    'PARENTAL':   { bg:'#00BCD4', fg:'#fff', dotted: true },
+    'MARITAL':    { bg:'#3a3a3a', fg:'#999', dotted: true },
+    'PH':         { bg:'#FF5722', fg:'#fff' },
+  };
+
+  // ════════════════════════════════════════════════════════════════
+  //  STATE
+  // ════════════════════════════════════════════════════════════════
+  let state = {
+    me:          null,   // { username, rota_role, name, team }
+    rotaData:    null,   // cached schedule response
+    teamFilters: { Management: true, Engineering: true, Specialists: true },
+    viewMode:    'published',
+    dateFrom:    null,
+    dateTo:      null,
+  };
+
+  // ════════════════════════════════════════════════════════════════
+  //  INIT
+  // ════════════════════════════════════════════════════════════════
+  (async function init() {
+    try {
+      const r = await fetch(`${PROXY}/me`, { credentials: 'same-origin' });
+      if (!r.ok) { window.location.href = '/login.html?next=/rota/'; return; }
+      const d = await r.json();
+
+      // Fetch rota identity
+      const rm = await fetch(`${PROXY}/rota/me`, { credentials: 'same-origin' });
+      if (!rm.ok) { window.location.href = '/login.html?next=/rota/'; return; }
+      state.me = await rm.json();
+
+      renderTopbar();
+      setupTabs();
+      setupToolbar();
+      setupLeaveForm();
+      setupFeedback();
+      loadRota();
+    } catch(e) {
+      window.location.href = '/login.html?next=/rota/';
+    }
+  })();
+
+  // ════════════════════════════════════════════════════════════════
+  //  TOPBAR
+  // ════════════════════════════════════════════════════════════════
+  function renderTopbar() {
+    const m = state.me;
+    document.getElementById('topbar-name').textContent = m.name || m.username;
+    const badge = document.getElementById('topbar-badge');
+    badge.textContent = m.rota_role === 'management' ? 'Management'
+                      : m.rota_role === 'staff'      ? m.team
+                      : 'Guest';
+    badge.className = 'team-badge ' + (m.team || 'Guest');
+
+    // Management view enhancements
+    if (m.rota_role === 'management') {
+      document.getElementById('tab-approvals').style.display = '';
+      document.getElementById('tab-access').style.display    = '';
+      document.getElementById('view-select').innerHTML += '<option value="full">Full Rota</option>';
+    }
+  }
+
+  document.getElementById('btn-signout').addEventListener('click', async () => {
+    await fetch(`${PROXY}/logout`, { method: 'POST', credentials: 'same-origin' });
+    window.location.href = '/login.html';
   });
-  return res.json();
-}
 
-async function loadUser() {
-  const data = await api('/rota/me');
-  currentUser = data;
+  // ════════════════════════════════════════════════════════════════
+  //  TABS
+  // ════════════════════════════════════════════════════════════════
+  function setupTabs() {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
 
-  document.getElementById('userInfo').innerHTML = `
-    <b>User:</b> ${data.username}<br>
-    <b>Role:</b> ${data.rota_role}<br>
-    <b>Team:</b> ${data.team || '-'}
-  `;
-
-  if (data.rota_role === 'guest') {
-    document.body.innerHTML += "<p>No rota access.</p>";
-    return;
+        if (btn.dataset.tab === 'approvals') loadApprovals();
+        if (btn.dataset.tab === 'access')    loadAccess();
+        if (btn.dataset.tab === 'leave')     loadMyLeave();
+      });
+    });
   }
 
-  loadMembers();
-  loadLeave();
-}
+  // ════════════════════════════════════════════════════════════════
+  //  TOOLBAR
+  // ════════════════════════════════════════════════════════════════
+  function setupToolbar() {
+    const viewSel = document.getElementById('view-select');
+    const customRange = document.getElementById('custom-range');
 
-async function loadMembers() {
-  const data = await api('/rota/members');
+    viewSel.addEventListener('change', () => {
+      state.viewMode = viewSel.value;
+      customRange.style.display = state.viewMode === 'custom' ? '' : 'none';
+      if (state.viewMode !== 'custom') loadRota();
+    });
 
-  let html = "<tr><th>Name</th><th>Email</th><th>Team</th></tr>";
-  for (const [user, m] of Object.entries(data.members)) {
-    html += `
-      <tr>
-        <td>${m.name || user}</td>
-        <td>${m.email || ''}</td>
-        <td>${m.team}</td>
-      </tr>`;
+    document.getElementById('date-from').addEventListener('change', e => {
+      state.dateFrom = e.target.value;
+      if (state.dateFrom && state.dateTo) loadRota();
+    });
+    document.getElementById('date-to').addEventListener('change', e => {
+      state.dateTo = e.target.value;
+      if (state.dateFrom && state.dateTo) loadRota();
+    });
+
+    document.querySelectorAll('.team-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const t = btn.dataset.team;
+        state.teamFilters[t] = !state.teamFilters[t];
+        btn.classList.toggle('off', !state.teamFilters[t]);
+        renderRota();
+      });
+    });
+
+    document.getElementById('btn-today').addEventListener('click', scrollToToday);
+    document.getElementById('btn-refresh').addEventListener('click', () => {
+      state.rotaData = null;
+      loadRota();
+    });
   }
 
-  document.getElementById('membersTable').innerHTML = html;
-}
+  // ════════════════════════════════════════════════════════════════
+  //  ROTA LOAD + RENDER
+  // ════════════════════════════════════════════════════════════════
+  function getDateRange() {
+    const today = new Date();
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1));
 
-async function loadLeave() {
-  const data = await api('/rota/leave');
+    const fmt = d => d.toISOString().split('T')[0];
+    const rota_start = '2026-01-01';
 
-  let html = "<tr><th>User</th><th>Dates</th><th>Type</th><th>Status</th>";
-
-  if (currentUser.rota_role === 'management') {
-    html += "<th>Actions</th>";
+    if (state.viewMode === 'published') {
+      const end = new Date(monday);
+      end.setDate(monday.getDate() + 34); // 5 weeks
+      return { from: rota_start, to: fmt(end) };
+    }
+    if (state.viewMode === 'full') {
+      const endYear = new Date(today.getFullYear(), 11, 31);
+      const plus3m  = new Date(today);
+      plus3m.setMonth(plus3m.getMonth() + 3);
+      return { from: rota_start, to: fmt(endYear > plus3m ? endYear : plus3m) };
+    }
+    // custom
+    return { from: state.dateFrom, to: state.dateTo };
   }
 
-  html += "</tr>";
+  async function loadRota() {
+    const wrap = document.getElementById('rota-wrap');
+    wrap.innerHTML = '<div id="loading"><div class="spinner"></div> Loading rota…</div>';
+    const { from, to } = getDateRange();
+    try {
+      const r = await fetch(`${PROXY}/rota/schedule?from=${from}&to=${to}`, { credentials: 'same-origin' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error);
+      state.rotaData = d.days;
+      renderRota();
+    } catch(e) {
+      wrap.innerHTML = `<div class="empty-state">Failed to load rota: ${e.message}</div>`;
+    }
+  }
 
-  data.leave.forEach((r, i) => {
-    html += `
-      <tr>
-        <td>${r.username}</td>
-        <td>${r.date_start} → ${r.date_end}</td>
-        <td>${r.leave_type}</td>
-        <td>${r.status}</td>
-    `;
+  function renderRota() {
+    if (!state.rotaData) return;
+    const wrap = document.getElementById('rota-wrap');
 
-    if (currentUser.rota_role === 'management') {
-      html += `
-        <td>
-          <button onclick="updateLeave(${i}, 'Approved')">Approve</button>
-          <button onclick="updateLeave(${i}, 'Rejected')">Reject</button>
-        </td>`;
+    // Determine visible teams and members
+    const teams = [
+      { name: 'Management',  members: ['Joao R','Marcus','Joao L','Tiago C'] },
+      { name: 'Engineering', members: ['Hugo','Goncalo','Nuno'] },
+      { name: 'Specialists', members: ['Sabina','Sergio','Tiago O','Vitor','Fernando','Marc','Gabriel','Mario','Isaac'] },
+    ].filter(t => state.teamFilters[t.name]);
+
+    if (!teams.length) {
+      wrap.innerHTML = '<div class="empty-state">Select at least one team.</div>';
+      return;
     }
 
-    html += "</tr>";
-  });
+    let thead = '<tr><th class="date-col">Date</th>';
+    teams.forEach((team, ti) => {
+      team.members.forEach((name, mi) => {
+        const sep = mi === 0 ? ' team-sep' : '';
+        thead += `<th class="${sep}">${name}</th>`;
+      });
+    });
+    thead += '</tr>';
 
-  document.getElementById('leaveTable').innerHTML = html;
-}
+    let tbody = '';
+    state.rotaData.forEach(day => {
+      const dateCls = day.is_today          ? 'date-col is-today'
+                    : day.is_public_holiday ? 'date-col is-ph'
+                    : day.is_weekend        ? 'date-col is-weekend'
+                    : 'date-col';
 
-async function submitLeave() {
-  const start = document.getElementById('start').value;
-  const end   = document.getElementById('end').value;
-  const type  = document.getElementById('type').value;
+      const d    = new Date(day.date + 'T00:00:00');
+      const wday = d.toLocaleDateString('en-GB', { weekday: 'short' });
+      const dstr = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' });
+      let label  = `${wday} ${dstr}`;
+      if (day.is_public_holiday) label += ' 🎉';
+      if (day.is_today)          label += ' ◀';
 
-  const res = await api('/rota/leave', {
-    method: 'POST',
-    body: JSON.stringify({
-      date_start: start,
-      date_end: end,
-      leave_type: type
-    })
-  });
+      const trCls = day.is_today ? ' class="today-row"' : '';
+      tbody += `<tr${trCls}><td class="${dateCls}">${label}</td>`;
 
-  if (!res.ok) {
-    alert(res.error);
-    return;
+      teams.forEach((team, ti) => {
+        team.members.forEach((name, mi) => {
+          const shiftData = day.shifts[name];
+          const shift     = shiftData ? shiftData.shift : 'OFF';
+          const sep       = mi === 0 ? ' team-sep' : '';
+
+          let bg = '#2a2a2a', fg = '#555', text = shift, extra = '';
+
+          if (shift.includes('|')) {
+            // e.g. AL_APPROVED|0700-1800
+            const [code, orig] = shift.split('|');
+            const c = SHIFT_COLORS[code] || SHIFT_COLORS['AL_APPROVED'];
+            bg = c.bg; fg = c.fg; text = orig + ' H';
+          } else {
+            const c = SHIFT_COLORS[shift];
+            if (c) {
+              bg = c.bg; fg = c.fg;
+              if (c.dotted) extra = ' dotted';
+              if (shift === 'AL_APPROVED' || shift === 'AL_PENDING' || shift === 'PARENTAL' || shift === 'MARITAL') text = '';
+            }
+          }
+
+          tbody += `<td class="${sep}" style="background:${bg};">` +
+                   `<span class="shift-cell${extra}" style="color:${fg};">${text}</span>` +
+                   `</td>`;
+        });
+      });
+
+      tbody += '</tr>';
+    });
+
+    wrap.innerHTML = `<table class="rota"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+    scrollToToday();
   }
 
-  loadLeave();
-}
+  function scrollToToday() {
+    const wrap = document.getElementById('rota-wrap');
+    const row  = wrap.querySelector('tr.today-row');
+    if (row) wrap.scrollTop = row.offsetTop - 44;
+  }
 
-async function updateLeave(index, status) {
-  await api(`/rota/leave/${index}`, {
-    method: 'PUT',
-    body: JSON.stringify({ status })
-  });
+  // ════════════════════════════════════════════════════════════════
+  //  LEAVE REQUEST
+  // ════════════════════════════════════════════════════════════════
+  function setupLeaveForm() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('leave-from').value = today;
+    document.getElementById('leave-to').value   = today;
 
-  loadLeave();
-}
+    document.getElementById('btn-submit-leave').addEventListener('click', async () => {
+      const from = document.getElementById('leave-from').value;
+      const to   = document.getElementById('leave-to').value;
+      const type = document.getElementById('leave-type').value;
 
-loadUser();
-</script>
+      if (!from || !to) { toast('Select dates', 'err'); return; }
+      if (to < from)    { toast('End date must be after start', 'err'); return; }
 
+      const r = await fetch(`${PROXY}/rota/leave`, {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date_start: from, date_end: to, leave_type: type }),
+      });
+      const d = await r.json();
+      if (d.ok) {
+        toast('Request submitted', 'ok');
+        loadMyLeave();
+        state.rotaData = null;
+        loadRota();
+      } else {
+        toast(d.error || 'Failed to submit', 'err');
+      }
+    });
+  }
+
+  async function loadMyLeave() {
+    const r = await fetch(`${PROXY}/rota/leave`, { credentials: 'same-origin' });
+    const d = await r.json();
+    const tbody = document.getElementById('my-leave-body');
+    if (!d.ok || !d.leave.length) {
+      tbody.innerHTML = '<tr><td colspan="4" style="color:var(--muted);padding:20px 12px;">No requests yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = [...d.leave].reverse().map(r => `
+      <tr>
+        <td>${r.date_start}</td>
+        <td>${r.date_end}</td>
+        <td>${r.leave_type}</td>
+        <td><span class="status-badge ${r.status}">${r.status}</span></td>
+      </tr>
+    `).join('');
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  LEAVE APPROVALS (management)
+  // ════════════════════════════════════════════════════════════════
+  async function loadApprovals() {
+    const r = await fetch(`${PROXY}/rota/leave`, { credentials: 'same-origin' });
+    const d = await r.json();
+    const el = document.getElementById('approvals-list');
+    const pending = (d.leave || []).filter(r => r.status === 'Pending');
+
+    if (!pending.length) {
+      el.innerHTML = '<div class="empty-state">No pending requests.</div>';
+      return;
+    }
+
+    el.innerHTML = pending.map((r, i) => {
+      const idx = (d.leave || []).indexOf(r);
+      return `
+        <div class="approval-row">
+          <span class="approval-name">${r.name || r.username}</span>
+          <span class="approval-dates">${r.date_start} → ${r.date_end}</span>
+          <span class="approval-type">${r.leave_type}</span>
+          <button class="btn approve" onclick="decideLeave(${idx},'Approved')">✓ Approve</button>
+          <button class="btn reject"  onclick="decideLeave(${idx},'Rejected')">✗ Reject</button>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function decideLeave(index, status) {
+    const r = await fetch(`${PROXY}/rota/leave/${index}`, {
+      method: 'PUT', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast(`${status}`, 'ok');
+      loadApprovals();
+      state.rotaData = null;
+      loadRota();
+    } else {
+      toast(d.error || 'Failed', 'err');
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  TEAM ACCESS (management)
+  // ════════════════════════════════════════════════════════════════
+  async function loadAccess() {
+    const r = await fetch(`${PROXY}/rota/members`, { credentials: 'same-origin' });
+    const d = await r.json();
+    const el = document.getElementById('access-list');
+    const members = Object.entries(d.members || {});
+
+    if (!members.length) {
+      el.innerHTML = '<div class="empty-state">No members found.</div>';
+      return;
+    }
+
+    const BADGE = { Management:'var(--mgmt)', Engineering:'var(--eng)', Specialists:'var(--spec)' };
+    el.innerHTML = members.map(([username, m]) => `
+      <div class="member-row">
+        <span style="font-weight:700;">${m.name}</span>
+        <span><span class="team-badge ${m.team}" style="background:${BADGE[m.team]||'#555'}">${m.team}</span></span>
+        <span style="color:var(--muted);">${username}</span>
+        <span style="color:var(--muted);font-size:0.6rem;">—</span>
+      </div>
+    `).join('');
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  FEEDBACK
+  // ════════════════════════════════════════════════════════════════
+  function setupFeedback() {
+    document.getElementById('feedback-float').addEventListener('click', () => {
+      document.getElementById('feedback-modal').classList.add('open');
+    });
+    document.getElementById('fb-cancel').addEventListener('click', () => {
+      document.getElementById('feedback-modal').classList.remove('open');
+    });
+    document.getElementById('feedback-modal').addEventListener('click', e => {
+      if (e.target === document.getElementById('feedback-modal'))
+        document.getElementById('feedback-modal').classList.remove('open');
+    });
+    document.getElementById('fb-submit').addEventListener('click', submitFeedback);
+  }
+
+  async function submitFeedback() {
+    const type  = document.getElementById('fb-type').value;
+    const title = document.getElementById('fb-title').value.trim();
+    const body  = document.getElementById('fb-body').value.trim();
+    if (!title) { toast('Title required', 'err'); return; }
+    if (!body)  { toast('Description required', 'err'); return; }
+
+    const r = await fetch(`${PROXY}/rota/feedback`, {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, title, body }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast('Feedback sent', 'ok');
+      document.getElementById('feedback-modal').classList.remove('open');
+      document.getElementById('fb-title').value = '';
+      document.getElementById('fb-body').value  = '';
+    } else {
+      toast(d.error || 'Failed to send', 'err');
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  TOAST
+  // ════════════════════════════════════════════════════════════════
+  let _tt;
+  function toast(msg, type = '') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'show ' + type;
+    clearTimeout(_tt);
+    _tt = setTimeout(() => el.className = '', 3000);
+  }
+  </script>
 </body>
 </html>
