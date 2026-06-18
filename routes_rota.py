@@ -1,219 +1,178 @@
-"""
-routes_rota.py — Rota App Blueprint
-SO-Toolbox v2.24.0
+# ════════════════════════════════════════════════════════════════════════════
+#  ROTATION LOGIC
+# ════════════════════════════════════════════════════════════════════════════
 
-Serves the Rota App under /so-proxy/rota/*.
-Auth is delegated to the existing SO-Toolbox session (routes_auth.py).
-Members metadata (team, rotation) lives in rota/data/members.json.
-"""
+from datetime import date, timedelta
 
-import json
-import os
-from flask import Blueprint, jsonify, send_from_directory, request
-from routes_auth import require_auth, require_admin_role
+ANCHOR_MONDAY = date(2026, 3, 2)
 
-rota_bp = Blueprint('rota', __name__)
+SPECIALIST_ROTATION = [
+    "OFF","OFF","0700-1800","0700-1800","OFF","OFF","OFF",
+    "0700-1800","0700-1800","OFF","OFF","0700-1800","0700-1800","0700-1800",
+    "OFF","OFF","0900-2000","0900-2000","0900-2000","0900-2000","0900-2000",
+    "OFF","OFF","1300-0000","1300-0000","OFF","OFF","OFF",
+    "1300-0000","1300-0000","OFF","OFF","1300-0000","1300-0000","1300-0000",
+    "1500-0200","1500-0200","OFF","OFF","OFF","1500-0200","1500-0200",
+    "OFF","OFF","1500-0200","1500-0200","1500-0200","OFF","OFF",
+    "OFF","OFF","2100-0700","2100-0700","2100-0700","2100-0700","2100-0700",
+    "OFF","OFF","2100-0700","2100-0700","OFF","OFF","OFF",
+    "OFF","OFF","0700-1800","0700-1800","OFF","OFF","OFF",
+    "0700-1800","0700-1800","OFF","OFF","0700-1800","0700-1800","0700-1800",
+    "OFF","OFF","0900-2000","0900-2000","0900-2000","0900-2000","0900-2000",
+    "OFF","OFF","1300-0000","1300-0000","OFF","OFF","OFF",
+    "1300-0000","1300-0000","OFF","OFF","1300-0000","1300-0000","1300-0000",
+    "1500-0200","1500-0200","OFF","OFF","OFF","1500-0200","1500-0200",
+    "OFF","OFF","1500-0200","1500-0200","1500-0200","OFF","OFF",
+    "2100-0700","2100-0700","OFF","OFF","2100-0700","2100-0700","2100-0700",
+    "2100-0700","2100-0700","OFF","OFF","OFF","OFF","OFF",
+]
 
-_BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
-ROTA_DIR    = os.path.join(_BASE_DIR, 'rota')          # /opt/so-toolbox/rota/
-MEMBERS_FILE = os.path.join(ROTA_DIR, 'data', 'members.json')
-LEAVE_FILE   = os.path.join(ROTA_DIR, 'data', 'leave_requests.json')
+ENGINEERING_ROTATION = [
+    "OFF","0900-1800","0900-1800","0900-1800","0900-1800","OFF","OFF",
+    "0900-1800","1000-2000","OFF","OFF","1000-2000","1000-2000","1000-2000",
+    "1000-2000","OFF","1000-2000","1000-2000","OFF","OFF","OFF",
+]
+
+SPECIALIST_OFFSETS = {
+    "Sabina":   35, "Sergio": 119, "Tiago O": 77,
+    "Vitor":    63, "Fernando": 21, "Marc":    7,
+    "Gabriel":  49, "Mario":   91, "Isaac":   105,
+}
+ENGINEERING_OFFSETS = {"Hugo": 0, "Goncalo": 14, "Nuno": 7}
+
+MANAGEMENT_SHIFTS = {
+    "Joao R":  "0930-1800",
+    "Marcus":  "0900-1730",
+    "Joao L":  "0800-1630",
+    "Tiago C": "0900-1730",
+}
+
+PUBLIC_HOLIDAYS = {
+    date(2026,1,1),  date(2026,2,17), date(2026,4,3),
+    date(2026,4,5),  date(2026,4,25), date(2026,5,1),
+    date(2026,5,12), date(2026,6,4),  date(2026,6,10),
+    date(2026,8,15), date(2026,10,5), date(2026,11,1),
+    date(2026,12,1), date(2026,12,8), date(2026,12,25),
+}
+
+PARENTAL_LEAVE_TYPES = {"Parental Leave"}
+MARITAL_LEAVE_TYPES  = {"Marital Leave"}
+
+
+def _base_shift(name: str, d: date) -> str:
+    delta = (d - ANCHOR_MONDAY).days
+    if name in SPECIALIST_OFFSETS:
+        idx = (SPECIALIST_OFFSETS[name] + delta) % len(SPECIALIST_ROTATION)
+        return SPECIALIST_ROTATION[idx]
+    if name in ENGINEERING_OFFSETS:
+        idx = (ENGINEERING_OFFSETS[name] + delta) % len(ENGINEERING_ROTATION)
+        return ENGINEERING_ROTATION[idx]
+    # Management
+    if d.weekday() >= 5 or d in PUBLIC_HOLIDAYS:
+        return "OFF"
+    return MANAGEMENT_SHIFTS.get(name, "OFF")
+
+
+def _resolve_shift(name: str, d: date, leave_map: dict) -> str:
+    """Apply leave overlay on top of base shift."""
+    leave = leave_map.get((name, d))
+    if not leave:
+        return _base_shift(name, d)
+    lt     = leave["leave_type"]
+    status = leave["status"]
+    base   = _base_shift(name, d)
+    if lt in PARENTAL_LEAVE_TYPES:
+        return "PARENTAL"
+    if lt in MARITAL_LEAVE_TYPES:
+        return "MARITAL"
+    code = "AL_APPROVED" if status == "Approved" else "AL_PENDING"
+    return code if base == "OFF" else f"{code}|{base}"
+
+
+def _build_leave_map(leave_list: list) -> dict:
+    """Expand leave records into a (name, date) → {leave_type, status} dict."""
+    lmap = {}
+    for r in leave_list:
+        try:
+            ds = date.fromisoformat(r["date_start"])
+            de = date.fromisoformat(r["date_end"])
+        except (KeyError, ValueError):
+            continue
+        d = ds
+        while d <= de:
+            lmap[(r["username"], d)] = {
+                "leave_type": r["leave_type"],
+                "status":     r["status"],
+            }
+            d += timedelta(days=1)
+    return lmap
 
 
 # ════════════════════════════════════════════════════════════════════════════
-#  DATA HELPERS
+#  SCHEDULE ENDPOINT
 # ════════════════════════════════════════════════════════════════════════════
 
-def _load_json(path: str) -> dict | list:
-    if not os.path.exists(path):
-        return {}
-    with open(path, 'r') as f:
-        return json.load(f)
-
-
-def _save_json(path: str, data: dict | list) -> None:
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, 'w') as f:
-        json.dump(data, f, indent=2)
-
-
-def _get_member(username: str) -> dict | None:
-    """Return the member record matching the SO-Toolbox username, or None."""
-    members = _load_json(MEMBERS_FILE)
-    return members.get(username)
-
-
-def _is_management(session: dict) -> bool:
-    member = _get_member(session['username'])
-    if not member:
-        return False
-    return member.get('team') == 'Management' or session.get('role') == 'admin'
-
-
-# ════════════════════════════════════════════════════════════════════════════
-#  STATIC / APP SHELL
-# ════════════════════════════════════════════════════════════════════════════
-
-@rota_bp.route('/rota/', methods=['GET'])
-@rota_bp.route('/rota', methods=['GET'])
+@rota_bp.route('/rota/schedule', methods=['GET'])
 @require_auth
-def rota_index():
-    """Serve the main app shell. Auth already confirmed by decorator."""
-    return send_from_directory(os.path.join(ROTA_DIR, 'static'), 'index.html')
-
-
-@rota_bp.route('/rota/guest', methods=['GET'])
-def rota_guest():
-    """Fully public guest view — no auth required."""
-    return send_from_directory(os.path.join(ROTA_DIR, 'static'), 'guest.html')
-
-
-@rota_bp.route('/rota/static/<path:filename>', methods=['GET'])
-def rota_static(filename):
-    return send_from_directory(os.path.join(ROTA_DIR, 'static'), filename)
-
-
-# ════════════════════════════════════════════════════════════════════════════
-#  SESSION / IDENTITY
-# ════════════════════════════════════════════════════════════════════════════
-
-@rota_bp.route('/rota/me', methods=['GET'])
-@require_auth
-def rota_me():
+def rota_schedule():
     """
-    Returns the caller's rota identity — SO-Toolbox session merged with
-    their member record. Frontend uses this to decide which tabs to show.
+    GET /so-proxy/rota/schedule?from=2026-01-01&to=2026-12-31
 
-    Response:
-      { ok, username, role, rota_role, team, member } 
-      rota_role: "management" | "staff" | "guest"
+    Returns a day-by-day schedule for all active members.
+    Management sees everyone; staff sees all teams (read-only rota).
     """
-    session = request.session
-    member  = _get_member(session['username'])
+    try:
+        date_from = date.fromisoformat(request.args.get('from', date.today().isoformat()))
+        date_to   = date.fromisoformat(request.args.get('to',   (date.today() + timedelta(weeks=5)).isoformat()))
+    except ValueError:
+        return jsonify({'ok': False, 'error': 'Invalid date format, use YYYY-MM-DD'}), 400
 
-    if not member:
-        return jsonify({
-            'ok':       True,
-            'username': session['username'],
-            'role':     session['role'],
-            'rota_role': 'guest',
-            'team':     None,
-            'member':   None,
-        })
-
-    rota_role = 'management' if _is_management(session) else 'staff'
-
-    return jsonify({
-        'ok':        True,
-        'username':  session['username'],
-        'role':      session['role'],
-        'rota_role': rota_role,
-        'team':      member.get('team'),
-        'member':    {
-            'name':  member.get('name'),
-            'email': member.get('email'),
-            'team':  member.get('team'),
-        },
-    })
-
-
-# ════════════════════════════════════════════════════════════════════════════
-#  ROTA DATA
-# ════════════════════════════════════════════════════════════════════════════
-
-@rota_bp.route('/rota/members', methods=['GET'])
-@require_auth
-def rota_members():
-    """Returns all active members. Management gets full list; staff gets own team only."""
-    session = request.session
-    members = _load_json(MEMBERS_FILE)
-
-    if _is_management(session):
-        safe = {u: {k: v for k, v in d.items()} for u, d in members.items()}
-    else:
-        member = _get_member(session['username'])
-        my_team = member.get('team') if member else None
-        safe = {
-            u: d for u, d in members.items()
-            if d.get('team') == my_team
-        }
-
-    return jsonify({'ok': True, 'members': safe})
-
-
-@rota_bp.route('/rota/leave', methods=['GET'])
-@require_auth
-def get_leave():
-    """
-    Management: all leave requests.
-    Staff: only their own.
-    """
-    session  = request.session
-    requests_ = _load_json(LEAVE_FILE)
-
-    if not isinstance(requests_, list):
-        requests_ = []
-
-    if _is_management(session):
-        return jsonify({'ok': True, 'leave': requests_})
-
-    own = [r for r in requests_ if r.get('username') == session['username']]
-    return jsonify({'ok': True, 'leave': own})
-
-
-@rota_bp.route('/rota/leave', methods=['POST'])
-@require_auth
-def submit_leave():
-    """Staff submit a leave request."""
-    session = request.session
-    data    = request.get_json(silent=True) or {}
-
-    required = ('date_start', 'date_end', 'leave_type')
-    if not all(data.get(k) for k in required):
-        return jsonify({'ok': False, 'error': 'date_start, date_end, leave_type required'}), 400
-
+    members  = _load_json(MEMBERS_FILE)
     leave_list = _load_json(LEAVE_FILE)
     if not isinstance(leave_list, list):
         leave_list = []
 
-    import time
-    entry = {
-        'username':   session['username'],
-        'date_start': data['date_start'],
-        'date_end':   data['date_end'],
-        'leave_type': data['leave_type'],
-        'status':     'Pending',
-        'submitted_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
-    }
-    leave_list.append(entry)
-    _save_json(LEAVE_FILE, leave_list)
+    # Build name-keyed member map for the schedule
+    # members.json uses username (email) as key; name is the display value
+    name_to_team = {v['name']: v['team'] for v in members.values()}
+    leave_map    = _build_leave_map(leave_list)
 
-    return jsonify({'ok': True, 'entry': entry}), 201
+    today = date.today()
+    days  = []
+    d     = date_from
 
+    while d <= date_to:
+        day = {
+            'date':               d.isoformat(),
+            'weekday':            d.strftime('%A'),
+            'is_today':           d == today,
+            'is_weekend':         d.weekday() >= 5,
+            'is_public_holiday':  d in PUBLIC_HOLIDAYS,
+            'shifts':             {},
+        }
 
-@rota_bp.route('/rota/leave/<int:index>', methods=['PUT'])
-@require_admin_role
-def update_leave(index):
-    """Management approve/reject a leave request by list index."""
-    data       = request.get_json(silent=True) or {}
-    new_status = data.get('status')
+        # Management
+        for name, shift in MANAGEMENT_SHIFTS.items():
+            day['shifts'][name] = {
+                'team':  'Management',
+                'shift': _resolve_shift(name, d, leave_map),
+            }
 
-    if new_status not in ('Approved', 'Rejected'):
-        return jsonify({'ok': False, 'error': 'status must be Approved or Rejected'}), 400
+        # Engineering
+        for name in ENGINEERING_OFFSETS:
+            day['shifts'][name] = {
+                'team':  'Engineering',
+                'shift': _resolve_shift(name, d, leave_map),
+            }
 
-    leave_list = _load_json(LEAVE_FILE)
-    if not isinstance(leave_list, list) or index >= len(leave_list):
-        return jsonify({'ok': False, 'error': 'Not found'}), 404
+        # Specialists
+        for name in SPECIALIST_OFFSETS:
+            day['shifts'][name] = {
+                'team':  'Specialists',
+                'shift': _resolve_shift(name, d, leave_map),
+            }
 
-    leave_list[index]['status'] = new_status
-    _save_json(LEAVE_FILE, leave_list)
+        days.append(day)
+        d += timedelta(days=1)
 
-    return jsonify({'ok': True, 'entry': leave_list[index]})
-
-
-# ════════════════════════════════════════════════════════════════════════════
-#  REGISTRATION
-# ════════════════════════════════════════════════════════════════════════════
-
-def register_routes(app) -> None:
-    app.register_blueprint(rota_bp)
+    return jsonify({'ok': True, 'days': days})
