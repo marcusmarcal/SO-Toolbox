@@ -1137,9 +1137,9 @@
         <div class="field w180">
           <label>Workflow</label>
           <select id="inp-workflow" onchange="onWorkflowChange()">
-            <option value="dc_aminos_tp">DC - Aminos and TP</option>
+            <option value="dc_aminos_tp">W&B + Aminos and TP</option>
             <option value="rts">RTS</option>
-            <option value="wb">W&amp;B</option>
+            <option value="wb">W&amp;B Only</option>
           </select>
         </div>
         <button class="btn-run" id="btn-run" onclick="runAnalysis()">
@@ -1706,8 +1706,8 @@
             flex-shrink: 0;
           "
         >
-          Changes require admin password. Saved separately for this workflow
-          on the server.
+          Changes require admin password. Saved separately for this workflow on
+          the server.
         </div>
         <div style="flex: 1; overflow-y: auto" id="specs-editor-body"></div>
         <div
@@ -2762,7 +2762,9 @@
         if (!s) return "—";
         if (s.values) {
           const vals = s.values.join(", ");
-          return s.preferred !== undefined ? `${vals} (pref. ${s.preferred})` : vals;
+          return s.preferred !== undefined
+            ? `${vals} (pref. ${s.preferred})`
+            : vals;
         }
         if (s.required !== undefined) {
           return typeof s.required === "string" ? s.required : "Required";
@@ -2784,7 +2786,10 @@
         const liveSpecs = r.specs || {};
         const spec = {};
         for (const key of Object.keys(liveSpecs)) {
-          spec[key] = [liveSpecs[key].label || key, formatSpecText(liveSpecs[key])];
+          spec[key] = [
+            liveSpecs[key].label || key,
+            formatSpecText(liveSpecs[key]),
+          ];
         }
 
         const sections = {
@@ -3458,7 +3463,9 @@
         const liveSpecsV = r.specs || {};
         const vrow = (label, spec, measured, key) => {
           const [s] = c[key] || ["—"];
-          const specText = liveSpecsV[key] ? formatSpecText(liveSpecsV[key]) : spec;
+          const specText = liveSpecsV[key]
+            ? formatSpecText(liveSpecsV[key])
+            : spec;
           return `<tr style="border-bottom:1px solid rgba(255,255,255,.05)">
       <td style="padding:.22rem .5rem;color:#8b949e;white-space:nowrap;font-size:.7rem">${label}</td>
       <td style="padding:.22rem .5rem;color:#6e7681;font-size:.64rem">${specText}</td>
@@ -3716,7 +3723,9 @@
         const sep = "─".repeat(W1 + W2 + W3 + W4 + 3);
         const tr = (el, spec, meas, key) => {
           const [s] = c[key] || ["—"];
-          const specText = liveSpecsV[key] ? formatSpecText(liveSpecsV[key]) : spec;
+          const specText = liveSpecsV[key]
+            ? formatSpecText(liveSpecsV[key])
+            : spec;
           return `${el.padEnd(W1)} ${specText.padEnd(W2)} ${String(
             meas || "—"
           ).padEnd(W3)} ${s}`;
