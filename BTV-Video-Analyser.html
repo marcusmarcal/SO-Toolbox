@@ -102,8 +102,14 @@
       .field.w120 {
         width: 120px;
       }
+      .field.w160 {
+        width: 160px;
+      }
       .field.w180 {
         width: 180px;
+      }
+      .field.w200 {
+        width: 200px;
       }
       label {
         font-family: var(--mono);
@@ -1065,7 +1071,7 @@
 
       <!-- SRT mode -->
       <div id="form-srt" class="form-row">
-        <div class="field grow">
+        <div class="field w200">
           <label>Host / IP</label>
           <input
             id="inp-host"
@@ -1127,6 +1133,14 @@
             list="tag-presets"
           />
           <datalist id="tag-presets"></datalist>
+        </div>
+        <div class="field w180">
+          <label>Workflow</label>
+          <select id="inp-workflow" onchange="onWorkflowChange()">
+            <option value="dc_aminos_tp">DC - Aminos and TP</option>
+            <option value="rts">RTS</option>
+            <option value="wb">W&amp;B</option>
+          </select>
         </div>
         <button class="btn-run" id="btn-run" onclick="runAnalysis()">
           ▶ Analyse Now
@@ -1660,7 +1674,7 @@
           "
         >
           <div class="modal-title" style="color: var(--purple); margin: 0">
-            ⚙ Compliance Specs Editor
+            ⚙ Compliance Specs Editor — <span id="specs-modal-workflow"></span>
           </div>
           <div style="display: flex; gap: 0.5rem">
             <button
@@ -1692,8 +1706,8 @@
             flex-shrink: 0;
           "
         >
-          Changes require admin password. Saved to
-          <code style="color: var(--text)">specs.json</code> on the server.
+          Changes require admin password. Saved separately for this workflow
+          on the server.
         </div>
         <div style="flex: 1; overflow-y: auto" id="specs-editor-body"></div>
         <div
@@ -2274,6 +2288,34 @@
       const PROXY = "/so-proxy";
       const HIST_BTN_SIZE = "0.9rem";
 
+      // ── Workflows ────────────────────────────────────────────────────
+      const WORKFLOW_LABELS = {
+        dc_aminos_tp: "DC - Aminos and TP",
+        rts: "RTS",
+        wb: "W&B",
+      };
+      const WORKFLOW_STORAGE_KEY = "btv-selected-workflow";
+
+      function getSelectedWorkflow() {
+        const el = document.getElementById("inp-workflow");
+        return (el && el.value) || "dc_aminos_tp";
+      }
+
+      function onWorkflowChange() {
+        try {
+          localStorage.setItem(WORKFLOW_STORAGE_KEY, getSelectedWorkflow());
+        } catch (e) {}
+      }
+
+      function restoreSelectedWorkflow() {
+        try {
+          const saved = localStorage.getItem(WORKFLOW_STORAGE_KEY);
+          const el = document.getElementById("inp-workflow");
+          if (saved && el) el.value = saved;
+        } catch (e) {}
+      }
+      document.addEventListener("DOMContentLoaded", restoreSelectedWorkflow);
+
       let pollTimer = null,
         _progTimer = null;
       let _srtPresets = {},
@@ -2343,6 +2385,7 @@
         const pass = document.getElementById("inp-pass").value.trim();
         const dur = parseInt(document.getElementById("inp-dur").value) || 30;
         const tag = document.getElementById("inp-tag").value.trim();
+        const workflow = getSelectedWorkflow();
 
         if (!host || !port) {
           setStatus("err", "Host and Port are required.");
@@ -2364,7 +2407,13 @@
           const res = await fetch(`${PROXY}/gop/run`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url, duration: dur, passphrase: pass, tag }),
+            body: JSON.stringify({
+              url,
+              duration: dur,
+              passphrase: pass,
+              tag,
+              workflow,
+            }),
           });
           const data = await res.json();
           if (!data.job_id) throw new Error(data.error || "No job_id");
@@ -4005,6 +4054,7 @@
         const fd = new FormData();
         fd.append("file", file);
         fd.append("tag", tag);
+        fd.append("workflow", getSelectedWorkflow());
 
         document.getElementById("btn-run").disabled = true;
         document.getElementById("placeholder").style.display = "none";
@@ -4152,6 +4202,7 @@
               duration: dur,
               passphrase: pass,
               tag,
+              workflow: getSelectedWorkflow(),
             }),
           });
           const data = await res.json();
@@ -4298,8 +4349,13 @@
 
       // ── Specs Editor ─────────────────────────────────────────────────
       let _currentSpecs = null;
+      let _currentSpecsWorkflow = null;
 
       async function openSpecsEditor() {
+        const workflow = getSelectedWorkflow();
+        _currentSpecsWorkflow = workflow;
+        document.getElementById("specs-modal-workflow").textContent =
+          WORKFLOW_LABELS[workflow] || workflow;
         document.getElementById("specs-err").textContent = "";
         document.getElementById("specs-pw").style.display = _hasAdminPw
           ? ""
@@ -4309,7 +4365,9 @@
         document.getElementById("specs-editor-body").innerHTML =
           '<div style="font-family:var(--mono);font-size:.7rem;color:var(--muted);padding:.5rem">Loading…</div>';
         try {
-          const res = await fetch(`${PROXY}/gop/specs`);
+          const res = await fetch(
+            `${PROXY}/gop/specs?workflow=${encodeURIComponent(workflow)}`
+          );
           _currentSpecs = await res.json();
           renderSpecsEditor(_currentSpecs);
         } catch (e) {
@@ -4474,13 +4532,17 @@
 
         const headers = { "Content-Type": "application/json" };
         if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
+        const workflow = _currentSpecsWorkflow || getSelectedWorkflow();
 
         try {
-          const res = await fetch(`${PROXY}/gop/specs`, {
-            method: "POST",
-            headers,
-            body: JSON.stringify(specs),
-          });
+          const res = await fetch(
+            `${PROXY}/gop/specs?workflow=${encodeURIComponent(workflow)}`,
+            {
+              method: "POST",
+              headers,
+              body: JSON.stringify(specs),
+            }
+          );
           const data = await res.json();
           if (res.status === 403) {
             errEl.textContent = "❌ Invalid password";
@@ -4503,15 +4565,19 @@
       }
 
       async function resetSpecs() {
-        if (!confirm("Reset all specs to defaults?")) return;
+        if (!confirm("Reset specs for this workflow to defaults?")) return;
         const pw = document.getElementById("specs-pw").value;
+        const workflow = _currentSpecsWorkflow || getSelectedWorkflow();
         const headers = {};
         if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
         try {
-          const res = await fetch(`${PROXY}/gop/specs/reset`, {
-            method: "POST",
-            headers,
-          });
+          const res = await fetch(
+            `${PROXY}/gop/specs/reset?workflow=${encodeURIComponent(workflow)}`,
+            {
+              method: "POST",
+              headers,
+            }
+          );
           const data = await res.json();
           if (data.success) {
             _currentSpecs = data.specs;

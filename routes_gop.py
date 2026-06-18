@@ -1,10 +1,12 @@
 """
 routes_gop.py — GOP Analyzer Blueprint
-SO-Toolbox v2.27.0
+SO-Toolbox v2.28.0
 
 All /gop/* routes (run, upload, status, results, schedule, specs, overrides, delete).
 GOP results JSON now includes a `username` field (from /me session) for every test —
 "anonymous" when the request has no valid session.
+Each result also includes a `workflow` field; specs are now stored per workflow
+(dc_aminos_tp / rts / wb), each with its own specs JSON file on disk.
 
 Registers all /gop/* routes (nginx strips /so-proxy prefix).
 """
@@ -31,6 +33,22 @@ _BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
 GOP_DIR    = os.path.join(_BASE_DIR, "gop-results")
 SPECS_FILE = os.path.join(_BASE_DIR, "specs.json")
 os.makedirs(GOP_DIR, exist_ok=True)
+
+# ── Workflows ─────────────────────────────────────────────────────────────
+# Each workflow has its own specs file. "dc_aminos_tp" keeps using the
+# original specs.json so existing deployments don't lose their saved specs.
+DEFAULT_WORKFLOW = "dc_aminos_tp"
+WORKFLOW_SPECS_FILES = {
+    "dc_aminos_tp": SPECS_FILE,
+    "rts":          os.path.join(_BASE_DIR, "specs_rts.json"),
+    "wb":           os.path.join(_BASE_DIR, "specs_wb.json"),
+}
+
+
+def _specs_file_for(workflow):
+    """Return the specs.json path for a workflow, falling back to the default
+    workflow's file for unknown/empty values."""
+    return WORKFLOW_SPECS_FILES.get(workflow, SPECS_FILE)
 
 # ── In-memory job stores ───────────────────────────────────────────────────
 _gop_jobs      = {}
@@ -110,13 +128,15 @@ DEFAULT_SPECS = {
 }
 
 
-def _load_specs():
-    """Load specs.json and deep-merge with DEFAULT_SPECS so no field is lost."""
+def _load_specs(workflow=DEFAULT_WORKFLOW):
+    """Load the specs file for a workflow and deep-merge with DEFAULT_SPECS
+    so no field is lost."""
     import copy
     base = copy.deepcopy(DEFAULT_SPECS)
-    if os.path.isfile(SPECS_FILE):
+    specs_file = _specs_file_for(workflow)
+    if os.path.isfile(specs_file):
         try:
-            with open(SPECS_FILE) as f:
+            with open(specs_file) as f:
                 saved = json.load(f)
             for key, val in saved.items():
                 if key in base and isinstance(base[key], dict) and isinstance(val, dict):
@@ -128,8 +148,8 @@ def _load_specs():
     return base
 
 
-def _save_specs(incoming):
-    """Deep-merge incoming with defaults then save complete specs.json."""
+def _save_specs(incoming, workflow=DEFAULT_WORKFLOW):
+    """Deep-merge incoming with defaults then save complete specs for a workflow."""
     import copy
     merged = copy.deepcopy(DEFAULT_SPECS)
     for key, val in incoming.items():
@@ -137,7 +157,7 @@ def _save_specs(incoming):
             merged[key].update(val)
         else:
             merged[key] = val
-    with open(SPECS_FILE, "w") as f:
+    with open(_specs_file_for(workflow), "w") as f:
         json.dump(merged, f, indent=2)
 
 
@@ -145,7 +165,7 @@ def _save_specs(incoming):
 #  CORE ANALYSIS
 # ════════════════════════════════════════════════════════════════════════════
 
-def _run_gop_on_file(job_id, ts_path, tag, url_display, started_at):
+def _run_gop_on_file(job_id, ts_path, tag, url_display, started_at, workflow=DEFAULT_WORKFLOW):
     """Run GOP analysis on an already-captured/uploaded .ts file (no ffmpeg capture)."""
     log_lines = []
 
@@ -165,7 +185,8 @@ def _run_gop_on_file(job_id, ts_path, tag, url_display, started_at):
 
         original_name = url_display.split("upload:", 1)[-1] if url_display.startswith("upload:") else None
         _run_gop_analysis(job_id, f"file://{ts_path}", 9999, "", tag,
-                          _started_at=started_at, _original_name=original_name)
+                          _started_at=started_at, _original_name=original_name,
+                          workflow=workflow)
 
     except Exception as e:
         log(f"ERROR: {e}")
@@ -176,7 +197,7 @@ def _run_gop_on_file(job_id, ts_path, tag, url_display, started_at):
             })
 
 
-def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, _original_name=None):
+def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, _original_name=None, workflow=DEFAULT_WORKFLOW):
     """Background: capture SRT stream, run ffprobe frame analysis, parse GOP structure."""
     log_lines = []
 
@@ -574,7 +595,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             return ("REJECTED", f"{m} ms", f"Exceeds hard limit of {hard_limit}ms")
 
         # ── Compliance ────────────────────────────────────────────────
-        specs = _load_specs()
+        specs = _load_specs(workflow)
 
         def _s(key):
             return specs.get(key, DEFAULT_SPECS.get(key, {}))
@@ -718,7 +739,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
 
         result = {
             "url": url_display, "url_host": url_host, "url_port": url_port,
-            "tag": tag, "username": username,
+            "tag": tag, "username": username, "workflow": workflow,
             "started_at": _gop_jobs[job_id].get("started_at",""),
             "file_size": ts_size, "file_dur": file_dur, "file_br": file_br,
             "file_br_mbps": file_br_mbps,
@@ -806,7 +827,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             "url": url_display if 'url_display' in dir() else url,
             "url_host": url_host if 'url_host' in dir() else "",
             "url_port": url_port if 'url_port' in dir() else "",
-            "tag": tag, "username": username,
+            "tag": tag, "username": username, "workflow": workflow,
             "started_at": _gop_jobs.get(job_id, {}).get("started_at", ""),
             "ended_at": ended_at,
             "status": "error",
@@ -848,6 +869,7 @@ def gop_run():
     duration   = min(int(data.get("duration") or 30), 120)
     passphrase = (data.get("passphrase") or "").strip()
     tag        = (data.get("tag") or "").strip()
+    workflow   = (data.get("workflow") or DEFAULT_WORKFLOW).strip()
     if not url:
         return jsonify({"error": "url is required"}), 400
 
@@ -868,12 +890,14 @@ def gop_run():
             "url":        re.sub(r'[?&]passphrase=[^&]*', '', url).rstrip('?&'),
             "tag":        tag,
             "username":   username,
+            "workflow":   workflow,
             "result":     None,
             "log":        [],
         }
 
     t = threading.Thread(target=_run_gop_analysis,
-                         args=(job_id, url, duration, passphrase, tag), daemon=True)
+                         args=(job_id, url, duration, passphrase, tag),
+                         kwargs={"workflow": workflow}, daemon=True)
     t.start()
     return jsonify({"job_id": job_id})
 
@@ -888,6 +912,7 @@ def gop_upload():
         return jsonify({"error": "Only .ts files are supported"}), 400
 
     tag      = (request.form.get("tag") or "").strip()
+    workflow = (request.form.get("workflow") or DEFAULT_WORKFLOW).strip()
     username = _get_username_from_request()
 
     with tempfile.NamedTemporaryFile(suffix=".ts", delete=False, dir=GOP_DIR) as tmp:
@@ -911,6 +936,7 @@ def gop_upload():
             "url":        url_display,
             "tag":        tag,
             "username":   username,
+            "workflow":   workflow,
             "result":     None,
             "log":        [],
         }
@@ -918,6 +944,7 @@ def gop_upload():
     t = threading.Thread(
         target=_run_gop_on_file,
         args=(job_id, ts_save_path, tag, url_display, started_at),
+        kwargs={"workflow": workflow},
         daemon=True
     )
     t.start()
@@ -1101,6 +1128,7 @@ def gop_schedule():
     duration   = min(int(data.get("duration") or 30), 120)
     passphrase = (data.get("passphrase") or "").strip()
     tag        = (data.get("tag") or "").strip()
+    workflow   = (data.get("workflow") or DEFAULT_WORKFLOW).strip()
     username   = _get_username_from_request()
 
     if not url or not run_at:
@@ -1127,6 +1155,7 @@ def gop_schedule():
             "duration":   duration,
             "tag":        tag,
             "username":   username,
+            "workflow":   workflow,
             "status":     "pending",
         }
 
@@ -1154,6 +1183,7 @@ def gop_schedule():
                 "url":        url_display,
                 "tag":        tag,
                 "username":   username,
+                "workflow":   workflow,
                 "result":     None,
                 "log":        [],
             }
@@ -1161,7 +1191,7 @@ def gop_schedule():
             if sched_id in _gop_scheduled:
                 _gop_scheduled[sched_id]["job_id"] = job_id
 
-        _run_gop_analysis(job_id, url, duration, "", tag)
+        _run_gop_analysis(job_id, url, duration, "", tag, workflow=workflow)
 
         with _gop_lock:
             job = _gop_jobs.get(job_id, {})
@@ -1212,7 +1242,8 @@ def gop_schedule_cancel(sched_id):
 
 @gop_bp.route("/gop/specs", methods=["GET"])
 def gop_specs_get():
-    return jsonify(_load_specs())
+    workflow = request.args.get("workflow") or DEFAULT_WORKFLOW
+    return jsonify(_load_specs(workflow))
 
 
 @gop_bp.route("/gop/specs", methods=["POST"])
@@ -1220,11 +1251,12 @@ def gop_specs_save():
     ok, err = _check_password(request)
     if not ok:
         return err
+    workflow = request.args.get("workflow") or DEFAULT_WORKFLOW
     data = request.get_json(silent=True) or {}
     if not data:
         return jsonify({"error": "No specs data provided"}), 400
     try:
-        _save_specs(data)
+        _save_specs(data, workflow)
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -1235,9 +1267,11 @@ def gop_specs_reset():
     ok, err = _check_password(request)
     if not ok:
         return err
+    workflow = request.args.get("workflow") or DEFAULT_WORKFLOW
     try:
-        if os.path.isfile(SPECS_FILE):
-            os.remove(SPECS_FILE)
+        specs_file = _specs_file_for(workflow)
+        if os.path.isfile(specs_file):
+            os.remove(specs_file)
         return jsonify({"success": True, "specs": DEFAULT_SPECS})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500

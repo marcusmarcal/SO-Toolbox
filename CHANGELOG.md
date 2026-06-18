@@ -7,6 +7,22 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.13.0] - 2026-06-18
+
+### Added
+
+- Workflow selector dropdown before "Analyse Now", supporting independent
+  compliance spec sets: "DC - Aminos and TP" (existing), "RTS", and "W&B".
+- The Specs editor (⚙) now edits the compliance specs for the currently
+  selected workflow independently, with each workflow's specs stored and
+  saved separately on the server.
+- GOP analysis results now record which workflow was used for the test.
+
+### Changed
+
+- Reduced the Host / IP field width to make room for the new Workflow
+  dropdown in the analysis form.
+
 ## [3.12.0] - 2026-06-16
 
 ### Added
