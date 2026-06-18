@@ -3,43 +3,36 @@
     "name": "Sabina Barros",
     "email": "sabina.barros@statsperfom.global",
     "team": "Specialists",
-    "is_active": true,
   },
   {
     "name": "Sergio Silva",
     "email": "sergio.silva@statsperfom.global",
     "team": "Specialists",
-    "is_active": true,
   },
   {
     "name": "Tiago Oliveira",
     "email": "tiago.oliveira@statsperfom.global",
     "team": "Specialists",
-    "is_active": true,
   },
   {
     "name": "Vitor Cassama",
     "email": "vitor.cassama@statsperfom.global",
     "team": "Specialists",
-    "is_active": true,
   },
   {
     "name": "Fernando Carvalho",
     "email": "fernando.carvalho@statsperfom.global",
     "team": "Specialists",
-    "is_active": true,
   },
   {
     "name": "Marc Ribeiro",
     "email": "marcmadeira.ribeiro@statsperfom.global",
     "team": "Specialists",
-    "is_active": true,
   },
   {
     "name": "Gabriel Ribeiro",
     "email": "gabriel.ribeiro@statsperfom.global",
     "team": "Specialists",
-    "is_active": true,
   },
   {
     "name": "Mario Branco",
@@ -51,48 +44,40 @@
     "name": "Isaac Santiago",
     "email": "isaac.santiago@statsperfom.global",
     "team": "Specialists",
-    "is_active": true,
   },
   {
     "name": "Hugo Carvalho",
     "email": "hugo.carvalho@statsperfom.global",
     "team": "Engineering",
-    "is_active": true,
   },
   {
     "name": "Goncalo Paiva",
     "email": "goncalo.paiva@statsperfom.global",
     "team": "Engineering",
-    "is_active": true,
   },
   {
     "name": "Nuno Carvalho",
     "email": "nuno.carvalho@statsperfom.global",
     "team": "Engineering",
-    "is_active": true,
   },
   {
     "name": "Tiago Carvalho",
     "email": "tiago.carvalho@statsperfom.global",
     "team": "Management",
-    "is_active": true,
   },
   {
     "name": "Joao Lopes",
     "email": "joao.lopes@statsperfom.com",
     "team": "Management",
-    "is_active": true,
   },
   {
     "name": "Marcus Marcal",
     "email": "marcus.marcal@statsperfom.global",
     "team": "Management",
-    "is_active": true,
   },
   {
     "name": "Joao Rato",
     "email": "joao.rato@statsperfom.global",
     "team": "Management",
-    "is_active": true,
   }
 ]
