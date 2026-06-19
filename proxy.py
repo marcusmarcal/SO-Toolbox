@@ -10,8 +10,6 @@ from urllib.parse import quote
 
 app = Flask(__name__)
 
-routes_rota.register_routes(app)
-
 from id3as_routes import id3as_bp
 app.register_blueprint(id3as_bp)
 
@@ -917,6 +915,8 @@ def server_stats():
 
 routes_auth.register_routes(app)
 routes_gop.register_routes(app)
+
+routes_rota.register_routes(app)
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5050, threaded=True)
