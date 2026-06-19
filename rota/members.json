@@ -1,82 +1,12 @@
-[
-  {
-    "name": "Sabina Barros",
-    "email": "sabina.barros@statsperfom.global",
-    "team": "Specialists"
-  },
-  {
-    "name": "Sergio Silva",
-    "email": "sergio.silva@statsperfom.global",
-    "team": "Specialists"
-  },
-  {
-    "name": "Tiago Oliveira",
-    "email": "tiago.oliveira@statsperfom.global",
-    "team": "Specialists"
-  },
-  {
-    "name": "Vitor Cassama",
-    "email": "vitor.cassama@statsperfom.global",
-    "team": "Specialists"
-  },
-  {
-    "name": "Fernando Carvalho",
-    "email": "fernando.carvalho@statsperfom.global",
-    "team": "Specialists"
-  },
-  {
-    "name": "Marc Ribeiro",
-    "email": "marcmadeira.ribeiro@statsperfom.global",
-    "team": "Specialists"
-  },
-  {
-    "name": "Gabriel Ribeiro",
-    "email": "gabriel.ribeiro@statsperfom.global",
-    "team": "Specialists"
-  },
-  {
-    "name": "Mario Branco",
-    "email": "mario.branco@statsperfom.global",
-    "team": "Specialists"
-  },
-  {
-    "name": "Isaac Santiago",
-    "email": "isaac.santiago@statsperfom.global",
-    "team": "Specialists"
-  },
-  {
-    "name": "Hugo Carvalho",
-    "email": "hugo.carvalho@statsperfom.global",
+{
+  "joao.lopes@statsperfom.com": {
+    "name": "Joao",
+    "email": "joao.lopes@statsperfom.global",
     "team": "Engineering"
   },
-  {
-    "name": "Goncalo Paiva",
-    "email": "goncalo.paiva@statsperfom.global",
-    "team": "Engineering"
-  },
-  {
-    "name": "Nuno Carvalho",
-    "email": "nuno.carvalho@statsperfom.global",
-    "team": "Engineering"
-  },
-  {
-    "name": "Tiago Carvalho",
-    "email": "tiago.carvalho@statsperfom.global",
-    "team": "Management"
-  },
-  {
-    "name": "Joao Lopes",
-    "email": "joao.lopes@statsperfom.com",
-    "team": "Management"
-  },
-  {
-    "name": "Marcus Marcal",
-    "email": "marcus.marcal@statsperfom.global",
-    "team": "Management"
-  },
-  {
-    "name": "Joao Rato",
-    "email": "joao.rato@statsperfom.global",
-    "team": "Management"
+  "sabina.barros@statsperfom.com": {
+    "name": "Sabina",
+    "email": "sabina.barros@statsperfom.com",
+    "team": "Specialists"
   }
-]
+}
