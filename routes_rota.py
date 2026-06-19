@@ -28,10 +28,21 @@ LEAVE_FILE   = os.path.join(ROTA_DIR, 'leave_requests.json')
 
 # ── Data helpers ──────────────────────────────────────────────────────────
 def _load_json(path: str):
+    print(f"[DEBUG] Loading JSON from: {path}")   # 👈 shows actual file used
+
     if not os.path.exists(path):
+        print(f"[DEBUG] File does not exist: {path}")
         return {}
-    with open(path, 'r') as f:
-        return json.load(f)
+
+    try:
+        with open(path, 'r') as f:
+            data = json.load(f)
+            print(f"[DEBUG] Successfully loaded: {path}")
+            return data
+    except Exception as e:
+        print(f"[JSON ERROR] {path}: {e}")
+        return {}
+
 
 
 def _save_json(path: str, data) -> None:
