@@ -148,13 +148,9 @@
         .slot-body { padding: 16px; }
 
         .feed-pair {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
+            display: flex;
+            flex-direction: column;
             gap: 14px;
-        }
-
-        @media (max-width: 1400px) {
-            .feed-pair { grid-template-columns: 1fr; }
         }
 
         .feed {
@@ -403,20 +399,36 @@
             return `Id3as AWS CH${aws} - PROBE CH${probe}`;
         }
 
+        function defaultUrlsFor(i) {
+            const num = String(i).padStart(2, '0');
+            return {
+                awsUrl: `http://10.122.64.20/probe/core/mdiChannelDoc?Channelname=ID3AS_AWS_CH${num}&?&detached=1`,
+                probeUrl: `http://10.122.64.20/probe/core/mdiChannelDoc?Channelname=EQP_MON%20${num}&?&detached=1`
+            };
+        }
+
+        function defaultChannels() {
+            return Array.from({ length: CHANNEL_COUNT }, (_, i) => defaultUrlsFor(i + 1));
+        }
+
         function loadChannels() {
             try {
                 const raw = localStorage.getItem(STORAGE_KEY);
                 if (!raw) return defaultChannels();
                 const parsed = JSON.parse(raw);
                 if (!Array.isArray(parsed) || parsed.length !== CHANNEL_COUNT) return defaultChannels();
-                return parsed;
+                // Backfill any channel left empty (e.g. from a prior version) with the
+                // standard ID3AS_AWS_CH/EQP_MON naming pattern.
+                return parsed.map((ch, i) => {
+                    const fallback = defaultUrlsFor(i + 1);
+                    return {
+                        awsUrl: ch.awsUrl || fallback.awsUrl,
+                        probeUrl: ch.probeUrl || fallback.probeUrl
+                    };
+                });
             } catch (e) {
                 return defaultChannels();
             }
-        }
-
-        function defaultChannels() {
-            return Array.from({ length: CHANNEL_COUNT }, () => ({ awsUrl: '', probeUrl: '' }));
         }
 
         function saveChannels(channels) {
