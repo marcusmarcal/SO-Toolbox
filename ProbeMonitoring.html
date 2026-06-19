@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Probe Monitoring</title>
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="https://o7dkx1gd2bwwexip1qwjpplu-wpengine.netdna-ssl.com/wp-content/themes/orbit-media-bootstrap4/resources/favicons/favicon-16x16.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="https://o7dkx1gd2bwwexip1qwjpplu-wpengine.netdna-ssl.com/wp-content/themes/orbit-media-bootstrap4/resources/favicons/favicon-32x32.png"
+    />
+    <style>
+      :root {
+        --bg: #0e1217;
+        --panel: #161b22;
+        --panel-2: #1c222b;
+        --border: #262d38;
+        --text: #e6e9ef;
+        --muted: #8993a4;
+        --accent: #4fd1c5;
+        --accent-soft: rgba(79, 209, 197, 0.12);
+        --rmg: #f0a830;
+        --rmg-soft: rgba(240, 168, 48, 0.12);
+        --danger: #e5534b;
+        --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo,
+          monospace;
+        --radius: 8px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 28px 32px 60px;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--font-ui);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      header.app-header {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        margin-bottom: 26px;
+        padding-bottom: 18px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      header.app-header img {
+        height: 34px;
+        width: auto;
+        opacity: 0.92;
+      }
+
+      header.app-header .titles h1 {
+        margin: 0;
+        font-size: 21px;
+        font-weight: 650;
+        letter-spacing: 0.2px;
+        color: var(--text);
+      }
+
+      header.app-header .titles p {
+        margin: 2px 0 0;
+        font-size: 12px;
+        color: var(--muted);
+        font-family: var(--font-mono);
+        letter-spacing: 0.4px;
+        text-transform: uppercase;
+      }
+
+      .toolbar {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 18px;
+      }
+
+      button.btn {
+        font-family: var(--font-ui);
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text);
+        background: var(--panel-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 9px 16px;
+        cursor: pointer;
+        transition: border-color 0.15s ease, background 0.15s ease;
+      }
+
+      button.btn:hover {
+        border-color: var(--accent);
+      }
+      button.btn:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      button.btn.primary {
+        background: var(--accent-soft);
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
+      .slots {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+      }
+
+      @media (max-width: 980px) {
+        .slots {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .slot-panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+      }
+
+      .slot-panel .slot-head {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .slot-tag {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--muted);
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+        flex-shrink: 0;
+      }
+
+      select.slot-select {
+        flex: 1;
+        background: var(--panel-2);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 8px 10px;
+        font-family: var(--font-ui);
+        font-size: 13px;
+      }
+
+      select.slot-select:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+
+      .slot-body {
+        padding: 16px;
+      }
+
+      .feed-pair {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .feed {
+        background: var(--panel-2);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+
+      .feed .feed-label {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--muted);
+        letter-spacing: 0.4px;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .feed iframe {
+        display: block;
+        width: 100%;
+        height: 280px;
+        border: 0;
+      }
+
+      .empty-state {
+        padding: 36px 18px;
+        text-align: center;
+        color: var(--muted);
+      }
+
+      .empty-state .empty-icon {
+        font-family: var(--font-mono);
+        font-size: 24px;
+        color: var(--border);
+        margin-bottom: 8px;
+      }
+
+      .empty-state a.inline-link {
+        color: var(--accent);
+        cursor: pointer;
+        text-decoration: underline;
+      }
+
+      .rmg-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+
+      @media (max-width: 1400px) {
+        .rmg-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .rmg-grid .feed .feed-label {
+        color: var(--rmg);
+      }
+
+      /* Config modal */
+      .modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(5, 7, 10, 0.72);
+        align-items: flex-start;
+        justify-content: center;
+        padding: 40px 20px;
+        z-index: 50;
+      }
+
+      .modal-overlay.open {
+        display: flex;
+      }
+
+      .modal {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        width: 100%;
+        max-width: 880px;
+        max-height: calc(100vh - 80px);
+        display: flex;
+        flex-direction: column;
+      }
+
+      .modal-head {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .modal-head h2 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 650;
+      }
+
+      .modal-head p {
+        margin: 2px 0 0;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .modal-close {
+        background: none;
+        border: none;
+        color: var(--muted);
+        font-size: 20px;
+        line-height: 1;
+        cursor: pointer;
+        padding: 4px 8px;
+      }
+
+      .modal-close:hover {
+        color: var(--text);
+      }
+
+      .modal-body {
+        overflow-y: auto;
+        padding: 8px 20px;
+      }
+
+      .channel-row {
+        display: grid;
+        grid-template-columns: 130px 1fr 1fr;
+        gap: 10px;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .channel-row:last-child {
+        border-bottom: none;
+      }
+
+      .channel-row .channel-label {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .channel-row .channel-label strong {
+        display: block;
+        color: var(--text);
+        font-size: 12.5px;
+      }
+
+      .channel-row input {
+        width: 100%;
+        background: var(--panel-2);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 7px 9px;
+        font-family: var(--font-mono);
+        font-size: 12px;
+      }
+
+      .channel-row input::placeholder {
+        color: #4a5263;
+      }
+      .channel-row input:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+
+      .modal-foot {
+        padding: 14px 20px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .save-status {
+        font-size: 12px;
+        color: var(--accent);
+        margin-right: auto;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+      }
+
+      .save-status.show {
+        opacity: 1;
+      }
+    </style>
+  </head>
+
+  <body>
+    <header class="app-header">
+      <div class="titles">
+        <h1>Probe Monitoring</h1>
+        <p>Id3as AWS &rarr; Probe feed reference</p>
+      </div>
+    </header>
+
+    <div class="toolbar">
+      <button class="btn primary" id="openConfigBtn" type="button">
+        Configure channels
+      </button>
+    </div>
+
+    <main class="slots">
+      <section class="slot-panel">
+        <div class="slot-head">
+          <span class="slot-tag">Slot 1</span>
+          <select class="slot-select" id="slot1Select"></select>
+        </div>
+        <div class="slot-body" id="slot1Body"></div>
+      </section>
+
+      <section class="slot-panel">
+        <div class="slot-head">
+          <span class="slot-tag">Slot 2</span>
+          <select class="slot-select" id="slot2Select"></select>
+        </div>
+        <div class="slot-body" id="slot2Body"></div>
+      </section>
+    </main>
+
+    <div class="modal-overlay" id="configOverlay">
+      <div class="modal">
+        <div class="modal-head">
+          <div>
+            <h2>Configure channels</h2>
+            <p>
+              Set the Id3as AWS and Probe URLs for each of the 40 channel slots.
+            </p>
+          </div>
+          <button
+            class="modal-close"
+            id="closeConfigBtn"
+            type="button"
+            aria-label="Close"
+          >
+            &times;
+          </button>
+        </div>
+        <div class="modal-body" id="channelList"></div>
+        <div class="modal-foot">
+          <span class="save-status" id="saveStatus">Saved</span>
+          <button class="btn" id="cancelConfigBtn" type="button">Cancel</button>
+          <button class="btn primary" id="saveConfigBtn" type="button">
+            Save changes
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const STORAGE_KEY = "probeMonitoring.channels";
+      const SLOT1_KEY = "probeMonitoring.slot1";
+      const SLOT2_KEY = "probeMonitoring.slot2";
+      const CHANNEL_COUNT = 40;
+
+      const RMG_MV = {
+        value: "rmgmv",
+        label: "RMG MV",
+        feeds: [
+          {
+            label: "RMG MV from T21 enc to INX",
+            url: "http://10.11.203.20/probe/core/mdiChannelDoc?Channelname=INX_RMG_T21_MV&?&detached=1",
+          },
+          {
+            label: "RMG MV from T21 enc to EQP",
+            url: "http://10.122.64.20/probe/core/mdiChannelDoc?Channelname=EQP_RMG_T21_MV&?&detached=1",
+          },
+          {
+            label: "RMG MV from INX to AVE",
+            url: "http://10.217.82.25/probe/core/mdiChannelDoc?Channelname=AVE_INX_RMG_MV%20(please%20keep%20joined%20for%20ref)&?&detached=1",
+          },
+          {
+            label: "RMG MV from EQP to AVE",
+            url: "http://10.217.82.25/probe/core/mdiChannelDoc?Channelname=AVE_EQP_RMG_MV%20(please%20keep%20joined%20for%20ref)&?&detached=1",
+          },
+        ],
+      };
+
+      function channelLabel(i) {
+        const aws = 300 + i;
+        const probe = String(i).padStart(2, "0");
+        return `Id3as AWS CH${aws} - PROBE CH${probe}`;
+      }
+
+      function defaultUrlsFor(i) {
+        const num = String(i).padStart(2, "0");
+        return {
+          awsUrl: `http://10.122.64.20/probe/core/mdiChannelDoc?Channelname=ID3AS_AWS_CH${num}&?&detached=1`,
+          probeUrl: `http://10.122.64.20/probe/core/mdiChannelDoc?Channelname=EQP_MON%20${num}&?&detached=1`,
+        };
+      }
+
+      function defaultChannels() {
+        return Array.from({ length: CHANNEL_COUNT }, (_, i) =>
+          defaultUrlsFor(i + 1)
+        );
+      }
+
+      function loadChannels() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return defaultChannels();
+          const parsed = JSON.parse(raw);
+          if (!Array.isArray(parsed) || parsed.length !== CHANNEL_COUNT)
+            return defaultChannels();
+          // Backfill any channel left empty (e.g. from a prior version) with the
+          // standard ID3AS_AWS_CH/EQP_MON naming pattern.
+          return parsed.map((ch, i) => {
+            const fallback = defaultUrlsFor(i + 1);
+            return {
+              awsUrl: ch.awsUrl || fallback.awsUrl,
+              probeUrl: ch.probeUrl || fallback.probeUrl,
+            };
+          });
+        } catch (e) {
+          return defaultChannels();
+        }
+      }
+
+      function saveChannels(channels) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(channels));
+      }
+
+      let channels = loadChannels();
+
+      function buildOptions(select) {
+        select.innerHTML = "";
+        const emptyOpt = document.createElement("option");
+        emptyOpt.value = "";
+        emptyOpt.textContent = "Select a channel...";
+        select.appendChild(emptyOpt);
+
+        for (let i = 1; i <= CHANNEL_COUNT; i++) {
+          const opt = document.createElement("option");
+          opt.value = String(i);
+          opt.textContent = channelLabel(i);
+          select.appendChild(opt);
+        }
+
+        const rmgOpt = document.createElement("option");
+        rmgOpt.value = RMG_MV.value;
+        rmgOpt.textContent = RMG_MV.label;
+        select.appendChild(rmgOpt);
+      }
+
+      function renderFeed(label, url) {
+        const wrap = document.createElement("div");
+        wrap.className = "feed";
+        const lab = document.createElement("div");
+        lab.className = "feed-label";
+        lab.textContent = label;
+        wrap.appendChild(lab);
+        const iframe = document.createElement("iframe");
+        iframe.src = url;
+        iframe.scrolling = "no";
+        iframe.setAttribute("allowfullscreen", "");
+        wrap.appendChild(iframe);
+        return wrap;
+      }
+
+      function renderEmptyState(body) {
+        body.innerHTML = "";
+        const empty = document.createElement("div");
+        empty.className = "empty-state";
+        empty.innerHTML = `
+                <div class="empty-icon">&#9647;</div>
+                <div>No URLs configured for this channel yet.<br>
+                <a class="inline-link" data-action="open-config">Configure channels</a> to set it up.</div>
+            `;
+        body.appendChild(empty);
+      }
+
+      function renderSlot(body, value) {
+        body.innerHTML = "";
+
+        if (!value) {
+          const empty = document.createElement("div");
+          empty.className = "empty-state";
+          empty.innerHTML = `<div class="empty-icon">&#9647;</div><div>Pick a channel above to start monitoring.</div>`;
+          body.appendChild(empty);
+          return;
+        }
+
+        if (value === RMG_MV.value) {
+          const grid = document.createElement("div");
+          grid.className = "rmg-grid";
+          RMG_MV.feeds.forEach((f) =>
+            grid.appendChild(renderFeed(f.label, f.url))
+          );
+          body.appendChild(grid);
+          return;
+        }
+
+        const idx = parseInt(value, 10) - 1;
+        const ch = channels[idx];
+        if (!ch || (!ch.awsUrl && !ch.probeUrl)) {
+          renderEmptyState(body);
+          return;
+        }
+
+        const pair = document.createElement("div");
+        pair.className = "feed-pair";
+        pair.appendChild(
+          renderFeed(`Id3as AWS CH${300 + idx + 1}`, ch.awsUrl || "")
+        );
+        pair.appendChild(
+          renderFeed(
+            `PROBE CH${String(idx + 1).padStart(2, "0")}`,
+            ch.probeUrl || ""
+          )
+        );
+        body.appendChild(pair);
+      }
+
+      function setupSlot(selectEl, bodyEl, storageKey) {
+        buildOptions(selectEl);
+        const saved = localStorage.getItem(storageKey) || "";
+        selectEl.value = saved;
+        renderSlot(bodyEl, saved);
+
+        selectEl.addEventListener("change", () => {
+          localStorage.setItem(storageKey, selectEl.value);
+          renderSlot(bodyEl, selectEl.value);
+        });
+      }
+
+      const slot1Select = document.getElementById("slot1Select");
+      const slot1Body = document.getElementById("slot1Body");
+      const slot2Select = document.getElementById("slot2Select");
+      const slot2Body = document.getElementById("slot2Body");
+
+      setupSlot(slot1Select, slot1Body, SLOT1_KEY);
+      setupSlot(slot2Select, slot2Body, SLOT2_KEY);
+
+      document.addEventListener("click", (e) => {
+        if (e.target.matches('[data-action="open-config"]')) {
+          openConfig();
+        }
+      });
+
+      // Config modal
+      const overlay = document.getElementById("configOverlay");
+      const channelList = document.getElementById("channelList");
+      const saveStatus = document.getElementById("saveStatus");
+
+      function buildChannelRows() {
+        channelList.innerHTML = "";
+        for (let i = 1; i <= CHANNEL_COUNT; i++) {
+          const idx = i - 1;
+          const ch = channels[idx];
+          const row = document.createElement("div");
+          row.className = "channel-row";
+          row.innerHTML = `
+                    <div class="channel-label"><strong>CH${String(i).padStart(
+                      2,
+                      "0"
+                    )}</strong>${channelLabel(i)}</div>
+                    <input type="text" data-idx="${idx}" data-field="awsUrl" placeholder="Id3as AWS CH${
+            300 + i
+          } URL" value="${(ch.awsUrl || "").replace(/"/g, "&quot;")}">
+                    <input type="text" data-idx="${idx}" data-field="probeUrl" placeholder="PROBE CH${String(
+            i
+          ).padStart(2, "0")} URL" value="${(ch.probeUrl || "").replace(
+            /"/g,
+            "&quot;"
+          )}">
+                `;
+          channelList.appendChild(row);
+        }
+      }
+
+      function openConfig() {
+        buildChannelRows();
+        overlay.classList.add("open");
+      }
+
+      function closeConfig() {
+        overlay.classList.remove("open");
+        saveStatus.classList.remove("show");
+      }
+
+      document
+        .getElementById("openConfigBtn")
+        .addEventListener("click", openConfig);
+      document
+        .getElementById("closeConfigBtn")
+        .addEventListener("click", closeConfig);
+      document
+        .getElementById("cancelConfigBtn")
+        .addEventListener("click", closeConfig);
+
+      overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) closeConfig();
+      });
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && overlay.classList.contains("open"))
+          closeConfig();
+      });
+
+      document.getElementById("saveConfigBtn").addEventListener("click", () => {
+        const inputs = channelList.querySelectorAll("input[data-idx]");
+        inputs.forEach((input) => {
+          const idx = parseInt(input.dataset.idx, 10);
+          const field = input.dataset.field;
+          channels[idx][field] = input.value.trim();
+        });
+        saveChannels(channels);
+
+        renderSlot(slot1Body, slot1Select.value);
+        renderSlot(slot2Body, slot2Select.value);
+
+        saveStatus.classList.add("show");
+        setTimeout(() => saveStatus.classList.remove("show"), 1800);
+      });
+    </script>
+  </body>
+</html>

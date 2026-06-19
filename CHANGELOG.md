@@ -13,6 +13,159 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Rota started
 
+## [3.14.0] - 2026-06-19
+
+### Added
+
+- Initial release of Probe Monitoring (`ProbeMonitoring.html`), replacing `RTV MV Monitoring.html`.
+- Two independent channel slots, each with a dropdown of 40 configurable channels (`Id3as AWS CH301 - PROBE CH01` through `Id3as AWS CH340 - PROBE CH40`) plus a fixed `RMG MV` entry.
+- "Configure channels" modal to register the Id3as AWS and Probe URL pair for each of the 40 channels, persisted in `localStorage`.
+- `RMG MV` entry reproducing the original four reference feeds (T21 enc → INX, T21 enc → EQP, INX → AVE, EQP → AVE) as a fixed, non-editable option.
+- Slot selections persisted in `localStorage` so the last-viewed channels are restored on reload.
+- Empty-state messaging for slots and channels without configured URLs.
+- Redesigned dark control-room UI (monospace channel labels, teal/amber accents) replacing the original CodePen-based table layout.
+
+## [3.13.1] - 2026-06-17
+
+### Fixed
+
+- The Specification column in the compliance table, and the matching
+  column in the visual/text test reports, now show the actual specs
+  saved for the workflow used in the test, instead of always showing
+  the original hardcoded defaults.
+
+## [3.13.0] - 2026-06-18
+
+### Added
+
+- Workflow selector dropdown before "Analyse Now", supporting independent
+  compliance spec sets: "DC - Aminos and TP" (existing), "RTS", and "W&B".
+- The Specs editor (⚙) now edits the compliance specs for the currently
+  selected workflow independently, with each workflow's specs stored and
+  saved separately on the server.
+- GOP analysis results now record which workflow was used for the test.
+
+### Changed
+
+- Reduced the Host / IP field width to make room for the new Workflow
+  dropdown in the analysis form.
+
+## [3.12.0] - 2026-06-16
+
+### Added
+
+- New `GET /gop/jobs/running` endpoint listing all in-progress jobs from
+  the in-memory job store, regardless of the calling client (HTML
+  frontend, Chrome extension, or any other API consumer).
+- The Scheduled panel now also displays jobs started outside the
+  scheduler (e.g. by the Chrome extension calling `/gop/run` directly),
+  marked with a "🔌 External" badge and without a Cancel action.
+
+## [3.11.2] - 2026-06-16
+
+### Changed
+
+- Split the chroma compliance check into two independent rows: **Chroma
+  Subsampling** (4:2:0/4:2:2/4:4:4, derived from pixel format) and a new
+  **Colour Range** check (limited vs full). Previously both concepts were
+  conflated into a single `chroma` row, which made full-range formats
+  like `yuvj420p` either incorrectly pass (same subsampling as `yuv420p`)
+  or, after the v2.28.0 fix, correctly reject but under a misleading
+  "Chroma Subsampling" label.
+
+### Added
+
+- New `colour_range` spec (default: `limited`) in `DEFAULT_SPECS`,
+  configurable via the Specs Editor. Pixel formats starting with `yuvj`
+  (e.g. `yuvj420p`) are measured as `full` and rejected against the
+  `limited` requirement; standard formats (`yuv420p`, etc.) measure as
+  `limited` and pass.
+
+## [3.11.1] - 2026-06-16
+
+### Fixed
+
+- GOP chroma compliance check (`routes_gop.py`) no longer conflates pixel
+  format with chroma subsampling. `yuvj420p` (full-range) is now
+  correctly rejected instead of being reported as `ACCEPTED`; `yuv420p`
+  (limited-range) is accepted as before. The compliance report now shows
+  the actual pixel format (e.g. `yuv420p`, `yuvj420p`) as the measured
+  value, distinct from the `4:2:0` chroma subsampling notation used for
+  spec matching.
+
+## [3.11.0] - 2026-06-16
+
+### Fixed
+
+- BTV: Specs editor `saveSpecs()` no longer truncates `preferred` values containing
+  `:` or `x` (e.g. `4:2:0`, `1920x1080`) when saving. `parseFloat` was
+  silently parsing only the leading numeric portion; the fix now requires
+  an exact round-trip match before treating a value as numeric.
+
+## [3.10.0] - 2026-06-15
+
+### Added
+
+- WC2026 rota: Sync is persistent now
+
+## [3.9.0] - 2026-06-12
+
+### Added
+
+- Id3as DC: Channel list cards now display the input multicast address and port below the channel ID
+
+## [3.8.0] - 2026-06-09
+
+### Added
+
+- `wc2026_rota.html`: WC 2026 engineering rota planner — assign engineers to
+  matches, auto-assign by round-robin, filter by engineer/venue/date, export CSV
+- `wc2026_routes.py`: Flask blueprint exposing `GET /wc2026/assignments` and
+  `POST /wc2026/assignments`; assignments persisted to `wc2026_assignments.json`
+- Role-based access: only admin users can assign, auto-assign, clear, import CSV
+  or rename engineers; non-admins see the rota in read-only mode
+- CSV import restores assignments and engineer names from a previously exported file
+- Save status indicator in header shows last saved by/when, pending and error states
+- Session resolved via existing `/so-proxy/me` endpoint; no additional auth logic
+
+## [3.7.0] - 2026-06-02
+
+### Added
+
+- SRT Tool
+- `GET /srt/sources`: lists test.mp4 and all .ts files from /gop-results
+- Source file dropdown populated on page load; manual input still available
+- Passthrough mode (-c:v copy -c:a copy) for .ts sources, no re-encode
+- Passthrough checkbox shown only when a .ts source is selected
+- Mode badge (transcode/passthrough) shown per job in the jobs list
+
+## [3.7.0] - 2026-06-02
+
+### Added
+
+- FIFA World Cup 2026 Tool
+
+## [3.6.0] - 2026-05-29
+
+### Added
+
+- Size of buttons and order of tags adjusted on BTV Video Analyser
+
+## [3.5.1] - 2026-05-29
+
+### Added
+
+- feat: PATCH /gop/result/:file to update tag field
+
+## [3.5.0] - 2026-05-29
+
+### Added
+
+- Tag editor for past analyses: click the ✎ button on any history item to add, remove, or rename tags
+- Chip-based tag input UI with keyboard shortcuts (Enter/comma to confirm, Backspace to remove last)
+- Tag suggestions populated from existing tags in the current history view
+- Saves via POST /gop/tag/:file with { tag } payload, same pattern as override endpoint
+
 ## [3.4.0] - 2026-05-28
 
 ### Changed
