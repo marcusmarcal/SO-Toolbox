@@ -14,6 +14,7 @@ import shutil
 from flask import Blueprint, request, jsonify, send_from_directory
 
 from routes_auth import _get_session, _token_from_request
+from routes_auth import require_auth, require_admin_role
 
 # ── Blueprint ─────────────────────────────────────────────────────────────
 rota_bp = Blueprint('rota', __name__)
