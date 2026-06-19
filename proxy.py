@@ -10,6 +10,8 @@ from urllib.parse import quote
 
 app = Flask(__name__)
 
+routes_rota.register_routes(app)
+
 from id3as_routes import id3as_bp
 app.register_blueprint(id3as_bp)
 

@@ -19,6 +19,39 @@ from routes_auth import require_auth, require_admin_role
 # ── Blueprint ─────────────────────────────────────────────────────────────
 rota_bp = Blueprint('rota', __name__)
 
+# ── Config ────────────────────────────────────────────────────────────────
+_BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
+ROTA_DIR     = os.path.join(_BASE_DIR, 'rota')
+MEMBERS_FILE = os.path.join(ROTA_DIR, 'members.json')
+LEAVE_FILE   = os.path.join(ROTA_DIR, 'leave_requests.json')
+
+
+# ── Data helpers ──────────────────────────────────────────────────────────
+def _load_json(path: str):
+    if not os.path.exists(path):
+        return {}
+    with open(path, 'r') as f:
+        return json.load(f)
+
+
+def _save_json(path: str, data) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'w') as f:
+        json.dump(data, f, indent=2)
+
+
+def _get_member(username: str) -> dict | None:
+    members = _load_json(MEMBERS_FILE)
+    return members.get(username)
+
+
+def _get_rota_role(session: dict) -> str:
+    if session.get('role') == 'admin':
+        return 'management'
+    if _get_member(session['username']):
+        return 'staff'
+    return 'guest'
+
 from datetime import date, timedelta
 
 ANCHOR_MONDAY = date(2026, 3, 2)
@@ -107,7 +140,6 @@ def _resolve_shift(name: str, d: date, leave_map: dict) -> str:
 
 
 def _build_leave_map(leave_list: list) -> dict:
-    """Expand leave records into a (name, date) → {leave_type, status} dict."""
     lmap = {}
     for r in leave_list:
         try:
@@ -117,13 +149,30 @@ def _build_leave_map(leave_list: list) -> dict:
             continue
         d = ds
         while d <= de:
-            lmap[(r["username"], d)] = {
+            lmap[(r["name"], d)] = {   # ← name, not username
                 "leave_type": r["leave_type"],
                 "status":     r["status"],
             }
             d += timedelta(days=1)
     return lmap
 
+@rota_bp.route('/rota/me', methods=['GET'])
+@require_auth
+def rota_me():
+    session   = request.session
+    rota_role = _get_rota_role(session)
+    member    = _get_member(session['username'])
+    return jsonify({
+        'ok':        True,
+        'username':  session['username'],
+        'rota_role': rota_role,
+        'name':      member['name'] if member else session['username'],
+        'team':      member['team'] if member else None,
+    })
+
+
+def register_routes(app) -> None:
+    app.register_blueprint(rota_bp)
 
 # ════════════════════════════════════════════════════════════════════════════
 #  SCHEDULE ENDPOINT
