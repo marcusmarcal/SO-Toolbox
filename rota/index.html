@@ -605,13 +605,11 @@
   // ════════════════════════════════════════════════════════════════
   (async function init() {
     try {
-      const r = await fetch(`${PROXY}/me`, { credentials: 'same-origin' });
-      if (!r.ok) { window.location.href = '/login.html?next=/rota/'; return; }
-      const d = await r.json();
+      const r = await fetch('/so-proxy/me', { credentials: 'same-origin' });
+      const me = await r.json();
 
-      // Fetch rota identity
-      const rm = await fetch(`${PROXY}/rota/me`, { credentials: 'same-origin' });
-      if (!rm.ok) { window.location.href = '/login.html?next=/rota/'; return; }
+      // Check rota-specific identity (team, display name)
+      const rm = await fetch('/so-proxy/rota/me', { credentials: 'same-origin' });
       state.me = await rm.json();
 
       renderTopbar();
@@ -621,7 +619,7 @@
       setupFeedback();
       loadRota();
     } catch(e) {
-      window.location.href = '/login.html?next=/rota/';
+      console.error('Init failed', e);
     }
   })();
 
@@ -645,10 +643,6 @@
     }
   }
 
-  document.getElementById('btn-signout').addEventListener('click', async () => {
-    await fetch(`${PROXY}/logout`, { method: 'POST', credentials: 'same-origin' });
-    window.location.href = '/login.html';
-  });
 
   // ════════════════════════════════════════════════════════════════
   //  TABS
