@@ -21,9 +21,6 @@ app.register_blueprint(rts_bp)
 from router_srt import srt_bp
 app.register_blueprint(srt_bp)
 
-from routes_rota import rota_bp
-app.register_blueprint(rota_bp)
-
 from wc2026_routes import wc2026_bp
 app.register_blueprint(wc2026_bp)
 
