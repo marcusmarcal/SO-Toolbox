@@ -7,6 +7,18 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.14.0] - 2026-06-19
+
+### Added
+
+- Initial release of Probe Monitoring (`ProbeMonitoring.html`), replacing `RTV MV Monitoring.html`.
+- Two independent channel slots, each with a dropdown of 40 configurable channels (`Id3as AWS CH301 - PROBE CH01` through `Id3as AWS CH340 - PROBE CH40`) plus a fixed `RMG MV` entry.
+- "Configure channels" modal to register the Id3as AWS and Probe URL pair for each of the 40 channels, persisted in `localStorage`.
+- `RMG MV` entry reproducing the original four reference feeds (T21 enc → INX, T21 enc → EQP, INX → AVE, EQP → AVE) as a fixed, non-editable option.
+- Slot selections persisted in `localStorage` so the last-viewed channels are restored on reload.
+- Empty-state messaging for slots and channels without configured URLs.
+- Redesigned dark control-room UI (monospace channel labels, teal/amber accents) replacing the original CodePen-based table layout.
+
 ## [3.13.1] - 2026-06-17
 
 ### Fixed
