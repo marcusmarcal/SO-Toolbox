@@ -1,6 +1,22 @@
 # ════════════════════════════════════════════════════════════════════════════
 #  ROTATION LOGIC
 # ════════════════════════════════════════════════════════════════════════════
+import os
+import re
+import json
+import uuid
+import datetime
+import subprocess
+import threading
+import tempfile
+import shutil
+
+from flask import Blueprint, request, jsonify, send_from_directory
+
+from routes_auth import _get_session, _token_from_request
+
+# ── Blueprint ─────────────────────────────────────────────────────────────
+rota_bp = Blueprint('rota', __name__)
 
 from datetime import date, timedelta
 
