@@ -575,11 +575,15 @@
             document.getElementById("session-username").textContent =
               d.username;
             sessionStorage.setItem("sotb-user", d.username);
-            if (d.role !== "admin") {
+
+            const allowedRoles = ["admin", "engineer"];
+
+            if (!d.role || !allowedRoles.includes(d.role)) {
               document.getElementById("main-content").innerHTML =
-                '<div style="padding:3rem;text-align:center;font-family:var(--mono);font-size:0.75rem;color:var(--danger)">⛔ Admin role required to manage users.</div>';
+                '<div style="padding:3rem;text-align:center;font-family:var(--mono);font-size:0.75rem;color:var(--danger)">⛔ Admin or Engineer role required to manage users.</div>';
               return;
             }
+
             loadUsers();
           })
           .catch(() => {
