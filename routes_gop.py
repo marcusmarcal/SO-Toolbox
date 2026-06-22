@@ -592,19 +592,18 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
         def _av_check(measured_ms, sp):
             warn  = float(sp.get("warn", 15.0))
             hard  = float(sp.get("hard", 230.0))
-            mode  = sp.get("mode", "inform")  # "inform" = never REJECT
-            label = sp.get("label", "")
+            mode  = sp.get("mode", "inform")  # "inform" = informational only, never affects overall
             if measured_ms is None:
                 return ("UNKNOWN", "—", "Could not measure")
             m = round(measured_ms, 2)
+            if mode == "inform":
+                note = f"< {warn}ms preferred" if m < warn else (
+                       f"< {hard}ms limit" if m < hard else f"Exceeds {hard}ms")
+                return ("INFO", f"{m} ms", f"{note} (inform only)")
             if m < warn:
                 return ("COMPLIANT", f"{m} ms", f"< {warn}ms preferred")
             if m < hard:
-                status = "ACCEPTED"
-                return (status, f"{m} ms", f"< {hard}ms limit; prefer < {warn}ms")
-            # Over hard limit
-            if mode == "inform":
-                return ("ACCEPTED", f"{m} ms", f"Exceeds {hard}ms (informational only)")
+                return ("ACCEPTED", f"{m} ms", f"< {hard}ms limit; prefer < {warn}ms")
             return ("REJECTED", f"{m} ms", f"Exceeds hard limit of {hard}ms")
 
         # ── Compliance ────────────────────────────────────────────────
@@ -742,7 +741,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             "a_pts_jitter": _av_check(av_sync.get("a_pts_jitter_ms"), _s("a_pts_jitter")),
         }
 
-        statuses = [v[0] for v in compliance.values()]
+        statuses = [v[0] for v in compliance.values() if v[0] != "INFO"]
         if "REJECTED" in statuses:
             overall_status = "REJECTED"
         elif "ACCEPTED" in statuses:

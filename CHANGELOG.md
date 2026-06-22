@@ -7,6 +7,17 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.15.1] - 2026-06-22
+
+### Fixed
+
+- Colour Range spec editor now shows a note that internal values are
+  `limited` / `full` (not pixel format strings like `yuvj420p`).
+  Existing corrupted specs files should be reset to defaults.
+- AV Sync metrics in "Inform only" mode now show `INFO` status instead
+  of COMPLIANT/ACCEPTED, and are excluded from the overall result.
+  A new blue INFO pill was added to the compliance table and reports.
+
 ## [3.15.0] - 2026-06-22
 
 ### Added

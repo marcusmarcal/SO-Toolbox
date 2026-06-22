@@ -337,6 +337,11 @@
         color: var(--muted);
         border: 1px solid var(--border);
       }
+      .status-pill.INFO {
+        background: rgba(56, 139, 253, 0.1);
+        color: var(--blue, #58a6ff);
+        border: 1px solid var(--blue, #58a6ff);
+      }
 
       /* IDR + stream check header */
       .idr-badge {
@@ -3490,9 +3495,10 @@
               COMPLIANT: "rgba(63,185,80,.15)",
               ACCEPTED: "rgba(227,179,65,.15)",
               REJECTED: "rgba(248,81,73,.15)",
+              INFO: "rgba(88,166,255,.1)",
             }[status] || "rgba(255,255,255,.04)";
           const col =
-            { COMPLIANT: "#3fb950", ACCEPTED: "#e3b341", REJECTED: "#f85149" }[
+            { COMPLIANT: "#3fb950", ACCEPTED: "#e3b341", REJECTED: "#f85149", INFO: "#58a6ff" }[
               status
             ] || "#6e7681";
           return `<span style="display:inline-block;background:${bg};color:${col};border:1px solid ${col};border-radius:3px;padding:1px 7px;font-size:.62rem;font-weight:700">${
@@ -4513,7 +4519,10 @@
               const prefStr = Array.isArray(s.preferred)
                 ? s.preferred.join(", ")
                 : s.preferred ?? "";
-              allowedEl = `<input data-key="${key}" data-field="values" type="text" value="${valStr}" style="${inStyle};width:190px" placeholder="comma separated" />`;
+              const noteHtml = key === "colour_range"
+                ? `<div style="color:var(--muted);font-size:.6rem;margin-top:2px">internal values: <code>limited</code> / <code>full</code> (not pix_fmt)</div>`
+                : "";
+              allowedEl = `<input data-key="${key}" data-field="values" type="text" value="${valStr}" style="${inStyle};width:190px" placeholder="comma separated" />${noteHtml}`;
               prefEl = `<input data-key="${key}" data-field="preferred" type="text" value="${prefStr}" style="${inStyle};width:110px" />`;
             } else if ("required" in s) {
               // Required-value spec (e.g. gop_type)
