@@ -53,7 +53,9 @@ def _save_json(path: str, data) -> None:
 
 def _get_member(username: str) -> dict | None:
     members = _load_json(MEMBERS_FILE)
-    return members.get(username)
+    if not isinstance(members, list):
+        return None
+    return next((m for m in members if m.get('email') == username), None)
 
 
 def _get_rota_role(session: dict) -> str:
@@ -204,14 +206,14 @@ def rota_schedule():
     except ValueError:
         return jsonify({'ok': False, 'error': 'Invalid date format, use YYYY-MM-DD'}), 400
 
-    members  = _load_json(MEMBERS_FILE)
+    members = _load_json(MEMBERS_FILE)
+    if not isinstance(members, list):
+        members = []
     leave_list = _load_json(LEAVE_FILE)
     if not isinstance(leave_list, list):
         leave_list = []
 
-    # Build name-keyed member map for the schedule
-    # members.json uses username (email) as key; name is the display value
-    name_to_team = {v['name']: v['team'] for v in members.values()}
+    name_to_team = {m['name']: m['team'] for m in members}
     leave_map    = _build_leave_map(leave_list)
 
     today = date.today()
