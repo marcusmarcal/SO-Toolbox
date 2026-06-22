@@ -188,7 +188,9 @@
       border-collapse: collapse;
       font-family: var(--mono);
       font-size: 11px;
-      min-width: 100%;
+      min-width: unset;
+      width: auto;
+      table-layout: fixed;
     }
     table.rota thead th {
       background: #111;
@@ -785,10 +787,9 @@
       const d    = new Date(day.date + 'T00:00:00');
       const wday = d.toLocaleDateString('en-GB', { weekday: 'long' });
       const dstr = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-      let label = `<span style="display:inline-block;width:82px;">${dstr}</span><span style="display:inline-block;width:96px;text-align:center;">${wday}</span>`;
-      if (day.is_public_holiday) label += ' 🎉';
-      if (day.is_today)          label += ' ◀';
-
+      let dayIcon = day.is_public_holiday ? ' 🎉' : day.is_today ? ' ◀' : '';
+      let label = `<span style="display:inline-block;width:82px;">${dstr}</span><span style="display:inline-block;width:96px;text-align:center;">${wday}${dayIcon}</span>`;
+      
       const trCls = day.is_today ? ' class="today-row"' : '';
       tbody += `<tr${trCls}><td class="${dateCls}">${label}</td>`;
 
