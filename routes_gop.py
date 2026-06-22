@@ -105,7 +105,7 @@ DEFAULT_SPECS = {
     "frame_size":   {"values": ["1280x720","1920x1080"], "preferred": "1920x1080", "label": "Frame Size"},
     "aspect_ratio": {"values": ["16:9"], "label": "Aspect Ratio"},
     "chroma":       {"values": ["4:2:0"], "label": "Chroma Subsampling"},
-    "colour_range": {"values": ["limited"], "label": "Colour Range"},
+    "colour_range": {"values": ["limited", "full"], "preferred": "limited", "label": "Colour Range"},
     "scan_type":    {"values": ["progressive","interlaced","mbaff"], "preferred": "interlaced", "label": "Scan Type"},
     "bit_depth":    {"values": ["8"], "label": "Bit Depth"},
     "colour_gamut": {"values": ["unknown","bt709"], "preferred": "bt709", "label": "Colour Gamut"},
@@ -125,6 +125,11 @@ DEFAULT_SPECS = {
     "a_sample_rate":{"lo": 44.1, "hi": 48.0, "pref_lo": 48.0, "pref_hi": 48.0, "label": "Sample Rate (kHz)"},
     "a_bits":       {"values": ["fltp","16","s16"], "preferred": "16", "label": "Audio Bits per Sample"},
     "a_br_kbps":    {"lo": 118, "hi": 512, "pref_lo": 256, "pref_hi": 256, "label": "Audio Bitrate (Kbps)"},
+    # AV Sync & Timing — mode "inform" means never REJECT; "enforce" enables REJECTED status.
+    "av_sync_warn": {"warn": 15.0,  "hard": 230.0, "mode": "inform", "label": "AV Sync Avg Offset (ms)"},
+    "av_sync_max":  {"warn": 175.0, "hard": 230.0, "mode": "inform", "label": "AV Sync Max Offset (ms)"},
+    "v_pts_jitter": {"warn": 5.0,   "hard": 10.0,  "mode": "inform", "label": "Video PTS Jitter (ms)"},
+    "a_pts_jitter": {"warn": 5.0,   "hard": 10.0,  "mode": "inform", "label": "Audio PTS Jitter (ms)"},
 }
 
 
@@ -584,15 +589,23 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
 
         v_rate_ctrl = "CBR" if file_br and v_br and abs(file_br - v_br) < file_br * 0.1 else "VBR"
 
-        def _av_check(measured_ms, warn_threshold, hard_limit, label):
+        def _av_check(measured_ms, sp):
+            warn  = float(sp.get("warn", 15.0))
+            hard  = float(sp.get("hard", 230.0))
+            mode  = sp.get("mode", "inform")  # "inform" = never REJECT
+            label = sp.get("label", "")
             if measured_ms is None:
                 return ("UNKNOWN", "—", "Could not measure")
             m = round(measured_ms, 2)
-            if m < warn_threshold:
-                return ("COMPLIANT", f"{m} ms", f"< {warn_threshold}ms preferred")
-            if m < hard_limit:
-                return ("ACCEPTED", f"{m} ms", f"< {hard_limit}ms hard limit; prefer < {warn_threshold}ms")
-            return ("REJECTED", f"{m} ms", f"Exceeds hard limit of {hard_limit}ms")
+            if m < warn:
+                return ("COMPLIANT", f"{m} ms", f"< {warn}ms preferred")
+            if m < hard:
+                status = "ACCEPTED"
+                return (status, f"{m} ms", f"< {hard}ms limit; prefer < {warn}ms")
+            # Over hard limit
+            if mode == "inform":
+                return ("ACCEPTED", f"{m} ms", f"Exceeds {hard}ms (informational only)")
+            return ("REJECTED", f"{m} ms", f"Exceeds hard limit of {hard}ms")
 
         # ── Compliance ────────────────────────────────────────────────
         specs = _load_specs(workflow)
@@ -723,10 +736,10 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             "a_sample_rate":comply_range(a_rate_khz, "a_sample_rate"),
             "a_bits":       comply_enum_multi(a_bps.lower(), "a_bits"),
             "a_br_kbps":    comply_range(a_br_kbps_f, "a_br_kbps"),
-            "av_sync_warn": _av_check(av_sync.get("av_sync_avg_ms"), 15, 230, "AV Sync Avg Offset (ms)"),
-            "av_sync_max":  _av_check(av_sync.get("av_sync_max_ms"), 175, 230, "AV Sync Max Offset (ms)"),
-            "v_pts_jitter": _av_check(av_sync.get("v_pts_jitter_ms"), 5.0, 10.0, "Video PTS Jitter (ms)"),
-            "a_pts_jitter": _av_check(av_sync.get("a_pts_jitter_ms"), 5.0, 10.0, "Audio PTS Jitter (ms)"),
+            "av_sync_warn": _av_check(av_sync.get("av_sync_avg_ms"),  _s("av_sync_warn")),
+            "av_sync_max":  _av_check(av_sync.get("av_sync_max_ms"),  _s("av_sync_max")),
+            "v_pts_jitter": _av_check(av_sync.get("v_pts_jitter_ms"), _s("v_pts_jitter")),
+            "a_pts_jitter": _av_check(av_sync.get("a_pts_jitter_ms"), _s("a_pts_jitter")),
         }
 
         statuses = [v[0] for v in compliance.values()]
@@ -1274,6 +1287,57 @@ def gop_specs_reset():
         if os.path.isfile(specs_file):
             os.remove(specs_file)
         return jsonify({"success": True, "specs": DEFAULT_SPECS})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ── WORKFLOW LABELS ───────────────────────────────────────────────────────
+_WORKFLOW_LABELS_FILE = os.path.join(_BASE_DIR, "workflow_labels.json")
+_DEFAULT_WORKFLOW_LABELS = {
+    "dc_aminos_tp": "DC - Aminos and TP",
+    "rts":          "RTS",
+    "wb":           "W&B",
+}
+
+
+def _load_workflow_labels():
+    labels = dict(_DEFAULT_WORKFLOW_LABELS)
+    if os.path.isfile(_WORKFLOW_LABELS_FILE):
+        try:
+            with open(_WORKFLOW_LABELS_FILE) as f:
+                labels.update(json.load(f))
+        except Exception:
+            pass
+    return labels
+
+
+def _save_workflow_labels(labels):
+    with open(_WORKFLOW_LABELS_FILE, "w") as f:
+        json.dump(labels, f, indent=2)
+
+
+@gop_bp.route("/gop/workflows", methods=["GET"])
+def gop_workflows_get():
+    return jsonify(_load_workflow_labels())
+
+
+@gop_bp.route("/gop/workflows/rename", methods=["POST"])
+def gop_workflows_rename():
+    ok, err = _check_password(request)
+    if not ok:
+        return err
+    data     = request.get_json(silent=True) or {}
+    workflow = (data.get("workflow") or "").strip()
+    label    = (data.get("label") or "").strip()
+    if not workflow or not label:
+        return jsonify({"error": "workflow and label are required"}), 400
+    if workflow not in WORKFLOW_SPECS_FILES:
+        return jsonify({"error": f"Unknown workflow: {workflow}"}), 400
+    try:
+        labels = _load_workflow_labels()
+        labels[workflow] = label
+        _save_workflow_labels(labels)
+        return jsonify({"success": True, "labels": labels})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 

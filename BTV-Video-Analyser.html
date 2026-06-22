@@ -1137,9 +1137,9 @@
         <div class="field w180">
           <label>Workflow</label>
           <select id="inp-workflow" onchange="onWorkflowChange()">
-            <option value="dc_aminos_tp">W&B + Aminos and TP</option>
+            <option value="dc_aminos_tp">DC - Aminos and TP</option>
             <option value="rts">RTS</option>
-            <option value="wb">W&amp;B Only</option>
+            <option value="wb">W&amp;B</option>
           </select>
         </div>
         <button class="btn-run" id="btn-run" onclick="runAnalysis()">
@@ -1706,8 +1706,8 @@
             flex-shrink: 0;
           "
         >
-          Changes require admin password. Saved separately for this workflow on
-          the server.
+          Changes require admin password. Saved separately for this workflow
+          on the server.
         </div>
         <div style="flex: 1; overflow-y: auto" id="specs-editor-body"></div>
         <div
@@ -1728,12 +1728,35 @@
             placeholder="admin password…"
             style="display: none"
           />
+          <input
+            id="specs-rename"
+            type="text"
+            placeholder="Rename workflow…"
+            style="
+              background: var(--bg);
+              border: 1px solid var(--border);
+              border-radius: 5px;
+              color: var(--text);
+              font-family: var(--mono);
+              font-size: 0.68rem;
+              padding: 4px 8px;
+              width: 160px;
+              outline: none;
+            "
+          />
           <button
             class="btn-danger"
             style="background: var(--purple)"
             onclick="saveSpecs()"
           >
             Save Specs
+          </button>
+          <button
+            class="btn-cancel"
+            onclick="renameWorkflow()"
+            style="font-size: 0.7rem"
+          >
+            ✏ Rename
           </button>
           <div class="modal-err" id="specs-err"></div>
         </div>
@@ -2314,7 +2337,26 @@
           if (saved && el) el.value = saved;
         } catch (e) {}
       }
-      document.addEventListener("DOMContentLoaded", restoreSelectedWorkflow);
+
+      async function loadWorkflowLabels() {
+        try {
+          const res = await fetch(`${PROXY}/gop/workflows`);
+          if (!res.ok) return;
+          const labels = await res.json();
+          Object.assign(WORKFLOW_LABELS, labels);
+          const el = document.getElementById("inp-workflow");
+          if (el) {
+            Array.from(el.options).forEach((opt) => {
+              if (WORKFLOW_LABELS[opt.value])
+                opt.textContent = WORKFLOW_LABELS[opt.value];
+            });
+          }
+        } catch (e) {}
+      }
+      document.addEventListener("DOMContentLoaded", () => {
+        restoreSelectedWorkflow();
+        loadWorkflowLabels();
+      });
 
       let pollTimer = null,
         _progTimer = null;
@@ -2760,11 +2802,13 @@
 
       function formatSpecText(s) {
         if (!s) return "—";
+        if ("warn" in s) {
+          const mode = s.mode === "inform" ? " (inform only)" : "";
+          return `< ${s.warn}ms preferred, < ${s.hard}ms limit${mode}`;
+        }
         if (s.values) {
           const vals = s.values.join(", ");
-          return s.preferred !== undefined
-            ? `${vals} (pref. ${s.preferred})`
-            : vals;
+          return s.preferred !== undefined ? `${vals} (pref. ${s.preferred})` : vals;
         }
         if (s.required !== undefined) {
           return typeof s.required === "string" ? s.required : "Required";
@@ -2786,10 +2830,7 @@
         const liveSpecs = r.specs || {};
         const spec = {};
         for (const key of Object.keys(liveSpecs)) {
-          spec[key] = [
-            liveSpecs[key].label || key,
-            formatSpecText(liveSpecs[key]),
-          ];
+          spec[key] = [liveSpecs[key].label || key, formatSpecText(liveSpecs[key])];
         }
 
         const sections = {
@@ -3463,9 +3504,7 @@
         const liveSpecsV = r.specs || {};
         const vrow = (label, spec, measured, key) => {
           const [s] = c[key] || ["—"];
-          const specText = liveSpecsV[key]
-            ? formatSpecText(liveSpecsV[key])
-            : spec;
+          const specText = liveSpecsV[key] ? formatSpecText(liveSpecsV[key]) : spec;
           return `<tr style="border-bottom:1px solid rgba(255,255,255,.05)">
       <td style="padding:.22rem .5rem;color:#8b949e;white-space:nowrap;font-size:.7rem">${label}</td>
       <td style="padding:.22rem .5rem;color:#6e7681;font-size:.64rem">${specText}</td>
@@ -3504,6 +3543,9 @@
       <div><span style="color:#6e7681">Tags: </span><span style="color:#e3b341">${tags}</span></div>
       <div style="grid-column:1/-1"><span style="color:#6e7681">Tested by: </span><span style="color:#a18bf5">${
         r.username || "anonymous"
+      }</span></div>
+      <div style="grid-column:1/-1"><span style="color:#6e7681">Workflow: </span><span style="color:#58a6ff">${
+        WORKFLOW_LABELS[r.workflow] || r.workflow || "—"
       }</span></div>
     </div>
     <table style="width:100%;border-collapse:collapse">
@@ -3723,9 +3765,7 @@
         const sep = "─".repeat(W1 + W2 + W3 + W4 + 3);
         const tr = (el, spec, meas, key) => {
           const [s] = c[key] || ["—"];
-          const specText = liveSpecsV[key]
-            ? formatSpecText(liveSpecsV[key])
-            : spec;
+          const specText = liveSpecsV[key] ? formatSpecText(liveSpecsV[key]) : spec;
           return `${el.padEnd(W1)} ${specText.padEnd(W2)} ${String(
             meas || "—"
           ).padEnd(W3)} ${s}`;
@@ -3738,6 +3778,7 @@
           `Generated : ${now}`,
           `Test Date : ${testDate}`,
           `Tested by : ${r.username || "anonymous"}`,
+          `Workflow  : ${WORKFLOW_LABELS[r.workflow] || r.workflow || "—"}`,
           `Server    : ${serverName}:${port}`,
           `URL       : ${r.url || "—"}`,
           `Tags      : ${tags}`,
@@ -4363,8 +4404,9 @@
       async function openSpecsEditor() {
         const workflow = getSelectedWorkflow();
         _currentSpecsWorkflow = workflow;
-        document.getElementById("specs-modal-workflow").textContent =
-          WORKFLOW_LABELS[workflow] || workflow;
+        const wfLabel = WORKFLOW_LABELS[workflow] || workflow;
+        document.getElementById("specs-modal-workflow").textContent = wfLabel;
+        document.getElementById("specs-rename").value = wfLabel;
         document.getElementById("specs-err").textContent = "";
         document.getElementById("specs-pw").style.display = _hasAdminPw
           ? ""
@@ -4422,6 +4464,12 @@
             "a_bits",
             "a_br_kbps",
           ],
+          "AV SYNC & TIMING": [
+            "av_sync_warn",
+            "av_sync_max",
+            "v_pts_jitter",
+            "a_pts_jitter",
+          ],
         };
 
         let html = `<table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.72rem">
@@ -4443,7 +4491,15 @@
               prefEl = "",
               specialEl = "";
 
-            if ("lo" in s) {
+            if ("warn" in s) {
+              // AV Sync threshold spec
+              allowedEl = `Warn: <input data-key="${key}" data-field="warn" type="number" value="${s.warn}" step="0.5" style="${inStyle};width:60px" title="Warn threshold (ms)" /> ms &nbsp; Limit: <input data-key="${key}" data-field="hard" type="number" value="${s.hard}" step="0.5" style="${inStyle};width:60px" title="Hard limit (ms)" /> ms`;
+              prefEl = ``;
+              const modeInform = (s.mode || "inform") === "inform";
+              specialEl = `<label style="cursor:pointer"><input type="checkbox" data-key="${key}" data-field="mode_inform" ${
+                modeInform ? "checked" : ""
+              } /> Inform only (never reject)</label>`;
+            } else if ("lo" in s) {
               // Range spec
               allowedEl = `<input data-key="${key}" data-field="lo" type="number" value="${s.lo}" step="0.1" style="${inStyle}" title="Min" /> – <input data-key="${key}" data-field="hi" type="number" value="${s.hi}" step="0.1" style="${inStyle}" title="Max" />`;
               if ("pref_lo" in s) {
@@ -4464,6 +4520,16 @@
               allowedEl = `<input data-key="${key}" data-field="required" type="text" value="${
                 s.required || ""
               }" style="${inStyle};width:110px" />`;
+            } else if ("preferred" in s) {
+              // Preferred-only spec (e.g. b_frames)
+              const opts = key === "b_frames"
+                ? ["absent", "present"]
+                : [s.preferred, ""];
+              const optHtml = opts.map(v =>
+                `<option value="${v}" ${s.preferred === v ? "selected" : ""}>${v || "—"}</option>`
+              ).join("");
+              allowedEl = `<span style="color:var(--muted);font-size:.65rem">COMPLIANT if preferred, ACCEPTED otherwise</span>`;
+              prefEl = `<select data-key="${key}" data-field="preferred" style="${inStyle};width:110px">${optHtml}</select>`;
             }
 
             // Special options
@@ -4484,7 +4550,7 @@
               specials.push(
                 `±<input data-key="${key}" data-field="tolerance" type="number" value="${s.tolerance}" step="1" min="0" style="${inStyle};width:50px" title="Tolerance" />`
               );
-            specialEl = specials.join(" &nbsp; ");
+            if (!("warn" in s)) specialEl = specials.join(" &nbsp; ");
 
             html += `<tr style="border-bottom:1px solid rgba(255,255,255,.03)">
         <td style="padding:.3rem .6rem;color:var(--text)">${label}</td>
@@ -4514,7 +4580,10 @@
           const key = el.dataset.key;
           const field = el.dataset.field;
           if (!specs[key]) specs[key] = {};
-          if (el.type === "checkbox") {
+          if (field === "mode_inform") {
+            // Checkbox: checked = "inform", unchecked = "enforce"
+            specs[key]["mode"] = el.checked ? "inform" : "enforce";
+          } else if (el.type === "checkbox") {
             specs[key][field] = el.checked;
           } else if (field === "values") {
             specs[key][field] = el.value
@@ -4573,6 +4642,39 @@
         }
       }
 
+      async function renameWorkflow() {
+        const workflow = _currentSpecsWorkflow || getSelectedWorkflow();
+        const label = document.getElementById("specs-rename").value.trim();
+        if (!label) {
+          document.getElementById("specs-err").textContent =
+            "Enter a name first.";
+          return;
+        }
+        const pw = document.getElementById("specs-pw").value;
+        const headers = { "Content-Type": "application/json" };
+        if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
+        try {
+          const res = await fetch(`${PROXY}/gop/workflows/rename`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ workflow, label }),
+          });
+          const data = await res.json();
+          if (!data.success)
+            throw new Error(data.error || "Failed to rename");
+          Object.assign(WORKFLOW_LABELS, data.labels);
+          document.getElementById("specs-modal-workflow").textContent = label;
+          const sel = document.getElementById("inp-workflow");
+          if (sel) {
+            Array.from(sel.options).forEach((opt) => {
+              if (opt.value === workflow) opt.textContent = label;
+            });
+          }
+          document.getElementById("specs-err").textContent = "";
+        } catch (e) {
+          document.getElementById("specs-err").textContent = e.message;
+        }
+      }
       async function resetSpecs() {
         if (!confirm("Reset specs for this workflow to defaults?")) return;
         const pw = document.getElementById("specs-pw").value;

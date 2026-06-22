@@ -7,6 +7,24 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.15.0] - 2026-06-22
+
+### Added
+
+- AV Sync & Timing thresholds are now configurable in the Specs editor
+  (warn threshold, hard limit, and "Inform only" mode that prevents REJECTED).
+  Default mode is inform-only for all four AV sync metrics.
+- Workflow display name can be renamed directly in the Specs editor; names
+  are persisted server-side in workflow_labels.json and loaded at page boot.
+- Workflow name now appears in both the visual and text test reports.
+
+### Fixed
+
+- Colour Range: `yuvj420p` (full range) is now accepted (ACCEPTED) instead
+  of being incorrectly rejected; `limited` remains COMPLIANT.
+- B-Frames spec now renders correctly in the Specs editor with a dropdown
+  (absent / present); previously no field was shown.
+
 ## [3.14.0] - 2026-06-19
 
 ### Added
