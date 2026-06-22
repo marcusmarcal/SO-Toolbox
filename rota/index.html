@@ -824,9 +824,10 @@
             }
           }
 
+          const todayFg = day.is_today && shift !== 'OFF' ? '#ffffff' : fg;
           tbody += `<td class="${sep}" style="background:${bg};">` +
-                   `<span class="shift-cell${extra}" style="color:${fg};">${text}</span>` +
-                   `</td>`;
+                  `<span class="shift-cell${extra}" style="color:${todayFg};">${text}</span>` +
+                  `</td>`;
         });
       });
 
