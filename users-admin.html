@@ -236,16 +236,41 @@
         border-radius: 4px;
         letter-spacing: 0.06em;
       }
-      .user-role.admin {
-        background: rgba(161, 139, 245, 0.15);
-        color: var(--accent);
-        border: 1px solid rgba(161, 139, 245, 0.3);
-      }
+      /* USER (já tinhas) */
       .user-role.user {
         background: rgba(250, 165, 26, 0.12);
         color: #fcc97a;
         border: 1px solid rgba(250, 165, 26, 0.25);
       }
+
+      /* ADMIN (já tinhas - ligeiramente reforçado) */
+      .user-role.admin {
+        background: rgba(161, 139, 245, 0.15);
+        color: var(--accent);
+        border: 1px solid rgba(161, 139, 245, 0.35);
+      }
+
+      /* ENGINEER → verde (infra / ops vibe) */
+      .user-role.engineer {
+        background: rgba(63, 185, 80, 0.12);
+        color: #9ee6a6;
+        border: 1px solid rgba(63, 185, 80, 0.28);
+      }
+
+      /* ANALYST → azul (data / analytics) */
+      .user-role.analyst {
+        background: rgba(56, 189, 248, 0.12);
+        color: #7dd3fc;
+        border: 1px solid rgba(56, 189, 248, 0.28);
+      }
+
+      /* SPECIALIST → amber (expert / niche skill) */
+      .user-role.specialist {
+        background: rgba(250, 204, 21, 0.12);
+        color: #fde68a;
+        border: 1px solid rgba(250, 204, 21, 0.28);
+      }
+
       .user-created {
         font-family: var(--mono);
         font-size: 0.6rem;
