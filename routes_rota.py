@@ -156,6 +156,8 @@ def _resolve_shift(name: str, d: date, leave_map: dict) -> str:
         return "PARENTAL"
     if lt in MARITAL_LEAVE_TYPES:
         return "MARITAL"
+    if status == 'Rejected':
+        return base   
     code = "AL_APPROVED" if status == "Approved" else "AL_PENDING"
     return code if base == "OFF" else f"{code}|{base}"
 
