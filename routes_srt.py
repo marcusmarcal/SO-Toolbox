@@ -330,19 +330,12 @@ def stop_all_jobs():
 
 @srt_bp.route("/sources", methods=["GET"])
 def list_sources():
-    """List available .ts files ordered by last modified (newest first)."""
     sources = [{"file": "test.mp4", "type": "mp4"}]
 
     if os.path.isdir(TS_SOURCE_DIR):
-        ts_files = [
-            f for f in os.listdir(TS_SOURCE_DIR) 
-            if f.lower().endswith(".ts")
-        ]
-
         ts_files = sorted(
-            ts_files,
-            key=lambda f: os.path.getmtime(os.path.join(TS_SOURCE_DIR, f)),
-            reverse=True  # mais recente primeiro
+            [f for f in os.listdir(TS_SOURCE_DIR) if f.lower().endswith(".ts")],
+            reverse=True  # mais recente primeiro (baseado no nome)
         )
 
         for f in ts_files:
