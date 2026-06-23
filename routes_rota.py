@@ -156,7 +156,7 @@ def _resolve_shift(name: str, d: date, leave_map: dict) -> str:
         return "PARENTAL"
     if lt in MARITAL_LEAVE_TYPES:
         return "MARITAL"
-    if status == 'Rejected':
+    if status in ('Rejected', 'Removed'):
         return base   
     code = "AL_APPROVED" if status == "Approved" else "AL_PENDING"
     return code if base == "OFF" else f"{code}|{base}"
@@ -259,7 +259,7 @@ def rota_leave_post():
 def rota_leave_put(leave_id):
     data   = request.get_json(silent=True) or {}
     status = data.get('status', '').strip()
-    if status not in ('Approved', 'Rejected'):
+    if status not in ('Approved', 'Rejected', 'Removed'):
         return jsonify({'ok': False, 'error': 'Invalid status'}), 400
 
     leave_list = _load_json(LEAVE_FILE)

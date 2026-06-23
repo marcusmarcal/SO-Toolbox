@@ -329,6 +329,7 @@
     .status-badge.Pending  { background: rgba(250,165,26,0.15); color: #fcc97a; border: 1px solid rgba(250,165,26,0.3); }
     .status-badge.Approved { background: rgba(63,185,80,0.15);  color: #9ee6a6; border: 1px solid rgba(63,185,80,0.3); }
     .status-badge.Rejected { background: rgba(255,78,106,0.12); color: #ffb3be; border: 1px solid rgba(255,78,106,0.3); }
+    .status-badge.Removed  { background: rgba(100,100,100,0.15); color: #aaaaaa; border: 1px solid rgba(100,100,100,0.3); }
 
     /* ── LEAVE APPROVALS ── */
     .approval-row {
@@ -970,7 +971,7 @@
               <button class="btn reject"  onclick="decideLeave('${r.id}','Rejected')">✗ Reject</button>
             ` : r.status === 'Approved' ? `
               <button class="btn reject" style="font-size:0.55rem;padding:3px 8px;"
-                onclick="deleteLeave('${r.id}')">🗑 Delete</button>
+                onclick="deleteLeave('${r.id}')">🗑 Remove</button>
             ` : ``}
           </div>
         `).join('')}
@@ -996,13 +997,15 @@
   }
 
   async function deleteLeave(leaveId) {
-    if (!confirm('Permanently delete this leave entry?')) return;
+    if (!confirm('Remove this approved leave entry?')) return;
     const r = await fetch(`${PROXY}/rota/leave/${leaveId}`, {
-      method: 'DELETE', credentials: 'same-origin',
+      method: 'PUT', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'Removed' }),
     });
     const d = await r.json();
     if (d.ok) {
-      toast('Entry deleted', 'ok');
+      toast('Leave entry removed', 'ok');
       loadApprovals();
       state.rotaData = null;
       loadRota();
