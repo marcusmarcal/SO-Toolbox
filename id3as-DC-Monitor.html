@@ -2502,6 +2502,8 @@
                   )
                 : null;
             const startedAtMs = isFinite(evStartedAt) ? evStartedAt : null;
+
+            const starting = checkEventStarting(n.id, id, startedAtMs); // When starting, suppress all alarms for this specific channel
             console.log(
               "[ev-starting] ch=",
               id,
@@ -2514,7 +2516,6 @@
               "starting=",
               starting
             );
-            const starting = checkEventStarting(n.id, id, startedAtMs); // When starting, suppress all alarms for this specific channel
             const effectiveWm = starting ? [] : wm;
             const effectiveEvWm = starting ? [] : evWm;
             const effectiveEncWarn = starting ? false : encWarn;
