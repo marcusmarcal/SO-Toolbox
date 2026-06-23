@@ -1514,7 +1514,7 @@
 
       // eventStartingMap: keyed by "nodeId::channelId", value = timestamp (ms) when event was first detected starting
       // Entries expire after EVENT_STARTING_GRACE_MS; alarms for that channel are suppressed during the window.
-      const EVENT_STARTING_GRACE_MS = 10 * 60 * 1000; // 3 minutes
+      const EVENT_STARTING_GRACE_MS = 20 * 60 * 1000; // 10 minutes
       const eventStartingMap = {};
 
       // Mark a channel on a node as "event starting" if it has an active event but no job started yet.
@@ -2502,6 +2502,18 @@
                   )
                 : null;
             const startedAtMs = isFinite(evStartedAt) ? evStartedAt : null;
+            console.log(
+              "[ev-starting] ch=",
+              id,
+              "startedAtMs=",
+              startedAtMs,
+              "age_s=",
+              startedAtMs
+                ? Math.round((Date.now() - startedAtMs) / 1000)
+                : "null",
+              "starting=",
+              starting
+            );
             const starting = checkEventStarting(n.id, id, startedAtMs); // When starting, suppress all alarms for this specific channel
             const effectiveWm = starting ? [] : wm;
             const effectiveEvWm = starting ? [] : evWm;
