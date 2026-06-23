@@ -7,6 +7,14 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.16.1] - 2026-06-23
+
+### Fixed
+
+- Event-starting alarm suppression now detects startup by comparing `started_at`
+  to current time (3-min window), instead of the absence of `encoder_job_started`
+  which was never false once the event was running.
+
 ## [3.16.0] - 2026-06-23
 
 ### Added

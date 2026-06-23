@@ -1519,17 +1519,20 @@
 
       // Mark a channel on a node as "event starting" if it has an active event but no job started yet.
       // Returns true if the channel is currently within the grace period.
-      function checkEventStarting(nodeId, chId, hasEvent, jobStarted) {
+      function checkEventStarting(nodeId, chId, startedAtMs) {
         const key = nodeId + "::" + chId;
         const now = Date.now();
-        if (hasEvent && !jobStarted) {
-          // Channel has an event assigned but encoder job has not started — event is starting
-          if (!eventStartingMap[key]) eventStartingMap[key] = now;
-          return now - eventStartingMap[key] < EVENT_STARTING_GRACE_MS;
+        if (startedAtMs && now - startedAtMs < EVENT_STARTING_GRACE_MS) {
+          eventStartingMap[key] = startedAtMs;
+          return true;
         }
-        // Job started or no event — clear the starting state
         delete eventStartingMap[key];
         return false;
+      }
+
+      function isEventStarting(nodeId, chId) {
+        const key = nodeId + "::" + chId;
+        return key in eventStartingMap;
       }
 
       // Returns true if the given channel on this node is currently in the event-starting grace window
@@ -2484,8 +2487,18 @@
             const jobStarted = !!ch.encoder_job_started;
             const hasEv = evs.length > 0;
             // Determine event-starting grace: channel has event but job hasn't started yet
-            const starting = checkEventStarting(n.id, id, hasEv, jobStarted);
-            // When starting, suppress all alarms for this specific channel
+            const evStartedAt =
+              evs.length > 0
+                ? Math.min(
+                    ...evs.map((ev) =>
+                      ev.started_at
+                        ? new Date(ev.started_at).getTime()
+                        : Infinity
+                    )
+                  )
+                : null;
+            const startedAtMs = isFinite(evStartedAt) ? evStartedAt : null;
+            const starting = checkEventStarting(n.id, id, startedAtMs); // When starting, suppress all alarms for this specific channel
             const effectiveWm = starting ? [] : wm;
             const effectiveEvWm = starting ? [] : evWm;
             const effectiveEncWarn = starting ? false : encWarn;
