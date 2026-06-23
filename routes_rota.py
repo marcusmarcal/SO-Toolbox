@@ -22,8 +22,8 @@ rota_bp = Blueprint('rota', __name__)
 # ── Config ────────────────────────────────────────────────────────────────
 _BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
 ROTA_DIR     = os.path.join(_BASE_DIR, 'rota')
-MEMBERS_FILE = os.path.join(ROTA_DIR, 'members.json')
 LEAVE_FILE   = os.path.join(ROTA_DIR, 'leave_requests.json')
+USERS_FILE   = os.path.join(_BASE_DIR, 'users.json')
 
 
 # ── Data helpers ──────────────────────────────────────────────────────────
@@ -51,17 +51,25 @@ def _save_json(path: str, data) -> None:
         json.dump(data, f, indent=2)
 
 
-def _get_member(username: str) -> dict | None:
-    members = _load_json(MEMBERS_FILE)
-    if not isinstance(members, list):
-        return None
-    return next((m for m in members if m.get('email') == username), None)
+STAFF_ROLES = {'engineer', 'specialist'}
+
+def _display_name_from_email(email: str) -> str:
+    """ana.maria@email.com → 'Ana M'"""
+    local = email.split('@')[0]
+    parts = re.split(r'[.\-_]', local)
+    if not parts:
+        return email
+    first = parts[0].capitalize()
+    if len(parts) >= 2:
+        return f"{first} {parts[1][0].upper()}"
+    return first
 
 
 def _get_rota_role(session: dict) -> str:
-    if session.get('role') == 'admin':
+    role = session.get('role', '')
+    if role == 'admin':
         return 'management'
-    if _get_member(session['username']):
+    if role in STAFF_ROLES:
         return 'staff'
     return 'guest'
 
@@ -174,13 +182,18 @@ def _build_leave_map(leave_list: list) -> dict:
 def rota_me():
     session   = request.session
     rota_role = _get_rota_role(session)
-    member    = _get_member(session['username'])
+    username  = session['username']
+    name      = _display_name_from_email(username)
+    role      = session.get('role', '')
+    team      = 'Engineering' if role == 'engineer' else \
+                'Specialists' if role == 'specialist' else \
+                'Management'  if role == 'admin' else None
     return jsonify({
         'ok':        True,
-        'username':  session['username'],
+        'username':  username,
         'rota_role': rota_role,
-        'name':      member['name'] if member else session['username'],
-        'team':      member['team'] if member else None,
+        'name':      name,
+        'team':      team,
     })
 
 
@@ -190,6 +203,27 @@ def register_routes(app) -> None:
 # ════════════════════════════════════════════════════════════════════════════
 #  SCHEDULE ENDPOINT
 # ════════════════════════════════════════════════════════════════════════════
+
+@rota_bp.route('/rota/members', methods=['GET'])
+@require_auth
+@require_admin_role
+def rota_members():
+    users = _load_json(USERS_FILE)
+    if not isinstance(users, dict):
+        return jsonify({'ok': False, 'error': 'Could not load users'}), 500
+
+    result = {}
+    for email, info in users.items():
+        role = info.get('role', '')
+        team = 'Engineering' if role == 'engineer' else \
+               'Specialists' if role == 'specialist' else \
+               'Management'  if role == 'admin' else 'Other'
+        result[email] = {
+            'name':  _display_name_from_email(email),
+            'team':  team,
+            'role':  role,
+        }
+    return jsonify({'ok': True, 'members': result})
 
 @rota_bp.route('/rota/schedule', methods=['GET'])
 @require_auth
@@ -206,14 +240,16 @@ def rota_schedule():
     except ValueError:
         return jsonify({'ok': False, 'error': 'Invalid date format, use YYYY-MM-DD'}), 400
 
-    members = _load_json(MEMBERS_FILE)
-    if not isinstance(members, list):
-        members = []
+    rota_role = _get_rota_role(request.session)
+    if rota_role != 'management':
+        max_to = date.today() + timedelta(weeks=5)
+        if date_to > max_to:
+            date_to = max_to
+
     leave_list = _load_json(LEAVE_FILE)
     if not isinstance(leave_list, list):
         leave_list = []
 
-    name_to_team = {m['name']: m['team'] for m in members}
     leave_map    = _build_leave_map(leave_list)
 
     today = date.today()

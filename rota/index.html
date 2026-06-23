@@ -656,22 +656,27 @@
   //  TOPBAR
   // ════════════════════════════════════════════════════════════════
   function renderTopbar() {
-    const m = state.me;
-    document.getElementById('topbar-name').textContent = m.name || m.username;
-    const badge = document.getElementById('topbar-badge');
-    badge.textContent = m.rota_role === 'management' ? 'Management'
-                      : m.rota_role === 'staff'      ? m.team
-                      : 'Guest';
-    badge.className = 'team-badge ' + (m.team || 'Guest');
+  const m = state.me;
+  document.getElementById('topbar-name').textContent = m.name || m.username;
+  const badge = document.getElementById('topbar-badge');
+  badge.textContent = m.rota_role === 'management' ? 'Management'
+                    : m.rota_role === 'staff'      ? m.team
+                    : 'Guest';
+  badge.className = 'team-badge ' + (m.team || 'Guest');
 
-    // Management view enhancements
-    if (m.rota_role === 'management') {
-      document.getElementById('tab-approvals').style.display = '';
-      document.getElementById('tab-access').style.display    = '';
-      document.getElementById('view-select').innerHTML += '<option value="full">Full Rota</option>';
-    }
+  if (m.rota_role === 'management') {
+    document.getElementById('tab-approvals').style.display = '';
+    document.getElementById('tab-access').style.display    = '';
+  }
+  // guests: hide leave tab entirely
+  if (m.rota_role === 'guest') {
+    document.getElementById('tab-leave').style.display = 'none';
   }
 
+  // Hide Full Rota option from non-management
+  const fullOpt = document.querySelector('#view-select option[value="full"]');
+  if (fullOpt && m.rota_role !== 'management') fullOpt.style.display = 'none';
+  }
 
   // ════════════════════════════════════════════════════════════════
   //  TABS
@@ -713,6 +718,14 @@
       if (state.dateFrom && state.dateTo) loadRota();
     });
 
+    // Enforce 5-week cap for staff/guest on the date picker UI
+    if (state.me && state.me.rota_role !== 'management') {
+      const maxDate = new Date();
+      maxDate.setDate(maxDate.getDate() + 35);
+      const maxStr = maxDate.toISOString().split('T')[0];
+      document.getElementById('date-to').setAttribute('max', maxStr);
+    }
+
     document.querySelectorAll('.team-toggle').forEach(btn => {
       btn.addEventListener('click', () => {
         const t = btn.dataset.team;
@@ -745,7 +758,8 @@
       end.setDate(monday.getDate() + 34); // 5 weeks
       return { from: rota_start, to: fmt(end) };
     }
-    if (state.viewMode === 'full') {
+
+    if (state.viewMode === 'full' && state.me.rota_role === 'management') {
       const endYear = new Date(today.getFullYear(), 11, 31);
       const plus3m  = new Date(today);
       plus3m.setMonth(plus3m.getMonth() + 3);
@@ -989,6 +1003,11 @@
         document.getElementById('feedback-modal').classList.remove('open');
     });
     document.getElementById('fb-submit').addEventListener('click', submitFeedback);
+    // Sign out
+  document.getElementById('btn-signout').addEventListener('click', async () => {
+    await fetch(`${PROXY}/logout`, { method: 'POST', credentials: 'same-origin' });
+    window.location.href = '/';
+  });
   }
 
   async function submitFeedback() {
