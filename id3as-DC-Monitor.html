@@ -2516,6 +2516,14 @@
               "starting=",
               starting
             );
+            console.log(
+              "[ev-starting] ch=",
+              id,
+              "evs=",
+              evs,
+              "em keys=",
+              Object.keys(em).slice(0, 5)
+            );
             const effectiveWm = starting ? [] : wm;
             const effectiveEvWm = starting ? [] : evWm;
             const effectiveEncWarn = starting ? false : encWarn;
