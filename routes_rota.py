@@ -196,6 +196,76 @@ def rota_me():
         'team':      team,
     })
 
+@rota_bp.route('/rota/leave', methods=['GET'])
+@require_auth
+def rota_leave_get():
+    session    = request.session
+    rota_role  = _get_rota_role(session)
+    leave_list = _load_json(LEAVE_FILE)
+    if not isinstance(leave_list, list):
+        leave_list = []
+
+    if rota_role == 'management':
+        # Management sees all requests
+        return jsonify({'ok': True, 'leave': leave_list})
+    else:
+        # Staff see only their own (matched by inferred name)
+        my_name = _display_name_from_email(session['username'])
+        my_leave = [r for r in leave_list if r.get('name') == my_name]
+        return jsonify({'ok': True, 'leave': my_leave})
+
+
+@rota_bp.route('/rota/leave', methods=['POST'])
+@require_auth
+def rota_leave_post():
+    session = request.session
+    if _get_rota_role(session) == 'guest':
+        return jsonify({'ok': False, 'error': 'Not authorised'}), 403
+
+    data = request.get_json(silent=True) or {}
+    date_start = data.get('date_start', '').strip()
+    date_end   = data.get('date_end', '').strip()
+    leave_type = data.get('leave_type', '').strip()
+
+    if not date_start or not date_end or not leave_type:
+        return jsonify({'ok': False, 'error': 'Missing fields'}), 400
+    if date_end < date_start:
+        return jsonify({'ok': False, 'error': 'End date before start date'}), 400
+
+    name = _display_name_from_email(session['username'])
+
+    leave_list = _load_json(LEAVE_FILE)
+    if not isinstance(leave_list, list):
+        leave_list = []
+
+    leave_list.append({
+        'name':       name,
+        'username':   session['username'],
+        'date_start': date_start,
+        'date_end':   date_end,
+        'leave_type': leave_type,
+        'status':     'Pending',
+    })
+    _save_json(LEAVE_FILE, leave_list)
+    return jsonify({'ok': True})
+
+
+@rota_bp.route('/rota/leave/<int:index>', methods=['PUT'])
+@require_auth
+@require_admin_role
+def rota_leave_put(index):
+    data   = request.get_json(silent=True) or {}
+    status = data.get('status', '').strip()
+    if status not in ('Approved', 'Rejected'):
+        return jsonify({'ok': False, 'error': 'Invalid status'}), 400
+
+    leave_list = _load_json(LEAVE_FILE)
+    if not isinstance(leave_list, list) or index >= len(leave_list):
+        return jsonify({'ok': False, 'error': 'Not found'}), 404
+
+    leave_list[index]['status'] = status
+    _save_json(LEAVE_FILE, leave_list)
+    return jsonify({'ok': True})
 
 def register_routes(app) -> None:
     app.register_blueprint(rota_bp)
