@@ -332,12 +332,17 @@
 
     /* ── LEAVE APPROVALS ── */
     .approval-row {
-      display: grid;
-      grid-template-columns: 200px 1fr auto auto auto;
-      gap: 12px; align-items: center;
-      padding: 10px 0; border-bottom: 1px solid #2a2a2a;
-      font-family: var(--mono); font-size: 0.65rem;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 10px 0;
+      border-bottom: 1px solid #2a2a2a;
+      font-family: var(--mono);
+      font-size: 0.65rem;
     }
+    .approval-dates { white-space: nowrap; color: var(--muted); }
+    .approval-type  { flex: 1; }
+    
     .approval-row:last-child { border-bottom: none; }
     .approval-name { font-weight: 700; color: var(--text); }
     .approval-dates { color: var(--muted); }
@@ -963,15 +968,10 @@
             ${r.status === 'Pending' ? `
               <button class="btn approve" onclick="decideLeave('${r.id}','Approved')">✓ Approve</button>
               <button class="btn reject"  onclick="decideLeave('${r.id}','Rejected')">✗ Reject</button>
-              <span></span>
             ` : r.status === 'Approved' ? `
-              <span></span>
-              <span></span>
               <button class="btn reject" style="font-size:0.55rem;padding:3px 8px;"
                 onclick="deleteLeave('${r.id}')">🗑 Delete</button>
-            ` : `
-              <span></span><span></span><span></span>
-            `}
+            ` : ``}
           </div>
         `).join('')}
       </div>
@@ -987,6 +987,22 @@
     const d = await r.json();
     if (d.ok) {
       toast(`${status}`, 'ok');
+      loadApprovals();
+      state.rotaData = null;
+      loadRota();
+    } else {
+      toast(d.error || 'Failed', 'err');
+    }
+  }
+
+  async function deleteLeave(leaveId) {
+    if (!confirm('Permanently delete this leave entry?')) return;
+    const r = await fetch(`${PROXY}/rota/leave/${leaveId}`, {
+      method: 'DELETE', credentials: 'same-origin',
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast('Entry deleted', 'ok');
       loadApprovals();
       state.rotaData = null;
       loadRota();
