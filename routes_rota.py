@@ -239,6 +239,7 @@ def rota_leave_post():
         leave_list = []
 
     leave_list.append({
+        'id':         str(uuid.uuid4())[:8],
         'name':       name,
         'username':   session['username'],
         'date_start': date_start,
@@ -250,36 +251,40 @@ def rota_leave_post():
     return jsonify({'ok': True})
 
 
-@rota_bp.route('/rota/leave/<int:index>', methods=['PUT'])
+@rota_bp.route('/rota/leave/<leave_id>', methods=['PUT'])
 @require_auth
 @require_admin_role
-def rota_leave_put(index):
+def rota_leave_put(leave_id):
     data   = request.get_json(silent=True) or {}
     status = data.get('status', '').strip()
     if status not in ('Approved', 'Rejected'):
         return jsonify({'ok': False, 'error': 'Invalid status'}), 400
 
     leave_list = _load_json(LEAVE_FILE)
-    if not isinstance(leave_list, list) or index >= len(leave_list):
+    idx = next((i for i, r in enumerate(leave_list) if r.get('id') == leave_id), None)
+    if idx is None:
         return jsonify({'ok': False, 'error': 'Not found'}), 404
 
-    leave_list[index]['status'] = status
+    leave_list[idx]['status'] = status
     _save_json(LEAVE_FILE, leave_list)
     return jsonify({'ok': True})
 
-@rota_bp.route('/rota/leave/<int:index>', methods=['DELETE'])
+@rota_bp.route('/rota/leave/<leave_id>', methods=['DELETE'])
 @require_auth
-def rota_leave_delete(index):
-    session    = request.session
-    rota_role  = _get_rota_role(session)
+def rota_leave_delete(leave_id):
+    session   = request.session
+    rota_role = _get_rota_role(session)
     leave_list = _load_json(LEAVE_FILE)
 
-    if not isinstance(leave_list, list) or index >= len(leave_list):
+    if not isinstance(leave_list, list):
         return jsonify({'ok': False, 'error': 'Not found'}), 404
 
-    entry = leave_list[index]
+    idx   = next((i for i, r in enumerate(leave_list) if r.get('id') == leave_id), None)
+    if idx is None:
+        return jsonify({'ok': False, 'error': 'Not found'}), 404
 
-    # Staff can only delete their own Pending entries
+    entry = leave_list[idx]
+
     if rota_role != 'management':
         my_name = _display_name_from_email(session['username'])
         if entry.get('name') != my_name:
@@ -287,7 +292,7 @@ def rota_leave_delete(index):
         if entry.get('status') != 'Pending':
             return jsonify({'ok': False, 'error': 'Cannot cancel an approved request'}), 403
 
-    leave_list.pop(index)
+    leave_list.pop(idx)
     _save_json(LEAVE_FILE, leave_list)
     return jsonify({'ok': True})
 

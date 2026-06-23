@@ -920,7 +920,7 @@
           <td><span class="status-badge ${r.status}">${r.status}</span></td>
           <td>${canCancel
             ? `<button class="btn reject" style="font-size:0.55rem;padding:3px 8px;"
-                onclick="cancelLeave(${realIndex})">✕ Cancel</button>`
+                onclick="cancelLeave(${r.id})">✕ Cancel</button>`
             : '—'}</td>
         </tr>
       `;
@@ -948,15 +948,15 @@
           <span class="approval-name">${r.name || r.username}</span>
           <span class="approval-dates">${r.date_start} → ${r.date_end}</span>
           <span class="approval-type">${r.leave_type}</span>
-          <button class="btn approve" onclick="decideLeave(${idx},'Approved')">✓ Approve</button>
-          <button class="btn reject"  onclick="decideLeave(${idx},'Rejected')">✗ Reject</button>
+          <button class="btn approve" onclick="decideLeave(${r.id},'Approved')">✓ Approve</button>
+          <button class="btn reject"  onclick="decideLeave(${r.id},'Rejected')">✗ Reject</button>
         </div>
       `;
     }).join('');
   }
 
-  async function decideLeave(index, status) {
-    const r = await fetch(`${PROXY}/rota/leave/${index}`, {
+  async function decideLeave(leaveId, status) {
+    const r = await fetch(`${PROXY}/rota/leave/${leaveId}`, {
       method: 'PUT', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
@@ -972,9 +972,9 @@
     }
   }
 
-  async function cancelLeave(index) {
+  async function cancelLeave(leaveId) {
     if (!confirm('Cancel this leave request?')) return;
-    const r = await fetch(`${PROXY}/rota/leave/${index}`, {
+    const r = await fetch(`${PROXY}/rota/leave/${leaveId}`, {
       method: 'DELETE', credentials: 'same-origin',
     });
     const d = await r.json();
