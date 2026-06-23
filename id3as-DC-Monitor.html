@@ -713,6 +713,32 @@
       .node-card.hw.warn-animated {
         animation: warnGlow 3s ease-in-out infinite;
       }
+      /* Green blink on node cards where an event is starting (alarms suppressed for 3 min) */
+      @keyframes evStartGlow {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(0, 255, 200, 0.2);
+          border-color: rgba(0, 255, 200, 0.25);
+        }
+        50% {
+          box-shadow: 0 0 8px 3px rgba(0, 255, 200, 0.45);
+          border-color: rgba(0, 255, 200, 0.6);
+        }
+      }
+      .node-card.ev-starting {
+        animation: evStartGlow 1.4s ease-in-out infinite;
+      }
+      .ev-starting-badge {
+        font-family: var(--mono);
+        font-size: 0.52rem;
+        color: #00ffc8;
+        background: rgba(0, 255, 200, 0.1);
+        border: 1px solid rgba(0, 255, 200, 0.3);
+        border-radius: 4px;
+        padding: 2px 6px;
+        letter-spacing: 0.06em;
+        animation: evStartGlow 1.4s ease-in-out infinite;
+      }
       .node-head {
         display: flex;
         align-items: center;
@@ -1486,6 +1512,35 @@
         hasData = false,
         flagsEvData = [];
 
+      // eventStartingMap: keyed by "nodeId::channelId", value = timestamp (ms) when event was first detected starting
+      // Entries expire after EVENT_STARTING_GRACE_MS; alarms for that channel are suppressed during the window.
+      const EVENT_STARTING_GRACE_MS = 3 * 60 * 1000; // 3 minutes
+      const eventStartingMap = {};
+
+      // Mark a channel on a node as "event starting" if it has an active event but no job started yet.
+      // Returns true if the channel is currently within the grace period.
+      function checkEventStarting(nodeId, chId, hasEvent, jobStarted) {
+        const key = nodeId + "::" + chId;
+        const now = Date.now();
+        if (hasEvent && !jobStarted) {
+          // Channel has an event assigned but encoder job has not started — event is starting
+          if (!eventStartingMap[key]) eventStartingMap[key] = now;
+          return now - eventStartingMap[key] < EVENT_STARTING_GRACE_MS;
+        }
+        // Job started or no event — clear the starting state
+        delete eventStartingMap[key];
+        return false;
+      }
+
+      // Returns true if the given channel on this node is currently in the event-starting grace window
+      function isEventStarting(nodeId, chId) {
+        const key = nodeId + "::" + chId;
+        return (
+          key in eventStartingMap &&
+          Date.now() - eventStartingMap[key] < EVENT_STARTING_GRACE_MS
+        );
+      }
+
       // Log form values are captured here before load() replaces #content (avoids null-ref on form fields)
       let pendingLogParams = {
         from: "",
@@ -1971,13 +2026,14 @@
               .then((r) => (Array.isArray(r) ? r : []))
               .catch(() => []);
           } else if (view === "running") {
-            const [evs, fev, chD, chR] = await Promise.all([
+            const [evs, fev, chD, chR, flags] = await Promise.all([
               api("/running_events"),
               api("/flags/events"),
               api("/channels/default"),
               api("/channels/racing_uk").catch(() => []),
+              api("/flags/channels"),
             ]);
-            raw = { events: evs, flagsEv: fev, channels: [...chD, ...chR] };
+            raw = { events: evs, flagsEv: fev, channels: [...chD, ...chR], flags };
             flagsEvData = Array.isArray(fev) ? fev : [];
           } else if (view === "scheduled") {
             const [evs, chD, chR] = await Promise.all([
@@ -2420,21 +2476,31 @@
             const evWm = evs.flatMap((ev) =>
               (evFm[ev.event_id] || []).filter((w) => !isInfo(w))
             );
+            const jobStarted = !!ch.encoder_job_started;
+            const hasEv = evs.length > 0;
+            // Determine event-starting grace: channel has event but job hasn't started yet
+            const starting = checkEventStarting(n.id, id, hasEv, jobStarted);
+            // When starting, suppress all alarms for this specific channel
+            const effectiveWm = starting ? [] : wm;
+            const effectiveEvWm = starting ? [] : evWm;
+            const effectiveEncWarn = starting ? false : encWarn;
+            const effectiveSrcWarn = starting ? false : chSrcWarn;
             return {
               id,
               enabled: !!ch.enabled,
-              jobStarted: !!ch.encoder_job_started,
+              jobStarted,
               warnings:
-                wm.length +
-                evWm.length +
-                (chSrcWarn ? 1 : 0) +
-                (encWarn ? 1 : 0),
-              wm,
-              evWm,
+                effectiveWm.length +
+                effectiveEvWm.length +
+                (effectiveSrcWarn ? 1 : 0) +
+                (effectiveEncWarn ? 1 : 0),
+              wm: effectiveWm,
+              evWm: effectiveEvWm,
               evs,
-              hasEv: evs.length > 0,
-              encWarn,
+              hasEv,
+              encWarn: effectiveEncWarn,
               encState: chEncState,
+              starting,
             };
           });
           const evRows = [];
@@ -2470,10 +2536,15 @@
                 e.ev.event_name.toLowerCase().includes(filter)
               )
           );
+        // Compute per-node whether any channel is in event-starting grace (affects card style)
+        for (const r of rows) {
+          r.anyStarting = r.chData.some((c) => c.starting);
+        }
         if (warnOnly)
           rows = rows.filter(
             (r) =>
-              r.nW > 0 ||
+              // Exclude nodes where all warnings are suppressed due to event-starting
+              (r.nW > 0 && !r.chData.every((c) => c.starting && c.hasEv && !c.jobStarted)) ||
               r.cpu >= 80 ||
               r.mem >= 95 ||
               r.sched >= 70 ||
@@ -2499,8 +2570,14 @@
 
         for (const r of rows) {
           // warn-animated adds a gentle glow pulse on cards with active flag warnings (useful for kiosk)
-          const cardCls =
-            r.nW > 0 ? "hw warn-animated" : r.status === "offline" ? "off" : "";
+          // ev-starting adds a green blink when a channel on this node has an event starting (alarms suppressed)
+          const cardCls = r.nW > 0
+            ? "hw warn-animated"
+            : r.anyStarting
+            ? "ev-starting"
+            : r.status === "offline"
+            ? "off"
+            : "";
           h +=
             '<div class="node-card ' +
             cardCls +
@@ -2519,6 +2596,9 @@
             (!r.allowAlloc
               ? '<span style="font-family:var(--mono);font-size:.52rem;color:var(--warn);margin-right:4px">NO ALLOC</span>'
               : "") +
+            (r.anyStarting && !r.nW
+              ? '<span class="ev-starting-badge">⬤ event starting, ignoring alarms</span>'
+              : "") +
             (r.nW ? '<span class="wb wb-y">⚠ ' + r.nW + "</span>" : "") +
             "</div>" +
             '<div class="node-body"><div class="ch-chips">';
@@ -2528,6 +2608,8 @@
           for (const c of r.chData) {
             const cc = !c.enabled
               ? "ck-dis"
+              : c.starting
+              ? "ck-ok" // suppress warning colour while event is starting
               : c.warnings || c.encWarn
               ? "ck-wn"
               : c.hasEv && !c.jobStarted
@@ -2625,7 +2707,10 @@
       // ── RUNNING EVENTS ────────────────────────────────────────────
       function renderRunning(filter, warnOnly) {
         const events = Array.isArray(raw.events) ? raw.events : [];
-        const fm = bfmEv(flagsEvData); // keyed by event id (system_id)
+        // flagsEvData is indexed by system_id (= event id or channel id)
+        const fm = bfmEv(flagsEvData);
+        // Also index raw.flags (channel-level flags) by channel id for completeness
+        const chFm = bfm(Array.isArray(raw.flags) ? raw.flags : []);
         const chIdx = {};
         for (const ch of Array.isArray(raw.channels) ? raw.channels : []) {
           if (ch && ch.id) chIdx[ch.id] = !!ch.encoder_job_started;
@@ -2636,9 +2721,24 @@
           .map((ev) => {
             const id = String(ev.id || ""),
               ch = ev.channel_id || "";
-            const s = findSched(ev) || {},
-              flags = fm[id] || fm[ch] || [],
-              wm = flags.filter((w) => !isInfo(w));
+            const s = findSched(ev) || {};
+            // Merge event-level flags (by event id) + channel-level flags (by channel id)
+            const flags = [
+              ...(fm[id] || []),
+              ...(fm[ch] || []),
+              ...(chFm[ch] || []),
+            ];
+            // Deduplicate by msg+module combo
+            const seen = new Set();
+            const uniqueFlags = flags.filter((w) => {
+              const k = (w.module || "") + "|" + (w.msg || "");
+              if (seen.has(k)) return false;
+              seen.add(k);
+              return true;
+            });
+            const wm = uniqueFlags.filter((w) => !isInfo(w));
+            // evWarn: event has a channel but the encoder job has not started (no signal condition)
+            const jobStarted = ch in chIdx ? chIdx[ch] : true;
             return {
               id,
               ch,
@@ -2650,7 +2750,7 @@
               startedAt: fmtDt(ev.started_at),
               warnings: wm.length,
               wm,
-              evWarn: ch in chIdx && !chIdx[ch],
+              evWarn: ch in chIdx && !jobStarted,
             };
           });
 

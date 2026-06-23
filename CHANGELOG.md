@@ -7,6 +7,18 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.16.0] - 2026-06-23
+
+### Added
+
+- **Nodes view – Event starting grace period**: when a channel has an active event but the encoder job has not yet started, alarms for that specific channel are suppressed for 3 minutes. The node card blinks green and displays an "event starting, ignoring alarms" badge during this window. Only alarms tied to that channel/event are suppressed; other channels on the same node are unaffected.
+- **Nodes view – Warnings-only filter**: channels in the event-starting grace period are excluded from the warning count and hidden when "Warnings only" is active.
+
+### Fixed
+
+- **Events tab**: channel-level flags (`/flags/channels`) are now fetched alongside event flags when loading the running events view, so flag warnings appear correctly in the Events tab alongside the existing "no signal" indicator.
+- **Events tab**: event flag deduplication prevents duplicate warning entries when a flag appears under both event id and channel id keys.
+
 ## [3.15.1] - 2026-06-22
 
 ### Fixed
