@@ -2033,7 +2033,12 @@
               api("/channels/racing_uk").catch(() => []),
               api("/flags/channels"),
             ]);
-            raw = { events: evs, flagsEv: fev, channels: [...chD, ...chR], flags };
+            raw = {
+              events: evs,
+              flagsEv: fev,
+              channels: [...chD, ...chR],
+              flags,
+            };
             flagsEvData = Array.isArray(fev) ? fev : [];
           } else if (view === "scheduled") {
             const [evs, chD, chR] = await Promise.all([
@@ -2544,7 +2549,10 @@
           rows = rows.filter(
             (r) =>
               // Exclude nodes where all warnings are suppressed due to event-starting
-              (r.nW > 0 && !r.chData.every((c) => c.starting && c.hasEv && !c.jobStarted)) ||
+              (r.nW > 0 &&
+                !r.chData.every(
+                  (c) => c.starting && c.hasEv && !c.jobStarted
+                )) ||
               r.cpu >= 80 ||
               r.mem >= 95 ||
               r.sched >= 70 ||
@@ -2571,13 +2579,14 @@
         for (const r of rows) {
           // warn-animated adds a gentle glow pulse on cards with active flag warnings (useful for kiosk)
           // ev-starting adds a green blink when a channel on this node has an event starting (alarms suppressed)
-          const cardCls = r.nW > 0
-            ? "hw warn-animated"
-            : r.anyStarting
-            ? "ev-starting"
-            : r.status === "offline"
-            ? "off"
-            : "";
+          const cardCls =
+            r.nW > 0
+              ? "hw warn-animated"
+              : r.anyStarting
+              ? "ev-starting"
+              : r.status === "offline"
+              ? "off"
+              : "";
           h +=
             '<div class="node-card ' +
             cardCls +
@@ -3235,7 +3244,7 @@
       // Auto-refresh every 30 seconds — logs are manual-fetch only (too expensive to auto-refresh)
       setInterval(() => {
         if (hasData && view !== "logs") load();
-      }, 30000);
+      }, 5000);
 
       // ── CHANNEL MONITOR MODAL v2.17.1 ────────────────────────────────
 
