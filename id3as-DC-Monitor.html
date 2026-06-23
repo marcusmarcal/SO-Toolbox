@@ -2491,11 +2491,9 @@
               evs.length > 0
                 ? Math.min(
                     ...evs.map((ev) =>
-                      ev.started_at
+                      ev.start
                         ? new Date(
-                            ev.started_at.endsWith("Z")
-                              ? ev.started_at
-                              : ev.started_at + "Z"
+                            ev.start.endsWith("Z") ? ev.start : ev.start + "Z"
                           ).getTime()
                         : Infinity
                     )
