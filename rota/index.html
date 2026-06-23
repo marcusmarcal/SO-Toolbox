@@ -333,7 +333,7 @@
     /* ── LEAVE APPROVALS ── */
     .approval-row {
       display: grid;
-      grid-template-columns: 140px 200px 1fr auto auto;
+      grid-template-columns: 140px 200px 1fr auto auto auto;
       gap: 12px; align-items: center;
       padding: 10px 0; border-bottom: 1px solid #2a2a2a;
       font-family: var(--mono); font-size: 0.65rem;
@@ -934,25 +934,26 @@
     const r = await fetch(`${PROXY}/rota/leave`, { credentials: 'same-origin' });
     const d = await r.json();
     const el = document.getElementById('approvals-list');
-    const pending = (d.leave || []).filter(r => r.status === 'Pending');
+    const all = d.leave || [];
 
-    if (!pending.length) {
-      el.innerHTML = '<div class="empty-state">No pending requests.</div>';
+    if (!all.length) {
+      el.innerHTML = '<div class="empty-state">No leave requests.</div>';
       return;
     }
 
-    el.innerHTML = pending.map((r, i) => {
-      const idx = (d.leave || []).indexOf(r);
-      return `
-        <div class="approval-row">
-          <span class="approval-name">${r.name || r.username}</span>
-          <span class="approval-dates">${r.date_start} → ${r.date_end}</span>
-          <span class="approval-type">${r.leave_type}</span>
-          <button class="btn approve" onclick="decideLeave(${r.id},'Approved')">✓ Approve</button>
-          <button class="btn reject"  onclick="decideLeave(${r.id},'Rejected')">✗ Reject</button>
-        </div>
-      `;
-    }).join('');
+    el.innerHTML = all.map(r => `
+      <div class="approval-row">
+        <span class="approval-name">${r.name || r.username}</span>
+        <span class="approval-dates">${r.date_start} → ${r.date_end}</span>
+        <span class="approval-type">${r.leave_type} · <span class="status-badge ${r.status}">${r.status}</span></span>
+        ${r.status === 'Pending' ? `
+          <button class="btn approve" onclick="decideLeave('${r.id}','Approved')">✓ Approve</button>
+          <button class="btn reject"  onclick="decideLeave('${r.id}','Rejected')">✗ Reject</button>
+        ` : `<span></span><span></span>`}
+        <button class="btn reject" style="font-size:0.55rem;padding:3px 8px;"
+          onclick="deleteLeave('${r.id}')">🗑 Delete</button>
+      </div>
+    `).join('');
   }
 
   async function decideLeave(leaveId, status) {
@@ -970,6 +971,32 @@
     } else {
       toast(d.error || 'Failed', 'err');
     }
+  }
+
+  async function loadApprovals() {
+    const r = await fetch(`${PROXY}/rota/leave`, { credentials: 'same-origin' });
+    const d = await r.json();
+    const el = document.getElementById('approvals-list');
+    const all = d.leave || [];
+
+    if (!all.length) {
+      el.innerHTML = '<div class="empty-state">No leave requests.</div>';
+      return;
+    }
+
+    el.innerHTML = all.map(r => `
+      <div class="approval-row">
+        <span class="approval-name">${r.name || r.username}</span>
+        <span class="approval-dates">${r.date_start} → ${r.date_end}</span>
+        <span class="approval-type">${r.leave_type} · <span class="status-badge ${r.status}">${r.status}</span></span>
+        ${r.status === 'Pending' ? `
+          <button class="btn approve" onclick="decideLeave('${r.id}','Approved')">✓ Approve</button>
+          <button class="btn reject"  onclick="decideLeave('${r.id}','Rejected')">✗ Reject</button>
+        ` : `<span></span><span></span>`}
+        <button class="btn reject" style="font-size:0.55rem;padding:3px 8px;"
+          onclick="deleteLeave('${r.id}')">🗑 Delete</button>
+      </div>
+    `).join('');
   }
 
   async function cancelLeave(leaveId) {
