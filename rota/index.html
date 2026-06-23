@@ -531,7 +531,7 @@
 
     <table class="data-table" id="my-leave-table" style="max-width:640px;">
       <thead>
-        <tr><th>From</th><th>To</th><th>Type</th><th>Status</th></tr>
+        <tr><th>From</th><th>To</th><th>Type</th><th>Status</th><th></th></tr>
       </thead>
       <tbody id="my-leave-body">
         <tr><td colspan="4" style="color:var(--muted);padding:20px 12px;">No requests yet.</td></tr>
@@ -908,14 +908,23 @@
       tbody.innerHTML = '<tr><td colspan="4" style="color:var(--muted);padding:20px 12px;">No requests yet.</td></tr>';
       return;
     }
-    tbody.innerHTML = [...d.leave].reverse().map(r => `
-      <tr>
-        <td>${r.date_start}</td>
-        <td>${r.date_end}</td>
-        <td>${r.leave_type}</td>
-        <td><span class="status-badge ${r.status}">${r.status}</span></td>
-      </tr>
-    `).join('');
+    const allLeave = [...d.leave].reverse();
+    tbody.innerHTML = allLeave.map((r, i) => {
+      const realIndex = d.leave.length - 1 - i;
+      const canCancel = r.status === 'Pending';
+      return `
+        <tr>
+          <td>${r.date_start}</td>
+          <td>${r.date_end}</td>
+          <td>${r.leave_type}</td>
+          <td><span class="status-badge ${r.status}">${r.status}</span></td>
+          <td>${canCancel
+            ? `<button class="btn reject" style="font-size:0.55rem;padding:3px 8px;"
+                onclick="cancelLeave(${realIndex})">✕ Cancel</button>`
+            : '—'}</td>
+        </tr>
+      `;
+    }).join('');
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -956,6 +965,22 @@
     if (d.ok) {
       toast(`${status}`, 'ok');
       loadApprovals();
+      state.rotaData = null;
+      loadRota();
+    } else {
+      toast(d.error || 'Failed', 'err');
+    }
+  }
+
+  async function cancelLeave(index) {
+    if (!confirm('Cancel this leave request?')) return;
+    const r = await fetch(`${PROXY}/rota/leave/${index}`, {
+      method: 'DELETE', credentials: 'same-origin',
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast('Request cancelled', 'ok');
+      loadMyLeave();
       state.rotaData = null;
       loadRota();
     } else {

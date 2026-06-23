@@ -267,6 +267,30 @@ def rota_leave_put(index):
     _save_json(LEAVE_FILE, leave_list)
     return jsonify({'ok': True})
 
+@rota_bp.route('/rota/leave/<int:index>', methods=['DELETE'])
+@require_auth
+def rota_leave_delete(index):
+    session    = request.session
+    rota_role  = _get_rota_role(session)
+    leave_list = _load_json(LEAVE_FILE)
+
+    if not isinstance(leave_list, list) or index >= len(leave_list):
+        return jsonify({'ok': False, 'error': 'Not found'}), 404
+
+    entry = leave_list[index]
+
+    # Staff can only delete their own Pending entries
+    if rota_role != 'management':
+        my_name = _display_name_from_email(session['username'])
+        if entry.get('name') != my_name:
+            return jsonify({'ok': False, 'error': 'Not authorised'}), 403
+        if entry.get('status') != 'Pending':
+            return jsonify({'ok': False, 'error': 'Cannot cancel an approved request'}), 403
+
+    leave_list.pop(index)
+    _save_json(LEAVE_FILE, leave_list)
+    return jsonify({'ok': True})
+
 def register_routes(app) -> None:
     app.register_blueprint(rota_bp)
 
