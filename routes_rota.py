@@ -6,55 +6,46 @@ import re
 import json
 import uuid
 import datetime
-import subprocess
-import threading
-import tempfile
-import shutil
 
-from flask import Blueprint, request, jsonify, send_from_directory
-
-from routes_auth import _get_session, _token_from_request
+from flask import Blueprint, request, jsonify
 from routes_auth import require_auth, require_admin_role
 
 # ── Blueprint ─────────────────────────────────────────────────────────────
 rota_bp = Blueprint('rota', __name__)
 
 # ── Config ────────────────────────────────────────────────────────────────
-_BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
-ROTA_DIR     = os.path.join(_BASE_DIR, 'rota')
-LEAVE_FILE   = os.path.join(ROTA_DIR, 'leave_requests.json')
-USERS_FILE   = os.path.join(_BASE_DIR, 'users.json')
-
+_BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
+ROTA_DIR   = os.path.join(_BASE_DIR, 'rota')
+LEAVE_FILE = os.path.join(ROTA_DIR, 'leave_requests.json')
+USERS_FILE = os.path.join(_BASE_DIR, 'users.json')
 
 # ── Data helpers ──────────────────────────────────────────────────────────
 def _load_json(path: str):
-    print(f"[DEBUG] Loading JSON from: {path}")   # 👈 shows actual file used
-
     if not os.path.exists(path):
-        print(f"[DEBUG] File does not exist: {path}")
         return {}
-
     try:
         with open(path, 'r') as f:
-            data = json.load(f)
-            print(f"[DEBUG] Successfully loaded: {path}")
-            return data
+            return json.load(f)
     except Exception as e:
         print(f"[JSON ERROR] {path}: {e}")
         return {}
-
-
 
 def _save_json(path: str, data) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'w') as f:
         json.dump(data, f, indent=2)
 
-
+# ── Role helpers ──────────────────────────────────────────────────────────
 STAFF_ROLES = {'engineer', 'specialist'}
+VALID_LEAVE_TYPES = {'Annual Leave', 'Parental Leave', 'Marital Leave'}
+
+VALID_TRANSITIONS = {
+    'Pending':            {'Confirmed', 'Rejected'},
+    'Confirmed':          {'Withdrawal Pending'},
+    'Withdrawal Pending': {'Withdrawn', 'Withdrawal Rejected'},
+}
 
 def _display_name_from_email(email: str) -> str:
-    """ana.maria@email.com → 'Ana M'"""
     local = email.split('@')[0]
     parts = re.split(r'[.\-_]', local)
     if not parts:
@@ -64,7 +55,6 @@ def _display_name_from_email(email: str) -> str:
         return f"{first} {parts[1][0].upper()}"
     return first
 
-
 def _get_rota_role(session: dict) -> str:
     role = session.get('role', '')
     if role == 'admin':
@@ -73,6 +63,10 @@ def _get_rota_role(session: dict) -> str:
         return 'staff'
     return 'guest'
 
+def _now_iso() -> str:
+    return datetime.datetime.utcnow().isoformat(timespec='seconds') + 'Z'
+
+# ── Rotation constants ────────────────────────────────────────────────────
 from datetime import date, timedelta
 
 ANCHOR_MONDAY = date(2026, 3, 2)
@@ -105,9 +99,9 @@ ENGINEERING_ROTATION = [
 ]
 
 SPECIALIST_OFFSETS = {
-    "Sabina":   35, "Sergio": 119, "Tiago O": 77,
-    "Vitor":    63, "Fernando": 21, "Marc":    7,
-    "Gabriel":  49, "Mario":   91, "Isaac":   105,
+    "Sabina": 35, "Sergio": 119, "Tiago O": 77,
+    "Vitor":  63, "Fernando": 21, "Marc":    7,
+    "Gabriel":49, "Mario":    91, "Isaac":   105,
 }
 ENGINEERING_OFFSETS = {"Hugo": 0, "Goncalo": 14, "Nuno": 7}
 
@@ -129,6 +123,12 @@ PUBLIC_HOLIDAYS = {
 PARENTAL_LEAVE_TYPES = {"Parental Leave"}
 MARITAL_LEAVE_TYPES  = {"Marital Leave"}
 
+# Statuses that show as AL_APPROVED overlay on rota
+AL_APPROVED_STATUSES = {'Confirmed', 'Withdrawal Pending', 'Withdrawal Rejected'}
+# Statuses that show as AL_PENDING overlay on rota
+AL_PENDING_STATUSES  = {'Pending'}
+# Statuses that revert to base shift (no overlay)
+AL_CLEAR_STATUSES    = {'Rejected', 'Withdrawn'}
 
 def _base_shift(name: str, d: date) -> str:
     delta = (d - ANCHOR_MONDAY).days
@@ -138,29 +138,29 @@ def _base_shift(name: str, d: date) -> str:
     if name in ENGINEERING_OFFSETS:
         idx = (ENGINEERING_OFFSETS[name] + delta) % len(ENGINEERING_ROTATION)
         return ENGINEERING_ROTATION[idx]
-    # Management
     if d.weekday() >= 5 or d in PUBLIC_HOLIDAYS:
         return "OFF"
     return MANAGEMENT_SHIFTS.get(name, "OFF")
 
-
 def _resolve_shift(name: str, d: date, leave_map: dict) -> str:
-    """Apply leave overlay on top of base shift."""
     leave = leave_map.get((name, d))
     if not leave:
         return _base_shift(name, d)
     lt     = leave["leave_type"]
     status = leave["status"]
     base   = _base_shift(name, d)
+
+    if status in AL_CLEAR_STATUSES:
+        return base
     if lt in PARENTAL_LEAVE_TYPES:
         return "PARENTAL"
     if lt in MARITAL_LEAVE_TYPES:
         return "MARITAL"
-    if status in ('Rejected', 'Removed'):
-        return base   
-    code = "AL_APPROVED" if status == "Approved" else "AL_PENDING"
-    return code if base == "OFF" else f"{code}|{base}"
-
+    if status in AL_APPROVED_STATUSES:
+        return "AL_APPROVED" if base == "OFF" else f"AL_APPROVED|{base}"
+    if status in AL_PENDING_STATUSES:
+        return "AL_PENDING" if base == "OFF" else f"AL_PENDING|{base}"
+    return base
 
 def _build_leave_map(leave_list: list) -> dict:
     lmap = {}
@@ -172,12 +172,16 @@ def _build_leave_map(leave_list: list) -> dict:
             continue
         d = ds
         while d <= de:
-            lmap[(r["name"], d)] = {   # ← name, not username
+            lmap[(r["name"], d)] = {
                 "leave_type": r["leave_type"],
                 "status":     r["status"],
             }
             d += timedelta(days=1)
     return lmap
+
+# ════════════════════════════════════════════════════════════════════════════
+#  ROUTES
+# ════════════════════════════════════════════════════════════════════════════
 
 @rota_bp.route('/rota/me', methods=['GET'])
 @require_auth
@@ -198,121 +202,14 @@ def rota_me():
         'team':      team,
     })
 
-@rota_bp.route('/rota/leave', methods=['GET'])
-@require_auth
-def rota_leave_get():
-    session    = request.session
-    rota_role  = _get_rota_role(session)
-    leave_list = _load_json(LEAVE_FILE)
-    if not isinstance(leave_list, list):
-        leave_list = []
-
-    if rota_role == 'management':
-        # Management sees all requests
-        return jsonify({'ok': True, 'leave': leave_list})
-    else:
-        # Staff see only their own (matched by inferred name)
-        my_name = _display_name_from_email(session['username'])
-        my_leave = [r for r in leave_list if r.get('name') == my_name]
-        return jsonify({'ok': True, 'leave': my_leave})
-
-
-@rota_bp.route('/rota/leave', methods=['POST'])
-@require_auth
-def rota_leave_post():
-    session = request.session
-    if _get_rota_role(session) == 'guest':
-        return jsonify({'ok': False, 'error': 'Not authorised'}), 403
-
-    data = request.get_json(silent=True) or {}
-    date_start = data.get('date_start', '').strip()
-    date_end   = data.get('date_end', '').strip()
-    leave_type = data.get('leave_type', '').strip()
-
-    if not date_start or not date_end or not leave_type:
-        return jsonify({'ok': False, 'error': 'Missing fields'}), 400
-    if date_end < date_start:
-        return jsonify({'ok': False, 'error': 'End date before start date'}), 400
-
-    name = _display_name_from_email(session['username'])
-
-    leave_list = _load_json(LEAVE_FILE)
-    if not isinstance(leave_list, list):
-        leave_list = []
-
-    leave_list.append({
-        'id':         str(uuid.uuid4())[:8],
-        'name':       name,
-        'username':   session['username'],
-        'date_start': date_start,
-        'date_end':   date_end,
-        'leave_type': leave_type,
-        'status':     'Pending',
-    })
-    _save_json(LEAVE_FILE, leave_list)
-    return jsonify({'ok': True})
-
-
-@rota_bp.route('/rota/leave/<leave_id>', methods=['PUT'])
-@require_auth
-@require_admin_role
-def rota_leave_put(leave_id):
-    data   = request.get_json(silent=True) or {}
-    status = data.get('status', '').strip()
-    if status not in ('Approved', 'Rejected', 'Removed'):
-        return jsonify({'ok': False, 'error': 'Invalid status'}), 400
-
-    leave_list = _load_json(LEAVE_FILE)
-    idx = next((i for i, r in enumerate(leave_list) if r.get('id') == leave_id), None)
-    if idx is None:
-        return jsonify({'ok': False, 'error': 'Not found'}), 404
-
-    leave_list[idx]['status'] = status
-    _save_json(LEAVE_FILE, leave_list)
-    return jsonify({'ok': True})
-
-@rota_bp.route('/rota/leave/<leave_id>', methods=['DELETE'])
-@require_auth
-def rota_leave_delete(leave_id):
-    session   = request.session
-    rota_role = _get_rota_role(session)
-    leave_list = _load_json(LEAVE_FILE)
-
-    if not isinstance(leave_list, list):
-        return jsonify({'ok': False, 'error': 'Not found'}), 404
-
-    idx   = next((i for i, r in enumerate(leave_list) if r.get('id') == leave_id), None)
-    if idx is None:
-        return jsonify({'ok': False, 'error': 'Not found'}), 404
-
-    entry = leave_list[idx]
-
-    if rota_role != 'management':
-        my_name = _display_name_from_email(session['username'])
-        if entry.get('name') != my_name:
-            return jsonify({'ok': False, 'error': 'Not authorised'}), 403
-        if entry.get('status') != 'Pending':
-            return jsonify({'ok': False, 'error': 'Cannot cancel an approved request'}), 403
-
-    leave_list.pop(idx)
-    _save_json(LEAVE_FILE, leave_list)
-    return jsonify({'ok': True})
-
-def register_routes(app) -> None:
-    app.register_blueprint(rota_bp)
-
-# ════════════════════════════════════════════════════════════════════════════
-#  SCHEDULE ENDPOINT
-# ════════════════════════════════════════════════════════════════════════════
 
 @rota_bp.route('/rota/members', methods=['GET'])
 @require_auth
-@require_admin_role
 def rota_members():
+    """All users — management gets full list for on-behalf dropdown."""
     users = _load_json(USERS_FILE)
     if not isinstance(users, dict):
         return jsonify({'ok': False, 'error': 'Could not load users'}), 500
-
     result = {}
     for email, info in users.items():
         role = info.get('role', '')
@@ -320,28 +217,23 @@ def rota_members():
                'Specialists' if role == 'specialist' else \
                'Management'  if role == 'admin' else 'Other'
         result[email] = {
-            'name':  _display_name_from_email(email),
-            'team':  team,
-            'role':  role,
+            'name': _display_name_from_email(email),
+            'team': team,
+            'role': role,
         }
     return jsonify({'ok': True, 'members': result})
+
 
 @rota_bp.route('/rota/schedule', methods=['GET'])
 @require_auth
 def rota_schedule():
-    """
-    GET /so-proxy/rota/schedule?from=2026-01-01&to=2026-12-31
-
-    Returns a day-by-day schedule for all active members.
-    Management sees everyone; staff sees all teams (read-only rota).
-    """
+    rota_role = _get_rota_role(request.session)
     try:
         date_from = date.fromisoformat(request.args.get('from', date.today().isoformat()))
-        date_to   = date.fromisoformat(request.args.get('to',   (date.today() + timedelta(weeks=5)).isoformat()))
+        date_to   = date.fromisoformat(request.args.get('to', (date.today() + timedelta(weeks=5)).isoformat()))
     except ValueError:
         return jsonify({'ok': False, 'error': 'Invalid date format, use YYYY-MM-DD'}), 400
 
-    rota_role = _get_rota_role(request.session)
     if rota_role != 'management':
         max_to = date.today() + timedelta(weeks=5)
         if date_to > max_to:
@@ -351,44 +243,150 @@ def rota_schedule():
     if not isinstance(leave_list, list):
         leave_list = []
 
-    leave_map    = _build_leave_map(leave_list)
-
+    leave_map = _build_leave_map(leave_list)
     today = date.today()
     days  = []
     d     = date_from
 
     while d <= date_to:
         day = {
-            'date':               d.isoformat(),
-            'weekday':            d.strftime('%A'),
-            'is_today':           d == today,
-            'is_weekend':         d.weekday() >= 5,
-            'is_public_holiday':  d in PUBLIC_HOLIDAYS,
-            'shifts':             {},
+            'date':              d.isoformat(),
+            'weekday':           d.strftime('%A'),
+            'is_today':          d == today,
+            'is_weekend':        d.weekday() >= 5,
+            'is_public_holiday': d in PUBLIC_HOLIDAYS,
+            'shifts':            {},
         }
-
-        # Management
-        for name, shift in MANAGEMENT_SHIFTS.items():
-            day['shifts'][name] = {
-                'team':  'Management',
-                'shift': _resolve_shift(name, d, leave_map),
-            }
-
-        # Engineering
+        for name in MANAGEMENT_SHIFTS:
+            day['shifts'][name] = {'team': 'Management',  'shift': _resolve_shift(name, d, leave_map)}
         for name in ENGINEERING_OFFSETS:
-            day['shifts'][name] = {
-                'team':  'Engineering',
-                'shift': _resolve_shift(name, d, leave_map),
-            }
-
-        # Specialists
+            day['shifts'][name] = {'team': 'Engineering', 'shift': _resolve_shift(name, d, leave_map)}
         for name in SPECIALIST_OFFSETS:
-            day['shifts'][name] = {
-                'team':  'Specialists',
-                'shift': _resolve_shift(name, d, leave_map),
-            }
-
+            day['shifts'][name] = {'team': 'Specialists', 'shift': _resolve_shift(name, d, leave_map)}
         days.append(day)
         d += timedelta(days=1)
 
     return jsonify({'ok': True, 'days': days})
+
+
+@rota_bp.route('/rota/leave', methods=['GET'])
+@require_auth
+def rota_leave_get():
+    session    = request.session
+    rota_role  = _get_rota_role(session)
+    username   = session['username']
+    leave_list = _load_json(LEAVE_FILE)
+    if not isinstance(leave_list, list):
+        leave_list = []
+
+    if rota_role == 'management':
+        return jsonify({'ok': True, 'leave': leave_list})
+
+    # Staff: own entries + entries submitted on their behalf
+    my_leave = [
+        r for r in leave_list
+        if r.get('username') == username or
+           (r.get('on_behalf') and r.get('username') == username)
+    ]
+    return jsonify({'ok': True, 'leave': my_leave})
+
+
+@rota_bp.route('/rota/leave', methods=['POST'])
+@require_auth
+def rota_leave_post():
+    session   = request.session
+    rota_role = _get_rota_role(session)
+
+    if rota_role == 'guest':
+        return jsonify({'ok': False, 'error': 'Not authorised'}), 403
+
+    data       = request.get_json(silent=True) or {}
+    date_start = data.get('date_start', '').strip()
+    date_end   = data.get('date_end', '').strip()
+    leave_type = data.get('leave_type', '').strip()
+    on_behalf  = data.get('on_behalf', False)
+    target     = data.get('target_username', '').strip()
+
+    if not date_start or not date_end or not leave_type:
+        return jsonify({'ok': False, 'error': 'Missing fields'}), 400
+    if leave_type not in VALID_LEAVE_TYPES:
+        return jsonify({'ok': False, 'error': 'Invalid leave type'}), 400
+    if date_end < date_start:
+        return jsonify({'ok': False, 'error': 'End date before start date'}), 400
+
+    # On-behalf only allowed for management
+    if on_behalf:
+        if rota_role != 'management':
+            return jsonify({'ok': False, 'error': 'Not authorised for on-behalf requests'}), 403
+        if not target:
+            return jsonify({'ok': False, 'error': 'target_username required for on-behalf'}), 400
+        username = target
+    else:
+        username = session['username']
+
+    name = _display_name_from_email(username)
+
+    leave_list = _load_json(LEAVE_FILE)
+    if not isinstance(leave_list, list):
+        leave_list = []
+
+    leave_list.append({
+        'id':          str(uuid.uuid4())[:8],
+        'name':        name,
+        'username':    username,
+        'on_behalf':   on_behalf,
+        'created_by':  session['username'],
+        'created_at':  _now_iso(),
+        'date_start':  date_start,
+        'date_end':    date_end,
+        'leave_type':  leave_type,
+        'status':      'Pending',
+        'actioned_by': None,
+        'actioned_at': None,
+    })
+    _save_json(LEAVE_FILE, leave_list)
+    return jsonify({'ok': True})
+
+
+@rota_bp.route('/rota/leave/<leave_id>', methods=['PUT'])
+@require_auth
+def rota_leave_put(leave_id):
+    session   = request.session
+    rota_role = _get_rota_role(session)
+    data      = request.get_json(silent=True) or {}
+    new_status = data.get('status', '').strip()
+
+    leave_list = _load_json(LEAVE_FILE)
+    if not isinstance(leave_list, list):
+        return jsonify({'ok': False, 'error': 'No data'}), 500
+
+    idx = next((i for i, r in enumerate(leave_list) if r.get('id') == leave_id), None)
+    if idx is None:
+        return jsonify({'ok': False, 'error': 'Not found'}), 404
+
+    entry          = leave_list[idx]
+    current_status = entry.get('status', '')
+
+    # Validate transition
+    allowed = VALID_TRANSITIONS.get(current_status, set())
+    if new_status not in allowed:
+        return jsonify({'ok': False, 'error': f'Cannot transition from {current_status} to {new_status}'}), 400
+
+    # Permission checks
+    # Staff can only request withdrawal on their own Confirmed entries
+    if rota_role != 'management':
+        if new_status != 'Withdrawal Pending':
+            return jsonify({'ok': False, 'error': 'Not authorised'}), 403
+        if entry.get('username') != session['username']:
+            return jsonify({'ok': False, 'error': 'Not authorised'}), 403
+
+    entry['status']      = new_status
+    entry['actioned_by'] = session['username']
+    entry['actioned_at'] = _now_iso()
+    leave_list[idx]      = entry
+    _save_json(LEAVE_FILE, leave_list)
+    return jsonify({'ok': True})
+
+
+def register_routes(app) -> None:
+    app.register_blueprint(rota_bp)
