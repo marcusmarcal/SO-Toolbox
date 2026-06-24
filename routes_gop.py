@@ -425,6 +425,9 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
         idr_count = 0
         non_idr_keyframe_count = 0
         total_frames = len(frames_data)
+        
+        # Flag para ignorar frames órfãos no início do arquivo
+        first_key_found = False
 
         for frame in frames_data:
             ptype   = frame.get("pict_type", "?")
@@ -433,6 +436,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             is_idr  = is_key and ptype == "I"
 
             if is_key:
+                first_key_found = True # Encontrou o primeiro ponto de ancoragem real
                 if is_idr:
                     idr_count += 1
                 else:
@@ -441,6 +445,9 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
                     gops.append(current_gop)
                 current_gop = [{"type": ptype, "key": True, "idr": is_idr, "pts": pts_t}]
             else:
+                # Se ainda não achou a primeira chave, ignora o frame solto
+                if not first_key_found:
+                    continue
                 current_gop.append({"type": ptype, "key": False, "idr": False, "pts": pts_t})
 
         if current_gop:
