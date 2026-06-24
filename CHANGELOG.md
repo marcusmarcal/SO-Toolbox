@@ -7,6 +7,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.17.0] - 2026-06-23
+
+### Fixed
+
+- BTV: Bug single B frame affecting GOP fixed
+
 ## [3.16.1] - 2026-06-23
 
 ### Fixed
