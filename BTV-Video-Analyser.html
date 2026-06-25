@@ -3617,7 +3617,7 @@
           `${r.gop_avg || "—"} frames`,
           "gop_size"
         )}
-        ${vrow("GOP Type", "OPEN (preferred) / CLOSED (accepted)", r.gop_type || "—", "gop_type")}
+        ${vrow("GOP Type", "CLOSED (preferred) / OPEN (accepted)", r.gop_type || "—", "gop_type")}
         ${vrow(
           "IDR Frames",
           "Required",
@@ -3855,7 +3855,7 @@
             `${r.gop_avg || "—"} frames`,
             "gop_size"
           ),
-          tr("GOP Type", "OPEN preferred / CLOSED accepted", r.gop_type || "—", "gop_type"),
+          tr("GOP Type", "CLOSED preferred / OPEN accepted", r.gop_type || "—", "gop_type"),
           tr("IDR Frames", "Required", r.has_idr ? "Present" : "ABSENT", "idr"),
           tr(
             "B-Frames",
@@ -4588,28 +4588,28 @@
               const valStr = Array.isArray(s.values)
                 ? s.values.join(", ")
                 : s.values || "";
-              const prefStr = Array.isArray(s.preferred)
-                ? s.preferred.join(", ")
-                : s.preferred ?? "";
               const noteHtml = key === "colour_range"
                 ? `<div style="color:var(--muted);font-size:.6rem;margin-top:2px">internal values: <code>limited</code> / <code>full</code> (not pix_fmt)</div>`
                 : "";
               allowedEl = `<input data-key="${key}" data-field="values" type="text" value="${valStr}" style="${inStyle};width:190px" placeholder="comma separated" />${noteHtml}`;
-              prefEl = `<input data-key="${key}" data-field="preferred" type="text" value="${prefStr}" style="${inStyle};width:110px" />`;
+              // For short fixed-value specs (b_frames, gop_type) render preferred as a select
+              const valArr = Array.isArray(s.values) ? s.values : [];
+              if (valArr.length > 0 && valArr.length <= 4 && valArr.every(v => typeof v === "string")) {
+                const optHtml = valArr.map(v =>
+                  `<option value="${v}" ${String(s.preferred) === String(v) ? "selected" : ""}>${v}</option>`
+                ).join("");
+                prefEl = `<select data-key="${key}" data-field="preferred" style="${inStyle};width:110px">${optHtml}</select>`;
+              } else {
+                const prefStr = Array.isArray(s.preferred)
+                  ? s.preferred.join(", ")
+                  : s.preferred ?? "";
+                prefEl = `<input data-key="${key}" data-field="preferred" type="text" value="${prefStr}" style="${inStyle};width:110px" />`;
+              }
             } else if ("required" in s) {
-              // Required-value spec (e.g. gop_type)
+              // Required-value spec (legacy fallback)
               allowedEl = `<input data-key="${key}" data-field="required" type="text" value="${
                 s.required || ""
               }" style="${inStyle};width:110px" />`;
-            } else if ("preferred" in s) {
-              // Preferred-only spec (b_frames: absent=preferred, present=allowed)
-              // Always show the two canonical options with clear semantics
-              const opts = ["absent", "present"];
-              const optHtml = opts.map(v =>
-                `<option value="${v}" ${s.preferred === v ? "selected" : ""}>${v}</option>`
-              ).join("");
-              allowedEl = `<span style="color:var(--muted);font-size:.65rem"><strong style="color:var(--green)">absent</strong> = preferred (COMPLIANT) &nbsp;|&nbsp; <strong style="color:var(--yellow)">present</strong> = allowed (ACCEPTED)</span>`;
-              prefEl = `<select data-key="${key}" data-field="preferred" style="${inStyle};width:110px">${optHtml}</select>`;
             }
 
             // Special options

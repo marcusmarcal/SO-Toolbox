@@ -111,8 +111,8 @@ def _check_password(req):
 DEFAULT_SPECS = {
     "overall_br":   {"lo": 5.0,  "hi": 18.0, "pref_lo": 8.0,  "pref_hi": 15.0, "label": "Overall Bitrate (Mbps)"},
     "gop_size":     {"values": [30, 50], "tolerance": 3, "label": "GOP Size (frames)", "allow_seconds": True},
-    "gop_type":     {"required": "CLOSED", "label": "GOP Type"},
-    "b_frames":     {"preferred": "absent", "label": "B-Frames"},
+    "gop_type":     {"values": ["CLOSED", "OPEN"], "preferred": "CLOSED", "label": "GOP Type"},
+    "b_frames":     {"values": ["absent", "present"], "preferred": "absent", "label": "B-Frames"},
     "idr":          {"required": True, "label": "IDR Frames"},
     "frame_size":   {"values": ["1280x720","1920x1080"], "preferred": "1920x1080", "label": "Frame Size"},
     "aspect_ratio": {"values": ["16:9"], "label": "Aspect Ratio"},
@@ -723,22 +723,11 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
         if allow_secs:
             gop_expected_str += " or 1s/2s"
 
-        gop_type_sp  = _s("gop_type")
-        required_gop = gop_type_sp.get("required", "CLOSED").upper()
-        gop_type_status = "COMPLIANT" if gop_type.upper() == required_gop else "REJECTED"
-
-        b_sp = _s("b_frames")
-        pref_b = str(b_sp.get("preferred", "absent")).lower()
-        if pref_b == "absent":
-            b_status = "COMPLIANT" if not has_b_frames else "ACCEPTED"
-        else:
-            b_status = "COMPLIANT" if has_b_frames else "ACCEPTED"
-
         compliance = {
             "overall_br":   comply_range(file_br_mbps, "overall_br"),
             "gop_size":     (gop_status, str(avg_gop), f"Expected {gop_expected_str}"),
-            "gop_type":     (gop_type_status, gop_type, f"Must be {required_gop}"),
-            "b_frames":     (b_status, "Absent" if not has_b_frames else "Present", f"Preferred {pref_b}"),
+            "gop_type":     comply_enum_multi(gop_type, "gop_type"),
+            "b_frames":     comply_enum_multi("absent" if not has_b_frames else "present", "b_frames"),
             "idr":          ("COMPLIANT" if has_idr else "REJECTED",
                              "Present" if has_idr else "ABSENT", "IDR frames required"),
             "frame_size":   comply_enum_multi(f"{v_width}x{v_height}", "frame_size"),
@@ -1517,24 +1506,12 @@ def _reeval_compliance(stored: dict, specs: dict) -> tuple:
     if allow_secs:
         gop_expected_str += " or 1s/2s"
 
-    # ── GOP type compliance ──────────────────────────────────────────────────
-    gop_type_sp  = _s("gop_type")
-    required_gop = gop_type_sp.get("required", "CLOSED").upper()
-    gop_type_status = "COMPLIANT" if gop_type.upper() == required_gop else "REJECTED"
-
-    # ── B-frames compliance ──────────────────────────────────────────────────
-    b_sp = _s("b_frames")
-    pref_b = str(b_sp.get("preferred", "absent")).lower()
-    if pref_b == "absent":
-        b_status = "COMPLIANT" if not has_b_frames else "ACCEPTED"
-    else:
-        b_status = "COMPLIANT" if has_b_frames else "ACCEPTED"
 
     compliance = {
         "overall_br":   comply_range(file_br_mbps, "overall_br"),
         "gop_size":     (gop_status, str(avg_gop), f"Expected {gop_expected_str}"),
-        "gop_type":     (gop_type_status, gop_type, f"Must be {required_gop}"),
-        "b_frames":     (b_status, "Absent" if not has_b_frames else "Present", f"Preferred {pref_b}"),
+        "gop_type":     comply_enum_multi(gop_type, "gop_type"),
+        "b_frames":     comply_enum_multi("absent" if not has_b_frames else "present", "b_frames"),
         "idr":          ("COMPLIANT" if has_idr else "REJECTED",
                          "Present" if has_idr else "ABSENT", "IDR frames required"),
         "frame_size":   comply_enum_multi(f"{v_width}x{v_height}", "frame_size"),
