@@ -11,73 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- Specs Editor now has its own workflow dropdown, independent of the workflow
-  selector on the test page; switching workflow inside the editor loads the
-  corresponding specs without affecting the active test configuration
-- "★ Set as API default" button in the Specs Editor footer (admin/engineer only);
-  sets the workflow used by the API when no workflow is specified in the request
-- `GET /gop/workflows` now returns `{ labels: {…}, default: "…" }` so the
-  frontend always knows which workflow is the current API default
-- `POST /gop/workflows/default` endpoint to persist the API default workflow to
-  `workflow_default.json` (admin/engineer only)
-- `_effective_default_workflow()` helper in backend; all routes that previously
-  fell back to the hard-coded `DEFAULT_WORKFLOW` constant now read the persisted
-  value instead
-- "Accept any GOP size" checkbox in the Specs Editor for the GOP Size row; when
-  enabled, any measured GOP size returns ACCEPTED regardless of configured values
-  or tolerance
-- Re-evaluate (⇄) button on each history entry: opens a modal to select a target
-  workflow and shows a read-only re-evaluated report without modifying the stored
-  result (`GET /gop/reeval/<file>?workflow=<wf>`)
-- Change Workflow (🔀) button on each history entry (admin/engineer only):
-  permanently re-assigns the workflow, re-runs compliance, and appends an entry
-  to `workflow_change_log` in the result JSON (`PATCH /gop/result/<file>/workflow`)
-- After a workflow change the updated compliance result is rendered immediately
-  from the PATCH response, without a second round-trip
-- Workflow badge (📋) added to the test meta-bar on the main page; shows the
-  workflow used for the loaded result, or `⇄ <label>` in cyan when showing a
-  re-evaluated report
-- Re-evaluated report shows `⇄ <workflow> (re-evaluated)` in the Workflow field
-  of both the visual and text report tabs
-- Specs save and workflow rename now record `_meta.saved_by` / `_meta.saved_at`
-  in the specs JSON; the Specs Editor footer displays who last saved and when
-- Role-based authorisation for all write operations in the Specs Editor (save,
-  rename, reset, set default): replaced admin password with `/so-proxy/me` role
-  check; requires `admin` or `engineer` role
-- `GET /gop/specs` includes `_meta` in the response when specs have been saved
-  at least once
-- `POST /gop/specs` stamps `_meta` server-side and returns HTTP 403 if the
-  caller's role is not `admin` or `engineer`
-
-### Changed
-
-- Workflow selection is no longer persisted in `localStorage`; the page always
-  starts on the current API default workflow
-- GOP Type spec changed from a single `required` field to the standard
-  `values` + `preferred` model: CLOSED returns COMPLIANT, OPEN returns ACCEPTED;
-  the Specs Editor renders a dropdown for the Preferred column
-- B-Frames spec changed to the same `values` + `preferred` model: absent returns
-  COMPLIANT, present returns ACCEPTED; the Specs Editor renders a dropdown for
-  the Preferred column
-- Specs Editor preferred column now renders as a `<select>` for any spec whose
-  allowed values are a short fixed list of strings (≤ 4 items), instead of a
-  free-text input
-- Frame Rate compliance row appends `[accepted: 50p @ 720p]` to the measured
-  value in both visual and text reports when 50p is accepted due to 720p
-  resolution
-- GOP Type and B-Frames spec descriptions updated in visual and text report tabs
-  to reflect the preferred/accepted model
-- `PATCH /gop/result/<file>/workflow` now returns the full updated result object
-  in addition to `overall_status`, eliminating the need for a follow-up GET
-
-### Fixed
-
-- Specs Editor no longer reads or writes `localStorage`; re-opening the tool
-  always reflects the API default instead of the last manually selected workflow
-- `gop_type` and `b_frames` compliance now goes through the shared
-  `comply_enum_multi` function, removing ~30 lines of duplicate custom logic
-- Re-evaluate modal now populates the workflow list from `WORKFLOW_LABELS` at
-  open time, ensuring new or renamed workflows appear correctly
+- Testing...
 
 ## [3.18.1] - 2026-06-25
 
