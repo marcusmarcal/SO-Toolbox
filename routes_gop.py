@@ -1670,7 +1670,7 @@ def gop_change_workflow(filename):
     except Exception as e:
         return jsonify({"error": f"Failed to save result: {e}"}), 500
 
-    return jsonify({"success": True, "overall_status": overall_status})
+    return jsonify({"success": True, "overall_status": overall_status, "result": result})
 
 
 # ════════════════════════════════════════════════════════════════════════════
