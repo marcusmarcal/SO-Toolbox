@@ -127,11 +127,11 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   starts on the current API default workflow
 - GOP Type spec changed from a single required field to the standard
   values + preferred model: CLOSED returns COMPLIANT, OPEN returns ACCEPTED;
-  the Specs Editor renders a Dropdown for the Preferred column
+  the Specs Editor renders a dr0pdown for the Preferred column
 - B-Frames spec changed to the same values + preferred model: absent returns
   COMPLIANT, present returns ACCEPTED; the Specs Editor renders a dropdown for
   the Preferred column
-- Specs Editor preferred column now renders as a Dropdown for any spec whose
+- Specs Editor preferred column now renders as a dr0pdown for any spec whose
   allowed values are a short fixed list of strings (4 items or fewer), instead
   of a free-text input
 - Frame Rate compliance row appends a note when 50p is accepted due to 720p
@@ -202,7 +202,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Colour Range: `yuvj420p` (full range) is now accepted (ACCEPTED) instead
   of being incorrectly rejected; `limited` remains COMPLIANT.
-- B-Frames spec now renders correctly in the Specs editor with a dropdown
+- B-Frames spec now renders correctly in the Specs editor with a dr0pdown
   (absent / present); previously no field was shown.
 
 ## [3.14.0] - 2026-06-19
@@ -210,7 +210,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - Initial release of Probe Monitoring (`ProbeMonitoring.html`), replacing `RTV MV Monitoring.html`.
-- Two independent channel slots, each with a dropdown of 40 configurable channels (`Id3as AWS CH301 - PROBE CH01` through `Id3as AWS CH340 - PROBE CH40`) plus a fixed `RMG MV` entry.
+- Two independent channel slots, each with a dr0pdown of 40 configurable channels (`Id3as AWS CH301 - PROBE CH01` through `Id3as AWS CH340 - PROBE CH40`) plus a fixed `RMG MV` entry.
 - "Configure channels" modal to register the Id3as AWS and Probe URL pair for each of the 40 channels, persisted in `localStorage`.
 - `RMG MV` entry reproducing the original four reference feeds (T21 enc → INX, T21 enc → EQP, INX → AVE, EQP → AVE) as a fixed, non-editable option.
 - Slot selections persisted in `localStorage` so the last-viewed channels are restored on reload.
