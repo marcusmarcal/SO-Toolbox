@@ -1142,7 +1142,7 @@
         <div class="field w180">
           <label>Workflow</label>
           <select id="inp-workflow" onchange="onWorkflowChange()">
-            <option value="dc_aminos_tp">DC - Aminos and TP</option>
+            <option value="dc_aminos_tp">DC - Aminos and TP ★</option>
             <option value="rts">RTS</option>
             <option value="wb">W&amp;B</option>
           </select>
@@ -1335,6 +1335,7 @@
               <span id="meta-port" style="color: var(--muted)"></span>
               <span id="meta-tags" style="color: var(--yellow)"></span>
               <span id="meta-user" style="color: var(--green)"></span>
+              <span id="meta-workflow" style="font-family:var(--mono);font-size:.68rem"></span>
               <span id="meta-ts-download" style="margin-left: auto"></span>
             </div>
 
@@ -2390,8 +2391,10 @@
           const el = document.getElementById("inp-workflow");
           if (el) {
             Array.from(el.options).forEach((opt) => {
-              if (WORKFLOW_LABELS[opt.value])
-                opt.textContent = WORKFLOW_LABELS[opt.value];
+              if (WORKFLOW_LABELS[opt.value]) {
+                const suffix = opt.value === "dc_aminos_tp" ? " ★" : "";
+                opt.textContent = WORKFLOW_LABELS[opt.value] + suffix;
+              }
             });
           }
         } catch (e) {}
@@ -2615,6 +2618,12 @@
           ? "🏷 " + tags
           : "";
         document.getElementById("meta-user").textContent = "👨‍🔬 " + r.username;
+        const wfLabel = r.reeval_label
+          ? `⇄ ${r.reeval_label}`
+          : (WORKFLOW_LABELS[r.workflow] || r.workflow || "—");
+        const wfEl = document.getElementById("meta-workflow");
+        wfEl.textContent = "📋 " + wfLabel;
+        wfEl.style.color = r.reeval_label ? "var(--cyan)" : "var(--purple)";
         // TS download button
         const tsEl = document.getElementById("meta-ts-download");
         if (r.ts_file && r.res_file) {
@@ -3593,7 +3602,7 @@
         r.username || "anonymous"
       }</span></div>
       <div style="grid-column:1/-1"><span style="color:#6e7681">Workflow: </span><span style="color:#58a6ff">${
-        WORKFLOW_LABELS[r.workflow] || r.workflow || "—"
+        r.reeval_label ? `⇄ ${r.reeval_label} (re-evaluated)` : (WORKFLOW_LABELS[r.workflow] || r.workflow || "—")
       }</span></div>
     </div>
     <table style="width:100%;border-collapse:collapse">
@@ -3829,7 +3838,7 @@
           `Generated : ${now}`,
           `Test Date : ${testDate}`,
           `Tested by : ${r.username || "anonymous"}`,
-          `Workflow  : ${WORKFLOW_LABELS[r.workflow] || r.workflow || "—"}`,
+          `Workflow  : ${r.reeval_label ? `⇄ ${r.reeval_label} (re-evaluated)` : (WORKFLOW_LABELS[r.workflow] || r.workflow || "—")}`,
           `Server    : ${serverName}:${port}`,
           `URL       : ${r.url || "—"}`,
           `Tags      : ${tags}`,
