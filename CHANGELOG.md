@@ -127,11 +127,11 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   starts on the current API default workflow
 - GOP Type spec changed from a single required field to the standard
   values + preferred model: CLOSED returns COMPLIANT, OPEN returns ACCEPTED;
-  the Specs Editor renders a dropdown for the Preferred column
+  the Specs Editor renders a Dropdown for the Preferred column
 - B-Frames spec changed to the same values + preferred model: absent returns
   COMPLIANT, present returns ACCEPTED; the Specs Editor renders a dropdown for
   the Preferred column
-- Specs Editor preferred column now renders as a dropdown for any spec whose
+- Specs Editor preferred column now renders as a Dropdown for any spec whose
   allowed values are a short fixed list of strings (4 items or fewer), instead
   of a free-text input
 - Frame Rate compliance row appends a note when 50p is accepted due to 720p
