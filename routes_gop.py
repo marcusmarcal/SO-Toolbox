@@ -70,6 +70,18 @@ def _get_username_from_request() -> str:
     return 'anonymous'
 
 
+def _get_user_and_role():
+    """Return (username, role) for the current request.
+
+    Reads from the auth session established by routes_auth.py.
+    Returns ('anonymous', None) when there is no valid session.
+    """
+    session = _get_session(_token_from_request())
+    if session:
+        return session.get('username', 'anonymous'), session.get('role')
+    return 'anonymous', None
+
+
 def _check_password(req):
     """Validate X-Admin-Password header against ADMIN_PASSWORD in .env.
     Returns (ok: bool, error_response or None)."""
@@ -135,14 +147,18 @@ DEFAULT_SPECS = {
 
 def _load_specs(workflow=DEFAULT_WORKFLOW):
     """Load the specs file for a workflow and deep-merge with DEFAULT_SPECS
-    so no field is lost."""
+    so no field is lost. Preserves the ``_meta`` key (saved_by / saved_at)
+    if present in the stored file."""
     import copy
     base = copy.deepcopy(DEFAULT_SPECS)
     specs_file = _specs_file_for(workflow)
+    meta = {}
     if os.path.isfile(specs_file):
         try:
             with open(specs_file) as f:
                 saved = json.load(f)
+            # Extract and preserve _meta before merging
+            meta = saved.pop("_meta", {})
             for key, val in saved.items():
                 if key in base and isinstance(base[key], dict) and isinstance(val, dict):
                     base[key].update(val)
@@ -150,18 +166,27 @@ def _load_specs(workflow=DEFAULT_WORKFLOW):
                     base[key] = val
         except Exception:
             pass
+    if meta:
+        base["_meta"] = meta
     return base
 
 
-def _save_specs(incoming, workflow=DEFAULT_WORKFLOW):
-    """Deep-merge incoming with defaults then save complete specs for a workflow."""
+def _save_specs(incoming, workflow=DEFAULT_WORKFLOW, username=None):
+    """Deep-merge incoming with defaults then save complete specs for a workflow.
+    Stamps ``_meta`` with saved_by / saved_at."""
     import copy
     merged = copy.deepcopy(DEFAULT_SPECS)
-    for key, val in incoming.items():
+    # Strip _meta from incoming — we stamp it server-side
+    incoming_clean = {k: v for k, v in incoming.items() if k != "_meta"}
+    for key, val in incoming_clean.items():
         if key in merged and isinstance(merged[key], dict) and isinstance(val, dict):
             merged[key].update(val)
         else:
             merged[key] = val
+    merged["_meta"] = {
+        "saved_by": username or "unknown",
+        "saved_at": datetime.datetime.utcnow().isoformat() + "Z",
+    }
     with open(_specs_file_for(workflow), "w") as f:
         json.dump(merged, f, indent=2)
 
@@ -425,9 +450,6 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
         idr_count = 0
         non_idr_keyframe_count = 0
         total_frames = len(frames_data)
-        
-        # Flag para ignorar frames órfãos no início do arquivo
-        first_key_found = False
 
         for frame in frames_data:
             ptype   = frame.get("pict_type", "?")
@@ -436,7 +458,6 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             is_idr  = is_key and ptype == "I"
 
             if is_key:
-                first_key_found = True # Encontrou o primeiro ponto de ancoragem real
                 if is_idr:
                     idr_count += 1
                 else:
@@ -445,9 +466,6 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
                     gops.append(current_gop)
                 current_gop = [{"type": ptype, "key": True, "idr": is_idr, "pts": pts_t}]
             else:
-                # Se ainda não achou a primeira chave, ignora o frame solto
-                if not first_key_found:
-                    continue
                 current_gop.append({"type": ptype, "key": False, "idr": False, "pts": pts_t})
 
         if current_gop:
@@ -666,9 +684,11 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
         allow_50p_720 = fps_sp.get("allow_50p_720", False)
 
         fps_to_check = fps_eff
+        fps_50p_720_accepted = False
         if allow_50p_720 and v_height == 720 and abs(fps_eff - 50.0) < 0.5:
             fps_to_check = 50.0
             fps_values = list(fps_values) + [50.0]
+            fps_50p_720_accepted = True
 
         fps_ok = any(abs(fps_to_check - f) < 0.1 for f in fps_values)
         fps_pref_ok = isinstance(fps_pref, (int, float)) and abs(fps_to_check - float(fps_pref)) < 0.1
@@ -679,6 +699,8 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
         else:
             fps_status = "ACCEPTED"
         fps_measured_str = f"{fps_eff:.3f}" + (" (50i→25fps)" if v_scan == "interlaced" and v_fps_val != fps_eff else "")
+        if fps_50p_720_accepted:
+            fps_measured_str += " [accepted: 50p @ 720p]"
 
         gop_sp      = _s("gop_size")
         gop_values  = [int(v) for v in gop_sp.get("values", [30, 50])]
@@ -1268,15 +1290,21 @@ def gop_specs_get():
 
 @gop_bp.route("/gop/specs", methods=["POST"])
 def gop_specs_save():
-    ok, err = _check_password(request)
-    if not ok:
-        return err
+    """Save specs for a workflow.
+
+    Auth: requires admin or engineer role (checked via session).
+    Stamps _meta.saved_by / _meta.saved_at on the stored file.
+    """
+    username, role = _get_user_and_role()
+    if role not in ("admin", "engineer"):
+        return jsonify({"success": False, "error": "Permission denied — admin or engineer role required"}), 403
+
     workflow = request.args.get("workflow") or DEFAULT_WORKFLOW
     data = request.get_json(silent=True) or {}
     if not data:
         return jsonify({"error": "No specs data provided"}), 400
     try:
-        _save_specs(data, workflow)
+        _save_specs(data, workflow, username=username)
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -1284,9 +1312,13 @@ def gop_specs_save():
 
 @gop_bp.route("/gop/specs/reset", methods=["POST"])
 def gop_specs_reset():
-    ok, err = _check_password(request)
-    if not ok:
-        return err
+    """Reset specs for a workflow to defaults.
+
+    Auth: requires admin or engineer role.
+    """
+    _, role = _get_user_and_role()
+    if role not in ("admin", "engineer"):
+        return jsonify({"success": False, "error": "Permission denied — admin or engineer role required"}), 403
     workflow = request.args.get("workflow") or DEFAULT_WORKFLOW
     try:
         specs_file = _specs_file_for(workflow)
@@ -1329,9 +1361,13 @@ def gop_workflows_get():
 
 @gop_bp.route("/gop/workflows/rename", methods=["POST"])
 def gop_workflows_rename():
-    ok, err = _check_password(request)
-    if not ok:
-        return err
+    """Rename a workflow label.
+
+    Auth: requires admin or engineer role.
+    """
+    _, role = _get_user_and_role()
+    if role not in ("admin", "engineer"):
+        return jsonify({"success": False, "error": "Permission denied — admin or engineer role required"}), 403
     data     = request.get_json(silent=True) or {}
     workflow = (data.get("workflow") or "").strip()
     label    = (data.get("label") or "").strip()
@@ -1346,6 +1382,318 @@ def gop_workflows_rename():
         return jsonify({"success": True, "labels": labels})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ── RE-EVALUATE WITH DIFFERENT WORKFLOW ──────────────────────────────────────
+
+def _reeval_compliance(stored: dict, specs: dict) -> tuple:
+    """Re-run the compliance checks on a stored result dict using new specs.
+
+    Returns (compliance_dict, overall_status_str).
+
+    All measured values are read directly from the stored result — no ffprobe
+    is re-run.  Only the compliance rules (specs) change.
+    """
+    def _s(key):
+        return specs.get(key, DEFAULT_SPECS.get(key, {}))
+
+    def comply_range(measured, key):
+        sp = _s(key)
+        lo, hi = sp.get("lo", 0), sp.get("hi", float("inf"))
+        plo = sp.get("pref_lo")
+        phi = sp.get("pref_hi")
+        if measured is None:
+            return "UNKNOWN", "—", ""
+        in_range = lo <= measured <= hi
+        if not in_range:
+            return "REJECTED", str(measured), f"Expected {lo}–{hi}"
+        if plo is not None and phi is not None:
+            if plo <= measured <= phi:
+                return "COMPLIANT", str(measured), ""
+            return "ACCEPTED", str(measured), f"Preferred {plo}–{phi}"
+        return "COMPLIANT", str(measured), ""
+
+    def comply_enum_multi(measured, key):
+        sp = _s(key)
+        allowed   = [str(v).lower() for v in sp.get("values", [])]
+        pref_raw  = sp.get("preferred", "")
+        if isinstance(pref_raw, list):
+            preferred = [str(p).lower() for p in pref_raw]
+        else:
+            preferred = [str(pref_raw).lower()] if pref_raw else []
+        m = str(measured).strip().lower()
+        if not allowed:
+            return "UNKNOWN", measured, "No spec defined"
+        if m not in allowed:
+            return "REJECTED", measured, f"Expected one of {sp.get('values', [])}"
+        if preferred and m in preferred:
+            return "COMPLIANT", measured, ""
+        if preferred:
+            return "ACCEPTED", measured, f"Preferred {pref_raw}"
+        return "COMPLIANT", measured, ""
+
+    def _av_check(measured_ms, sp):
+        warn = float(sp.get("warn", 15.0))
+        hard = float(sp.get("hard", 230.0))
+        mode = sp.get("mode", "inform")
+        if measured_ms is None:
+            return ("UNKNOWN", "—", "Could not measure")
+        m = round(measured_ms, 2)
+        if mode == "inform":
+            note = (f"< {warn}ms preferred" if m < warn else
+                    f"< {hard}ms limit" if m < hard else f"Exceeds {hard}ms")
+            return ("INFO", f"{m} ms", f"{note} (inform only)")
+        if m < warn:
+            return ("COMPLIANT", f"{m} ms", f"< {warn}ms preferred")
+        if m < hard:
+            return ("ACCEPTED", f"{m} ms", f"< {hard}ms limit; prefer < {warn}ms")
+        return ("REJECTED", f"{m} ms", f"Exceeds hard limit of {hard}ms")
+
+    r = stored
+
+    # ── Pull measured values from stored result ──────────────────────────────
+    file_br_mbps = r.get("file_br_mbps", 0)
+    v_br_mbps    = r.get("v_br_mbps", 0)
+    a_br_kbps_f  = r.get("a_br_kbps", 0)
+    a_rate_khz   = r.get("a_rate_khz", 0)
+    avg_gop      = r.get("gop_avg", 0)
+    gop_type     = r.get("gop_type", "CLOSED")
+    has_b_frames = r.get("has_b_frames", False)
+    has_idr      = r.get("has_idr", False)
+    v_width      = r.get("v_width", 0)
+    v_height     = r.get("v_height", 0)
+    dar          = r.get("v_dar", "")
+    v_chroma     = r.get("v_chroma", "")
+    v_pix_fmt    = r.get("v_pix_fmt", "")
+    v_full_range = v_pix_fmt.startswith("yuvj") if v_pix_fmt else False
+    v_scan       = r.get("v_scan", "progressive")
+    v_bits       = str(r.get("v_bits", ""))
+    v_color_sp   = r.get("v_color_sp", "unknown")
+    v_codec      = r.get("v_codec", "")
+    v_level_f    = r.get("v_level_f", 0)
+    v_profile    = r.get("v_profile", "")
+    v_entropy    = r.get("v_entropy", "")
+    v_rate_ctrl  = r.get("v_rate_ctrl", "VBR")
+    v_hdr        = r.get("v_hdr", "SDR")
+    fps_eff      = r.get("v_fps_compliance", r.get("v_fps_val", 0))
+    a_codec_display = r.get("a_codec_display", r.get("a_codec", ""))
+    a_ch         = r.get("a_channels", 0)
+    a_bps        = str(r.get("a_bps", ""))
+    audio_tracks = r.get("audio_tracks", 0)
+
+    # ── FPS compliance ───────────────────────────────────────────────────────
+    fps_sp     = _s("fps")
+    fps_values = [float(v) for v in fps_sp.get("values", [25.0, 29.97, 30.0])]
+    fps_pref   = fps_sp.get("preferred", 25.0)
+    allow_50p_720 = fps_sp.get("allow_50p_720", False)
+    fps_to_check = fps_eff
+    fps_50p_720_accepted = False
+    if allow_50p_720 and v_height == 720 and abs(fps_eff - 50.0) < 0.5:
+        fps_to_check = 50.0
+        fps_values = list(fps_values) + [50.0]
+        fps_50p_720_accepted = True
+    fps_ok = any(abs(fps_to_check - f) < 0.1 for f in fps_values)
+    fps_pref_ok = isinstance(fps_pref, (int, float)) and abs(fps_to_check - float(fps_pref)) < 0.1
+    fps_status = "REJECTED" if not fps_ok else ("COMPLIANT" if fps_pref_ok else "ACCEPTED")
+    fps_measured_str = f"{fps_eff:.3f}"
+    if v_scan == "interlaced" and r.get("v_fps_val", fps_eff) != fps_eff:
+        fps_measured_str += " (50i→25fps)"
+    if fps_50p_720_accepted:
+        fps_measured_str += " [accepted: 50p @ 720p]"
+
+    # ── GOP size compliance ──────────────────────────────────────────────────
+    gop_sp     = _s("gop_size")
+    gop_values = [int(v) for v in gop_sp.get("values", [30, 50])]
+    gop_tol    = int(gop_sp.get("tolerance", 3))
+    allow_secs = gop_sp.get("allow_seconds", True)
+    if allow_secs and avg_gop > 0:
+        gop_values_check = list(gop_values) + [round(fps_eff * s) for s in [1, 2] if fps_eff > 0]
+    else:
+        gop_values_check = gop_values
+    gop_exact  = any(abs(avg_gop - g) < 1 for g in gop_values_check)
+    gop_near   = any(abs(avg_gop - g) <= gop_tol for g in gop_values_check)
+    gop_status = "COMPLIANT" if gop_exact else ("ACCEPTED" if gop_near else "REJECTED")
+    gop_expected_str = ", ".join(str(v) for v in gop_values)
+    if allow_secs:
+        gop_expected_str += " or 1s/2s"
+
+    # ── GOP type compliance ──────────────────────────────────────────────────
+    gop_type_sp  = _s("gop_type")
+    required_gop = gop_type_sp.get("required", "CLOSED").upper()
+    gop_type_status = "COMPLIANT" if gop_type.upper() == required_gop else "REJECTED"
+
+    # ── B-frames compliance ──────────────────────────────────────────────────
+    b_sp = _s("b_frames")
+    pref_b = str(b_sp.get("preferred", "absent")).lower()
+    if pref_b == "absent":
+        b_status = "COMPLIANT" if not has_b_frames else "ACCEPTED"
+    else:
+        b_status = "COMPLIANT" if has_b_frames else "ACCEPTED"
+
+    compliance = {
+        "overall_br":   comply_range(file_br_mbps, "overall_br"),
+        "gop_size":     (gop_status, str(avg_gop), f"Expected {gop_expected_str}"),
+        "gop_type":     (gop_type_status, gop_type, f"Must be {required_gop}"),
+        "b_frames":     (b_status, "Absent" if not has_b_frames else "Present", f"Preferred {pref_b}"),
+        "idr":          ("COMPLIANT" if has_idr else "REJECTED",
+                         "Present" if has_idr else "ABSENT", "IDR frames required"),
+        "frame_size":   comply_enum_multi(f"{v_width}x{v_height}", "frame_size"),
+        "aspect_ratio": comply_enum_multi(dar, "aspect_ratio"),
+        "chroma":       comply_enum_multi(v_chroma, "chroma"),
+        "colour_range": (lambda res: (res[0], v_pix_fmt, res[2]))(
+                            comply_enum_multi("full" if v_full_range else "limited", "colour_range")),
+        "scan_type":    comply_enum_multi(v_scan, "scan_type"),
+        "bit_depth":    comply_enum_multi(v_bits, "bit_depth"),
+        "colour_gamut": comply_enum_multi(v_color_sp, "colour_gamut"),
+        "codec":        comply_enum_multi(v_codec.lower() if v_codec else "", "codec"),
+        "codec_level":  comply_range(v_level_f, "codec_level"),
+        "codec_profile":comply_enum_multi(v_profile.lower() if v_profile else "", "codec_profile"),
+        "entropy":      comply_enum_multi(v_entropy, "entropy"),
+        "rate_ctrl_v":  comply_enum_multi(v_rate_ctrl, "rate_ctrl_v"),
+        "v_br":         comply_range(v_br_mbps, "v_br"),
+        "hdr_scheme":   comply_enum_multi(v_hdr, "hdr_scheme"),
+        "fps":          (fps_status, fps_measured_str, f"Expected {fps_values}"),
+        "a_codec":      comply_enum_multi(a_codec_display, "a_codec"),
+        "a_streams":    comply_range(audio_tracks, "a_streams"),
+        "a_channels":   comply_range(a_ch, "a_channels"),
+        "a_rate_ctrl":  comply_enum_multi("VBR", "a_rate_ctrl"),
+        "a_sample_rate":comply_range(a_rate_khz, "a_sample_rate"),
+        "a_bits":       comply_enum_multi(a_bps.lower(), "a_bits"),
+        "a_br_kbps":    comply_range(a_br_kbps_f, "a_br_kbps"),
+        "av_sync_warn": _av_check(r.get("av_sync_avg_ms"),  _s("av_sync_warn")),
+        "av_sync_max":  _av_check(r.get("av_sync_max_ms"),  _s("av_sync_max")),
+        "v_pts_jitter": _av_check(r.get("v_pts_jitter_ms"), _s("v_pts_jitter")),
+        "a_pts_jitter": _av_check(r.get("a_pts_jitter_ms"), _s("a_pts_jitter")),
+    }
+
+    statuses = [v[0] for v in compliance.values() if v[0] != "INFO"]
+    if "REJECTED" in statuses:
+        overall_status = "REJECTED"
+    elif "ACCEPTED" in statuses:
+        overall_status = "ACCEPTED"
+    else:
+        overall_status = "COMPLIANT"
+
+    return compliance, overall_status
+
+
+@gop_bp.route("/gop/reeval/<path:filename>", methods=["GET"])
+def gop_reeval(filename):
+    """Re-evaluate a stored result against a different workflow's specs.
+
+    Does NOT modify the stored JSON — returns the re-evaluated result only.
+
+    Query params
+    ------------
+      workflow  str  (required) Target workflow key (dc_aminos_tp / rts / wb)
+
+    Response
+    --------
+      200  full result dict with overridden compliance / overall_status / specs
+      400  { error: "workflow parameter required" }
+      404  { error: "Result not found" }
+      500  { error: "..." }
+    """
+    target_workflow = (request.args.get("workflow") or "").strip()
+    if not target_workflow:
+        return jsonify({"error": "workflow parameter required"}), 400
+
+    filepath = os.path.join(GOP_DIR, filename)
+    if not os.path.isfile(filepath):
+        return jsonify({"error": "Result not found"}), 404
+
+    try:
+        with open(filepath) as f:
+            stored = json.load(f)
+    except Exception as e:
+        return jsonify({"error": f"Could not read result: {e}"}), 500
+
+    specs = _load_specs(target_workflow)
+
+    try:
+        compliance, overall_status = _reeval_compliance(stored, specs)
+    except Exception as e:
+        return jsonify({"error": f"Re-evaluation failed: {e}"}), 500
+
+    import copy
+    out = copy.deepcopy(stored)
+    out["compliance"]     = compliance
+    out["overall_status"] = overall_status
+    out["specs"]          = specs
+    out["reeval_workflow"] = target_workflow
+    out["reeval_label"]   = _load_workflow_labels().get(target_workflow, target_workflow)
+
+    return jsonify(out)
+
+
+# ── CHANGE WORKFLOW OF HISTORICAL ENTRY ──────────────────────────────────────
+
+@gop_bp.route("/gop/result/<path:filename>/workflow", methods=["PATCH"])
+def gop_change_workflow(filename):
+    """Permanently change the workflow of a stored result.
+
+    Requires admin or engineer role. Re-runs compliance against the new
+    workflow's specs and appends an entry to workflow_change_log.
+
+    Request body (JSON)
+    -------------------
+      { "workflow": "<workflow_key>" }
+
+    Response
+    --------
+      200  { "success": true, "overall_status": "<new status>" }
+      400  { "error": "workflow field required" }
+      403  { "error": "Permission denied …" }
+      404  { "error": "Result not found" }
+      500  { "error": "..." }
+    """
+    username, role = _get_user_and_role()
+    if role not in ("admin", "engineer"):
+        return jsonify({"error": "Permission denied — admin or engineer role required"}), 403
+
+    body = request.get_json(force=True, silent=True) or {}
+    new_workflow = (body.get("workflow") or "").strip()
+    if not new_workflow:
+        return jsonify({"error": "workflow field required"}), 400
+
+    filepath = os.path.join(GOP_DIR, filename)
+    if not os.path.isfile(filepath):
+        return jsonify({"error": "Result not found"}), 404
+
+    try:
+        with open(filepath) as f:
+            result = json.load(f)
+    except Exception as e:
+        return jsonify({"error": f"Could not read result: {e}"}), 500
+
+    old_workflow = result.get("workflow", "unknown")
+    specs = _load_specs(new_workflow)
+
+    try:
+        compliance, overall_status = _reeval_compliance(result, specs)
+    except Exception as e:
+        return jsonify({"error": f"Re-evaluation failed: {e}"}), 500
+
+    result["workflow"]       = new_workflow
+    result["compliance"]     = compliance
+    result["overall_status"] = overall_status
+    result["specs"]          = specs
+
+    log_entry = {
+        "from": old_workflow,
+        "to":   new_workflow,
+        "by":   username,
+        "at":   datetime.datetime.utcnow().isoformat() + "Z",
+    }
+    result.setdefault("workflow_change_log", []).append(log_entry)
+
+    try:
+        with open(filepath, "w") as f:
+            json.dump(result, f, indent=2)
+    except Exception as e:
+        return jsonify({"error": f"Failed to save result: {e}"}), 500
+
+    return jsonify({"success": True, "overall_status": overall_status})
 
 
 # ════════════════════════════════════════════════════════════════════════════

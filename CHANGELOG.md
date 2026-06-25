@@ -7,6 +7,35 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.18.0] - 2026-06-25
+
+### Added
+
+- Role-based authorisation for specs save and workflow rename: admin password
+  replaced by `/so-proxy/me` role check (`admin` or `engineer` required);
+  view-only users see a "View only" notice instead of action buttons
+- Saved-by attribution: specs editor now shows who last saved specs and when
+  (requires backend to return `_meta.saved_by` / `_meta.saved_at` in specs response)
+- Re-evaluate history entry with a different workflow: `⇄` button on each
+  history item opens a modal to select a target workflow; result is shown as a
+  read-only report without modifying the original stored result
+  (requires backend endpoint `GET /gop/reeval/<file>?workflow=<wf>`)
+- Change workflow of history entry: `🔀` button (admin/engineer only) permanently
+  re-assigns the workflow of a stored result and re-evaluates compliance;
+  change is logged server-side
+  (requires backend endpoint `PATCH /gop/result/<file>/workflow`)
+
+### Changed
+
+- B-Frames spec: display simplified to "absent = preferred (COMPLIANT) / present
+  = allowed (ACCEPTED)" throughout specs editor, compliance table and reports
+- GOP Type spec: display updated to "OPEN (preferred) / CLOSED (accepted)" in
+  specs editor, compliance table and reports
+- Frame Rate compliance row: when 50p is accepted because the stream is 720p,
+  the report now explicitly states "accepted: 50p @ 720p" next to the measured
+  value, in both visual and text report tabs
+- Admin password field removed from specs editor modal (superseded by role check)
+
 ## [3.17.0] - 2026-06-23
 
 ### Fixed
