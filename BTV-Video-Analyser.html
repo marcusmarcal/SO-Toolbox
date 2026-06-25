@@ -4620,6 +4620,12 @@
                   s.allow_seconds ? "checked" : ""
                 } /> Accept GOP in seconds (1s, 2s)</label>`
               );
+            if ("any" in s || key === "gop_size")
+              specials.push(
+                `<label style="cursor:pointer"><input type="checkbox" data-key="${key}" data-field="any" ${
+                  s.any ? "checked" : ""
+                } /> Accept any GOP size (ACCEPTED)</label>`
+              );
             if ("allow_50p_720" in s)
               specials.push(
                 `<label style="cursor:pointer"><input type="checkbox" data-key="${key}" data-field="allow_50p_720" ${

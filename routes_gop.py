@@ -706,22 +706,27 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
         gop_values  = [int(v) for v in gop_sp.get("values", [30, 50])]
         gop_tol     = int(gop_sp.get("tolerance", 3))
         allow_secs  = gop_sp.get("allow_seconds", True)
+        gop_any     = bool(gop_sp.get("any", False))
 
-        if allow_secs and avg_gop > 0:
-            fps_for_gop = fps_eff if fps_eff > 0 else 25.0
-            gop_values_ext = list(gop_values)
-            for secs in [1, 2]:
-                gop_values_ext.append(round(fps_for_gop * secs))
-            gop_values_check = gop_values_ext
+        if gop_any:
+            gop_status       = "ACCEPTED"
+            gop_expected_str = "any"
         else:
-            gop_values_check = gop_values
+            if allow_secs and avg_gop > 0:
+                fps_for_gop = fps_eff if fps_eff > 0 else 25.0
+                gop_values_ext = list(gop_values)
+                for secs in [1, 2]:
+                    gop_values_ext.append(round(fps_for_gop * secs))
+                gop_values_check = gop_values_ext
+            else:
+                gop_values_check = gop_values
 
-        gop_exact = any(abs(avg_gop - g) < 1 for g in gop_values_check)
-        gop_near  = any(abs(avg_gop - g) <= gop_tol for g in gop_values_check)
-        gop_status = "COMPLIANT" if gop_exact else ("ACCEPTED" if gop_near else "REJECTED")
-        gop_expected_str = ", ".join(str(v) for v in gop_values)
-        if allow_secs:
-            gop_expected_str += " or 1s/2s"
+            gop_exact = any(abs(avg_gop - g) < 1 for g in gop_values_check)
+            gop_near  = any(abs(avg_gop - g) <= gop_tol for g in gop_values_check)
+            gop_status = "COMPLIANT" if gop_exact else ("ACCEPTED" if gop_near else "REJECTED")
+            gop_expected_str = ", ".join(str(v) for v in gop_values)
+            if allow_secs:
+                gop_expected_str += " or 1s/2s"
 
         compliance = {
             "overall_br":   comply_range(file_br_mbps, "overall_br"),
@@ -1495,16 +1500,22 @@ def _reeval_compliance(stored: dict, specs: dict) -> tuple:
     gop_values = [int(v) for v in gop_sp.get("values", [30, 50])]
     gop_tol    = int(gop_sp.get("tolerance", 3))
     allow_secs = gop_sp.get("allow_seconds", True)
-    if allow_secs and avg_gop > 0:
-        gop_values_check = list(gop_values) + [round(fps_eff * s) for s in [1, 2] if fps_eff > 0]
+    gop_any    = bool(gop_sp.get("any", False))
+
+    if gop_any:
+        gop_status       = "ACCEPTED"
+        gop_expected_str = "any"
     else:
-        gop_values_check = gop_values
-    gop_exact  = any(abs(avg_gop - g) < 1 for g in gop_values_check)
-    gop_near   = any(abs(avg_gop - g) <= gop_tol for g in gop_values_check)
-    gop_status = "COMPLIANT" if gop_exact else ("ACCEPTED" if gop_near else "REJECTED")
-    gop_expected_str = ", ".join(str(v) for v in gop_values)
-    if allow_secs:
-        gop_expected_str += " or 1s/2s"
+        if allow_secs and avg_gop > 0:
+            gop_values_check = list(gop_values) + [round(fps_eff * s) for s in [1, 2] if fps_eff > 0]
+        else:
+            gop_values_check = gop_values
+        gop_exact  = any(abs(avg_gop - g) < 1 for g in gop_values_check)
+        gop_near   = any(abs(avg_gop - g) <= gop_tol for g in gop_values_check)
+        gop_status = "COMPLIANT" if gop_exact else ("ACCEPTED" if gop_near else "REJECTED")
+        gop_expected_str = ", ".join(str(v) for v in gop_values)
+        if allow_secs:
+            gop_expected_str += " or 1s/2s"
 
 
     compliance = {
