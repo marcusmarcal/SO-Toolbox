@@ -4904,6 +4904,9 @@
           closeChangeWfModal();
           loadHistory();
           setStatus("ok", `Workflow changed to: ${WORKFLOW_LABELS[workflow] || workflow}`);
+          // Re-fetch the updated result from disk and render it
+          const updated = await fetch(`${PROXY}/gop/result/${encodeURIComponent(_changeWfFile)}`);
+          if (updated.ok) { const d = await updated.json(); d.res_file = _changeWfFile; renderResult(d); }
         } catch (e) {
           errEl.textContent = `Error: ${e.message}`;
         }
