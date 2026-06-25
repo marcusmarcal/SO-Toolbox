@@ -343,6 +343,13 @@ def rota_leave_post():
         'status':      'Pending',
         'actioned_by': None,
         'actioned_at': None,
+        'history': [
+            {
+                'status': 'Pending',
+                'by':     session['username'],
+                'at':     _now_iso(),
+            }
+        ],
     })
     _save_json(LEAVE_FILE, leave_list)
     return jsonify({'ok': True})
@@ -380,10 +387,18 @@ def rota_leave_put(leave_id):
         if entry.get('username') != session['username']:
             return jsonify({'ok': False, 'error': 'Not authorised'}), 403
 
+    now = _now_iso()
     entry['status']      = new_status
     entry['actioned_by'] = session['username']
-    entry['actioned_at'] = _now_iso()
-    leave_list[idx]      = entry
+    entry['actioned_at'] = now
+    if 'history' not in entry:
+        entry['history'] = []
+    entry['history'].append({
+        'status': new_status,
+        'by':     session['username'],
+        'at':     now,
+    })
+    leave_list[idx] = entry
     _save_json(LEAVE_FILE, leave_list)
     return jsonify({'ok': True})
 

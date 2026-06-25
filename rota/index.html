@@ -46,13 +46,11 @@
     #topbar {
       display: flex; align-items: center; gap: 14px;
       padding: 0 28px; height: 58px;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
+      background: var(--surface); border-bottom: 1px solid var(--border);
       position: sticky; top: 0; z-index: 200;
     }
     .logo-mark {
-      width: 26px; height: 26px;
-      background: var(--accent);
+      width: 26px; height: 26px; background: var(--accent);
       clip-path: polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
       animation: pulse-hex 3s ease-in-out infinite; flex-shrink: 0;
     }
@@ -89,7 +87,6 @@
     }
     .tab-btn:hover { color: var(--text); }
     .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
-
     .tab-panel { display: none; padding: 24px 28px; }
     .tab-panel.active { display: block; }
 
@@ -102,15 +99,16 @@
     }
     .btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(161,139,245,0.08); }
     .btn.primary { background: rgba(161,139,245,0.15); border-color: rgba(161,139,245,0.5); color: var(--accent); }
-    .btn.today   { background: var(--card); border-color: var(--ok); color: #9ee6a6; }
+    .btn.today   { border-color: var(--ok); color: #9ee6a6; }
     .btn.today:hover { background: rgba(63,185,80,0.1); }
     .btn.approve { border-color: rgba(63,185,80,0.4); color: #9ee6a6; background: rgba(63,185,80,0.06); }
     .btn.approve:hover { background: rgba(63,185,80,0.15); }
     .btn.reject  { border-color: rgba(255,78,106,0.4); color: #ffb3be; background: rgba(255,78,106,0.06); }
     .btn.reject:hover  { background: rgba(255,78,106,0.15); }
-    .btn.warn    { border-color: rgba(244,143,177,0.4); color: #f48fb1; background: rgba(244,143,177,0.06); }
-    .btn.warn:hover    { background: rgba(244,143,177,0.15); }
-    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn.warn    { border-color: rgba(230,168,80,0.4); color: #e6a850; background: rgba(230,168,80,0.06); }
+    .btn.warn:hover    { background: rgba(230,168,80,0.15); }
+    .btn.cancel-req { border-color: rgba(155,155,155,0.4); color: #9b9b9b; background: rgba(155,155,155,0.06); font-size:0.52rem; padding:3px 8px; }
+    .btn.cancel-req:hover { border-color: var(--danger); color: #ffb3be; background: rgba(255,78,106,0.06); }
     .sep { flex: 1; }
 
     /* ── TOOLBAR ── */
@@ -138,16 +136,15 @@
       border: 1px solid transparent; transition: opacity 0.2s;
       letter-spacing: 0.05em; color: #fff;
     }
-    .team-toggle.Management  { background: var(--mgmt);  border-color: var(--mgmt); }
-    .team-toggle.Engineering { background: var(--eng);   border-color: var(--eng); }
-    .team-toggle.Specialists { background: var(--spec);  border-color: var(--spec); }
+    .team-toggle.Management  { background: var(--mgmt); border-color: var(--mgmt); }
+    .team-toggle.Engineering { background: var(--eng);  border-color: var(--eng); }
+    .team-toggle.Specialists { background: var(--spec); border-color: var(--spec); }
     .team-toggle.off { opacity: 0.3; }
 
     /* ── ROTA TABLE ── */
     #rota-wrap {
       overflow: auto; max-height: calc(100vh - 180px);
-      border-radius: 8px; border: 1px solid var(--border);
-      background: var(--surface);
+      border-radius: 8px; border: 1px solid var(--border); background: var(--surface);
     }
     #rota-wrap::-webkit-scrollbar { width: 6px; height: 6px; }
     #rota-wrap::-webkit-scrollbar-track { background: var(--bg); }
@@ -217,10 +214,8 @@
       letter-spacing: 0.18em; text-transform: uppercase;
       color: var(--muted); margin-bottom: 16px;
     }
-    .section-divider {
-      border: none; border-top: 1px solid var(--border);
-      margin: 28px 0;
-    }
+    .section-divider { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+
     .form-grid {
       display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
       max-width: 520px; margin-bottom: 16px;
@@ -233,16 +228,12 @@
     .form-group input, .form-group select {
       background: var(--card); border: 1px solid var(--border);
       color: var(--text); font-family: var(--mono); font-size: 0.72rem;
-      padding: 8px 12px; border-radius: 6px; outline: none;
-      transition: border-color 0.2s;
+      padding: 8px 12px; border-radius: 6px; outline: none; transition: border-color 0.2s;
     }
     .form-group input:focus, .form-group select:focus { border-color: var(--accent); }
     .form-group select option { background: var(--card); }
-    .form-group input:disabled, .form-group select:disabled {
-      opacity: 0.35; cursor: not-allowed;
-    }
+    .form-group input:disabled, .form-group select:disabled { opacity: 0.35; cursor: not-allowed; }
 
-    /* On-behalf toggle row */
     .onbehalf-row {
       display: flex; align-items: center; gap: 12px;
       max-width: 520px; margin-bottom: 12px;
@@ -253,28 +244,22 @@
       border: 1px solid var(--border); background: var(--card);
       color: var(--muted); letter-spacing: 0.06em; transition: all 0.2s;
     }
-    .toggle-btn.active {
-      border-color: var(--accent); color: var(--accent);
-      background: rgba(161,139,245,0.12);
-    }
-    .toggle-label {
-      font-family: var(--mono); font-size: 0.6rem; color: var(--muted);
-    }
+    .toggle-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(161,139,245,0.12); }
+    .toggle-label { font-family: var(--mono); font-size: 0.6rem; color: var(--muted); }
 
     /* ── STATUS BADGES ── */
     .status-badge {
       font-family: var(--mono); font-size: 0.52rem; font-weight: 700;
-      padding: 2px 8px; border-radius: 4px; letter-spacing: 0.06em;
-      white-space: nowrap;
+      padding: 2px 8px; border-radius: 4px; letter-spacing: 0.06em; white-space: nowrap;
     }
     .status-badge.Pending             { background: rgba(244,143,177,0.15); color: #f48fb1; border: 1px solid rgba(244,143,177,0.3); }
-    .status-badge.Confirmed           { background: rgba(255,235,59,0.15);  color: #ffe066; border: 1px solid rgba(255,235,59,0.3); }
+    .status-badge.Confirmed           { background: rgba(63,185,80,0.15);   color: #9ee6a6; border: 1px solid rgba(63,185,80,0.3); }
     .status-badge.Rejected            { background: rgba(255,78,106,0.12);  color: #ffb3be; border: 1px solid rgba(255,78,106,0.3); }
     .status-badge.Withdrawn           { background: rgba(100,100,100,0.15); color: #aaaaaa; border: 1px solid rgba(100,100,100,0.3); }
     .status-badge.Withdrawal-Pending  { background: rgba(230,168,80,0.15);  color: #e6a850; border: 1px solid rgba(230,168,80,0.3); }
-    .status-badge.Withdrawal-Rejected { background: rgba(255,235,59,0.12);  color: #ffe066; border: 1px solid rgba(255,235,59,0.2); }
+    .status-badge.Withdrawal-Rejected { background: rgba(63,185,80,0.12);   color: #9ee6a6; border: 1px solid rgba(63,185,80,0.2); }
 
-    /* ── DATA TABLE (leave history) ── */
+    /* ── DATA TABLE ── */
     .data-table {
       width: 100%; border-collapse: collapse;
       font-family: var(--mono); font-size: 0.62rem;
@@ -282,20 +267,20 @@
     .data-table th {
       font-size: 0.52rem; color: var(--muted); text-transform: uppercase;
       letter-spacing: 0.1em; padding: 6px 10px; text-align: left;
-      border-bottom: 1px solid var(--border); font-weight: 700;
-      white-space: nowrap;
+      border-bottom: 1px solid var(--border); font-weight: 700; white-space: nowrap;
     }
-    .data-table td {
-      padding: 8px 10px; border-bottom: 1px solid #2a2a2a;
-      vertical-align: middle;
-    }
+    .data-table td { padding: 7px 10px; border-bottom: 1px solid #252525; vertical-align: middle; }
     .data-table tr:last-child td { border-bottom: none; }
     .data-table tr:hover td { background: rgba(255,255,255,0.02); }
-    .data-table .col-dates    { white-space: nowrap; color: var(--muted); }
-    .data-table .col-meta     { color: var(--muted); font-size: 0.55rem; }
-    .data-table .col-actions  { white-space: nowrap; }
+    .data-table .col-dates { white-space: nowrap; color: var(--muted); }
+    .data-table .col-meta  { color: var(--muted); font-size: 0.55rem; white-space: nowrap; }
 
-    /* on-behalf indicator */
+    /* history sub-rows */
+    .history-event-row td { padding: 4px 10px; border-bottom: none; }
+    .history-event-row:last-child td { border-bottom: 1px solid #252525; }
+    .history-event-row td:first-child { padding-left: 22px; color: var(--muted); font-size: 0.55rem; }
+    .history-chain-icon { color: var(--border); margin-right: 6px; }
+
     .on-behalf-tag {
       font-family: var(--mono); font-size: 0.48rem; font-weight: 700;
       padding: 1px 6px; border-radius: 3px; letter-spacing: 0.06em;
@@ -304,25 +289,22 @@
     }
 
     /* ── APPROVALS ── */
-    .approvals-group {
-      margin-bottom: 24px;
-    }
+    .approvals-group { margin-bottom: 24px; }
     .approvals-group-header {
       font-family: var(--mono); font-size: 0.6rem; font-weight: 700;
       color: var(--accent); letter-spacing: 0.12em; text-transform: uppercase;
-      margin-bottom: 8px; padding-bottom: 6px;
-      border-bottom: 1px solid var(--border);
+      margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border);
       display: flex; align-items: center; gap: 10px;
     }
     .approval-row {
-      display: flex; align-items: center; gap: 14px;
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
       padding: 9px 0; border-bottom: 1px solid #252525;
       font-family: var(--mono); font-size: 0.62rem;
     }
     .approval-row:last-child { border-bottom: none; }
-    .approval-dates { white-space: nowrap; color: var(--muted); min-width: 160px; }
-    .approval-type  { flex: 1; }
-    .approval-meta  { font-size: 0.55rem; color: var(--muted); white-space: nowrap; }
+    .approval-dates { white-space: nowrap; color: var(--muted); min-width: 150px; }
+    .approval-type  { white-space: nowrap; }
+    .approval-meta  { font-size: 0.55rem; color: var(--muted); flex: 1; }
     .approval-actions { display: flex; gap: 6px; flex-shrink: 0; }
 
     /* ── HISTORY CONTROLS ── */
@@ -332,9 +314,9 @@
     }
 
     /* ── LOADING / EMPTY ── */
-    #loading {
+    .loading-row {
       display: flex; align-items: center; justify-content: center;
-      padding: 60px; font-family: var(--mono); font-size: 0.7rem;
+      padding: 40px; font-family: var(--mono); font-size: 0.7rem;
       color: var(--muted); gap: 10px;
     }
     .spinner {
@@ -347,6 +329,29 @@
       padding: 32px; text-align: center;
       font-family: var(--mono); font-size: 0.7rem; color: var(--muted);
     }
+
+    /* ── CUSTOM CONFIRM MODAL ── */
+    #confirm-modal {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7); z-index: 600;
+      align-items: center; justify-content: center;
+    }
+    #confirm-modal.open { display: flex; }
+    .confirm-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 2rem; width: 380px; max-width: 90vw;
+      box-shadow: 0 0 40px rgba(0,0,0,0.7);
+    }
+    .confirm-title {
+      font-family: var(--mono); font-size: 0.65rem; font-weight: 700;
+      color: var(--text); text-transform: uppercase; letter-spacing: 0.12em;
+      margin-bottom: 12px;
+    }
+    .confirm-msg {
+      font-family: var(--mono); font-size: 0.7rem; color: var(--muted);
+      margin-bottom: 20px; line-height: 1.6;
+    }
+    .confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
 
     /* ── TOAST ── */
     #toast {
@@ -371,7 +376,6 @@
       color: var(--muted); cursor: pointer; transition: all 0.2s; z-index: 400;
     }
     #feedback-float:hover { border-color: var(--accent); color: var(--accent); }
-
     #feedback-modal {
       display: none; position: fixed; inset: 0;
       background: rgba(0,0,0,0.65); z-index: 500;
@@ -420,9 +424,7 @@
     <button class="tab-btn" data-tab="access" id="tab-access" style="display:none;">👥 Team Access</button>
   </nav>
 
-  <!-- ══════════════════════════════════════════
-       TAB: ROTA
-  ══════════════════════════════════════════ -->
+  <!-- ══ TAB: ROTA ══ -->
   <div class="tab-panel active" id="panel-rota">
     <div id="rota-toolbar">
       <div class="toolbar-group">
@@ -447,11 +449,9 @@
       <button class="btn today" id="btn-today">⤵ Today</button>
       <button class="btn" id="btn-refresh">⟳ Refresh</button>
     </div>
-
     <div id="rota-wrap">
-      <div id="loading"><div class="spinner"></div> Loading rota…</div>
+      <div class="loading-row"><div class="spinner"></div> Loading rota…</div>
     </div>
-
     <div id="legend">
       <div class="legend-item"><div class="legend-swatch" style="background:#49B1E8;"></div>0700-1800</div>
       <div class="legend-item"><div class="legend-swatch" style="background:#8474E3;"></div>0900-2000</div>
@@ -459,9 +459,9 @@
       <div class="legend-item"><div class="legend-swatch" style="background:#E8B159;"></div>1500-0200</div>
       <div class="legend-item"><div class="legend-swatch" style="background:#5C5C5C;"></div>2100-0700</div>
       <div class="legend-item"><div class="legend-swatch" style="background:#95D6FC;"></div>0900-1800</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#4A91BA;"></div>1000-2020</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#4A91BA;"></div>1000-2000</div>
       <div class="legend-item"><div class="legend-swatch" style="background:#ABD1AD;"></div>Management</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#FFEB3B;"></div>Confirmed AL</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#9ee6a6;"></div>Confirmed AL</div>
       <div class="legend-item"><div class="legend-swatch" style="background:#F48FB1;"></div>Pending AL</div>
       <div class="legend-item"><div class="legend-swatch" style="background:#00BCD4;"></div>Parental</div>
       <div class="legend-item"><div class="legend-swatch" style="background:#3a3a3a;border:1px solid #555;"></div>Marital</div>
@@ -469,20 +469,13 @@
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════
-       TAB: REQUEST LEAVE
-  ══════════════════════════════════════════ -->
+  <!-- ══ TAB: REQUEST LEAVE ══ -->
   <div class="tab-panel" id="panel-leave">
-
-    <!-- ── Submission form ── -->
     <p class="section-title">Request Leave</p>
-
-    <!-- On-behalf toggle (management only, hidden for staff) -->
     <div class="onbehalf-row" id="onbehalf-row" style="display:none;">
       <button class="toggle-btn" id="onbehalf-toggle">On behalf of…</button>
       <span class="toggle-label" id="onbehalf-label">Submitting for yourself</span>
     </div>
-
     <div class="form-grid">
       <div class="form-group">
         <label>From</label>
@@ -508,30 +501,20 @@
       </div>
     </div>
     <button class="btn primary" id="btn-submit-leave">Submit Request</button>
-
     <hr class="section-divider" />
-
-    <!-- ── My leave history ── -->
     <p class="section-title">My Leave History</p>
     <div id="my-leave-wrap">
-      <div class="empty-state">Loading…</div>
+      <div class="loading-row"><div class="spinner"></div> Loading…</div>
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════
-       TAB: LEAVE APPROVALS (management)
-  ══════════════════════════════════════════ -->
+  <!-- ══ TAB: LEAVE APPROVALS ══ -->
   <div class="tab-panel" id="panel-approvals">
-
-    <!-- ── Section 1: Pending actions ── -->
     <p class="section-title">Pending Actions</p>
     <div id="approvals-pending">
-      <div class="empty-state">Loading…</div>
+      <div class="loading-row"><div class="spinner"></div> Loading…</div>
     </div>
-
     <hr class="section-divider" />
-
-    <!-- ── Section 2: History by user ── -->
     <p class="section-title">Leave History</p>
     <div class="history-controls">
       <div class="toolbar-group">
@@ -550,20 +533,26 @@
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════
-       TAB: TEAM ACCESS (management)
-  ══════════════════════════════════════════ -->
+  <!-- ══ TAB: TEAM ACCESS ══ -->
   <div class="tab-panel" id="panel-access">
     <p class="section-title">Team Access</p>
-    <div id="access-list">
-      <div class="empty-state">Loading…</div>
+    <div id="access-list"><div class="loading-row"><div class="spinner"></div> Loading…</div></div>
+  </div>
+
+  <!-- ── CUSTOM CONFIRM MODAL ── -->
+  <div id="confirm-modal">
+    <div class="confirm-card">
+      <div class="confirm-title" id="confirm-title">Confirm Action</div>
+      <div class="confirm-msg"   id="confirm-msg"></div>
+      <div class="confirm-actions">
+        <button class="btn" id="confirm-cancel-btn">Cancel</button>
+        <button class="btn reject" id="confirm-ok-btn">Confirm</button>
+      </div>
     </div>
   </div>
 
-  <!-- ── FEEDBACK FLOAT ── -->
+  <!-- ── FEEDBACK ── -->
   <button id="feedback-float">💬 Feedback</button>
-
-  <!-- ── FEEDBACK MODAL ── -->
   <div id="feedback-modal">
     <div class="modal-card">
       <div class="modal-title">Send Feedback</div>
@@ -589,18 +578,17 @@
     </div>
   </div>
 
-  <!-- ── TOAST ── -->
   <div id="toast"></div>
 
   <script>
   // ════════════════════════════════════════════════════════════════
-  //  CONFIG & CONSTANTS
+  //  CONFIG
   // ════════════════════════════════════════════════════════════════
   const PROXY = '/so-proxy';
 
   const SHIFT_COLORS = {
     '0700-1800': { bg:'#49B1E8', fg:'#000' },
-    '0900-2020': { bg:'#8474E3', fg:'#fff' },
+    '0900-2000': { bg:'#8474E3', fg:'#fff' },
     '1300-0000': { bg:'#04BA9C', fg:'#000' },
     '1500-0200': { bg:'#E8B159', fg:'#000' },
     '2100-0700': { bg:'#5C5C5C', fg:'#eee' },
@@ -609,12 +597,15 @@
     '0800-1630': { bg:'#ABD1AD', fg:'#000' },
     '0930-1800': { bg:'#ABD1AD', fg:'#000' },
     '0900-1730': { bg:'#ABD1AD', fg:'#000' },
-    'OFF':               { bg:'#2a2a2a', fg:'#555' },
-    'AL_APPROVED':       { bg:'#FFEB3B', fg:'#5D4037' },
-    'AL_PENDING':        { bg:'#F48FB1', fg:'#5D4037' },
-    'PARENTAL':          { bg:'#00BCD4', fg:'#fff', dotted: true },
-    'MARITAL':           { bg:'#3a3a3a', fg:'#999', dotted: true },
+    'OFF':         { bg:'#2a2a2a', fg:'#555' },
+    'AL_APPROVED': { bg:'#FFEB3B', fg:'#5D4037' },
+    'AL_PENDING':  { bg:'#F48FB1', fg:'#5D4037' },
+    'PARENTAL':    { bg:'#00BCD4', fg:'#fff', dotted: true },
+    'MARITAL':     { bg:'#3a3a3a', fg:'#999', dotted: true },
   };
+
+  // Roles considered valid for dropdowns and Team Access
+  const VALID_ROLES = new Set(['admin', 'engineer', 'specialist']);
 
   // ════════════════════════════════════════════════════════════════
   //  STATE
@@ -622,13 +613,43 @@
   let state = {
     me:          null,
     rotaData:    null,
-    allUsers:    {},   // { email: { name, team, role } }
+    allUsers:    {},
     teamFilters: { Management: true, Engineering: true, Specialists: true },
     viewMode:    'published',
     dateFrom:    null,
     dateTo:      null,
     onBehalf:    false,
   };
+
+  // ════════════════════════════════════════════════════════════════
+  //  CUSTOM CONFIRM MODAL
+  // ════════════════════════════════════════════════════════════════
+  function uiConfirm(title, msg, okLabel, okClass) {
+    return new Promise(resolve => {
+      document.getElementById('confirm-title').textContent = title;
+      document.getElementById('confirm-msg').textContent   = msg;
+      const okBtn = document.getElementById('confirm-ok-btn');
+      okBtn.textContent = okLabel || 'Confirm';
+      okBtn.className   = 'btn ' + (okClass || 'reject');
+
+      const modal = document.getElementById('confirm-modal');
+      modal.classList.add('open');
+
+      const cleanup = result => {
+        modal.classList.remove('open');
+        okBtn.replaceWith(okBtn.cloneNode(true));           // remove old listeners
+        document.getElementById('confirm-cancel-btn').replaceWith(
+          document.getElementById('confirm-cancel-btn').cloneNode(true)
+        );
+        resolve(result);
+      };
+
+      // Re-query after clone
+      document.getElementById('confirm-ok-btn').addEventListener('click',     () => cleanup(true),  { once: true });
+      document.getElementById('confirm-cancel-btn').addEventListener('click', () => cleanup(false), { once: true });
+      modal.addEventListener('click', e => { if (e.target === modal) cleanup(false); }, { once: true });
+    });
+  }
 
   // ════════════════════════════════════════════════════════════════
   //  INIT
@@ -638,10 +659,14 @@
       const rm = await fetch(`${PROXY}/rota/me`, { credentials: 'same-origin' });
       state.me = await rm.json();
 
-      // Load all users (for on-behalf dropdown and history selector)
       const ru = await fetch(`${PROXY}/rota/members`, { credentials: 'same-origin' });
       const ud = await ru.json();
-      if (ud.ok) state.allUsers = ud.members;
+      if (ud.ok) {
+        // Filter to valid roles only
+        Object.entries(ud.members).forEach(([email, u]) => {
+          if (VALID_ROLES.has(u.role)) state.allUsers[email] = u;
+        });
+      }
 
       renderTopbar();
       setupTabs();
@@ -738,7 +763,7 @@
   }
 
   // ════════════════════════════════════════════════════════════════
-  //  ROTA LOAD + RENDER
+  //  ROTA
   // ════════════════════════════════════════════════════════════════
   function getDateRange() {
     const today  = new Date();
@@ -763,7 +788,7 @@
 
   async function loadRota() {
     const wrap = document.getElementById('rota-wrap');
-    wrap.innerHTML = '<div id="loading"><div class="spinner"></div> Loading rota…</div>';
+    wrap.innerHTML = '<div class="loading-row"><div class="spinner"></div> Loading rota…</div>';
     const { from, to } = getDateRange();
     try {
       const r = await fetch(`${PROXY}/rota/schedule?from=${from}&to=${to}`, { credentials: 'same-origin' });
@@ -778,18 +803,14 @@
 
   function renderRota() {
     if (!state.rotaData) return;
-    const wrap = document.getElementById('rota-wrap');
-
+    const wrap  = document.getElementById('rota-wrap');
     const teams = [
       { name: 'Management',  members: ['Joao R','Marcus','Joao L','Tiago C'] },
       { name: 'Engineering', members: ['Hugo','Goncalo','Nuno'] },
       { name: 'Specialists', members: ['Sabina','Sergio','Tiago O','Vitor','Fernando','Marc','Gabriel','Mario','Isaac'] },
     ].filter(t => state.teamFilters[t.name]);
 
-    if (!teams.length) {
-      wrap.innerHTML = '<div class="empty-state">Select at least one team.</div>';
-      return;
-    }
+    if (!teams.length) { wrap.innerHTML = '<div class="empty-state">Select at least one team.</div>'; return; }
 
     let thead = '<tr><th class="date-col">Date</th>';
     teams.forEach(team => {
@@ -805,7 +826,6 @@
                     : day.is_public_holiday ? 'date-col is-ph'
                     : day.is_weekend        ? 'date-col is-weekend'
                     : 'date-col';
-
       const d    = new Date(day.date + 'T00:00:00');
       const wday = d.toLocaleDateString('en-GB', { weekday: 'long' });
       const dstr = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -813,17 +833,12 @@
       const label = `<span style="display:inline-block;width:82px;">${dstr}</span>`
                   + `<span style="display:inline-block;width:96px;text-align:center;">${wday}${icon}</span>`;
 
-      const trCls = day.is_today ? ' class="today-row"' : '';
-      tbody += `<tr${trCls}><td class="${dateCls}">${label}</td>`;
-
+      tbody += `<tr${day.is_today ? ' class="today-row"' : ''}><td class="${dateCls}">${label}</td>`;
       teams.forEach(team => {
         team.members.forEach((name, mi) => {
-          const shiftData = day.shifts[name];
-          const shift     = shiftData ? shiftData.shift : 'OFF';
-          const sep       = mi === 0 ? ' team-sep' : '';
-
+          const shift = (day.shifts[name] || {}).shift || 'OFF';
+          const sep   = mi === 0 ? ' team-sep' : '';
           let bg = '#2a2a2a', fg = '#555', text = shift, extra = '';
-
           if (shift.includes('|')) {
             const [code, orig] = shift.split('|');
             const c = SHIFT_COLORS[code] || SHIFT_COLORS['AL_APPROVED'];
@@ -836,10 +851,8 @@
               if (['AL_APPROVED','AL_PENDING','PARENTAL','MARITAL'].includes(shift)) text = '';
             }
           }
-
-          const todayFg = day.is_today && shift !== 'OFF' ? '#ffffff' : fg;
           tbody += `<td class="${sep}" style="background:${bg};">`
-                 + `<span class="shift-cell${extra}" style="color:${todayFg};">${text}</span>`
+                 + `<span class="shift-cell${extra}" style="color:${day.is_today && shift !== 'OFF' ? '#fff' : fg};">${text}</span>`
                  + `</td>`;
         });
       });
@@ -857,41 +870,27 @@
   }
 
   // ════════════════════════════════════════════════════════════════
-  //  LEAVE FORM SETUP
+  //  LEAVE FORM
   // ════════════════════════════════════════════════════════════════
   function setupLeaveForm() {
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('leave-from').value = today;
     document.getElementById('leave-to').value   = today;
 
-    // Show on-behalf controls for management
     if (state.me && state.me.rota_role === 'management') {
       document.getElementById('onbehalf-row').style.display = 'flex';
-
-      // Populate on-behalf user dropdown
       const sel = document.getElementById('onbehalf-user');
-      Object.entries(state.allUsers)
-        .sort((a, b) => a[1].name.localeCompare(b[1].name))
-        .forEach(([email, u]) => {
-          const opt = document.createElement('option');
-          opt.value = email;
-          opt.textContent = `${u.name} (${u.team})`;
-          sel.appendChild(opt);
-        });
+      _populateUserDropdown(sel);
 
-      // Toggle on-behalf mode
       document.getElementById('onbehalf-toggle').addEventListener('click', () => {
         state.onBehalf = !state.onBehalf;
-        const toggle = document.getElementById('onbehalf-toggle');
-        const label  = document.getElementById('onbehalf-label');
-        const group  = document.getElementById('onbehalf-user-group');
-        const userSel = document.getElementById('onbehalf-user');
-
-        toggle.classList.toggle('active', state.onBehalf);
-        label.textContent = state.onBehalf ? 'Select the user below' : 'Submitting for yourself';
-        group.style.display  = state.onBehalf ? '' : 'none';
-        userSel.disabled     = !state.onBehalf;
-        if (!state.onBehalf) userSel.value = '';
+        document.getElementById('onbehalf-toggle').classList.toggle('active', state.onBehalf);
+        document.getElementById('onbehalf-label').textContent = state.onBehalf
+          ? 'Select the user below' : 'Submitting for yourself';
+        const grp = document.getElementById('onbehalf-user-group');
+        grp.style.display  = state.onBehalf ? '' : 'none';
+        sel.disabled       = !state.onBehalf;
+        if (!state.onBehalf) sel.value = '';
       });
     }
 
@@ -932,7 +931,7 @@
   // ════════════════════════════════════════════════════════════════
   async function loadMyLeave() {
     const wrap = document.getElementById('my-leave-wrap');
-    wrap.innerHTML = '<div class="empty-state">Loading…</div>';
+    wrap.innerHTML = '<div class="loading-row"><div class="spinner"></div> Loading…</div>';
 
     const r = await fetch(`${PROXY}/rota/leave`, { credentials: 'same-origin' });
     const d = await r.json();
@@ -942,44 +941,101 @@
       return;
     }
 
-    const rows = [...d.leave].reverse().map(r => {
-      const statusClass = r.status.replace(/\s+/g, '-');
-      const onBehalfTag = r.on_behalf
-        ? `<span class="on-behalf-tag">on behalf by ${_userName(r.created_by)}</span>` : '';
-      const actionedBy  = r.actioned_by
-        ? `${_userName(r.actioned_by)} · ${_fmtDate(r.actioned_at)}` : '—';
-      const withdrawBtn = r.status === 'Confirmed'
-        ? `<button class="btn warn" style="font-size:0.55rem;padding:3px 8px;"
-             onclick="withdrawLeave('${r.id}')">↩ Withdraw</button>` : '';
+    // Each entry expands into multiple rows: one header + one per history event
+    const tableRows = [...d.leave].reverse().map(e => {
+      const statusClass  = e.status.replace(/\s+/g, '-');
+      const onBehalfTag  = e.on_behalf
+        ? `<span class="on-behalf-tag">via ${_userName(e.created_by)}</span>` : '';
 
-      return `<tr>
-        <td class="col-dates">${r.date_start} → ${r.date_end}</td>
-        <td>${r.leave_type}</td>
-        <td><span class="status-badge ${statusClass}">${r.status}</span>${onBehalfTag}</td>
-        <td class="col-meta">${_fmtDate(r.created_at)}</td>
-        <td class="col-meta">${actionedBy}</td>
-        <td class="col-actions">${withdrawBtn}</td>
+      // Action buttons for pending states
+      const CANCELLABLE = ['Pending', 'Withdrawal Pending'];
+      let actionBtn = '';
+      if (CANCELLABLE.includes(e.status)) {
+        const label = e.status === 'Withdrawal Pending' ? '✕ Cancel Withdrawal' : '✕ Cancel Request';
+        actionBtn = `<button class="btn cancel-req" onclick="cancelRequest('${e.id}','${e.status}')">${label}</button>`;
+      }
+      if (e.status === 'Confirmed') {
+        actionBtn = `<button class="btn warn" style="font-size:0.52rem;padding:3px 8px;"
+                       onclick="withdrawLeave('${e.id}')">↩ Withdraw</button>`;
+      }
+
+      // Header row
+      let rows = `<tr>
+        <td class="col-dates">${e.date_start} → ${e.date_end}</td>
+        <td>${e.leave_type}</td>
+        <td><span class="status-badge ${statusClass}">${e.status}</span>${onBehalfTag}</td>
+        <td colspan="2"></td>
+        <td>${actionBtn}</td>
       </tr>`;
+
+      // History event rows
+      const history = e.history || [];
+      history.forEach((ev, idx) => {
+        const evClass = ev.status.replace(/\s+/g, '-');
+        const isLast  = idx === history.length - 1;
+        const icon    = isLast ? '└' : '├';
+        rows += `<tr class="history-event-row">
+          <td><span class="history-chain-icon">${icon}</span>${_fmtDate(ev.at)}</td>
+          <td></td>
+          <td><span class="status-badge ${evClass}">${ev.status}</span></td>
+          <td class="col-meta" colspan="3">by ${_userName(ev.by)}</td>
+        </tr>`;
+      });
+
+      return rows;
     }).join('');
 
     wrap.innerHTML = `
       <table class="data-table">
         <thead>
           <tr>
-            <th>Dates</th>
-            <th>Type</th>
-            <th>Status</th>
-            <th>Requested</th>
-            <th>Actioned by</th>
-            <th></th>
+            <th>Dates</th><th>Type</th><th>Status</th>
+            <th>When</th><th>By</th><th></th>
           </tr>
         </thead>
-        <tbody>${rows}</tbody>
+        <tbody>${tableRows}</tbody>
       </table>`;
   }
 
+  async function cancelRequest(leaveId, currentStatus) {
+    const isWithdrawal = currentStatus === 'Withdrawal Pending';
+    const confirmed = await uiConfirm(
+      isWithdrawal ? 'Cancel Withdrawal' : 'Cancel Request',
+      isWithdrawal
+        ? 'Cancel this withdrawal request? Your leave will remain as Confirmed.'
+        : 'Cancel this pending leave request?',
+      'Yes, cancel',
+      'reject'
+    );
+    if (!confirmed) return;
+
+    // Cancel pending request → mark as Rejected via PUT
+    // Cancel withdrawal pending → revert to Confirmed via PUT
+    const newStatus = isWithdrawal ? 'Withdrawal Rejected' : 'Rejected';
+    const r = await fetch(`${PROXY}/rota/leave/${leaveId}`, {
+      method: 'PUT', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast(isWithdrawal ? 'Withdrawal cancelled' : 'Request cancelled', 'ok');
+      loadMyLeave();
+      state.rotaData = null; loadRota();
+    } else {
+      toast(d.error || 'Failed', 'err');
+    }
+  }
+
   async function withdrawLeave(leaveId) {
-    if (!confirm('Submit a withdrawal request for this confirmed leave?')) return;
+    const confirmed = await uiConfirm(
+      'Request Withdrawal',
+      'Submit a withdrawal request for this confirmed leave? Management will need to approve it.',
+      'Submit Withdrawal',
+      'warn'
+    );
+    if (!confirmed) return;
+
     const r = await fetch(`${PROXY}/rota/leave/${leaveId}`, {
       method: 'PUT', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
@@ -996,31 +1052,23 @@
   }
 
   // ════════════════════════════════════════════════════════════════
-  //  LEAVE APPROVALS (management)
+  //  LEAVE APPROVALS
   // ════════════════════════════════════════════════════════════════
   function setupApprovals() {
-    // Populate history user dropdown
-    const userSel = document.getElementById('history-user-select');
-    Object.entries(state.allUsers)
-      .sort((a, b) => a[1].name.localeCompare(b[1].name))
-      .forEach(([email, u]) => {
-        const opt = document.createElement('option');
-        opt.value = email;
-        opt.textContent = `${u.name} (${u.team})`;
-        userSel.appendChild(opt);
-      });
-
-    // Populate year dropdown
+    const userSel  = document.getElementById('history-user-select');
     const yearSel  = document.getElementById('history-year-select');
     const thisYear = new Date().getFullYear();
+
+    _populateUserDropdown(userSel);
+
     for (let y = thisYear; y >= thisYear - 2; y--) {
       const opt = document.createElement('option');
       opt.value = y; opt.textContent = y;
       yearSel.appendChild(opt);
     }
 
-    userSel.addEventListener('change',  loadApprovalsHistory);
-    yearSel.addEventListener('change',  loadApprovalsHistory);
+    userSel.addEventListener('change', loadApprovalsHistory);
+    yearSel.addEventListener('change', loadApprovalsHistory);
   }
 
   async function loadApprovals() {
@@ -1030,7 +1078,7 @@
 
   async function loadApprovalsPending() {
     const el = document.getElementById('approvals-pending');
-    el.innerHTML = '<div class="empty-state">Loading…</div>';
+    el.innerHTML = '<div class="loading-row"><div class="spinner"></div> Loading…</div>';
 
     const r = await fetch(`${PROXY}/rota/leave`, { credentials: 'same-origin' });
     const d = await r.json();
@@ -1065,10 +1113,8 @@
           return `
             <div class="approval-row">
               <span class="approval-dates">${e.date_start} → ${e.date_end}</span>
-              <span class="approval-type">
-                ${e.leave_type} · <span class="status-badge ${statusClass}">${e.status}</span>${onBehalfTag}
-              </span>
-              <span class="approval-meta">by ${_userName(e.created_by)} · ${_fmtDate(e.created_at)}</span>
+              <span class="approval-type">${e.leave_type}</span>
+              <span><span class="status-badge ${statusClass}">${e.status}</span>${onBehalfTag}</span>
               <div class="approval-actions">
                 ${isWithdrawal ? `
                   <button class="btn approve" onclick="decideLeave('${e.id}','Withdrawn')">✓ Approve Withdrawal</button>
@@ -1078,6 +1124,7 @@
                   <button class="btn reject"  onclick="decideLeave('${e.id}','Rejected')">✗ Reject</button>
                 `}
               </div>
+              <span class="approval-meta">by ${_userName(e.created_by)} · ${_fmtDate(e.created_at)}</span>
             </div>`;
         }).join('')}
       </div>
@@ -1101,8 +1148,7 @@
     const entries  = (d.leave || []).filter(e => {
       if (e.username !== username) return false;
       if (!ACTIONED.includes(e.status)) return false;
-      const entryYear = new Date(e.date_start).getFullYear();
-      return entryYear === year;
+      return new Date(e.date_start).getFullYear() === year;
     });
 
     if (!entries.length) {
@@ -1110,31 +1156,53 @@
       return;
     }
 
-    const rows = [...entries].reverse().map(e => {
+    const tableRows = [...entries].reverse().map(e => {
       const statusClass = e.status.replace(/\s+/g, '-');
       const onBehalfTag = e.on_behalf
         ? `<span class="on-behalf-tag">via ${_userName(e.created_by)}</span>` : '';
-      return `<tr>
+
+      let rows = `<tr>
         <td class="col-dates">${e.date_start} → ${e.date_end}</td>
         <td>${e.leave_type}</td>
         <td><span class="status-badge ${statusClass}">${e.status}</span>${onBehalfTag}</td>
-        <td class="col-meta">${_fmtDate(e.created_at)}</td>
-        <td class="col-meta">${e.actioned_by ? _userName(e.actioned_by) + ' · ' + _fmtDate(e.actioned_at) : '—'}</td>
+        <td colspan="2"></td>
       </tr>`;
+
+      const history = e.history || [];
+      history.forEach((ev, idx) => {
+        const evClass = ev.status.replace(/\s+/g, '-');
+        const icon    = idx === history.length - 1 ? '└' : '├';
+        rows += `<tr class="history-event-row">
+          <td><span class="history-chain-icon">${icon}</span>${_fmtDate(ev.at)}</td>
+          <td></td>
+          <td><span class="status-badge ${evClass}">${ev.status}</span></td>
+          <td class="col-meta" colspan="2">by ${_userName(ev.by)}</td>
+        </tr>`;
+      });
+
+      return rows;
     }).join('');
 
     el.innerHTML = `
       <table class="data-table">
         <thead>
-          <tr>
-            <th>Dates</th><th>Type</th><th>Status</th><th>Requested</th><th>Actioned by</th>
-          </tr>
+          <tr><th>Dates</th><th>Type</th><th>Status</th><th>When</th><th>By</th></tr>
         </thead>
-        <tbody>${rows}</tbody>
+        <tbody>${tableRows}</tbody>
       </table>`;
   }
 
   async function decideLeave(leaveId, status) {
+    const labels = {
+      'Confirmed':           ['Confirm this leave request?',          'Confirm',           'approve'],
+      'Rejected':            ['Reject this leave request?',           'Reject',            'reject'],
+      'Withdrawn':           ['Approve this withdrawal request?',     'Approve Withdrawal','approve'],
+      'Withdrawal Rejected': ['Reject this withdrawal request?\nThe leave will revert to Confirmed.', 'Reject Withdrawal', 'reject'],
+    };
+    const [msg, okLabel, okClass] = labels[status] || ['Proceed?', 'OK', 'primary'];
+    const confirmed = await uiConfirm('Confirm Action', msg, okLabel, okClass);
+    if (!confirmed) return;
+
     const r = await fetch(`${PROXY}/rota/leave/${leaveId}`, {
       method: 'PUT', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
@@ -1154,7 +1222,7 @@
   //  TEAM ACCESS
   // ════════════════════════════════════════════════════════════════
   async function loadAccess() {
-    const el = document.getElementById('access-list');
+    const el    = document.getElementById('access-list');
     const BADGE = { Management:'var(--mgmt)', Engineering:'var(--eng)', Specialists:'var(--spec)' };
 
     const grouped = {};
@@ -1163,7 +1231,7 @@
       grouped[u.team].push({ email, ...u });
     });
 
-    const teamOrder = ['Management', 'Engineering', 'Specialists', 'Other'];
+    const teamOrder = ['Management', 'Engineering', 'Specialists'];
     el.innerHTML = teamOrder.filter(t => grouped[t]).map(team => `
       <div style="margin-bottom:24px;">
         <div class="approvals-group-header">${team}</div>
@@ -1172,7 +1240,7 @@
                       border-bottom:1px solid #252525;font-family:var(--mono);font-size:0.62rem;">
             <span style="font-weight:700;min-width:120px;">${u.name}</span>
             <span style="color:var(--muted);flex:1;">${u.email}</span>
-            <span><span class="team-badge ${team}" style="background:${BADGE[team]||'#555'}">${team}</span></span>
+            <span class="team-badge ${team}" style="background:${BADGE[team]||'#555'}">${team}</span>
           </div>
         `).join('')}
       </div>
@@ -1202,7 +1270,6 @@
     const body  = document.getElementById('fb-body').value.trim();
     if (!title) { toast('Title required', 'err'); return; }
     if (!body)  { toast('Description required', 'err'); return; }
-
     const r = await fetch(`${PROXY}/rota/feedback`, {
       method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
@@ -1222,13 +1289,22 @@
   // ════════════════════════════════════════════════════════════════
   //  HELPERS
   // ════════════════════════════════════════════════════════════════
+  function _populateUserDropdown(sel) {
+    Object.entries(state.allUsers)
+      .sort((a, b) => a[1].name.localeCompare(b[1].name))
+      .forEach(([email, u]) => {
+        const opt = document.createElement('option');
+        opt.value = email;
+        opt.textContent = `${u.name} (${u.team})`;
+        sel.appendChild(opt);
+      });
+  }
+
   function _userName(email) {
     if (!email) return '—';
     if (state.allUsers[email]) return state.allUsers[email].name;
-    // Fallback: infer from email
     const local = email.split('@')[0];
     const parts = local.split(/[.\-_]/);
-    if (!parts.length) return email;
     const first = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
     return parts[1] ? `${first} ${parts[1][0].toUpperCase()}` : first;
   }
