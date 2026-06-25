@@ -45,6 +45,11 @@ WORKFLOW_SPECS_FILES = {
 }
 
 
+def _effective_default_workflow():
+    """Return the currently configured default workflow (from file, or built-in)."""
+    return _load_default_workflow()
+
+
 def _specs_file_for(workflow):
     """Return the specs.json path for a workflow, falling back to the default
     workflow's file for unknown/empty values."""
@@ -905,7 +910,7 @@ def gop_run():
     duration   = min(int(data.get("duration") or 30), 120)
     passphrase = (data.get("passphrase") or "").strip()
     tag        = (data.get("tag") or "").strip()
-    workflow   = (data.get("workflow") or DEFAULT_WORKFLOW).strip()
+    workflow   = (data.get("workflow") or _effective_default_workflow()).strip()
     if not url:
         return jsonify({"error": "url is required"}), 400
 
@@ -948,7 +953,7 @@ def gop_upload():
         return jsonify({"error": "Only .ts files are supported"}), 400
 
     tag      = (request.form.get("tag") or "").strip()
-    workflow = (request.form.get("workflow") or DEFAULT_WORKFLOW).strip()
+    workflow = (request.form.get("workflow") or _effective_default_workflow()).strip()
     username = _get_username_from_request()
 
     with tempfile.NamedTemporaryFile(suffix=".ts", delete=False, dir=GOP_DIR) as tmp:
@@ -1164,7 +1169,7 @@ def gop_schedule():
     duration   = min(int(data.get("duration") or 30), 120)
     passphrase = (data.get("passphrase") or "").strip()
     tag        = (data.get("tag") or "").strip()
-    workflow   = (data.get("workflow") or DEFAULT_WORKFLOW).strip()
+    workflow   = (data.get("workflow") or _effective_default_workflow()).strip()
     username   = _get_username_from_request()
 
     if not url or not run_at:
@@ -1278,7 +1283,7 @@ def gop_schedule_cancel(sched_id):
 
 @gop_bp.route("/gop/specs", methods=["GET"])
 def gop_specs_get():
-    workflow = request.args.get("workflow") or DEFAULT_WORKFLOW
+    workflow = request.args.get("workflow") or _effective_default_workflow()
     return jsonify(_load_specs(workflow))
 
 
@@ -1293,7 +1298,7 @@ def gop_specs_save():
     if role not in ("admin", "engineer"):
         return jsonify({"success": False, "error": "Permission denied — admin or engineer role required"}), 403
 
-    workflow = request.args.get("workflow") or DEFAULT_WORKFLOW
+    workflow = request.args.get("workflow") or _effective_default_workflow()
     data = request.get_json(silent=True) or {}
     if not data:
         return jsonify({"error": "No specs data provided"}), 400
@@ -1313,7 +1318,7 @@ def gop_specs_reset():
     _, role = _get_user_and_role()
     if role not in ("admin", "engineer"):
         return jsonify({"success": False, "error": "Permission denied — admin or engineer role required"}), 403
-    workflow = request.args.get("workflow") or DEFAULT_WORKFLOW
+    workflow = request.args.get("workflow") or _effective_default_workflow()
     try:
         specs_file = _specs_file_for(workflow)
         if os.path.isfile(specs_file):
@@ -1325,6 +1330,7 @@ def gop_specs_reset():
 
 # ── WORKFLOW LABELS ───────────────────────────────────────────────────────
 _WORKFLOW_LABELS_FILE = os.path.join(_BASE_DIR, "workflow_labels.json")
+_WORKFLOW_DEFAULT_FILE = os.path.join(_BASE_DIR, "workflow_default.json")
 _DEFAULT_WORKFLOW_LABELS = {
     "dc_aminos_tp": "DC - Aminos and TP",
     "rts":          "RTS",
@@ -1348,9 +1354,24 @@ def _save_workflow_labels(labels):
         json.dump(labels, f, indent=2)
 
 
+def _load_default_workflow():
+    if os.path.isfile(_WORKFLOW_DEFAULT_FILE):
+        try:
+            with open(_WORKFLOW_DEFAULT_FILE) as f:
+                return json.load(f).get("default", DEFAULT_WORKFLOW)
+        except Exception:
+            pass
+    return DEFAULT_WORKFLOW
+
+
+def _save_default_workflow(workflow):
+    with open(_WORKFLOW_DEFAULT_FILE, "w") as f:
+        json.dump({"default": workflow}, f, indent=2)
+
+
 @gop_bp.route("/gop/workflows", methods=["GET"])
 def gop_workflows_get():
-    return jsonify(_load_workflow_labels())
+    return jsonify({"labels": _load_workflow_labels(), "default": _load_default_workflow()})
 
 
 @gop_bp.route("/gop/workflows/rename", methods=["POST"])
@@ -1374,6 +1395,28 @@ def gop_workflows_rename():
         labels[workflow] = label
         _save_workflow_labels(labels)
         return jsonify({"success": True, "labels": labels})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@gop_bp.route("/gop/workflows/default", methods=["POST"])
+def gop_workflows_set_default():
+    """Set the default workflow used by the API when none is specified.
+
+    Auth: requires admin or engineer role.
+    """
+    _, role = _get_user_and_role()
+    if role not in ("admin", "engineer"):
+        return jsonify({"success": False, "error": "Permission denied — admin or engineer role required"}), 403
+    data     = request.get_json(silent=True) or {}
+    workflow = (data.get("workflow") or "").strip()
+    if not workflow:
+        return jsonify({"error": "workflow field required"}), 400
+    if workflow not in WORKFLOW_SPECS_FILES:
+        return jsonify({"error": f"Unknown workflow: {workflow}"}), 400
+    try:
+        _save_default_workflow(workflow)
+        return jsonify({"success": True, "default": workflow})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 

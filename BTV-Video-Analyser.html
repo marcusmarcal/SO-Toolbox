@@ -1679,8 +1679,11 @@
             flex-shrink: 0;
           "
         >
-          <div class="modal-title" style="color: var(--purple); margin: 0">
-            ⚙ Compliance Specs Editor — <span id="specs-modal-workflow"></span>
+          <div class="modal-title" style="color: var(--purple); margin: 0; display:flex; align-items:center; gap:.6rem">
+            ⚙ Compliance Specs Editor —
+            <select id="specs-workflow-select" onchange="onSpecsWorkflowChange()"
+              style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--purple);font-family:var(--mono);font-size:.8rem;padding:2px 8px;outline:none;cursor:pointer">
+            </select>
           </div>
           <div style="display: flex; gap: 0.5rem">
             <button
@@ -1758,6 +1761,15 @@
             style="font-size: 0.7rem; display: none"
           >
             ✏ Rename
+          </button>
+          <button
+            id="btn-set-default-wf"
+            class="btn-cancel"
+            onclick="setDefaultWorkflow()"
+            style="font-size: 0.7rem; display: none"
+            title="Set this workflow as the API default (used when no workflow is specified)"
+          >
+            ★ Set as API default
           </button>
           <span id="specs-no-perm" style="font-family:var(--mono);font-size:.68rem;color:var(--muted);display:none">View only — requires admin or engineer role to edit</span>
           <div class="modal-err" id="specs-err"></div>
@@ -2361,46 +2373,41 @@
         rts: "RTS",
         wb: "W&B",
       };
-      const WORKFLOW_STORAGE_KEY = "btv-selected-workflow";
+      let _apiDefaultWorkflow = "dc_aminos_tp";
 
       function getSelectedWorkflow() {
         const el = document.getElementById("inp-workflow");
-        return (el && el.value) || "dc_aminos_tp";
+        return (el && el.value) || _apiDefaultWorkflow;
       }
 
       function onWorkflowChange() {
-        try {
-          localStorage.setItem(WORKFLOW_STORAGE_KEY, getSelectedWorkflow());
-        } catch (e) {}
-      }
-
-      function restoreSelectedWorkflow() {
-        try {
-          const saved = localStorage.getItem(WORKFLOW_STORAGE_KEY);
-          const el = document.getElementById("inp-workflow");
-          if (saved && el) el.value = saved;
-        } catch (e) {}
+        // intentionally empty — workflow selection is not persisted
       }
 
       async function loadWorkflowLabels() {
         try {
           const res = await fetch(`${PROXY}/gop/workflows`);
           if (!res.ok) return;
-          const labels = await res.json();
+          const data = await res.json();
+          // data may be { labels: {…}, default: "…" } or just {…} for backwards compat
+          const labels = data.labels || data;
+          const apiDefault = data.default || "dc_aminos_tp";
+          _apiDefaultWorkflow = apiDefault;
           Object.assign(WORKFLOW_LABELS, labels);
           const el = document.getElementById("inp-workflow");
           if (el) {
             Array.from(el.options).forEach((opt) => {
               if (WORKFLOW_LABELS[opt.value]) {
-                const suffix = opt.value === "dc_aminos_tp" ? " ★" : "";
+                const suffix = opt.value === apiDefault ? " ★" : "";
                 opt.textContent = WORKFLOW_LABELS[opt.value] + suffix;
               }
             });
+            // Always start on API default — never restore from cookie
+            el.value = apiDefault;
           }
         } catch (e) {}
       }
       document.addEventListener("DOMContentLoaded", () => {
-        restoreSelectedWorkflow();
         loadWorkflowLabels();
       });
 
@@ -4467,11 +4474,6 @@
       let _currentSpecsWorkflow = null;
 
       async function openSpecsEditor() {
-        const workflow = getSelectedWorkflow();
-        _currentSpecsWorkflow = workflow;
-        const wfLabel = WORKFLOW_LABELS[workflow] || workflow;
-        document.getElementById("specs-modal-workflow").textContent = wfLabel;
-        document.getElementById("specs-rename").value = wfLabel;
         document.getElementById("specs-err").textContent = "";
         document.getElementById("specs-modal").classList.add("open");
         document.getElementById("specs-editor-body").innerHTML =
@@ -4490,16 +4492,44 @@
         const canEdit = ["admin", "engineer"].includes(_currentUserRole);
         document.getElementById("btn-save-specs").style.display = canEdit ? "" : "none";
         document.getElementById("btn-rename-wf").style.display = canEdit ? "" : "none";
+        document.getElementById("btn-set-default-wf").style.display = canEdit ? "" : "none";
         document.getElementById("specs-no-perm").style.display = canEdit ? "none" : "";
 
+        // Populate the specs-modal's own workflow select
+        const sel = document.getElementById("specs-workflow-select");
+        sel.innerHTML = Object.entries(WORKFLOW_LABELS).map(([k, v]) =>
+          `<option value="${k}"${k === _apiDefaultWorkflow ? " data-default='1'" : ""}>${v}${k === _apiDefaultWorkflow ? " ★" : ""}</option>`
+        ).join("");
+        // Default to currently selected workflow in main UI, or API default
+        const initialWf = getSelectedWorkflow();
+        if ([...sel.options].some(o => o.value === initialWf)) sel.value = initialWf;
+        else sel.value = _apiDefaultWorkflow;
+
+        await _loadSpecsForModal();
+      }
+
+      async function onSpecsWorkflowChange() {
+        document.getElementById("specs-err").textContent = "";
+        await _loadSpecsForModal();
+      }
+
+      async function _loadSpecsForModal() {
+        const workflow = document.getElementById("specs-workflow-select").value;
+        _currentSpecsWorkflow = workflow;
+        const wfLabel = WORKFLOW_LABELS[workflow] || workflow;
+        document.getElementById("specs-rename").value = wfLabel;
+        document.getElementById("specs-editor-body").innerHTML =
+          '<div style="font-family:var(--mono);font-size:.7rem;color:var(--muted);padding:.5rem">Loading…</div>';
+
+        // Update Set as default button label
+        const defBtn = document.getElementById("btn-set-default-wf");
+        if (defBtn) defBtn.textContent = workflow === _apiDefaultWorkflow ? "★ API default" : "★ Set as API default";
+
         try {
-          const res = await fetch(
-            `${PROXY}/gop/specs?workflow=${encodeURIComponent(workflow)}`
-          );
+          const res = await fetch(`${PROXY}/gop/specs?workflow=${encodeURIComponent(workflow)}`);
           _currentSpecs = await res.json();
           renderSpecsEditor(_currentSpecs);
 
-          // Show saved-by metadata if present
           const meta = _currentSpecs._meta || {};
           const savedByEl = document.getElementById("specs-saved-by");
           if (meta.saved_by && meta.saved_at) {
@@ -4509,9 +4539,46 @@
             savedByEl.textContent = "";
           }
         } catch (e) {
-          document.getElementById(
-            "specs-editor-body"
-          ).innerHTML = `<div style="color:var(--red);font-family:var(--mono);font-size:.72rem">Failed to load specs: ${e.message}</div>`;
+          document.getElementById("specs-editor-body").innerHTML =
+            `<div style="color:var(--red);font-family:var(--mono);font-size:.72rem">Failed to load specs: ${e.message}</div>`;
+        }
+      }
+
+      async function setDefaultWorkflow() {
+        const workflow = document.getElementById("specs-workflow-select").value;
+        const errEl = document.getElementById("specs-err");
+        errEl.textContent = "";
+        try {
+          const meRes = await fetch(`${PROXY}/me`);
+          if (meRes.ok) { const me = await meRes.json(); _currentUserRole = me.role || null; _currentUser = me.username || null; }
+        } catch {}
+        if (!["admin", "engineer"].includes(_currentUserRole)) {
+          errEl.textContent = "❌ Requires admin or engineer role";
+          return;
+        }
+        try {
+          const res = await fetch(`${PROXY}/gop/workflows/default`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ workflow }),
+          });
+          const data = await res.json();
+          if (!data.success) throw new Error(data.error || "Failed");
+          _apiDefaultWorkflow = workflow;
+          // Refresh ★ markers on both selects
+          await loadWorkflowLabels();
+          // Refresh specs-modal select markers
+          const sel = document.getElementById("specs-workflow-select");
+          Array.from(sel.options).forEach(o => {
+            const base = WORKFLOW_LABELS[o.value] || o.value;
+            o.textContent = base + (o.value === _apiDefaultWorkflow ? " ★" : "");
+          });
+          document.getElementById("btn-set-default-wf").textContent = "★ API default";
+          errEl.style.color = "var(--green)";
+          errEl.textContent = `✓ ${WORKFLOW_LABELS[workflow] || workflow} is now the API default`;
+          setTimeout(() => { errEl.textContent = ""; errEl.style.color = ""; }, 3000);
+        } catch (e) {
+          errEl.textContent = `Error: ${e.message}`;
         }
       }
       function closeSpecsModal() {
