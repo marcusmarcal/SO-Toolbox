@@ -79,34 +79,76 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Re-evaluate modal now populates the workflow list from `WORKFLOW_LABELS` at
   open time, ensuring new or renamed workflows appear correctly
 
-## [3.18.0] - 2026-06-25
+## [3.18.1] - 2026-06-25
 
 ### Added
 
-- Role-based authorisation for specs save and workflow rename: admin password
-  replaced by `/so-proxy/me` role check (`admin` or `engineer` required);
-  view-only users see a "View only" notice instead of action buttons
-- Saved-by attribution: specs editor now shows who last saved specs and when
-  (requires backend to return `_meta.saved_by` / `_meta.saved_at` in specs response)
-- Re-evaluate history entry with a different workflow: `⇄` button on each
-  history item opens a modal to select a target workflow; result is shown as a
-  read-only report without modifying the original stored result
-  (requires backend endpoint `GET /gop/reeval/<file>?workflow=<wf>`)
-- Change workflow of history entry: `🔀` button (admin/engineer only) permanently
-  re-assigns the workflow of a stored result and re-evaluates compliance;
-  change is logged server-side
-  (requires backend endpoint `PATCH /gop/result/<file>/workflow`)
+- Specs Editor now has its own workflow dropdown, independent of the workflow
+  selector on the test page; switching workflow inside the editor loads the
+  corresponding specs without affecting the active test configuration
+- "Set as API default" button in the Specs Editor footer (admin/engineer only);
+  sets the workflow used by the API when no workflow is specified in the request
+- GET /gop/workflows now returns labels and default workflow key so the frontend
+  always knows which workflow is the current API default
+- POST /gop/workflows/default endpoint to persist the API default workflow to
+  workflow_default.json (admin/engineer only)
+- \_effective_default_workflow() helper in backend; all routes that previously
+  fell back to the hard-coded DEFAULT_WORKFLOW constant now read the persisted
+  value instead
+- "Accept any GOP size" checkbox in the Specs Editor for the GOP Size row; when
+  enabled, any measured GOP size returns ACCEPTED regardless of configured values
+  or tolerance
+- Re-evaluate button on each history entry: opens a modal to select a target
+  workflow and shows a read-only re-evaluated report without modifying the stored
+  result (GET /gop/reeval/file?workflow=wf)
+- Change Workflow button on each history entry (admin/engineer only):
+  permanently re-assigns the workflow, re-runs compliance, and appends an entry
+  to workflow_change_log in the result JSON (PATCH /gop/result/file/workflow)
+- After a workflow change the updated compliance result is rendered immediately
+  from the PATCH response, without a second round-trip
+- Workflow badge added to the test meta-bar on the main page; shows the workflow
+  used for the loaded result, or the re-evaluated workflow label in cyan when
+  showing a re-evaluated report
+- Re-evaluated report shows the target workflow label in the Workflow field of
+  both the visual and text report tabs, marked as re-evaluated
+- Specs save and workflow rename now record saved_by and saved_at in the specs
+  JSON; the Specs Editor footer displays who last saved and when
+- Role-based authorisation for all write operations in the Specs Editor (save,
+  rename, reset, set default): replaced admin password with /so-proxy/me role
+  check; requires admin or engineer role
+- GET /gop/specs includes \_meta in the response when specs have been saved at
+  least once
+- POST /gop/specs stamps \_meta server-side and returns HTTP 403 if the caller's
+  role is not admin or engineer
 
 ### Changed
 
-- B-Frames spec: display simplified to "absent = preferred (COMPLIANT) / present
-  = allowed (ACCEPTED)" throughout specs editor, compliance table and reports
-- GOP Type spec: display updated to "OPEN (preferred) / CLOSED (accepted)" in
-  specs editor, compliance table and reports
-- Frame Rate compliance row: when 50p is accepted because the stream is 720p,
-  the report now explicitly states "accepted: 50p @ 720p" next to the measured
-  value, in both visual and text report tabs
-- Admin password field removed from specs editor modal (superseded by role check)
+- Workflow selection is no longer persisted in localStorage; the page always
+  starts on the current API default workflow
+- GOP Type spec changed from a single required field to the standard
+  values + preferred model: CLOSED returns COMPLIANT, OPEN returns ACCEPTED;
+  the Specs Editor renders a dropdown for the Preferred column
+- B-Frames spec changed to the same values + preferred model: absent returns
+  COMPLIANT, present returns ACCEPTED; the Specs Editor renders a dropdown for
+  the Preferred column
+- Specs Editor preferred column now renders as a dropdown for any spec whose
+  allowed values are a short fixed list of strings (4 items or fewer), instead
+  of a free-text input
+- Frame Rate compliance row appends a note when 50p is accepted due to 720p
+  resolution, visible in both visual and text reports
+- GOP Type and B-Frames spec descriptions updated in visual and text report tabs
+  to reflect the preferred/accepted model
+- PATCH /gop/result/file/workflow now returns the full updated result object in
+  addition to overall_status, eliminating the need for a follow-up GET
+
+### Fixed
+
+- Specs Editor no longer reads or writes localStorage; re-opening the tool
+  always reflects the API default instead of the last manually selected workflow
+- gop_type and b_frames compliance now goes through the shared comply_enum_multi
+  function, removing duplicate custom logic
+- Re-evaluate modal now populates the workflow list from WORKFLOW_LABELS at open
+  time, ensuring new or renamed workflows appear correctly
 
 ## [3.17.0] - 2026-06-23
 
