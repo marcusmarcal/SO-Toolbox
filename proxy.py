@@ -892,7 +892,7 @@ def server_stats():
 
         # Disk usage
         disk_result = subprocess.run(
-            ["df", "-B1", "/"],
+            ["df", "-B1", "/opt/web/store"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=5
