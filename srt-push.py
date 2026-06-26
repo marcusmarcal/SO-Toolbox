@@ -18,9 +18,9 @@ SRT_URL = "srt://10.11.203.1:3292?mode=caller&latency=1000&passphrase=rQ6zgFnfz1
 DISPLAY = ":99"
 WIDTH = 1920
 HEIGHT = 1080
-FPS = 25
+FPS = 5
 
-VIDEO_BITRATE = "3000k"
+VIDEO_BITRATE = "500k"
 
 XVFB_PATH = "/usr/bin/Xvfb"
 FFMPEG_PATH = "/usr/bin/ffmpeg"
@@ -121,7 +121,6 @@ def start_chromium():
 def start_ffmpeg():
     print("[INFO] starting ffmpeg...")
 
-    # Mantendo o FPS baixo (ex: 5) configurado no topo do script
     cmd = [
         FFMPEG_PATH,
         "-f", "x11grab",
@@ -130,23 +129,21 @@ def start_ffmpeg():
         "-framerate", str(FPS),
         "-i", f"{DISPLAY}+0,0",
 
-        # Removemos o mpdecimate. Apenas garantimos o formato de cor correto.
         "-vf", "format=yuv420p",
 
         "-c:v", "libx264",
         "-preset", "ultrafast",
-        "-tune", "zerolatency",       # Voltamos para zerolatency para não segurar buffer local
+        "-tune", "zerolatency",
         
-        # --- FORÇAR FLUXO CONSTANTE (CBR) ---
+        # --- CBR RIGIDO COM PADDING AJUSTADO PARA 500K ---
         "-b:v", VIDEO_BITRATE,
         "-maxrate", VIDEO_BITRATE,
-        "-minrate", VIDEO_BITRATE,    # Força o encoder a manter o target mesmo sem movimento
-        "-bufsize", "6000k",          # Buffer fixo para estabilizar o chunk de rede
-        "-nal-hrd", "cbr",            # Diz explicitamente ao x264 para preencher o vazio com "padding"
+        "-minrate", VIDEO_BITRATE,
+        "-bufsize", "1000k",          # Buffer menor e proporcional ao novo bitrate
+        "-nal-hrd", "cbr",            
         
-        # --- OTIMIZAÇÃO DE ESTRUTURA ---
-        "-g", "25",                   # GOP fixo curto para o SRT sincronizar instantaneamente ao conectar
-        "-threads", "4",              # Subimos para 4 para dar folga sem travar a CPU em 100%
+        "-g", "25",                   # 1 IDR frame a cada 5 segundos (com FPS=5)
+        "-threads", "2",              # 2 threads já são mais que suficientes para 500kbps
 
         "-f", "mpegts",
         SRT_URL
