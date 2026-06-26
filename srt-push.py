@@ -90,7 +90,6 @@ def start_chromium():
         "--disable-session-crashed-bubble",
         "--disable-features=TranslateUI",
         "--disable-gpu",
-        "--disable-software-rasterizer",
         "--disable-dev-shm-usage",
         "--no-sandbox",
         "--disable-background-networking",
@@ -99,6 +98,12 @@ def start_chromium():
         "--ignore-certificate-errors",
         "--allow-insecure-localhost",
         "--touch-events=enabled",
+        # Remova ou comente: "--disable-software-rasterizer"
+        # E adicione estas otimizações de performance:
+        "--disable-gpu-vsync",                # Desativa sincronia vertical na tela virtual
+        "--disable-smooth-scrolling",         # Remove animações de scroll pesadas
+        "--disable-low-end-device-mode",      # Garante que ele não use fallbacks lentos
+        "--blink-settings=imagesEnabled=true", # Se o dashboard não tiver imagens úteis, mude para false para poupar render
         "--unsafely-treat-insecure-origin-as-secure=https://127.0.0.1",
         HTML_URL
     ], env=env)
@@ -124,25 +129,21 @@ def start_ffmpeg():
         "-framerate", str(FPS),
         "-i", f"{DISPLAY}+0,0",
 
-        # Filtro de pixel format padrão
-        "-vf", "format=yuv420p",
+        # Filtro: força drop de frames idênticos antes de codificar
+        "-vf", "mpdecimate,format=yuv420p",
 
-        # Encoder de vídeo
         "-c:v", "libx264",
-        "-preset", "ultrafast",     # Mudado de 'veryfast' para 'ultrafast' (reduz uso de CPU)
-        "-tune", "stillimage",      # Otimizado para imagens estáticas/dashboards
+        "-preset", "ultrafast",
+        "-tune", "stillimage",
+        "-threads", "2",            # <--- LIMITA A CPU: Não deixa o FFmpeg roubar a máquina inteira
         
-        # Otimização de GOP (Group of Pictures)
-        # Força um I-frame a cada 5 segundos (se FPS=5, 5*5 = 25). 
-        # Economiza muita CPU e banda em telas que mudam pouco.
         "-g", str(FPS * 5), 
+        "-sc_threshold", "0",       # Desativa detecção de mudança de cena (cenas limpas)
         
-        # Controle de Bitrate
         "-b:v", VIDEO_BITRATE,
         "-maxrate", VIDEO_BITRATE,
         "-bufsize", str(int(int(VIDEO_BITRATE.replace('k','')))*2) + "k",
 
-        # Saída via SRT
         "-f", "mpegts",
         SRT_URL
     ]
