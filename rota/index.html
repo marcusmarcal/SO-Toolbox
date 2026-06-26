@@ -259,29 +259,40 @@
     .status-badge.Withdrawal-Pending  { background: rgba(230,168,80,0.15);  color: #e6a850; border: 1px solid rgba(230,168,80,0.3); }
     .status-badge.Withdrawal-Rejected { background: rgba(63,185,80,0.12);   color: #9ee6a6; border: 1px solid rgba(63,185,80,0.2); }
     .status-badge.Cancelled           { background: rgba(100,100,100,0.15); color: #888888; border: 1px solid rgba(100,100,100,0.25); }
-    .status-badge.muted { opacity: 0.45; }
+    .status-badge.main  { font-size: 0.58rem; padding: 3px 10px; }
+    .status-badge.muted { opacity: 0.38; }
+
+    /* ── COLLAPSE TOGGLE ── */
+    .collapse-toggle {
+      background: none; border: none; cursor: pointer;
+      color: var(--border); font-family: var(--mono); font-size: 0.6rem;
+      padding: 0 4px 0 0; line-height: 1; transition: color 0.15s;
+      vertical-align: middle;
+    }
+    .collapse-toggle:hover { color: var(--muted); }
+    tr.history-parent:hover td { background: rgba(255,255,255,0.015); cursor: pointer; }
 
     /* ── DATA TABLE ── */
     .data-table {
-      width: 100%; border-collapse: collapse;
+      width: auto; min-width: 520px; border-collapse: collapse;
       font-family: var(--mono); font-size: 0.62rem;
     }
     .data-table th {
       font-size: 0.52rem; color: var(--muted); text-transform: uppercase;
-      letter-spacing: 0.1em; padding: 6px 10px; text-align: left;
+      letter-spacing: 0.1em; padding: 6px 20px 6px 10px; text-align: left;
       border-bottom: 1px solid var(--border); font-weight: 700; white-space: nowrap;
     }
-    .data-table td { padding: 7px 10px; border-bottom: 1px solid #252525; vertical-align: middle; }
+    .data-table td { padding: 7px 20px 7px 10px; border-bottom: 1px solid #252525; vertical-align: middle; white-space: nowrap; }
     .data-table tr:last-child td { border-bottom: none; }
     .data-table tr:hover td { background: rgba(255,255,255,0.02); }
-    .data-table .col-dates { white-space: nowrap; color: var(--muted); }
-    .data-table .col-meta  { color: var(--muted); font-size: 0.55rem; white-space: nowrap; }
+    .data-table .col-dates { color: var(--muted); }
+    .data-table .col-meta  { color: var(--muted); font-size: 0.55rem; }
 
     /* history sub-rows */
-    .history-event-row td { padding: 4px 10px; border-bottom: none; }
+    .history-event-row td { padding: 3px 20px 3px 10px; border-bottom: none; }
     .history-event-row:last-child td { border-bottom: 1px solid #252525; }
-    .history-event-row td:first-child { padding-left: 22px; color: var(--muted); font-size: 0.55rem; }
-    .history-chain-icon { color: var(--border); margin-right: 6px; }
+    .history-event-row td:first-child { padding-left: 28px; color: var(--muted); font-size: 0.55rem; }
+    .history-chain-icon { color: var(--border); margin-right: 5px; }
 
     .on-behalf-tag {
       font-family: var(--mono); font-size: 0.48rem; font-weight: 700;
@@ -943,44 +954,53 @@
       return;
     }
 
-    // Each entry expands into multiple rows: one header + one per history event
-    const tableRows = [...d.leave].reverse().map(e => {
-      const statusClass  = e.status.replace(/\s+/g, '-');
-      const onBehalfTag  = e.on_behalf
+    // Newest request first
+    const sorted = [...d.leave].sort((a, b) =>
+      (b.created_at || '').localeCompare(a.created_at || '')
+    );
+
+    const tableRows = sorted.map(e => {
+      const statusClass = e.status.replace(/\s+/g, '-');
+      const onBehalfTag = e.on_behalf
         ? `<span class="on-behalf-tag">via ${_userName(e.created_by)}</span>` : '';
 
-      // Action buttons for pending states
       const CANCELLABLE = ['Pending', 'Withdrawal Pending'];
       let actionBtn = '';
       if (CANCELLABLE.includes(e.status)) {
         const label = e.status === 'Withdrawal Pending' ? '✕ Cancel Withdrawal' : '✕ Cancel Request';
-        actionBtn = `<button class="btn cancel-req" onclick="cancelRequest('${e.id}','${e.status}')">${label}</button>`;
+        actionBtn = `<button class="btn cancel-req" onclick="event.stopPropagation();cancelRequest('${e.id}','${e.status}')">${label}</button>`;
       }
       if (e.status === 'Confirmed') {
         actionBtn = `<button class="btn warn" style="font-size:0.52rem;padding:3px 8px;"
-                       onclick="withdrawLeave('${e.id}')">↩ Withdraw</button>`;
+                       onclick="event.stopPropagation();withdrawLeave('${e.id}')">↩ Withdraw</button>`;
       }
 
-      // Header row
-      let rows = `<tr>
-        <td class="col-dates">${e.date_start} → ${e.date_end}</td>
+      const rowId = 'hist-' + e.id;
+      const hasHistory = (e.history || []).length > 0;
+
+      // Main row — badge always full brightness + slightly larger
+      let rows = `<tr class="history-parent" onclick="${hasHistory ? `toggleHistory('${rowId}')` : ''}">
+        <td class="col-dates">
+          ${hasHistory ? `<button class="collapse-toggle" id="tog-${rowId}" aria-label="expand">▶</button>` : '<span style="display:inline-block;width:16px;"></span>'}
+          ${e.date_start} → ${e.date_end}
+        </td>
         <td>${e.leave_type}</td>
-        <td><span class="status-badge ${statusClass}">${e.status}</span>${onBehalfTag}</td>
-        <td colspan="2"></td>
+        <td><span class="status-badge main ${statusClass}">${e.status}</span>${onBehalfTag}</td>
+        <td class="col-meta"></td>
+        <td class="col-meta"></td>
         <td>${actionBtn}</td>
       </tr>`;
 
-      // History event rows
-      const history = e.history || [];
+      // History sub-rows — newest first, all muted, hidden by default
+      const history = [...(e.history || [])].reverse();
       history.forEach((ev, idx) => {
-        const evClass  = ev.status.replace(/\s+/g, '-');
-        const isLast   = idx === history.length - 1;
-        const icon     = isLast ? '└' : '├';
-        const mutedCls = isLast ? '' : ' muted';
-        rows += `<tr class="history-event-row">
+        const evClass = ev.status.replace(/\s+/g, '-');
+        const isLast  = idx === history.length - 1;
+        const icon    = isLast ? '└' : '├';
+        rows += `<tr class="history-event-row" data-group="${rowId}" style="display:none;">
           <td><span class="history-chain-icon">${icon}</span></td>
           <td></td>
-          <td><span class="status-badge ${evClass}${mutedCls}">${ev.status}</span></td>
+          <td><span class="status-badge muted ${evClass}">${ev.status}</span></td>
           <td class="col-meta">${_fmtDate(ev.at)}</td>
           <td class="col-meta">${_userName(ev.by)}</td>
           <td></td>
@@ -1000,6 +1020,14 @@
         </thead>
         <tbody>${tableRows}</tbody>
       </table>`;
+  }
+
+  function toggleHistory(rowId) {
+    const rows = document.querySelectorAll(`tr[data-group="${rowId}"]`);
+    const tog  = document.getElementById('tog-' + rowId);
+    const isOpen = tog && tog.textContent === '▼';
+    rows.forEach(r => r.style.display = isOpen ? 'none' : '');
+    if (tog) tog.textContent = isOpen ? '▶' : '▼';
   }
 
   async function cancelRequest(leaveId, currentStatus) {
@@ -1114,12 +1142,9 @@
             ? `<span class="on-behalf-tag">via ${_userName(e.created_by)}</span>` : '';
           return `
             <div class="approval-row">
-              <span class="approval-dates">${e.date_start}</span>
-              <span class="approval-dates">${e.date_end}</span>
-              <span class="approval-meta">${_userName(e.created_by)}</span>
+              <span class="approval-dates">${e.date_start} → ${e.date_end}</span>
               <span class="approval-type">${e.leave_type}</span>
               <span><span class="status-badge ${statusClass}">${e.status}</span>${onBehalfTag}</span>
-              <span class="sep"></span>
               <div class="approval-actions">
                 ${isWithdrawal ? `
                   <button class="btn approve" onclick="decideLeave('${e.id}','Withdrawn')">✓ Approve Withdrawal</button>
@@ -1129,6 +1154,7 @@
                   <button class="btn reject"  onclick="decideLeave('${e.id}','Rejected')">✗ Reject</button>
                 `}
               </div>
+              <span class="approval-meta">by ${_userName(e.created_by)} · ${_fmtDate(e.created_at)}</span>
             </div>`;
         }).join('')}
       </div>
@@ -1160,28 +1186,36 @@
       return;
     }
 
-    const tableRows = [...entries].reverse().map(e => {
+    const tableRows = [...entries].sort((a, b) =>
+      (b.created_at || '').localeCompare(a.created_at || '')
+    ).map(e => {
       const statusClass = e.status.replace(/\s+/g, '-');
       const onBehalfTag = e.on_behalf
         ? `<span class="on-behalf-tag">via ${_userName(e.created_by)}</span>` : '';
 
-      let rows = `<tr>
-        <td class="col-dates">${e.date_start} → ${e.date_end}</td>
+      const rowId = 'ahist-' + e.id;
+      const hasHistory = (e.history || []).length > 0;
+
+      let rows = `<tr class="history-parent" onclick="${hasHistory ? `toggleHistory('${rowId}')` : ''}">
+        <td class="col-dates">
+          ${hasHistory ? `<button class="collapse-toggle" id="tog-${rowId}" aria-label="expand">▶</button>` : '<span style="display:inline-block;width:16px;"></span>'}
+          ${e.date_start} → ${e.date_end}
+        </td>
         <td>${e.leave_type}</td>
-        <td><span class="status-badge ${statusClass}">${e.status}</span>${onBehalfTag}</td>
-        <td colspan="2"></td>
+        <td><span class="status-badge main ${statusClass}">${e.status}</span>${onBehalfTag}</td>
+        <td class="col-meta"></td>
+        <td class="col-meta"></td>
       </tr>`;
 
-      const history = e.history || [];
+      const history = [...(e.history || [])].reverse();
       history.forEach((ev, idx) => {
-        const evClass  = ev.status.replace(/\s+/g, '-');
-        const isLast   = idx === history.length - 1;
-        const icon     = isLast ? '└' : '├';
-        const mutedCls = isLast ? '' : ' muted';
-        rows += `<tr class="history-event-row">
+        const evClass = ev.status.replace(/\s+/g, '-');
+        const isLast  = idx === history.length - 1;
+        const icon    = isLast ? '└' : '├';
+        rows += `<tr class="history-event-row" data-group="${rowId}" style="display:none;">
           <td><span class="history-chain-icon">${icon}</span></td>
           <td></td>
-          <td><span class="status-badge ${evClass}${mutedCls}">${ev.status}</span></td>
+          <td><span class="status-badge muted ${evClass}">${ev.status}</span></td>
           <td class="col-meta">${_fmtDate(ev.at)}</td>
           <td class="col-meta">${_userName(ev.by)}</td>
         </tr>`;
