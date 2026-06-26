@@ -30,7 +30,7 @@ gop_bp = Blueprint('gop', __name__)
 
 # ── Paths ─────────────────────────────────────────────────────────────────
 _BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
-GOP_DIR    = os.path.join(_BASE_DIR, "gop-results")
+GOP_DIR    = os.path.join(_BASE_DIR, "store/gop-results")
 SPECS_FILE = os.path.join(_BASE_DIR, "specs.json")
 os.makedirs(GOP_DIR, exist_ok=True)
 

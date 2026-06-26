@@ -535,7 +535,7 @@ import threading, uuid, datetime, subprocess, os, json, re, shutil
 _ingest_jobs = {}   # job_id -> { status, started_at, url, output_dir, zip, pdf, log }
 _ingest_lock = threading.Lock()
 
-INGEST_RESULTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ingest-results")
+INGEST_RESULTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "store/ingest-results")
 os.makedirs(INGEST_RESULTS_DIR, exist_ok=True)
 
 
