@@ -7,6 +7,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.19.0] - 2026-06-26
+
+### Changed
+
+- /opt/web/store created and gop-results and ingest-results moved there. The idea is to have a separate storage for these results
+
 ## [3.18.1] - 2026-06-25
 
 ### Added
