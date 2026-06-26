@@ -40,9 +40,9 @@ STAFF_ROLES = {'engineer', 'specialist'}
 VALID_LEAVE_TYPES = {'Annual Leave', 'Parental Leave', 'Marital Leave'}
 
 VALID_TRANSITIONS = {
-    'Pending':            {'Confirmed', 'Rejected'},
+    'Pending':            {'Confirmed', 'Rejected', 'Cancelled'},
     'Confirmed':          {'Withdrawal Pending'},
-    'Withdrawal Pending': {'Withdrawn', 'Withdrawal Rejected'},
+    'Withdrawal Pending': {'Withdrawn', 'Withdrawal Rejected', 'Cancelled'},
 }
 
 def _display_name_from_email(email: str) -> str:
@@ -117,7 +117,7 @@ PUBLIC_HOLIDAYS = {
     date(2026,4,5),  date(2026,4,25), date(2026,5,1),
     date(2026,5,12), date(2026,6,4),  date(2026,6,10),
     date(2026,8,15), date(2026,10,5), date(2026,11,1),
-    date(2026,12,1), date(2026,12,8), date(2026,12,25),
+    date(2026,12,1), date(2026,12,8), date(2026,12,25)
 }
 
 PARENTAL_LEAVE_TYPES = {"Parental Leave"}
@@ -128,7 +128,7 @@ AL_APPROVED_STATUSES = {'Confirmed', 'Withdrawal Pending', 'Withdrawal Rejected'
 # Statuses that show as AL_PENDING overlay on rota
 AL_PENDING_STATUSES  = {'Pending'}
 # Statuses that revert to base shift (no overlay)
-AL_CLEAR_STATUSES    = {'Rejected', 'Withdrawn'}
+AL_CLEAR_STATUSES    = {'Rejected', 'Withdrawn', 'Cancelled'}
 
 def _base_shift(name: str, d: date) -> str:
     delta = (d - ANCHOR_MONDAY).days
@@ -380,9 +380,11 @@ def rota_leave_put(leave_id):
         return jsonify({'ok': False, 'error': f'Cannot transition from {current_status} to {new_status}'}), 400
 
     # Permission checks
-    # Staff can only request withdrawal on their own Confirmed entries
+    # Staff can only: request withdrawal on their own Confirmed entries,
+    # or cancel their own Pending / Withdrawal Pending entries
+    SELF_SERVICE = {'Withdrawal Pending', 'Cancelled'}
     if rota_role != 'management':
-        if new_status != 'Withdrawal Pending':
+        if new_status not in SELF_SERVICE:
             return jsonify({'ok': False, 'error': 'Not authorised'}), 403
         if entry.get('username') != session['username']:
             return jsonify({'ok': False, 'error': 'Not authorised'}), 403
