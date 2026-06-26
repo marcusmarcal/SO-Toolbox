@@ -258,6 +258,8 @@
     .status-badge.Withdrawn           { background: rgba(100,100,100,0.15); color: #aaaaaa; border: 1px solid rgba(100,100,100,0.3); }
     .status-badge.Withdrawal-Pending  { background: rgba(230,168,80,0.15);  color: #e6a850; border: 1px solid rgba(230,168,80,0.3); }
     .status-badge.Withdrawal-Rejected { background: rgba(63,185,80,0.12);   color: #9ee6a6; border: 1px solid rgba(63,185,80,0.2); }
+    .status-badge.Cancelled           { background: rgba(100,100,100,0.15); color: #888888; border: 1px solid rgba(100,100,100,0.25); }
+    .status-badge.muted { opacity: 0.45; }
 
     /* ── DATA TABLE ── */
     .data-table {
@@ -971,14 +973,17 @@
       // History event rows
       const history = e.history || [];
       history.forEach((ev, idx) => {
-        const evClass = ev.status.replace(/\s+/g, '-');
-        const isLast  = idx === history.length - 1;
-        const icon    = isLast ? '└' : '├';
+        const evClass  = ev.status.replace(/\s+/g, '-');
+        const isLast   = idx === history.length - 1;
+        const icon     = isLast ? '└' : '├';
+        const mutedCls = isLast ? '' : ' muted';
         rows += `<tr class="history-event-row">
-          <td><span class="history-chain-icon">${icon}</span>${_fmtDate(ev.at)}</td>
+          <td><span class="history-chain-icon">${icon}</span></td>
           <td></td>
-          <td><span class="status-badge ${evClass}">${ev.status}</span></td>
-          <td class="col-meta" colspan="3">by ${_userName(ev.by)}</td>
+          <td><span class="status-badge ${evClass}${mutedCls}">${ev.status}</span></td>
+          <td class="col-meta">${_fmtDate(ev.at)}</td>
+          <td class="col-meta">${_userName(ev.by)}</td>
+          <td></td>
         </tr>`;
       });
 
@@ -1009,13 +1014,10 @@
     );
     if (!confirmed) return;
 
-    // Cancel pending request → mark as Rejected via PUT
-    // Cancel withdrawal pending → revert to Confirmed via PUT
-    const newStatus = isWithdrawal ? 'Withdrawal Rejected' : 'Rejected';
     const r = await fetch(`${PROXY}/rota/leave/${leaveId}`, {
       method: 'PUT', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: newStatus }),
+      body: JSON.stringify({ status: 'Cancelled' }),
     });
     const d = await r.json();
     if (d.ok) {
@@ -1112,9 +1114,12 @@
             ? `<span class="on-behalf-tag">via ${_userName(e.created_by)}</span>` : '';
           return `
             <div class="approval-row">
-              <span class="approval-dates">${e.date_start} → ${e.date_end}</span>
+              <span class="approval-dates">${e.date_start}</span>
+              <span class="approval-dates">${e.date_end}</span>
+              <span class="approval-meta">${_userName(e.created_by)}</span>
               <span class="approval-type">${e.leave_type}</span>
               <span><span class="status-badge ${statusClass}">${e.status}</span>${onBehalfTag}</span>
+              <span class="sep"></span>
               <div class="approval-actions">
                 ${isWithdrawal ? `
                   <button class="btn approve" onclick="decideLeave('${e.id}','Withdrawn')">✓ Approve Withdrawal</button>
@@ -1124,7 +1129,6 @@
                   <button class="btn reject"  onclick="decideLeave('${e.id}','Rejected')">✗ Reject</button>
                 `}
               </div>
-              <span class="approval-meta">by ${_userName(e.created_by)} · ${_fmtDate(e.created_at)}</span>
             </div>`;
         }).join('')}
       </div>
@@ -1170,13 +1174,16 @@
 
       const history = e.history || [];
       history.forEach((ev, idx) => {
-        const evClass = ev.status.replace(/\s+/g, '-');
-        const icon    = idx === history.length - 1 ? '└' : '├';
+        const evClass  = ev.status.replace(/\s+/g, '-');
+        const isLast   = idx === history.length - 1;
+        const icon     = isLast ? '└' : '├';
+        const mutedCls = isLast ? '' : ' muted';
         rows += `<tr class="history-event-row">
-          <td><span class="history-chain-icon">${icon}</span>${_fmtDate(ev.at)}</td>
+          <td><span class="history-chain-icon">${icon}</span></td>
           <td></td>
-          <td><span class="status-badge ${evClass}">${ev.status}</span></td>
-          <td class="col-meta" colspan="2">by ${_userName(ev.by)}</td>
+          <td><span class="status-badge ${evClass}${mutedCls}">${ev.status}</span></td>
+          <td class="col-meta">${_fmtDate(ev.at)}</td>
+          <td class="col-meta">${_userName(ev.by)}</td>
         </tr>`;
       });
 
