@@ -514,6 +514,7 @@
             <div class="form-group">
               <label for="f-role">Role</label>
               <select id="f-role">
+                <option value="user">user</option>
                 <option value="specialist">specialist</option>
                 <option value="analyst">analyst</option>
                 <option value="engineer">engineer</option>
@@ -613,7 +614,9 @@
 
             // Engineers cannot assign the admin role
             if (d.role === "engineer") {
-              const opt = document.querySelector('#f-role option[value="admin"]');
+              const opt = document.querySelector(
+                '#f-role option[value="admin"]'
+              );
               if (opt) opt.remove();
             }
 
@@ -635,11 +638,11 @@
       // Role display order and group labels
       const ROLE_ORDER = ["admin", "engineer", "specialist", "analyst", "user"];
       const ROLE_LABELS = {
-        admin:      "Admins",
-        engineer:   "Engineers",
+        admin: "Admins",
+        engineer: "Engineers",
         specialist: "Specialists",
-        analyst:    "Analysts",
-        user:       "Users",
+        analyst: "Analysts",
+        user: "Users",
       };
 
       function renderUsers(users) {
@@ -681,7 +684,9 @@
             const delBtn = restricted
               ? `<button class="btn danger" style="font-size:0.58rem;padding:5px 10px;opacity:0.35;cursor:not-allowed" disabled title="Engineers cannot delete admin accounts">✕ Delete</button>`
               : `<button class="btn danger" style="font-size:0.58rem;padding:5px 10px"
-                   onclick="askDelete('${escHtml(u.username)}')">✕ Delete</button>`;
+                   onclick="askDelete('${escHtml(
+                     u.username
+                   )}')">✕ Delete</button>`;
 
             html += `
               <div class="user-row">
@@ -690,7 +695,9 @@
                   <span class="user-role ${u.role}">${escHtml(u.role)}</span>
                 </div>
                 <div></div>
-                <div class="user-created">${u.created_at ? u.created_at.split("T")[0] : "—"}</div>
+                <div class="user-created">${
+                  u.created_at ? u.created_at.split("T")[0] : "—"
+                }</div>
                 <div class="row-actions">${editBtn}${delBtn}</div>
               </div>`;
           }
