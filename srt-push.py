@@ -110,10 +110,12 @@ def start_chromium():
 # FFMPEG (SRT PUSH)
 # ============================================================
 
+# Modifique lá no topo do seu script:
+# FPS = 5
+
 def start_ffmpeg():
     print("[INFO] starting ffmpeg...")
 
-    # Mudança crucial: o -draw_mouse 0 DEVE vir antes do input (-i)
     cmd = [
         FFMPEG_PATH,
         "-f", "x11grab",
@@ -122,15 +124,25 @@ def start_ffmpeg():
         "-framerate", str(FPS),
         "-i", f"{DISPLAY}+0,0",
 
+        # Filtro de pixel format padrão
         "-vf", "format=yuv420p",
 
+        # Encoder de vídeo
         "-c:v", "libx264",
-        "-preset", "veryfast",
-        "-tune", "zerolatency",
+        "-preset", "ultrafast",     # Mudado de 'veryfast' para 'ultrafast' (reduz uso de CPU)
+        "-tune", "stillimage",      # Otimizado para imagens estáticas/dashboards
+        
+        # Otimização de GOP (Group of Pictures)
+        # Força um I-frame a cada 5 segundos (se FPS=5, 5*5 = 25). 
+        # Economiza muita CPU e banda em telas que mudam pouco.
+        "-g", str(FPS * 5), 
+        
+        # Controle de Bitrate
         "-b:v", VIDEO_BITRATE,
         "-maxrate", VIDEO_BITRATE,
         "-bufsize", str(int(int(VIDEO_BITRATE.replace('k','')))*2) + "k",
 
+        # Saída via SRT
         "-f", "mpegts",
         SRT_URL
     ]
