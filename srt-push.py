@@ -121,6 +121,7 @@ def start_chromium():
 def start_ffmpeg():
     print("[INFO] starting ffmpeg...")
 
+    # Mantendo o FPS baixo (ex: 5) configurado no topo do script
     cmd = [
         FFMPEG_PATH,
         "-f", "x11grab",
@@ -129,20 +130,23 @@ def start_ffmpeg():
         "-framerate", str(FPS),
         "-i", f"{DISPLAY}+0,0",
 
-        # Filtro: força drop de frames idênticos antes de codificar
-        "-vf", "mpdecimate,format=yuv420p",
+        # Removemos o mpdecimate. Apenas garantimos o formato de cor correto.
+        "-vf", "format=yuv420p",
 
         "-c:v", "libx264",
         "-preset", "ultrafast",
-        "-tune", "stillimage",
-        "-threads", "2",            # <--- LIMITA A CPU: Não deixa o FFmpeg roubar a máquina inteira
+        "-tune", "zerolatency",       # Voltamos para zerolatency para não segurar buffer local
         
-        "-g", str(FPS * 5), 
-        "-sc_threshold", "0",       # Desativa detecção de mudança de cena (cenas limpas)
-        
+        # --- FORÇAR FLUXO CONSTANTE (CBR) ---
         "-b:v", VIDEO_BITRATE,
         "-maxrate", VIDEO_BITRATE,
-        "-bufsize", str(int(int(VIDEO_BITRATE.replace('k','')))*2) + "k",
+        "-minrate", VIDEO_BITRATE,    # Força o encoder a manter o target mesmo sem movimento
+        "-bufsize", "6000k",          # Buffer fixo para estabilizar o chunk de rede
+        "-nal-hrd", "cbr",            # Diz explicitamente ao x264 para preencher o vazio com "padding"
+        
+        # --- OTIMIZAÇÃO DE ESTRUTURA ---
+        "-g", "25",                   # GOP fixo curto para o SRT sincronizar instantaneamente ao conectar
+        "-threads", "4",              # Subimos para 4 para dar folga sem travar a CPU em 100%
 
         "-f", "mpegts",
         SRT_URL
