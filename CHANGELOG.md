@@ -7,6 +7,14 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.19.1] - 2026-06-26
+
+### Added
+
+- User list now grouped by role with section separators (Admins → Engineers → Specialists → Analysts → Users)
+- Engineers are blocked from editing or deleting admin accounts (UI buttons disabled + backend 403 guard)
+- Engineers cannot assign the admin role when creating or editing users (option removed from dropdown)
+
 ## [3.19.0] - 2026-06-26
 
 ### Changed

@@ -257,6 +257,11 @@ def update_user(username):
     if username not in users:
         return jsonify({'ok': False, 'error': 'User not found'}), 404
 
+    target_role = users[username].get('role', 'user')
+    requester_role = request.session.get('role')
+    if requester_role == 'engineer' and target_role == 'admin':
+        return jsonify({'ok': False, 'error': 'Engineers cannot modify admin accounts'}), 403
+
     data = request.get_json(silent=True) or {}
     role = data.get('role')
     password = data.get('password', '')
@@ -281,6 +286,11 @@ def delete_user(username):
 
     if username not in users:
         return jsonify({'ok': False, 'error': 'User not found'}), 404
+
+    target_role = users[username].get('role', 'user')
+    requester_role = request.session.get('role')
+    if requester_role == 'engineer' and target_role == 'admin':
+        return jsonify({'ok': False, 'error': 'Engineers cannot delete admin accounts'}), 403
 
     del users[username]
     _save_users(users)
