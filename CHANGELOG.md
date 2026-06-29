@@ -7,6 +7,17 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.20.0] - 2026-06-29
+
+### Fixed
+
+- WC2026 Rota: scores were silently discarded by save_assignments endpoint (only saved via the separate scores endpoint on Sync); assignments POST now merges and persists scores alongside assignments, so results survive page reloads for all users
+- WC2026 Rota: openfootball sync failed to match late-night kickoffs (e.g. Brazil vs Haiti, Turkiye vs Paraguay) due to two issues: UTC offset regex did not accept two-digit formats (UTC-04:00), and games with local date differing from BST date were not found in the date-keyed lookup; lookup now also indexes under date+1 to cover BST crossings
+
+### Added
+
+- WC2026 Rota: fourth engineer slot Marcus (code M, purple) added across frontend and backend; filter button, name input, legend badge, row colouring, EPG colour, summary card, auto-assign, CSV import resolver and server persistence all updated
+
 ## [3.19.1] - 2026-06-26
 
 ### Added

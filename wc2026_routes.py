@@ -18,7 +18,7 @@ ASSIGNMENTS_FILE = os.path.join(os.path.dirname(__file__), 'wc2026_assignments.j
 
 _EMPTY = {
     'assignments': {},
-    'engNames': {'N': 'Nuno', 'G': 'Goncalo', 'H': 'Hugo'},
+    'engNames': {'N': 'Nuno', 'G': 'Goncalo', 'H': 'Hugo', 'M': 'Marcus'},
     'updatedBy': None,
     'updatedAt': None,
 }
@@ -52,29 +52,39 @@ def get_assignments():
 @wc2026_bp.route('/assignments', methods=['POST'])
 @require_admin_role
 def save_assignments():
-    """Persist assignments. Admin only."""
+    """Persist assignments, engineer names and scores. Admin only."""
     body = request.get_json(silent=True)
     if not body or 'assignments' not in body:
         return jsonify({'ok': False, 'error': 'Invalid payload'}), 400
 
-    assignments = body.get('assignments', {})
-    eng_names   = body.get('engNames', {})
+    assignments     = body.get('assignments', {})
+    eng_names       = body.get('engNames', {})
+    incoming_scores = body.get('scores', {})
 
     clean_a = {}
     for k, v in assignments.items():
-        if str(k).isdigit() and v in ('N', 'G', 'H', ''):
+        if str(k).isdigit() and v in ('N', 'G', 'H', 'M', ''):
             clean_a[k] = v
 
     clean_n = {}
-    for code in ('N', 'G', 'H'):
+    for code in ('N', 'G', 'H', 'M'):
         raw = str(eng_names.get(code, code))[:40].strip()
         clean_n[code] = raw or code
 
+    # Merge incoming scores onto existing ones (never discard previously synced results)
+    existing = _load()
+    merged_scores = existing.get('scores', {})
+    if isinstance(incoming_scores, dict):
+        merged_scores.update({str(k): v for k, v in incoming_scores.items()})
+
     data = {
-        'assignments': clean_a,
-        'engNames':    clean_n,
-        'updatedBy':   request.session.get('username', '?'),
-        'updatedAt':   datetime.now(timezone.utc).isoformat(),
+        'assignments':     clean_a,
+        'engNames':        clean_n,
+        'scores':          merged_scores,
+        'updatedBy':       request.session.get('username', '?'),
+        'updatedAt':       datetime.now(timezone.utc).isoformat(),
+        'scoresUpdatedAt': existing.get('scoresUpdatedAt'),
+        'scoresUpdatedBy': existing.get('scoresUpdatedBy'),
     }
     _save(data)
     return jsonify({'ok': True, 'updatedBy': data['updatedBy'], 'updatedAt': data['updatedAt']})

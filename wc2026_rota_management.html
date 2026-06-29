@@ -25,12 +25,15 @@
         --cn: #4a9eff;
         --cg: #f5c842;
         --ch: #3dd68c;
+        --cm: #c084fc;
         --cn-bg: #4a9eff14;
         --cg-bg: #f5c84214;
         --ch-bg: #3dd68c14;
+        --cm-bg: #c084fc14;
         --cn-bd: #1e4070;
         --cg-bd: #604800;
         --ch-bd: #0e4830;
+        --cm-bd: #4a1870;
       }
       * {
         box-sizing: border-box;
@@ -211,6 +214,9 @@
       .dhu {
         background: var(--ch);
       }
+      .dm {
+        background: var(--cm);
+      }
 
       /* LEGEND */
       .legend {
@@ -251,6 +257,11 @@
         background: var(--ch-bd);
         color: var(--ch);
         border: 1px solid #107840;
+      }
+      .bM {
+        background: var(--cm-bd);
+        color: var(--cm);
+        border: 1px solid #7030a0;
       }
       .dual-tag {
         background: #3a0808;
@@ -328,6 +339,9 @@
       }
       .fh {
         background: var(--ch);
+      }
+      .fm {
+        background: var(--cm);
       }
 
       /* MAIN */
@@ -446,6 +460,9 @@
       }
       .mr.rH {
         background: #0b1410;
+      }
+      .mr.rM {
+        background: #130a1e;
       }
 
       /* KO time */
@@ -588,6 +605,11 @@
         border-color: var(--ch-bd);
         color: var(--ch);
       }
+      .asel.aM {
+        background: var(--cm-bg);
+        border-color: var(--cm-bd);
+        color: var(--cm);
+      }
 
       /* ── SCORE ── */
       .score-cell {
@@ -705,6 +727,9 @@
       .epg-mb.bH {
         background: var(--ch);
       }
+      .epg-mb.bM {
+        background: var(--cm);
+      }
       .epg-mb.bNone {
         background: #4a5060;
       }
@@ -820,6 +845,7 @@
         <button class="fb" data-f="eng" data-v="N" id="fb-N">Nuno</button>
         <button class="fb" data-f="eng" data-v="G" id="fb-G">Goncalo</button>
         <button class="fb" data-f="eng" data-v="H" id="fb-H">Hugo</button>
+        <button class="fb" data-f="eng" data-v="M" id="fb-M">Marcus</button>
         <button class="fb" data-f="eng" data-v="dual">⚠ Dual</button>
         <button class="fb" data-f="eng" data-v="none">Unassigned</button>
       </div>
@@ -841,6 +867,8 @@
         ><input class="einp" id="e1" value="Goncalo" oninput="onRename()" />
         <span class="dot dhu"></span
         ><input class="einp" id="e2" value="Hugo" oninput="onRename()" />
+        <span class="dot dm"></span
+        ><input class="einp" id="e3" value="Marcus" oninput="onRename()" />
       </div>
     </div>
 
@@ -848,6 +876,7 @@
       <div class="li"><span class="badge bN" id="l0">Nuno</span></div>
       <div class="li"><span class="badge bG" id="l1">Goncalo</span></div>
       <div class="li"><span class="badge bH" id="l2">Hugo</span></div>
+      <div class="li"><span class="badge bM" id="l3">Marcus</span></div>
       <div class="li">
         <span class="dual-tag">⚠ DUAL</span> = day spans &gt;10h effective,
         needs 2 engineers
@@ -2399,7 +2428,7 @@
       });
 
       // ─── STATE ───────────────────────────────────────────────────────────────────
-      const A = {}; // A[id] = 'N'|'G'|'H'|''
+      const A = {}; // A[id] = 'N'|'G'|'H'|'M'|''
       const R = {}; // R[id] = {s1, s2}  — scores from openfootball sync
       let CURRENT_USER = null; // { ok, role, username } from /so-proxy/me
       let SAVE_DEBOUNCE = null;
@@ -2439,7 +2468,7 @@
           ? ""
           : "none";
         // Engineer name inputs
-        ["e0", "e1", "e2"].forEach((id) => {
+        ["e0", "e1", "e2", "e3"].forEach((id) => {
           const el = document.getElementById(id);
           if (el) el.readOnly = !admin;
         });
@@ -2479,6 +2508,7 @@
           if (sn.N) document.getElementById("e0").value = sn.N;
           if (sn.G) document.getElementById("e1").value = sn.G;
           if (sn.H) document.getElementById("e2").value = sn.H;
+          if (sn.M) document.getElementById("e3").value = sn.M;
           // Show last save info
           if (data.updatedBy && data.updatedAt) {
             const dt = new Date(data.updatedAt).toLocaleString("en-GB", {
@@ -2520,6 +2550,7 @@
           N: document.getElementById("e0").value || "Nuno",
           G: document.getElementById("e1").value || "Goncalo",
           H: document.getElementById("e2").value || "Hugo",
+          M: document.getElementById("e3").value || "Marcus",
         };
         try {
           const r = await fetch("/so-proxy/wc2026/assignments", {
@@ -2642,6 +2673,7 @@
         if (n === "nuno") return "N";
         if (n === "goncalo" || n === "gonçalo") return "G";
         if (n === "hugo") return "H";
+        if (n === "marcus") return "M";
         return "";
       }
 
@@ -2673,8 +2705,8 @@
 
       function ename(k) {
         return (
-          document.getElementById("e" + ["N", "G", "H"].indexOf(k)).value ||
-          ["Nuno", "Goncalo", "Hugo"]["NGH".indexOf(k)]
+          document.getElementById("e" + ["N", "G", "H", "M"].indexOf(k)).value ||
+          ["Nuno", "Goncalo", "Hugo", "Marcus"]["NGHM".indexOf(k)]
         );
       }
 
@@ -2752,21 +2784,17 @@
       const TICK_HTML = tickHTML();
 
       function colClass(eng) {
-        return eng === "N"
-          ? "bN"
-          : eng === "G"
-          ? "bG"
-          : eng === "H"
-          ? "bH"
+        return eng === "N" ? "bN"
+          : eng === "G" ? "bG"
+          : eng === "H" ? "bH"
+          : eng === "M" ? "bM"
           : "bNone";
       }
       function engColor(eng) {
-        return eng === "N"
-          ? "var(--cn)"
-          : eng === "G"
-          ? "var(--cg)"
-          : eng === "H"
-          ? "var(--ch)"
+        return eng === "N" ? "var(--cn)"
+          : eng === "G" ? "var(--cg)"
+          : eng === "H" ? "var(--ch)"
+          : eng === "M" ? "var(--cm)"
           : "#4a5060";
       }
 
@@ -2851,9 +2879,9 @@
         // = 1h before KO + 2h match + 1h buffer = 4h per match, but capped by adjacent matches
         // Simpler: compute per-day shift, then distribute hours to engineers proportionally
 
-        const totH = { N: 0, G: 0, H: 0 };
-        const weekH = { N: {}, G: {}, H: {} };
-        const dayCnt = { N: 0, G: 0, H: 0 };
+        const totH = { N: 0, G: 0, H: 0, M: 0 };
+        const weekH = { N: {}, G: {}, H: {}, M: {} };
+        const dayCnt = { N: 0, G: 0, H: 0, M: 0 };
 
         ord.forEach((date) => {
           const dm = g[date];
@@ -2901,35 +2929,26 @@
         });
 
         const maxH = Math.max(1, ...Object.values(totH));
-        const html = ["N", "G", "H"]
-          .map((k, i) => {
+        const ENG_META = [
+          { k: "N", dot: "dn", fill: "fn" },
+          { k: "G", dot: "dg", fill: "fg2" },
+          { k: "H", dot: "dhu", fill: "fh" },
+          { k: "M", dot: "dm", fill: "fm" },
+        ];
+        const html = ENG_META
+          .map(({ k, dot, fill }) => {
             const nm = ename(k);
             const h = totH[k] || 0;
             const weeks = Object.keys(weekH[k] || {});
-            // Average hours per week where they have at least some coverage
             const avgH = weeks.length ? h / weeks.length : 0;
             const pct = ((h / maxH) * 100).toFixed(1);
-            const fcls = ["fn", "fg2", "fh"][i];
             return `<div class="scard">
-      <div class="scname"><span class="dot ${
-        "dndgdh"
-          .split("")
-          .slice(i * 2, i * 2 + 2)
-          .join("")[0] === "d"
-          ? ["dn", "dg", "dhu"][i]
-          : "dn"
-      }"></span>${nm}</div>
-      <div class="hrow"><span>Total shift hrs</span><b>${h.toFixed(
-        1
-      )}h</b></div>
-      <div class="hbar"><div class="hfill ${fcls}" style="width:${pct}%"></div></div>
+      <div class="scname"><span class="dot ${dot}"></span>${nm}</div>
+      <div class="hrow"><span>Total shift hrs</span><b>${h.toFixed(1)}h</b></div>
+      <div class="hbar"><div class="hfill ${fill}" style="width:${pct}%"></div></div>
       <div class="hrow"><span>Active weeks</span><b>${weeks.length}</b></div>
-      <div class="hrow"><span>Avg hrs/active week</span><b>${avgH.toFixed(
-        1
-      )}h</b></div>
-      <div class="hrow"><span>Days with matches</span><b>${
-        dayCnt[k] || 0
-      }</b></div>
+      <div class="hrow"><span>Avg hrs/active week</span><b>${avgH.toFixed(1)}h</b></div>
+      <div class="hrow"><span>Days with matches</span><b>${dayCnt[k] || 0}</b></div>
     </div>`;
           })
           .join("");
@@ -2968,7 +2987,7 @@
       // JSON time format: "HH:MM UTC±N"  → BST = local + (-tz) + 1
       function jBST(timeStr) {
         // e.g. "13:00 UTC-6" → BST
-        const m = timeStr.match(/^(\d+):(\d+)\s*UTC([+-]\d+)/);
+        const m = timeStr.match(/^(\d+):(\d+)\s*UTC([+-]\d{1,2})(?::\d{2})?/);
         if (!m) return null;
         const [, hh, mm, tz] = m;
         const utcMin = parseInt(hh) * 60 + parseInt(mm) - parseInt(tz) * 60;
@@ -3007,11 +3026,19 @@
 
           let updTeams = 0, updScores = 0, matched = 0;
 
-          // Build a lookup: "YYYY-MM-DD|HH:MM" → match entry from JSON
+          // Build a lookup: "YYYY-MM-DD|HH:MM" → match entry from JSON.
+          // Also index under date+1 to catch games where the local date differs
+          // from the BST date (e.g. 21:00 UTC-4 → 02:00 BST next morning).
           const lookup = {};
           (json.matches || []).forEach((jm) => {
             const bst = jBST(jm.time);
-            if (bst) lookup[`${jm.date}|${bst}`] = jm;
+            if (!bst) return;
+            lookup[`${jm.date}|${bst}`] = jm;
+            // Next calendar day alias (only set if not already claimed)
+            const d = new Date(jm.date + 'T12:00:00Z');
+            d.setUTCDate(d.getUTCDate() + 1);
+            const nextDay = d.toISOString().slice(0, 10);
+            if (!lookup[`${nextDay}|${bst}`]) lookup[`${nextDay}|${bst}`] = jm;
           });
 
           M.forEach((m) => {
@@ -3175,6 +3202,9 @@
             <option value="H"${eng === "H" ? " selected" : ""}>${ename(
                   "H"
                 )}</option>
+            <option value="M"${eng === "M" ? " selected" : ""}>${ename(
+                  "M"
+                )}</option>
           </select>
         </td>
         <td style="width:130px;">${buildMiniEpg(m)}</td>
@@ -3284,11 +3314,11 @@
       function autoAssign() {
         // Assign round-robin by day, balancing total hours
         const { g, ord } = groupByDate();
-        const totH = { N: 0, G: 0, H: 0 };
+        const totH = { N: 0, G: 0, H: 0, M: 0 };
         ord.forEach((date) => {
           const dm = g[date];
           // pick eng with least hours
-          const pick = ["N", "G", "H"].reduce((a, b) =>
+          const pick = ["N", "G", "H", "M"].reduce((a, b) =>
             totH[a] <= totH[b] ? a : b
           );
           dm.forEach((m) => {
@@ -3312,15 +3342,18 @@
         document.getElementById("l0").textContent = ename("N");
         document.getElementById("l1").textContent = ename("G");
         document.getElementById("l2").textContent = ename("H");
+        document.getElementById("l3").textContent = ename("M");
         document.getElementById("fb-N").textContent = ename("N");
         document.getElementById("fb-G").textContent = ename("G");
         document.getElementById("fb-H").textContent = ename("H");
+        document.getElementById("fb-M").textContent = ename("M");
         // Update all selects
         document.querySelectorAll(".asel").forEach((s) => {
           const v = s.value;
           s.options[1].textContent = ename("N");
           s.options[2].textContent = ename("G");
           s.options[3].textContent = ename("H");
+          s.options[4].textContent = ename("M");
           s.value = v;
         });
         updateSummary();
