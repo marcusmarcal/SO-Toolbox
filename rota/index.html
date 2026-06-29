@@ -78,7 +78,7 @@
       background: var(--surface); border-bottom: 1px solid var(--border);
     }
     .tab-btn {
-      font-family: var(--mono); font-size: 0.6rem; font-weight: 700;
+      font-family: var(--mono); font-size: 0.72rem; font-weight: 700;
       letter-spacing: 0.1em; text-transform: uppercase;
       padding: 10px 16px; cursor: pointer;
       background: transparent; border: none; color: var(--muted);
@@ -92,7 +92,7 @@
 
     /* ── BUTTONS ── */
     .btn {
-      font-family: var(--mono); font-size: 0.6rem; font-weight: 700;
+      font-family: var(--mono); font-size: 0.72rem; font-weight: 700;
       letter-spacing: 0.07em; padding: 7px 14px; border-radius: 7px;
       border: 1px solid var(--border); cursor: pointer;
       background: var(--card); color: var(--muted); transition: all 0.18s;
@@ -118,12 +118,12 @@
     }
     .toolbar-group { display: flex; align-items: center; gap: 8px; }
     .toolbar-label {
-      font-family: var(--mono); font-size: 0.55rem;
+      font-family: var(--mono); font-size: 0.68rem;
       color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em;
     }
     select.toolbar-select {
       background: var(--card); border: 1px solid var(--border);
-      color: var(--text); font-family: var(--mono); font-size: 0.65rem;
+      color: var(--text); font-family: var(--mono); font-size: 0.75rem;
       padding: 6px 10px; border-radius: 6px; outline: none; cursor: pointer;
       transition: border-color 0.2s;
     }
@@ -131,7 +131,7 @@
     select.toolbar-select option { background: var(--card); }
 
     .team-toggle {
-      font-family: var(--mono); font-size: 0.55rem; font-weight: 700;
+      font-family: var(--mono); font-size: 0.68rem; font-weight: 700;
       padding: 5px 12px; border-radius: 20px; cursor: pointer;
       border: 1px solid transparent; transition: opacity 0.2s;
       letter-spacing: 0.05em; color: #fff;
@@ -204,13 +204,13 @@
     #legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
     .legend-item {
       display: flex; align-items: center; gap: 6px;
-      font-family: var(--mono); font-size: 0.55rem; color: var(--muted);
+      font-family: var(--mono); font-size: 0.68rem; color: var(--muted);
     }
     .legend-swatch { width: 20px; height: 10px; border-radius: 2px; flex-shrink: 0; }
 
     /* ── FORMS ── */
     .section-title {
-      font-family: var(--mono); font-size: 0.6rem;
+      font-family: var(--mono); font-size: 0.72rem;
       letter-spacing: 0.18em; text-transform: uppercase;
       color: var(--muted); margin-bottom: 16px;
     }
@@ -222,12 +222,12 @@
     }
     .form-group { display: flex; flex-direction: column; gap: 6px; }
     .form-group label {
-      font-family: var(--mono); font-size: 0.55rem;
+      font-family: var(--mono); font-size: 0.68rem;
       color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em;
     }
     .form-group input, .form-group select {
       background: var(--card); border: 1px solid var(--border);
-      color: var(--text); font-family: var(--mono); font-size: 0.72rem;
+      color: var(--text); font-family: var(--mono); font-size: 0.82rem;
       padding: 8px 12px; border-radius: 6px; outline: none; transition: border-color 0.2s;
     }
     .form-group input:focus, .form-group select:focus { border-color: var(--accent); }
@@ -239,34 +239,34 @@
       max-width: 520px; margin-bottom: 12px;
     }
     .toggle-btn {
-      font-family: var(--mono); font-size: 0.55rem; font-weight: 700;
+      font-family: var(--mono); font-size: 0.68rem; font-weight: 700;
       padding: 5px 12px; border-radius: 20px; cursor: pointer;
       border: 1px solid var(--border); background: var(--card);
       color: var(--muted); letter-spacing: 0.06em; transition: all 0.2s;
     }
     .toggle-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(161,139,245,0.12); }
-    .toggle-label { font-family: var(--mono); font-size: 0.6rem; color: var(--muted); }
+    .toggle-label { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); }
 
     /* ── STATUS BADGES ── */
     .status-badge {
-      font-family: var(--mono); font-size: 0.52rem; font-weight: 700;
+      font-family: var(--mono); font-size: 0.64rem; font-weight: 700;
       padding: 2px 8px; border-radius: 4px; letter-spacing: 0.06em; white-space: nowrap;
     }
     .status-badge.Pending             { background: rgba(244,143,177,0.15); color: #f48fb1; border: 1px solid rgba(244,143,177,0.3); }
     .status-badge.Confirmed           { background: rgba(63,185,80,0.15);   color: #9ee6a6; border: 1px solid rgba(63,185,80,0.3); }
     .status-badge.Rejected            { background: rgba(255,78,106,0.12);  color: #ffb3be; border: 1px solid rgba(255,78,106,0.3); }
     .status-badge.Withdrawn           { background: rgba(100,100,100,0.15); color: #aaaaaa; border: 1px solid rgba(100,100,100,0.3); }
+    .status-badge.Cancelled           { background: rgba(100,100,100,0.15); color: #888888; border: 1px solid rgba(100,100,100,0.25); }
     .status-badge.Withdrawal-Pending  { background: rgba(230,168,80,0.15);  color: #e6a850; border: 1px solid rgba(230,168,80,0.3); }
     .status-badge.Withdrawal-Rejected { background: rgba(63,185,80,0.12);   color: #9ee6a6; border: 1px solid rgba(63,185,80,0.2); }
-    .status-badge.Cancelled           { background: rgba(100,100,100,0.15); color: #888888; border: 1px solid rgba(100,100,100,0.25); }
-    .status-badge.main  { font-size: 0.58rem; padding: 3px 10px; }
+    .status-badge.main  { font-size: 0.7rem; padding: 3px 10px; }
     .status-badge.muted { opacity: 0.38; }
 
     /* ── COLLAPSE TOGGLE ── */
     .collapse-toggle {
       background: none; border: none; cursor: pointer;
       color: var(--border); font-family: var(--mono); font-size: 0.6rem;
-      padding: 0 4px 0 0; line-height: 1; transition: color 0.15s;
+      padding: 0 6px 0 0; line-height: 1; transition: color 0.15s;
       vertical-align: middle;
     }
     .collapse-toggle:hover { color: var(--muted); }
@@ -275,10 +275,10 @@
     /* ── DATA TABLE ── */
     .data-table {
       width: auto; min-width: 520px; border-collapse: collapse;
-      font-family: var(--mono); font-size: 0.62rem;
+      font-family: var(--mono); font-size: 0.75rem;
     }
     .data-table th {
-      font-size: 0.52rem; color: var(--muted); text-transform: uppercase;
+      font-size: 0.62rem; color: var(--muted); text-transform: uppercase;
       letter-spacing: 0.1em; padding: 6px 20px 6px 10px; text-align: left;
       border-bottom: 1px solid var(--border); font-weight: 700; white-space: nowrap;
     }
@@ -286,12 +286,12 @@
     .data-table tr:last-child td { border-bottom: none; }
     .data-table tr:hover td { background: rgba(255,255,255,0.02); }
     .data-table .col-dates { color: var(--muted); }
-    .data-table .col-meta  { color: var(--muted); font-size: 0.55rem; }
+    .data-table .col-meta  { color: var(--muted); font-size: 0.65rem; }
 
     /* history sub-rows */
     .history-event-row td { padding: 3px 20px 3px 10px; border-bottom: none; }
     .history-event-row:last-child td { border-bottom: 1px solid #252525; }
-    .history-event-row td:first-child { padding-left: 28px; color: var(--muted); font-size: 0.55rem; }
+    .history-event-row td:first-child { padding-left: 28px; color: var(--muted); font-size: 0.65rem; }
     .history-chain-icon { color: var(--border); margin-right: 5px; }
 
     .on-behalf-tag {
@@ -304,7 +304,7 @@
     /* ── APPROVALS ── */
     .approvals-group { margin-bottom: 24px; }
     .approvals-group-header {
-      font-family: var(--mono); font-size: 0.6rem; font-weight: 700;
+      font-family: var(--mono); font-size: 0.72rem; font-weight: 700;
       color: var(--accent); letter-spacing: 0.12em; text-transform: uppercase;
       margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border);
       display: flex; align-items: center; gap: 10px;
@@ -312,12 +312,12 @@
     .approval-row {
       display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
       padding: 9px 0; border-bottom: 1px solid #252525;
-      font-family: var(--mono); font-size: 0.62rem;
+      font-family: var(--mono); font-size: 0.75rem;
     }
     .approval-row:last-child { border-bottom: none; }
-    .approval-dates { white-space: nowrap; color: var(--muted); min-width: 150px; }
+    .approval-dates { white-space: nowrap; color: var(--muted); min-width: 90px; }
     .approval-type  { white-space: nowrap; }
-    .approval-meta  { font-size: 0.55rem; color: var(--muted); flex: 1; }
+    .approval-meta  { font-size: 0.65rem; color: var(--muted); flex: 1; }
     .approval-actions { display: flex; gap: 6px; flex-shrink: 0; }
 
     /* ── HISTORY CONTROLS ── */
@@ -329,7 +329,7 @@
     /* ── LOADING / EMPTY ── */
     .loading-row {
       display: flex; align-items: center; justify-content: center;
-      padding: 40px; font-family: var(--mono); font-size: 0.7rem;
+      padding: 40px; font-family: var(--mono); font-size: 0.8rem;
       color: var(--muted); gap: 10px;
     }
     .spinner {
@@ -340,7 +340,7 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .empty-state {
       padding: 32px; text-align: center;
-      font-family: var(--mono); font-size: 0.7rem; color: var(--muted);
+      font-family: var(--mono); font-size: 0.8rem; color: var(--muted);
     }
 
     /* ── CUSTOM CONFIRM MODAL ── */
@@ -356,12 +356,12 @@
       box-shadow: 0 0 40px rgba(0,0,0,0.7);
     }
     .confirm-title {
-      font-family: var(--mono); font-size: 0.65rem; font-weight: 700;
+      font-family: var(--mono); font-size: 0.75rem; font-weight: 700;
       color: var(--text); text-transform: uppercase; letter-spacing: 0.12em;
       margin-bottom: 12px;
     }
     .confirm-msg {
-      font-family: var(--mono); font-size: 0.7rem; color: var(--muted);
+      font-family: var(--mono); font-size: 0.8rem; color: var(--muted);
       margin-bottom: 20px; line-height: 1.6;
     }
     .confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
@@ -369,7 +369,7 @@
     /* ── TOAST ── */
     #toast {
       position: fixed; bottom: 28px; right: 28px;
-      font-family: var(--mono); font-size: 0.65rem;
+      font-family: var(--mono); font-size: 0.75rem;
       padding: 10px 18px; border-radius: 8px;
       border: 1px solid var(--border); background: var(--surface);
       opacity: 0; transform: translateY(8px);
@@ -381,14 +381,6 @@
     #toast.err { border-color: rgba(255,78,106,0.5); color: #ffb3be; background: rgba(255,78,106,0.08); }
 
     /* ── FEEDBACK ── */
-    #feedback-float {
-      position: fixed; bottom: 28px; left: 28px;
-      font-family: var(--mono); font-size: 0.6rem; font-weight: 700;
-      padding: 8px 16px; border-radius: 20px;
-      background: var(--card); border: 1px solid var(--border);
-      color: var(--muted); cursor: pointer; transition: all 0.2s; z-index: 400;
-    }
-    #feedback-float:hover { border-color: var(--accent); color: var(--accent); }
     #feedback-modal {
       display: none; position: fixed; inset: 0;
       background: rgba(0,0,0,0.65); z-index: 500;
@@ -401,13 +393,13 @@
       box-shadow: 0 0 40px rgba(0,0,0,0.6);
     }
     .modal-title {
-      font-family: var(--mono); font-size: 0.65rem; font-weight: 700;
+      font-family: var(--mono); font-size: 0.75rem; font-weight: 700;
       color: var(--accent); text-transform: uppercase; letter-spacing: 0.12em;
       margin-bottom: 18px;
     }
     .modal-card textarea {
       background: var(--card); border: 1px solid var(--border);
-      color: var(--text); font-family: var(--mono); font-size: 0.7rem;
+      color: var(--text); font-family: var(--mono); font-size: 0.8rem;
       padding: 8px 12px; border-radius: 6px; outline: none; resize: vertical;
       width: 100%; transition: border-color 0.2s;
     }
@@ -425,6 +417,7 @@
     <div id="topbar-user">
       <span id="topbar-name" style="color:var(--accent);font-weight:700;">…</span>
       <span id="topbar-badge" class="team-badge"></span>
+      <button class="btn" id="btn-feedback" style="font-size:0.55rem;padding:4px 10px;">💬 Feedback</button>
       <button class="btn" id="btn-signout" style="font-size:0.55rem;padding:4px 10px;">Sign out</button>
     </div>
   </header>
@@ -514,6 +507,19 @@
       </div>
     </div>
     <button class="btn primary" id="btn-submit-leave">Submit Request</button>
+    <div id="leave-blocker-note" style="display:none;margin-top:10px;font-family:var(--mono);font-size:0.72rem;color:#e6a850;"></div>
+    <div id="config-row" style="display:none;margin-top:10px;display:none;align-items:center;gap:12px;flex-wrap:wrap;">
+      <span style="font-family:var(--mono);font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;">Next-year AL opens:</span>
+      <span id="config-open-date" style="font-family:var(--mono);font-size:0.75rem;color:var(--text);"></span>
+      <button class="btn" id="btn-edit-config" style="font-size:0.65rem;padding:4px 10px;">✎ Edit</button>
+      <span id="config-edit-row" style="display:none;align-items:center;gap:8px;">
+        <input type="text" id="config-open-input" placeholder="MM-DD" maxlength="5"
+          style="width:80px;background:var(--card);border:1px solid var(--border);color:var(--text);
+                 font-family:var(--mono);font-size:0.75rem;padding:4px 8px;border-radius:6px;outline:none;" />
+        <button class="btn primary" id="btn-save-config" style="font-size:0.65rem;padding:4px 10px;">Save</button>
+        <button class="btn" id="btn-cancel-config" style="font-size:0.65rem;padding:4px 10px;">Cancel</button>
+      </span>
+    </div>
     <hr class="section-divider" />
     <p class="section-title">My Leave History</p>
     <div id="my-leave-wrap">
@@ -564,8 +570,7 @@
     </div>
   </div>
 
-  <!-- ── FEEDBACK ── -->
-  <button id="feedback-float">💬 Feedback</button>
+  <!-- ── FEEDBACK MODAL ── -->
   <div id="feedback-modal">
     <div class="modal-card">
       <div class="modal-title">Send Feedback</div>
@@ -627,6 +632,7 @@
     me:          null,
     rotaData:    null,
     allUsers:    {},
+    config:      null,
     teamFilters: { Management: true, Engineering: true, Specialists: true },
     viewMode:    'published',
     dateFrom:    null,
@@ -905,12 +911,57 @@
         sel.disabled       = !state.onBehalf;
         if (!state.onBehalf) sel.value = '';
       });
+
+      // Config row — management only
+      loadConfig();
+      document.getElementById('btn-edit-config').addEventListener('click', () => {
+        document.getElementById('config-edit-row').style.display = 'flex';
+        document.getElementById('config-open-input').value = state.config?.next_year_open_from || '11-01';
+      });
+      document.getElementById('btn-cancel-config').addEventListener('click', () => {
+        document.getElementById('config-edit-row').style.display = 'none';
+      });
+      document.getElementById('btn-save-config').addEventListener('click', saveConfig);
     }
 
     document.getElementById('btn-submit-leave').addEventListener('click', submitLeave);
   }
 
-  async function submitLeave() {
+  async function loadConfig() {
+    try {
+      const r = await fetch(`${PROXY}/rota/config`, { credentials: 'same-origin' });
+      const d = await r.json();
+      if (d.ok) {
+        state.config = d.config;
+        const [mm, dd] = d.config.next_year_open_from.split('-');
+        const label = `${dd}-${mm} (dd-mm) each year`;
+        document.getElementById('config-open-date').textContent = label;
+        document.getElementById('config-row').style.display = 'flex';
+      }
+    } catch(e) { console.error('Config load failed', e); }
+  }
+
+  async function saveConfig() {
+    const val = document.getElementById('config-open-input').value.trim();
+    if (!/^\d{2}-\d{2}$/.test(val)) { toast('Format must be MM-DD', 'err'); return; }
+    const r = await fetch(`${PROXY}/rota/config`, {
+      method: 'PUT', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ next_year_open_from: val }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      state.config = d.config;
+      const [mm, dd] = val.split('-');
+      document.getElementById('config-open-date').textContent = `${dd}-${mm} (dd-mm) each year`;
+      document.getElementById('config-edit-row').style.display = 'none';
+      toast('Saved', 'ok');
+    } else {
+      toast(d.error || 'Failed', 'err');
+    }
+  }
+
+  async function submitLeave(bypassBlocker = false) {
     const dateStart  = document.getElementById('leave-from').value;
     const dateEnd    = document.getElementById('leave-to').value;
     const leaveType  = document.getElementById('leave-type').value;
@@ -921,7 +972,11 @@
     if (dateEnd < dateStart)     { toast('End date must be after start', 'err'); return; }
     if (onBehalf && !targetUser) { toast('Select a user for on-behalf request', 'err'); return; }
 
-    const body = { date_start: dateStart, date_end: dateEnd, leave_type: leaveType, on_behalf: onBehalf };
+    const body = {
+      date_start: dateStart, date_end: dateEnd,
+      leave_type: leaveType, on_behalf: onBehalf,
+      bypass_blocker: bypassBlocker,
+    };
     if (onBehalf) body.target_username = targetUser;
 
     const r = await fetch(`${PROXY}/rota/leave`, {
@@ -931,9 +986,17 @@
     });
     const d = await r.json();
     if (d.ok) {
+      document.getElementById('leave-blocker-note').style.display = 'none';
       toast('Request submitted', 'ok');
       loadMyLeave();
       state.rotaData = null; loadRota();
+    } else if (d.blocked && state.me?.rota_role === 'management') {
+      // Management can bypass — show inline option
+      const note = document.getElementById('leave-blocker-note');
+      note.style.display = 'block';
+      note.innerHTML = `⚠ ${d.error}. &nbsp;
+        <button class="btn warn" style="font-size:0.65rem;padding:3px 10px;"
+          onclick="submitLeave(true)">Submit anyway</button>`;
     } else {
       toast(d.error || 'Failed to submit', 'err');
     }
@@ -954,8 +1017,19 @@
       return;
     }
 
-    // Newest request first
-    const sorted = [...d.leave].sort((a, b) =>
+    // Staff: exclude on-behalf entries (those are management-submitted for others)
+    const isManagement = state.me && state.me.rota_role === 'management';
+    const entries = isManagement
+      ? d.leave
+      : d.leave.filter(e => !e.on_behalf);
+
+    if (!entries.length) {
+      wrap.innerHTML = '<div class="empty-state">No leave requests yet.</div>';
+      return;
+    }
+
+    // Newest first
+    const sorted = [...entries].sort((a, b) =>
       (b.created_at || '').localeCompare(a.created_at || '')
     );
 
@@ -971,18 +1045,17 @@
         actionBtn = `<button class="btn cancel-req" onclick="event.stopPropagation();cancelRequest('${e.id}','${e.status}')">${label}</button>`;
       }
       if (e.status === 'Confirmed') {
-        actionBtn = `<button class="btn warn" style="font-size:0.52rem;padding:3px 8px;"
+        actionBtn = `<button class="btn warn" style="font-size:0.7rem;padding:3px 10px;"
                        onclick="event.stopPropagation();withdrawLeave('${e.id}')">↩ Withdraw</button>`;
       }
 
-      const rowId = 'hist-' + e.id;
+      const rowId      = 'hist-' + e.id;
       const hasHistory = (e.history || []).length > 0;
 
-      // Main row — badge always full brightness + slightly larger
       let rows = `<tr class="history-parent" onclick="${hasHistory ? `toggleHistory('${rowId}')` : ''}">
         <td class="col-dates">
-          ${hasHistory ? `<button class="collapse-toggle" id="tog-${rowId}" aria-label="expand">▶</button>` : '<span style="display:inline-block;width:16px;"></span>'}
-          ${e.date_start} → ${e.date_end}
+          ${hasHistory ? `<button class="collapse-toggle" id="tog-${rowId}">▶</button>` : '<span style="display:inline-block;width:18px;"></span>'}
+          ${_fmtDateShort(e.date_start)} → ${_fmtDateShort(e.date_end)}
         </td>
         <td>${e.leave_type}</td>
         <td><span class="status-badge main ${statusClass}">${e.status}</span>${onBehalfTag}</td>
@@ -991,12 +1064,10 @@
         <td>${actionBtn}</td>
       </tr>`;
 
-      // History sub-rows — newest first, all muted, hidden by default
       const history = [...(e.history || [])].reverse();
       history.forEach((ev, idx) => {
         const evClass = ev.status.replace(/\s+/g, '-');
-        const isLast  = idx === history.length - 1;
-        const icon    = isLast ? '└' : '├';
+        const icon    = idx === history.length - 1 ? '└' : '├';
         rows += `<tr class="history-event-row" data-group="${rowId}" style="display:none;">
           <td><span class="history-chain-icon">${icon}</span></td>
           <td></td>
@@ -1023,8 +1094,8 @@
   }
 
   function toggleHistory(rowId) {
-    const rows = document.querySelectorAll(`tr[data-group="${rowId}"]`);
-    const tog  = document.getElementById('tog-' + rowId);
+    const rows  = document.querySelectorAll(`tr[data-group="${rowId}"]`);
+    const tog   = document.getElementById('tog-' + rowId);
     const isOpen = tog && tog.textContent === '▼';
     rows.forEach(r => r.style.display = isOpen ? 'none' : '');
     if (tog) tog.textContent = isOpen ? '▶' : '▼';
@@ -1133,7 +1204,7 @@
       <div class="approvals-group">
         <div class="approvals-group-header">
           ${name}
-          <span style="font-size:0.5rem;color:var(--muted);font-weight:400;">${entries.length} pending</span>
+          <span style="font-size:0.62rem;color:var(--muted);font-weight:400;">${entries.length} pending</span>
         </div>
         ${entries.map(e => {
           const isWithdrawal = e.status === 'Withdrawal Pending';
@@ -1142,9 +1213,13 @@
             ? `<span class="on-behalf-tag">via ${_userName(e.created_by)}</span>` : '';
           return `
             <div class="approval-row">
-              <span class="approval-dates">${e.date_start} → ${e.date_end}</span>
+              <span class="approval-dates">${_fmtDateShort(e.date_start)}</span>
+              <span style="color:var(--muted);font-family:var(--mono);font-size:0.72rem;">→</span>
+              <span class="approval-dates">${_fmtDateShort(e.date_end)}</span>
+              <span class="approval-meta">${_userName(e.created_by)}</span>
               <span class="approval-type">${e.leave_type}</span>
               <span><span class="status-badge ${statusClass}">${e.status}</span>${onBehalfTag}</span>
+              <span class="sep"></span>
               <div class="approval-actions">
                 ${isWithdrawal ? `
                   <button class="btn approve" onclick="decideLeave('${e.id}','Withdrawn')">✓ Approve Withdrawal</button>
@@ -1154,7 +1229,6 @@
                   <button class="btn reject"  onclick="decideLeave('${e.id}','Rejected')">✗ Reject</button>
                 `}
               </div>
-              <span class="approval-meta">by ${_userName(e.created_by)} · ${_fmtDate(e.created_at)}</span>
             </div>`;
         }).join('')}
       </div>
@@ -1193,13 +1267,13 @@
       const onBehalfTag = e.on_behalf
         ? `<span class="on-behalf-tag">via ${_userName(e.created_by)}</span>` : '';
 
-      const rowId = 'ahist-' + e.id;
+      const rowId      = 'ahist-' + e.id;
       const hasHistory = (e.history || []).length > 0;
 
       let rows = `<tr class="history-parent" onclick="${hasHistory ? `toggleHistory('${rowId}')` : ''}">
         <td class="col-dates">
-          ${hasHistory ? `<button class="collapse-toggle" id="tog-${rowId}" aria-label="expand">▶</button>` : '<span style="display:inline-block;width:16px;"></span>'}
-          ${e.date_start} → ${e.date_end}
+          ${hasHistory ? `<button class="collapse-toggle" id="tog-${rowId}">▶</button>` : '<span style="display:inline-block;width:18px;"></span>'}
+          ${_fmtDateShort(e.date_start)} → ${_fmtDateShort(e.date_end)}
         </td>
         <td>${e.leave_type}</td>
         <td><span class="status-badge main ${statusClass}">${e.status}</span>${onBehalfTag}</td>
@@ -1210,8 +1284,7 @@
       const history = [...(e.history || [])].reverse();
       history.forEach((ev, idx) => {
         const evClass = ev.status.replace(/\s+/g, '-');
-        const isLast  = idx === history.length - 1;
-        const icon    = isLast ? '└' : '├';
+        const icon    = idx === history.length - 1 ? '└' : '├';
         rows += `<tr class="history-event-row" data-group="${rowId}" style="display:none;">
           <td><span class="history-chain-icon">${icon}</span></td>
           <td></td>
@@ -1292,7 +1365,7 @@
   //  FEEDBACK
   // ════════════════════════════════════════════════════════════════
   function setupFeedback() {
-    document.getElementById('feedback-float').addEventListener('click', () => {
+    document.getElementById('btn-feedback').addEventListener('click', () => {
       document.getElementById('feedback-modal').classList.add('open');
     });
     document.getElementById('fb-cancel').addEventListener('click', () => {
@@ -1353,11 +1426,22 @@
   function _fmtDate(iso) {
     if (!iso) return '—';
     try {
-      return new Date(iso).toLocaleDateString('en-GB', {
-        day:'2-digit', month:'2-digit', year:'numeric',
-        hour:'2-digit', minute:'2-digit'
-      });
+      const d = new Date(iso);
+      const dd  = String(d.getDate()).padStart(2, '0');
+      const mm  = String(d.getMonth() + 1).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      const hh  = String(d.getHours()).padStart(2, '0');
+      const min = String(d.getMinutes()).padStart(2, '0');
+      return `${dd}-${mm}-${yyyy} ${hh}:${min}`;
     } catch { return iso; }
+  }
+
+  function _fmtDateShort(isoDate) {
+    // Converts "2026-07-04" → "04-07-2026"
+    if (!isoDate) return '—';
+    const [y, m, d] = isoDate.split('-');
+    if (!y || !m || !d) return isoDate;
+    return `${d}-${m}-${y}`;
   }
 
   let _tt;

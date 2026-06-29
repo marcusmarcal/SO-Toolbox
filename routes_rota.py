@@ -117,7 +117,7 @@ PUBLIC_HOLIDAYS = {
     date(2026,4,5),  date(2026,4,25), date(2026,5,1),
     date(2026,5,12), date(2026,6,4),  date(2026,6,10),
     date(2026,8,15), date(2026,10,5), date(2026,11,1),
-    date(2026,12,1), date(2026,12,8), date(2026,12,25)
+    date(2026,12,1), date(2026,12,8), date(2026,12,25),
 }
 
 PARENTAL_LEAVE_TYPES = {"Parental Leave"}
@@ -314,6 +314,31 @@ def rota_leave_post():
     if date_end < date_start:
         return jsonify({'ok': False, 'error': 'End date before start date'}), 400
 
+    # ── Next-year AL blocker ──────────────────────────────────────────────
+    bypass = bool(data.get('bypass_blocker', False))
+    if not bypass:
+        cfg        = _load_config()
+        today      = date.today()
+        next_year  = today.year + 1
+        try:
+            mm, dd     = cfg['next_year_open_from'].split('-')
+            open_date  = date(today.year, int(mm), int(dd))
+        except (ValueError, KeyError):
+            open_date  = date(today.year, 11, 1)
+
+        try:
+            ds = date.fromisoformat(date_start)
+        except ValueError:
+            ds = None
+
+        if ds and ds.year == next_year and today < open_date:
+            return jsonify({
+                'ok':    False,
+                'error': f'Leave requests for {next_year} open on {open_date.strftime("%d-%m-%Y")}',
+                'blocked': True,
+                'open_date': open_date.isoformat(),
+            }), 400
+
     # On-behalf only allowed for management
     if on_behalf:
         if rota_role != 'management':
@@ -403,6 +428,47 @@ def rota_leave_put(leave_id):
     leave_list[idx] = entry
     _save_json(LEAVE_FILE, leave_list)
     return jsonify({'ok': True})
+
+
+
+# ── Config ────────────────────────────────────────────────────────────────
+CONFIG_FILE = os.path.join(ROTA_DIR, 'config.json')
+
+DEFAULT_CONFIG = {
+    'next_year_open_from': '11-01',   # MM-DD, day next-year AL unlocks
+}
+
+def _load_config() -> dict:
+    cfg = _load_json(CONFIG_FILE)
+    if not isinstance(cfg, dict):
+        cfg = {}
+    return {**DEFAULT_CONFIG, **cfg}
+
+
+@rota_bp.route('/rota/config', methods=['GET'])
+@require_auth
+def rota_config_get():
+    return jsonify({'ok': True, 'config': _load_config()})
+
+
+@rota_bp.route('/rota/config', methods=['PUT'])
+@require_auth
+def rota_config_put():
+    if _get_rota_role(request.session) != 'management':
+        return jsonify({'ok': False, 'error': 'Not authorised'}), 403
+    data = request.get_json(silent=True) or {}
+    cfg  = _load_config()
+    # Only allow known keys
+    if 'next_year_open_from' in data:
+        val = data['next_year_open_from'].strip()
+        # Validate MM-DD format
+        try:
+            datetime.datetime.strptime(val, '%m-%d')
+        except ValueError:
+            return jsonify({'ok': False, 'error': 'Invalid date format, use MM-DD'}), 400
+        cfg['next_year_open_from'] = val
+    _save_json(CONFIG_FILE, cfg)
+    return jsonify({'ok': True, 'config': cfg})
 
 
 def register_routes(app) -> None:
