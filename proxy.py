@@ -16,7 +16,8 @@ app.register_blueprint(id3as_bp)
 from rts_routes import rts_bp
 app.register_blueprint(rts_bp)
 
-from router_srt import srt_bp
+
+from routes_srt import srt_bp
 app.register_blueprint(srt_bp)
 
 from wc2026_routes import wc2026_bp
@@ -535,7 +536,7 @@ import threading, uuid, datetime, subprocess, os, json, re, shutil
 _ingest_jobs = {}   # job_id -> { status, started_at, url, output_dir, zip, pdf, log }
 _ingest_lock = threading.Lock()
 
-INGEST_RESULTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ingest-results")
+INGEST_RESULTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "store/ingest-results")
 os.makedirs(INGEST_RESULTS_DIR, exist_ok=True)
 
 
@@ -892,7 +893,7 @@ def server_stats():
 
         # Disk usage
         disk_result = subprocess.run(
-            ["df", "-B1", "/"],
+            ["df", "-B1", "/opt/web/store"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=5

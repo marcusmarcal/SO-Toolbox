@@ -236,16 +236,41 @@
         border-radius: 4px;
         letter-spacing: 0.06em;
       }
-      .user-role.admin {
-        background: rgba(161, 139, 245, 0.15);
-        color: var(--accent);
-        border: 1px solid rgba(161, 139, 245, 0.3);
-      }
+      /* USER (já tinhas) */
       .user-role.user {
         background: rgba(250, 165, 26, 0.12);
         color: #fcc97a;
         border: 1px solid rgba(250, 165, 26, 0.25);
       }
+
+      /* ADMIN (já tinhas - ligeiramente reforçado) */
+      .user-role.admin {
+        background: rgba(161, 139, 245, 0.15);
+        color: var(--accent);
+        border: 1px solid rgba(161, 139, 245, 0.35);
+      }
+
+      /* ENGINEER → verde (infra / ops vibe) */
+      .user-role.engineer {
+        background: rgba(63, 185, 80, 0.12);
+        color: #9ee6a6;
+        border: 1px solid rgba(63, 185, 80, 0.28);
+      }
+
+      /* ANALYST → azul (data / analytics) */
+      .user-role.analyst {
+        background: rgba(56, 189, 248, 0.12);
+        color: #7dd3fc;
+        border: 1px solid rgba(56, 189, 248, 0.28);
+      }
+
+      /* SPECIALIST → amber (expert / niche skill) */
+      .user-role.specialist {
+        background: rgba(250, 204, 21, 0.12);
+        color: #fde68a;
+        border: 1px solid rgba(250, 204, 21, 0.28);
+      }
+
       .user-created {
         font-family: var(--mono);
         font-size: 0.6rem;
@@ -490,6 +515,9 @@
               <label for="f-role">Role</label>
               <select id="f-role">
                 <option value="user">user</option>
+                <option value="specialist">specialist</option>
+                <option value="analyst">analyst</option>
+                <option value="engineer">engineer</option>
                 <option value="admin">admin</option>
               </select>
             </div>
@@ -560,6 +588,7 @@
       const PROXY = "/so-proxy";
       let editingUser = null;
       let pendingDelete = null;
+      let myRole = null; // set after /me resolves
 
       // ── Session init ────────────────────────────────────────────────
       (function initSession() {
@@ -573,11 +602,24 @@
             document.getElementById("session-username").textContent =
               d.username;
             sessionStorage.setItem("sotb-user", d.username);
-            if (d.role !== "admin") {
+            myRole = d.role;
+
+            const allowedRoles = ["admin", "engineer"];
+
+            if (!d.role || !allowedRoles.includes(d.role)) {
               document.getElementById("main-content").innerHTML =
-                '<div style="padding:3rem;text-align:center;font-family:var(--mono);font-size:0.75rem;color:var(--danger)">⛔ Admin role required to manage users.</div>';
+                '<div style="padding:3rem;text-align:center;font-family:var(--mono);font-size:0.75rem;color:var(--danger)">⛔ Admin or Engineer role required to manage users.</div>';
               return;
             }
+
+            // Engineers cannot assign the admin role
+            if (d.role === "engineer") {
+              const opt = document.querySelector(
+                '#f-role option[value="admin"]'
+              );
+              if (opt) opt.remove();
+            }
+
             loadUsers();
           })
           .catch(() => {
@@ -593,6 +635,16 @@
           .catch(() => toast("Failed to load users", "err"));
       }
 
+      // Role display order and group labels
+      const ROLE_ORDER = ["admin", "engineer", "specialist", "analyst", "user"];
+      const ROLE_LABELS = {
+        admin: "Admins",
+        engineer: "Engineers",
+        specialist: "Specialists",
+        analyst: "Analysts",
+        user: "Users",
+      };
+
       function renderUsers(users) {
         const el = document.getElementById("user-rows");
         if (!users.length) {
@@ -600,29 +652,58 @@
             '<div class="empty-state">No users yet — create one below</div>';
           return;
         }
-        el.innerHTML = users
-          .map(
-            (u) => `
-      <div class="user-row">
-        <div class="user-name">
-          ${escHtml(u.username)}
-          <span class="user-role ${u.role}">${escHtml(u.role)}</span>
-        </div>
-        <div></div>
-        <div class="user-created">${
-          u.created_at ? u.created_at.split("T")[0] : "—"
-        }</div>
-        <div class="row-actions">
-          <button class="btn" style="font-size:0.58rem;padding:5px 10px"
-            data-user='${escAttr(JSON.stringify(u))}'
-            onclick="editUser(this.dataset.user)">✎ Edit</button>
-          <button class="btn danger" style="font-size:0.58rem;padding:5px 10px"
-            onclick="askDelete('${escHtml(u.username)}')">✕ Delete</button>
-        </div>
-      </div>
-    `
-          )
-          .join("");
+
+        // Group by role
+        const groups = {};
+        for (const u of users) {
+          const r = u.role || "user";
+          (groups[r] = groups[r] || []).push(u);
+        }
+
+        let html = "";
+        for (const role of ROLE_ORDER) {
+          const members = groups[role];
+          if (!members || !members.length) continue;
+
+          // Group separator row
+          html += `
+            <div class="user-row" style="background:rgba(255,255,255,0.025);padding:7px 20px;border-bottom:1px solid var(--border)">
+              <div style="font-family:var(--mono);font-size:0.52rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);grid-column:1/-1">
+                ${ROLE_LABELS[role] || role}
+              </div>
+            </div>`;
+
+          for (const u of members) {
+            // Engineers cannot edit or delete admins
+            const restricted = myRole === "engineer" && u.role === "admin";
+            const editBtn = restricted
+              ? `<button class="btn" style="font-size:0.58rem;padding:5px 10px;opacity:0.35;cursor:not-allowed" disabled title="Engineers cannot edit admin accounts">✎ Edit</button>`
+              : `<button class="btn" style="font-size:0.58rem;padding:5px 10px"
+                   data-user='${escAttr(JSON.stringify(u))}'
+                   onclick="editUser(this.dataset.user)">✎ Edit</button>`;
+            const delBtn = restricted
+              ? `<button class="btn danger" style="font-size:0.58rem;padding:5px 10px;opacity:0.35;cursor:not-allowed" disabled title="Engineers cannot delete admin accounts">✕ Delete</button>`
+              : `<button class="btn danger" style="font-size:0.58rem;padding:5px 10px"
+                   onclick="askDelete('${escHtml(
+                     u.username
+                   )}')">✕ Delete</button>`;
+
+            html += `
+              <div class="user-row">
+                <div class="user-name">
+                  ${escHtml(u.username)}
+                  <span class="user-role ${u.role}">${escHtml(u.role)}</span>
+                </div>
+                <div></div>
+                <div class="user-created">${
+                  u.created_at ? u.created_at.split("T")[0] : "—"
+                }</div>
+                <div class="row-actions">${editBtn}${delBtn}</div>
+              </div>`;
+          }
+        }
+
+        el.innerHTML = html;
       }
 
       // ── Create / Edit ───────────────────────────────────────────────

@@ -13,12 +13,188 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Rota started
 
+## [3.19.1] - 2026-06-26
+
+### Added
+
+- User list now grouped by role with section separators (Admins → Engineers → Specialists → Analysts → Users)
+- Engineers are blocked from editing or deleting admin accounts (UI buttons disabled + backend 403 guard)
+- Engineers cannot assign the admin role when creating or editing users (option removed from dropdown)
+
+## [3.19.0] - 2026-06-26
+
+### Changed
+
+- /opt/web/store created and gop-results and ingest-results moved there. The idea is to have a separate storage for these results
+
+## [3.18.1] - 2026-06-25
+
+### Added
+
+- Specs Editor now has its own workflow dropdown, independent of the workflow selector on the test page; switching workflow inside the editor loads the corresponding specs without affecting the active test configuration
+- "★ Set as API default" button in the Specs Editor footer (admin/engineer only); sets the workflow used by the API when no workflow is specified in the request
+- `GET /gop/workflows` now returns `{ labels: {…}, default: "…" }` so the frontend always knows which workflow is the current API default
+- `POST /gop/workflows/default` endpoint to persist the API default workflow to `workflow_default.json` (admin/engineer only)
+- `_effective_default_workflow()` helper in backend; all routes that previously fell back to the hard-coded `DEFAULT_WORKFLOW` constant now read the persisted value instead
+- "Accept any GOP size" checkbox in the Specs Editor for the GOP Size row; when enabled, any measured GOP size returns ACCEPTED regardless of configured values or tolerance
+- Re-evaluate (⇄) button on each history entry: opens a modal to select a target workflow and shows a read-only re-evaluated report without modifying the stored result (`GET /gop/reeval/<file>?workflow=<wf>`)
+- Change Workflow (🔀) button on each history entry (admin/engineer only): permanently re-assigns the workflow, re-runs compliance, and appends an entry to `workflow_change_log` in the result JSON (`PATCH /gop/result/<file>/workflow`)
+- After a workflow change the updated compliance result is rendered immediately from the PATCH response, without a second round-trip
+- Workflow badge (📋) added to the test meta-bar on the main page; shows the workflow used for the loaded result, or `⇄ <label>` in cyan when showing a re-evaluated report
+- Re-evaluated report shows `⇄ <workflow> (re-evaluated)` in the Workflow field of both the visual and text report tabs
+- Specs save and workflow rename now record `_meta.saved_by` / `_meta.saved_at` in the specs JSON; the Specs Editor footer displays who last saved and when
+- Role-based authorisation for all write operations in the Specs Editor (save, rename, reset, set default): replaced admin password with `/so-proxy/me` role check; requires `admin` or `engineer` role
+- `GET /gop/specs` includes `_meta` in the response when specs have been saved at least once
+- `POST /gop/specs` stamps `_meta` server-side and returns HTTP 403 if the caller's role is not `admin` or `engineer`
+
+### Changed
+
+- Workflow selection is no longer persisted in `localStorage`; the page always starts on the current API default workflow
+- GOP Type spec changed from a single `required` field to the standard `values` + `preferred` model: CLOSED returns COMPLIANT, OPEN returns ACCEPTED; the Specs Editor renders a dropdown for the Preferred column
+- B-Frames spec changed to the same `values` + `preferred` model: absent returns COMPLIANT, present returns ACCEPTED; the Specs Editor renders a dropdown for the Preferred column
+- Specs Editor preferred column now renders as a `&lt;select&gt;` for any spec whose allowed values are a short fixed list of strings (less than or equal to 4 items), instead of a free-text input
+- Frame Rate compliance row appends `[accepted: 50p @ 720p]` to the measured value in both visual and text reports when 50p is accepted due to 720p resolution
+- GOP Type and B-Frames spec descriptions updated in visual and text report tabs to reflect the preferred/accepted model
+- `PATCH /gop/result/<file>/workflow` now returns the full updated result object in addition to `overall_status`, eliminating the need for a follow-up GET
+
+### Fixed
+
+- Specs Editor no longer reads or writes `localStorage`; re-opening the tool always reflects the API default instead of the last manually selected workflow
+- `gop_type` and `b_frames` compliance now goes through the shared `comply_enum_multi` function, removing ~30 lines of duplicate custom logic
+- Re-evaluate modal now populates the workflow list from `WORKFLOW_LABELS` at open time, ensuring new or renamed workflows appear correctly
+
+## [3.18.1] - 2026-06-25
+
+### Added
+
+- Specs Editor now has its own workflow dropdown, independent of the workflow
+  selector on the test page; switching workflow inside the editor loads the
+  corresponding specs without affecting the active test configuration
+- "Set as API default" button in the Specs Editor footer (admin/engineer only);
+  sets the workflow used by the API when no workflow is specified in the request
+- GET /gop/workflows now returns labels and default workflow key so the frontend
+  always knows which workflow is the current API default
+- POST /gop/workflows/default endpoint to persist the API default workflow to
+  workflow_default.json (admin/engineer only)
+- \_effective_default_workflow() helper in backend; all routes that previously
+  fell back to the hard-coded DEFAULT_WORKFLOW constant now read the persisted
+  value instead
+- "Accept any GOP size" checkbox in the Specs Editor for the GOP Size row; when
+  enabled, any measured GOP size returns ACCEPTED regardless of configured values
+  or tolerance
+- Re-evaluate button on each history entry: opens a modal to select a target
+  workflow and shows a read-only re-evaluated report without modifying the stored
+  result (GET /gop/reeval/file?workflow=wf)
+- Change Workflow button on each history entry (admin/engineer only):
+  permanently re-assigns the workflow, re-runs compliance, and appends an entry
+  to workflow_change_log in the result JSON (PATCH /gop/result/file/workflow)
+- After a workflow change the updated compliance result is rendered immediately
+  from the PATCH response, without a second round-trip
+- Workflow badge added to the test meta-bar on the main page; shows the workflow
+  used for the loaded result, or the re-evaluated workflow label in cyan when
+  showing a re-evaluated report
+- Re-evaluated report shows the target workflow label in the Workflow field of
+  both the visual and text report tabs, marked as re-evaluated
+- Specs save and workflow rename now record saved_by and saved_at in the specs
+  JSON; the Specs Editor footer displays who last saved and when
+- Role-based authorisation for all write operations in the Specs Editor (save,
+  rename, reset, set default): replaced admin password with /so-proxy/me role
+  check; requires admin or engineer role
+- GET /gop/specs includes \_meta in the response when specs have been saved at
+  least once
+- POST /gop/specs stamps \_meta server-side and returns HTTP 403 if the caller's
+  role is not admin or engineer
+
+### Changed
+
+- Workflow selection is no longer persisted in localStorage; the page always
+  starts on the current API default workflow
+- GOP Type spec changed from a single required field to the standard
+  values + preferred model: CLOSED returns COMPLIANT, OPEN returns ACCEPTED;
+  the Specs Editor renders a dr0pdown for the Preferred column
+- B-Frames spec changed to the same values + preferred model: absent returns
+  COMPLIANT, present returns ACCEPTED; the Specs Editor renders a dropdown for
+  the Preferred column
+- Specs Editor preferred column now renders as a dr0pdown for any spec whose
+  allowed values are a short fixed list of strings (4 items or fewer), instead
+  of a free-text input
+- Frame Rate compliance row appends a note when 50p is accepted due to 720p
+  resolution, visible in both visual and text reports
+- GOP Type and B-Frames spec descriptions updated in visual and text report tabs
+  to reflect the preferred/accepted model
+- PATCH /gop/result/file/workflow now returns the full updated result object in
+  addition to overall_status, eliminating the need for a follow-up GET
+
+### Fixed
+
+- Specs Editor no longer reads or writes localStorage; re-opening the tool
+  always reflects the API default instead of the last manually selected workflow
+- gop_type and b_frames compliance now goes through the shared comply_enum_multi
+  function, removing duplicate custom logic
+- Re-evaluate modal now populates the workflow list from WORKFLOW_LABELS at open
+  time, ensuring new or renamed workflows appear correctly
+
+## [3.17.0] - 2026-06-23
+
+### Fixed
+
+- BTV: Bug single B frame affecting GOP fixed
+
+## [3.16.1] - 2026-06-23
+
+### Fixed
+
+- Event-starting alarm suppression now detects startup by comparing `started_at`
+  to current time (3-min window), instead of the absence of `encoder_job_started`
+  which was never false once the event was running.
+
+## [3.16.0] - 2026-06-23
+
+### Added
+
+- **Nodes view – Event starting grace period**: when a channel has an active event but the encoder job has not yet started, alarms for that specific channel are suppressed for 3 minutes. The node card blinks green and displays an "event starting, ignoring alarms" badge during this window. Only alarms tied to that channel/event are suppressed; other channels on the same node are unaffected.
+- **Nodes view – Warnings-only filter**: channels in the event-starting grace period are excluded from the warning count and hidden when "Warnings only" is active.
+
+### Fixed
+
+- **Events tab**: channel-level flags (`/flags/channels`) are now fetched alongside event flags when loading the running events view, so flag warnings appear correctly in the Events tab alongside the existing "no signal" indicator.
+- **Events tab**: event flag deduplication prevents duplicate warning entries when a flag appears under both event id and channel id keys.
+
+## [3.15.1] - 2026-06-22
+
+### Fixed
+
+- Colour Range spec editor now shows a note that internal values are
+  `limited` / `full` (not pixel format strings like `yuvj420p`).
+  Existing corrupted specs files should be reset to defaults.
+- AV Sync metrics in "Inform only" mode now show `INFO` status instead
+  of COMPLIANT/ACCEPTED, and are excluded from the overall result.
+  A new blue INFO pill was added to the compliance table and reports.
+
+## [3.15.0] - 2026-06-22
+
+### Added
+
+- AV Sync & Timing thresholds are now configurable in the Specs editor
+  (warn threshold, hard limit, and "Inform only" mode that prevents REJECTED).
+  Default mode is inform-only for all four AV sync metrics.
+- Workflow display name can be renamed directly in the Specs editor; names
+  are persisted server-side in workflow_labels.json and loaded at page boot.
+- Workflow name now appears in both the visual and text test reports.
+
+### Fixed
+
+- Colour Range: `yuvj420p` (full range) is now accepted (ACCEPTED) instead
+  of being incorrectly rejected; `limited` remains COMPLIANT.
+- B-Frames spec now renders correctly in the Specs editor with a dr0pdown
+  (absent / present); previously no field was shown.
+
 ## [3.14.0] - 2026-06-19
 
 ### Added
 
 - Initial release of Probe Monitoring (`ProbeMonitoring.html`), replacing `RTV MV Monitoring.html`.
-- Two independent channel slots, each with a dropdown of 40 configurable channels (`Id3as AWS CH301 - PROBE CH01` through `Id3as AWS CH340 - PROBE CH40`) plus a fixed `RMG MV` entry.
+- Two independent channel slots, each with a dr0pdown of 40 configurable channels (`Id3as AWS CH301 - PROBE CH01` through `Id3as AWS CH340 - PROBE CH40`) plus a fixed `RMG MV` entry.
 - "Configure channels" modal to register the Id3as AWS and Probe URL pair for each of the 40 channels, persisted in `localStorage`.
 - `RMG MV` entry reproducing the original four reference feeds (T21 enc → INX, T21 enc → EQP, INX → AVE, EQP → AVE) as a fixed, non-editable option.
 - Slot selections persisted in `localStorage` so the last-viewed channels are restored on reload.

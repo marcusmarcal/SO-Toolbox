@@ -18,9 +18,9 @@ SRT_URL = "srt://10.11.203.1:3292?mode=caller&latency=1000&passphrase=rQ6zgFnfz1
 DISPLAY = ":99"
 WIDTH = 1920
 HEIGHT = 1080
-FPS = 25
+FPS = 5
 
-VIDEO_BITRATE = "3000k"
+VIDEO_BITRATE = "500k"
 
 XVFB_PATH = "/usr/bin/Xvfb"
 FFMPEG_PATH = "/usr/bin/ffmpeg"
@@ -90,7 +90,6 @@ def start_chromium():
         "--disable-session-crashed-bubble",
         "--disable-features=TranslateUI",
         "--disable-gpu",
-        "--disable-software-rasterizer",
         "--disable-dev-shm-usage",
         "--no-sandbox",
         "--disable-background-networking",
@@ -99,6 +98,12 @@ def start_chromium():
         "--ignore-certificate-errors",
         "--allow-insecure-localhost",
         "--touch-events=enabled",
+        # Remova ou comente: "--disable-software-rasterizer"
+        # E adicione estas otimizações de performance:
+        "--disable-gpu-vsync",                # Desativa sincronia vertical na tela virtual
+        "--disable-smooth-scrolling",         # Remove animações de scroll pesadas
+        "--disable-low-end-device-mode",      # Garante que ele não use fallbacks lentos
+        "--blink-settings=imagesEnabled=true", # Se o dashboard não tiver imagens úteis, mude para false para poupar render
         "--unsafely-treat-insecure-origin-as-secure=https://127.0.0.1",
         HTML_URL
     ], env=env)
@@ -110,10 +115,12 @@ def start_chromium():
 # FFMPEG (SRT PUSH)
 # ============================================================
 
+# Modifique lá no topo do seu script:
+# FPS = 5
+
 def start_ffmpeg():
     print("[INFO] starting ffmpeg...")
 
-    # Mudança crucial: o -draw_mouse 0 DEVE vir antes do input (-i)
     cmd = [
         FFMPEG_PATH,
         "-f", "x11grab",
@@ -125,11 +132,18 @@ def start_ffmpeg():
         "-vf", "format=yuv420p",
 
         "-c:v", "libx264",
-        "-preset", "veryfast",
+        "-preset", "ultrafast",
         "-tune", "zerolatency",
+        
+        # --- CBR RIGIDO COM PADDING AJUSTADO PARA 500K ---
         "-b:v", VIDEO_BITRATE,
         "-maxrate", VIDEO_BITRATE,
-        "-bufsize", str(int(int(VIDEO_BITRATE.replace('k','')))*2) + "k",
+        "-minrate", VIDEO_BITRATE,
+        "-bufsize", "1000k",          # Buffer menor e proporcional ao novo bitrate
+        "-nal-hrd", "cbr",            
+        
+        "-g", "25",                   # 1 IDR frame a cada 5 segundos (com FPS=5)
+        "-threads", "2",              # 2 threads já são mais que suficientes para 500kbps
 
         "-f", "mpegts",
         SRT_URL

@@ -337,6 +337,11 @@
         color: var(--muted);
         border: 1px solid var(--border);
       }
+      .status-pill.INFO {
+        background: rgba(56, 139, 253, 0.1);
+        color: var(--blue, #58a6ff);
+        border: 1px solid var(--blue, #58a6ff);
+      }
 
       /* IDR + stream check header */
       .idr-badge {
@@ -1137,9 +1142,9 @@
         <div class="field w180">
           <label>Workflow</label>
           <select id="inp-workflow" onchange="onWorkflowChange()">
-            <option value="dc_aminos_tp">W&B + Aminos and TP</option>
+            <option value="dc_aminos_tp">DC - Aminos and TP ★</option>
             <option value="rts">RTS</option>
-            <option value="wb">W&amp;B Only</option>
+            <option value="wb">W&amp;B</option>
           </select>
         </div>
         <button class="btn-run" id="btn-run" onclick="runAnalysis()">
@@ -1330,6 +1335,7 @@
               <span id="meta-port" style="color: var(--muted)"></span>
               <span id="meta-tags" style="color: var(--yellow)"></span>
               <span id="meta-user" style="color: var(--green)"></span>
+              <span id="meta-workflow" style="font-family:var(--mono);font-size:.68rem"></span>
               <span id="meta-ts-download" style="margin-left: auto"></span>
             </div>
 
@@ -1673,8 +1679,11 @@
             flex-shrink: 0;
           "
         >
-          <div class="modal-title" style="color: var(--purple); margin: 0">
-            ⚙ Compliance Specs Editor — <span id="specs-modal-workflow"></span>
+          <div class="modal-title" style="color: var(--purple); margin: 0; display:flex; align-items:center; gap:.6rem">
+            ⚙ Compliance Specs Editor —
+            <select id="specs-workflow-select" onchange="onSpecsWorkflowChange()"
+              style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--purple);font-family:var(--mono);font-size:.8rem;padding:2px 8px;outline:none;cursor:pointer">
+            </select>
           </div>
           <div style="display: flex; gap: 0.5rem">
             <button
@@ -1706,8 +1715,8 @@
             flex-shrink: 0;
           "
         >
-          Changes require admin password. Saved separately for this workflow on
-          the server.
+          Saved separately for this workflow on the server. Requires admin or
+          engineer role.
         </div>
         <div style="flex: 1; overflow-y: auto" id="specs-editor-body"></div>
         <div
@@ -1722,20 +1731,49 @@
           "
         >
           <input
-            class="modal-pw"
-            id="specs-pw"
-            type="password"
-            placeholder="admin password…"
-            style="display: none"
+            id="specs-rename"
+            type="text"
+            placeholder="Rename workflow…"
+            style="
+              background: var(--bg);
+              border: 1px solid var(--border);
+              border-radius: 5px;
+              color: var(--text);
+              font-family: var(--mono);
+              font-size: 0.68rem;
+              padding: 4px 8px;
+              width: 160px;
+              outline: none;
+            "
           />
           <button
+            id="btn-save-specs"
             class="btn-danger"
-            style="background: var(--purple)"
+            style="background: var(--purple); display: none"
             onclick="saveSpecs()"
           >
             Save Specs
           </button>
+          <button
+            id="btn-rename-wf"
+            class="btn-cancel"
+            onclick="renameWorkflow()"
+            style="font-size: 0.7rem; display: none"
+          >
+            ✏ Rename
+          </button>
+          <button
+            id="btn-set-default-wf"
+            class="btn-cancel"
+            onclick="setDefaultWorkflow()"
+            style="font-size: 0.7rem; display: none"
+            title="Set this workflow as the API default (used when no workflow is specified)"
+          >
+            ★ Set as API default
+          </button>
+          <span id="specs-no-perm" style="font-family:var(--mono);font-size:.68rem;color:var(--muted);display:none">View only — requires admin or engineer role to edit</span>
           <div class="modal-err" id="specs-err"></div>
+          <span id="specs-saved-by" style="font-family:var(--mono);font-size:.62rem;color:var(--muted);margin-left:auto"></span>
         </div>
       </div>
     </div>
@@ -2284,6 +2322,47 @@
       </div>
     </div>
 
+    <!-- Re-evaluate with another workflow modal -->
+    <div class="modal-overlay" id="reeval-modal">
+      <div class="modal-card" style="width:480px">
+        <div class="modal-title" style="color:var(--cyan)">🔄 Re-evaluate with Different Workflow</div>
+        <div class="modal-body" style="margin-bottom:.6rem">
+          Re-apply compliance rules from another workflow to the stored probe data of this result.
+          The original result is <strong>not modified</strong>. A new read-only report is shown.
+        </div>
+        <div style="margin-bottom:.8rem">
+          <label style="font-family:var(--mono);font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:.35rem">Target Workflow</label>
+          <select id="reeval-workflow" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:#fff;font-family:var(--mono);font-size:.82rem;padding:.45rem .65rem;outline:none">
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-danger" style="background:var(--cyan);color:#000" onclick="confirmReeval()">Re-evaluate</button>
+          <button class="btn-cancel" onclick="closeReevalModal()">Cancel</button>
+          <div class="modal-err" id="reeval-err" style="color:var(--red)"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Change workflow of historical entry modal -->
+    <div class="modal-overlay" id="change-wf-modal">
+      <div class="modal-card" style="width:480px">
+        <div class="modal-title" style="color:var(--yellow)">🔀 Change Workflow of Historical Entry</div>
+        <div class="modal-body" style="margin-bottom:.6rem">
+          Permanently re-assigns the workflow of the stored result and re-runs compliance checks against the new workflow's specs. The change is logged.
+        </div>
+        <div style="margin-bottom:.8rem">
+          <label style="font-family:var(--mono);font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:.35rem">New Workflow</label>
+          <select id="change-wf-select" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:#fff;font-family:var(--mono);font-size:.82rem;padding:.45rem .65rem;outline:none">
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-danger" style="background:var(--yellow);color:#000" onclick="confirmChangeWorkflow()">Change Workflow</button>
+          <button class="btn-cancel" onclick="closeChangeWfModal()">Cancel</button>
+          <div class="modal-err" id="change-wf-err" style="color:var(--red)"></div>
+        </div>
+      </div>
+    </div>
+
     <script>
       const PROXY = "/so-proxy";
       const HIST_BTN_SIZE = "0.9rem";
@@ -2294,27 +2373,43 @@
         rts: "RTS",
         wb: "W&B",
       };
-      const WORKFLOW_STORAGE_KEY = "btv-selected-workflow";
+      let _apiDefaultWorkflow = "dc_aminos_tp";
 
       function getSelectedWorkflow() {
         const el = document.getElementById("inp-workflow");
-        return (el && el.value) || "dc_aminos_tp";
+        return (el && el.value) || _apiDefaultWorkflow;
       }
 
       function onWorkflowChange() {
-        try {
-          localStorage.setItem(WORKFLOW_STORAGE_KEY, getSelectedWorkflow());
-        } catch (e) {}
+        // intentionally empty — workflow selection is not persisted
       }
 
-      function restoreSelectedWorkflow() {
+      async function loadWorkflowLabels() {
         try {
-          const saved = localStorage.getItem(WORKFLOW_STORAGE_KEY);
+          const res = await fetch(`${PROXY}/gop/workflows`);
+          if (!res.ok) return;
+          const data = await res.json();
+          // data may be { labels: {…}, default: "…" } or just {…} for backwards compat
+          const labels = data.labels || data;
+          const apiDefault = data.default || "dc_aminos_tp";
+          _apiDefaultWorkflow = apiDefault;
+          Object.assign(WORKFLOW_LABELS, labels);
           const el = document.getElementById("inp-workflow");
-          if (saved && el) el.value = saved;
+          if (el) {
+            Array.from(el.options).forEach((opt) => {
+              if (WORKFLOW_LABELS[opt.value]) {
+                const suffix = opt.value === apiDefault ? " ★" : "";
+                opt.textContent = WORKFLOW_LABELS[opt.value] + suffix;
+              }
+            });
+            // Always start on API default — never restore from cookie
+            el.value = apiDefault;
+          }
         } catch (e) {}
       }
-      document.addEventListener("DOMContentLoaded", restoreSelectedWorkflow);
+      document.addEventListener("DOMContentLoaded", () => {
+        loadWorkflowLabels();
+      });
 
       let pollTimer = null,
         _progTimer = null;
@@ -2530,6 +2625,12 @@
           ? "🏷 " + tags
           : "";
         document.getElementById("meta-user").textContent = "👨‍🔬 " + r.username;
+        const wfLabel = r.reeval_label
+          ? `⇄ ${r.reeval_label}`
+          : (WORKFLOW_LABELS[r.workflow] || r.workflow || "—");
+        const wfEl = document.getElementById("meta-workflow");
+        wfEl.textContent = "📋 " + wfLabel;
+        wfEl.style.color = r.reeval_label ? "var(--cyan)" : "var(--purple)";
         // TS download button
         const tsEl = document.getElementById("meta-ts-download");
         if (r.ts_file && r.res_file) {
@@ -2760,11 +2861,13 @@
 
       function formatSpecText(s) {
         if (!s) return "—";
+        if ("warn" in s) {
+          const mode = s.mode === "inform" ? " (inform only)" : "";
+          return `< ${s.warn}ms preferred, < ${s.hard}ms limit${mode}`;
+        }
         if (s.values) {
           const vals = s.values.join(", ");
-          return s.preferred !== undefined
-            ? `${vals} (pref. ${s.preferred})`
-            : vals;
+          return s.preferred !== undefined ? `${vals} (pref. ${s.preferred})` : vals;
         }
         if (s.required !== undefined) {
           return typeof s.required === "string" ? s.required : "Required";
@@ -2786,10 +2889,7 @@
         const liveSpecs = r.specs || {};
         const spec = {};
         for (const key of Object.keys(liveSpecs)) {
-          spec[key] = [
-            liveSpecs[key].label || key,
-            formatSpecText(liveSpecs[key]),
-          ];
+          spec[key] = [liveSpecs[key].label || key, formatSpecText(liveSpecs[key])];
         }
 
         const sections = {
@@ -3064,6 +3164,8 @@
                 /"/g,
                 "&quot;"
               )})" style="background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:${HIST_BTN_SIZE};cursor:pointer;padding:0" title="Edit tags" onmouseover="this.style.color='var(--purple)'" onmouseout="this.style.color='var(--muted)'">✎</button>`;
+              const reevalBtn = !isFailed ? `<button onclick="event.stopPropagation();openReevalModal('${item.file}')" style="background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:${HIST_BTN_SIZE};cursor:pointer;padding:0" title="Re-evaluate with different workflow" onmouseover="this.style.color='var(--cyan)'" onmouseout="this.style.color='var(--muted)'">⇄</button>` : "";
+              const changeWfBtn = (!isFailed && ["admin","engineer"].includes(_currentUserRole)) ? `<button onclick="event.stopPropagation();openChangeWfModal('${item.file}','${(item.workflow||'').replace(/'/g,"\\'")}',${JSON.stringify(item.tag||'').replace(/"/g,'&quot;')})" style="background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:${HIST_BTN_SIZE};cursor:pointer;padding:0" title="Change workflow (admin/engineer only)" onmouseover="this.style.color='var(--yellow)'" onmouseout="this.style.color='var(--muted)'">🔀</button>` : "";
               const errorHint =
                 isFailed && item.error
                   ? `<div style="font-family:var(--mono);font-size:.62rem;color:var(--red);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.error}</div>`
@@ -3126,6 +3228,8 @@
               }">👤 ${(item.username || "anonymous").split("@")[0]}</span>
             ${rerunBtn}
             ${editTagBtn}
+            ${reevalBtn}
+            ${changeWfBtn}
           </div>
         </div>
       </div>`;
@@ -3449,9 +3553,10 @@
               COMPLIANT: "rgba(63,185,80,.15)",
               ACCEPTED: "rgba(227,179,65,.15)",
               REJECTED: "rgba(248,81,73,.15)",
+              INFO: "rgba(88,166,255,.1)",
             }[status] || "rgba(255,255,255,.04)";
           const col =
-            { COMPLIANT: "#3fb950", ACCEPTED: "#e3b341", REJECTED: "#f85149" }[
+            { COMPLIANT: "#3fb950", ACCEPTED: "#e3b341", REJECTED: "#f85149", INFO: "#58a6ff" }[
               status
             ] || "#6e7681";
           return `<span style="display:inline-block;background:${bg};color:${col};border:1px solid ${col};border-radius:3px;padding:1px 7px;font-size:.62rem;font-weight:700">${
@@ -3463,9 +3568,7 @@
         const liveSpecsV = r.specs || {};
         const vrow = (label, spec, measured, key) => {
           const [s] = c[key] || ["—"];
-          const specText = liveSpecsV[key]
-            ? formatSpecText(liveSpecsV[key])
-            : spec;
+          const specText = liveSpecsV[key] ? formatSpecText(liveSpecsV[key]) : spec;
           return `<tr style="border-bottom:1px solid rgba(255,255,255,.05)">
       <td style="padding:.22rem .5rem;color:#8b949e;white-space:nowrap;font-size:.7rem">${label}</td>
       <td style="padding:.22rem .5rem;color:#6e7681;font-size:.64rem">${specText}</td>
@@ -3505,6 +3608,9 @@
       <div style="grid-column:1/-1"><span style="color:#6e7681">Tested by: </span><span style="color:#a18bf5">${
         r.username || "anonymous"
       }</span></div>
+      <div style="grid-column:1/-1"><span style="color:#6e7681">Workflow: </span><span style="color:#58a6ff">${
+        r.reeval_label ? `⇄ ${r.reeval_label} (re-evaluated)` : (WORKFLOW_LABELS[r.workflow] || r.workflow || "—")
+      }</span></div>
     </div>
     <table style="width:100%;border-collapse:collapse">
       <thead><tr style="border-bottom:1px solid rgba(255,255,255,.12)">
@@ -3527,7 +3633,7 @@
           `${r.gop_avg || "—"} frames`,
           "gop_size"
         )}
-        ${vrow("GOP Type", "CLOSED", r.gop_type || "—", "gop_type")}
+        ${vrow("GOP Type", "CLOSED (preferred) / OPEN (accepted)", r.gop_type || "—", "gop_type")}
         ${vrow(
           "IDR Frames",
           "Required",
@@ -3536,7 +3642,7 @@
         )}
         ${vrow(
           "B-Frames",
-          "Absent (preferred)",
+          "absent (preferred) / present (accepted)",
           r.has_b_frames ? "Present" : "Absent",
           "b_frames"
         )}
@@ -3580,7 +3686,10 @@
             r.v_scan === "interlaced" && (r.v_fps_val || 0) > 30
               ? " (50i→25fps)"
               : ""
-          }`,
+          }${(() => {
+            const [fpsStatus, , fpsNote] = c.fps || [];
+            return fpsNote && fpsNote.includes("720") ? " — accepted: 50p @ 720p" : "";
+          })()}`,
           "fps"
         )}
         ${vsec("AUDIO")}
@@ -3723,9 +3832,7 @@
         const sep = "─".repeat(W1 + W2 + W3 + W4 + 3);
         const tr = (el, spec, meas, key) => {
           const [s] = c[key] || ["—"];
-          const specText = liveSpecsV[key]
-            ? formatSpecText(liveSpecsV[key])
-            : spec;
+          const specText = liveSpecsV[key] ? formatSpecText(liveSpecsV[key]) : spec;
           return `${el.padEnd(W1)} ${specText.padEnd(W2)} ${String(
             meas || "—"
           ).padEnd(W3)} ${s}`;
@@ -3738,6 +3845,7 @@
           `Generated : ${now}`,
           `Test Date : ${testDate}`,
           `Tested by : ${r.username || "anonymous"}`,
+          `Workflow  : ${r.reeval_label ? `⇄ ${r.reeval_label} (re-evaluated)` : (WORKFLOW_LABELS[r.workflow] || r.workflow || "—")}`,
           `Server    : ${serverName}:${port}`,
           `URL       : ${r.url || "—"}`,
           `Tags      : ${tags}`,
@@ -3763,11 +3871,11 @@
             `${r.gop_avg || "—"} frames`,
             "gop_size"
           ),
-          tr("GOP Type", "CLOSED", r.gop_type || "—", "gop_type"),
+          tr("GOP Type", "CLOSED preferred / OPEN accepted", r.gop_type || "—", "gop_type"),
           tr("IDR Frames", "Required", r.has_idr ? "Present" : "ABSENT", "idr"),
           tr(
             "B-Frames",
-            "Absent (preferred)",
+            "absent preferred / present accepted",
             r.has_b_frames ? "Present" : "Absent",
             "b_frames"
           ),
@@ -3806,7 +3914,10 @@
               r.v_scan === "interlaced" && (r.v_fps_val || 0) > 30
                 ? " (50i)"
                 : ""
-            }`,
+            }${(() => {
+              const [, , fpsNote] = c.fps || [];
+              return fpsNote && fpsNote.includes("720") ? " [accepted: 50p@720p]" : "";
+            })()}`,
             "fps"
           ),
           ``,
@@ -4348,6 +4459,8 @@
         "schedule-modal",
         "cancel-sched-modal",
         "specs-modal",
+        "reeval-modal",
+        "change-wf-modal",
       ].forEach((id) => {
         const el = document.getElementById(id);
         if (el)
@@ -4361,28 +4474,111 @@
       let _currentSpecsWorkflow = null;
 
       async function openSpecsEditor() {
-        const workflow = getSelectedWorkflow();
-        _currentSpecsWorkflow = workflow;
-        document.getElementById("specs-modal-workflow").textContent =
-          WORKFLOW_LABELS[workflow] || workflow;
         document.getElementById("specs-err").textContent = "";
-        document.getElementById("specs-pw").style.display = _hasAdminPw
-          ? ""
-          : "none";
-        document.getElementById("specs-pw").value = "";
         document.getElementById("specs-modal").classList.add("open");
         document.getElementById("specs-editor-body").innerHTML =
           '<div style="font-family:var(--mono);font-size:.7rem;color:var(--muted);padding:.5rem">Loading…</div>';
+
+        // Refresh role before deciding UI state
         try {
-          const res = await fetch(
-            `${PROXY}/gop/specs?workflow=${encodeURIComponent(workflow)}`
-          );
+          const meRes = await fetch(`${PROXY}/me`);
+          if (meRes.ok) {
+            const me = await meRes.json();
+            _currentUser = me.username || null;
+            _currentUserRole = me.role || null;
+          }
+        } catch {}
+
+        const canEdit = ["admin", "engineer"].includes(_currentUserRole);
+        document.getElementById("btn-save-specs").style.display = canEdit ? "" : "none";
+        document.getElementById("btn-rename-wf").style.display = canEdit ? "" : "none";
+        document.getElementById("btn-set-default-wf").style.display = canEdit ? "" : "none";
+        document.getElementById("specs-no-perm").style.display = canEdit ? "none" : "";
+
+        // Populate the specs-modal's own workflow select
+        const sel = document.getElementById("specs-workflow-select");
+        sel.innerHTML = Object.entries(WORKFLOW_LABELS).map(([k, v]) =>
+          `<option value="${k}"${k === _apiDefaultWorkflow ? " data-default='1'" : ""}>${v}${k === _apiDefaultWorkflow ? " ★" : ""}</option>`
+        ).join("");
+        // Default to currently selected workflow in main UI, or API default
+        const initialWf = getSelectedWorkflow();
+        if ([...sel.options].some(o => o.value === initialWf)) sel.value = initialWf;
+        else sel.value = _apiDefaultWorkflow;
+
+        await _loadSpecsForModal();
+      }
+
+      async function onSpecsWorkflowChange() {
+        document.getElementById("specs-err").textContent = "";
+        await _loadSpecsForModal();
+      }
+
+      async function _loadSpecsForModal() {
+        const workflow = document.getElementById("specs-workflow-select").value;
+        _currentSpecsWorkflow = workflow;
+        const wfLabel = WORKFLOW_LABELS[workflow] || workflow;
+        document.getElementById("specs-rename").value = wfLabel;
+        document.getElementById("specs-editor-body").innerHTML =
+          '<div style="font-family:var(--mono);font-size:.7rem;color:var(--muted);padding:.5rem">Loading…</div>';
+
+        // Update Set as default button label
+        const defBtn = document.getElementById("btn-set-default-wf");
+        if (defBtn) defBtn.textContent = workflow === _apiDefaultWorkflow ? "★ API default" : "★ Set as API default";
+
+        try {
+          const res = await fetch(`${PROXY}/gop/specs?workflow=${encodeURIComponent(workflow)}`);
           _currentSpecs = await res.json();
           renderSpecsEditor(_currentSpecs);
+
+          const meta = _currentSpecs._meta || {};
+          const savedByEl = document.getElementById("specs-saved-by");
+          if (meta.saved_by && meta.saved_at) {
+            const ts = meta.saved_at.replace("T", " ").slice(0, 19) + " UTC";
+            savedByEl.textContent = `Last saved by ${meta.saved_by} on ${ts}`;
+          } else {
+            savedByEl.textContent = "";
+          }
         } catch (e) {
-          document.getElementById(
-            "specs-editor-body"
-          ).innerHTML = `<div style="color:var(--red);font-family:var(--mono);font-size:.72rem">Failed to load specs: ${e.message}</div>`;
+          document.getElementById("specs-editor-body").innerHTML =
+            `<div style="color:var(--red);font-family:var(--mono);font-size:.72rem">Failed to load specs: ${e.message}</div>`;
+        }
+      }
+
+      async function setDefaultWorkflow() {
+        const workflow = document.getElementById("specs-workflow-select").value;
+        const errEl = document.getElementById("specs-err");
+        errEl.textContent = "";
+        try {
+          const meRes = await fetch(`${PROXY}/me`);
+          if (meRes.ok) { const me = await meRes.json(); _currentUserRole = me.role || null; _currentUser = me.username || null; }
+        } catch {}
+        if (!["admin", "engineer"].includes(_currentUserRole)) {
+          errEl.textContent = "❌ Requires admin or engineer role";
+          return;
+        }
+        try {
+          const res = await fetch(`${PROXY}/gop/workflows/default`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ workflow }),
+          });
+          const data = await res.json();
+          if (!data.success) throw new Error(data.error || "Failed");
+          _apiDefaultWorkflow = workflow;
+          // Refresh ★ markers on both selects
+          await loadWorkflowLabels();
+          // Refresh specs-modal select markers
+          const sel = document.getElementById("specs-workflow-select");
+          Array.from(sel.options).forEach(o => {
+            const base = WORKFLOW_LABELS[o.value] || o.value;
+            o.textContent = base + (o.value === _apiDefaultWorkflow ? " ★" : "");
+          });
+          document.getElementById("btn-set-default-wf").textContent = "★ API default";
+          errEl.style.color = "var(--green)";
+          errEl.textContent = `✓ ${WORKFLOW_LABELS[workflow] || workflow} is now the API default`;
+          setTimeout(() => { errEl.textContent = ""; errEl.style.color = ""; }, 3000);
+        } catch (e) {
+          errEl.textContent = `Error: ${e.message}`;
         }
       }
       function closeSpecsModal() {
@@ -4422,6 +4618,12 @@
             "a_bits",
             "a_br_kbps",
           ],
+          "AV SYNC & TIMING": [
+            "av_sync_warn",
+            "av_sync_max",
+            "v_pts_jitter",
+            "a_pts_jitter",
+          ],
         };
 
         let html = `<table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.72rem">
@@ -4443,7 +4645,15 @@
               prefEl = "",
               specialEl = "";
 
-            if ("lo" in s) {
+            if ("warn" in s) {
+              // AV Sync threshold spec
+              allowedEl = `Warn: <input data-key="${key}" data-field="warn" type="number" value="${s.warn}" step="0.5" style="${inStyle};width:60px" title="Warn threshold (ms)" /> ms &nbsp; Limit: <input data-key="${key}" data-field="hard" type="number" value="${s.hard}" step="0.5" style="${inStyle};width:60px" title="Hard limit (ms)" /> ms`;
+              prefEl = ``;
+              const modeInform = (s.mode || "inform") === "inform";
+              specialEl = `<label style="cursor:pointer"><input type="checkbox" data-key="${key}" data-field="mode_inform" ${
+                modeInform ? "checked" : ""
+              } /> Inform only (never reject)</label>`;
+            } else if ("lo" in s) {
               // Range spec
               allowedEl = `<input data-key="${key}" data-field="lo" type="number" value="${s.lo}" step="0.1" style="${inStyle}" title="Min" /> – <input data-key="${key}" data-field="hi" type="number" value="${s.hi}" step="0.1" style="${inStyle}" title="Max" />`;
               if ("pref_lo" in s) {
@@ -4454,13 +4664,25 @@
               const valStr = Array.isArray(s.values)
                 ? s.values.join(", ")
                 : s.values || "";
-              const prefStr = Array.isArray(s.preferred)
-                ? s.preferred.join(", ")
-                : s.preferred ?? "";
-              allowedEl = `<input data-key="${key}" data-field="values" type="text" value="${valStr}" style="${inStyle};width:190px" placeholder="comma separated" />`;
-              prefEl = `<input data-key="${key}" data-field="preferred" type="text" value="${prefStr}" style="${inStyle};width:110px" />`;
+              const noteHtml = key === "colour_range"
+                ? `<div style="color:var(--muted);font-size:.6rem;margin-top:2px">internal values: <code>limited</code> / <code>full</code> (not pix_fmt)</div>`
+                : "";
+              allowedEl = `<input data-key="${key}" data-field="values" type="text" value="${valStr}" style="${inStyle};width:190px" placeholder="comma separated" />${noteHtml}`;
+              // For short fixed-value specs (b_frames, gop_type) render preferred as a select
+              const valArr = Array.isArray(s.values) ? s.values : [];
+              if (valArr.length > 0 && valArr.length <= 4 && valArr.every(v => typeof v === "string")) {
+                const optHtml = valArr.map(v =>
+                  `<option value="${v}" ${String(s.preferred) === String(v) ? "selected" : ""}>${v}</option>`
+                ).join("");
+                prefEl = `<select data-key="${key}" data-field="preferred" style="${inStyle};width:110px">${optHtml}</select>`;
+              } else {
+                const prefStr = Array.isArray(s.preferred)
+                  ? s.preferred.join(", ")
+                  : s.preferred ?? "";
+                prefEl = `<input data-key="${key}" data-field="preferred" type="text" value="${prefStr}" style="${inStyle};width:110px" />`;
+              }
             } else if ("required" in s) {
-              // Required-value spec (e.g. gop_type)
+              // Required-value spec (legacy fallback)
               allowedEl = `<input data-key="${key}" data-field="required" type="text" value="${
                 s.required || ""
               }" style="${inStyle};width:110px" />`;
@@ -4474,6 +4696,12 @@
                   s.allow_seconds ? "checked" : ""
                 } /> Accept GOP in seconds (1s, 2s)</label>`
               );
+            if ("any" in s || key === "gop_size")
+              specials.push(
+                `<label style="cursor:pointer"><input type="checkbox" data-key="${key}" data-field="any" ${
+                  s.any ? "checked" : ""
+                } /> Accept any GOP size (ACCEPTED)</label>`
+              );
             if ("allow_50p_720" in s)
               specials.push(
                 `<label style="cursor:pointer"><input type="checkbox" data-key="${key}" data-field="allow_50p_720" ${
@@ -4484,7 +4712,7 @@
               specials.push(
                 `±<input data-key="${key}" data-field="tolerance" type="number" value="${s.tolerance}" step="1" min="0" style="${inStyle};width:50px" title="Tolerance" />`
               );
-            specialEl = specials.join(" &nbsp; ");
+            if (!("warn" in s)) specialEl = specials.join(" &nbsp; ");
 
             html += `<tr style="border-bottom:1px solid rgba(255,255,255,.03)">
         <td style="padding:.3rem .6rem;color:var(--text)">${label}</td>
@@ -4503,9 +4731,24 @@
         "background:var(--bg);border:1px solid var(--border);border-radius:3px;color:#fff;font-family:var(--mono);font-size:.68rem;padding:2px 5px;outline:none;width:80px;transition:border-color .15s";
 
       async function saveSpecs() {
-        const pw = document.getElementById("specs-pw").value;
         const errEl = document.getElementById("specs-err");
         errEl.textContent = "";
+        errEl.style.color = "";
+
+        // Verify role is still valid at save time
+        try {
+          const meRes = await fetch(`${PROXY}/me`);
+          if (meRes.ok) {
+            const me = await meRes.json();
+            _currentUserRole = me.role || null;
+            _currentUser = me.username || null;
+          }
+        } catch {}
+
+        if (!["admin", "engineer"].includes(_currentUserRole)) {
+          errEl.textContent = "❌ Requires admin or engineer role";
+          return;
+        }
 
         // Build specs object from current loaded state + editor inputs
         const specs = JSON.parse(JSON.stringify(_currentSpecs || {}));
@@ -4514,7 +4757,9 @@
           const key = el.dataset.key;
           const field = el.dataset.field;
           if (!specs[key]) specs[key] = {};
-          if (el.type === "checkbox") {
+          if (field === "mode_inform") {
+            specs[key]["mode"] = el.checked ? "inform" : "enforce";
+          } else if (el.type === "checkbox") {
             specs[key][field] = el.checked;
           } else if (field === "values") {
             specs[key][field] = el.value
@@ -4527,10 +4772,6 @@
             const n = parseFloat(el.value);
             specs[key][field] = isNaN(n) ? 0 : n;
           } else if (field === "preferred") {
-            // Only store as number if the ENTIRE value is numeric (e.g. "25" for fps).
-            // Strings like "4:2:0" or "1920x1080" must be kept as strings —
-            // parseFloat("4:2:0") = 4 and parseFloat("1920x1080") = 1920, which
-            // silently truncates them, so we guard with a round-trip check.
             const v = el.value.trim();
             const n = parseFloat(v);
             specs[key][field] = !isNaN(n) && String(n) === v ? n : v;
@@ -4540,7 +4781,6 @@
         });
 
         const headers = { "Content-Type": "application/json" };
-        if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
         const workflow = _currentSpecsWorkflow || getSelectedWorkflow();
 
         try {
@@ -4554,7 +4794,7 @@
           );
           const data = await res.json();
           if (res.status === 403) {
-            errEl.textContent = "❌ Invalid password";
+            errEl.textContent = "❌ Permission denied";
             return;
           }
           if (!data.success) {
@@ -4564,6 +4804,12 @@
           _currentSpecs = specs;
           errEl.style.color = "var(--green)";
           errEl.textContent = "✓ Saved — new analyses will use these specs";
+
+          // Update saved-by display
+          const now = new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC";
+          document.getElementById("specs-saved-by").textContent =
+            `Last saved by ${_currentUser || "unknown"} on ${now}`;
+
           setTimeout(() => {
             errEl.textContent = "";
             errEl.style.color = "";
@@ -4573,19 +4819,54 @@
         }
       }
 
+      async function renameWorkflow() {
+        const workflow = _currentSpecsWorkflow || getSelectedWorkflow();
+        const label = document.getElementById("specs-rename").value.trim();
+        if (!label) {
+          document.getElementById("specs-err").textContent =
+            "Enter a name first.";
+          return;
+        }
+        if (!["admin", "engineer"].includes(_currentUserRole)) {
+          document.getElementById("specs-err").textContent =
+            "❌ Requires admin or engineer role";
+          return;
+        }
+        const headers = { "Content-Type": "application/json" };
+        try {
+          const res = await fetch(`${PROXY}/gop/workflows/rename`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ workflow, label }),
+          });
+          const data = await res.json();
+          if (!data.success)
+            throw new Error(data.error || "Failed to rename");
+          Object.assign(WORKFLOW_LABELS, data.labels);
+          document.getElementById("specs-modal-workflow").textContent = label;
+          const sel = document.getElementById("inp-workflow");
+          if (sel) {
+            Array.from(sel.options).forEach((opt) => {
+              if (opt.value === workflow) opt.textContent = label;
+            });
+          }
+          document.getElementById("specs-err").textContent = "";
+        } catch (e) {
+          document.getElementById("specs-err").textContent = e.message;
+        }
+      }
       async function resetSpecs() {
         if (!confirm("Reset specs for this workflow to defaults?")) return;
-        const pw = document.getElementById("specs-pw").value;
+        if (!["admin", "engineer"].includes(_currentUserRole)) {
+          document.getElementById("specs-err").textContent =
+            "❌ Requires admin or engineer role";
+          return;
+        }
         const workflow = _currentSpecsWorkflow || getSelectedWorkflow();
-        const headers = {};
-        if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
         try {
           const res = await fetch(
             `${PROXY}/gop/specs/reset?workflow=${encodeURIComponent(workflow)}`,
-            {
-              method: "POST",
-              headers,
-            }
+            { method: "POST" }
           );
           const data = await res.json();
           if (data.success) {
@@ -4597,7 +4878,123 @@
         }
       }
 
-      // ── Tag editor ────────────────────────────────────────────────────
+      // ── Re-evaluate with another workflow ─────────────────────────────
+      let _reevalFile = null;
+
+      function openReevalModal(file) {
+        _reevalFile = file;
+        document.getElementById("reeval-err").textContent = "";
+        // Populate workflow select
+        const sel = document.getElementById("reeval-workflow");
+        sel.innerHTML = Object.entries(WORKFLOW_LABELS)
+          .map(([k, v]) => `<option value="${k}">${v}</option>`)
+          .join("");
+        document.getElementById("reeval-modal").classList.add("open");
+      }
+
+      function closeReevalModal() {
+        document.getElementById("reeval-modal").classList.remove("open");
+        _reevalFile = null;
+      }
+
+      async function confirmReeval() {
+        if (!_reevalFile) return;
+        const workflow = document.getElementById("reeval-workflow").value;
+        const errEl = document.getElementById("reeval-err");
+        errEl.textContent = "";
+        try {
+          const res = await fetch(
+            `${PROXY}/gop/reeval/${encodeURIComponent(_reevalFile)}?workflow=${encodeURIComponent(workflow)}`
+          );
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          closeReevalModal();
+          // Render result as read-only report (inject flag so UI knows it's a re-eval)
+          data.res_file = _reevalFile; // keep original file reference for TS download
+          data._reeval_workflow = workflow;
+          data._reeval_label = WORKFLOW_LABELS[workflow] || workflow;
+          _currentResultFile = null; // prevent override writes to original
+          renderResult(data);
+          // Mark result banner to show it's a re-eval
+          const metaBar = document.getElementById("test-meta-bar");
+          if (metaBar) {
+            const note = document.createElement("span");
+            note.style.cssText = "color:var(--cyan);font-family:var(--mono);font-size:.68rem;background:var(--cyan-d);border:1px solid var(--cyan);border-radius:3px;padding:1px 7px";
+            note.textContent = `⇄ Re-evaluated: ${data._reeval_label}`;
+            metaBar.appendChild(note);
+          }
+          setStatus("ok", `Re-evaluated with workflow: ${data._reeval_label}`);
+        } catch (e) {
+          errEl.textContent = `Error: ${e.message}`;
+        }
+      }
+
+      // ── Change workflow of historical entry ───────────────────────────
+      let _changeWfFile = null;
+
+      function openChangeWfModal(file, currentWorkflow) {
+        _changeWfFile = file;
+        document.getElementById("change-wf-err").textContent = "";
+        const sel = document.getElementById("change-wf-select");
+        sel.innerHTML = Object.entries(WORKFLOW_LABELS)
+          .filter(([k]) => k !== currentWorkflow)
+          .map(([k, v]) => `<option value="${k}">${v}</option>`)
+          .join("");
+        if (!sel.options.length) {
+          document.getElementById("change-wf-err").textContent = "No other workflows available.";
+          return;
+        }
+        document.getElementById("change-wf-modal").classList.add("open");
+      }
+
+      function closeChangeWfModal() {
+        document.getElementById("change-wf-modal").classList.remove("open");
+        _changeWfFile = null;
+      }
+
+      async function confirmChangeWorkflow() {
+        if (!_changeWfFile) return;
+        const workflow = document.getElementById("change-wf-select").value;
+        const errEl = document.getElementById("change-wf-err");
+        errEl.textContent = "";
+
+        // Re-check role at action time
+        try {
+          const meRes = await fetch(`${PROXY}/me`);
+          if (meRes.ok) {
+            const me = await meRes.json();
+            _currentUserRole = me.role || null;
+            _currentUser = me.username || null;
+          }
+        } catch {}
+
+        if (!["admin", "engineer"].includes(_currentUserRole)) {
+          errEl.textContent = "❌ Requires admin or engineer role";
+          return;
+        }
+
+        try {
+          const res = await fetch(
+            `${PROXY}/gop/result/${encodeURIComponent(_changeWfFile)}/workflow`,
+            {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ workflow }),
+            }
+          );
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          closeChangeWfModal();
+          loadHistory();
+          setStatus("ok", `Workflow changed to: ${WORKFLOW_LABELS[workflow] || workflow}`);
+          // Render updated compliance immediately from the PATCH response
+          if (data.result) { data.result.res_file = _changeWfFile; renderResult(data.result); }
+        } catch (e) {
+          errEl.textContent = `Error: ${e.message}`;
+        }
+      }
+
+      // ── Tag editor ─────────────────────────────────────────────────────
       let _tagEditFile = null;
       let _tagEditChips = [];
 
@@ -4835,12 +5232,14 @@
       }
 
       let _currentUser = null;
+      let _currentUserRole = null;
       (async () => {
         try {
           const r = await fetch(`${PROXY}/me`);
           if (r.ok) {
             const d = await r.json();
             _currentUser = d.username || null;
+            _currentUserRole = d.role || null;
           }
         } catch {}
       })();

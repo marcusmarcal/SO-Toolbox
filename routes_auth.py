@@ -1,12 +1,16 @@
 """
 routes_auth.py — Authentication & User Management Blueprint
-SO-Toolbox v2.24.0
+SO-Toolbox
 
-Passwords are hashed with bcrypt (cost 12). Compatible with $2a$/$2b$/$2y$ hashes
-imported from other systems — no migration needed.
+Supports roles:
+- admin
+- engineer
+- analyst
+- specialist
+- user
 
-Registers all /login, /logout, /me, /users/* routes (nginx strips /so-proxy prefix) routes.
-User database lives in users.json (next to proxy.py) — NOT in Git.
+Permissions:
+- admin + engineer → full user management
 """
 
 import json
@@ -18,25 +22,29 @@ import time
 import os
 from functools import wraps
 
-from flask import Blueprint, request, jsonify, redirect
+from flask import Blueprint, request, jsonify
 
-# ── Blueprint ─────────────────────────────────────────────────────────────
+# ── Blueprint ─────────────────────────────────────────────
 auth_bp = Blueprint('auth', __name__)
 
-# ── Config ────────────────────────────────────────────────────────────────
+# ── Config ────────────────────────────────────────────────
 _BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 USERS_FILE  = os.path.join(_BASE_DIR, 'users.json')
-SESSION_TTL = 8 * 3600   # 8 hours
+SESSION_TTL = 8 * 3600  # 8 hours
 
-# ── Session store (in-memory; resets on proxy restart) ───────────────────
-_sessions = {}   # token → { username, role, expires }
+# ✅ Roles
+ALLOWED_ROLES = ('admin', 'engineer', 'analyst', 'specialist', 'user')
+ADMIN_ROLES   = ('admin', 'engineer')
+
+# ── Session store ─────────────────────────────────────────
+_sessions = {}  # token → { username, role, expires }
 
 
-# ════════════════════════════════════════════════════════════════════════════
-#  USER-DB HELPERS
-# ════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════
+# USER DB
+# ══════════════════════════════════════════════════════════
 
-def _load_users() -> dict:
+def _load_users():
     if not os.path.exists(USERS_FILE):
         return {}
     try:
@@ -46,40 +54,38 @@ def _load_users() -> dict:
         return {}
 
 
-def _save_users(users: dict) -> None:
+def _save_users(users):
     with open(USERS_FILE, 'w') as f:
         json.dump(users, f, indent=2)
     os.chmod(USERS_FILE, 0o600)
 
 
-def _hash_password(password: str) -> str:
-    """Return a bcrypt hash ($2b$12$...). Compatible with $2a$ hashes from other systems."""
+def _hash_password(password):
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=12)).decode()
 
 
-def _verify_password(password: str, hashed: str) -> bool:
-    """Verify against bcrypt hash. Accepts $2a$, $2b$, $2y$ prefixes."""
+def _verify_password(password, hashed):
     try:
         return bcrypt.checkpw(password.encode(), hashed.encode())
     except Exception:
         return False
 
 
-# ════════════════════════════════════════════════════════════════════════════
-#  SESSION HELPERS
-# ════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════
+# SESSION
+# ══════════════════════════════════════════════════════════
 
-def _create_session(username: str, role: str) -> str:
+def _create_session(username, role):
     token = secrets.token_hex(32)
     _sessions[token] = {
         'username': username,
-        'role':     role,
-        'expires':  time.time() + SESSION_TTL,
+        'role': role,
+        'expires': time.time() + SESSION_TTL
     }
     return token
 
 
-def _get_session(token: str) -> dict:
+def _get_session(token):
     s = _sessions.get(token)
     if not s:
         return None
@@ -89,23 +95,22 @@ def _get_session(token: str) -> dict:
     return s
 
 
-def _invalidate_session(token: str) -> None:
+def _invalidate_session(token):
     _sessions.pop(token, None)
 
 
-def _token_from_request() -> str:
+def _token_from_request():
     auth = request.headers.get('Authorization', '')
     if auth.startswith('Bearer '):
         return auth[7:]
     return request.cookies.get('sotb-session', '')
 
 
-# ════════════════════════════════════════════════════════════════════════════
-#  DECORATORS  (importable by proxy.py for other routes)
-# ════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════
+# DECORATORS
+# ══════════════════════════════════════════════════════════
 
 def require_auth(f):
-    """Require a valid session token (cookie or Bearer header)."""
     @wraps(f)
     def decorated(*args, **kwargs):
         session = _get_session(_token_from_request())
@@ -117,52 +122,28 @@ def require_auth(f):
 
 
 def require_admin_role(f):
-    """Require a valid session AND role == admin."""
+    """Allow admin + engineer"""
     @wraps(f)
     def decorated(*args, **kwargs):
         session = _get_session(_token_from_request())
         if not session:
             return jsonify({'error': 'Unauthorized'}), 401
-        if session.get('role') != 'admin':
-            return jsonify({'error': 'Forbidden — admin role required'}), 403
+
+        if session.get('role') not in ADMIN_ROLES:
+            return jsonify({'error': 'Forbidden — admin/engineer role required'}), 403
+
         request.session = session
         return f(*args, **kwargs)
     return decorated
 
-def _get_admin_password() -> str:
-    """Read ADMIN_PASSWORD from .env — same pattern as proxy.py."""
-    env_path = os.path.join(_BASE_DIR, '.env')
-    try:
-        with open(env_path) as f:
-            for line in f:
-                line = line.strip()
-                if line.startswith('ADMIN_PASSWORD='):
-                    return line.split('=', 1)[1].strip()
-    except Exception:
-        pass
-    return ''
 
-
-def require_admin(f):
-    """Require ADMIN_PASSWORD in X-Admin-Password header."""
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        admin_pw = _get_admin_password()
-        if not admin_pw:
-            return jsonify({'error': 'ADMIN_PASSWORD not configured'}), 500
-        if not hmac.compare_digest(request.headers.get('X-Admin-Password', ''), admin_pw):
-            return jsonify({'error': 'Forbidden'}), 403
-        return f(*args, **kwargs)
-    return decorated
-
-
-# ════════════════════════════════════════════════════════════════════════════
-#  AUTH ROUTES
-# ════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════
+# AUTH ROUTES
+# ══════════════════════════════════════════════════════════
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
-    data     = request.get_json(silent=True) or {}
+    data = request.get_json(silent=True) or {}
     username = str(data.get('username', '')).strip()
     password = str(data.get('password', ''))
 
@@ -170,19 +151,29 @@ def login():
         return jsonify({'ok': False, 'error': 'Missing credentials'}), 400
 
     users = _load_users()
-    user  = users.get(username)
+    user = users.get(username)
 
     if not user or not _verify_password(password, user['password_hash']):
-        time.sleep(0.4)   # constant-time penalty
+        time.sleep(0.4)
         return jsonify({'ok': False, 'error': 'Invalid username or password'}), 401
 
-    token = _create_session(username, user.get('role', 'user'))
+    role = user.get('role', 'user')
+    token = _create_session(username, role)
 
-    resp = jsonify({'ok': True, 'token': token, 'role': user.get('role', 'user'), 'username': username})
+    resp = jsonify({
+        'ok': True,
+        'token': token,
+        'role': role,
+        'username': username
+    })
+
     resp.set_cookie(
-        'sotb-session', token,
-        httponly=True, samesite='Strict', secure=False,
-        max_age=SESSION_TTL,
+        'sotb-session',
+        token,
+        httponly=True,
+        samesite='Strict',
+        secure=False,
+        max_age=SESSION_TTL
     )
     return resp
 
@@ -191,6 +182,7 @@ def login():
 def logout():
     token = _token_from_request()
     _invalidate_session(token)
+
     resp = jsonify({'ok': True})
     resp.delete_cookie('sotb-session')
     return resp
@@ -199,48 +191,60 @@ def logout():
 @auth_bp.route('/me', methods=['GET'])
 @require_auth
 def me():
-    return jsonify({'ok': True, 'username': request.session['username'], 'role': request.session['role']})
+    return jsonify({
+        'ok': True,
+        'username': request.session['username'],
+        'role': request.session['role']
+    })
 
 
-# ════════════════════════════════════════════════════════════════════════════
-#  USER MANAGEMENT ROUTES
-# ════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════
+# USER MANAGEMENT
+# ══════════════════════════════════════════════════════════
 
 @auth_bp.route('/users', methods=['GET'])
 @require_admin_role
 def list_users():
     users = _load_users()
-    safe  = sorted([
-        {'username': u, 'role': d.get('role', 'user'), 'created_at': d.get('created_at', '')}
+
+    safe = sorted([
+        {
+            'username': u,
+            'role': d.get('role', 'user'),
+            'created_at': d.get('created_at', '')
+        }
         for u, d in users.items()
     ], key=lambda x: x['username'])
+
     return jsonify({'ok': True, 'users': safe})
 
 
 @auth_bp.route('/users', methods=['POST'])
 @require_admin_role
 def create_user():
-    data     = request.get_json(silent=True) or {}
+    data = request.get_json(silent=True) or {}
     username = str(data.get('username', '')).strip()
     password = str(data.get('password', ''))
-    role     = str(data.get('role', 'user'))
+    role = str(data.get('role', 'user'))
 
     if not username:
         return jsonify({'ok': False, 'error': 'username required'}), 400
     if not password:
         return jsonify({'ok': False, 'error': 'password required'}), 400
-    if role not in ('user', 'admin'):
-        return jsonify({'ok': False, 'error': 'role must be user or admin'}), 400
+    if role not in ALLOWED_ROLES:
+        return jsonify({'ok': False, 'error': 'invalid role'}), 400
 
     users = _load_users()
+
     if username in users:
-        return jsonify({'ok': False, 'error': f'User "{username}" already exists'}), 409
+        return jsonify({'ok': False, 'error': f'user "{username}" exists'}), 409
 
     users[username] = {
         'password_hash': _hash_password(password),
-        'role':          role,
-        'created_at':    time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+        'role': role,
+        'created_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
     }
+
     _save_users(users)
     return jsonify({'ok': True, 'username': username}), 201
 
@@ -249,17 +253,25 @@ def create_user():
 @require_admin_role
 def update_user(username):
     users = _load_users()
+
     if username not in users:
         return jsonify({'ok': False, 'error': 'User not found'}), 404
 
-    data     = request.get_json(silent=True) or {}
-    role     = data.get('role')
+    target_role = users[username].get('role', 'user')
+    requester_role = request.session.get('role')
+    if requester_role == 'engineer' and target_role == 'admin':
+        return jsonify({'ok': False, 'error': 'Engineers cannot modify admin accounts'}), 403
+
+    data = request.get_json(silent=True) or {}
+    role = data.get('role')
     password = data.get('password', '')
 
-    if role and role not in ('user', 'admin'):
-        return jsonify({'ok': False, 'error': 'role must be user or admin'}), 400
+    if role and role not in ALLOWED_ROLES:
+        return jsonify({'ok': False, 'error': 'invalid role'}), 400
+
     if role:
         users[username]['role'] = role
+
     if password:
         users[username]['password_hash'] = _hash_password(password)
 
@@ -271,23 +283,28 @@ def update_user(username):
 @require_admin_role
 def delete_user(username):
     users = _load_users()
+
     if username not in users:
         return jsonify({'ok': False, 'error': 'User not found'}), 404
+
+    target_role = users[username].get('role', 'user')
+    requester_role = request.session.get('role')
+    if requester_role == 'engineer' and target_role == 'admin':
+        return jsonify({'ok': False, 'error': 'Engineers cannot delete admin accounts'}), 403
 
     del users[username]
     _save_users(users)
 
-    # Kick any active sessions for this user
+    # Invalidate sessions
     for token in [t for t, s in _sessions.items() if s['username'] == username]:
         del _sessions[token]
 
     return jsonify({'ok': True, 'username': username})
 
 
-# ════════════════════════════════════════════════════════════════════════════
-#  REGISTRATION
-# ════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════
+# REGISTER
+# ══════════════════════════════════════════════════════════
 
-def register_routes(app) -> None:
-    """Call this from proxy.py exactly like the other blueprint modules."""
+def register_routes(app):
     app.register_blueprint(auth_bp)

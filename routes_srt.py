@@ -327,19 +327,26 @@ def stop_all_jobs():
     return jsonify({"message": f"Stopped {len(stopped)} jobs", "stopped_ids": stopped})
 
 
+
 @srt_bp.route("/sources", methods=["GET"])
 def list_sources():
-    """List available .ts files in TS_SOURCE_DIR plus test.mp4."""
     sources = [{"file": "test.mp4", "type": "mp4"}]
+
     if os.path.isdir(TS_SOURCE_DIR):
-        for f in sorted(os.listdir(TS_SOURCE_DIR)):
-            if f.lower().endswith(".ts"):
-                sources.append({
-                    "file": os.path.join(TS_SOURCE_DIR, f),
-                    "name": f,
-                    "type": "ts",
-                })
+        ts_files = sorted(
+            [f for f in os.listdir(TS_SOURCE_DIR) if f.lower().endswith(".ts")],
+            reverse=True  # mais recente primeiro (baseado no nome)
+        )
+
+        for f in ts_files:
+            sources.append({
+                "file": os.path.join(TS_SOURCE_DIR, f),
+                "name": f,
+                "type": "ts",
+            })
+
     return jsonify({"sources": sources})
+
 
 
 @srt_bp.route("/jobs/<int:job_id>/stats", methods=["GET"])
