@@ -16,7 +16,6 @@ app.register_blueprint(id3as_bp)
 from rts_routes import rts_bp
 app.register_blueprint(rts_bp)
 
-
 from routes_srt import srt_bp
 app.register_blueprint(srt_bp)
 
