@@ -1017,11 +1017,9 @@
       return;
     }
 
-    // Staff: exclude on-behalf entries (those are management-submitted for others)
-    const isManagement = state.me && state.me.rota_role === 'management';
-    const entries = isManagement
-      ? d.leave
-      : d.leave.filter(e => !e.on_behalf);
+    // Only show requests where I am the subject — regardless of who submitted them
+    const myUsername = state.me?.username;
+    const entries = d.leave.filter(e => e.username === myUsername);
 
     if (!entries.length) {
       wrap.innerHTML = '<div class="empty-state">No leave requests yet.</div>';
