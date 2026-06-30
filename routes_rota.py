@@ -112,34 +112,6 @@ MANAGEMENT_SHIFTS = {
     "Tiago C": "0900-1730",
 }
 
-# Maps each user's email to their exact display name as used in the rota
-# tables above (MANAGEMENT_SHIFTS / ENGINEERING_OFFSETS / SPECIALIST_OFFSETS).
-# Required because _display_name_from_email() always appends a last-initial,
-# which only matches rota names for collision cases (e.g. "Tiago C", "Tiago O").
-EMAIL_TO_ROTA_NAME = {
-    "joao.rato@statsperform.com":   "Joao R",
-    "marcus.marcal@statsperform.com":   "Marcus",
-    "joao.lopes@statsperform.com":   "Joao L",
-    "tiago.carvalho@statsperform.com":  "Tiago C",
-    "hugo.carvalho@statsperform.com":     "Hugo",
-    "goncalo.paiva@statsperform.com":  "Goncalo",
-    "nuno.carvalho@statsperform.com":     "Nuno",
-    "sabina.barros@statsperform.com":   "Sabina",
-    "sergio.silva@statsperform.com":   "Sergio",
-    "tiago.oliveira@statsperform.com":  "Tiago O",
-    "vitor.cassama@statsperform.com":    "Vitor",
-    "fernando.carvalho@statsperform.com": "Fernando",
-    "marcmadeira.ribeiro@statsperform.com":     "Marc",
-    "gabriel.ribeiro@statsperform.com":  "Gabriel",
-    "mario.branco@statsperform.com":    "Mario",
-    "isaac.santiago@statsperform.com":    "Isaac",
-}
-
-def _rota_display_name(email: str) -> str:
-    """Returns the exact rota table name for a known team member,
-    falling back to the generic email-derived name otherwise."""
-    return EMAIL_TO_ROTA_NAME.get(email, _display_name_from_email(email))
-
 PUBLIC_HOLIDAYS = {
     date(2026,1,1),  date(2026,2,17), date(2026,4,3),
     date(2026,4,5),  date(2026,4,25), date(2026,5,1),
@@ -217,7 +189,7 @@ def rota_me():
     session   = request.session
     rota_role = _get_rota_role(session)
     username  = session['username']
-    name      = _rota_display_name(username)
+    name      = _display_name_from_email(username)
     role      = session.get('role', '')
     team      = 'Engineering' if role == 'engineer' else \
                 'Specialists' if role == 'specialist' else \
@@ -377,7 +349,7 @@ def rota_leave_post():
     else:
         username = session['username']
 
-    name = _rota_display_name(username)
+    name = _display_name_from_email(username)
 
     leave_list = _load_json(LEAVE_FILE)
     if not isinstance(leave_list, list):

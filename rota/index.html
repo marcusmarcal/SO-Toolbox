@@ -368,15 +368,15 @@
 
     /* ── TOAST ── */
     #toast {
-      position: fixed; top: 72px; left: 50%; transform: translateX(-50%) translateY(-8px);
+      position: fixed; bottom: 28px; right: 28px;
       font-family: var(--mono); font-size: 0.75rem;
-      padding: 10px 24px; border-radius: 8px;
+      padding: 10px 18px; border-radius: 8px;
       border: 1px solid var(--border); background: var(--surface);
-      opacity: 0;
+      opacity: 0; transform: translateY(8px);
       transition: opacity 0.25s, transform 0.25s;
-      pointer-events: none; z-index: 9000; white-space: nowrap;
+      pointer-events: none; z-index: 9000;
     }
-    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #toast.show { opacity: 1; transform: translateY(0); }
     #toast.ok  { border-color: rgba(63,185,80,0.5);  color: #9ee6a6; background: rgba(63,185,80,0.08); }
     #toast.err { border-color: rgba(255,78,106,0.5); color: #ffb3be; background: rgba(255,78,106,0.08); }
 
@@ -670,28 +670,6 @@
     });
   }
 
-  function uiAlert(msg, title = 'Error') {
-  return new Promise(resolve => {
-    document.getElementById('confirm-title').textContent = title;
-    document.getElementById('confirm-msg').textContent   = msg;
-    const okBtn = document.getElementById('confirm-ok-btn');
-    okBtn.textContent = 'OK';
-    okBtn.className   = 'btn primary';
-    const cancelBtn = document.getElementById('confirm-cancel-btn');
-    cancelBtn.style.display = 'none';
-    const modal = document.getElementById('confirm-modal');
-    modal.classList.add('open');
-    const cleanup = () => {
-      modal.classList.remove('open');
-      cancelBtn.style.display = '';
-      okBtn.replaceWith(okBtn.cloneNode(true));
-      resolve();
-    };
-    document.getElementById('confirm-ok-btn').addEventListener('click', cleanup, { once: true });
-    modal.addEventListener('click', e => { if (e.target === modal) cleanup(); }, { once: true });
-  });
-}
-
   // ════════════════════════════════════════════════════════════════
   //  INIT
   // ════════════════════════════════════════════════════════════════
@@ -757,10 +735,6 @@
         if (btn.dataset.tab === 'access')    loadAccess();
         if (btn.dataset.tab === 'leave')     loadMyLeave();
       });
-    });
-    document.getElementById('btn-signout').addEventListener('click', async () => {
-      await fetch(`${PROXY}/logout`, { method: 'POST', credentials: 'same-origin' });
-      window.location.href = '/login.html';
     });
   }
 
@@ -950,7 +924,7 @@
       document.getElementById('btn-save-config').addEventListener('click', saveConfig);
     }
 
-    document.getElementById('btn-submit-leave').addEventListener('click', () => submitLeave(false));
+    document.getElementById('btn-submit-leave').addEventListener('click', submitLeave);
   }
 
   async function loadConfig() {
@@ -994,9 +968,9 @@
     const onBehalf   = state.onBehalf;
     const targetUser = document.getElementById('onbehalf-user').value;
 
-    if (!dateStart || !dateEnd)  { await uiAlert('Please select both start and end dates.'); return; }
-    if (dateEnd < dateStart)     { await uiAlert('End date must be on or after the start date.'); return; }
-    if (onBehalf && !targetUser) { await uiAlert('Please select a user for the on-behalf request.'); return; }
+    if (!dateStart || !dateEnd)  { toast('Select dates', 'err'); return; }
+    if (dateEnd < dateStart)     { toast('End date must be after start', 'err'); return; }
+    if (onBehalf && !targetUser) { toast('Select a user for on-behalf request', 'err'); return; }
 
     const body = {
       date_start: dateStart, date_end: dateEnd,
@@ -1023,10 +997,8 @@
       note.innerHTML = `⚠ ${d.error}. &nbsp;
         <button class="btn warn" style="font-size:0.65rem;padding:3px 10px;"
           onclick="submitLeave(true)">Submit anyway</button>`;
-    } else if (d.blocked) {
-      await uiAlert(d.error, 'Leave Requests Blocked');
     } else {
-      await uiAlert(d.error || 'Failed to submit request.');
+      toast(d.error || 'Failed to submit', 'err');
     }
   }
 
@@ -1046,8 +1018,10 @@
     }
 
     // Staff: exclude on-behalf entries (those are management-submitted for others)
-    const myUsername = state.me?.username;
-    const entries = d.leave.filter(e => e.username === myUsername);
+    const isManagement = state.me && state.me.rota_role === 'management';
+    const entries = isManagement
+      ? d.leave
+      : d.leave.filter(e => !e.on_behalf);
 
     if (!entries.length) {
       wrap.innerHTML = '<div class="empty-state">No leave requests yet.</div>';
