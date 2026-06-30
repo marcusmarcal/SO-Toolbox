@@ -758,6 +758,10 @@
         if (btn.dataset.tab === 'leave')     loadMyLeave();
       });
     });
+    document.getElementById('btn-signout').addEventListener('click', async () => {
+      await fetch(`${PROXY}/logout`, { method: 'POST', credentials: 'same-origin' });
+      window.location.href = '/login.html';
+    });
   }
 
   // ════════════════════════════════════════════════════════════════
