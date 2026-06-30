@@ -1119,9 +1119,9 @@
         {
           id: 16,
           date: "2026-06-19",
-          local: "21:00",
+          local: "20:30",
           tz: -4,
-          bst: "02:00",
+          bst: "01:30",
           on: true,
           t1: "Brazil",
           t2: "Haiti",
@@ -1204,9 +1204,9 @@
         {
           id: 22,
           date: "2026-06-19",
-          local: "21:00",
+          local: "20:00",
           tz: -7,
-          bst: "05:00",
+          bst: "04:00",
           on: true,
           t1: "Türkiye",
           t2: "Paraguay",
@@ -2430,6 +2430,7 @@
       // ─── STATE ───────────────────────────────────────────────────────────────────
       const A = {}; // A[id] = 'N'|'G'|'H'|'M'|''
       const R = {}; // R[id] = {s1, s2}  — scores from openfootball sync
+      const T = {}; // T[id] = {t1, t2}  — team name overrides from openfootball sync
       let CURRENT_USER = null; // { ok, role, username } from /so-proxy/me
       let SAVE_DEBOUNCE = null;
 
@@ -2503,6 +2504,17 @@
           Object.keys(sr).forEach((k) => {
             if (sr[k]) R[parseInt(k)] = sr[k];
           });
+          // Restore team name overrides and apply them onto the M array
+          const st = data.teamNames || {};
+          Object.keys(st).forEach((k) => {
+            const id = parseInt(k);
+            T[id] = st[k];
+            const m = M.find((x) => x.id === id);
+            if (m && st[k]) {
+              if (st[k].t1) m.t1 = st[k].t1;
+              if (st[k].t2) m.t2 = st[k].t2;
+            }
+          });
           // Restore engineer names
           const sn = data.engNames || {};
           if (sn.N) document.getElementById("e0").value = sn.N;
@@ -2536,6 +2548,18 @@
         }
       }
 
+      async function saveTeamNames() {
+        try {
+          await fetch("/so-proxy/wc2026/teamnames", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ teamNames: T }),
+          });
+        } catch (e) {
+          console.warn("saveTeamNames failed:", e);
+        }
+      }
+
       function schedSave() {
         if (!isAdmin()) return;
         updateSaveStatus("pending");
@@ -2557,7 +2581,7 @@
             method: "POST",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ assignments: A, engNames, scores: R }),
+            body: JSON.stringify({ assignments: A, engNames, scores: R, teamNames: T }),
           });
           const json = await r.json();
           if (json.ok) {
@@ -3027,23 +3051,26 @@
           let updTeams = 0, updScores = 0, matched = 0;
 
           // Build a lookup: "YYYY-MM-DD|HH:MM" → match entry from JSON.
-          // Also index under date+1 to catch games where the local date differs
-          // from the BST date (e.g. 21:00 UTC-4 → 02:00 BST next morning).
+          // Use only the canonical date from the feed — no aliases — to avoid collisions
+          // when two games share the same BST time on adjacent days.
           const lookup = {};
           (json.matches || []).forEach((jm) => {
             const bst = jBST(jm.time);
             if (!bst) return;
             lookup[`${jm.date}|${bst}`] = jm;
-            // Next calendar day alias (only set if not already claimed)
-            const d = new Date(jm.date + 'T12:00:00Z');
-            d.setUTCDate(d.getUTCDate() + 1);
-            const nextDay = d.toISOString().slice(0, 10);
-            if (!lookup[`${nextDay}|${bst}`]) lookup[`${nextDay}|${bst}`] = jm;
           });
 
           M.forEach((m) => {
-            const key = `${m.date}|${m.bst}`;
-            const jm = lookup[key];
+            // Primary key: match's own date + BST
+            let jm = lookup[`${m.date}|${m.bst}`];
+            // For overnight BST (00:00–09:59), also try the previous calendar day,
+            // since the feed records the local date which may be one day earlier.
+            if (!jm && /^0[0-9]:/.test(m.bst)) {
+              const d = new Date(m.date + 'T12:00:00Z');
+              d.setUTCDate(d.getUTCDate() - 1);
+              const prevDay = d.toISOString().slice(0, 10);
+              jm = lookup[`${prevDay}|${m.bst}`];
+            }
             if (!jm) return;
             matched++;
 
@@ -3056,10 +3083,14 @@
               /UEFA|IC Path|winner/i.test(n);   // UEFA Path A winner, IC Path 1 winner
             if (!isPlaceholder(jm.team1) && jm.team1 !== m.t1) {
               m.t1 = jm.team1;
+              T[m.id] = T[m.id] || {};
+              T[m.id].t1 = jm.team1;
               updTeams++;
             }
             if (!isPlaceholder(jm.team2) && jm.team2 !== m.t2) {
               m.t2 = jm.team2;
+              T[m.id] = T[m.id] || {};
+              T[m.id].t2 = jm.team2;
               updTeams++;
             }
 
@@ -3079,6 +3110,7 @@
 
           renderAll();
           saveScores(); // persist scores for all users
+          saveTeamNames(); // persist team name updates for all users
 
           const parts = [];
           if (updTeams) parts.push(`${updTeams} name${updTeams > 1 ? "s" : ""} updated`);

@@ -7,6 +7,14 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.21.0] - 2026-06-30
+
+### Fixed
+
+- WC2026 Rota: openfootball sync lookup used a date+1 alias that caused key collisions between unrelated matches sharing the same BST time, silently overwriting one match with another's data and making it disappear from the view; lookup now matches each fixture primarily on its own date and falls back to date-1 only for early-morning BST kickoffs, computed per fixture instead of pre-indexed
+- WC2026 Rota: team name updates from openfootball sync were only applied in memory and never persisted, reverting to placeholder names on every reload; added teamNames state, a new POST /wc2026/teamnames endpoint, and restoration of saved overrides on load
+- WC2026 Rota: Turkiye vs Paraguay and Brazil vs Haiti (both 19 June) had stale hardcoded kickoff times that no longer matched the openfootball feed, so results never matched during sync; corrected kickoff times for both fixtures
+
 ## [3.20.0] - 2026-06-29
 
 ### Fixed
