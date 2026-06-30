@@ -860,7 +860,7 @@
           );
 
           // PROCESSAMENTO EM LOTES (CHUNKS)
-          const chunkSize = 50; // Processa 50 por vez para não travar o proxy
+          const chunkSize = 100; // Processa 10 por vez para não travar o proxy
           for (let i = 0; i < globalChannels.map.length; i += chunkSize) {
             const chunk = globalChannels.slice(i, i + chunkSize);
 
