@@ -7,6 +7,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.22.0] - 2026-06-30
+
+### Added
+
+- RTS Monitor: added StreamID and StreamKey to the table. Created removed.
+
 ## [3.21.0] - 2026-06-30
 
 ### Fixed
