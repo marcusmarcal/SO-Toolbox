@@ -3050,27 +3050,43 @@
 
           let updTeams = 0, updScores = 0, matched = 0;
 
-          // Build a lookup: "YYYY-MM-DD|HH:MM" → match entry from JSON.
-          // Use only the canonical date from the feed — no aliases — to avoid collisions
-          // when two games share the same BST time on adjacent days.
+          // Build a lookup: "YYYY-MM-DD|HH:MM" → array of feed entries.
+          // Simultaneous kickoffs share the same key; we disambiguate later by team name.
           const lookup = {};
           (json.matches || []).forEach((jm) => {
             const bst = jBST(jm.time);
             if (!bst) return;
-            lookup[`${jm.date}|${bst}`] = jm;
+            const key = `${jm.date}|${bst}`;
+            (lookup[key] = lookup[key] || []).push(jm);
           });
 
+          // Normalize a team name for fuzzy comparison: lowercase, strip accents/diacritics
+          const norm = (s) =>
+            (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
           M.forEach((m) => {
-            // Primary key: match's own date + BST
-            let jm = lookup[`${m.date}|${m.bst}`];
-            // For overnight BST (00:00–09:59), also try the previous calendar day,
-            // since the feed records the local date which may be one day earlier.
-            if (!jm && /^0[0-9]:/.test(m.bst)) {
+            // Collect candidates by primary key (date + BST).
+            // For early-morning BST (00:00–09:59), also try date-1 since the feed's
+            // local date may be one day earlier than BST date.
+            let candidates = lookup[`${m.date}|${m.bst}`] || [];
+            if (!candidates.length && /^0[0-9]:/.test(m.bst)) {
               const d = new Date(m.date + 'T12:00:00Z');
               d.setUTCDate(d.getUTCDate() - 1);
               const prevDay = d.toISOString().slice(0, 10);
-              jm = lookup[`${prevDay}|${m.bst}`];
+              candidates = lookup[`${prevDay}|${m.bst}`] || [];
             }
+            if (!candidates.length) return;
+
+            // Disambiguate: prefer entry whose team names match m.t1/m.t2.
+            // Fall back to first candidate when neither team is known yet (placeholder).
+            const nt1 = norm(m.t1), nt2 = norm(m.t2);
+            const isKnown = (n) => n && !/^[wl]\d+$|^\d+[a-z]|uefa|ic path|winner/i.test(n);
+            let jm = candidates.find((c) =>
+              norm(c.team1) === nt1 || norm(c.team2) === nt2 ||
+              norm(c.team1) === nt2 || norm(c.team2) === nt1
+            );
+            // If both local teams are placeholders, accept any unambiguous single candidate
+            if (!jm && (!isKnown(m.t1) && !isKnown(m.t2))) jm = candidates.length === 1 ? candidates[0] : null;
             if (!jm) return;
             matched++;
 

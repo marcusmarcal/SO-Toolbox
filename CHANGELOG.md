@@ -7,6 +7,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.23.0] - 2026-07-01
+
+### Fixed
+
+- WC2026 Rota: openfootball sync lookup used a single-entry map keyed by date+BST time; simultaneous kickoffs (all group-stage matchdays have two games at the same time) caused the second entry to overwrite the first, making every other match silently lose its sync result; lookup now stores arrays of candidates per key and disambiguates by fuzzy team-name match with diacritic normalization~
+
 ## [3.22.0] - 2026-06-30
 
 ### Added
