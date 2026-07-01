@@ -885,7 +885,9 @@
         document.getElementById("supplier-filter").innerHTML =
           '<option value="">ALL SUPPLIERS</option>';
         document.getElementById("show-streamid").checked = false;
-        document.getElementById("channels-table").classList.remove("show-streamid");
+        document
+          .getElementById("channels-table")
+          .classList.remove("show-streamid");
 
         document.getElementById("dashboard").style.display = "none";
         document.getElementById("login-screen").style.display = "flex";
@@ -1010,7 +1012,7 @@
         const app = encodeURIComponent(appId || "");
         const channelId = encodeURIComponent(ch.channelId || "");
         const streamId = encodeURIComponent(ch.streamKey || "");
-        return `https://phenixrts.com/portal/${app}/channels/${channelId}/streams/${streamId}`;
+        return `https://phenixrts.com/portal/${app}/channels/${channelId}/streams/`;
       }
 
       function handleFilterChange() {
@@ -1036,7 +1038,10 @@
           const matchesSearch = ch.name.toLowerCase().includes(searchTerm);
           const count = globalState[ch.channelId] || 0;
           const matchesActive = onlyActive ? count > 0 : true;
-          const matchesSupplier = matchesSupplierFilter(ch.name, supplierFilter);
+          const matchesSupplier = matchesSupplierFilter(
+            ch.name,
+            supplierFilter
+          );
           return matchesSearch && matchesActive && matchesSupplier;
         });
 
@@ -1089,10 +1094,14 @@
             : "—";
           const phenixUrl = buildPhenixUrl(ch);
           tr.innerHTML = `
-  <td style="color:#fff; font-weight:600;"><a class="channel-link" href="${phenixUrl}" target="_blank" rel="noopener noreferrer">${ch.name}</a></td>
+  <td style="color:#fff; font-weight:600;"><a class="channel-link" href="${phenixUrl}" target="_blank" rel="noopener noreferrer">${
+            ch.name
+          }</a></td>
   <td style="color:var(--text-dim);">${ch.alias || "—"}</td>
   <td style="color:var(--text-dim);">${ch.channelId || "—"}</td>
-  <td class="col-streamid" style="color:var(--text-dim);">${ch.streamKey || "—"}</td>
+  <td class="col-streamid" style="color:var(--text-dim);">${
+    ch.streamKey || "—"
+  }</td>
   <td style="text-align:center"><div class="pub-icons-container">${icons}</div></td>
   <td style="text-align:center">${badge}</td>
 `;
