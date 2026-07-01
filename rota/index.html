@@ -200,6 +200,108 @@
     }
     td.team-sep { border-left: 2px solid #333 !important; }
 
+    /* ── DRAFT CELL SELECTION ── */
+    table.rota.draft-selectable tbody td:not(.date-col) {
+      cursor: crosshair;
+    }
+    table.rota.draft-selectable tbody td.selected-cell {
+      background-color: rgba(230,168,80,0.18) !important;
+    }
+    #selection-overlay {
+      position: absolute; pointer-events: none; z-index: 50;
+      top: 0; left: 0; width: 100%; height: 100%;
+    }
+    .selection-box {
+      position: absolute;
+      border: 2px solid rgba(230,168,80,0.9);
+      border-radius: 2px;
+      background: transparent;
+      pointer-events: none;
+    }
+
+    /* ── SHIFT POPOVER ── */
+    #shift-popover {
+      display: none; position: fixed; z-index: 800;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px;
+      width: 280px; box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+      font-family: var(--mono);
+    }
+    #shift-popover.open { display: block; }
+    .popover-header {
+      font-size: 0.65rem; font-weight: 700; color: var(--accent);
+      text-transform: uppercase; letter-spacing: 0.1em;
+      margin-bottom: 12px; padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .popover-close {
+      background: none; border: none; color: var(--muted);
+      cursor: pointer; font-size: 0.9rem; line-height: 1; padding: 0;
+    }
+    .popover-close:hover { color: var(--text); }
+    .popover-section { margin-bottom: 12px; }
+    .popover-section-label {
+      font-size: 0.55rem; color: var(--muted); text-transform: uppercase;
+      letter-spacing: 0.12em; margin-bottom: 6px; display: block;
+    }
+    .shift-option-group { margin-bottom: 4px; }
+    .shift-option-group-label {
+      font-size: 0.5rem; color: var(--border); text-transform: uppercase;
+      letter-spacing: 0.1em; padding: 4px 0 2px 0; display: block;
+      border-top: 1px solid var(--border); margin-top: 4px;
+    }
+    .shift-option-group:first-child .shift-option-group-label {
+      border-top: none; margin-top: 0;
+    }
+    .shift-btn {
+      display: inline-block; font-family: var(--mono); font-size: 0.62rem;
+      font-weight: 700; padding: 3px 8px; border-radius: 4px;
+      border: 1px solid var(--border); cursor: pointer;
+      background: var(--card); color: var(--text);
+      margin: 2px; transition: all 0.15s;
+    }
+    .shift-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .shift-btn.active { border-color: var(--accent); background: rgba(161,139,245,0.2); color: var(--accent); }
+    .shift-btn.off-btn { color: var(--muted); }
+    .shift-btn.absent-btn { color: #e57373; border-color: rgba(229,115,115,0.4); }
+    .shift-btn.absent-btn:hover { background: rgba(229,115,115,0.1); }
+    .popover-input {
+      width: 100%; background: var(--card); border: 1px solid var(--border);
+      color: var(--text); font-family: var(--mono); font-size: 0.7rem;
+      padding: 5px 8px; border-radius: 5px; outline: none;
+      transition: border-color 0.2s; margin-top: 4px;
+    }
+    .popover-input:focus { border-color: var(--accent); }
+    .popover-note-required {
+      font-size: 0.55rem; color: #e6a850; margin-top: 4px; display: none;
+    }
+    .al-toggle-row {
+      display: flex; gap: 6px; flex-wrap: wrap;
+    }
+    .al-btn {
+      font-family: var(--mono); font-size: 0.6rem; font-weight: 700;
+      padding: 4px 10px; border-radius: 4px; cursor: pointer;
+      border: 1px solid var(--border); background: var(--card);
+      color: var(--muted); transition: all 0.15s;
+    }
+    .al-btn.none.active   { border-color: var(--border); color: var(--text); background: var(--card); }
+    .al-btn.prov.active   { border-color: rgba(244,143,177,0.6); color: #f48fb1; background: rgba(244,143,177,0.12); }
+    .al-btn.conf.active   { border-color: rgba(63,185,80,0.6);   color: #9ee6a6; background: rgba(63,185,80,0.12); }
+    .popover-actions {
+      display: flex; gap: 8px; justify-content: flex-end;
+      margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border);
+    }
+
+    /* ── ABSENT CELL OVERLAY ── */
+    .shift-cell.absent-overlay {
+      background-image: repeating-linear-gradient(
+        45deg,
+        rgba(80,80,80,0.55) 0px, rgba(80,80,80,0.55) 2px,
+        transparent 2px, transparent 6px
+      );
+    }
+
     /* ── DRAFT MODE ── */
     #draft-banner {
       display: none; align-items: center; gap: 12px; flex-wrap: wrap;
@@ -608,6 +710,45 @@
     <div id="access-list"><div class="loading-row"><div class="spinner"></div> Loading…</div></div>
   </div>
 
+  <!-- ── SHIFT POPOVER ── -->
+  <div id="shift-popover">
+    <div class="popover-header">
+      <span id="popover-title">Edit Cell</span>
+      <button class="popover-close" id="popover-close">✕</button>
+    </div>
+
+    <!-- SHIFT SECTION -->
+    <div class="popover-section" id="popover-shift-section">
+      <span class="popover-section-label">Shift</span>
+      <div id="shift-options-list"></div>
+      <input class="popover-input" id="popover-custom-shift"
+        placeholder="Custom shift (e.g. 0800-1700)" maxlength="9" />
+    </div>
+
+    <!-- AL SECTION -->
+    <div class="popover-section" id="popover-al-section">
+      <span class="popover-section-label">Annual Leave</span>
+      <div class="al-toggle-row">
+        <button class="al-btn none active" data-al="none">None</button>
+        <button class="al-btn prov"        data-al="provisional">Provisional</button>
+        <button class="al-btn conf"        data-al="confirmed">Confirmed</button>
+      </div>
+    </div>
+
+    <!-- NOTE SECTION -->
+    <div class="popover-section">
+      <span class="popover-section-label">Note <span id="note-required-star" style="color:#e6a850;display:none;">*</span></span>
+      <textarea class="popover-input" id="popover-note" rows="2"
+        placeholder="Optional note…" style="resize:none;"></textarea>
+      <div class="popover-note-required" id="note-required-msg">Note is required for Absent.</div>
+    </div>
+
+    <div class="popover-actions">
+      <button class="btn" id="popover-cancel">Cancel</button>
+      <button class="btn primary" id="popover-apply">Apply</button>
+    </div>
+  </div>
+
   <!-- ── CUSTOM CONFIRM MODAL ── -->
   <div id="confirm-modal">
     <div class="confirm-card">
@@ -670,6 +811,7 @@
     'AL_PENDING':  { bg:'#F48FB1', fg:'#5D4037' },
     'PARENTAL':    { bg:'#00BCD4', fg:'#fff', dotted: true },
     'MARITAL':     { bg:'#3a3a3a', fg:'#999', dotted: true },
+    'ABSENT':      { bg:'#2a2a2a', fg:'#777', absent: true },
   };
 
   // Roles considered valid for dropdowns and Team Access
@@ -692,6 +834,8 @@
       active:    false,
       lock:      null,
       overrides: [],
+      selection: [],      // [{person, date, col, row}]
+      lastSelected: null, // for shift+click range
     },
   };
 
@@ -917,16 +1061,22 @@
           if (shift.includes('|')) {
             const [code, orig] = shift.split('|');
             const c = SHIFT_COLORS[code] || SHIFT_COLORS['AL_APPROVED'];
-            bg = c.bg; fg = c.fg; text = orig + ' H';
+            bg = c.bg; fg = c.fg;
+            if (code === 'ABSENT') {
+              text = orig; extra = ' absent-overlay';
+            } else {
+              text = orig + ' H';
+            }
           } else {
             const c = SHIFT_COLORS[shift];
             if (c) {
               bg = c.bg; fg = c.fg;
-              if (c.dotted) extra = ' dotted';
+              if (c.dotted)  extra = ' dotted';
+              if (c.absent)  extra = ' absent-overlay';
               if (['AL_APPROVED','AL_PENDING','PARENTAL','MARITAL'].includes(shift)) text = '';
             }
           }
-          tbody += `<td class="${sep}" style="background:${bg};">`
+          tbody += `<td class="${sep}" style="background:${bg};" data-person="${name}" data-date="${day.date}">`
                  + `<span class="shift-cell${extra}" style="color:${day.is_today && shift !== 'OFF' ? '#fff' : fg};">${text}</span>`
                  + `</td>`;
         });
@@ -935,6 +1085,37 @@
     });
 
     wrap.innerHTML = `<table class="rota"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+
+    // Add selection overlay container (used for contiguous range outlines)
+    if (!document.getElementById('selection-overlay')) {
+      const ov = document.createElement('div');
+      ov.id = 'selection-overlay';
+      wrap.style.position = 'relative';
+      wrap.appendChild(ov);
+    }
+
+    // Wire up cell click handlers when in draft mode
+    if (state.draft.active) {
+      const table = wrap.querySelector('table.rota');
+      table.classList.add('draft-selectable');
+      table.querySelectorAll('tbody td:not(.date-col)').forEach(td => {
+        td.addEventListener('click', onDraftCellClick);
+        td.addEventListener('dblclick', e => {
+          e.stopPropagation();
+          const person = td.dataset.person;
+          const date   = td.dataset.date;
+          if (!person || !date) return;
+          // Ensure this cell is selected before opening popover
+          if (!state.draft.selection.find(c => c.person === person && c.date === date)) {
+            if (!e.ctrlKey && !e.metaKey && !e.shiftKey) _clearSelection();
+            _selectCell({ person, date, td });
+            _renderSelectionOverlay();
+          }
+          openShiftPopover();
+        });
+      });
+    }
+
     scrollToToday();
   }
 
@@ -1455,6 +1636,432 @@
   }
 
   // ════════════════════════════════════════════════════════════════
+  //  DRAFT CELL SELECTION + POPOVER
+  // ════════════════════════════════════════════════════════════════
+
+  // Person→team lookup built after allUsers loads
+  function _personTeam(person) {
+    const mgmt = ['Joao R','Marcus','Joao L','Tiago C'];
+    const eng  = ['Hugo','Goncalo','Nuno'];
+    if (mgmt.includes(person)) return 'Management';
+    if (eng.includes(person))  return 'Engineering';
+    return 'Specialists';
+  }
+
+  const SHIFTS_BY_TEAM = {
+    Management:  ['0800-1630','0900-1730','0930-1800','OFF'],
+    Engineering: ['0900-1800','1000-2000','OFF'],
+    Specialists: ['0700-1800','0900-2000','1300-0000','1500-0200','2100-0700','OFF'],
+  };
+  const ALL_SHIFTS = ['0700-1800','0800-1630','0900-1730','0900-1800','0900-2000',
+                      '0930-1800','1000-2000','1300-0000','1500-0200','2100-0700','OFF'];
+
+  function onDraftCellClick(e) {
+    if (!state.draft.active) return;
+    const td     = e.currentTarget;
+    const person = td.dataset.person;
+    const date   = td.dataset.date;
+    if (!person || !date) return;
+
+    const cell = { person, date, td };
+
+    if (e.shiftKey && state.draft.lastSelected) {
+      // Contiguous range selection
+      _selectRange(state.draft.lastSelected, cell);
+    } else if (e.ctrlKey || e.metaKey) {
+      // Toggle individual cell
+      _toggleCell(cell);
+      state.draft.lastSelected = cell;
+    } else {
+      // Single click — deselect all, select this one
+      _clearSelection();
+      _selectCell(cell);
+      state.draft.lastSelected = cell;
+    }
+
+    _renderSelectionOverlay();
+  }
+
+  function _cellKey(person, date) { return `${person}__${date}`; }
+
+  function _selectCell(cell) {
+    const key = _cellKey(cell.person, cell.date);
+    if (!state.draft.selection.find(c => _cellKey(c.person, c.date) === key)) {
+      state.draft.selection.push(cell);
+    }
+    cell.td.classList.add('selected-cell');
+  }
+
+  function _deselectCell(cell) {
+    const key = _cellKey(cell.person, cell.date);
+    state.draft.selection = state.draft.selection.filter(
+      c => _cellKey(c.person, c.date) !== key
+    );
+    cell.td.classList.remove('selected-cell');
+  }
+
+  function _toggleCell(cell) {
+    const key = _cellKey(cell.person, cell.date);
+    if (state.draft.selection.find(c => _cellKey(c.person, c.date) === key)) {
+      _deselectCell(cell);
+    } else {
+      _selectCell(cell);
+    }
+  }
+
+  function _clearSelection() {
+    state.draft.selection.forEach(c => c.td && c.td.classList.remove('selected-cell'));
+    state.draft.selection = [];
+    state.draft.lastSelected = null;
+    _renderSelectionOverlay();
+  }
+
+  function _selectRange(from, to) {
+    // Collect all td cells in the table and find the row/col indices
+    const wrap  = document.getElementById('rota-wrap');
+    const table = wrap.querySelector('table.rota');
+    if (!table) return;
+
+    const rows = Array.from(table.querySelectorAll('tbody tr'));
+
+    // Find row indices for from and to
+    let fromRow = -1, toRow = -1;
+    let fromCol = -1, toCol = -1;
+    rows.forEach((tr, ri) => {
+      const tds = Array.from(tr.querySelectorAll('td:not(.date-col)'));
+      tds.forEach((td, ci) => {
+        if (td === from.td) { fromRow = ri; fromCol = ci; }
+        if (td === to.td)   { toRow   = ri; toCol   = ci; }
+      });
+    });
+    if (fromRow === -1 || toRow === -1) return;
+
+    const r1 = Math.min(fromRow, toRow), r2 = Math.max(fromRow, toRow);
+    const c1 = Math.min(fromCol, toCol), c2 = Math.max(fromCol, toCol);
+
+    // Clear existing selection and re-select the range
+    _clearSelection();
+    rows.slice(r1, r2 + 1).forEach(tr => {
+      const tds = Array.from(tr.querySelectorAll('td:not(.date-col)'));
+      tds.slice(c1, c2 + 1).forEach(td => {
+        if (td.dataset.person && td.dataset.date) {
+          _selectCell({ person: td.dataset.person, date: td.dataset.date, td });
+        }
+      });
+    });
+  }
+
+  function _renderSelectionOverlay() {
+    const wrap = document.getElementById('rota-wrap');
+    const ov   = document.getElementById('selection-overlay');
+    if (!ov) return;
+    ov.innerHTML = '';
+    if (!state.draft.selection.length) return;
+
+    // Group contiguous cells into bounding boxes
+    // Simple approach: find bounding rect of each contiguous block
+    // by scanning for gaps in row sequence per column group
+    const wrapRect = wrap.getBoundingClientRect();
+    const scrollTop  = wrap.scrollTop;
+    const scrollLeft = wrap.scrollLeft;
+
+    // Find all contiguous rectangular groups
+    const groups = _findContiguousGroups(state.draft.selection);
+
+    groups.forEach(group => {
+      if (!group.length) return;
+      let minTop = Infinity, minLeft = Infinity, maxBottom = -Infinity, maxRight = -Infinity;
+      group.forEach(({ td }) => {
+        const r = td.getBoundingClientRect();
+        const top    = r.top    - wrapRect.top  + scrollTop;
+        const left   = r.left   - wrapRect.left + scrollLeft;
+        const bottom = r.bottom - wrapRect.top  + scrollTop;
+        const right  = r.right  - wrapRect.left + scrollLeft;
+        minTop    = Math.min(minTop, top);
+        minLeft   = Math.min(minLeft, left);
+        maxBottom = Math.max(maxBottom, bottom);
+        maxRight  = Math.max(maxRight, right);
+      });
+      const box = document.createElement('div');
+      box.className = 'selection-box';
+      box.style.top    = (minTop - 1)  + 'px';
+      box.style.left   = (minLeft - 1) + 'px';
+      box.style.width  = (maxRight - minLeft + 2)  + 'px';
+      box.style.height = (maxBottom - minTop + 2) + 'px';
+      ov.appendChild(box);
+    });
+  }
+
+  function _findContiguousGroups(selection) {
+    // Each contiguous rectangular selection is its own group.
+    // Use a simple approach: cluster cells that share adjacent rows/cols.
+    if (!selection.length) return [];
+
+    const wrap  = document.getElementById('rota-wrap');
+    const table = wrap?.querySelector('table.rota');
+    if (!table) return [selection];
+
+    const rows = Array.from(table.querySelectorAll('tbody tr'));
+    const selSet = new Set(selection.map(c => _cellKey(c.person, c.date)));
+
+    // Build a map of (rowIdx, colIdx) for selected cells
+    const coordMap = new Map();
+    rows.forEach((tr, ri) => {
+      Array.from(tr.querySelectorAll('td:not(.date-col)')).forEach((td, ci) => {
+        if (selSet.has(_cellKey(td.dataset.person, td.dataset.date))) {
+          coordMap.set(`${ri},${ci}`, { td, person: td.dataset.person, date: td.dataset.date });
+        }
+      });
+    });
+
+    // BFS to find connected components (4-directional adjacency)
+    const visited = new Set();
+    const groups  = [];
+    for (const key of coordMap.keys()) {
+      if (visited.has(key)) continue;
+      const group = [];
+      const queue = [key];
+      while (queue.length) {
+        const k = queue.shift();
+        if (visited.has(k)) continue;
+        visited.add(k);
+        group.push(coordMap.get(k));
+        const [r, c] = k.split(',').map(Number);
+        for (const [dr, dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+          const nk = `${r+dr},${c+dc}`;
+          if (coordMap.has(nk) && !visited.has(nk)) queue.push(nk);
+        }
+      }
+      groups.push(group);
+    }
+    return groups;
+  }
+
+  // ── POPOVER ──────────────────────────────────────────────────────
+  let _popoverState = { alMode: 'none', pendingShift: null };
+
+  function openShiftPopover() {
+    if (!state.draft.selection.length) return;
+    const sel    = state.draft.selection;
+    const multi  = sel.length > 1;
+    const first  = sel[0];
+    const team   = _personTeam(first.person);
+
+    // Build shift lists
+    const suggested = SHIFTS_BY_TEAM[team] || ALL_SHIFTS;
+    const others    = ALL_SHIFTS.filter(s => !suggested.includes(s));
+
+    // Determine current shift values across selection (for mixed state)
+    const currentShifts = new Set(sel.map(c => {
+      const day = state.rotaData?.find(d => d.date === c.date);
+      return (day?.shifts[c.person] || {}).shift || 'OFF';
+    }));
+    const singleShift = currentShifts.size === 1 ? [...currentShifts][0] : null;
+
+    // Determine AL state
+    const alStates = new Set(sel.map(c => {
+      const sh = [...currentShifts][0];
+      if (!sh) return 'none';
+      if (sh === 'AL_PENDING' || sh.startsWith('AL_PENDING|')) return 'provisional';
+      if (sh === 'AL_APPROVED' || sh.startsWith('AL_APPROVED|')) return 'confirmed';
+      return 'none';
+    }));
+    const singleAL = alStates.size === 1 ? [...alStates][0] : 'none';
+
+    _popoverState = { alMode: singleAL, pendingShift: null };
+
+    // Title
+    document.getElementById('popover-title').textContent =
+      multi ? `Edit ${sel.length} cells` : `${first.person} · ${_fmtDateShort(first.date)}`;
+
+    // Render shift buttons
+    const list = document.getElementById('shift-options-list');
+    list.innerHTML = '';
+
+    const renderGroup = (label, shifts) => {
+      const grp = document.createElement('div');
+      grp.className = 'shift-option-group';
+      const lbl = document.createElement('span');
+      lbl.className = 'shift-option-group-label';
+      lbl.textContent = label;
+      grp.appendChild(lbl);
+      shifts.forEach(s => {
+        const btn = document.createElement('button');
+        btn.className = 'shift-btn' + (s === 'OFF' ? ' off-btn' : '');
+        btn.textContent = s;
+        if (singleShift === s) btn.classList.add('active');
+        btn.addEventListener('click', () => {
+          list.querySelectorAll('.shift-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          _popoverState.pendingShift = s;
+          document.getElementById('popover-custom-shift').value = '';
+        });
+        grp.appendChild(btn);
+      });
+      list.appendChild(grp);
+    };
+
+    renderGroup('Suggested', suggested);
+    if (others.length) renderGroup('Other', others);
+
+    // ABSENT button
+    const absentGrp = document.createElement('div');
+    absentGrp.className = 'shift-option-group';
+    const absentLbl = document.createElement('span');
+    absentLbl.className = 'shift-option-group-label';
+    absentLbl.textContent = 'Status';
+    absentGrp.appendChild(absentLbl);
+    const absentBtn = document.createElement('button');
+    absentBtn.className = 'shift-btn absent-btn';
+    absentBtn.textContent = 'ABSENT';
+    if (singleShift?.startsWith('ABSENT|')) absentBtn.classList.add('active');
+    absentBtn.addEventListener('click', () => {
+      list.querySelectorAll('.shift-btn').forEach(b => b.classList.remove('active'));
+      absentBtn.classList.add('active');
+      _popoverState.pendingShift = 'ABSENT';
+      _updateNoteRequired();
+    });
+    absentGrp.appendChild(absentBtn);
+    list.appendChild(absentGrp);
+
+    // Custom shift input
+    document.getElementById('popover-custom-shift').value = '';
+    document.getElementById('popover-custom-shift').oninput = (e) => {
+      const v = e.target.value.trim();
+      if (v) {
+        list.querySelectorAll('.shift-btn').forEach(b => b.classList.remove('active'));
+        _popoverState.pendingShift = v;
+      }
+    };
+
+    // AL toggle
+    document.querySelectorAll('.al-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.al === singleAL);
+      btn.onclick = () => {
+        document.querySelectorAll('.al-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        _popoverState.alMode = btn.dataset.al;
+      };
+    });
+
+    // Note
+    const existingNote = sel.length === 1
+      ? (state.draft.overrides.find(o => o.person === first.person && o.date === first.date)?.note || '')
+      : '';
+    document.getElementById('popover-note').value = existingNote;
+    _updateNoteRequired();
+
+    // Position popover near first selected cell
+    const rect = first.td.getBoundingClientRect();
+    const pop  = document.getElementById('shift-popover');
+    pop.classList.add('open');
+    const pw = pop.offsetWidth  || 280;
+    const ph = pop.offsetHeight || 320;
+    let left = rect.right + 8;
+    let top  = rect.top;
+    if (left + pw > window.innerWidth  - 8) left = rect.left - pw - 8;
+    if (top  + ph > window.innerHeight - 8) top  = window.innerHeight - ph - 8;
+    pop.style.left = Math.max(8, left) + 'px';
+    pop.style.top  = Math.max(8, top)  + 'px';
+  }
+
+  function _updateNoteRequired() {
+    const isAbsent = _popoverState.pendingShift === 'ABSENT';
+    document.getElementById('note-required-star').style.display  = isAbsent ? '' : 'none';
+    document.getElementById('note-required-msg').style.display   = isAbsent ? '' : 'none';
+  }
+
+  function closeShiftPopover() {
+    document.getElementById('shift-popover').classList.remove('open');
+  }
+
+  async function applyPopover() {
+    const sel   = state.draft.selection;
+    if (!sel.length) { closeShiftPopover(); return; }
+
+    const note       = document.getElementById('popover-note').value.trim();
+    const alMode     = _popoverState.alMode;
+    const rawShift   = _popoverState.pendingShift
+                     || document.getElementById('popover-custom-shift').value.trim()
+                     || null;
+
+    // Validate: ABSENT requires note
+    if (rawShift === 'ABSENT' && !note) {
+      document.getElementById('note-required-msg').style.display = '';
+      document.getElementById('popover-note').focus();
+      return;
+    }
+
+    // Determine final shift code for each cell
+    for (const cell of sel) {
+      const day      = state.rotaData?.find(d => d.date === cell.date);
+      const baseShift = (day?.shifts[cell.person] || {}).shift || 'OFF';
+      // Strip any existing AL/ABSENT prefix to get raw shift
+      const stripped = baseShift.includes('|') ? baseShift.split('|')[1] : baseShift;
+
+      let finalShift = rawShift || stripped;
+
+      // Apply ABSENT modifier — preserves underlying shift
+      if (rawShift === 'ABSENT') {
+        finalShift = `ABSENT|${stripped}`;
+      }
+
+      // Apply AL modifier on top if set
+      if (alMode === 'provisional') {
+        finalShift = finalShift === 'OFF' ? 'AL_PENDING' : `AL_PENDING|${finalShift}`;
+      } else if (alMode === 'confirmed') {
+        finalShift = finalShift === 'OFF' ? 'AL_APPROVED' : `AL_APPROVED|${finalShift}`;
+      }
+
+      const ovType = alMode !== 'none' ? 'al_toggle' : 'shift_change';
+
+      // Autosave to backend
+      try {
+        const r = await fetch(`${PROXY}/rota/draft/override`, {
+          method: 'PUT', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            person: cell.person,
+            date:   cell.date,
+            shift:  finalShift,
+            note:   note || null,
+            type:   ovType,
+          }),
+        });
+        const d = await r.json();
+        if (d.ok) {
+          state.draft.overrides = d.overrides;
+        } else {
+          toast(d.error || 'Failed to save override', 'err');
+        }
+      } catch(e) {
+        toast('Network error saving override', 'err');
+      }
+    }
+
+    closeShiftPopover();
+    // Re-render rota to reflect draft changes
+    state.rotaData = null;
+    await loadDraftRota();
+  }
+
+  async function loadDraftRota() {
+    const wrap = document.getElementById('rota-wrap');
+    wrap.innerHTML = '<div class="loading-row"><div class="spinner"></div> Loading draft…</div>';
+    const { from, to } = getDateRange();
+    try {
+      const r = await fetch(`${PROXY}/rota/draft?from=${from}&to=${to}`, { credentials: 'same-origin' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error);
+      state.rotaData    = d.days;
+      state.draft.overrides = d.overrides;
+      renderRota();
+    } catch(e) {
+      wrap.innerHTML = `<div class="empty-state">Failed to load draft: ${e.message}</div>`;
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════
   //  DRAFT MODE
   // ════════════════════════════════════════════════════════════════
   function setupDraft() {
@@ -1466,6 +2073,21 @@
     document.getElementById('btn-save-close').addEventListener('click', saveCloseDraft);
     document.getElementById('btn-close-draft').addEventListener('click', closeDraft);
     document.getElementById('btn-kick-draft').addEventListener('click', kickDraft);
+
+    // Popover wire-up
+    document.getElementById('popover-close').addEventListener('click', closeShiftPopover);
+    document.getElementById('popover-cancel').addEventListener('click', closeShiftPopover);
+    document.getElementById('popover-apply').addEventListener('click', applyPopover);
+    // Close popover on Escape
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        if (document.getElementById('shift-popover').classList.contains('open')) {
+          closeShiftPopover();
+        } else {
+          _clearSelection();
+        }
+      }
+    });
 
     // Poll draft status every 30s so the banner stays accurate
     // if another manager enters/exits while we're on the rota tab
@@ -1540,7 +2162,7 @@
       document.getElementById('view-select').value = 'full';
       state.viewMode = 'full';
       state.rotaData = null;
-      loadRota();
+      loadDraftRota();
       toast('Draft mode active', 'ok');
     } else {
       await uiAlert(d.error || 'Could not enter draft mode', 'Draft Locked');
