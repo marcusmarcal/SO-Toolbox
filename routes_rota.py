@@ -112,6 +112,42 @@ MANAGEMENT_SHIFTS = {
     "Tiago C": "0900-1730",
 }
 
+# Maps each user's email to their exact display name as used in the rota
+# tables above (MANAGEMENT_SHIFTS / ENGINEERING_OFFSETS / SPECIALIST_OFFSETS).
+# Required because _display_name_from_email() always appends a last-initial,
+# which only matches rota names for collision cases (e.g. "Tiago C", "Tiago O").
+EMAIL_TO_ROTA_NAME = {
+    "joao.rato@statsperform.com":   "Joao R",
+    "marcus.marcal@statsperform.com":   "Marcus",
+    "joao.lopes@statsperform.com":   "Joao L",
+    "tiago.carvalho@statsperform.com":  "Tiago C",
+    "hugo.carvalho@statsperform.com":     "Hugo",
+    "goncalo.paiva@statsperform.com":  "Goncalo",
+    "nuno.carvalho@statsperform.com":     "Nuno",
+    "sabina.barros@statsperform.com":   "Sabina",
+    "sergio.silva@statsperform.com":   "Sergio",
+    "tiago.oliveira@statsperform.com":  "Tiago O",
+    "vitor.cassama@statsperform.com":    "Vitor",
+    "fernando.carvalho@statsperform.com": "Fernando",
+    "marcmadeira.ribeiro@statsperform.com":     "Marc",
+    "gabriel.ribeiro@statsperform.com":  "Gabriel",
+    "mario.branco@statsperform.com":    "Mario",
+    "isaac.santiago@statsperform.com":    "Isaac",
+}
+
+def _rota_display_name(email: str) -> str:
+    """Returns the exact rota table name for a known team member,
+    falling back to the generic email-derived name otherwise."""
+    return EMAIL_TO_ROTA_NAME.get(email, _display_name_from_email(email))
+
+def _rota_name_to_email_map() -> dict:
+    """Reverse of EMAIL_TO_ROTA_NAME, for attributing draft al_toggle
+    publishes to a real user account where possible."""
+    return {v: k for k, v in EMAIL_TO_ROTA_NAME.items()}
+
+def _email_for_rota_name(name: str):
+    return _rota_name_to_email_map().get(name)
+
 PUBLIC_HOLIDAYS = {
     date(2026,1,1),  date(2026,2,17), date(2026,4,3),
     date(2026,4,5),  date(2026,4,25), date(2026,5,1),
@@ -130,6 +166,13 @@ AL_PENDING_STATUSES  = {'Pending'}
 # Statuses that revert to base shift (no overlay)
 AL_CLEAR_STATUSES    = {'Rejected', 'Withdrawn', 'Cancelled'}
 
+# Shift types that require coverage when a Specialist takes them off (AL).
+# Specialists only — Engineering and Management excluded from coverage logic.
+COVERAGE_REQUIRED_SHIFTS = {'0700-1800', '1500-0200', '2100-0700'}
+# Shifts a Specialist can be on that DON'T require coverage if they go on AL —
+# these are the natural source shifts for a coverage swap.
+COVERAGE_FREE_SHIFTS     = {'0900-2000', '1300-0000'}
+
 def _base_shift(name: str, d: date) -> str:
     delta = (d - ANCHOR_MONDAY).days
     if name in SPECIALIST_OFFSETS:
@@ -142,7 +185,14 @@ def _base_shift(name: str, d: date) -> str:
         return "OFF"
     return MANAGEMENT_SHIFTS.get(name, "OFF")
 
-def _resolve_shift(name: str, d: date, leave_map: dict) -> str:
+def _resolve_shift(name: str, d: date, leave_map: dict, override_map: dict = None) -> str:
+    # Draft / published overrides take precedence over the computed
+    # rotation and leave overlay when supplied.
+    if override_map is not None:
+        ov = override_map.get((name, d))
+        if ov is not None:
+            return ov['shift']
+
     leave = leave_map.get((name, d))
     if not leave:
         return _base_shift(name, d)
@@ -179,6 +229,17 @@ def _build_leave_map(leave_list: list) -> dict:
             d += timedelta(days=1)
     return lmap
 
+def _build_override_map(overrides: list) -> dict:
+    """Keys: (person, date) → the override record for that cell."""
+    omap = {}
+    for o in overrides:
+        try:
+            d = date.fromisoformat(o['date'])
+        except (KeyError, ValueError):
+            continue
+        omap[(o['person'], d)] = o
+    return omap
+
 # ════════════════════════════════════════════════════════════════════════════
 #  ROUTES
 # ════════════════════════════════════════════════════════════════════════════
@@ -189,7 +250,7 @@ def rota_me():
     session   = request.session
     rota_role = _get_rota_role(session)
     username  = session['username']
-    name      = _display_name_from_email(username)
+    name      = _rota_display_name(username)
     role      = session.get('role', '')
     team      = 'Engineering' if role == 'engineer' else \
                 'Specialists' if role == 'specialist' else \
@@ -217,7 +278,7 @@ def rota_members():
                'Specialists' if role == 'specialist' else \
                'Management'  if role == 'admin' else 'Other'
         result[email] = {
-            'name': _display_name_from_email(email),
+            'name': _rota_display_name(email),
             'team': team,
             'role': role,
         }
@@ -243,6 +304,13 @@ def rota_schedule():
     if not isinstance(leave_list, list):
         leave_list = []
 
+    # Published rota reflects committed shift overrides from past publishes
+    # (e.g. weekend toggles, coverage swaps) — NOT the live draft.
+    published_overrides = _load_json(PUBLISHED_OVERRIDES_FILE)
+    if not isinstance(published_overrides, list):
+        published_overrides = []
+    override_map = _build_override_map(published_overrides)
+
     leave_map = _build_leave_map(leave_list)
     today = date.today()
     days  = []
@@ -258,11 +326,11 @@ def rota_schedule():
             'shifts':            {},
         }
         for name in MANAGEMENT_SHIFTS:
-            day['shifts'][name] = {'team': 'Management',  'shift': _resolve_shift(name, d, leave_map)}
+            day['shifts'][name] = {'team': 'Management',  'shift': _resolve_shift(name, d, leave_map, override_map)}
         for name in ENGINEERING_OFFSETS:
-            day['shifts'][name] = {'team': 'Engineering', 'shift': _resolve_shift(name, d, leave_map)}
+            day['shifts'][name] = {'team': 'Engineering', 'shift': _resolve_shift(name, d, leave_map, override_map)}
         for name in SPECIALIST_OFFSETS:
-            day['shifts'][name] = {'team': 'Specialists', 'shift': _resolve_shift(name, d, leave_map)}
+            day['shifts'][name] = {'team': 'Specialists', 'shift': _resolve_shift(name, d, leave_map, override_map)}
         days.append(day)
         d += timedelta(days=1)
 
@@ -349,7 +417,7 @@ def rota_leave_post():
     else:
         username = session['username']
 
-    name = _display_name_from_email(username)
+    name = _rota_display_name(username)
 
     leave_list = _load_json(LEAVE_FILE)
     if not isinstance(leave_list, list):
@@ -430,7 +498,6 @@ def rota_leave_put(leave_id):
     return jsonify({'ok': True})
 
 
-
 # ── Config ────────────────────────────────────────────────────────────────
 CONFIG_FILE = os.path.join(ROTA_DIR, 'config.json')
 
@@ -469,6 +536,365 @@ def rota_config_put():
         cfg['next_year_open_from'] = val
     _save_json(CONFIG_FILE, cfg)
     return jsonify({'ok': True, 'config': cfg})
+
+
+# ════════════════════════════════════════════════════════════════════════════
+#  DRAFT MODE
+# ════════════════════════════════════════════════════════════════════════════
+DRAFT_FILE                = os.path.join(ROTA_DIR, 'draft_overrides.json')
+DRAFT_LOCK_FILE           = os.path.join(ROTA_DIR, 'draft_lock.json')
+PUBLISHED_OVERRIDES_FILE  = os.path.join(ROTA_DIR, 'published_overrides.json')
+
+DRAFT_LOCK_TIMEOUT_MIN = 240  # auto-expire a stale lock after 4h of inactivity
+
+
+def _load_draft_overrides() -> list:
+    data = _load_json(DRAFT_FILE)
+    return data if isinstance(data, list) else []
+
+
+def _save_draft_overrides(overrides: list) -> None:
+    _save_json(DRAFT_FILE, overrides)
+
+
+def _load_draft_lock():
+    data = _load_json(DRAFT_LOCK_FILE)
+    if not isinstance(data, dict) or not data.get('locked_by'):
+        return None
+    # Expire stale locks (e.g. someone forgot to exit draft mode)
+    try:
+        locked_at = datetime.datetime.fromisoformat(data['locked_at'].replace('Z', '+00:00'))
+        age_min   = (datetime.datetime.now(datetime.timezone.utc) - locked_at).total_seconds() / 60
+        if age_min > DRAFT_LOCK_TIMEOUT_MIN:
+            return None
+    except Exception:
+        pass
+    return data
+
+
+def _save_draft_lock(username: str, name: str) -> dict:
+    lock = {
+        'locked_by':      username,
+        'locked_by_name': name,
+        'locked_at':      _now_iso(),
+    }
+    _save_json(DRAFT_LOCK_FILE, lock)
+    return lock
+
+
+def _clear_draft_lock() -> None:
+    _save_json(DRAFT_LOCK_FILE, {})
+
+
+def _require_management():
+    """Returns an error response tuple if not management, else None."""
+    if _get_rota_role(request.session) != 'management':
+        return jsonify({'ok': False, 'error': 'Not authorised'}), 403
+    return None
+
+
+def _require_draft_lock_held_by_me():
+    """Returns an error response tuple if the caller doesn't currently
+    hold the draft lock, else None. Call after _require_management()."""
+    session = request.session
+    lock    = _load_draft_lock()
+    if not lock or lock.get('locked_by') != session['username']:
+        return jsonify({
+            'ok': False,
+            'error': 'You do not currently hold the draft lock. Enter draft mode first.',
+        }), 409
+    return None
+
+
+@rota_bp.route('/rota/draft/status', methods=['GET'])
+@require_auth
+def rota_draft_status():
+    err = _require_management()
+    if err: return err
+    lock = _load_draft_lock()
+    return jsonify({'ok': True, 'lock': lock})
+
+
+@rota_bp.route('/rota/draft/lock', methods=['POST'])
+@require_auth
+def rota_draft_lock():
+    err = _require_management()
+    if err: return err
+    session = request.session
+    lock    = _load_draft_lock()
+    if lock and lock.get('locked_by') != session['username']:
+        return jsonify({
+            'ok': False,
+            'error': f"Draft is currently locked by {lock.get('locked_by_name', lock.get('locked_by'))}",
+            'lock': lock,
+        }), 409
+    name = _rota_display_name(session['username'])
+    lock = _save_draft_lock(session['username'], name)
+    return jsonify({'ok': True, 'lock': lock})
+
+
+@rota_bp.route('/rota/draft/unlock', methods=['POST'])
+@require_auth
+def rota_draft_unlock():
+    """Releases the draft lock. Management can release their own lock,
+    or kick another user's lock by passing {"force": true}."""
+    err = _require_management()
+    if err: return err
+    session = request.session
+    data    = request.get_json(silent=True) or {}
+    force   = bool(data.get('force', False))
+
+    lock = _load_draft_lock()
+    if not lock:
+        return jsonify({'ok': True})  # already unlocked
+
+    if lock.get('locked_by') != session['username'] and not force:
+        return jsonify({'ok': False, 'error': 'Draft is locked by another user'}), 403
+
+    _clear_draft_lock()
+    return jsonify({'ok': True})
+
+
+@rota_bp.route('/rota/draft', methods=['GET'])
+@require_auth
+def rota_draft_get():
+    """Returns the current draft overrides plus computed schedule
+    (rotation + leave + draft overrides layered on top), so the frontend
+    can render draft mode with one call."""
+    err = _require_management()
+    if err: return err
+
+    try:
+        date_from = date.fromisoformat(request.args.get('from', date.today().isoformat()))
+        date_to   = date.fromisoformat(request.args.get('to', (date.today() + timedelta(weeks=8)).isoformat()))
+    except ValueError:
+        return jsonify({'ok': False, 'error': 'Invalid date format, use YYYY-MM-DD'}), 400
+
+    overrides = _load_draft_overrides()
+
+    leave_list = _load_json(LEAVE_FILE)
+    if not isinstance(leave_list, list):
+        leave_list = []
+    leave_map = _build_leave_map(leave_list)
+
+    # Draft view layers: published overrides first (the committed baseline),
+    # then draft overrides on top (so in-progress edits always win).
+    published_overrides = _load_json(PUBLISHED_OVERRIDES_FILE)
+    if not isinstance(published_overrides, list):
+        published_overrides = []
+    override_map = _build_override_map(published_overrides)
+    override_map.update(_build_override_map(overrides))
+
+    today = date.today()
+    days  = []
+    d     = date_from
+    while d <= date_to:
+        day = {
+            'date':              d.isoformat(),
+            'weekday':           d.strftime('%A'),
+            'is_today':          d == today,
+            'is_weekend':        d.weekday() >= 5,
+            'is_public_holiday': d in PUBLIC_HOLIDAYS,
+            'shifts':            {},
+        }
+        for name in MANAGEMENT_SHIFTS:
+            day['shifts'][name] = {'team': 'Management',  'shift': _resolve_shift(name, d, leave_map, override_map)}
+        for name in ENGINEERING_OFFSETS:
+            day['shifts'][name] = {'team': 'Engineering', 'shift': _resolve_shift(name, d, leave_map, override_map)}
+        for name in SPECIALIST_OFFSETS:
+            day['shifts'][name] = {'team': 'Specialists', 'shift': _resolve_shift(name, d, leave_map, override_map)}
+        days.append(day)
+        d += timedelta(days=1)
+
+    return jsonify({'ok': True, 'overrides': overrides, 'days': days})
+
+
+@rota_bp.route('/rota/draft/override', methods=['PUT'])
+@require_auth
+def rota_draft_override_put():
+    """Add or replace a single draft override for one person+date.
+    Autosaves immediately — called on every cell edit."""
+    err = _require_management()
+    if err: return err
+    err = _require_draft_lock_held_by_me()
+    if err: return err
+
+    session = request.session
+    data    = request.get_json(silent=True) or {}
+
+    person  = data.get('person', '').strip()
+    date_s  = data.get('date', '').strip()
+    shift   = data.get('shift', '').strip()
+    note    = data.get('note', '').strip() if data.get('note') else None
+    ov_type = data.get('type', 'shift_change').strip()
+
+    if not person or not date_s or not shift:
+        return jsonify({'ok': False, 'error': 'person, date and shift are required'}), 400
+    try:
+        d = date.fromisoformat(date_s)
+    except ValueError:
+        return jsonify({'ok': False, 'error': 'Invalid date format'}), 400
+
+    overrides = _load_draft_overrides()
+
+    leave_list = _load_json(LEAVE_FILE)
+    if not isinstance(leave_list, list):
+        leave_list = []
+    leave_map = _build_leave_map(leave_list)
+
+    published_overrides = _load_json(PUBLISHED_OVERRIDES_FILE)
+    if not isinstance(published_overrides, list):
+        published_overrides = []
+    published_map = _build_override_map(published_overrides)
+
+    existing = next((o for o in overrides if o['person'] == person and o['date'] == date_s), None)
+    if existing:
+        # Keep the ORIGINAL previous_shift so reversal always restores the
+        # true pre-draft state, even across multiple edits to the same cell.
+        previous_shift = existing.get('previous_shift')
+        existing.update({
+            'shift':      shift,
+            'note':       note,
+            'type':       ov_type,
+            'updated_by': session['username'],
+            'updated_at': _now_iso(),
+        })
+    else:
+        previous_shift = _resolve_shift(person, d, leave_map, published_map)
+        overrides.append({
+            'id':             str(uuid.uuid4())[:8],
+            'person':         person,
+            'date':           date_s,
+            'shift':          shift,
+            'previous_shift': previous_shift,
+            'note':           note,
+            'type':           ov_type,
+            'created_by':     session['username'],
+            'created_at':     _now_iso(),
+        })
+
+    _save_draft_overrides(overrides)
+    return jsonify({'ok': True, 'overrides': overrides})
+
+
+@rota_bp.route('/rota/draft/override/<override_id>', methods=['DELETE'])
+@require_auth
+def rota_draft_override_delete(override_id):
+    """Removes a single draft override — e.g. reversing a weekend toggle,
+    or undoing a manual shift edit back to its pre-draft value."""
+    err = _require_management()
+    if err: return err
+    err = _require_draft_lock_held_by_me()
+    if err: return err
+
+    overrides = _load_draft_overrides()
+    new_overrides = [o for o in overrides if o.get('id') != override_id]
+    if len(new_overrides) == len(overrides):
+        return jsonify({'ok': False, 'error': 'Override not found'}), 404
+
+    _save_draft_overrides(new_overrides)
+    return jsonify({'ok': True, 'overrides': new_overrides})
+
+
+@rota_bp.route('/rota/draft/discard', methods=['POST'])
+@require_auth
+def rota_draft_discard():
+    """Releases the draft lock without touching draft data. Because every
+    edit autosaves immediately, 'discard' only relinquishes the current
+    session's claim on editing — it reverts to the last SAVED draft state,
+    not to a fully blank draft. A true wipe is a separate, more explicit
+    action (not implemented here, by design — see conversation notes)."""
+    err = _require_management()
+    if err: return err
+    session = request.session
+    lock    = _load_draft_lock()
+    if lock and lock.get('locked_by') == session['username']:
+        _clear_draft_lock()
+    return jsonify({'ok': True})
+
+
+@rota_bp.route('/rota/draft/publish', methods=['POST'])
+@require_auth
+def rota_draft_publish():
+    """Applies all draft overrides to the published rota and clears the
+    draft. shift_change / weekend_toggle / coverage_swap overrides become
+    permanent published overrides. al_toggle overrides create Confirmed
+    leave entries instead, so they flow through the normal leave/history
+    system and are visible in Leave Approvals history."""
+    err = _require_management()
+    if err: return err
+    err = _require_draft_lock_held_by_me()
+    if err: return err
+
+    session   = request.session
+    overrides = _load_draft_overrides()
+
+    if not overrides:
+        _clear_draft_lock()
+        return jsonify({'ok': True, 'published': 0, 'al_created': 0, 'shift_applied': 0})
+
+    published_overrides = _load_json(PUBLISHED_OVERRIDES_FILE)
+    if not isinstance(published_overrides, list):
+        published_overrides = []
+
+    leave_list = _load_json(LEAVE_FILE)
+    if not isinstance(leave_list, list):
+        leave_list = []
+
+    al_created    = 0
+    shift_applied = 0
+
+    for ov in overrides:
+        if ov.get('type') == 'al_toggle':
+            leave_list.append({
+                'id':          str(uuid.uuid4())[:8],
+                'name':        ov['person'],
+                'username':    _email_for_rota_name(ov['person']) or '',
+                'on_behalf':   True,
+                'created_by':  session['username'],
+                'created_at':  _now_iso(),
+                'date_start':  ov['date'],
+                'date_end':    ov['date'],
+                'leave_type':  'Annual Leave',
+                'status':      'Confirmed',
+                'actioned_by': session['username'],
+                'actioned_at': _now_iso(),
+                'history': [
+                    {'status': 'Pending',   'by': session['username'], 'at': _now_iso()},
+                    {'status': 'Confirmed', 'by': session['username'], 'at': _now_iso()},
+                ],
+            })
+            al_created += 1
+        else:
+            # shift_change / weekend_toggle / coverage_swap — replace any
+            # existing published override on the same person+date.
+            published_overrides = [
+                p for p in published_overrides
+                if not (p['person'] == ov['person'] and p['date'] == ov['date'])
+            ]
+            published_overrides.append({
+                'id':           str(uuid.uuid4())[:8],
+                'person':       ov['person'],
+                'date':         ov['date'],
+                'shift':        ov['shift'],
+                'note':         ov.get('note'),
+                'type':         ov.get('type', 'shift_change'),
+                'published_by': session['username'],
+                'published_at': _now_iso(),
+            })
+            shift_applied += 1
+
+    _save_json(LEAVE_FILE, leave_list)
+    _save_json(PUBLISHED_OVERRIDES_FILE, published_overrides)
+    _save_draft_overrides([])
+    _clear_draft_lock()
+
+    return jsonify({
+        'ok': True,
+        'published':      len(overrides),
+        'al_created':      al_created,
+        'shift_applied':   shift_applied,
+    })
 
 
 def register_routes(app) -> None:
