@@ -200,6 +200,41 @@
     }
     td.team-sep { border-left: 2px solid #333 !important; }
 
+    /* ── DRAFT MODE ── */
+    #draft-banner {
+      display: none; align-items: center; gap: 12px; flex-wrap: wrap;
+      padding: 10px 28px; background: rgba(230,168,80,0.08);
+      border-bottom: 2px solid rgba(230,168,80,0.5);
+      font-family: var(--mono); font-size: 0.72rem;
+    }
+    #draft-banner.active { display: flex; }
+    .draft-banner-label {
+      color: #e6a850; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .draft-banner-who { color: var(--muted); }
+    .draft-banner-actions { display: flex; gap: 8px; margin-left: auto; }
+    .btn.draft-enter {
+      border-color: rgba(230,168,80,0.5); color: #e6a850;
+      background: rgba(230,168,80,0.06);
+    }
+    .btn.draft-enter:hover { background: rgba(230,168,80,0.15); }
+    .btn.publish {
+      border-color: rgba(63,185,80,0.5); color: #9ee6a6;
+      background: rgba(63,185,80,0.06);
+    }
+    .btn.publish:hover { background: rgba(63,185,80,0.15); }
+    #rota-wrap.draft-mode {
+      border-color: rgba(230,168,80,0.4);
+      box-shadow: 0 0 0 1px rgba(230,168,80,0.2);
+    }
+    #rota-wrap.draft-mode table.rota thead th {
+      background: #1a1500;
+    }
+    #rota-wrap.draft-mode table.rota thead th.date-col {
+      background: #0f0d00;
+    }
+
     /* ── LEGEND ── */
     #legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
     .legend-item {
@@ -430,6 +465,20 @@
     <button class="tab-btn" data-tab="access" id="tab-access" style="display:none;">👥 Team Access</button>
   </nav>
 
+  <!-- ── DRAFT BANNER ── -->
+  <div id="draft-banner">
+    <span class="draft-banner-label">⚠ Draft Mode</span>
+    <span class="draft-banner-who" id="draft-banner-who"></span>
+    <div class="draft-banner-actions" id="draft-mine-actions" style="display:none;">
+      <button class="btn publish" id="btn-publish">⬆ Publish</button>
+      <button class="btn warn"    id="btn-save-close">💾 Save & Close</button>
+      <button class="btn"         id="btn-close-draft">✕ Close Draft</button>
+    </div>
+    <div class="draft-banner-actions" id="draft-other-actions" style="display:none;">
+      <button class="btn reject" id="btn-kick-draft">⏏ Kick User</button>
+    </div>
+  </div>
+
   <!-- ══ TAB: ROTA ══ -->
   <div class="tab-panel active" id="panel-rota">
     <div id="rota-toolbar">
@@ -454,6 +503,7 @@
       <div class="sep"></div>
       <button class="btn today" id="btn-today">⤵ Today</button>
       <button class="btn" id="btn-refresh">⟳ Refresh</button>
+      <button class="btn draft-enter" id="btn-draft" style="display:none;">✎ Draft</button>
     </div>
     <div id="rota-wrap">
       <div class="loading-row"><div class="spinner"></div> Loading rota…</div>
@@ -638,6 +688,11 @@
     dateFrom:    null,
     dateTo:      null,
     onBehalf:    false,
+    draft: {
+      active:    false,
+      lock:      null,
+      overrides: [],
+    },
   };
 
   // ════════════════════════════════════════════════════════════════
@@ -693,6 +748,7 @@
       setupLeaveForm();
       setupApprovals();
       setupFeedback();
+      setupDraft();
       loadRota();
     } catch(e) {
       console.error('Init failed', e);
@@ -1396,6 +1452,207 @@
     } else {
       toast(d.error || 'Failed to send', 'err');
     }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  DRAFT MODE
+  // ════════════════════════════════════════════════════════════════
+  function setupDraft() {
+    if (!state.me || state.me.rota_role !== 'management') return;
+    document.getElementById('btn-draft').style.display = '';
+
+    document.getElementById('btn-draft').addEventListener('click', enterDraft);
+    document.getElementById('btn-publish').addEventListener('click', publishDraft);
+    document.getElementById('btn-save-close').addEventListener('click', saveCloseDraft);
+    document.getElementById('btn-close-draft').addEventListener('click', closeDraft);
+    document.getElementById('btn-kick-draft').addEventListener('click', kickDraft);
+
+    // Poll draft status every 30s so the banner stays accurate
+    // if another manager enters/exits while we're on the rota tab
+    checkDraftStatus();
+    setInterval(checkDraftStatus, 30000);
+  }
+
+  async function checkDraftStatus() {
+    try {
+      const r = await fetch(`${PROXY}/rota/draft/status`, { credentials: 'same-origin' });
+      const d = await r.json();
+      if (!d.ok) return;
+      state.draft.lock = d.lock;
+      renderDraftBanner();
+    } catch(e) { /* silent */ }
+  }
+
+  function renderDraftBanner() {
+    if (!state.me || state.me.rota_role !== 'management') return;
+    const lock    = state.draft.lock;
+    const banner  = document.getElementById('draft-banner');
+    const who     = document.getElementById('draft-banner-who');
+    const myAct   = document.getElementById('draft-mine-actions');
+    const othAct  = document.getElementById('draft-other-actions');
+    const rotaWrap = document.getElementById('rota-wrap');
+    const btnDraft = document.getElementById('btn-draft');
+
+    if (!lock) {
+      // No one in draft
+      banner.classList.remove('active');
+      rotaWrap.classList.remove('draft-mode');
+      state.draft.active = false;
+      btnDraft.textContent = '✎ Draft';
+      btnDraft.disabled = false;
+      myAct.style.display  = 'none';
+      othAct.style.display = 'none';
+      return;
+    }
+
+    const isMe = lock.locked_by === state.me.username;
+    banner.classList.add('active');
+
+    if (isMe) {
+      who.textContent = 'You are editing';
+      rotaWrap.classList.add('draft-mode');
+      state.draft.active = true;
+      btnDraft.textContent = '✎ Editing…';
+      btnDraft.disabled = true;
+      myAct.style.display  = 'flex';
+      othAct.style.display = 'none';
+    } else {
+      const name = lock.locked_by_name || lock.locked_by;
+      who.textContent = `${name} is editing`;
+      rotaWrap.classList.remove('draft-mode');
+      state.draft.active = false;
+      btnDraft.textContent = '✎ Draft';
+      btnDraft.disabled = false;
+      myAct.style.display  = 'none';
+      othAct.style.display = 'flex';
+    }
+  }
+
+  async function enterDraft() {
+    const r = await fetch(`${PROXY}/rota/draft/lock`, {
+      method: 'POST', credentials: 'same-origin',
+    });
+    const d = await r.json();
+    if (d.ok) {
+      state.draft.lock = d.lock;
+      renderDraftBanner();
+      // Switch to full-year range for draft mode
+      document.getElementById('view-select').value = 'full';
+      state.viewMode = 'full';
+      state.rotaData = null;
+      loadRota();
+      toast('Draft mode active', 'ok');
+    } else {
+      await uiAlert(d.error || 'Could not enter draft mode', 'Draft Locked');
+    }
+  }
+
+  async function saveCloseDraft() {
+    const confirmed = await uiConfirm(
+      'Save & Close Draft',
+      'Your changes are already saved. This will exit draft mode and release the lock. Others will be able to continue editing.',
+      'Save & Close',
+      'warn'
+    );
+    if (!confirmed) return;
+    await _releaseDraftLock();
+    toast('Draft saved and closed', 'ok');
+  }
+
+  async function closeDraft() {
+    const confirmed = await uiConfirm(
+      'Close Draft',
+      'Exit draft mode? Your saved changes remain in the draft. The lock will be released so others can edit.',
+      'Close Draft',
+      'reject'
+    );
+    if (!confirmed) return;
+    const r = await fetch(`${PROXY}/rota/draft/discard`, {
+      method: 'POST', credentials: 'same-origin',
+    });
+    const d = await r.json();
+    if (d.ok) {
+      state.draft.lock   = null;
+      state.draft.active = false;
+      renderDraftBanner();
+      // Return to published view
+      document.getElementById('view-select').value = 'published';
+      state.viewMode = 'published';
+      state.rotaData = null;
+      loadRota();
+      toast('Exited draft mode', 'ok');
+    } else {
+      toast(d.error || 'Failed to close draft', 'err');
+    }
+  }
+
+  async function publishDraft() {
+    const confirmed = await uiConfirm(
+      'Publish Draft',
+      'Publish all draft changes to the live rota? This cannot be undone. AL toggles will create confirmed leave entries.',
+      'Publish',
+      'approve'
+    );
+    if (!confirmed) return;
+    const r = await fetch(`${PROXY}/rota/draft/publish`, {
+      method: 'POST', credentials: 'same-origin',
+    });
+    const d = await r.json();
+    if (d.ok) {
+      state.draft.lock   = null;
+      state.draft.active = false;
+      renderDraftBanner();
+      document.getElementById('view-select').value = 'published';
+      state.viewMode = 'published';
+      state.rotaData = null;
+      loadRota();
+      toast(`Published — ${d.shift_applied} shift${d.shift_applied !== 1 ? 's' : ''}, ${d.al_created} AL entr${d.al_created !== 1 ? 'ies' : 'y'}`, 'ok');
+    } else {
+      await uiAlert(d.error || 'Publish failed', 'Publish Failed');
+    }
+  }
+
+  async function kickDraft() {
+    const name = state.draft.lock?.locked_by_name || state.draft.lock?.locked_by || 'this user';
+    const confirmed = await uiConfirm(
+      'Kick User from Draft',
+      `Remove ${name} from draft mode? Any unsaved changes in their browser will be lost, but previously autosaved changes remain in the draft.`,
+      'Kick User',
+      'reject'
+    );
+    if (!confirmed) return;
+    const r = await fetch(`${PROXY}/rota/draft/unlock`, {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ force: true }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      state.draft.lock = null;
+      renderDraftBanner();
+      toast(`${name} removed from draft`, 'ok');
+    } else {
+      toast(d.error || 'Failed', 'err');
+    }
+  }
+
+  async function _releaseDraftLock() {
+    const r = await fetch(`${PROXY}/rota/draft/unlock`, {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ force: false }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      state.draft.lock   = null;
+      state.draft.active = false;
+      renderDraftBanner();
+      document.getElementById('view-select').value = 'published';
+      state.viewMode = 'published';
+      state.rotaData = null;
+      loadRota();
+    }
+    return d.ok;
   }
 
   // ════════════════════════════════════════════════════════════════
