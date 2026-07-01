@@ -7,6 +7,20 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.24.0] - 2026-07-01
+
+### Added
+
+- Supplier filter dropdown in Channels tab, auto-populated from channel names matching the "XXX_CHXX" pattern.
+- Dedicated "RMG" filter option for channels containing "RMG" in their name.
+- "Show Stream ID" checkbox to toggle visibility of the Stream Key column (hidden by default).
+- Channel name now links to the corresponding Phenix portal stream page, built from App ID, Channel ID and Stream Key.
+
+### Changed
+
+- Filter logic in the Channels tab now combines search, active-only, and supplier filters.
+- Disconnect flow resets supplier filter and Stream ID toggle.
+
 ## [3.23.0] - 2026-07-01
 
 ### Fixed

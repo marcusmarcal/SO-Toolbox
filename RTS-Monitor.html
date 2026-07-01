@@ -187,6 +187,34 @@
         border-radius: 3px;
       }
 
+      .select-input {
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        color: #fff;
+        padding: 5px 10px;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        border-radius: 3px;
+        cursor: pointer;
+      }
+
+      /* Stream ID column is hidden unless "show-streamid" is enabled */
+      .col-streamid {
+        display: none;
+      }
+      #channels-table.show-streamid .col-streamid {
+        display: table-cell;
+      }
+
+      .channel-link {
+        color: inherit;
+        text-decoration: none;
+      }
+      .channel-link:hover {
+        color: var(--cyan);
+        text-decoration: underline;
+      }
+
       .btn-sm {
         background: transparent;
         border: 1px solid var(--border);
@@ -629,6 +657,30 @@
               />
               ONLY ACTIVE
             </label>
+            <select
+              id="supplier-filter"
+              class="select-input"
+              onchange="handleFilterChange()"
+            >
+              <option value="">ALL SUPPLIERS</option>
+            </select>
+            <label
+              style="
+                font-family: var(--font-mono);
+                font-size: 11px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+              "
+            >
+              <input
+                type="checkbox"
+                id="show-streamid"
+                onchange="toggleStreamIdColumn()"
+              />
+              SHOW STREAM ID
+            </label>
           </div>
           <div
             id="pagination-controls"
@@ -654,13 +706,13 @@
         </div>
 
         <div class="table-wrap">
-          <table>
+          <table id="channels-table">
             <thead>
               <tr>
                 <th>CHANNEL NAME</th>
                 <th>EVENT ID (ALIAS)</th>
                 <th>CHANNEL ID</th>
-                <th>STREAM KEY</th>
+                <th class="col-streamid">STREAM KEY</th>
                 <th style="text-align: center">PUBLISHERS (PRI/BCK)</th>
                 <th style="text-align: center">STATUS</th>
               </tr>
@@ -830,6 +882,10 @@
         document.getElementById("stat-offline").textContent = "—";
         document.getElementById("search-box").value = "";
         document.getElementById("filter-active").checked = false;
+        document.getElementById("supplier-filter").innerHTML =
+          '<option value="">ALL SUPPLIERS</option>';
+        document.getElementById("show-streamid").checked = false;
+        document.getElementById("channels-table").classList.remove("show-streamid");
 
         document.getElementById("dashboard").style.display = "none";
         document.getElementById("login-screen").style.display = "flex";
@@ -858,6 +914,8 @@
           ).sort((a, b) =>
             a.name.localeCompare(b.name, undefined, { numeric: true })
           );
+
+          populateSupplierFilter();
 
           // PROCESSAMENTO EM LOTES (CHUNKS)
           const chunkSize = 100; // Processa 10 por vez para não travar o proxy
@@ -895,6 +953,66 @@
         document.getElementById("pulse").classList.add("idle");
       }
 
+      // ── Supplier dropdown (derived from channel names) ────────────
+      // Matches names like "CRO_CH01" -> supplier "CRO". The trailing
+      // "_CHxx" sequence number is not part of the supplier itself.
+      const SUPPLIER_PATTERN = /^([A-Za-z0-9]+)_CH\d+$/i;
+
+      function getSupplierList() {
+        const suppliers = new Set();
+        let hasRmg = false;
+
+        globalChannels.forEach((ch) => {
+          const name = ch.name || "";
+          const match = name.match(SUPPLIER_PATTERN);
+          if (match) {
+            suppliers.add(match[1].toUpperCase());
+          }
+          if (/RMG/i.test(name)) {
+            hasRmg = true;
+          }
+        });
+
+        const list = Array.from(suppliers).sort();
+        if (hasRmg && !list.includes("RMG")) list.push("RMG");
+        return list;
+      }
+
+      function populateSupplierFilter() {
+        const sel = document.getElementById("supplier-filter");
+        const current = sel.value;
+        const suppliers = getSupplierList();
+
+        sel.innerHTML =
+          '<option value="">ALL SUPPLIERS</option>' +
+          suppliers.map((s) => `<option value="${s}">${s}</option>`).join("");
+
+        if (suppliers.includes(current)) sel.value = current;
+      }
+
+      function matchesSupplierFilter(name, supplier) {
+        if (!supplier) return true;
+        if (supplier === "RMG") return /RMG/i.test(name);
+        const re = new RegExp(`^${supplier}_CH\\d+$`, "i");
+        return re.test(name);
+      }
+
+      // ── Stream ID column visibility ────────────────────────────────
+      function toggleStreamIdColumn() {
+        const show = document.getElementById("show-streamid").checked;
+        document
+          .getElementById("channels-table")
+          .classList.toggle("show-streamid", show);
+      }
+
+      // ── Phenix portal link ──────────────────────────────────────────
+      function buildPhenixUrl(ch) {
+        const app = encodeURIComponent(appId || "");
+        const channelId = encodeURIComponent(ch.channelId || "");
+        const streamId = encodeURIComponent(ch.streamKey || "");
+        return `https://phenixrts.com/portal/${app}/channels/${channelId}/streams/${streamId}`;
+      }
+
       function handleFilterChange() {
         currentPage = 1;
         render();
@@ -911,13 +1029,15 @@
           .getElementById("search-box")
           .value.toLowerCase();
         const onlyActive = document.getElementById("filter-active").checked;
+        const supplierFilter = document.getElementById("supplier-filter").value;
 
         // 1. Filter
         let filtered = globalChannels.filter((ch) => {
           const matchesSearch = ch.name.toLowerCase().includes(searchTerm);
           const count = globalState[ch.channelId] || 0;
           const matchesActive = onlyActive ? count > 0 : true;
-          return matchesSearch && matchesActive;
+          const matchesSupplier = matchesSupplierFilter(ch.name, supplierFilter);
+          return matchesSearch && matchesActive && matchesSupplier;
         });
 
         // 2. Pagination
@@ -967,11 +1087,12 @@
                 timeStyle: "short",
               })
             : "—";
+          const phenixUrl = buildPhenixUrl(ch);
           tr.innerHTML = `
-  <td style="color:#fff; font-weight:600;">${ch.name}</td>
+  <td style="color:#fff; font-weight:600;"><a class="channel-link" href="${phenixUrl}" target="_blank" rel="noopener noreferrer">${ch.name}</a></td>
   <td style="color:var(--text-dim);">${ch.alias || "—"}</td>
   <td style="color:var(--text-dim);">${ch.channelId || "—"}</td>
-  <td style="color:var(--text-dim);">${ch.streamKey || "—"}</td>
+  <td class="col-streamid" style="color:var(--text-dim);">${ch.streamKey || "—"}</td>
   <td style="text-align:center"><div class="pub-icons-container">${icons}</div></td>
   <td style="text-align:center">${badge}</td>
 `;
