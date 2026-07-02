@@ -2298,23 +2298,6 @@
   //  DRAFT CELL SELECTION + POPOVER
   // ════════════════════════════════════════════════════════════════
 
-  const MGMT_NAMES = ['Joao R','Marcus','Joao L','Tiago C'];
-  const ENG_NAMES  = ['Hugo','Goncalo','Nuno'];
-
-  function _personTeam(person) {
-    if (MGMT_NAMES.includes(person)) return 'Management';
-    if (ENG_NAMES.includes(person))  return 'Engineering';
-    return 'Specialists';
-  }
-
-  const SHIFTS_BY_TEAM = {
-    Management:  ['0800-1630','0900-1730','0930-1800'],
-    Engineering: ['0900-1800','1000-2000'],
-    Specialists: ['0700-1800','0900-2020','1300-0000','1500-0200','2100-0700'],
-  };
-  const ALL_SHIFTS = ['0700-1800','0800-1630','0900-1730','0900-1800','0900-2020',
-                      '0930-1800','1000-2000','1300-0000','1500-0200','2100-0700'];
-
   function _cellKey(person, date) { return `${person}__${date}`; }
 
   function _getAllCells() {
