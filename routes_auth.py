@@ -171,7 +171,7 @@ def login():
         'sotb-session',
         token,
         httponly=True,
-        samesite='Strict',
+        samesite='Lax',
         secure=False,
         max_age=SESSION_TTL
     )
