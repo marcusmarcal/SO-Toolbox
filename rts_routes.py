@@ -2,6 +2,7 @@ import base64
 import requests
 from flask import Blueprint, request, jsonify, Response
 from urllib.parse import quote
+from edgeauth.token_builder import TokenBuilder
 
 rts_bp = Blueprint("rts", __name__)
 
@@ -105,5 +106,44 @@ def rts_viewing_report():
             status=resp.status_code,
             content_type=resp.headers.get("Content-Type", "text/csv"),
         )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+
+@rts_bp.route("/edge-token", methods=["POST"])
+def rts_edge_token():
+    """Generate a Phenix EdgeAuth digest token to view a channel's state.
+    Expects JSON body: { channel_id? , channel_alias?, expires_in_seconds? }
+    Either channel_id or channel_alias must be provided.
+    Returns: { "token": "DIGEST:..." }
+    """
+    app_id   = request.headers.get("X-App-Id")
+    password = request.headers.get("X-Password")
+    if not app_id or not password:
+        return jsonify({"error": "Missing credentials headers"}), 400
+
+    data          = request.get_json(silent=True) or {}
+    channel_id    = (data.get("channel_id") or "").strip()
+    channel_alias = (data.get("channel_alias") or "").strip()
+    expires_in    = data.get("expires_in_seconds", 3600)
+
+    if not channel_id and not channel_alias:
+        return jsonify({"error": "channel_id or channel_alias is required"}), 400
+
+    try:
+        expires_in = int(expires_in)
+    except (TypeError, ValueError):
+        return jsonify({"error": "expires_in_seconds must be an integer"}), 400
+
+    try:
+        builder = (
+            TokenBuilder()
+            .with_application_id(app_id)
+            .with_secret(password)
+            .expires_in_seconds(expires_in)
+        )
+        builder = builder.for_channel(channel_id) if channel_id else builder.for_channel_alias(channel_alias)
+
+        token = builder.build()
+        return jsonify({"token": token})
     except Exception as e:
         return jsonify({"error": str(e)}), 502
