@@ -980,6 +980,20 @@
   // ════════════════════════════════════════════════════════════════
   const PROXY = '/so-proxy';
 
+  function authHeaders(headers = {}) {
+    const token = sessionStorage.getItem('sotb-token');
+    if (token) {
+      return { ...headers, Authorization: `Bearer ${token}` };
+    }
+    return headers;
+  }
+
+  async function apiFetch(url, opts = {}) {
+    opts = { credentials: 'same-origin', ...opts };
+    opts.headers = authHeaders(opts.headers || {});
+    return fetch(url, opts);
+  }
+
   const SHIFT_COLORS = {
     '0700-1800': { bg:'#49B1E8', fg:'#000' },
     '0900-2000': { bg:'#8474E3', fg:'#fff' },
@@ -1061,10 +1075,10 @@
   // ════════════════════════════════════════════════════════════════
   (async function init() {
     try {
-      const rm = await fetch(`${PROXY}/rota/me`, { credentials: 'same-origin' });
+      const rm = await apiFetch(`${PROXY}/rota/me`);
       state.me = await rm.json();
 
-      const ru = await fetch(`${PROXY}/rota/members`, { credentials: 'same-origin' });
+      const ru = await apiFetch(`${PROXY}/rota/members`);
       const ud = await ru.json();
       if (ud.ok) {
         // Filter to valid roles only
@@ -1197,7 +1211,7 @@
     wrap.innerHTML = '<div class="loading-row"><div class="spinner"></div> Loading rota…</div>';
     const { from, to } = getDateRange();
     try {
-      const r = await fetch(`${PROXY}/rota/schedule?from=${from}&to=${to}`, { credentials: 'same-origin' });
+      const r = await apiFetch(`${PROXY}/rota/schedule?from=${from}&to=${to}`);
       const d = await r.json();
       if (!d.ok) throw new Error(d.error);
       state.rotaData = d.days;
@@ -1385,7 +1399,7 @@
 
   async function loadConfig() {
     try {
-      const r = await fetch(`${PROXY}/rota/config`, { credentials: 'same-origin' });
+      const r = await apiFetch(`${PROXY}/rota/config`);
       const d = await r.json();
       if (d.ok) {
         state.config = d.config;
@@ -1400,8 +1414,8 @@
   async function saveConfig() {
     const val = document.getElementById('config-open-input').value.trim();
     if (!/^\d{2}-\d{2}$/.test(val)) { toast('Format must be MM-DD', 'err'); return; }
-    const r = await fetch(`${PROXY}/rota/config`, {
-      method: 'PUT', credentials: 'same-origin',
+    const r = await apiFetch(`${PROXY}/rota/config`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ next_year_open_from: val }),
     });
@@ -1435,8 +1449,8 @@
     };
     if (onBehalf) body.target_username = targetUser;
 
-    const r = await fetch(`${PROXY}/rota/leave`, {
-      method: 'POST', credentials: 'same-origin',
+    const r = await apiFetch(`${PROXY}/rota/leave`, {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
@@ -1465,7 +1479,7 @@
     const wrap = document.getElementById('my-leave-wrap');
     wrap.innerHTML = '<div class="loading-row"><div class="spinner"></div> Loading…</div>';
 
-    const r = await fetch(`${PROXY}/rota/leave`, { credentials: 'same-origin' });
+    const r = await apiFetch(`${PROXY}/rota/leave`);
     const d = await r.json();
 
     if (!d.ok || !d.leave || !d.leave.length) {
@@ -1567,8 +1581,8 @@
     );
     if (!confirmed) return;
 
-    const r = await fetch(`${PROXY}/rota/leave/${leaveId}`, {
-      method: 'PUT', credentials: 'same-origin',
+    const r = await apiFetch(`${PROXY}/rota/leave/${leaveId}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'Cancelled' }),
     });
@@ -1591,8 +1605,8 @@
     );
     if (!confirmed) return;
 
-    const r = await fetch(`${PROXY}/rota/leave/${leaveId}`, {
-      method: 'PUT', credentials: 'same-origin',
+    const r = await apiFetch(`${PROXY}/rota/leave/${leaveId}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'Withdrawal Pending' }),
     });
@@ -1635,7 +1649,7 @@
     const el = document.getElementById('approvals-pending');
     el.innerHTML = '<div class="loading-row"><div class="spinner"></div> Loading…</div>';
 
-    const r = await fetch(`${PROXY}/rota/leave`, { credentials: 'same-origin' });
+    const r = await apiFetch(`${PROXY}/rota/leave`);
     const d = await r.json();
     const pending = (d.leave || []).filter(e =>
       e.status === 'Pending' || e.status === 'Withdrawal Pending'
@@ -1699,7 +1713,7 @@
       return;
     }
 
-    const r = await fetch(`${PROXY}/rota/leave`, { credentials: 'same-origin' });
+    const r = await apiFetch(`${PROXY}/rota/leave`);
     const d = await r.json();
 
     const ACTIONED = ['Confirmed','Rejected','Withdrawn','Withdrawal Rejected'];
@@ -1771,8 +1785,8 @@
     const confirmed = await uiConfirm('Confirm Action', msg, okLabel, okClass);
     if (!confirmed) return;
 
-    const r = await fetch(`${PROXY}/rota/leave/${leaveId}`, {
-      method: 'PUT', credentials: 'same-origin',
+    const r = await apiFetch(`${PROXY}/rota/leave/${leaveId}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
     });
@@ -1838,8 +1852,8 @@
     const body  = document.getElementById('fb-body').value.trim();
     if (!title) { toast('Title required', 'err'); return; }
     if (!body)  { toast('Description required', 'err'); return; }
-    const r = await fetch(`${PROXY}/rota/feedback`, {
-      method: 'POST', credentials: 'same-origin',
+    const r = await apiFetch(`${PROXY}/rota/feedback`, {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type, title, body }),
     });
@@ -2236,8 +2250,8 @@
 
       // Autosave to backend
       try {
-        const r = await fetch(`${PROXY}/rota/draft/override`, {
-          method: 'PUT', credentials: 'same-origin',
+        const r = await apiFetch(`${PROXY}/rota/draft/override`, {
+          method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             person: cell.person,
@@ -2269,7 +2283,7 @@
     wrap.innerHTML = '<div class="loading-row"><div class="spinner"></div> Loading draft…</div>';
     const { from, to } = getDateRange();
     try {
-      const r = await fetch(`${PROXY}/rota/draft?from=${from}&to=${to}`, { credentials: 'same-origin' });
+      const r = await apiFetch(`${PROXY}/rota/draft?from=${from}&to=${to}`);
       const d = await r.json();
       if (!d.ok) throw new Error(d.error);
       state.rotaData    = d.days;
@@ -2810,8 +2824,8 @@
       const colors = [...(cfg.custom_shift_colors || [])].filter(c => c !== customColor);
       colors.push(customColor);
       const newColors = colors.slice(-5);
-      await fetch(`${PROXY}/rota/config`, {
-        method: 'PUT', credentials: 'same-origin',
+      await apiFetch(`${PROXY}/rota/config`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ custom_shift_colors: newColors }),
       });
@@ -2848,8 +2862,8 @@
 
   async function _saveOverride(person, dateStr, shift, note, ovType) {
     try {
-      const r = await fetch(`${PROXY}/rota/draft/override`, {
-        method: 'PUT', credentials: 'same-origin',
+      const r = await apiFetch(`${PROXY}/rota/draft/override`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ person, date: dateStr, shift, note, type: ovType }),
       });
@@ -2858,8 +2872,8 @@
         state.draft.overrides = d.overrides;
         // Also save note to persistent notes if provided
         if (note) {
-          await fetch(`${PROXY}/rota/note`, {
-            method: 'PUT', credentials: 'same-origin',
+          await apiFetch(`${PROXY}/rota/note`, {
+            method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ person, date: dateStr, note }),
           });
@@ -2880,9 +2894,8 @@
     const to    = dates[dates.length - 1];
 
     try {
-      const r = await fetch(
-        `${PROXY}/rota/draft?from=${from}&to=${to}`,
-        { credentials: 'same-origin' }
+      const r = await apiFetch(
+        `${PROXY}/rota/draft?from=${from}&to=${to}`
       );
       const d = await r.json();
       if (!d.ok) return;
@@ -2995,7 +3008,7 @@
 
   async function checkDraftStatus() {
     try {
-      const r = await fetch(`${PROXY}/rota/draft/status`, { credentials: 'same-origin' });
+      const r = await apiFetch(`${PROXY}/rota/draft/status`);
       const d = await r.json();
       if (!d.ok) return;
       state.draft.lock = d.lock;
@@ -3049,8 +3062,8 @@
   }
 
   async function enterDraft() {
-    const r = await fetch(`${PROXY}/rota/draft/lock`, {
-      method: 'POST', credentials: 'same-origin',
+    const r = await apiFetch(`${PROXY}/rota/draft/lock`, {
+      method: 'POST',
     });
     const d = await r.json();
     if (d.ok) {
@@ -3087,8 +3100,8 @@
       'reject'
     );
     if (!confirmed) return;
-    const r = await fetch(`${PROXY}/rota/draft/discard`, {
-      method: 'POST', credentials: 'same-origin',
+    const r = await apiFetch(`${PROXY}/rota/draft/discard`, {
+      method: 'POST',
     });
     const d = await r.json();
     if (d.ok) {
