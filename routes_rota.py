@@ -83,7 +83,7 @@ SPECIALIST_ROTATION = [
     "OFF","OFF","2100-0700","2100-0700","OFF","OFF","OFF",
     "OFF","OFF","0700-1800","0700-1800","OFF","OFF","OFF",
     "0700-1800","0700-1800","OFF","OFF","0700-1800","0700-1800","0700-1800",
-    "OFF","OFF","0900-2020","0900-2020","0900-2020","0900-2020","0900-2020",
+    "OFF","OFF","0900-2000","0900-2000","0900-2000","0900-2000","0900-2000",
     "OFF","OFF","1300-0000","1300-0000","OFF","OFF","OFF",
     "1300-0000","1300-0000","OFF","OFF","1300-0000","1300-0000","1300-0000",
     "1500-0200","1500-0200","OFF","OFF","OFF","1500-0200","1500-0200",
@@ -154,7 +154,7 @@ AL_APPROVED_STATUSES    = {'Confirmed', 'Withdrawal Pending', 'Withdrawal Reject
 AL_PENDING_STATUSES     = {'Pending'}
 AL_CLEAR_STATUSES       = {'Rejected', 'Withdrawn', 'Cancelled'}
 COVERAGE_REQUIRED_SHIFTS = {'0700-1800', '1500-0200', '2100-0700'}
-COVERAGE_FREE_SHIFTS     = {'0900-2020', '1300-0000'}
+COVERAGE_FREE_SHIFTS     = {'0900-2000', '1300-0000'}
 
 # ── Shift resolution ──────────────────────────────────────────────────────
 def _base_shift(name: str, d: date) -> str:
