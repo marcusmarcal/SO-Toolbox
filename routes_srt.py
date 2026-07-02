@@ -25,7 +25,7 @@ _job_counter = 0
 # CBR defaults (Mbps) — overridable per request
 CBR_DEFAULT_MBPS = 8.0
 CBR_BUFSIZE_FACTOR = 2  # bufsize = bitrate * factor
-TS_SOURCE_DIR = "/opt/web/gop-results"
+TS_SOURCE_DIR = "/opt/web/store/gop-results"
 
 
 def _next_job_id() -> int:
