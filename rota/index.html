@@ -1092,6 +1092,7 @@
   function renderTopbar() {
     const m = state.me;
     document.getElementById('topbar-name').textContent = m.name || m.username;
+    console.log('[me full]', JSON.stringify(m));
     const badge = document.getElementById('topbar-badge');
     badge.textContent = m.rota_role === 'management' ? 'Management'
                       : m.rota_role === 'staff'      ? m.team
