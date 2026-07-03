@@ -2474,11 +2474,14 @@
       }
       state.draft.dragging = false;
     } else {
-      // Clean single click handles selection retention perfectly
       state.draft.dragging  = true;
       state.draft.dragStart = td;
-      _clearSelection();
-      _selectCell(person, dateS, td);
+      // Only clear if we aren't clicking an already selected cell to prevent instant clearing
+      const key = _cellKey(person, dateS);
+      if (!state.draft.selection.find(c => _cellKey(c.person, c.date) === key)) {
+        _clearSelection();
+        _selectCell(person, dateS, td);
+      }
       state.draft.lastCell = td;
     }
     _renderSelectionOverlay();
@@ -2520,7 +2523,8 @@
       state.draft.lastCell = td;
       _renderSelectionOverlay();
     }
-    closeShiftPopover(); // explicitly cycle previous visual layout
+    closeShiftPopover();
+    // Use client coordinates relative to the viewport window configuration
     openShiftPopover(e.clientX, e.clientY);
   }
 
@@ -2996,6 +3000,17 @@
 
     // Popover wire-up
     document.getElementById('popover-close').addEventListener('click', closeShiftPopover);
+    // Global event delegation to handle sticky note triangle interaction
+    document.getElementById('rota-wrap')?.addEventListener('click', e => {
+      const target = e.target.closest('.has-note');
+      if (target) {
+        const person = target.dataset.person;
+        const date = target.dataset.date;
+        const day = state.rotaData?.find(d => d.date === date);
+        const note = day?.shifts[person]?.note || '';
+        if (note) toast(`${person} (${_fmtDateShort(date)}): ${note}`, 'info');
+      }
+    });
     document.getElementById('popover-cancel').addEventListener('click', closeShiftPopover);
     document.getElementById('popover-apply').addEventListener('click', applyPopover);
     // Close popover on Escape
