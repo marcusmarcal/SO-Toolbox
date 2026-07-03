@@ -2239,6 +2239,42 @@
     pop.style.top  = Math.max(8, top)  + 'px';
   }
 
+  function _validateApply() {
+    const popApply = document.getElementById('popover-apply');
+    if (!popApply) return;
+
+    const customVal = document.getElementById('popover-custom-shift')?.value.trim();
+    const rawShift = _pop.pendingShift;
+    const note = document.getElementById('popover-note')?.value.trim();
+
+    // If ABSENT is selected, require a note
+    const isAbsent = rawShift === 'ABSENT';
+    if (isAbsent && !note) {
+      popApply.disabled = true;
+      return;
+    }
+
+    // Enable button if a standard shift is picked, or a valid custom shift time format is provided
+    if (rawShift || (customVal && /^\d{4}-\d{4}$/.test(customVal))) {
+      popApply.disabled = false;
+    } else {
+      popApply.disabled = true;
+    }
+  }
+
+  function _updateNoteRequired() {
+    const noteIn = document.getElementById('popover-note');
+    if (!noteIn) return;
+    
+    if (_pop.pendingShift === 'ABSENT') {
+      noteIn.placeholder = 'Reason for absence (Required)…';
+      noteIn.required = true;
+    } else {
+      noteIn.placeholder = 'Add a note…';
+      noteIn.required = false;
+    }
+  }
+
   function _updateNoteRequired() {
     const isAbsent = _popoverState.pendingShift === 'ABSENT';
     document.getElementById('note-required-star').style.display  = isAbsent ? '' : 'none';
@@ -2941,7 +2977,10 @@
     document.getElementById('popover-close').addEventListener('click', closeShiftPopover);
     document.getElementById('popover-cancel').addEventListener('click', closeShiftPopover);
     document.getElementById('popover-apply').addEventListener('click', applyPopover);
-    document.getElementById('popover-note').addEventListener('input', _validateApply);
+    const popNote = document.getElementById('popover-note');
+    if (popNote) {
+      popNote.addEventListener('input', _validateApply);
+    }
     document.getElementById('custom-color-picker').addEventListener('input', e => {
       _pop.customColor = e.target.value;
     });
