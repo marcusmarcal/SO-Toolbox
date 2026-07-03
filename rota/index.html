@@ -267,6 +267,12 @@
       letter-spacing: 0.1em; padding: 4px 0 2px; display: block;
       border-top: 1px solid var(--border); margin-top: 4px;
     }
+    #custom-color-row { 
+      display: flex !important; 
+      align-items: center; 
+      gap: 6px; 
+      margin-top: 6px; 
+    }
     .shift-group-label:first-child { border-top: none; margin-top: 0; }
     .shift-btn {
       display: inline-block; font-family: var(--mono); font-size: 0.62rem;
@@ -666,6 +672,32 @@
     }
     .modal-card textarea:focus { border-color: var(--accent); }
     .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+
+    #custom-color-row { 
+      display: flex !important; 
+      align-items: center; 
+      gap: 6px; 
+      margin-top: 6px; 
+    }
+
+    /* ── NOTE TOOLTIP & EDIT OVERLAY ── */
+    #note-tooltip {
+      display: none; position: fixed; z-index: 999;
+      background: #2d2d2d; border: 1px solid #444; border-radius: 6px;
+      padding: 10px; width: 260px; box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+      font-family: var(--mono); font-size: 0.65rem; color: #fff;
+    }
+    #note-tooltip-text { margin-bottom: 6px; white-space: pre-wrap; word-break: break-word; }
+    .note-tooltip-actions {
+      display: flex; gap: 6px; justify-content: flex-end; margin-top: 6px;
+      padding-top: 6px; border-top: 1px solid #444;
+    }
+    .note-tooltip-btn {
+      background: none; border: none; color: var(--accent); cursor: pointer;
+      font-size: 0.55rem; font-weight: bold; text-transform: uppercase; padding: 2px 4px;
+    }
+    .note-tooltip-btn.del { color: #e57373; }
+    .note-tooltip-btn:hover { opacity: 0.8; }
   </style>
 </head>
 <body>
@@ -847,6 +879,11 @@
       <div id="shift-options-list"></div>
       <input class="popover-input" id="popover-custom-shift"
         placeholder="Custom shift (e.g. 0800-1700)" maxlength="9" />
+      <input class="popover-input" id="popover-custom-shift" placeholder="e.g. 0900-1700" />
+      <div id="custom-color-row" style="display: none !important;">
+        <label>Custom Color:</label>
+        <input type="color" id="custom-color-picker" value="#2a2a2a" />
+      </div>
     </div>
 
     <!-- AL SECTION -->
@@ -868,6 +905,7 @@
     </div>
 
     <div class="popover-actions">
+      <button class="btn danger" id="popover-reset" style="margin-right:auto;">Reset to original</button>
       <button class="btn" id="popover-cancel">Cancel</button>
       <button class="btn primary" id="popover-apply">Apply</button>
     </div>
@@ -929,6 +967,7 @@
       </div>
     </div>
     <div class="popover-actions">
+      <button class="btn danger" id="popover-reset" style="margin-right:auto;">Reset to original</button>
       <button class="btn" id="popover-cancel">Cancel</button>
       <button class="btn primary" id="popover-apply">Apply</button>
     </div>
@@ -1279,9 +1318,11 @@
               if (['AL_APPROVED','AL_PENDING','PARENTAL','MARITAL'].includes(shift)) text = '';
             }
           }
-          const hasNote = !!(day.shifts[name] && day.shifts[name].note);
+          const noteText = (day.shifts[name] && day.shifts[name].note) ? day.shifts[name].note : '';
+          const hasNote = !!noteText;
           const noteCls = hasNote ? ' has-note' : '';
-          tbody += `<td class="${sep}${noteCls}" style="background:${bg};" data-person="${name}" data-date="${day.date}">`
+          const safeNote = noteText.replace(/"/g, '&quot;');
+          tbody += `<td class="${sep}${noteCls}" style="background:${bg};" data-person="${name}" data-date="${day.date}" data-note="${safeNote}">`
                  + `<span class="shift-cell${extra}" style="color:${day.is_today && shift !== 'OFF' ? '#fff' : fg};">${text}</span>`
                  + `</td>`;
         });
@@ -2378,11 +2419,16 @@
     const dateS  = td.dataset.date;
     if (!person || !dateS) return;
 
+    // Handle shift+click selection ranges
     if (e.shiftKey && state.draft.lastCell) {
       e.preventDefault();
       _selectRange(state.draft.lastCell, td);
-      state.draft.dragging  = false;
-    } else if (e.ctrlKey || e.metaKey) {
+      state.draft.dragging = false;
+      return;
+    } 
+    
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
       const key = _cellKey(person, dateS);
       if (state.draft.selection.find(c => _cellKey(c.person, c.date) === key)) {
         _deselectCell(person, dateS, td);
@@ -2392,7 +2438,7 @@
       }
       state.draft.dragging = false;
     } else {
-      // Start potential drag
+      // Clean single click handles selection retention perfectly
       state.draft.dragging  = true;
       state.draft.dragStart = td;
       _clearSelection();
@@ -2407,7 +2453,7 @@
     const td = e.currentTarget;
     _selectRange(state.draft.dragStart, td);
     _renderSelectionOverlay();
-    // Edge scroll
+
     const wrap = document.getElementById('rota-wrap');
     const rect = wrap.getBoundingClientRect();
     const ZONE = 40, SPEED = 8;
@@ -2416,9 +2462,10 @@
   }
 
   function _onDocMouseUp(e) {
-    if (e.button !== 0) return;
-    state.draft.dragging  = false;
-    state.draft.dragStart = null;
+    if (e.button === 0) {
+      state.draft.dragging  = false;
+      state.draft.dragStart = null;
+    }
   }
 
   function _onCellRightClick(e) {
@@ -2428,17 +2475,16 @@
     const dateS  = td.dataset.date;
     if (!person || !dateS) return;
 
-    const key       = _cellKey(person, dateS);
-    const inSel     = state.draft.selection.find(
-      c => _cellKey(c.person, c.date) === key
-    );
+    const key   = _cellKey(person, dateS);
+    const inSel = state.draft.selection.find(c => _cellKey(c.person, c.date) === key);
+    
     if (!inSel) {
-      // Right-clicking outside selection: clear + select this cell
       _clearSelection();
       _selectCell(person, dateS, td);
       state.draft.lastCell = td;
       _renderSelectionOverlay();
     }
+    closeShiftPopover(); // explicitly cycle previous visual layout
     openShiftPopover(e.clientX, e.clientY);
   }
 
@@ -2457,8 +2503,7 @@
 
     groups.forEach(group => {
       if (!group.length) return;
-      let minTop = Infinity, minLeft = Infinity,
-          maxBottom = -Infinity, maxRight = -Infinity;
+      let minTop = Infinity, minLeft = Infinity, maxBottom = -Infinity, maxRight = -Infinity;
       group.forEach(({ td }) => {
         if (!td) return;
         const r     = td.getBoundingClientRect();
@@ -2544,21 +2589,18 @@
     const currentShift = _currentShiftOf(first);
     const isAbsent     = _isAbsent(currentShift);
 
-    // Show/hide absent warning
     document.getElementById('popover-absent-warn').style.display = isAbsent ? '' : 'none';
     document.getElementById('popover-main-sections').style.display = isAbsent ? 'none' : '';
 
-    // Title
     document.getElementById('popover-title').textContent = multi
       ? `Edit ${sel.length} cells`
       : `${first.person} · ${_fmtDateShort(first.date)}`;
 
     if (!isAbsent) {
       const team      = _personTeam(first.person);
-      const suggested = SHIFTS_BY_TEAM[team] || [];
+      const suggested = (SHIFT_SHIFTS_BY_TEAM ? SHIFT_SHIFTS_BY_TEAM[team] : SHIFTS_BY_TEAM[team]) || [];
       const others    = ALL_SHIFTS.filter(s => !suggested.includes(s));
 
-      // Build shift buttons
       const list = document.getElementById('shift-options-list');
       list.innerHTML = '';
 
@@ -2566,15 +2608,17 @@
       const singleBase = allCurrentShifts.size === 1 ? [...allCurrentShifts][0] : null;
 
       const renderGroup = (label, shifts) => {
-        if (!shifts.length) return;
+        // Redundancy elimination: Strip raw 'OFF' from suggestion/other categories
+        const filteredShifts = shifts.filter(s => s !== 'OFF');
+        if (!filteredShifts.length) return;
         const lbl = document.createElement('span');
         lbl.className   = 'shift-group-label';
         lbl.textContent = label;
         list.appendChild(lbl);
-        shifts.forEach(s => {
+        filteredShifts.forEach(s => {
           const c   = SHIFT_COLORS[s] || {};
           const btn = document.createElement('button');
-          btn.className   = 'shift-btn' + (s === 'OFF' ? ' off-btn' : '');
+          btn.className   = 'shift-btn';
           btn.textContent = s;
           btn.style.background  = c.bg || '';
           btn.style.color       = c.fg || '';
@@ -2585,7 +2629,7 @@
             btn.classList.add('active');
             _pop.pendingShift = s;
             document.getElementById('popover-custom-shift').value = '';
-            document.getElementById('custom-color-row').style.display = 'none';
+            document.getElementById('custom-color-row').style.setProperty('display', 'none', 'important');
             _validateApply();
           });
           list.appendChild(btn);
@@ -2595,7 +2639,7 @@
       renderGroup('Suggested', suggested);
       renderGroup('Other', others);
 
-      // OFF button
+      // Clean single Clear Group for OFF
       const offLbl = document.createElement('span');
       offLbl.className = 'shift-group-label'; offLbl.textContent = 'Clear';
       list.appendChild(offLbl);
@@ -2608,12 +2652,11 @@
         offBtn.classList.add('active');
         _pop.pendingShift = 'OFF';
         document.getElementById('popover-custom-shift').value = '';
-        document.getElementById('custom-color-row').style.display = 'none';
+        document.getElementById('custom-color-row').style.setProperty('display', 'none', 'important');
         _validateApply();
       });
       list.appendChild(offBtn);
 
-      // ABSENT button (only if no current absent)
       const absentLbl = document.createElement('span');
       absentLbl.className = 'shift-group-label'; absentLbl.textContent = 'Status';
       list.appendChild(absentLbl);
@@ -2625,42 +2668,32 @@
         absentBtn.classList.add('active');
         _pop.pendingShift = 'ABSENT';
         document.getElementById('popover-custom-shift').value = '';
-        document.getElementById('custom-color-row').style.display = 'none';
+        document.getElementById('custom-color-row').style.setProperty('display', 'none', 'important');
         _updateNoteRequired();
         _validateApply();
       });
       list.appendChild(absentBtn);
 
-      // Custom shift input
       const customIn = document.getElementById('popover-custom-shift');
       customIn.value = '';
       customIn.classList.remove('invalid');
       document.getElementById('custom-shift-err').style.display = 'none';
-      document.getElementById('custom-color-row').style.display = 'none';
-      customIn.oninput = () => {
-        const v = customIn.value.trim();
-        const valid = /^\d{4}-\d{4}$/.test(v);
-        if (v) {
-          list.querySelectorAll('.shift-btn').forEach(b => b.classList.remove('active'));
-          customIn.classList.toggle('invalid', !valid);
-          document.getElementById('custom-shift-err').style.display = valid ? 'none' : '';
-          document.getElementById('custom-color-row').style.display = valid ? '' : 'none';
-          if (valid) {
-            _pop.pendingShift = v;
-            _buildRecentColors();
-          } else {
-            _pop.pendingShift = null;
-          }
-        } else {
-          customIn.classList.remove('invalid');
-          document.getElementById('custom-shift-err').style.display = 'none';
-          document.getElementById('custom-color-row').style.display = 'none';
-          _pop.pendingShift = null;
-        }
-        _validateApply();
-      };
+      document.getElementById('custom-color-row').style.setProperty('display', 'none', 'important');
 
-      // AL toggle — detect current state
+      // Real-time listener to toggle custom color picker visibility
+      customIn.addEventListener('input', () => {
+        const val = customIn.value.trim();
+        const isTimeFormat = /^\d{4}-\d{4}$/.test(val);
+        const colorRow = document.getElementById('custom-color-row');
+        if (colorRow) {
+          if (isTimeFormat) {
+            colorRow.style.setProperty('display', 'flex', 'important');
+          } else {
+            colorRow.style.setProperty('display', 'none', 'important');
+          }
+        }
+      });
+
       const alStates = new Set(sel.map(c => {
         const sh = _currentShiftOf(c);
         if (sh === 'AL_PENDING'  || sh.startsWith('AL_PENDING|'))  return 'provisional';
@@ -2678,15 +2711,14 @@
         };
       });
 
-      // Coverage / note
       const notCovChk = document.getElementById('not-coverage-chk');
       notCovChk.checked = false;
       const covSel = document.getElementById('popover-coverage-person');
       covSel.innerHTML = '<option value="">— covering for… —</option>';
-      Object.entries(state.allUsers)
+      Object.entries(state.allUsers || {})
         .sort((a, b) => a[1].name.localeCompare(b[1].name))
         .forEach(([email, u]) => {
-          if (u.name === first.person) return; // skip self
+          if (u.name === first.person) return;
           const opt = document.createElement('option');
           opt.value = u.name; opt.textContent = u.name;
           covSel.appendChild(opt);
@@ -2700,20 +2732,17 @@
       covSel.onchange = () => {
         if (covSel.value) {
           document.getElementById('popover-note').value = `Covering for ${covSel.value}`;
+          _validateApply();
         }
       };
 
-      // Existing note
       const existingNote = sel.length === 1
-        ? (state.draft.overrides.find(
-            o => o.person === first.person && o.date === first.date
-          )?.note || '')
+        ? (state.draft.overrides.find(o => o.person === first.person && o.date === first.date)?.note || '')
         : '';
       document.getElementById('popover-note').value = existingNote;
       _pop.pendingShift = null;
       _updateNoteRequired();
     } else {
-      // ABSENT cell — show remove button only
       const list = document.getElementById('shift-options-list');
       list.innerHTML = '';
       const removeBtn = document.createElement('button');
@@ -2733,7 +2762,6 @@
 
     _validateApply();
 
-    // Position popover
     const pop = document.getElementById('shift-popover');
     pop.classList.add('open');
     const pw = 300, ph = pop.scrollHeight || 400;
@@ -2742,47 +2770,6 @@
     if (top  + ph > window.innerHeight - 8) top  = window.innerHeight - ph - 8;
     pop.style.left = Math.max(8, left) + 'px';
     pop.style.top  = Math.max(8, top)  + 'px';
-  }
-
-  function _updateNoteRequired() {
-    const isAbsent   = _pop.pendingShift === 'ABSENT';
-    const notCov     = document.getElementById('not-coverage-chk')?.checked;
-    const required   = isAbsent || !notCov;
-    document.getElementById('note-required-star').style.display = required ? '' : 'none';
-  }
-
-  function _validateApply() {
-    const btn        = document.getElementById('popover-apply');
-    if (!btn) return;
-    const customVal  = document.getElementById('popover-custom-shift')?.value.trim();
-    const hasValid   = _pop.pendingShift !== null || (!customVal);
-    const customBad  = customVal && !/^\d{4}-\d{4}$/.test(customVal);
-    const isAbsent   = _pop.pendingShift === 'ABSENT';
-    const note       = document.getElementById('popover-note')?.value.trim();
-    const notCov     = document.getElementById('not-coverage-chk')?.checked;
-    const noteFail   = (isAbsent || !notCov) && !note && _pop.pendingShift !== null;
-    btn.disabled = customBad || noteFail || (_pop.pendingShift === null && !customVal);
-  }
-
-  function _buildRecentColors() {
-    const cfg     = state.config || {};
-    const recent  = cfg.custom_shift_colors || [];
-    const row     = document.getElementById('recent-colors');
-    if (!row) return;
-    row.innerHTML = '';
-    recent.forEach(color => {
-      const sw = document.createElement('div');
-      sw.className = 'color-swatch';
-      sw.style.background = color;
-      sw.title = color;
-      sw.addEventListener('click', () => {
-        document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
-        sw.classList.add('active');
-        _pop.customColor = color;
-        document.getElementById('custom-color-picker').value = color;
-      });
-      row.appendChild(sw);
-    });
   }
 
   function closeShiftPopover() {
@@ -2986,7 +2973,18 @@
     // Poll draft status every 30s so the banner stays accurate
     // if another manager enters/exits while we're on the rota tab
     checkDraftStatus();
-    setInterval(checkDraftStatus, 30000);
+    setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        checkDraftStatus();
+      }
+    }, 5000);
+
+    // Hook tab state to execute an immediate check when the user returns
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        checkDraftStatus();
+      }
+    });
   }
 
   async function checkDraftStatus() {
