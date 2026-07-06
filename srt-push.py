@@ -244,18 +244,29 @@ def _capture_preview_loop(interval: int = 5) -> None:
 # ============================================================
 
 def _read_ffmpeg_stderr(proc: subprocess.Popen) -> None:
-    """Read ffmpeg stderr, log raw lines, and parse progress into live stats."""
+    """Read ffmpeg stderr, log raw lines every minute, and parse progress into live stats."""
     log_f = open(LOG_FILE, "a")
     buf = ""
+    
+    # Inicializa o controle de tempo (grava a primeira linha imediatamente)
+    last_log_time = 0.0  
+    interval = 60.0  # Intervalo em segundos
+
     try:
         for chunk in iter(lambda: proc.stderr.read(256), ""):
             buf += chunk
             while "\r" in buf or "\n" in buf:
                 sep = "\r" if "\r" in buf else "\n"
                 line, buf = buf.split(sep, 1)
+                
                 if line.strip():
-                    log_f.write(line + "\n")
-                    log_f.flush()
+                    current_time = time.time()
+                    # Só grava no arquivo se o intervalo de 60 segundos expirou
+                    if current_time - last_log_time >= interval:
+                        log_f.write(line + "\n")
+                        log_f.flush()
+                        last_log_time = current_time  # Atualiza o timestamp
+
                 m = _FFMPEG_RE.search(line)
                 if m:
                     _update_stats(
