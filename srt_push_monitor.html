@@ -624,7 +624,9 @@
             previewImg.style.display = "none";
             previewEmpty.style.display = "block";
           };
-          img.src = API_BASE + "preview?t=" + Date.now();
+
+          // CORREÇÃO AQUI: Adicione o .jpg antes do ponto de interrogação
+          img.src = API_BASE + "preview.jpg?t=" + Date.now();
         }
 
         async function loadConfig() {
