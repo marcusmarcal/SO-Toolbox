@@ -2,6 +2,9 @@
 SRT Ingest Router Blueprint
 Handles SRT ingest routes: single destination and multi-destination (port range).
 Streams ffmpeg stderr stats (bitrate, speed, time) via SSE per job.
+
+Also handles SRT Push Control routes: monitoring and controlling the
+srt-push systemd service (Xvfb + Chromium + ffmpeg screen-to-SRT pipeline).
 """
 
 import re
@@ -10,10 +13,11 @@ import threading
 import os
 import signal
 import time
+import json
 from collections import deque
 from datetime import datetime, timezone
 from typing import Optional, Generator
-from flask import Blueprint, request, jsonify, render_template, Response, stream_with_context
+from flask import Blueprint, request, jsonify, render_template, Response, stream_with_context, send_file
 
 srt_bp = Blueprint("srt_bp", __name__, url_prefix="/srt")
 
@@ -375,13 +379,13 @@ def job_stats_sse(job_id: int):
             last_idx = len(buf)
 
             if new:
-                import json
+                import json as _json
                 for stat in new:
-                    yield f"data: {json.dumps(stat)}\n\n"
+                    yield f"data: {_json.dumps(stat)}\n\n"
 
             if j["status"] in ("finished", "error", "stopping"):
-                import json
-                yield f"event: done\ndata: {json.dumps({'status': j['status']})}\n\n"
+                import json as _json
+                yield f"event: done\ndata: {_json.dumps({'status': j['status']})}\n\n"
                 break
 
             time.sleep(0.5)
@@ -394,3 +398,224 @@ def job_stats_sse(job_id: int):
             "X-Accel-Buffering": "no",  # disable nginx buffering for SSE
         },
     )
+
+
+# ===========================================================================
+# SRT Push Control
+# ===========================================================================
+# Monitoring and control for the srt-push systemd service (Xvfb + Chromium +
+# ffmpeg screen-to-SRT pipeline running srt-push.py on this same host).
+#
+# The service is not managed as a subprocess of Flask: it runs under systemd.
+# Communication happens through three files that srt-push.py itself writes:
+#   - srt-push-config.json  : desired runtime configuration (read by srt-push.py at start)
+#   - srt-push-stats.json   : live ffmpeg progress stats (written by srt-push.py)
+#   - srt-push-preview.jpg  : latest single-frame screenshot of the Xvfb display
+#
+# NOTE: PUSH_DEFAULT_CONFIG below must be kept in sync with DEFAULT_CONFIG in
+# srt-push.py — it is only used here as a fallback when no config file exists yet.
+
+PUSH_STORE_DIR = "/opt/web/store"
+PUSH_CONFIG_FILE = os.path.join(PUSH_STORE_DIR, "srt-push-config.json")
+PUSH_STATS_FILE = os.path.join(PUSH_STORE_DIR, "srt-push-stats.json")
+PUSH_PREVIEW_FILE = os.path.join(PUSH_STORE_DIR, "srt-push-preview.jpg")
+PUSH_LOG_FILE = "/var/log/srt-push.log"
+PUSH_SERVICE_NAME = "srt-push"
+
+PUSH_DEFAULT_CONFIG = {
+    "html_url": "https://127.0.0.1/id3as-DC-Monitor.html?view=nodes&dc=ix&inuse=1&sort=nW&dir=-1",
+    "srt_host": "10.11.203.1",
+    "srt_port": 3292,
+    "srt_mode": "caller",
+    "srt_latency": 1000,
+    "srt_passphrase": "rQ6zgFnfz1WgmJ0AgzI4Zs7Own54K0dU",
+    "width": 1920,
+    "height": 1080,
+    "fps": 5,
+    "video_bitrate_kbps": 500,
+}
+
+# Type casters used to validate incoming config values per field.
+PUSH_CONFIG_FIELDS = {
+    "html_url": str,
+    "srt_host": str,
+    "srt_port": int,
+    "srt_mode": str,
+    "srt_latency": int,
+    "srt_passphrase": str,
+    "width": int,
+    "height": int,
+    "fps": int,
+    "video_bitrate_kbps": int,
+}
+
+
+def _load_push_config() -> dict:
+    """Read the current srt-push config, falling back to defaults for missing keys."""
+    cfg = dict(PUSH_DEFAULT_CONFIG)
+    try:
+        with open(PUSH_CONFIG_FILE, "r") as f:
+            saved = json.load(f)
+        cfg.update({k: v for k, v in saved.items() if k in PUSH_DEFAULT_CONFIG})
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        pass
+    return cfg
+
+
+def _save_push_config(cfg: dict) -> None:
+    """Atomically persist the srt-push config file."""
+    os.makedirs(PUSH_STORE_DIR, exist_ok=True)
+    tmp_path = PUSH_CONFIG_FILE + ".tmp"
+    with open(tmp_path, "w") as f:
+        json.dump(cfg, f, indent=2)
+    os.replace(tmp_path, PUSH_CONFIG_FILE)
+
+
+def _load_push_stats() -> dict:
+    """Read the live stats file written by srt-push.py."""
+    try:
+        with open(PUSH_STATS_FILE, "r") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+
+
+def _systemctl(action: str, timeout: int = 15) -> dict:
+    """Run a systemctl action for the srt-push unit via sudo and return the result.
+
+    Requires a sudoers NOPASSWD rule for the Flask service account, e.g.:
+    <flask_user> ALL=(root) NOPASSWD: /usr/bin/systemctl start srt-push, \
+        /usr/bin/systemctl stop srt-push, /usr/bin/systemctl restart srt-push, \
+        /usr/bin/systemctl show srt-push *
+    """
+    try:
+        result = subprocess.run(
+            ["sudo", "/usr/bin/systemctl", action, PUSH_SERVICE_NAME],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        return {
+            "ok": result.returncode == 0,
+            "returncode": result.returncode,
+            "stdout": result.stdout.strip(),
+            "stderr": result.stderr.strip(),
+        }
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "returncode": -1, "stdout": "", "stderr": "systemctl call timed out"}
+    except OSError as e:
+        return {"ok": False, "returncode": -1, "stdout": "", "stderr": str(e)}
+
+
+def _push_service_state() -> dict:
+    """Query systemd for the current state of the srt-push unit."""
+    try:
+        result = subprocess.run(
+            ["sudo", "/usr/bin/systemctl", "show", PUSH_SERVICE_NAME,
+             "--property=ActiveState,SubState,MainPID,ExecMainStartTimestamp"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (subprocess.TimeoutExpired, OSError) as e:
+        return {"active_state": "unknown", "sub_state": str(e), "main_pid": "0", "started_at": ""}
+
+    state = {}
+    for line in result.stdout.strip().splitlines():
+        if "=" in line:
+            k, _, v = line.partition("=")
+            state[k] = v
+
+    return {
+        "active_state": state.get("ActiveState", "unknown"),
+        "sub_state": state.get("SubState", "unknown"),
+        "main_pid": state.get("MainPID", "0"),
+        "started_at": state.get("ExecMainStartTimestamp", ""),
+    }
+
+
+@srt_bp.route("/push")
+def srt_push_tool():
+    """Serve the SRT Push Control HTML tool."""
+    return render_template("srt_push_control.html")
+
+
+@srt_bp.route("/push/status", methods=["GET"])
+def push_status():
+    """Combined status: systemd state, live ffmpeg stats, current config."""
+    return jsonify({
+        "service": _push_service_state(),
+        "stats": _load_push_stats(),
+        "config": _load_push_config(),
+    })
+
+
+@srt_bp.route("/push/config", methods=["GET"])
+def push_get_config():
+    """Return the current srt-push configuration."""
+    return jsonify(_load_push_config())
+
+
+@srt_bp.route("/push/config", methods=["POST"])
+def push_set_config():
+    """
+    Save a new srt-push configuration and restart the service to apply it.
+    Body JSON: any subset of the fields in PUSH_DEFAULT_CONFIG.
+    """
+    data = request.get_json(force=True) or {}
+    cfg = _load_push_config()
+
+    for key, caster in PUSH_CONFIG_FIELDS.items():
+        if key in data:
+            try:
+                cfg[key] = caster(data[key])
+            except (TypeError, ValueError):
+                return jsonify({"error": f"Invalid value for '{key}'"}), 400
+
+    _save_push_config(cfg)
+    restart_result = _systemctl("restart")
+
+    return jsonify({
+        "message": "Config saved" + (" and service restarted" if restart_result["ok"] else " but restart failed"),
+        "config": cfg,
+        "restart": restart_result,
+    }), (200 if restart_result["ok"] else 502)
+
+
+@srt_bp.route("/push/service/<action>", methods=["POST"])
+def push_service_action(action: str):
+    """Control the srt-push systemd service. action: start | stop | restart."""
+    if action not in ("start", "stop", "restart"):
+        return jsonify({"error": "Invalid action, use start/stop/restart"}), 400
+    result = _systemctl(action)
+    return jsonify(result), (200 if result["ok"] else 502)
+
+
+@srt_bp.route("/push/preview.jpg", methods=["GET"])
+def push_preview():
+    """Serve the latest Xvfb screenshot captured by srt-push (single overwritten file)."""
+    if not os.path.isfile(PUSH_PREVIEW_FILE):
+        return jsonify({"error": "Preview not available yet"}), 404
+    response = send_file(PUSH_PREVIEW_FILE, mimetype="image/jpeg")
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    return response
+
+
+@srt_bp.route("/push/log", methods=["GET"])
+def push_log():
+    """Return the last N lines of the srt-push log file (default 200)."""
+    try:
+        lines_count = int(request.args.get("lines", 200))
+    except ValueError:
+        lines_count = 200
+    lines_count = max(1, min(lines_count, 2000))
+
+    if not os.path.isfile(PUSH_LOG_FILE):
+        return jsonify({"lines": []})
+
+    try:
+        with open(PUSH_LOG_FILE, "r", errors="replace") as f:
+            lines = deque(f, maxlen=lines_count)
+        return jsonify({"lines": [line.rstrip("\n") for line in lines]})
+    except OSError as e:
+        return jsonify({"error": str(e)}), 500
