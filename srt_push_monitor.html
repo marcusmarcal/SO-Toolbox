@@ -544,6 +544,7 @@
           return value;
         }
 
+        // Renderiza o gráfico de barras da telemetria
         function renderSparkline() {
           sparkline.innerHTML = "";
           const max = Math.max(1, ...bitrateHistory);
@@ -576,21 +577,35 @@
             const stats = data.stats || {};
             const service = data.service || {};
 
-            // AJUSTE AQUI: O Python retorna em snake_case (active_state)
+            // Mapeamento correto com base no retorno em snake_case do Python
             const activeState = (service.active_state || "").toLowerCase();
+            const subState = (service.sub_state || "").toLowerCase();
+
+            // Define o estado padrão vindo do arquivo de log/stats do push
             let state = stats.status || "unknown";
+
+            // Plano de contingência: se o systemd diz que está ativo/rodando, assume "running"
+            if (
+              state === "unknown" &&
+              activeState === "active" &&
+              subState === "running"
+            ) {
+              state = "running";
+            }
+
             if (activeState === "failed") state = "failed";
             if (activeState === "inactive" && state !== "restarting")
               state = "stopped";
+
             setTallyState(state);
 
-            // AJUSTE AQUI: Ajustado para usar active_state e sub_state vindos do Python
+            // Atualiza os elementos da interface com as chaves corretas do Python
             document.getElementById("stService").textContent = `${
               service.active_state || "?"
             } / ${service.sub_state || "?"}`;
 
             document.getElementById("stPid").textContent =
-              service.main_pid || "—"; // Python retorna main_pid dentro de service
+              service.main_pid || "—";
             document.getElementById("stRestarts").textContent =
               stats.restarts ?? "—";
 
@@ -609,6 +624,13 @@
               bitrateHistory.push(parseBitrateKbps(last.bitrate));
               while (bitrateHistory.length > MAX_BARS) bitrateHistory.shift();
               renderSparkline();
+            } else {
+              // Limpa os campos caso não haja dados de progresso do ffmpeg ainda
+              document.getElementById("stBitrate").textContent = "—";
+              document.getElementById("stFps").textContent = "—";
+              document.getElementById("stFrame").textContent = "—";
+              document.getElementById("stSpeed").textContent = "—";
+              document.getElementById("stTime").textContent = "—";
             }
           } catch (err) {
             setTallyState("unknown");
@@ -628,8 +650,6 @@
             previewImg.style.display = "none";
             previewEmpty.style.display = "block";
           };
-
-          // CORREÇÃO AQUI: Adicione o .jpg antes do ponto de interrogação
           img.src = API_BASE + "preview.jpg?t=" + Date.now();
         }
 
@@ -637,14 +657,16 @@
           try {
             const res = await fetch(API_BASE + "config");
             const data = await res.json();
-            const cfg = data.config || data || {}; // Trata se vier encapsulado ou direto
+            // Trata o payload se vier envelopado em 'config' ou direto na raiz
+            const cfg = data.config || data || {};
+
             document.getElementById("cfgHtmlUrl").value = cfg.html_url || "";
-            document.getElementById("cfgSrtUrl").value = cfg.srt_url || ""; // Nota: adicione tratamento se seu backend expor srt_host/port separados
+            document.getElementById("cfgSrtUrl").value = cfg.srt_url || "";
             document.getElementById("cfgWidth").value = cfg.width || "";
             document.getElementById("cfgHeight").value = cfg.height || "";
             document.getElementById("cfgFps").value = cfg.fps || "";
 
-            // AJUSTE AQUI: O campo correto no Python é 'video_bitrate_kbps'
+            // Sincronizado com a chave 'video_bitrate_kbps' definida no routes_srt.py
             document.getElementById("cfgBitrate").value =
               cfg.video_bitrate_kbps || "";
           } catch (err) {
@@ -659,10 +681,14 @@
             const body = {
               html_url: document.getElementById("cfgHtmlUrl").value,
               srt_url: document.getElementById("cfgSrtUrl").value,
-              width: document.getElementById("cfgWidth").value,
-              height: document.getElementById("cfgHeight").value,
-              fps: document.getElementById("cfgFps").value,
-              video_bitrate: document.getElementById("cfgBitrate").value,
+              width: parseInt(document.getElementById("cfgWidth").value, 10),
+              height: parseInt(document.getElementById("cfgHeight").value, 10),
+              fps: parseInt(document.getElementById("cfgFps").value, 10),
+              // Enviando com o nome exato esperado pelo PUSH_CONFIG_FIELDS do backend
+              video_bitrate_kbps: parseInt(
+                document.getElementById("cfgBitrate").value,
+                10
+              ),
             };
             const res = await fetch(API_BASE + "config", {
               method: "POST",
@@ -712,7 +738,7 @@
           try {
             const res = await fetch(API_BASE + "log?lines=200");
             const data = await res.json();
-            out.textContent = (data.lines || []).join("") || "(empty)";
+            out.textContent = (data.lines || []).join("\n") || "(empty)";
             out.scrollTop = out.scrollHeight;
           } catch (err) {
             out.textContent = "Could not load log.";
@@ -739,6 +765,7 @@
           .getElementById("btnRefreshLog")
           .addEventListener("click", refreshLog);
 
+        // Inicialização
         loadConfig();
         refreshStatus();
         refreshPreview();
