@@ -559,8 +559,7 @@ def push_get_config():
 @srt_bp.route("/push/config", methods=["POST"])
 def push_set_config():
     """
-    Save a new srt-push configuration and restart the service to apply it.
-    Body JSON: any subset of the fields in PUSH_DEFAULT_CONFIG.
+    Save a new srt-push configuration and restart the service in background to apply it.
     """
     data = request.get_json(force=True) or {}
     cfg = _load_push_config()
@@ -573,22 +572,36 @@ def push_set_config():
                 return jsonify({"error": f"Invalid value for '{key}'"}), 400
 
     _save_push_config(cfg)
-    restart_result = _systemctl("restart")
-
-    return jsonify({
-        "message": "Config saved" + (" and service restarted" if restart_result["ok"] else " but restart failed"),
-        "config": cfg,
-        "restart": restart_result,
-    }), (200 if restart_result["ok"] else 502)
+    
+    # Em vez de esperar o systemctl síncrono, joga para o background
+    try:
+        subprocess.Popen(["bash", "-c", f"sleep 1 && systemctl restart {PUSH_SERVICE_NAME}"])
+        return jsonify({
+            "message": "Config saved and service restart scheduled.",
+            "config": cfg
+        }), 200
+    except Exception as e:
+        return jsonify({"error": f"Config saved but failed to schedule restart: {str(e)}"}), 500
 
 
 @srt_bp.route("/push/service/<action>", methods=["POST"])
 def push_service_action(action: str):
-    """Control the srt-push systemd service. action: start | stop | restart."""
+    """Control the srt-push systemd service in background. action: start | stop | restart."""
     if action not in ("start", "stop", "restart"):
         return jsonify({"error": "Invalid action, use start/stop/restart"}), 400
-    result = _systemctl(action)
-    return jsonify(result), (200 if result["ok"] else 502)
+        
+    try:
+        # Dispara a ação do systemctl em background para o Flask responder na hora
+        subprocess.Popen(["bash", "-c", f"sleep 0.5 && systemctl {action} {PUSH_SERVICE_NAME}"])
+        return jsonify({
+            "ok": True,
+            "message": f"Service {action} scheduled successfully."
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "ok": False,
+            "stderr": str(e)
+        }), 500
 
 
 @srt_bp.route("/push/preview.jpg", methods=["GET"])
