@@ -466,10 +466,32 @@
             >Dashboard URL (what Chromium loads)
             <input type="text" id="cfgHtmlUrl" spellcheck="false" />
           </label>
-          <label class="full"
-            >SRT destination URL
-            <input type="text" id="cfgSrtUrl" spellcheck="false" />
+
+          <label
+            class="full"
+            style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px"
+          >
+            <span>SRT Destination Host</span>
+            <span style="grid-column: 2">Port</span>
+            <input
+              type="text"
+              id="cfgSrtHost"
+              placeholder="e.g. 10.11.203.1"
+              spellcheck="false"
+            />
+            <input type="number" id="cfgSrtPort" placeholder="3292" />
           </label>
+
+          <label class="full"
+            >SRT Passphrase
+            <input
+              type="text"
+              id="cfgSrtPassphrase"
+              placeholder="Encryption key (min 10 chars)"
+              spellcheck="false"
+            />
+          </label>
+
           <label
             >Width
             <input type="number" id="cfgWidth" min="320" max="3840" />
@@ -659,14 +681,11 @@
 
             document.getElementById("cfgHtmlUrl").value = cfg.html_url || "";
 
-            // Monta srt://host:port no input unico do seu HTML
-            if (cfg.srt_host && cfg.srt_port) {
-              document.getElementById(
-                "cfgSrtUrl"
-              ).value = `srt://${cfg.srt_host}:${cfg.srt_port}`;
-            } else {
-              document.getElementById("cfgSrtUrl").value = cfg.srt_url || "";
-            }
+            // Popula os novos campos do SRT Destination
+            document.getElementById("cfgSrtHost").value = cfg.srt_host || "";
+            document.getElementById("cfgSrtPort").value = cfg.srt_port || "";
+            document.getElementById("cfgSrtPassphrase").value =
+              cfg.srt_passphrase || "";
 
             document.getElementById("cfgWidth").value = cfg.width || "";
             document.getElementById("cfgHeight").value = cfg.height || "";
@@ -682,14 +701,16 @@
           const btn = document.getElementById("btnSaveConfig");
           btn.disabled = true;
           try {
-            const srtRaw = document.getElementById("cfgSrtUrl").value;
-            // Expressão regular simples para extrair host e porta da string srt://
-            const match = /srt:\/\/([^:]+):(\d+)/.exec(srtRaw);
-
             const body = {
               html_url: document.getElementById("cfgHtmlUrl").value,
-              srt_host: match ? match[1] : srtRaw,
-              srt_port: match ? parseInt(match[2], 10) : 3292,
+
+              // Coleta os valores individuais inseridos no form
+              srt_host: document.getElementById("cfgSrtHost").value,
+              srt_port:
+                parseInt(document.getElementById("cfgSrtPort").value, 10) ||
+                3292,
+              srt_passphrase: document.getElementById("cfgSrtPassphrase").value,
+
               width: parseInt(document.getElementById("cfgWidth").value, 10),
               height: parseInt(document.getElementById("cfgHeight").value, 10),
               fps: parseInt(document.getElementById("cfgFps").value, 10),
