@@ -1,476 +1,742 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SRT Push Monitor</title>
-<style>
-  :root{
-    --bg:#0a0d10;
-    --panel:#12171c;
-    --panel-alt:#171d23;
-    --border:#232b32;
-    --text:#e6edf3;
-    --text-dim:#7c8894;
-    --text-faint:#4b5560;
-    --tally-red:#ff2f3d;
-    --tally-red-dim:#5a1319;
-    --warn-amber:#ffb020;
-    --idle-gray:#4b5560;
-    --info-blue:#4c9eff;
-    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Consolas", monospace;
-    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  }
-
-  *{ box-sizing:border-box; }
-  html,body{ margin:0; padding:0; }
-  body{
-    background:var(--bg);
-    color:var(--text);
-    font-family:var(--sans);
-    padding:24px;
-    min-height:100vh;
-  }
-
-  .wrap{ max-width:1200px; margin:0 auto; display:flex; flex-direction:column; gap:20px; }
-
-  /* ---------- Header ---------- */
-  header{
-    display:flex; align-items:center; justify-content:space-between;
-    border-bottom:1px solid var(--border);
-    padding-bottom:16px;
-  }
-  .brand .eyebrow{
-    font-size:11px; letter-spacing:.12em; text-transform:uppercase;
-    color:var(--text-dim); margin:0 0 4px;
-  }
-  .brand h1{ margin:0; font-size:22px; font-weight:650; letter-spacing:-0.01em; }
-
-  .tally{
-    display:flex; align-items:center; gap:10px;
-    padding:8px 14px; border-radius:999px;
-    border:1px solid var(--border); background:var(--panel-alt);
-    font-family:var(--mono); font-size:13px; letter-spacing:.04em;
-  }
-  .tally-dot{
-    width:10px; height:10px; border-radius:50%;
-    background:var(--idle-gray);
-    box-shadow:0 0 0 0 rgba(0,0,0,0);
-  }
-  .tally[data-state="running"] .tally-dot{
-    background:var(--tally-red);
-    animation:pulse 1.6s ease-in-out infinite;
-  }
-  .tally[data-state="restarting"] .tally-dot{ background:var(--warn-amber); }
-  .tally[data-state="error"] .tally-dot,
-  .tally[data-state="failed"] .tally-dot{ background:var(--tally-red); }
-  .tally[data-state="running"]{ border-color:var(--tally-red-dim); color:#ffb3ba; }
-  .tally[data-state="restarting"]{ color:var(--warn-amber); }
-  .tally[data-state="error"], .tally[data-state="failed"]{ color:var(--tally-red); }
-
-  @keyframes pulse{
-    0%,100%{ box-shadow:0 0 0 0 rgba(255,47,61,.55); }
-    50%{ box-shadow:0 0 0 6px rgba(255,47,61,0); }
-  }
-  @media (prefers-reduced-motion: reduce){
-    .tally-dot{ animation:none !important; }
-  }
-
-  /* ---------- Layout ---------- */
-  .grid{ display:grid; grid-template-columns:2fr 1fr; gap:20px; }
-  @media (max-width:900px){ .grid{ grid-template-columns:1fr; } }
-
-  .panel{
-    background:var(--panel);
-    border:1px solid var(--border);
-    border-radius:10px;
-    padding:16px;
-  }
-  .panel h2{
-    margin:0 0 12px; font-size:13px; text-transform:uppercase;
-    letter-spacing:.08em; color:var(--text-dim); font-weight:600;
-  }
-
-  /* ---------- Preview ---------- */
-  .preview-frame{
-    position:relative;
-    border-radius:8px; overflow:hidden;
-    background:#000;
-    aspect-ratio:16/9;
-    display:flex; align-items:center; justify-content:center;
-    border:1px solid var(--border);
-  }
-  .preview-frame img{ width:100%; height:100%; object-fit:contain; display:block; }
-  .preview-empty{ color:var(--text-faint); font-family:var(--mono); font-size:13px; text-align:center; padding:20px; }
-  .preview-meta{
-    display:flex; justify-content:space-between; margin-top:8px;
-    font-family:var(--mono); font-size:12px; color:var(--text-dim);
-  }
-
-  /* ---------- Telemetry ---------- */
-  .telemetry-row{
-    display:flex; justify-content:space-between; align-items:baseline;
-    padding:7px 0; border-bottom:1px dashed var(--border);
-    font-family:var(--mono); font-size:13px;
-  }
-  .telemetry-row:last-child{ border-bottom:none; }
-  .telemetry-row .label{ color:var(--text-dim); }
-  .telemetry-row .value{ color:var(--text); font-weight:600; }
-
-  .sparkline{
-    display:flex; align-items:flex-end; gap:2px; height:36px;
-    margin:12px 0 4px; padding:4px 0;
-    border-bottom:1px solid var(--border);
-  }
-  .sparkline .bar{
-    flex:1; min-width:2px; background:var(--tally-red);
-    opacity:.75; border-radius:1px 1px 0 0; transition:height .3s ease;
-  }
-
-  /* ---------- Controls ---------- */
-  .controls{ display:flex; gap:10px; flex-wrap:wrap; }
-  button{
-    font-family:var(--sans); font-size:13px; font-weight:600;
-    padding:9px 16px; border-radius:7px; border:1px solid var(--border);
-    background:var(--panel-alt); color:var(--text); cursor:pointer;
-    transition:background .15s ease, border-color .15s ease;
-  }
-  button:hover{ background:#1c2329; }
-  button:disabled{ opacity:.5; cursor:not-allowed; }
-  button.primary{ border-color:var(--info-blue); color:var(--info-blue); }
-  button.danger{ border-color:var(--tally-red-dim); color:#ff8f97; }
-  button.danger:hover{ background:#241014; }
-
-  /* ---------- Config form ---------- */
-  details{ background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; }
-  details > summary{
-    cursor:pointer; font-size:13px; text-transform:uppercase; letter-spacing:.08em;
-    color:var(--text-dim); font-weight:600; list-style:none;
-  }
-  details > summary::-webkit-details-marker{ display:none; }
-  details > summary::before{ content:"▸ "; color:var(--text-faint); }
-  details[open] > summary::before{ content:"▾ "; }
-
-  .form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:16px; }
-  .form-grid .full{ grid-column:1 / -1; }
-  @media (max-width:640px){ .form-grid{ grid-template-columns:1fr; } }
-
-  label{ display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--text-dim); }
-  input{
-    font-family:var(--mono); font-size:13px; color:var(--text);
-    background:var(--panel-alt); border:1px solid var(--border);
-    border-radius:6px; padding:8px 10px;
-  }
-  input:focus{ outline:2px solid var(--info-blue); outline-offset:1px; }
-
-  .form-actions{ margin-top:16px; display:flex; align-items:center; gap:12px; }
-  .form-note{ font-size:12px; color:var(--text-faint); }
-
-  /* ---------- Log viewer ---------- */
-  pre.log{
-    background:#000; border:1px solid var(--border); border-radius:8px;
-    padding:12px; max-height:320px; overflow:auto;
-    font-family:var(--mono); font-size:12px; color:#9fd3a0;
-    margin:12px 0 0; white-space:pre-wrap; word-break:break-all;
-  }
-
-  .toast{
-    position:fixed; bottom:20px; right:20px; z-index:50;
-    background:var(--panel-alt); border:1px solid var(--border);
-    color:var(--text); padding:10px 16px; border-radius:8px;
-    font-size:13px; box-shadow:0 6px 20px rgba(0,0,0,.4);
-    opacity:0; transform:translateY(8px); transition:opacity .2s ease, transform .2s ease;
-    pointer-events:none;
-  }
-  .toast.show{ opacity:1; transform:translateY(0); }
-  .toast.error{ border-color:var(--tally-red-dim); color:#ff8f97; }
-</style>
-</head>
-<body>
-<div class="wrap">
-
-  <header>
-    <div class="brand">
-      <p class="eyebrow">Xvfb → Chromium → ffmpeg → SRT</p>
-      <h1>SRT Push Monitor</h1>
-    </div>
-    <div class="tally" id="tally" data-state="stopped">
-      <span class="tally-dot"></span>
-      <span id="tallyLabel">CHECKING…</span>
-    </div>
-  </header>
-
-  <div class="grid">
-    <section class="panel">
-      <h2>Screen preview</h2>
-      <div class="preview-frame" id="previewFrame">
-        <div class="preview-empty" id="previewEmpty">No preview captured yet.<br>Waiting for srt-push to write a frame.</div>
-        <img id="previewImg" alt="Chromium screen preview" style="display:none">
-      </div>
-      <div class="preview-meta">
-        <span id="previewUpdated">—</span>
-        <span>refreshes every 5s</span>
-      </div>
-    </section>
-
-    <section class="panel">
-      <h2>Telemetry</h2>
-      <div class="sparkline" id="sparkline"></div>
-      <div class="telemetry-row"><span class="label">Bitrate</span><span class="value" id="stBitrate">—</span></div>
-      <div class="telemetry-row"><span class="label">FPS</span><span class="value" id="stFps">—</span></div>
-      <div class="telemetry-row"><span class="label">Frame</span><span class="value" id="stFrame">—</span></div>
-      <div class="telemetry-row"><span class="label">Speed</span><span class="value" id="stSpeed">—</span></div>
-      <div class="telemetry-row"><span class="label">Encoded time</span><span class="value" id="stTime">—</span></div>
-      <div class="telemetry-row"><span class="label">PID</span><span class="value" id="stPid">—</span></div>
-      <div class="telemetry-row"><span class="label">Restarts</span><span class="value" id="stRestarts">—</span></div>
-      <div class="telemetry-row"><span class="label">Service state</span><span class="value" id="stService">—</span></div>
-    </section>
-  </div>
-
-  <section class="panel">
-    <h2>Service control</h2>
-    <div class="controls">
-      <button class="primary" id="btnStart">Start</button>
-      <button id="btnRestart">Restart</button>
-      <button class="danger" id="btnStop">Stop</button>
-    </div>
-  </section>
-
-  <details>
-    <summary>Configuration</summary>
-    <div class="form-grid">
-      <label class="full">Dashboard URL (what Chromium loads)
-        <input type="text" id="cfgHtmlUrl" spellcheck="false">
-      </label>
-      <label class="full">SRT destination URL
-        <input type="text" id="cfgSrtUrl" spellcheck="false">
-      </label>
-      <label>Width
-        <input type="number" id="cfgWidth" min="320" max="3840">
-      </label>
-      <label>Height
-        <input type="number" id="cfgHeight" min="240" max="2160">
-      </label>
-      <label>FPS
-        <input type="number" id="cfgFps" min="1" max="30">
-      </label>
-      <label>Video bitrate (e.g. 500k)
-        <input type="text" id="cfgBitrate" spellcheck="false">
-      </label>
-    </div>
-    <div class="form-actions">
-      <button class="primary" id="btnSaveConfig">Save & restart service</button>
-      <span class="form-note">Saving restarts srt-push to apply the new configuration.</span>
-    </div>
-  </details>
-
-  <details>
-    <summary>Log</summary>
-    <div class="form-actions" style="margin-top:0;">
-      <button id="btnRefreshLog">Refresh</button>
-      <span class="form-note">Last 200 lines of /var/log/srt-push.log</span>
-    </div>
-    <pre class="log" id="logOutput">—</pre>
-  </details>
-
-</div>
-
-<div class="toast" id="toast"></div>
-
-<script>
-(function(){
-  "use strict";
-
-  const tally = document.getElementById("tally");
-  const tallyLabel = document.getElementById("tallyLabel");
-  const sparkline = document.getElementById("sparkline");
-  const previewImg = document.getElementById("previewImg");
-  const previewEmpty = document.getElementById("previewEmpty");
-  const previewUpdated = document.getElementById("previewUpdated");
-  const toast = document.getElementById("toast");
-
-  const bitrateHistory = [];
-  const MAX_BARS = 40;
-
-  function showToast(message, isError){
-    toast.textContent = message;
-    toast.className = "toast show" + (isError ? " error" : "");
-    setTimeout(() => { toast.className = "toast"; }, 3200);
-  }
-
-  function parseBitrateKbps(bitrateStr){
-    if(!bitrateStr) return 0;
-    const m = /([\d.]+)\s*k?bits\/s/i.exec(bitrateStr);
-    if(!m) return 0;
-    let value = parseFloat(m[1]);
-    if(/mbits/i.test(bitrateStr)) value *= 1000;
-    return value;
-  }
-
-  function renderSparkline(){
-    sparkline.innerHTML = "";
-    const max = Math.max(1, ...bitrateHistory);
-    bitrateHistory.forEach(v => {
-      const bar = document.createElement("div");
-      bar.className = "bar";
-      const pct = Math.max(4, Math.round((v / max) * 100));
-      bar.style.height = pct + "%";
-      sparkline.appendChild(bar);
-    });
-  }
-
-  function setTallyState(state){
-    tally.dataset.state = state;
-    const labels = {
-      running: "ON AIR",
-      restarting: "RESTARTING",
-      stopped: "OFF AIR",
-      error: "ERROR",
-      failed: "FAILED",
-      unknown: "UNKNOWN",
-    };
-    tallyLabel.textContent = labels[state] || state.toUpperCase();
-  }
-
-  async function refreshStatus(){
-    try{
-      const res = await fetch("status");
-      const data = await res.json();
-      const stats = data.stats || {};
-      const service = data.service || {};
-
-      const activeState = (service.ActiveState || "").toLowerCase();
-      let state = stats.status || "unknown";
-      if(activeState === "failed") state = "failed";
-      if(activeState === "inactive" && state !== "restarting") state = "stopped";
-      setTallyState(state);
-
-      document.getElementById("stService").textContent =
-        `${service.ActiveState || "?"} / ${service.SubState || "?"}`;
-      document.getElementById("stPid").textContent = stats.pid || "—";
-      document.getElementById("stRestarts").textContent = stats.restarts ?? "—";
-
-      const last = stats.last_stat;
-      if(last){
-        document.getElementById("stBitrate").textContent = last.bitrate || "—";
-        document.getElementById("stFps").textContent = last.fps ?? "—";
-        document.getElementById("stFrame").textContent = last.frame ?? "—";
-        document.getElementById("stSpeed").textContent = last.speed ? `${last.speed}x` : "—";
-        document.getElementById("stTime").textContent = last.time || "—";
-
-        bitrateHistory.push(parseBitrateKbps(last.bitrate));
-        while(bitrateHistory.length > MAX_BARS) bitrateHistory.shift();
-        renderSparkline();
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SRT Push Monitor</title>
+    <style>
+      :root {
+        --bg: #0a0d10;
+        --panel: #12171c;
+        --panel-alt: #171d23;
+        --border: #232b32;
+        --text: #e6edf3;
+        --text-dim: #7c8894;
+        --text-faint: #4b5560;
+        --tally-red: #ff2f3d;
+        --tally-red-dim: #5a1319;
+        --warn-amber: #ffb020;
+        --idle-gray: #4b5560;
+        --info-blue: #4c9eff;
+        --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Consolas", monospace;
+        --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
       }
-    }catch(err){
-      setTallyState("unknown");
-    }
-  }
 
-  function refreshPreview(){
-    const img = new Image();
-    img.onload = () => {
-      previewImg.src = img.src;
-      previewImg.style.display = "block";
-      previewEmpty.style.display = "none";
-      previewUpdated.textContent = "Updated " + new Date().toLocaleTimeString();
-    };
-    img.onerror = () => {
-      previewImg.style.display = "none";
-      previewEmpty.style.display = "block";
-    };
-    img.src = "preview?t=" + Date.now();
-  }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        padding: 24px;
+        min-height: 100vh;
+      }
 
-  async function loadConfig(){
-    try{
-      const res = await fetch("config");
-      const data = await res.json();
-      const cfg = data.config || {};
-      document.getElementById("cfgHtmlUrl").value = cfg.html_url || "";
-      document.getElementById("cfgSrtUrl").value = cfg.srt_url || "";
-      document.getElementById("cfgWidth").value = cfg.width || "";
-      document.getElementById("cfgHeight").value = cfg.height || "";
-      document.getElementById("cfgFps").value = cfg.fps || "";
-      document.getElementById("cfgBitrate").value = cfg.video_bitrate || "";
-    }catch(err){
-      showToast("Could not load configuration", true);
-    }
-  }
+      .wrap {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
 
-  async function saveConfig(){
-    const btn = document.getElementById("btnSaveConfig");
-    btn.disabled = true;
-    try{
-      const body = {
-        html_url: document.getElementById("cfgHtmlUrl").value,
-        srt_url: document.getElementById("cfgSrtUrl").value,
-        width: document.getElementById("cfgWidth").value,
-        height: document.getElementById("cfgHeight").value,
-        fps: document.getElementById("cfgFps").value,
-        video_bitrate: document.getElementById("cfgBitrate").value,
-      };
-      const res = await fetch("config", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if(!res.ok){ throw new Error(data.error || "Save failed"); }
-      showToast(data.message || "Configuration saved");
-      setTimeout(refreshStatus, 1500);
-    }catch(err){
-      showToast(err.message, true);
-    }finally{
-      btn.disabled = false;
-    }
-  }
+      /* ---------- Header ---------- */
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 16px;
+      }
+      .brand .eyebrow {
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+        margin: 0 0 4px;
+      }
+      .brand h1 {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 650;
+        letter-spacing: -0.01em;
+      }
 
-  async function serviceAction(action){
-    const buttons = [document.getElementById("btnStart"), document.getElementById("btnRestart"), document.getElementById("btnStop")];
-    buttons.forEach(b => b.disabled = true);
-    try{
-      const res = await fetch("service/" + action, { method: "POST" });
-      const data = await res.json();
-      if(!res.ok){ throw new Error(data.error || "Action failed"); }
-      showToast(data.message || `Service ${action} sent`);
-      setTimeout(refreshStatus, 1500);
-    }catch(err){
-      showToast(err.message, true);
-    }finally{
-      buttons.forEach(b => b.disabled = false);
-    }
-  }
+      .tally {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 14px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: var(--panel-alt);
+        font-family: var(--mono);
+        font-size: 13px;
+        letter-spacing: 0.04em;
+      }
+      .tally-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--idle-gray);
+        box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+      }
+      .tally[data-state="running"] .tally-dot {
+        background: var(--tally-red);
+        animation: pulse 1.6s ease-in-out infinite;
+      }
+      .tally[data-state="restarting"] .tally-dot {
+        background: var(--warn-amber);
+      }
+      .tally[data-state="error"] .tally-dot,
+      .tally[data-state="failed"] .tally-dot {
+        background: var(--tally-red);
+      }
+      .tally[data-state="running"] {
+        border-color: var(--tally-red-dim);
+        color: #ffb3ba;
+      }
+      .tally[data-state="restarting"] {
+        color: var(--warn-amber);
+      }
+      .tally[data-state="error"],
+      .tally[data-state="failed"] {
+        color: var(--tally-red);
+      }
 
-  async function refreshLog(){
-    const out = document.getElementById("logOutput");
-    out.textContent = "Loading…";
-    try{
-      const res = await fetch("log?lines=200");
-      const data = await res.json();
-      out.textContent = (data.lines || []).join("") || "(empty)";
-      out.scrollTop = out.scrollHeight;
-    }catch(err){
-      out.textContent = "Could not load log.";
-    }
-  }
+      @keyframes pulse {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(255, 47, 61, 0.55);
+        }
+        50% {
+          box-shadow: 0 0 0 6px rgba(255, 47, 61, 0);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .tally-dot {
+          animation: none !important;
+        }
+      }
 
-  document.getElementById("btnStart").addEventListener("click", () => serviceAction("start"));
-  document.getElementById("btnRestart").addEventListener("click", () => serviceAction("restart"));
-  document.getElementById("btnStop").addEventListener("click", () => {
-    if(confirm("Stop the srt-push service now? The SRT feed will go down.")){
-      serviceAction("stop");
-    }
-  });
-  document.getElementById("btnSaveConfig").addEventListener("click", saveConfig);
-  document.getElementById("btnRefreshLog").addEventListener("click", refreshLog);
+      /* ---------- Layout ---------- */
+      .grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 20px;
+      }
+      @media (max-width: 900px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
 
-  loadConfig();
-  refreshStatus();
-  refreshPreview();
-  setInterval(refreshStatus, 2000);
-  setInterval(refreshPreview, 5000);
-})();
-</script>
-</body>
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 16px;
+      }
+      .panel h2 {
+        margin: 0 0 12px;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-dim);
+        font-weight: 600;
+      }
+
+      /* ---------- Preview ---------- */
+      .preview-frame {
+        position: relative;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #000;
+        aspect-ratio: 16/9;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--border);
+      }
+      .preview-frame img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+      }
+      .preview-empty {
+        color: var(--text-faint);
+        font-family: var(--mono);
+        font-size: 13px;
+        text-align: center;
+        padding: 20px;
+      }
+      .preview-meta {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 8px;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+
+      /* ---------- Telemetry ---------- */
+      .telemetry-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        padding: 7px 0;
+        border-bottom: 1px dashed var(--border);
+        font-family: var(--mono);
+        font-size: 13px;
+      }
+      .telemetry-row:last-child {
+        border-bottom: none;
+      }
+      .telemetry-row .label {
+        color: var(--text-dim);
+      }
+      .telemetry-row .value {
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      .sparkline {
+        display: flex;
+        align-items: flex-end;
+        gap: 2px;
+        height: 36px;
+        margin: 12px 0 4px;
+        padding: 4px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .sparkline .bar {
+        flex: 1;
+        min-width: 2px;
+        background: var(--tally-red);
+        opacity: 0.75;
+        border-radius: 1px 1px 0 0;
+        transition: height 0.3s ease;
+      }
+
+      /* ---------- Controls ---------- */
+      .controls {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      button {
+        font-family: var(--sans);
+        font-size: 13px;
+        font-weight: 600;
+        padding: 9px 16px;
+        border-radius: 7px;
+        border: 1px solid var(--border);
+        background: var(--panel-alt);
+        color: var(--text);
+        cursor: pointer;
+        transition: background 0.15s ease, border-color 0.15s ease;
+      }
+      button:hover {
+        background: #1c2329;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      button.primary {
+        border-color: var(--info-blue);
+        color: var(--info-blue);
+      }
+      button.danger {
+        border-color: var(--tally-red-dim);
+        color: #ff8f97;
+      }
+      button.danger:hover {
+        background: #241014;
+      }
+
+      /* ---------- Config form ---------- */
+      details {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 16px;
+      }
+      details > summary {
+        cursor: pointer;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-dim);
+        font-weight: 600;
+        list-style: none;
+      }
+      details > summary::-webkit-details-marker {
+        display: none;
+      }
+      details > summary::before {
+        content: "▸ ";
+        color: var(--text-faint);
+      }
+      details[open] > summary::before {
+        content: "▾ ";
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        margin-top: 16px;
+      }
+      .form-grid .full {
+        grid-column: 1 / -1;
+      }
+      @media (max-width: 640px) {
+        .form-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      label {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+      input {
+        font-family: var(--mono);
+        font-size: 13px;
+        color: var(--text);
+        background: var(--panel-alt);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 8px 10px;
+      }
+      input:focus {
+        outline: 2px solid var(--info-blue);
+        outline-offset: 1px;
+      }
+
+      .form-actions {
+        margin-top: 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .form-note {
+        font-size: 12px;
+        color: var(--text-faint);
+      }
+
+      /* ---------- Log viewer ---------- */
+      pre.log {
+        background: #000;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px;
+        max-height: 320px;
+        overflow: auto;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: #9fd3a0;
+        margin: 12px 0 0;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+
+      .toast {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 50;
+        background: var(--panel-alt);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 10px 16px;
+        border-radius: 8px;
+        font-size: 13px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+        opacity: 0;
+        transform: translateY(8px);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        pointer-events: none;
+      }
+      .toast.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .toast.error {
+        border-color: var(--tally-red-dim);
+        color: #ff8f97;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="brand">
+          <p class="eyebrow">Xvfb → Chromium → ffmpeg → SRT</p>
+          <h1>SRT Push Monitor</h1>
+        </div>
+        <div class="tally" id="tally" data-state="stopped">
+          <span class="tally-dot"></span>
+          <span id="tallyLabel">CHECKING…</span>
+        </div>
+      </header>
+
+      <div class="grid">
+        <section class="panel">
+          <h2>Screen preview</h2>
+          <div class="preview-frame" id="previewFrame">
+            <div class="preview-empty" id="previewEmpty">
+              No preview captured yet.<br />Waiting for srt-push to write a
+              frame.
+            </div>
+            <img
+              id="previewImg"
+              alt="Chromium screen preview"
+              style="display: none"
+            />
+          </div>
+          <div class="preview-meta">
+            <span id="previewUpdated">—</span>
+            <span>refreshes every 5s</span>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Telemetry</h2>
+          <div class="sparkline" id="sparkline"></div>
+          <div class="telemetry-row">
+            <span class="label">Bitrate</span
+            ><span class="value" id="stBitrate">—</span>
+          </div>
+          <div class="telemetry-row">
+            <span class="label">FPS</span
+            ><span class="value" id="stFps">—</span>
+          </div>
+          <div class="telemetry-row">
+            <span class="label">Frame</span
+            ><span class="value" id="stFrame">—</span>
+          </div>
+          <div class="telemetry-row">
+            <span class="label">Speed</span
+            ><span class="value" id="stSpeed">—</span>
+          </div>
+          <div class="telemetry-row">
+            <span class="label">Encoded time</span
+            ><span class="value" id="stTime">—</span>
+          </div>
+          <div class="telemetry-row">
+            <span class="label">PID</span
+            ><span class="value" id="stPid">—</span>
+          </div>
+          <div class="telemetry-row">
+            <span class="label">Restarts</span
+            ><span class="value" id="stRestarts">—</span>
+          </div>
+          <div class="telemetry-row">
+            <span class="label">Service state</span
+            ><span class="value" id="stService">—</span>
+          </div>
+        </section>
+      </div>
+
+      <section class="panel">
+        <h2>Service control</h2>
+        <div class="controls">
+          <button class="primary" id="btnStart">Start</button>
+          <button id="btnRestart">Restart</button>
+          <button class="danger" id="btnStop">Stop</button>
+        </div>
+      </section>
+
+      <details>
+        <summary>Configuration</summary>
+        <div class="form-grid">
+          <label class="full"
+            >Dashboard URL (what Chromium loads)
+            <input type="text" id="cfgHtmlUrl" spellcheck="false" />
+          </label>
+          <label class="full"
+            >SRT destination URL
+            <input type="text" id="cfgSrtUrl" spellcheck="false" />
+          </label>
+          <label
+            >Width
+            <input type="number" id="cfgWidth" min="320" max="3840" />
+          </label>
+          <label
+            >Height
+            <input type="number" id="cfgHeight" min="240" max="2160" />
+          </label>
+          <label
+            >FPS
+            <input type="number" id="cfgFps" min="1" max="30" />
+          </label>
+          <label
+            >Video bitrate (e.g. 500k)
+            <input type="text" id="cfgBitrate" spellcheck="false" />
+          </label>
+        </div>
+        <div class="form-actions">
+          <button class="primary" id="btnSaveConfig">
+            Save & restart service
+          </button>
+          <span class="form-note"
+            >Saving restarts srt-push to apply the new configuration.</span
+          >
+        </div>
+      </details>
+
+      <details>
+        <summary>Log</summary>
+        <div class="form-actions" style="margin-top: 0">
+          <button id="btnRefreshLog">Refresh</button>
+          <span class="form-note">Last 200 lines of /var/log/srt-push.log</span>
+        </div>
+        <pre class="log" id="logOutput">—</pre>
+      </details>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+      (function () {
+        "use strict";
+
+        // Prefixo padrão para todas as rotas da API
+        const API_BASE = "/so-proxy/";
+
+        const tally = document.getElementById("tally");
+        const tallyLabel = document.getElementById("tallyLabel");
+        const sparkline = document.getElementById("sparkline");
+        const previewImg = document.getElementById("previewImg");
+        const previewEmpty = document.getElementById("previewEmpty");
+        const previewUpdated = document.getElementById("previewUpdated");
+        const toast = document.getElementById("toast");
+
+        const bitrateHistory = [];
+        const MAX_BARS = 40;
+
+        function showToast(message, isError) {
+          toast.textContent = message;
+          toast.className = "toast show" + (isError ? " error" : "");
+          setTimeout(() => {
+            toast.className = "toast";
+          }, 3200);
+        }
+
+        function parseBitrateKbps(bitrateStr) {
+          if (!bitrateStr) return 0;
+          const m = /([\d.]+)\s*k?bits\/s/i.exec(bitrateStr);
+          if (!m) return 0;
+          let value = parseFloat(m[1]);
+          if (/mbits/i.test(bitrateStr)) value *= 1000;
+          return value;
+        }
+
+        function renderSparkline() {
+          sparkline.innerHTML = "";
+          const max = Math.max(1, ...bitrateHistory);
+          bitrateHistory.forEach((v) => {
+            const bar = document.createElement("div");
+            bar.className = "bar";
+            const pct = Math.max(4, Math.round((v / max) * 100));
+            bar.style.height = pct + "%";
+            sparkline.appendChild(bar);
+          });
+        }
+
+        function setTallyState(state) {
+          tally.dataset.state = state;
+          const labels = {
+            running: "ON AIR",
+            restarting: "RESTARTING",
+            stopped: "OFF AIR",
+            error: "ERROR",
+            failed: "FAILED",
+            unknown: "UNKNOWN",
+          };
+          tallyLabel.textContent = labels[state] || state.toUpperCase();
+        }
+
+        async function refreshStatus() {
+          try {
+            const res = await fetch(API_BASE + "status");
+            const data = await res.json();
+            const stats = data.stats || {};
+            const service = data.service || {};
+
+            const activeState = (service.ActiveState || "").toLowerCase();
+            let state = stats.status || "unknown";
+            if (activeState === "failed") state = "failed";
+            if (activeState === "inactive" && state !== "restarting")
+              state = "stopped";
+            setTallyState(state);
+
+            document.getElementById("stService").textContent = `${
+              service.ActiveState || "?"
+            } / ${service.SubState || "?"}`;
+            document.getElementById("stPid").textContent = stats.pid || "—";
+            document.getElementById("stRestarts").textContent =
+              stats.restarts ?? "—";
+
+            const last = stats.last_stat;
+            if (last) {
+              document.getElementById("stBitrate").textContent =
+                last.bitrate || "—";
+              document.getElementById("stFps").textContent = last.fps ?? "—";
+              document.getElementById("stFrame").textContent =
+                last.frame ?? "—";
+              document.getElementById("stSpeed").textContent = last.speed
+                ? `${last.speed}x`
+                : "—";
+              document.getElementById("stTime").textContent = last.time || "—";
+
+              bitrateHistory.push(parseBitrateKbps(last.bitrate));
+              while (bitrateHistory.length > MAX_BARS) bitrateHistory.shift();
+              renderSparkline();
+            }
+          } catch (err) {
+            setTallyState("unknown");
+          }
+        }
+
+        function refreshPreview() {
+          const img = new Image();
+          img.onload = () => {
+            previewImg.src = img.src;
+            previewImg.style.display = "block";
+            previewEmpty.style.display = "none";
+            previewUpdated.textContent =
+              "Updated " + new Date().toLocaleTimeString();
+          };
+          img.onerror = () => {
+            previewImg.style.display = "none";
+            previewEmpty.style.display = "block";
+          };
+          img.src = API_BASE + "preview?t=" + Date.now();
+        }
+
+        async function loadConfig() {
+          try {
+            const res = await fetch(API_BASE + "config");
+            const data = await res.json();
+            const cfg = data.config || {};
+            document.getElementById("cfgHtmlUrl").value = cfg.html_url || "";
+            document.getElementById("cfgSrtUrl").value = cfg.srt_url || "";
+            document.getElementById("cfgWidth").value = cfg.width || "";
+            document.getElementById("cfgHeight").value = cfg.height || "";
+            document.getElementById("cfgFps").value = cfg.fps || "";
+            document.getElementById("cfgBitrate").value =
+              cfg.video_bitrate || "";
+          } catch (err) {
+            showToast("Could not load configuration", true);
+          }
+        }
+
+        async function saveConfig() {
+          const btn = document.getElementById("btnSaveConfig");
+          btn.disabled = true;
+          try {
+            const body = {
+              html_url: document.getElementById("cfgHtmlUrl").value,
+              srt_url: document.getElementById("cfgSrtUrl").value,
+              width: document.getElementById("cfgWidth").value,
+              height: document.getElementById("cfgHeight").value,
+              fps: document.getElementById("cfgFps").value,
+              video_bitrate: document.getElementById("cfgBitrate").value,
+            };
+            const res = await fetch(API_BASE + "config", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+              throw new Error(data.error || "Save failed");
+            }
+            showToast(data.message || "Configuration saved");
+            setTimeout(refreshStatus, 1500);
+          } catch (err) {
+            showToast(err.message, true);
+          } finally {
+            btn.disabled = false;
+          }
+        }
+
+        async function serviceAction(action) {
+          const buttons = [
+            document.getElementById("btnStart"),
+            document.getElementById("btnRestart"),
+            document.getElementById("btnStop"),
+          ];
+          buttons.forEach((b) => (b.disabled = true));
+          try {
+            const res = await fetch(API_BASE + "service/" + action, {
+              method: "POST",
+            });
+            const data = await res.json();
+            if (!res.ok) {
+              throw new Error(data.error || "Action failed");
+            }
+            showToast(data.message || `Service ${action} sent`);
+            setTimeout(refreshStatus, 1500);
+          } catch (err) {
+            showToast(err.message, true);
+          } finally {
+            buttons.forEach((b) => (b.disabled = false));
+          }
+        }
+
+        async function refreshLog() {
+          const out = document.getElementById("logOutput");
+          out.textContent = "Loading…";
+          try {
+            const res = await fetch(API_BASE + "log?lines=200");
+            const data = await res.json();
+            out.textContent = (data.lines || []).join("") || "(empty)";
+            out.scrollTop = out.scrollHeight;
+          } catch (err) {
+            out.textContent = "Could not load log.";
+          }
+        }
+
+        document
+          .getElementById("btnStart")
+          .addEventListener("click", () => serviceAction("start"));
+        document
+          .getElementById("btnRestart")
+          .addEventListener("click", () => serviceAction("restart"));
+        document.getElementById("btnStop").addEventListener("click", () => {
+          if (
+            confirm("Stop the srt-push service now? The SRT feed will go down.")
+          ) {
+            serviceAction("stop");
+          }
+        });
+        document
+          .getElementById("btnSaveConfig")
+          .addEventListener("click", saveConfig);
+        document
+          .getElementById("btnRefreshLog")
+          .addEventListener("click", refreshLog);
+
+        loadConfig();
+        refreshStatus();
+        refreshPreview();
+        setInterval(refreshStatus, 2000);
+        setInterval(refreshPreview, 5000);
+      })();
+    </script>
+  </body>
 </html>
