@@ -111,9 +111,11 @@
       #app {
         display: grid;
         grid-template-columns: var(--sidebar-w) 1fr;
-        grid-template-rows: 60px 1fr;
+        /* Adicionado 22px para a linha do statusbar */
+        grid-template-rows: 60px 1fr 22px;
         height: 100vh;
         transition: grid-template-columns 0.25s ease;
+        /* Removido o padding-bottom antigo */
       }
 
       #app.sidebar-collapsed {
@@ -241,12 +243,14 @@
 
       #app.sidebar-collapsed #sidebar {
         width: var(--sidebar-collapsed-w);
-        overflow: visible; /* allow tooltip to escape */
+        /* overflow: visible; <--- REMOVA OU COMENTE SE O TOOLTIP FOR FIXED */
+        overflow: hidden; /* Evita que itens textuais escondidos vazem para fora da barra de 52px */
       }
 
       /* need tools-list itself to also be visible so tooltip exits */
+      /* Remova ou altere este bloco: */
       #app.sidebar-collapsed .tools-list {
-        overflow: visible;
+        overflow-y: auto; /* Garante que o scroll vertical continue funcionando */
       }
 
       /* hide text/search/footer when collapsed */
@@ -768,10 +772,8 @@
 
       /* ── STATUS BAR ── */
       #statusbar {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
+        grid-column: 1 / -1; /* Ocupa toda a largura */
+        grid-row: 3; /* Fica fixo na terceira linha da grid */
         height: 22px;
         background: #3f1568;
         display: flex;
@@ -779,6 +781,7 @@
         padding: 0 16px;
         gap: 20px;
         z-index: 100;
+        /* Removido position: fixed, bottom, left, right antigos */
       }
       #statusbar span {
         font-family: var(--mono);
