@@ -576,17 +576,21 @@
             const stats = data.stats || {};
             const service = data.service || {};
 
-            const activeState = (service.ActiveState || "").toLowerCase();
+            // AJUSTE AQUI: O Python retorna em snake_case (active_state)
+            const activeState = (service.active_state || "").toLowerCase();
             let state = stats.status || "unknown";
             if (activeState === "failed") state = "failed";
             if (activeState === "inactive" && state !== "restarting")
               state = "stopped";
             setTallyState(state);
 
+            // AJUSTE AQUI: Ajustado para usar active_state e sub_state vindos do Python
             document.getElementById("stService").textContent = `${
-              service.ActiveState || "?"
-            } / ${service.SubState || "?"}`;
-            document.getElementById("stPid").textContent = stats.pid || "—";
+              service.active_state || "?"
+            } / ${service.sub_state || "?"}`;
+
+            document.getElementById("stPid").textContent =
+              service.main_pid || "—"; // Python retorna main_pid dentro de service
             document.getElementById("stRestarts").textContent =
               stats.restarts ?? "—";
 
@@ -633,14 +637,16 @@
           try {
             const res = await fetch(API_BASE + "config");
             const data = await res.json();
-            const cfg = data.config || {};
+            const cfg = data.config || data || {}; // Trata se vier encapsulado ou direto
             document.getElementById("cfgHtmlUrl").value = cfg.html_url || "";
-            document.getElementById("cfgSrtUrl").value = cfg.srt_url || "";
+            document.getElementById("cfgSrtUrl").value = cfg.srt_url || ""; // Nota: adicione tratamento se seu backend expor srt_host/port separados
             document.getElementById("cfgWidth").value = cfg.width || "";
             document.getElementById("cfgHeight").value = cfg.height || "";
             document.getElementById("cfgFps").value = cfg.fps || "";
+
+            // AJUSTE AQUI: O campo correto no Python é 'video_bitrate_kbps'
             document.getElementById("cfgBitrate").value =
-              cfg.video_bitrate || "";
+              cfg.video_bitrate_kbps || "";
           } catch (err) {
             showToast("Could not load configuration", true);
           }
