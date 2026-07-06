@@ -1364,7 +1364,30 @@
           </div>
         </div>
       </main>
-    </div>
+
+      <!-- BARRA DE STATUS CORRIGIDA -->
+      <div id="statusbar">
+        <span>● SP SO WEB TOOLBOX by MM</span>
+        <span class="sep">|</span>
+        <span id="status-msg">Loading…</span>
+        <span class="sep">|</span>
+        <span id="status-count-bar">0 tools</span>
+        <span class="sep" style="margin-left: auto">|</span>
+        <span
+          id="clock-utc"
+          title="UTC time"
+          style="font-variant-numeric: tabular-nums"
+          >…</span
+        >
+        <span class="sep">|</span>
+        <span
+          id="clock-local"
+          title="Local time"
+          style="font-variant-numeric: tabular-nums"
+          >…</span
+        >
+      </div>
+    </div> <!-- fecha #app APÓS a statusbar, para que ela fique na 3ª linha do grid -->
 
     <!-- ── Sidebar collapsed tooltip ── -->
     <div id="sidebar-tooltip"></div>
@@ -1542,33 +1565,6 @@
         </div>
       </div>
     </div>
-
-    <!-- ... final do seu <main id="content"> ou </main> -->
-
-    <!-- BARRA DE STATUS CORRIGIDA -->
-    <div id="statusbar">
-      <span>● SP SO WEB TOOLBOX by MM</span>
-      <span class="sep">|</span>
-      <span id="status-msg">Loading…</span>
-      <span class="sep">|</span>
-      <span id="status-count-bar">0 tools</span>
-      <span class="sep" style="margin-left: auto">|</span>
-      <span
-        id="clock-utc"
-        title="UTC time"
-        style="font-variant-numeric: tabular-nums"
-        >…</span
-      >
-      <span class="sep">|</span>
-      <span
-        id="clock-local"
-        title="Local time"
-        style="font-variant-numeric: tabular-nums"
-        >…</span
-      >
-    </div>
-
-  </div> <!-- Certifique-se de que o #app fecha APÓS a statusbar -->
 
     <script>
       // ── Changelog: load from CHANGELOG.md ─────────────────────────
