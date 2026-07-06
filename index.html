@@ -772,26 +772,29 @@
 
       /* ── STATUS BAR ── */
       #statusbar {
-        grid-column: 1 / -1; /* Ocupa toda a largura */
-        grid-row: 3; /* Fica fixo na terceira linha da grid */
-        height: 22px;
-        background: #3f1568;
-        display: flex;
-        align-items: center;
-        padding: 0 16px;
-        gap: 20px;
-        z-index: 100;
-        /* Removido position: fixed, bottom, left, right antigos */
-      }
-      #statusbar span {
-        font-family: var(--mono);
-        font-size: 0.58rem;
-        color: #f2f2f2;
-        font-weight: 700;
-      }
-      #statusbar .sep {
-        opacity: 0.4;
-      }
+  grid-column: 1 / -1; /* Ocupa toda a largura (sidebar + conteúdo) */
+  grid-row: 3;        /* Garante que fica estritamente na 3ª linha da Grid */
+  height: 22px;
+  background-color: #3f1568 !important; /* Força o fundo roxo */
+  color: #ffffff;      /* Força o texto em branco */
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+  z-index: 100;
+  font-size: 11px;     /* Tamanho ideal para uma barra de 22px */
+  font-family: sans-serif;
+  box-sizing: border-box;
+}
+
+#statusbar span {
+  color: #ffffff !important; /* Garante que nenhum outro estilo mude a cor do texto */
+}
+
+#statusbar .sep {
+  color: rgba(255, 255, 255, 0.4) !important; /* Separadores ligeiramente transparentes */
+  margin: 0 4px;
+}
 
       /* GIT branch display in topbar, populated from backend on load */
 
