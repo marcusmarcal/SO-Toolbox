@@ -7,7 +7,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-## [Unreleased] - srt-push vX.(Y+1).0
+## [3.24.1] - 2026-07-10
 
 ### Added
 
