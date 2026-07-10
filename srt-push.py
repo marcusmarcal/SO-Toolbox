@@ -26,6 +26,8 @@ STATS_FILE = os.path.join(STORE_DIR, "srt-push-stats.json")
 PREVIEW_FILE = os.path.join(STORE_DIR, "srt-push-preview.jpg")
 PREVIEW_TMP_FILE = os.path.join(STORE_DIR, "srt-push-preview.tmp.jpg")
 LOG_FILE = "/var/log/srt-push.log"
+LOG_MAX_BYTES = 100 * 1024 * 1024  # rotate once the log crosses this size
+LOG_RETENTION_DAYS = 7  # rotated backups older than this are deleted
 
 DEFAULT_CONFIG = {
     "html_url": "https://127.0.0.1/id3as-DC-Monitor.html?view=nodes&dc=ix&inuse=1&sort=nW&dir=-1",
@@ -67,6 +69,12 @@ VIDEO_BITRATE_KBPS = int(CONFIG["video_bitrate_kbps"])
 VIDEO_BITRATE = f"{VIDEO_BITRATE_KBPS}k"
 VIDEO_BUFSIZE = f"{VIDEO_BITRATE_KBPS * 2}k"
 GOP_SIZE = FPS * 5  # 1 IDR frame every 5 seconds
+
+# Transport-stream mux rate: kept strictly above the video bitrate so ffmpeg
+# pads the MPEG-TS with null (PID 0x1FFF) packets. This makes the SRT push a
+# true constant bitrate at the transport level, not just at the encoder level.
+MUX_BITRATE_KBPS = int(VIDEO_BITRATE_KBPS * 1.10)  # +10% margin for TS/PSI overhead
+MUX_BITRATE = f"{MUX_BITRATE_KBPS}k"
 
 XVFB_PATH = "/usr/bin/Xvfb"
 FFMPEG_PATH = "/usr/bin/ffmpeg"
@@ -159,6 +167,63 @@ def kill_existing():
                        stderr=subprocess.DEVNULL)
 
 # ============================================================
+# LOG ROTATION
+# ============================================================
+# Xvfb/Chromium/ffmpeg hold LOG_FILE open in append mode for their whole
+# lifetime, so a simple rename-based rotation would leave them writing to
+# the old (renamed) inode forever. Instead we copy the current content to a
+# timestamped backup and truncate the same file in place (copytruncate),
+# which is safe for processes that already have it open.
+
+def _rotate_log_if_needed() -> None:
+    """Rotate LOG_FILE into a timestamped backup once it crosses LOG_MAX_BYTES."""
+    try:
+        if not os.path.isfile(LOG_FILE):
+            return
+        if os.path.getsize(LOG_FILE) < LOG_MAX_BYTES:
+            return
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+        backup_path = f"{LOG_FILE}.{stamp}"
+        shutil.copyfile(LOG_FILE, backup_path)
+        with open(LOG_FILE, "r+") as f:
+            f.truncate(0)
+        print(f"[LOG] Rotated {LOG_FILE} -> {backup_path}")
+    except OSError as e:
+        print(f"[LOG] Rotation failed: {e}")
+
+
+def _prune_old_logs() -> None:
+    """Delete rotated log backups older than LOG_RETENTION_DAYS."""
+    log_dir = os.path.dirname(LOG_FILE) or "."
+    base_name = os.path.basename(LOG_FILE)
+    cutoff = time.time() - (LOG_RETENTION_DAYS * 86400)
+    try:
+        for entry in os.listdir(log_dir):
+            if not entry.startswith(base_name + "."):
+                continue
+            entry_path = os.path.join(log_dir, entry)
+            try:
+                if os.path.getmtime(entry_path) < cutoff:
+                    os.remove(entry_path)
+                    print(f"[LOG] Removed expired backup: {entry_path}")
+            except OSError:
+                continue
+    except OSError as e:
+        print(f"[LOG] Prune failed: {e}")
+
+
+def _log_maintenance_loop(interval: int = 3600) -> None:
+    """Background loop: rotate the log when oversized and prune expired backups.
+
+    Runs immediately on start (before the first sleep), so an already
+    oversized log file is rotated right away on service restart.
+    """
+    while True:
+        _rotate_log_if_needed()
+        _prune_old_logs()
+        time.sleep(interval)
+
+# ============================================================
 # Xvfb
 # ============================================================
 
@@ -244,32 +309,18 @@ def _capture_preview_loop(interval: int = 5) -> None:
 # ============================================================
 
 def _read_ffmpeg_stderr(proc: subprocess.Popen) -> None:
-    """Read ffmpeg stderr, log raw lines with timestamp every minute, and parse progress."""
+    """Read ffmpeg stderr, log raw lines, and parse progress into live stats."""
     log_f = open(LOG_FILE, "a")
     buf = ""
-    
-    last_log_time = 0.0  
-    interval = 60.0  
-
     try:
         for chunk in iter(lambda: proc.stderr.read(256), ""):
             buf += chunk
             while "\r" in buf or "\n" in buf:
                 sep = "\r" if "\r" in buf else "\n"
                 line, buf = buf.split(sep, 1)
-                
                 if line.strip():
-                    current_time = time.time()
-                    if current_time - last_log_time >= interval:
-                        # 1. Gera o timestamp formatado (Ex: [2026-07-06 15:45:01])
-                        timestamp = datetime.now().strftime("[%Y-%m-%d %H:%M:%S] ")
-                        
-                        # 2. Grava o timestamp concatenado com a linha do FFmpeg
-                        log_f.write(timestamp + line + "\n")
-                        log_f.flush()
-                        
-                        last_log_time = current_time
-
+                    log_f.write(line + "\n")
+                    log_f.flush()
                 m = _FFMPEG_RE.search(line)
                 if m:
                     _update_stats(
@@ -313,6 +364,7 @@ def start_ffmpeg():
         "-threads", "2",
 
         "-f", "mpegts",
+        "-muxrate", MUX_BITRATE,
         SRT_URL
     ]
 
@@ -384,7 +436,19 @@ def watchdog_loop():
 
 def cleanup(sig=None, frame=None):
     print("\n[INFO] shutting down...")
-    _update_stats(service_status="stopped", ffmpeg_pid=None)
+    # Clear telemetry fields too, not just the status: otherwise the last
+    # ffmpeg progress values (bitrate/fps/frame/...) linger in the stats file
+    # and the web UI keeps showing them as if the stream were still running.
+    _update_stats(
+        service_status="stopped",
+        ffmpeg_pid=None,
+        frame=None,
+        fps=None,
+        size=None,
+        time=None,
+        bitrate=None,
+        speed=None,
+    )
     for p in processes:
         try:
             p.kill()
@@ -405,6 +469,7 @@ def main():
     start_chromium()
 
     threading.Thread(target=_capture_preview_loop, daemon=True).start()
+    threading.Thread(target=_log_maintenance_loop, daemon=True).start()
 
     # infinite loop - never lets the SRT push stop
     watchdog_loop()

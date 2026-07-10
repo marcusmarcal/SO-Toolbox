@@ -15,6 +15,8 @@
         --text-faint: #4b5560;
         --tally-red: #ff2f3d;
         --tally-red-dim: #5a1319;
+        --tally-green: #2ecc71;
+        --tally-green-dim: #14361f;
         --warn-amber: #ffb020;
         --idle-gray: #4b5560;
         --info-blue: #4c9eff;
@@ -88,7 +90,7 @@
         box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
       }
       .tally[data-state="running"] .tally-dot {
-        background: var(--tally-red);
+        background: var(--tally-green);
         animation: pulse 1.6s ease-in-out infinite;
       }
       .tally[data-state="restarting"] .tally-dot {
@@ -99,8 +101,8 @@
         background: var(--tally-red);
       }
       .tally[data-state="running"] {
-        border-color: var(--tally-red-dim);
-        color: #ffb3ba;
+        border-color: var(--tally-green-dim);
+        color: #8ff0b0;
       }
       .tally[data-state="restarting"] {
         color: var(--warn-amber);
@@ -113,10 +115,10 @@
       @keyframes pulse {
         0%,
         100% {
-          box-shadow: 0 0 0 0 rgba(255, 47, 61, 0.55);
+          box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.55);
         }
         50% {
-          box-shadow: 0 0 0 6px rgba(255, 47, 61, 0);
+          box-shadow: 0 0 0 6px rgba(46, 204, 113, 0);
         }
       }
       @media (prefers-reduced-motion: reduce) {
@@ -219,7 +221,7 @@
       .sparkline .bar {
         flex: 1;
         min-width: 2px;
-        background: var(--tally-red);
+        background: var(--tally-green);
         opacity: 0.75;
         border-radius: 1px 1px 0 0;
         transition: height 0.3s ease;
@@ -464,7 +466,12 @@
         <div class="form-grid">
           <label class="full"
             >Dashboard URL (what Chromium loads)
-            <input type="text" id="cfgHtmlUrl" spellcheck="false" />
+            <input
+              type="text"
+              id="cfgHtmlUrl"
+              placeholder="https://127.0.0.1/id3as-DC-Monitor.html?view=nodes&dc=ix&inuse=1&sort=nW&dir=-1"
+              spellcheck="false"
+            />
           </label>
 
           <label
@@ -494,19 +501,36 @@
 
           <label
             >Width
-            <input type="number" id="cfgWidth" min="320" max="3840" />
+            <input
+              type="number"
+              id="cfgWidth"
+              min="320"
+              max="3840"
+              placeholder="1920"
+            />
           </label>
           <label
             >Height
-            <input type="number" id="cfgHeight" min="240" max="2160" />
+            <input
+              type="number"
+              id="cfgHeight"
+              min="240"
+              max="2160"
+              placeholder="1080"
+            />
           </label>
           <label
             >FPS
-            <input type="number" id="cfgFps" min="1" max="30" />
+            <input type="number" id="cfgFps" min="1" max="30" placeholder="5" />
           </label>
           <label
             >Video bitrate (e.g. 500k)
-            <input type="text" id="cfgBitrate" spellcheck="false" />
+            <input
+              type="text"
+              id="cfgBitrate"
+              placeholder="500"
+              spellcheck="false"
+            />
           </label>
         </div>
         <div class="form-actions">
@@ -651,6 +675,12 @@
               document.getElementById("stFrame").textContent = "—";
               document.getElementById("stSpeed").textContent = "—";
               document.getElementById("stTime").textContent = "—";
+
+              // Sem telemetria ativa (serviço parado): limpa o histórico do
+              // sparkline para as barras não continuarem exibindo o último
+              // valor antes da parada.
+              bitrateHistory.length = 0;
+              renderSparkline();
             }
           } catch (err) {
             setTallyState("unknown");

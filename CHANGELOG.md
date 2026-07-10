@@ -7,6 +7,27 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [Unreleased] - srt-push vX.(Y+1).0
+
+### Added
+
+- Automatic log rotation for /var/log/srt-push.log: rotates via copytruncate
+  once the file exceeds 100 MB, keeps rotated backups for 7 days.
+- Strict transport-level CBR via ffmpeg -muxrate, padding the MPEG-TS with
+  null PID (0x1FFF) packets.
+- Default value placeholders on the SRT Push configuration form (dashboard
+  URL, width, height, FPS, bitrate).
+
+### Fixed
+
+- Bitrate/fps/frame telemetry and sparkline bars no longer keep showing
+  stale values after the service is stopped.
+
+### Changed
+
+- Tally light and sparkline bars now use green for the running/on-air state;
+  red is reserved for error/failed states.
+
 ## [3.24.0] - 2026-07-01
 
 ### Added
