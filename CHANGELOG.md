@@ -7,6 +7,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [3.25.0] - 2026-07-13
+
+### Fixed
+
+- Id34as logs on showing reverse sort, new on top.
+
 ## [3.24.1] - 2026-07-10
 
 ### Added
