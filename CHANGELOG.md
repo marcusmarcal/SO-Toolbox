@@ -7,6 +7,14 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.26.1] - 2026-07-13
+
+### Fixed
+
+- routes_txcore.py failed to import on startup due to a nonexistent
+  auth module reference. Now uses routes_auth (\_get_session,
+  \_token_from_request), consistent with the other blueprints.
+
 ## [2.26.0] - 2026-07-13
 
 ### Added

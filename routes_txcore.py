@@ -21,12 +21,11 @@ from datetime import datetime, timezone
 import requests
 from flask import Blueprint, jsonify, request
 
-# TODO: adjust this import to match the auth module used by the other blueprints
-from auth import _check_role, _get_session
+from routes_auth import _get_session, _token_from_request
 
 txcore_bp = Blueprint('txcore', __name__, url_prefix='/api/txcore')
 
-ALLOWED_ROLES = ['admin', 'engineer']
+ALLOWED_ROLES = ('admin', 'engineer')
 
 # ---------------------------------------------------------------------------
 # Configuration (populated from environment variables set in .env)
@@ -80,6 +79,14 @@ def _read_job(job_id):
     with JOBS_LOCK:
         with open(path, 'r') as f:
             return json.load(f)
+
+
+def _get_user_and_role():
+    """Return (username, role) for the current request, or (None, None) if unauthenticated."""
+    session = _get_session(_token_from_request())
+    if not session:
+        return None, None
+    return session.get('username', 'anonymous'), session.get('role')
 
 
 def _config_status():
@@ -203,9 +210,9 @@ def _run_channel_job(job_id, params):
 @txcore_bp.route('/status', methods=['GET'])
 def get_status():
     """Return whether the required TXCore env vars are configured."""
-    sess = _get_session()
-    if not _check_role(sess, ALLOWED_ROLES):
-        return jsonify({'error': 'Forbidden'}), 403
+    _, role = _get_user_and_role()
+    if role not in ALLOWED_ROLES:
+        return jsonify({'error': 'Permission denied — admin or engineer role required'}), 403
 
     return jsonify(_config_status())
 
@@ -213,9 +220,9 @@ def get_status():
 @txcore_bp.route('/category', methods=['POST'])
 def create_category():
     """Create a TXCore category. Returns the new category_id."""
-    sess = _get_session()
-    if not _check_role(sess, ALLOWED_ROLES):
-        return jsonify({'error': 'Forbidden'}), 403
+    _, role = _get_user_and_role()
+    if role not in ALLOWED_ROLES:
+        return jsonify({'error': 'Permission denied — admin or engineer role required'}), 403
 
     data = request.get_json(force=True) or {}
     name = data.get('name')
@@ -246,9 +253,9 @@ def create_category():
 @txcore_bp.route('/channels/preview', methods=['POST'])
 def preview_channels():
     """Return the request bodies that would be sent, without calling the API."""
-    sess = _get_session()
-    if not _check_role(sess, ALLOWED_ROLES):
-        return jsonify({'error': 'Forbidden'}), 403
+    _, role = _get_user_and_role()
+    if role not in ALLOWED_ROLES:
+        return jsonify({'error': 'Permission denied — admin or engineer role required'}), 403
 
     params, error = _parse_channel_params(request.get_json(force=True) or {})
     if error:
@@ -261,9 +268,9 @@ def preview_channels():
 @txcore_bp.route('/channels', methods=['POST'])
 def create_channels():
     """Start a background job that creates channels sequentially in TXCore."""
-    sess = _get_session()
-    if not _check_role(sess, ALLOWED_ROLES):
-        return jsonify({'error': 'Forbidden'}), 403
+    username, role = _get_user_and_role()
+    if role not in ALLOWED_ROLES:
+        return jsonify({'error': 'Permission denied — admin or engineer role required'}), 403
 
     params, error = _parse_channel_params(request.get_json(force=True) or {})
     if error:
@@ -277,7 +284,7 @@ def create_channels():
         'job_id': job_id,
         'status': 'queued',
         'created_at': datetime.now(timezone.utc).isoformat(),
-        'created_by': sess.get('username') if sess else None,
+        'created_by': username,
         'params': params,
         'progress': 0,
         'total': params['channel_count'],
@@ -294,9 +301,9 @@ def create_channels():
 @txcore_bp.route('/channels/job/<job_id>', methods=['GET'])
 def get_job(job_id):
     """Poll the status/progress of a channel creation job."""
-    sess = _get_session()
-    if not _check_role(sess, ALLOWED_ROLES):
-        return jsonify({'error': 'Forbidden'}), 403
+    _, role = _get_user_and_role()
+    if role not in ALLOWED_ROLES:
+        return jsonify({'error': 'Permission denied — admin or engineer role required'}), 403
 
     job = _read_job(job_id)
     if job is None:
