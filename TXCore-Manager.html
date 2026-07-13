@@ -498,6 +498,7 @@
       <div class="panel">
         <h2>Category</h2>
         <fieldset>
+          <!-- Primeira parte: Seleção (Sempre visível) -->
           <div class="field">
             <label for="category-select">Pick an existing category</label>
             <select id="category-select">
@@ -512,21 +513,32 @@
               placeholder="603f87befcb1184432a4a564"
             />
           </div>
-          <div class="field">
-            <label for="cat-name">Or create a ne one: Name</label>
-            <input type="text" id="cat-name" placeholder="ADHOC" />
-          </div>
-          <div class="field">
-            <label for="cat-desc">Description</label>
-            <input
-              type="text"
-              id="cat-desc"
-              placeholder="Same as name if left empty"
-            />
-          </div>
-          <div class="btn-row">
-            <button id="btn-create-category">Create category</button>
-          </div>
+
+          <!-- SEGUNDA PARTE: Colapsada por padrão -->
+          <!-- O estilo cursor:pointer serve para mostrar a "mãozinha" ao passar o mouse no título -->
+          <details style="margin-top: 15px">
+            <summary
+              style="cursor: pointer; font-weight: bold; margin-bottom: 10px"
+            >
+              Or create a new one...
+            </summary>
+
+            <div class="field">
+              <label for="cat-name">Name</label>
+              <input type="text" id="cat-name" placeholder="ADHOC" />
+            </div>
+            <div class="field">
+              <label for="cat-desc">Description</label>
+              <input
+                type="text"
+                id="cat-desc"
+                placeholder="Same as name if left empty"
+              />
+            </div>
+            <div class="btn-row" style="margin-top: 10px">
+              <button id="btn-create-category">Create category</button>
+            </div>
+          </details>
         </fieldset>
 
         <h2>Bulk channels</h2>
