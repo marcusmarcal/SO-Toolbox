@@ -398,23 +398,23 @@
     <h2>Bulk channels</h2>
     <fieldset>
       <div class="field">
-        <label for="provider-name">Provider name</label>
+        <label for="provider-name">Provider Acronym</label>
         <input type="text" id="provider-name" placeholder="ADC">
       </div>
       <div class="field-row">
         <div class="field">
           <label for="first-ch">First CH#</label>
-          <input type="number" id="first-ch" value="31">
+          <input type="text" inputmode="numeric" id="first-ch" value="01">
         </div>
         <div class="field">
           <label for="channel-count">Count</label>
-          <input type="number" id="channel-count" value="20">
+          <input type="number" id="channel-count" value="10">
         </div>
       </div>
       <div class="field-row">
         <div class="field">
-          <label for="channel-number">Channel number start</label>
-          <input type="number" id="channel-number" value="51">
+          <label for="channel-number">Channel number start <span style="color:var(--text-faint);">(= First CH#)</span></label>
+          <input type="text" inputmode="numeric" id="channel-number" value="01">
         </div>
         <div class="field">
           <label for="sleep-time">Delay between calls (s)</label>
@@ -427,13 +427,13 @@
         <div class="field-row">
           <div class="field">
             <label for="ave-3oct">IP (first 3 octets)</label>
-            <input type="text" id="ave-3oct" placeholder="231.216.10">
+            <input type="text" id="ave-3oct" value="231.216.10">
           </div>
         </div>
         <div class="field-row">
           <div class="field">
-            <label for="ave-4oct">Last octet start</label>
-            <input type="number" id="ave-4oct" value="31">
+            <label for="ave-4oct">Last octet start <span style="color:var(--text-faint);">(= First CH#)</span></label>
+            <input type="text" inputmode="numeric" id="ave-4oct" value="01">
           </div>
           <div class="field">
             <label for="ave-port">Port</label>
@@ -447,13 +447,13 @@
         <div class="field-row">
           <div class="field">
             <label for="lmk-3oct">IP (first 3 octets)</label>
-            <input type="text" id="lmk-3oct" placeholder="226.1.10">
+            <input type="text" id="lmk-3oct" value="226.1.10">
           </div>
         </div>
         <div class="field-row">
           <div class="field">
-            <label for="lmk-4oct">Last octet start</label>
-            <input type="number" id="lmk-4oct" value="31">
+            <label for="lmk-4oct">Last octet start <span style="color:var(--text-faint);">(= First CH#)</span></label>
+            <input type="text" inputmode="numeric" id="lmk-4oct" value="01">
           </div>
           <div class="field">
             <label for="lmk-port">Port</label>
@@ -467,13 +467,13 @@
         <div class="field-row">
           <div class="field">
             <label for="yer-3oct">IP (first 3 octets)</label>
-            <input type="text" id="yer-3oct" placeholder="228.33.10">
+            <input type="text" id="yer-3oct" value="228.33.10">
           </div>
         </div>
         <div class="field-row">
           <div class="field">
-            <label for="yer-4oct">Last octet start</label>
-            <input type="number" id="yer-4oct" value="31">
+            <label for="yer-4oct">Last octet start <span style="color:var(--text-faint);">(= First CH#)</span></label>
+            <input type="text" inputmode="numeric" id="yer-4oct" value="01">
           </div>
           <div class="field">
             <label for="yer-port">Port</label>
@@ -541,6 +541,19 @@
   ];
 
   var jobPollTimer = null;
+
+  // Fields that mirror "First CH#" by default. Each stops auto-syncing
+  // the moment the user types into it directly (marked "dirty"), so a
+  // manual override is never silently overwritten afterwards.
+  var LINKED_TO_FIRST_CH = ['channel-number', 'ave-4oct', 'lmk-4oct', 'yer-4oct'];
+  var linkedDirty = {};
+
+  function syncLinkedFromFirstCh() {
+    var v = $('first-ch').value;
+    LINKED_TO_FIRST_CH.forEach(function (id) {
+      if (!linkedDirty[id]) $(id).value = v;
+    });
+  }
 
   function $(id) { return document.getElementById(id); }
 
@@ -814,6 +827,11 @@
   loadStatus();
   FIELD_IDS.forEach(function (id) { $(id).addEventListener('change', saveFormState); });
   $('dry-run-toggle').addEventListener('change', saveFormState);
+
+  $('first-ch').addEventListener('input', syncLinkedFromFirstCh);
+  LINKED_TO_FIRST_CH.forEach(function (id) {
+    $(id).addEventListener('input', function () { linkedDirty[id] = true; });
+  });
 
 })();
 </script>

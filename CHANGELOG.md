@@ -7,6 +7,18 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.26.3] - 2026-07-13
+
+### Changed
+
+- TXCore Manager: "Provider name" relabeled to "Provider Acronym".
+- TXCore Manager: First CH# now defaults to 01, channel count to 10.
+- TXCore Manager: Channel number start and the three last-octet-start
+  fields now auto-fill from First CH#, remaining editable; manual
+  edits stop further auto-sync for that field.
+- TXCore Manager: AVE/LMK/YER 3-octet IP prefixes are now prefilled
+  as real default values instead of placeholder text.
+
 ## [2.26.2] - 2026-07-13
 
 ### Fixed
