@@ -189,7 +189,10 @@ def _run_channel_job(job_id, params):
             try:
                 resp = api_session.post(f"{API_URL_STB}/channel/", json=body)
                 entry['status_code'] = resp.status_code
-                entry['response'] = resp.json() if resp.content else None
+                try:
+                    entry['response'] = resp.json() if resp.content else None
+                except ValueError:
+                    entry['response'] = resp.text[:2000]
                 entry['status'] = 'ok' if resp.ok else 'error'
             except requests.RequestException as exc:
                 entry['status'] = 'error'
@@ -255,6 +258,26 @@ def create_category():
 
     payload = resp.json()
     return jsonify({'category_id': payload.get('_id'), 'response': payload})
+
+
+@txcore_bp.route('/categories', methods=['GET'])
+def list_categories():
+    """List existing TXCore categories (id, name, desc)."""
+    _, role = _get_user_and_role()
+    if role not in ALLOWED_ROLES:
+        return jsonify({'error': 'Permission denied — admin or engineer role required'}), 403
+
+    if not API_TOKEN or not API_URL_STB:
+        return jsonify({'error': 'TXCore API is not configured on the server'}), 500
+
+    try:
+        resp = api_session.get(f"{API_URL_STB}/categories", params={'sort': 'desc', 'order': 'desc'})
+        resp.raise_for_status()
+    except requests.RequestException as exc:
+        return jsonify({'error': 'TXCore API request failed', 'details': str(exc)}), 502
+
+    payload = resp.json()
+    return jsonify(payload)
 
 
 @txcore_bp.route('/channels/preview', methods=['POST'])

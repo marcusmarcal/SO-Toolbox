@@ -153,7 +153,7 @@
   }
   .field-row .field { flex: 1; }
 
-  input[type="text"], input[type="number"] {
+  input[type="text"], input[type="number"], select {
     width: 100%;
     background: var(--panel);
     border: 1px solid var(--border);
@@ -410,6 +410,12 @@
       <div class="field" style="margin-top:10px;">
         <label for="category-id">Category ID (used below)</label>
         <input type="text" id="category-id" placeholder="603f87befcb1184432a4a564">
+      </div>
+      <div class="field">
+        <label for="category-select">Or pick an existing category</label>
+        <select id="category-select">
+          <option value="">— loading… —</option>
+        </select>
       </div>
     </fieldset>
 
@@ -691,6 +697,42 @@
   }
 
   // ---------------------------------------------------------------------
+  // Category listing
+  // ---------------------------------------------------------------------
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function loadCategories() {
+    var select = $('category-select');
+    select.innerHTML = '<option value="">— loading… —</option>';
+
+    apiFetch('/categories').then(function (data) {
+      var rows = data.rows || [];
+      if (!rows.length) {
+        select.innerHTML = '<option value="">— none found —</option>';
+        return;
+      }
+      select.innerHTML = '<option value="">— select —</option>' + rows.map(function (c) {
+        return '<option value="' + escapeHtml(c._id) + '">' +
+          escapeHtml(c.name) + ' (' + escapeHtml(c._id) + ')</option>';
+      }).join('');
+    }).catch(function (err) {
+      select.innerHTML = '<option value="">— failed to load —</option>';
+      console.error('Failed to load categories:', err);
+    });
+  }
+
+  $('category-select').addEventListener('change', function () {
+    if (this.value) {
+      $('category-id').value = this.value;
+      saveFormState();
+    }
+  });
+
+  // ---------------------------------------------------------------------
   // Category creation
   // ---------------------------------------------------------------------
   $('btn-create-category').addEventListener('click', function () {
@@ -715,6 +757,7 @@
       } else {
         $('category-id').value = data.category_id;
         saveFormState();
+        loadCategories();
         alert('Category created: ' + data.category_id);
       }
     }).catch(function (err) {
@@ -821,8 +864,16 @@
         for (var i = seenCount; i < job.results.length; i++) {
           var entry = job.results[i];
           var cls = entry.status === 'error' ? 'log-err' : (entry.status === 'skipped' ? 'log-dim' : 'log-ok');
-          appendLog('[' + entry.index + '] ' + entry.request_body.name + ' — ' + entry.status +
-            (entry.error ? (' (' + entry.error + ')') : ''), cls);
+          var line = '[' + entry.index + '] ' + entry.request_body.name + ' — ' + entry.status;
+          if (entry.status_code) line += ' (HTTP ' + entry.status_code + ')';
+          if (entry.error) line += ' — ' + entry.error;
+          appendLog(line, cls);
+
+          if (entry.status === 'error' && entry.response) {
+            var body = typeof entry.response === 'string' ? entry.response : JSON.stringify(entry.response);
+            if (body.length > 400) body = body.slice(0, 400) + '…';
+            appendLog('    → ' + body, 'log-err');
+          }
         }
         seenCount = job.results.length;
 
@@ -879,6 +930,7 @@
   // ---------------------------------------------------------------------
   loadFormState();
   loadStatus();
+  loadCategories();
   FIELD_IDS.forEach(function (id) { $(id).addEventListener('change', saveFormState); });
   $('dry-run-toggle').addEventListener('change', saveFormState);
 

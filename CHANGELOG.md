@@ -7,6 +7,26 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.26.5] - 2026-07-13
+
+### Added
+
+- GET /api/txcore/categories endpoint to list existing TXCore
+  categories.
+- Category picker dropdown in TXCore Manager, populated from the new
+  endpoint, to select an existing category instead of typing its ID.
+
+### Changed
+
+- Failed channel creation attempts now show the HTTP status and the
+  API's response body directly in the job log, instead of just a
+  generic "error" status.
+
+### Fixed
+
+- Channel creation failures with a non-JSON error body no longer
+  crash response handling; the raw response text is now captured.
+
 ## [2.26.4] - 2026-07-13
 
 ### Fixed
