@@ -565,7 +565,7 @@ def id3as_logs(dc, year=None, month=None, day=None):
     events = _parse_log_response(raw)
 
     return jsonify(
-        [e for e in events if isinstance(e, dict)]
+        [e for e in reversed(events) if isinstance(e, dict)]
     )
 
 
