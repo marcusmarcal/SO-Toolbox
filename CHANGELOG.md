@@ -7,6 +7,14 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.26.0] - 2026-07-13
+
+### Added
+
+- TXCore Manager frontend (TXCore-Manager.html) for the TXCore
+  provisioning blueprint: category creation, bulk channel form,
+  request preview, and async job monitoring with live progress log.
+
 ## [3.25.0] - 2026-07-13
 
 ### Fixed
