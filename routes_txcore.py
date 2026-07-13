@@ -271,7 +271,10 @@ def list_categories():
         return jsonify({'error': 'TXCore API is not configured on the server'}), 500
 
     try:
-        resp = api_session.get(f"{API_URL_STB}/categories", params={'sort': 'asc', 'order': 'asc', 'limit': 500} )
+        resp = api_session.get(
+    f"{API_URL_STB}/categories", 
+    params={'sort': 'name', 'order': 'asc', 'limit': 500}
+)
         resp.raise_for_status()
     except requests.RequestException as exc:
         return jsonify({'error': 'TXCore API request failed', 'details': str(exc)}), 502
