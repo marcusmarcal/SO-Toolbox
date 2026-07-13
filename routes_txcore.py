@@ -19,9 +19,16 @@ import uuid
 from datetime import datetime, timezone
 
 import requests
+from dotenv import load_dotenv
 from flask import Blueprint, jsonify, request
 
 from routes_auth import _get_session, _token_from_request
+
+# Load .env explicitly so config is available regardless of whether
+# proxy.py has already called load_dotenv() before importing this
+# blueprint. Safe to call again if proxy.py already did — load_dotenv()
+# does not override variables already set in the environment.
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
 
 txcore_bp = Blueprint('txcore', __name__, url_prefix='/api/txcore')
 

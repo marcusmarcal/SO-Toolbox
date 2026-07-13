@@ -7,6 +7,14 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.26.2] - 2026-07-13
+
+### Fixed
+
+- TXCore status endpoint reported all env vars as missing even when
+  set in .env, due to import-order dependency on proxy.py's
+  load_dotenv() call. routes_txcore.py now loads .env explicitly.
+
 ## [2.26.1] - 2026-07-13
 
 ### Fixed
