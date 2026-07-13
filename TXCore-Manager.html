@@ -1,961 +1,1323 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TXCore Provisioning — SO-Toolbox</title>
-<!-- TXCore Manager frontend v1.0.0 -->
-<style>
-  :root {
-    --bg: #0f1216;
-    --panel: #161a20;
-    --panel-alt: #1c212a;
-    --border: #262d38;
-    --border-soft: #1f2530;
-    --text: #dde3ea;
-    --text-dim: #7c8797;
-    --text-faint: #4d5766;
-    --ave: #4fd1c5;
-    --lmk: #f0a868;
-    --yer: #c792ea;
-    --success: #6bcf7f;
-    --error: #e5626b;
-    --warn: #f0a868;
-    --font-mono: ui-monospace, "SFMono-Regular", "IBM Plex Mono", Menlo, Consolas, monospace;
-    --font-sans: -apple-system, "Segoe UI", system-ui, sans-serif;
-    --radius: 6px;
-  }
-
-  * { box-sizing: border-box; }
-
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--font-sans);
-    font-size: 14px;
-    line-height: 1.5;
-  }
-
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 18px 28px;
-    border-bottom: 1px solid var(--border);
-    background: linear-gradient(180deg, var(--panel), var(--bg));
-  }
-
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-  }
-
-  .brand h1 {
-    font-family: var(--font-mono);
-    font-size: 16px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    margin: 0;
-  }
-
-  .brand .subtitle {
-    color: var(--text-dim);
-    font-size: 12px;
-    margin-top: 2px;
-  }
-
-  /* Fanout signature: one source splitting into the three geofenced sites */
-  .fanout {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .fanout svg { display: block; }
-  .fanout-labels {
-    display: flex;
-    gap: 10px;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--text-dim);
-  }
-  .fanout-labels span { display: flex; align-items: center; gap: 4px; }
-  .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
-  .dot.ave { background: var(--ave); }
-  .dot.lmk { background: var(--lmk); }
-  .dot.yer { background: var(--yer); }
-
-  #status-badge {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    padding: 5px 10px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    color: var(--text-dim);
-  }
-  #status-badge.ok { color: var(--success); border-color: var(--success); }
-  #status-badge.bad { color: var(--error); border-color: var(--error); }
-
-  main {
-    display: grid;
-    grid-template-columns: 380px 1fr;
-    gap: 1px;
-    background: var(--border);
-    min-height: calc(100vh - 61px);
-  }
-
-  .panel {
-    background: var(--bg);
-    padding: 22px 24px;
-    overflow-y: auto;
-  }
-
-  .panel h2 {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-dim);
-    margin: 0 0 14px 0;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .panel h2::after {
-    content: "";
-    flex: 1;
-    height: 1px;
-    background: var(--border);
-  }
-
-  fieldset {
-    border: none;
-    padding: 0;
-    margin: 0 0 22px 0;
-  }
-
-  .field {
-    margin-bottom: 12px;
-  }
-
-  .field label {
-    display: block;
-    font-size: 12px;
-    color: var(--text-dim);
-    margin-bottom: 4px;
-  }
-
-  .field-row {
-    display: flex;
-    gap: 8px;
-  }
-  .field-row .field { flex: 1; }
-
-  input[type="text"], input[type="number"], select {
-    width: 100%;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    color: var(--text);
-    padding: 7px 9px;
-    font-family: var(--font-mono);
-    font-size: 13px;
-  }
-
-  input:focus {
-    outline: none;
-    border-color: var(--ave);
-  }
-
-  input[readonly] {
-    color: var(--text-dim);
-    background: var(--panel-alt);
-    cursor: default;
-  }
-  input[readonly]:focus { border-color: var(--border); }
-
-  .addr-preview {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    color: var(--text-dim);
-    background: #0a0c0f;
-    border: 1px solid var(--border-soft);
-    border-radius: var(--radius);
-    padding: 6px 9px;
-    margin-top: 8px;
-  }
-
-  .location-block {
-    border: 1px solid var(--border-soft);
-    border-radius: var(--radius);
-    padding: 10px 12px;
-    margin-bottom: 10px;
-    border-left: 3px solid var(--loc-color, var(--text-faint));
-  }
-  .location-block.ave { --loc-color: var(--ave); }
-  .location-block.lmk { --loc-color: var(--lmk); }
-  .location-block.yer { --loc-color: var(--yer); }
-
-  .location-block .loc-title {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    text-transform: uppercase;
-    color: var(--loc-color, var(--text-dim));
-    margin-bottom: 8px;
-    letter-spacing: 0.06em;
-  }
-
-  .toggle-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 8px 10px;
-    margin-bottom: 14px;
-  }
-  .toggle-row label { font-size: 12px; color: var(--text-dim); margin: 0; }
-
-  .switch {
-    position: relative;
-    width: 34px;
-    height: 18px;
-    flex-shrink: 0;
-  }
-  .switch input { opacity: 0; width: 0; height: 0; }
-  .switch .track {
-    position: absolute; inset: 0;
-    background: var(--border);
-    border-radius: 999px;
-    transition: background 0.15s;
-    cursor: pointer;
-  }
-  .switch .track::before {
-    content: "";
-    position: absolute;
-    width: 14px; height: 14px;
-    left: 2px; top: 2px;
-    background: var(--text-dim);
-    border-radius: 50%;
-    transition: transform 0.15s, background 0.15s;
-  }
-  .switch input:checked + .track { background: rgba(240,168,104,0.25); }
-  .switch input:checked + .track::before { transform: translateX(16px); background: var(--warn); }
-
-  button {
-    font-family: var(--font-sans);
-    font-size: 13px;
-    font-weight: 600;
-    padding: 9px 16px;
-    border-radius: var(--radius);
-    border: 1px solid var(--border);
-    background: var(--panel-alt);
-    color: var(--text);
-    cursor: pointer;
-    transition: border-color 0.15s, color 0.15s;
-  }
-  button:hover { border-color: var(--ave); color: var(--ave); }
-  button:disabled { opacity: 0.4; cursor: not-allowed; }
-  button:disabled:hover { border-color: var(--border); color: var(--text); }
-
-  button.primary {
-    background: var(--ave);
-    border-color: var(--ave);
-    color: #0a1210;
-  }
-  button.primary:hover { background: #6fe0d5; color: #0a1210; }
-
-  .btn-row { display: flex; gap: 8px; }
-
-  .results-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-family: var(--font-mono);
-    font-size: 12px;
-  }
-  th {
-    text-align: left;
-    color: var(--text-dim);
-    font-weight: 500;
-    text-transform: uppercase;
-    font-size: 10px;
-    letter-spacing: 0.05em;
-    padding: 8px 10px;
-    border-bottom: 1px solid var(--border);
-  }
-  td {
-    padding: 7px 10px;
-    border-bottom: 1px solid var(--border-soft);
-  }
-  tr:hover td { background: var(--panel); }
-
-  .site-fanout-mini {
-    display: flex;
-    gap: 4px;
-  }
-  .site-fanout-mini .dot { width: 7px; height: 7px; }
-
-  .empty-state {
-    color: var(--text-faint);
-    font-size: 13px;
-    padding: 40px 0;
-    text-align: center;
-    border: 1px dashed var(--border);
-    border-radius: var(--radius);
-  }
-
-  .progress-wrap {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 14px 16px;
-  }
-  .progress-head {
-    display: flex;
-    justify-content: space-between;
-    font-family: var(--font-mono);
-    font-size: 12px;
-    margin-bottom: 8px;
-  }
-  .progress-bar-track {
-    height: 6px;
-    background: var(--border);
-    border-radius: 999px;
-    overflow: hidden;
-  }
-  .progress-bar-fill {
-    height: 100%;
-    background: var(--ave);
-    width: 0%;
-    transition: width 0.3s ease;
-  }
-  .progress-bar-fill.error { background: var(--error); }
-
-  #job-log {
-    font-family: var(--font-mono);
-    font-size: 11.5px;
-    background: #0a0c0f;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 10px 12px;
-    max-height: 220px;
-    overflow-y: auto;
-    white-space: pre;
-  }
-  #job-log .log-ok { color: var(--success); }
-  #job-log .log-err { color: var(--error); }
-  #job-log .log-dim { color: var(--text-faint); }
-
-  .status-tag {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    padding: 2px 6px;
-    border-radius: 4px;
-  }
-  .status-tag.ok { background: rgba(107,207,127,0.15); color: var(--success); }
-  .status-tag.error { background: rgba(229,98,107,0.15); color: var(--error); }
-  .status-tag.skipped { background: rgba(124,135,151,0.15); color: var(--text-dim); }
-
-  ::-webkit-scrollbar { width: 8px; height: 8px; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-</style>
-</head>
-<body>
-
-<header>
-  <div class="brand">
-    <div class="fanout">
-      <svg width="34" height="24" viewBox="0 0 34 24">
-        <circle cx="4" cy="12" r="3" fill="var(--text-dim)"/>
-        <path d="M7 12 L14 4 M7 12 L14 12 M7 12 L14 20" stroke="var(--border)" stroke-width="1.2" fill="none"/>
-        <circle cx="16" cy="4" r="2.5" fill="var(--ave)"/>
-        <circle cx="16" cy="12" r="2.5" fill="var(--lmk)"/>
-        <circle cx="16" cy="20" r="2.5" fill="var(--yer)"/>
-      </svg>
-      <div>
-        <h1>TXCore Provisioning</h1>
-        <div class="subtitle">Bulk category &amp; channel creation — AVE / LMK / YER</div>
-      </div>
-    </div>
-  </div>
-  <div id="status-badge">checking configuration…</div>
-</header>
-
-<main>
-  <!-- ===================== FORM PANEL ===================== -->
-  <div class="panel">
-
-    <h2>Category</h2>
-    <fieldset>
-      <div class="field">
-        <label for="cat-name">Name</label>
-        <input type="text" id="cat-name" placeholder="ADHOC">
-      </div>
-      <div class="field">
-        <label for="cat-desc">Description</label>
-        <input type="text" id="cat-desc" placeholder="Same as name if left empty">
-      </div>
-      <div class="btn-row">
-        <button id="btn-create-category">Create category</button>
-      </div>
-      <div class="field" style="margin-top:10px;">
-        <label for="category-id">Category ID (used below)</label>
-        <input type="text" id="category-id" placeholder="603f87befcb1184432a4a564">
-      </div>
-      <div class="field">
-        <label for="category-select">Or pick an existing category</label>
-        <select id="category-select">
-          <option value="">— loading… —</option>
-        </select>
-      </div>
-    </fieldset>
-
-    <h2>Bulk channels</h2>
-    <fieldset>
-      <div class="field">
-        <label for="provider-name">Provider Acronym</label>
-        <input type="text" id="provider-name" placeholder="ADC">
-      </div>
-      <div class="field-row">
-        <div class="field">
-          <label for="first-ch">First CH#</label>
-          <input type="text" inputmode="numeric" id="first-ch" value="01">
-        </div>
-        <div class="field">
-          <label for="channel-count">Count</label>
-          <input type="number" id="channel-count" value="10">
-        </div>
-      </div>
-      <div class="field-row">
-        <div class="field">
-          <label for="channel-number">Channel number start <span style="color:var(--text-faint);">(= First CH#)</span></label>
-          <input type="text" inputmode="numeric" id="channel-number" value="01">
-        </div>
-        <div class="field">
-          <label for="sleep-time">Delay between calls (s)</label>
-          <input type="number" id="sleep-time" value="1" step="0.5">
-        </div>
-      </div>
-
-      <div class="field">
-        <label for="shared-3rd-oct">3rd octet <span style="color:var(--text-faint);">(applies to all sites below)</span></label>
-        <input type="text" inputmode="numeric" id="shared-3rd-oct" value="10">
-      </div>
-
-      <div class="location-block ave">
-        <div class="loc-title">● AVE — Aveiro <span style="color:var(--text-faint); text-transform:none;">(231.216.x.x)</span></div>
-        <div class="field-row">
-          <div class="field">
-            <label for="ave-3rd-oct">3rd octet <span style="color:var(--text-faint);">(= shared)</span></label>
-            <input type="text" inputmode="numeric" id="ave-3rd-oct" value="10">
-          </div>
-          <div class="field">
-            <label for="ave-4oct">Last octet start <span style="color:var(--text-faint);">(= First CH#)</span></label>
-            <input type="text" inputmode="numeric" id="ave-4oct" value="01">
-          </div>
-        </div>
-        <div class="field">
-          <label for="ave-port">Port <span style="color:var(--text-faint);">(static)</span></label>
-          <input type="number" id="ave-port" value="1234" readonly>
-        </div>
-        <div class="addr-preview" id="ave-addr-preview">231.216.10.01:1234</div>
-      </div>
-
-      <div class="location-block lmk">
-        <div class="loc-title">● LMK <span style="color:var(--text-faint); text-transform:none;">(226.1.x.x)</span></div>
-        <div class="field-row">
-          <div class="field">
-            <label for="lmk-3rd-oct">3rd octet <span style="color:var(--text-faint);">(= shared)</span></label>
-            <input type="text" inputmode="numeric" id="lmk-3rd-oct" value="10">
-          </div>
-          <div class="field">
-            <label for="lmk-4oct">Last octet start <span style="color:var(--text-faint);">(= First CH#)</span></label>
-            <input type="text" inputmode="numeric" id="lmk-4oct" value="01">
-          </div>
-        </div>
-        <div class="field">
-          <label for="lmk-port">Port <span style="color:var(--text-faint);">(static)</span></label>
-          <input type="number" id="lmk-port" value="21216" readonly>
-        </div>
-        <div class="addr-preview" id="lmk-addr-preview">226.1.10.01:21216</div>
-      </div>
-
-      <div class="location-block yer">
-        <div class="loc-title">● YER <span style="color:var(--text-faint); text-transform:none;">(228.33.x.x)</span></div>
-        <div class="field-row">
-          <div class="field">
-            <label for="yer-3rd-oct">3rd octet <span style="color:var(--text-faint);">(= shared)</span></label>
-            <input type="text" inputmode="numeric" id="yer-3rd-oct" value="10">
-          </div>
-          <div class="field">
-            <label for="yer-4oct">Last octet start <span style="color:var(--text-faint);">(= First CH#)</span></label>
-            <input type="text" inputmode="numeric" id="yer-4oct" value="01">
-          </div>
-        </div>
-        <div class="field">
-          <label for="yer-port">Port <span style="color:var(--text-faint);">(static)</span></label>
-          <input type="number" id="yer-port" value="1234" readonly>
-        </div>
-        <div class="addr-preview" id="yer-addr-preview">228.33.10.01:1234</div>
-      </div>
-
-      <div class="toggle-row">
-        <label for="dry-run-toggle">Dry run (preview only, no API calls)</label>
-        <label class="switch">
-          <input type="checkbox" id="dry-run-toggle" checked>
-          <span class="track"></span>
-        </label>
-      </div>
-
-      <div class="btn-row">
-        <button id="btn-preview">Preview</button>
-        <button id="btn-create-channels" class="primary">Create channels</button>
-      </div>
-    </fieldset>
-  </div>
-
-  <!-- ===================== RESULTS PANEL ===================== -->
-  <div class="panel results-panel">
-
-    <div>
-      <h2>Preview</h2>
-      <div id="preview-container">
-        <div class="empty-state">No preview yet — fill in the form and click Preview.</div>
-      </div>
-    </div>
-
-    <div id="job-section" style="display:none;">
-      <h2>Job progress</h2>
-      <div class="progress-wrap">
-        <div class="progress-head">
-          <span id="job-status-text">queued</span>
-          <span id="job-progress-text">0 / 0</span>
-        </div>
-        <div class="progress-bar-track">
-          <div class="progress-bar-fill" id="progress-bar-fill"></div>
-        </div>
-      </div>
-      <div id="job-log" style="margin-top:10px;"></div>
-    </div>
-
-  </div>
-</main>
-
-<script>
-(function () {
-  'use strict';
-
-  // Adjust this if the nginx reverse proxy path differs from /so-proxy/
-  var API_BASE = '/so-proxy/api/txcore';
-  // Bumped to v2: earlier versions stored an empty "first 3 octets" value
-  // for users who never touched that field, which silently produced
-  // incomplete stream addresses like ".35:21216" once defaults were added.
-  var STORAGE_KEY = 'txcore-manager-form-v2';
-
-  // First two octets are fixed per site and are not user-configurable.
-  var STATIC_PREFIX = { ave: '231.216', lmk: '226.1', yer: '228.33' };
-
-  var FIELD_IDS = [
-    'cat-name', 'cat-desc', 'category-id', 'provider-name',
-    'first-ch', 'channel-count', 'channel-number', 'sleep-time',
-    'shared-3rd-oct',
-    'ave-3rd-oct', 'ave-4oct', 'ave-port',
-    'lmk-3rd-oct', 'lmk-4oct', 'lmk-port',
-    'yer-3rd-oct', 'yer-4oct', 'yer-port'
-  ];
-
-  var jobPollTimer = null;
-
-  // Fields that mirror "First CH#" by default. Each stops auto-syncing
-  // the moment the user types into it directly (marked "dirty"), so a
-  // manual override is never silently overwritten afterwards.
-  var LINKED_TO_FIRST_CH = ['channel-number', 'ave-4oct', 'lmk-4oct', 'yer-4oct'];
-  var linkedDirty = {};
-
-  function syncLinkedFromFirstCh() {
-    var v = $('first-ch').value;
-    LINKED_TO_FIRST_CH.forEach(function (id) {
-      if (!linkedDirty[id]) $(id).value = v;
-    });
-  }
-
-  // Per-site 3rd octet mirrors the shared field by default (preference
-  // is the same value across all sites), editable per site if needed.
-  var THIRD_OCTET_LINKED = ['ave-3rd-oct', 'lmk-3rd-oct', 'yer-3rd-oct'];
-  var thirdOctetDirty = {};
-
-  function syncThirdOctetFromShared() {
-    var v = $('shared-3rd-oct').value;
-    THIRD_OCTET_LINKED.forEach(function (id) {
-      if (!thirdOctetDirty[id]) $(id).value = v;
-    });
-  }
-
-  function updateAddressPreviews() {
-    ['ave', 'lmk', 'yer'].forEach(function (loc) {
-      var thirdOct = $(loc + '-3rd-oct').value || '?';
-      var lastOct = $(loc + '-4oct').value || '?';
-      var port = $(loc + '-port').value || '?';
-      $(loc + '-addr-preview').textContent =
-        STATIC_PREFIX[loc] + '.' + thirdOct + '.' + lastOct + ':' + port;
-    });
-  }
-
-  function $(id) { return document.getElementById(id); }
-
-  function saveFormState() {
-    var state = {};
-    FIELD_IDS.forEach(function (id) { state[id] = $(id).value; });
-    state['dry-run-toggle'] = $('dry-run-toggle').checked;
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
-  }
-
-  function loadFormState() {
-    var raw;
-    try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { return; }
-    if (!raw) return;
-    var state;
-    try { state = JSON.parse(raw); } catch (e) { return; }
-    FIELD_IDS.forEach(function (id) {
-      if (state[id] !== undefined && state[id] !== '') $(id).value = state[id];
-    });
-    if (typeof state['dry-run-toggle'] === 'boolean') {
-      $('dry-run-toggle').checked = state['dry-run-toggle'];
-    }
-  }
-
-  function collectLocations() {
-    var locs = {};
-    ['ave', 'lmk', 'yer'].forEach(function (loc) {
-      var thirdOct = $(loc + '-3rd-oct').value.trim();
-      locs[loc] = {
-        udp_ip_3_oct: STATIC_PREFIX[loc] + '.' + thirdOct,
-        udp_ip_4_oct: Number($(loc + '-4oct').value),
-        port: Number($(loc + '-port').value)
-      };
-    });
-    return locs;
-  }
-
-  function collectChannelParams() {
-    return {
-      channel_count: Number($('channel-count').value),
-      first_ch: Number($('first-ch').value),
-      provider_name: $('provider-name').value,
-      channel_number: Number($('channel-number').value),
-      category_id: $('category-id').value,
-      sleep_time: Number($('sleep-time').value),
-      dry_run: $('dry-run-toggle').checked,
-      locations: collectLocations()
-    };
-  }
-
-  function apiFetch(path, options) {
-    return fetch(API_BASE + path, Object.assign({
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin'
-    }, options || {})).then(function (resp) {
-      return resp.json().then(function (data) {
-        if (!resp.ok) throw new Error(data.error || ('Request failed (' + resp.status + ')'));
-        return data;
-      });
-    });
-  }
-
-  // ---------------------------------------------------------------------
-  // Status badge
-  // ---------------------------------------------------------------------
-  function loadStatus() {
-    var badge = $('status-badge');
-    apiFetch('/status').then(function (data) {
-      var missing = [];
-      if (!data.bearer_token_set) missing.push('token');
-      if (!data.api_url_set) missing.push('api url');
-      Object.keys(data.geofence_ids_set || {}).forEach(function (loc) {
-        if (!data.geofence_ids_set[loc]) missing.push(loc + ' geofence');
-      });
-      if (missing.length === 0) {
-        badge.textContent = 'API configured — ' + data.api_url;
-        badge.className = 'ok';
-      } else {
-        badge.textContent = 'Missing: ' + missing.join(', ');
-        badge.className = 'bad';
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TXCore Provisioning — SO-Toolbox</title>
+    <!-- TXCore Manager frontend v1.0.0 -->
+    <style>
+      :root {
+        --bg: #0f1216;
+        --panel: #161a20;
+        --panel-alt: #1c212a;
+        --border: #262d38;
+        --border-soft: #1f2530;
+        --text: #dde3ea;
+        --text-dim: #7c8797;
+        --text-faint: #4d5766;
+        --ave: #4fd1c5;
+        --lmk: #f0a868;
+        --yer: #c792ea;
+        --success: #6bcf7f;
+        --error: #e5626b;
+        --warn: #f0a868;
+        --font-mono: ui-monospace, "SFMono-Regular", "IBM Plex Mono", Menlo,
+          Consolas, monospace;
+        --font-sans: -apple-system, "Segoe UI", system-ui, sans-serif;
+        --radius: 6px;
       }
-    }).catch(function (err) {
-      badge.textContent = 'Status unavailable — ' + err.message;
-      badge.className = 'bad';
-    });
-  }
 
-  // ---------------------------------------------------------------------
-  // Category listing
-  // ---------------------------------------------------------------------
-  function escapeHtml(str) {
-    return String(str).replace(/[&<>"']/g, function (c) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-    });
-  }
-
-  function loadCategories() {
-    var select = $('category-select');
-    select.innerHTML = '<option value="">— loading… —</option>';
-
-    apiFetch('/categories').then(function (data) {
-      var rows = data.rows || [];
-      if (!rows.length) {
-        select.innerHTML = '<option value="">— none found —</option>';
-        return;
+      * {
+        box-sizing: border-box;
       }
-      select.innerHTML = '<option value="">— select —</option>' + rows.map(function (c) {
-        return '<option value="' + escapeHtml(c._id) + '">' +
-          escapeHtml(c.name) + ' (' + escapeHtml(c._id) + ')</option>';
-      }).join('');
-    }).catch(function (err) {
-      select.innerHTML = '<option value="">— failed to load —</option>';
-      console.error('Failed to load categories:', err);
-    });
-  }
 
-  $('category-select').addEventListener('change', function () {
-    if (this.value) {
-      $('category-id').value = this.value;
-      saveFormState();
-    }
-  });
-
-  // ---------------------------------------------------------------------
-  // Category creation
-  // ---------------------------------------------------------------------
-  $('btn-create-category').addEventListener('click', function () {
-    var btn = this;
-    var name = $('cat-name').value.trim();
-    if (!name) { alert('Category name is required.'); return; }
-
-    btn.disabled = true;
-    btn.textContent = 'Creating…';
-
-    apiFetch('/category', {
-      method: 'POST',
-      body: JSON.stringify({
-        name: name,
-        desc: $('cat-desc').value.trim() || name,
-        dry_run: $('dry-run-toggle').checked
-      })
-    }).then(function (data) {
-      if (data.dry_run) {
-        alert('Dry run — no category created. Request body logged to console.');
-        console.log('Dry run category request body:', data.request_body);
-      } else {
-        $('category-id').value = data.category_id;
-        saveFormState();
-        loadCategories();
-        alert('Category created: ' + data.category_id);
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--font-sans);
+        font-size: 14px;
+        line-height: 1.5;
       }
-    }).catch(function (err) {
-      alert('Failed to create category: ' + err.message);
-    }).finally(function () {
-      btn.disabled = false;
-      btn.textContent = 'Create category';
-    });
-  });
 
-  // ---------------------------------------------------------------------
-  // Preview
-  // ---------------------------------------------------------------------
-  function renderPreview(bodies) {
-    var container = $('preview-container');
-    if (!bodies.length) {
-      container.innerHTML = '<div class="empty-state">No channels generated.</div>';
-      return;
-    }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 18px 28px;
+        border-bottom: 1px solid var(--border);
+        background: linear-gradient(180deg, var(--panel), var(--bg));
+      }
 
-    var rows = bodies.map(function (b) {
-      var srcMap = {};
-      b.sources.forEach(function (s) {
-        if (s.address.indexOf('.31.') !== -1 || true) {} // no-op, address already carries the site by position
-      });
-      var siteLabels = ['ave', 'lmk', 'yer'];
-      var addrCells = b.sources.map(function (s, i) {
-        return '<div>' + s.address + '</div>';
-      }).join('');
-      var fanoutDots = siteLabels.map(function (loc) {
-        return '<span class="dot ' + loc + '"></span>';
-      }).join('');
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
 
-      return '<tr>' +
-        '<td>' + b.number + '</td>' +
-        '<td>' + b.name + '</td>' +
-        '<td><div class="site-fanout-mini">' + fanoutDots + '</div></td>' +
-        '<td>' + addrCells + '</td>' +
-        '</tr>';
-    }).join('');
+      .brand h1 {
+        font-family: var(--font-mono);
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        margin: 0;
+      }
 
-    container.innerHTML =
-      '<table>' +
-      '<thead><tr><th>#</th><th>Name</th><th>Sites</th><th>Sources (AVE / LMK / YER)</th></tr></thead>' +
-      '<tbody>' + rows + '</tbody>' +
-      '</table>';
-  }
+      .brand .subtitle {
+        color: var(--text-dim);
+        font-size: 12px;
+        margin-top: 2px;
+      }
 
-  $('btn-preview').addEventListener('click', function () {
-    var btn = this;
-    var params = collectChannelParams();
-    saveFormState();
+      /* Fanout signature: one source splitting into the three geofenced sites */
+      .fanout {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .fanout svg {
+        display: block;
+      }
+      .fanout-labels {
+        display: flex;
+        gap: 10px;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--text-dim);
+      }
+      .fanout-labels span {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+      .dot.ave {
+        background: var(--ave);
+      }
+      .dot.lmk {
+        background: var(--lmk);
+      }
+      .dot.yer {
+        background: var(--yer);
+      }
 
-    btn.disabled = true;
-    btn.textContent = 'Loading…';
+      #status-badge {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        padding: 5px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        color: var(--text-dim);
+      }
+      #status-badge.ok {
+        color: var(--success);
+        border-color: var(--success);
+      }
+      #status-badge.bad {
+        color: var(--error);
+        border-color: var(--error);
+      }
 
-    apiFetch('/channels/preview', {
-      method: 'POST',
-      body: JSON.stringify(params)
-    }).then(function (data) {
-      renderPreview(data.request_bodies);
-    }).catch(function (err) {
-      alert('Preview failed: ' + err.message);
-    }).finally(function () {
-      btn.disabled = false;
-      btn.textContent = 'Preview';
-    });
-  });
+      main {
+        display: grid;
+        grid-template-columns: 380px 1fr;
+        gap: 1px;
+        background: var(--border);
+        min-height: calc(100vh - 61px);
+      }
 
-  // ---------------------------------------------------------------------
-  // Bulk creation job
-  // ---------------------------------------------------------------------
-  function appendLog(text, cls) {
-    var log = $('job-log');
-    var line = document.createElement('div');
-    if (cls) line.className = cls;
-    line.textContent = text;
-    log.appendChild(line);
-    log.scrollTop = log.scrollHeight;
-  }
+      .panel {
+        background: var(--bg);
+        padding: 22px 24px;
+        overflow-y: auto;
+      }
 
-  function resetJobUI() {
-    $('job-section').style.display = 'block';
-    $('job-log').innerHTML = '';
-    $('progress-bar-fill').style.width = '0%';
-    $('progress-bar-fill').className = 'progress-bar-fill';
-    $('job-status-text').textContent = 'queued';
-    $('job-progress-text').textContent = '0 / 0';
-  }
+      .panel h2 {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-dim);
+        margin: 0 0 14px 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
 
-  function pollJob(jobId) {
-    if (jobPollTimer) clearInterval(jobPollTimer);
+      .panel h2::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--border);
+      }
 
-    var seenCount = 0;
+      fieldset {
+        border: none;
+        padding: 0;
+        margin: 0 0 22px 0;
+      }
 
-    jobPollTimer = setInterval(function () {
-      apiFetch('/channels/job/' + jobId).then(function (job) {
-        $('job-status-text').textContent = job.status;
-        $('job-progress-text').textContent = job.progress + ' / ' + job.total;
+      .field {
+        margin-bottom: 12px;
+      }
 
-        var pct = job.total ? Math.round((job.progress / job.total) * 100) : 0;
-        $('progress-bar-fill').style.width = pct + '%';
+      .field label {
+        display: block;
+        font-size: 12px;
+        color: var(--text-dim);
+        margin-bottom: 4px;
+      }
 
-        for (var i = seenCount; i < job.results.length; i++) {
-          var entry = job.results[i];
-          var cls = entry.status === 'error' ? 'log-err' : (entry.status === 'skipped' ? 'log-dim' : 'log-ok');
-          var line = '[' + entry.index + '] ' + entry.request_body.name + ' — ' + entry.status;
-          if (entry.status_code) line += ' (HTTP ' + entry.status_code + ')';
-          if (entry.error) line += ' — ' + entry.error;
-          appendLog(line, cls);
+      .field-row {
+        display: flex;
+        gap: 8px;
+      }
+      .field-row .field {
+        flex: 1;
+      }
 
-          if (entry.status === 'error' && entry.response) {
-            var body = typeof entry.response === 'string' ? entry.response : JSON.stringify(entry.response);
-            if (body.length > 400) body = body.slice(0, 400) + '…';
-            appendLog('    → ' + body, 'log-err');
+      input[type="text"],
+      input[type="number"],
+      select {
+        width: 100%;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        color: var(--text);
+        padding: 7px 9px;
+        font-family: var(--font-mono);
+        font-size: 13px;
+      }
+
+      input:focus {
+        outline: none;
+        border-color: var(--ave);
+      }
+
+      input[readonly] {
+        color: var(--text-dim);
+        background: var(--panel-alt);
+        cursor: default;
+      }
+      input[readonly]:focus {
+        border-color: var(--border);
+      }
+
+      .addr-preview {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--text-dim);
+        background: #0a0c0f;
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius);
+        padding: 6px 9px;
+        margin-top: 8px;
+      }
+
+      .location-block {
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius);
+        padding: 10px 12px;
+        margin-bottom: 10px;
+        border-left: 3px solid var(--loc-color, var(--text-faint));
+      }
+      .location-block.ave {
+        --loc-color: var(--ave);
+      }
+      .location-block.lmk {
+        --loc-color: var(--lmk);
+      }
+      .location-block.yer {
+        --loc-color: var(--yer);
+      }
+
+      .location-block .loc-title {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        text-transform: uppercase;
+        color: var(--loc-color, var(--text-dim));
+        margin-bottom: 8px;
+        letter-spacing: 0.06em;
+      }
+
+      .toggle-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 8px 10px;
+        margin-bottom: 14px;
+      }
+      .toggle-row label {
+        font-size: 12px;
+        color: var(--text-dim);
+        margin: 0;
+      }
+
+      .switch {
+        position: relative;
+        width: 34px;
+        height: 18px;
+        flex-shrink: 0;
+      }
+      .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      .switch .track {
+        position: absolute;
+        inset: 0;
+        background: var(--border);
+        border-radius: 999px;
+        transition: background 0.15s;
+        cursor: pointer;
+      }
+      .switch .track::before {
+        content: "";
+        position: absolute;
+        width: 14px;
+        height: 14px;
+        left: 2px;
+        top: 2px;
+        background: var(--text-dim);
+        border-radius: 50%;
+        transition: transform 0.15s, background 0.15s;
+      }
+      .switch input:checked + .track {
+        background: rgba(240, 168, 104, 0.25);
+      }
+      .switch input:checked + .track::before {
+        transform: translateX(16px);
+        background: var(--warn);
+      }
+
+      button {
+        font-family: var(--font-sans);
+        font-size: 13px;
+        font-weight: 600;
+        padding: 9px 16px;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        background: var(--panel-alt);
+        color: var(--text);
+        cursor: pointer;
+        transition: border-color 0.15s, color 0.15s;
+      }
+      button:hover {
+        border-color: var(--ave);
+        color: var(--ave);
+      }
+      button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      button:disabled:hover {
+        border-color: var(--border);
+        color: var(--text);
+      }
+
+      button.primary {
+        background: var(--ave);
+        border-color: var(--ave);
+        color: #0a1210;
+      }
+      button.primary:hover {
+        background: #6fe0d5;
+        color: #0a1210;
+      }
+
+      .btn-row {
+        display: flex;
+        gap: 8px;
+      }
+
+      .results-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-family: var(--font-mono);
+        font-size: 12px;
+      }
+      th {
+        text-align: left;
+        color: var(--text-dim);
+        font-weight: 500;
+        text-transform: uppercase;
+        font-size: 10px;
+        letter-spacing: 0.05em;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+      }
+      td {
+        padding: 7px 10px;
+        border-bottom: 1px solid var(--border-soft);
+      }
+      tr:hover td {
+        background: var(--panel);
+      }
+
+      .site-fanout-mini {
+        display: flex;
+        gap: 4px;
+      }
+      .site-fanout-mini .dot {
+        width: 7px;
+        height: 7px;
+      }
+
+      .empty-state {
+        color: var(--text-faint);
+        font-size: 13px;
+        padding: 40px 0;
+        text-align: center;
+        border: 1px dashed var(--border);
+        border-radius: var(--radius);
+      }
+
+      .progress-wrap {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 14px 16px;
+      }
+      .progress-head {
+        display: flex;
+        justify-content: space-between;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        margin-bottom: 8px;
+      }
+      .progress-bar-track {
+        height: 6px;
+        background: var(--border);
+        border-radius: 999px;
+        overflow: hidden;
+      }
+      .progress-bar-fill {
+        height: 100%;
+        background: var(--ave);
+        width: 0%;
+        transition: width 0.3s ease;
+      }
+      .progress-bar-fill.error {
+        background: var(--error);
+      }
+
+      #job-log {
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        background: #0a0c0f;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 10px 12px;
+        max-height: 220px;
+        overflow-y: auto;
+        white-space: pre;
+      }
+      #job-log .log-ok {
+        color: var(--success);
+      }
+      #job-log .log-err {
+        color: var(--error);
+      }
+      #job-log .log-dim {
+        color: var(--text-faint);
+      }
+
+      .status-tag {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+      .status-tag.ok {
+        background: rgba(107, 207, 127, 0.15);
+        color: var(--success);
+      }
+      .status-tag.error {
+        background: rgba(229, 98, 107, 0.15);
+        color: var(--error);
+      }
+      .status-tag.skipped {
+        background: rgba(124, 135, 151, 0.15);
+        color: var(--text-dim);
+      }
+
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <div class="fanout">
+          <svg width="34" height="24" viewBox="0 0 34 24">
+            <circle cx="4" cy="12" r="3" fill="var(--text-dim)" />
+            <path
+              d="M7 12 L14 4 M7 12 L14 12 M7 12 L14 20"
+              stroke="var(--border)"
+              stroke-width="1.2"
+              fill="none"
+            />
+            <circle cx="16" cy="4" r="2.5" fill="var(--ave)" />
+            <circle cx="16" cy="12" r="2.5" fill="var(--lmk)" />
+            <circle cx="16" cy="20" r="2.5" fill="var(--yer)" />
+          </svg>
+          <div>
+            <h1>TXCore Provisioning</h1>
+            <div class="subtitle">
+              Bulk category &amp; channel creation — AVE / LMK / YER
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="status-badge">checking configuration…</div>
+    </header>
+
+    <main>
+      <!-- ===================== FORM PANEL ===================== -->
+      <div class="panel">
+        <h2>Category</h2>
+        <fieldset>
+          <div class="field">
+            <label for="cat-name">Name</label>
+            <input type="text" id="cat-name" placeholder="ADHOC" />
+          </div>
+          <div class="field">
+            <label for="cat-desc">Description</label>
+            <input
+              type="text"
+              id="cat-desc"
+              placeholder="Same as name if left empty"
+            />
+          </div>
+          <div class="btn-row">
+            <button id="btn-create-category">Create category</button>
+          </div>
+          <div class="field" style="margin-top: 10px">
+            <label for="category-id">Category ID (used below)</label>
+            <input
+              type="text"
+              id="category-id"
+              placeholder="603f87befcb1184432a4a564"
+            />
+          </div>
+          <div class="field">
+            <label for="category-select">Or pick an existing category</label>
+            <select id="category-select">
+              <option value="">— loading… —</option>
+            </select>
+          </div>
+        </fieldset>
+
+        <h2>Bulk channels</h2>
+        <fieldset>
+          <div class="field">
+            <label for="provider-name">Provider Acronym</label>
+            <input type="text" id="provider-name" placeholder="ADC" />
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="first-ch">First CH#</label>
+              <input type="text" inputmode="numeric" id="first-ch" value="01" />
+            </div>
+            <div class="field">
+              <label for="channel-count">Count</label>
+              <input type="number" id="channel-count" value="10" />
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="channel-number"
+                >GVN Channel number start
+                <span style="color: var(--text-faint)"
+                  >(= First GVN Channel)</span
+                ></label
+              >
+              <input
+                type="text"
+                inputmode="numeric"
+                id="channel-number"
+                value="01"
+              />
+            </div>
+            <div class="field">
+              <label for="sleep-time">Delay between calls (s)</label>
+              <input type="number" id="sleep-time" value="1" step="0.5" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="shared-3rd-oct"
+              >3rd octet
+              <span style="color: var(--text-faint)"
+                >(applies to all sites below)</span
+              ></label
+            >
+            <input
+              type="text"
+              inputmode="numeric"
+              id="shared-3rd-oct"
+              value="10"
+            />
+          </div>
+
+          <div class="location-block ave">
+            <div class="loc-title">
+              ● AVE — Aveiro
+              <span style="color: var(--text-faint); text-transform: none"
+                >(231.216.x.x)</span
+              >
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="ave-3rd-oct"
+                  >3rd octet
+                  <span style="color: var(--text-faint)"
+                    >(= shared)</span
+                  ></label
+                >
+                <input
+                  type="text"
+                  inputmode="numeric"
+                  id="ave-3rd-oct"
+                  value="10"
+                />
+              </div>
+              <div class="field">
+                <label for="ave-4oct"
+                  >Last octet start
+                  <span style="color: var(--text-faint)"
+                    >(= First CH#)</span
+                  ></label
+                >
+                <input
+                  type="text"
+                  inputmode="numeric"
+                  id="ave-4oct"
+                  value="01"
+                />
+              </div>
+            </div>
+            <div class="field">
+              <label for="ave-port"
+                >Port
+                <span style="color: var(--text-faint)">(static)</span></label
+              >
+              <input type="number" id="ave-port" value="1234" readonly />
+            </div>
+            <div class="addr-preview" id="ave-addr-preview">
+              231.216.10.01:1234
+            </div>
+          </div>
+
+          <div class="location-block lmk">
+            <div class="loc-title">
+              ● LMK
+              <span style="color: var(--text-faint); text-transform: none"
+                >(226.1.x.x)</span
+              >
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="lmk-3rd-oct"
+                  >3rd octet
+                  <span style="color: var(--text-faint)"
+                    >(= shared)</span
+                  ></label
+                >
+                <input
+                  type="text"
+                  inputmode="numeric"
+                  id="lmk-3rd-oct"
+                  value="10"
+                />
+              </div>
+              <div class="field">
+                <label for="lmk-4oct"
+                  >Last octet start
+                  <span style="color: var(--text-faint)"
+                    >(= First CH#)</span
+                  ></label
+                >
+                <input
+                  type="text"
+                  inputmode="numeric"
+                  id="lmk-4oct"
+                  value="01"
+                />
+              </div>
+            </div>
+            <div class="field">
+              <label for="lmk-port"
+                >Port
+                <span style="color: var(--text-faint)">(static)</span></label
+              >
+              <input type="number" id="lmk-port" value="21216" readonly />
+            </div>
+            <div class="addr-preview" id="lmk-addr-preview">
+              226.1.10.01:21216
+            </div>
+          </div>
+
+          <div class="location-block yer">
+            <div class="loc-title">
+              ● YER
+              <span style="color: var(--text-faint); text-transform: none"
+                >(228.33.x.x)</span
+              >
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="yer-3rd-oct"
+                  >3rd octet
+                  <span style="color: var(--text-faint)"
+                    >(= shared)</span
+                  ></label
+                >
+                <input
+                  type="text"
+                  inputmode="numeric"
+                  id="yer-3rd-oct"
+                  value="10"
+                />
+              </div>
+              <div class="field">
+                <label for="yer-4oct"
+                  >Last octet start
+                  <span style="color: var(--text-faint)"
+                    >(= First CH#)</span
+                  ></label
+                >
+                <input
+                  type="text"
+                  inputmode="numeric"
+                  id="yer-4oct"
+                  value="01"
+                />
+              </div>
+            </div>
+            <div class="field">
+              <label for="yer-port"
+                >Port
+                <span style="color: var(--text-faint)">(static)</span></label
+              >
+              <input type="number" id="yer-port" value="1234" readonly />
+            </div>
+            <div class="addr-preview" id="yer-addr-preview">
+              228.33.10.01:1234
+            </div>
+          </div>
+
+          <div class="toggle-row">
+            <label for="dry-run-toggle"
+              >Dry run (preview only, no API calls)</label
+            >
+            <label class="switch">
+              <input type="checkbox" id="dry-run-toggle" checked />
+              <span class="track"></span>
+            </label>
+          </div>
+
+          <div class="btn-row">
+            <button id="btn-preview">Preview</button>
+            <button id="btn-create-channels" class="primary">
+              Create channels
+            </button>
+          </div>
+        </fieldset>
+      </div>
+
+      <!-- ===================== RESULTS PANEL ===================== -->
+      <div class="panel results-panel">
+        <div>
+          <h2>Preview</h2>
+          <div id="preview-container">
+            <div class="empty-state">
+              No preview yet — fill in the form and click Preview.
+            </div>
+          </div>
+        </div>
+
+        <div id="job-section" style="display: none">
+          <h2>Job progress</h2>
+          <div class="progress-wrap">
+            <div class="progress-head">
+              <span id="job-status-text">queued</span>
+              <span id="job-progress-text">0 / 0</span>
+            </div>
+            <div class="progress-bar-track">
+              <div class="progress-bar-fill" id="progress-bar-fill"></div>
+            </div>
+          </div>
+          <div id="job-log" style="margin-top: 10px"></div>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      (function () {
+        "use strict";
+
+        // Adjust this if the nginx reverse proxy path differs from /so-proxy/
+        var API_BASE = "/so-proxy/api/txcore";
+        // Bumped to v2: earlier versions stored an empty "first 3 octets" value
+        // for users who never touched that field, which silently produced
+        // incomplete stream addresses like ".35:21216" once defaults were added.
+        var STORAGE_KEY = "txcore-manager-form-v2";
+
+        // First two octets are fixed per site and are not user-configurable.
+        var STATIC_PREFIX = { ave: "231.216", lmk: "226.1", yer: "228.33" };
+
+        var FIELD_IDS = [
+          "cat-name",
+          "cat-desc",
+          "category-id",
+          "provider-name",
+          "first-ch",
+          "channel-count",
+          "channel-number",
+          "sleep-time",
+          "shared-3rd-oct",
+          "ave-3rd-oct",
+          "ave-4oct",
+          "ave-port",
+          "lmk-3rd-oct",
+          "lmk-4oct",
+          "lmk-port",
+          "yer-3rd-oct",
+          "yer-4oct",
+          "yer-port",
+        ];
+
+        var jobPollTimer = null;
+
+        // Fields that mirror "First CH#" by default. Each stops auto-syncing
+        // the moment the user types into it directly (marked "dirty"), so a
+        // manual override is never silently overwritten afterwards.
+        var LINKED_TO_FIRST_CH = [
+          "channel-number",
+          "ave-4oct",
+          "lmk-4oct",
+          "yer-4oct",
+        ];
+        var linkedDirty = {};
+
+        function syncLinkedFromFirstCh() {
+          var v = $("first-ch").value;
+          LINKED_TO_FIRST_CH.forEach(function (id) {
+            if (!linkedDirty[id]) $(id).value = v;
+          });
+        }
+
+        // Per-site 3rd octet mirrors the shared field by default (preference
+        // is the same value across all sites), editable per site if needed.
+        var THIRD_OCTET_LINKED = ["ave-3rd-oct", "lmk-3rd-oct", "yer-3rd-oct"];
+        var thirdOctetDirty = {};
+
+        function syncThirdOctetFromShared() {
+          var v = $("shared-3rd-oct").value;
+          THIRD_OCTET_LINKED.forEach(function (id) {
+            if (!thirdOctetDirty[id]) $(id).value = v;
+          });
+        }
+
+        function updateAddressPreviews() {
+          ["ave", "lmk", "yer"].forEach(function (loc) {
+            var thirdOct = $(loc + "-3rd-oct").value || "?";
+            var lastOct = $(loc + "-4oct").value || "?";
+            var port = $(loc + "-port").value || "?";
+            $(loc + "-addr-preview").textContent =
+              STATIC_PREFIX[loc] + "." + thirdOct + "." + lastOct + ":" + port;
+          });
+        }
+
+        function $(id) {
+          return document.getElementById(id);
+        }
+
+        function saveFormState() {
+          var state = {};
+          FIELD_IDS.forEach(function (id) {
+            state[id] = $(id).value;
+          });
+          state["dry-run-toggle"] = $("dry-run-toggle").checked;
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+          } catch (e) {}
+        }
+
+        function loadFormState() {
+          var raw;
+          try {
+            raw = localStorage.getItem(STORAGE_KEY);
+          } catch (e) {
+            return;
+          }
+          if (!raw) return;
+          var state;
+          try {
+            state = JSON.parse(raw);
+          } catch (e) {
+            return;
+          }
+          FIELD_IDS.forEach(function (id) {
+            if (state[id] !== undefined && state[id] !== "")
+              $(id).value = state[id];
+          });
+          if (typeof state["dry-run-toggle"] === "boolean") {
+            $("dry-run-toggle").checked = state["dry-run-toggle"];
           }
         }
-        seenCount = job.results.length;
 
-        if (job.status === 'completed') {
-          clearInterval(jobPollTimer);
-          var hasError = job.results.some(function (r) { return r.status === 'error'; });
-          if (hasError) $('progress-bar-fill').classList.add('error');
-          appendLog('Job finished.', 'log-dim');
+        function collectLocations() {
+          var locs = {};
+          ["ave", "lmk", "yer"].forEach(function (loc) {
+            var thirdOct = $(loc + "-3rd-oct").value.trim();
+            locs[loc] = {
+              udp_ip_3_oct: STATIC_PREFIX[loc] + "." + thirdOct,
+              udp_ip_4_oct: Number($(loc + "-4oct").value),
+              port: Number($(loc + "-port").value),
+            };
+          });
+          return locs;
         }
-      }).catch(function (err) {
-        clearInterval(jobPollTimer);
-        appendLog('Polling failed: ' + err.message, 'log-err');
-      });
-    }, 1500);
-  }
 
-  $('btn-create-channels').addEventListener('click', function () {
-    var btn = this;
-    var params = collectChannelParams();
-    saveFormState();
+        function collectChannelParams() {
+          return {
+            channel_count: Number($("channel-count").value),
+            first_ch: Number($("first-ch").value),
+            provider_name: $("provider-name").value,
+            channel_number: Number($("channel-number").value),
+            category_id: $("category-id").value,
+            sleep_time: Number($("sleep-time").value),
+            dry_run: $("dry-run-toggle").checked,
+            locations: collectLocations(),
+          };
+        }
 
-    if (!params.category_id) {
-      alert('Category ID is required — create a category or paste an existing ID first.');
-      return;
-    }
+        function apiFetch(path, options) {
+          return fetch(
+            API_BASE + path,
+            Object.assign(
+              {
+                headers: { "Content-Type": "application/json" },
+                credentials: "same-origin",
+              },
+              options || {}
+            )
+          ).then(function (resp) {
+            return resp.json().then(function (data) {
+              if (!resp.ok)
+                throw new Error(
+                  data.error || "Request failed (" + resp.status + ")"
+                );
+              return data;
+            });
+          });
+        }
 
-    if (!params.dry_run) {
-      var confirmed = confirm(
-        'This will create ' + params.channel_count + ' channels via the live TXCore API. Continue?'
-      );
-      if (!confirmed) return;
-    }
+        // ---------------------------------------------------------------------
+        // Status badge
+        // ---------------------------------------------------------------------
+        function loadStatus() {
+          var badge = $("status-badge");
+          apiFetch("/status")
+            .then(function (data) {
+              var missing = [];
+              if (!data.bearer_token_set) missing.push("token");
+              if (!data.api_url_set) missing.push("api url");
+              Object.keys(data.geofence_ids_set || {}).forEach(function (loc) {
+                if (!data.geofence_ids_set[loc])
+                  missing.push(loc + " geofence");
+              });
+              if (missing.length === 0) {
+                badge.textContent = "API configured — " + data.api_url;
+                badge.className = "ok";
+              } else {
+                badge.textContent = "Missing: " + missing.join(", ");
+                badge.className = "bad";
+              }
+            })
+            .catch(function (err) {
+              badge.textContent = "Status unavailable — " + err.message;
+              badge.className = "bad";
+            });
+        }
 
-    btn.disabled = true;
-    btn.textContent = 'Starting…';
-    resetJobUI();
+        // ---------------------------------------------------------------------
+        // Category listing
+        // ---------------------------------------------------------------------
+        function escapeHtml(str) {
+          return String(str).replace(/[&<>"']/g, function (c) {
+            return {
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            }[c];
+          });
+        }
 
-    apiFetch('/channels', {
-      method: 'POST',
-      body: JSON.stringify(params)
-    }).then(function (data) {
-      appendLog('Job started: ' + data.job_id, 'log-dim');
-      pollJob(data.job_id);
-    }).catch(function (err) {
-      appendLog('Failed to start job: ' + err.message, 'log-err');
-    }).finally(function () {
-      btn.disabled = false;
-      btn.textContent = 'Create channels';
-    });
-  });
+        function loadCategories() {
+          var select = $("category-select");
+          select.innerHTML = '<option value="">— loading… —</option>';
 
-  // ---------------------------------------------------------------------
-  // Init
-  // ---------------------------------------------------------------------
-  loadFormState();
-  loadStatus();
-  loadCategories();
-  FIELD_IDS.forEach(function (id) { $(id).addEventListener('change', saveFormState); });
-  $('dry-run-toggle').addEventListener('change', saveFormState);
+          apiFetch("/categories")
+            .then(function (data) {
+              var rows = data.rows || [];
+              if (!rows.length) {
+                select.innerHTML = '<option value="">— none found —</option>';
+                return;
+              }
+              select.innerHTML =
+                '<option value="">— select —</option>' +
+                rows
+                  .map(function (c) {
+                    return (
+                      '<option value="' +
+                      escapeHtml(c._id) +
+                      '">' +
+                      escapeHtml(c.name) +
+                      " (" +
+                      escapeHtml(c._id) +
+                      ")</option>"
+                    );
+                  })
+                  .join("");
+            })
+            .catch(function (err) {
+              select.innerHTML = '<option value="">— failed to load —</option>';
+              console.error("Failed to load categories:", err);
+            });
+        }
 
-  $('first-ch').addEventListener('input', syncLinkedFromFirstCh);
-  LINKED_TO_FIRST_CH.forEach(function (id) {
-    $(id).addEventListener('input', function () { linkedDirty[id] = true; });
-  });
+        $("category-select").addEventListener("change", function () {
+          if (this.value) {
+            $("category-id").value = this.value;
+            saveFormState();
+          }
+        });
 
-  $('shared-3rd-oct').addEventListener('input', syncThirdOctetFromShared);
-  THIRD_OCTET_LINKED.forEach(function (id) {
-    $(id).addEventListener('input', function () { thirdOctetDirty[id] = true; });
-  });
+        // ---------------------------------------------------------------------
+        // Category creation
+        // ---------------------------------------------------------------------
+        $("btn-create-category").addEventListener("click", function () {
+          var btn = this;
+          var name = $("cat-name").value.trim();
+          if (!name) {
+            alert("Category name is required.");
+            return;
+          }
 
-  var ADDR_PREVIEW_FIELDS = [
-    'ave-3rd-oct', 'lmk-3rd-oct', 'yer-3rd-oct',
-    'ave-4oct', 'lmk-4oct', 'yer-4oct',
-    'ave-port', 'lmk-port', 'yer-port'
-  ];
-  ADDR_PREVIEW_FIELDS.forEach(function (id) { $(id).addEventListener('input', updateAddressPreviews); });
-  $('first-ch').addEventListener('input', updateAddressPreviews);
-  $('shared-3rd-oct').addEventListener('input', updateAddressPreviews);
-  updateAddressPreviews();
+          btn.disabled = true;
+          btn.textContent = "Creating…";
 
-})();
-</script>
+          apiFetch("/category", {
+            method: "POST",
+            body: JSON.stringify({
+              name: name,
+              desc: $("cat-desc").value.trim() || name,
+              dry_run: $("dry-run-toggle").checked,
+            }),
+          })
+            .then(function (data) {
+              if (data.dry_run) {
+                alert(
+                  "Dry run — no category created. Request body logged to console."
+                );
+                console.log(
+                  "Dry run category request body:",
+                  data.request_body
+                );
+              } else {
+                $("category-id").value = data.category_id;
+                saveFormState();
+                loadCategories();
+                alert("Category created: " + data.category_id);
+              }
+            })
+            .catch(function (err) {
+              alert("Failed to create category: " + err.message);
+            })
+            .finally(function () {
+              btn.disabled = false;
+              btn.textContent = "Create category";
+            });
+        });
 
-</body>
+        // ---------------------------------------------------------------------
+        // Preview
+        // ---------------------------------------------------------------------
+        function renderPreview(bodies) {
+          var container = $("preview-container");
+          if (!bodies.length) {
+            container.innerHTML =
+              '<div class="empty-state">No channels generated.</div>';
+            return;
+          }
+
+          var rows = bodies
+            .map(function (b) {
+              var srcMap = {};
+              b.sources.forEach(function (s) {
+                if (s.address.indexOf(".31.") !== -1 || true) {
+                } // no-op, address already carries the site by position
+              });
+              var siteLabels = ["ave", "lmk", "yer"];
+              var addrCells = b.sources
+                .map(function (s, i) {
+                  return "<div>" + s.address + "</div>";
+                })
+                .join("");
+              var fanoutDots = siteLabels
+                .map(function (loc) {
+                  return '<span class="dot ' + loc + '"></span>';
+                })
+                .join("");
+
+              return (
+                "<tr>" +
+                "<td>" +
+                b.number +
+                "</td>" +
+                "<td>" +
+                b.name +
+                "</td>" +
+                '<td><div class="site-fanout-mini">' +
+                fanoutDots +
+                "</div></td>" +
+                "<td>" +
+                addrCells +
+                "</td>" +
+                "</tr>"
+              );
+            })
+            .join("");
+
+          container.innerHTML =
+            "<table>" +
+            "<thead><tr><th>#</th><th>Name</th><th>Sites</th><th>Sources (AVE / LMK / YER)</th></tr></thead>" +
+            "<tbody>" +
+            rows +
+            "</tbody>" +
+            "</table>";
+        }
+
+        $("btn-preview").addEventListener("click", function () {
+          var btn = this;
+          var params = collectChannelParams();
+          saveFormState();
+
+          btn.disabled = true;
+          btn.textContent = "Loading…";
+
+          apiFetch("/channels/preview", {
+            method: "POST",
+            body: JSON.stringify(params),
+          })
+            .then(function (data) {
+              renderPreview(data.request_bodies);
+            })
+            .catch(function (err) {
+              alert("Preview failed: " + err.message);
+            })
+            .finally(function () {
+              btn.disabled = false;
+              btn.textContent = "Preview";
+            });
+        });
+
+        // ---------------------------------------------------------------------
+        // Bulk creation job
+        // ---------------------------------------------------------------------
+        function appendLog(text, cls) {
+          var log = $("job-log");
+          var line = document.createElement("div");
+          if (cls) line.className = cls;
+          line.textContent = text;
+          log.appendChild(line);
+          log.scrollTop = log.scrollHeight;
+        }
+
+        function resetJobUI() {
+          $("job-section").style.display = "block";
+          $("job-log").innerHTML = "";
+          $("progress-bar-fill").style.width = "0%";
+          $("progress-bar-fill").className = "progress-bar-fill";
+          $("job-status-text").textContent = "queued";
+          $("job-progress-text").textContent = "0 / 0";
+        }
+
+        function pollJob(jobId) {
+          if (jobPollTimer) clearInterval(jobPollTimer);
+
+          var seenCount = 0;
+
+          jobPollTimer = setInterval(function () {
+            apiFetch("/channels/job/" + jobId)
+              .then(function (job) {
+                $("job-status-text").textContent = job.status;
+                $("job-progress-text").textContent =
+                  job.progress + " / " + job.total;
+
+                var pct = job.total
+                  ? Math.round((job.progress / job.total) * 100)
+                  : 0;
+                $("progress-bar-fill").style.width = pct + "%";
+
+                for (var i = seenCount; i < job.results.length; i++) {
+                  var entry = job.results[i];
+                  var cls =
+                    entry.status === "error"
+                      ? "log-err"
+                      : entry.status === "skipped"
+                      ? "log-dim"
+                      : "log-ok";
+                  var line =
+                    "[" +
+                    entry.index +
+                    "] " +
+                    entry.request_body.name +
+                    " — " +
+                    entry.status;
+                  if (entry.status_code)
+                    line += " (HTTP " + entry.status_code + ")";
+                  if (entry.error) line += " — " + entry.error;
+                  appendLog(line, cls);
+
+                  if (entry.status === "error" && entry.response) {
+                    var body =
+                      typeof entry.response === "string"
+                        ? entry.response
+                        : JSON.stringify(entry.response);
+                    if (body.length > 400) body = body.slice(0, 400) + "…";
+                    appendLog("    → " + body, "log-err");
+                  }
+                }
+                seenCount = job.results.length;
+
+                if (job.status === "completed") {
+                  clearInterval(jobPollTimer);
+                  var hasError = job.results.some(function (r) {
+                    return r.status === "error";
+                  });
+                  if (hasError) $("progress-bar-fill").classList.add("error");
+                  appendLog("Job finished.", "log-dim");
+                }
+              })
+              .catch(function (err) {
+                clearInterval(jobPollTimer);
+                appendLog("Polling failed: " + err.message, "log-err");
+              });
+          }, 1500);
+        }
+
+        $("btn-create-channels").addEventListener("click", function () {
+          var btn = this;
+          var params = collectChannelParams();
+          saveFormState();
+
+          if (!params.category_id) {
+            alert(
+              "Category ID is required — create a category or paste an existing ID first."
+            );
+            return;
+          }
+
+          if (!params.dry_run) {
+            var confirmed = confirm(
+              "This will create " +
+                params.channel_count +
+                " channels via the live TXCore API. Continue?"
+            );
+            if (!confirmed) return;
+          }
+
+          btn.disabled = true;
+          btn.textContent = "Starting…";
+          resetJobUI();
+
+          apiFetch("/channels", {
+            method: "POST",
+            body: JSON.stringify(params),
+          })
+            .then(function (data) {
+              appendLog("Job started: " + data.job_id, "log-dim");
+              pollJob(data.job_id);
+            })
+            .catch(function (err) {
+              appendLog("Failed to start job: " + err.message, "log-err");
+            })
+            .finally(function () {
+              btn.disabled = false;
+              btn.textContent = "Create channels";
+            });
+        });
+
+        // ---------------------------------------------------------------------
+        // Init
+        // ---------------------------------------------------------------------
+        loadFormState();
+        loadStatus();
+        loadCategories();
+        FIELD_IDS.forEach(function (id) {
+          $(id).addEventListener("change", saveFormState);
+        });
+        $("dry-run-toggle").addEventListener("change", saveFormState);
+
+        $("first-ch").addEventListener("input", syncLinkedFromFirstCh);
+        LINKED_TO_FIRST_CH.forEach(function (id) {
+          $(id).addEventListener("input", function () {
+            linkedDirty[id] = true;
+          });
+        });
+
+        $("shared-3rd-oct").addEventListener("input", syncThirdOctetFromShared);
+        THIRD_OCTET_LINKED.forEach(function (id) {
+          $(id).addEventListener("input", function () {
+            thirdOctetDirty[id] = true;
+          });
+        });
+
+        var ADDR_PREVIEW_FIELDS = [
+          "ave-3rd-oct",
+          "lmk-3rd-oct",
+          "yer-3rd-oct",
+          "ave-4oct",
+          "lmk-4oct",
+          "yer-4oct",
+          "ave-port",
+          "lmk-port",
+          "yer-port",
+        ];
+        ADDR_PREVIEW_FIELDS.forEach(function (id) {
+          $(id).addEventListener("input", updateAddressPreviews);
+        });
+        $("first-ch").addEventListener("input", updateAddressPreviews);
+        $("shared-3rd-oct").addEventListener("input", updateAddressPreviews);
+        updateAddressPreviews();
+      })();
+    </script>
+  </body>
 </html>
