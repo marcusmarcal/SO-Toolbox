@@ -499,7 +499,21 @@
         <h2>Category</h2>
         <fieldset>
           <div class="field">
-            <label for="cat-name">Name</label>
+            <label for="category-select">Pick an existing category</label>
+            <select id="category-select">
+              <option value="">— loading… —</option>
+            </select>
+          </div>
+          <div class="field" style="margin-top: 10px">
+            <label for="category-id">Category ID (used below)</label>
+            <input
+              type="text"
+              id="category-id"
+              placeholder="603f87befcb1184432a4a564"
+            />
+          </div>
+          <div class="field">
+            <label for="cat-name">Or create a ne one: Name</label>
             <input type="text" id="cat-name" placeholder="ADHOC" />
           </div>
           <div class="field">
@@ -512,20 +526,6 @@
           </div>
           <div class="btn-row">
             <button id="btn-create-category">Create category</button>
-          </div>
-          <div class="field" style="margin-top: 10px">
-            <label for="category-id">Category ID (used below)</label>
-            <input
-              type="text"
-              id="category-id"
-              placeholder="603f87befcb1184432a4a564"
-            />
-          </div>
-          <div class="field">
-            <label for="category-select">Or pick an existing category</label>
-            <select id="category-select">
-              <option value="">— loading… —</option>
-            </select>
           </div>
         </fieldset>
 
