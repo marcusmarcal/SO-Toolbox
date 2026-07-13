@@ -169,6 +169,24 @@
     border-color: var(--ave);
   }
 
+  input[readonly] {
+    color: var(--text-dim);
+    background: var(--panel-alt);
+    cursor: default;
+  }
+  input[readonly]:focus { border-color: var(--border); }
+
+  .addr-preview {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    background: #0a0c0f;
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius);
+    padding: 6px 9px;
+    margin-top: 8px;
+  }
+
   .location-block {
     border: 1px solid var(--border-soft);
     border-radius: var(--radius);
@@ -422,64 +440,66 @@
         </div>
       </div>
 
+      <div class="field">
+        <label for="shared-3rd-oct">3rd octet <span style="color:var(--text-faint);">(applies to all sites below)</span></label>
+        <input type="text" inputmode="numeric" id="shared-3rd-oct" value="10">
+      </div>
+
       <div class="location-block ave">
-        <div class="loc-title">● AVE — Aveiro</div>
+        <div class="loc-title">● AVE — Aveiro <span style="color:var(--text-faint); text-transform:none;">(231.216.x.x)</span></div>
         <div class="field-row">
           <div class="field">
-            <label for="ave-3oct">IP (first 3 octets)</label>
-            <input type="text" id="ave-3oct" value="231.216.10">
+            <label for="ave-3rd-oct">3rd octet <span style="color:var(--text-faint);">(= shared)</span></label>
+            <input type="text" inputmode="numeric" id="ave-3rd-oct" value="10">
           </div>
-        </div>
-        <div class="field-row">
           <div class="field">
             <label for="ave-4oct">Last octet start <span style="color:var(--text-faint);">(= First CH#)</span></label>
             <input type="text" inputmode="numeric" id="ave-4oct" value="01">
           </div>
-          <div class="field">
-            <label for="ave-port">Port</label>
-            <input type="number" id="ave-port" value="1234">
-          </div>
         </div>
+        <div class="field">
+          <label for="ave-port">Port <span style="color:var(--text-faint);">(static)</span></label>
+          <input type="number" id="ave-port" value="1234" readonly>
+        </div>
+        <div class="addr-preview" id="ave-addr-preview">231.216.10.01:1234</div>
       </div>
 
       <div class="location-block lmk">
-        <div class="loc-title">● LMK</div>
+        <div class="loc-title">● LMK <span style="color:var(--text-faint); text-transform:none;">(226.1.x.x)</span></div>
         <div class="field-row">
           <div class="field">
-            <label for="lmk-3oct">IP (first 3 octets)</label>
-            <input type="text" id="lmk-3oct" value="226.1.10">
+            <label for="lmk-3rd-oct">3rd octet <span style="color:var(--text-faint);">(= shared)</span></label>
+            <input type="text" inputmode="numeric" id="lmk-3rd-oct" value="10">
           </div>
-        </div>
-        <div class="field-row">
           <div class="field">
             <label for="lmk-4oct">Last octet start <span style="color:var(--text-faint);">(= First CH#)</span></label>
             <input type="text" inputmode="numeric" id="lmk-4oct" value="01">
           </div>
-          <div class="field">
-            <label for="lmk-port">Port</label>
-            <input type="number" id="lmk-port" value="21216">
-          </div>
         </div>
+        <div class="field">
+          <label for="lmk-port">Port <span style="color:var(--text-faint);">(static)</span></label>
+          <input type="number" id="lmk-port" value="21216" readonly>
+        </div>
+        <div class="addr-preview" id="lmk-addr-preview">226.1.10.01:21216</div>
       </div>
 
       <div class="location-block yer">
-        <div class="loc-title">● YER</div>
+        <div class="loc-title">● YER <span style="color:var(--text-faint); text-transform:none;">(228.33.x.x)</span></div>
         <div class="field-row">
           <div class="field">
-            <label for="yer-3oct">IP (first 3 octets)</label>
-            <input type="text" id="yer-3oct" value="228.33.10">
+            <label for="yer-3rd-oct">3rd octet <span style="color:var(--text-faint);">(= shared)</span></label>
+            <input type="text" inputmode="numeric" id="yer-3rd-oct" value="10">
           </div>
-        </div>
-        <div class="field-row">
           <div class="field">
             <label for="yer-4oct">Last octet start <span style="color:var(--text-faint);">(= First CH#)</span></label>
             <input type="text" inputmode="numeric" id="yer-4oct" value="01">
           </div>
-          <div class="field">
-            <label for="yer-port">Port</label>
-            <input type="number" id="yer-port" value="1234">
-          </div>
         </div>
+        <div class="field">
+          <label for="yer-port">Port <span style="color:var(--text-faint);">(static)</span></label>
+          <input type="number" id="yer-port" value="1234" readonly>
+        </div>
+        <div class="addr-preview" id="yer-addr-preview">228.33.10.01:1234</div>
       </div>
 
       <div class="toggle-row">
@@ -530,14 +550,21 @@
 
   // Adjust this if the nginx reverse proxy path differs from /so-proxy/
   var API_BASE = '/so-proxy/api/txcore';
-  var STORAGE_KEY = 'txcore-manager-form-v1';
+  // Bumped to v2: earlier versions stored an empty "first 3 octets" value
+  // for users who never touched that field, which silently produced
+  // incomplete stream addresses like ".35:21216" once defaults were added.
+  var STORAGE_KEY = 'txcore-manager-form-v2';
+
+  // First two octets are fixed per site and are not user-configurable.
+  var STATIC_PREFIX = { ave: '231.216', lmk: '226.1', yer: '228.33' };
 
   var FIELD_IDS = [
     'cat-name', 'cat-desc', 'category-id', 'provider-name',
     'first-ch', 'channel-count', 'channel-number', 'sleep-time',
-    'ave-3oct', 'ave-4oct', 'ave-port',
-    'lmk-3oct', 'lmk-4oct', 'lmk-port',
-    'yer-3oct', 'yer-4oct', 'yer-port'
+    'shared-3rd-oct',
+    'ave-3rd-oct', 'ave-4oct', 'ave-port',
+    'lmk-3rd-oct', 'lmk-4oct', 'lmk-port',
+    'yer-3rd-oct', 'yer-4oct', 'yer-port'
   ];
 
   var jobPollTimer = null;
@@ -552,6 +579,28 @@
     var v = $('first-ch').value;
     LINKED_TO_FIRST_CH.forEach(function (id) {
       if (!linkedDirty[id]) $(id).value = v;
+    });
+  }
+
+  // Per-site 3rd octet mirrors the shared field by default (preference
+  // is the same value across all sites), editable per site if needed.
+  var THIRD_OCTET_LINKED = ['ave-3rd-oct', 'lmk-3rd-oct', 'yer-3rd-oct'];
+  var thirdOctetDirty = {};
+
+  function syncThirdOctetFromShared() {
+    var v = $('shared-3rd-oct').value;
+    THIRD_OCTET_LINKED.forEach(function (id) {
+      if (!thirdOctetDirty[id]) $(id).value = v;
+    });
+  }
+
+  function updateAddressPreviews() {
+    ['ave', 'lmk', 'yer'].forEach(function (loc) {
+      var thirdOct = $(loc + '-3rd-oct').value || '?';
+      var lastOct = $(loc + '-4oct').value || '?';
+      var port = $(loc + '-port').value || '?';
+      $(loc + '-addr-preview').textContent =
+        STATIC_PREFIX[loc] + '.' + thirdOct + '.' + lastOct + ':' + port;
     });
   }
 
@@ -579,11 +628,16 @@
   }
 
   function collectLocations() {
-    return {
-      ave: { udp_ip_3_oct: $('ave-3oct').value, udp_ip_4_oct: Number($('ave-4oct').value), port: Number($('ave-port').value) },
-      lmk: { udp_ip_3_oct: $('lmk-3oct').value, udp_ip_4_oct: Number($('lmk-4oct').value), port: Number($('lmk-port').value) },
-      yer: { udp_ip_3_oct: $('yer-3oct').value, udp_ip_4_oct: Number($('yer-4oct').value), port: Number($('yer-port').value) }
-    };
+    var locs = {};
+    ['ave', 'lmk', 'yer'].forEach(function (loc) {
+      var thirdOct = $(loc + '-3rd-oct').value.trim();
+      locs[loc] = {
+        udp_ip_3_oct: STATIC_PREFIX[loc] + '.' + thirdOct,
+        udp_ip_4_oct: Number($(loc + '-4oct').value),
+        port: Number($(loc + '-port').value)
+      };
+    });
+    return locs;
   }
 
   function collectChannelParams() {
@@ -832,6 +886,21 @@
   LINKED_TO_FIRST_CH.forEach(function (id) {
     $(id).addEventListener('input', function () { linkedDirty[id] = true; });
   });
+
+  $('shared-3rd-oct').addEventListener('input', syncThirdOctetFromShared);
+  THIRD_OCTET_LINKED.forEach(function (id) {
+    $(id).addEventListener('input', function () { thirdOctetDirty[id] = true; });
+  });
+
+  var ADDR_PREVIEW_FIELDS = [
+    'ave-3rd-oct', 'lmk-3rd-oct', 'yer-3rd-oct',
+    'ave-4oct', 'lmk-4oct', 'yer-4oct',
+    'ave-port', 'lmk-port', 'yer-port'
+  ];
+  ADDR_PREVIEW_FIELDS.forEach(function (id) { $(id).addEventListener('input', updateAddressPreviews); });
+  $('first-ch').addEventListener('input', updateAddressPreviews);
+  $('shared-3rd-oct').addEventListener('input', updateAddressPreviews);
+  updateAddressPreviews();
 
 })();
 </script>

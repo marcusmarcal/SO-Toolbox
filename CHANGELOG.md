@@ -7,6 +7,23 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.26.4] - 2026-07-13
+
+### Fixed
+
+- Stream addresses could be generated incomplete (e.g. ".35:21216")
+  due to a stale empty value persisted in localStorage from an earlier
+  form version. Storage key bumped to invalidate old state.
+
+### Changed
+
+- Reworked IP octet configuration: first two octets are now fixed per
+  site (display-only), third octet is a shared field applied to all
+  sites (still editable per site), last octet continues to follow
+  First CH#. Ports are now read-only per site.
+- Added a live address preview per site (AVE/LMK/YER) so the final
+  multicast address is visible before submitting.
+
 ## [2.26.3] - 2026-07-13
 
 ### Changed
