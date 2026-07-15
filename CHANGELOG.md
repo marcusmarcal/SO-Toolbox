@@ -7,6 +7,29 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.28.0] - 2026-07-15
+
+### Added
+
+- SRT ingest jobs now automatically retry connecting until the user explicitly
+  stops them, instead of ending on the first ffmpeg failure.
+- Per-job restart endpoint and button, independent from other jobs.
+- Last error message per job is captured and shown live in the Bitrate
+  Monitor when a job is reconnecting or has failed.
+- "Clear Finished Jobs" button to remove stopped/error jobs from the list.
+
+### Changed
+
+- Job status model extended: starting, running, reconnecting, stopping,
+  stopped, error (finished status removed, replaced by stopped).
+- SSE stream for job stats now also emits a status event with status,
+  last_error and retry_count whenever the job state changes.
+
+### Fixed
+
+- Job dict now stores full launch configuration (input file, host, port,
+  passphrase, bitrate, mode), required to support relaunching a job.
+
 ## [2.27.0] - 2026-07-15
 
 ### Added

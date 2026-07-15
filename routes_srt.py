@@ -3,6 +3,12 @@ SRT Ingest Router Blueprint
 Handles SRT ingest routes: single destination and multi-destination (port range).
 Streams ffmpeg stderr stats (bitrate, speed, time) via SSE per job.
 
+Jobs are persistent: unless the user explicitly stops a job, the reader
+thread keeps relaunching ffmpeg after a short delay whenever the process
+exits (connection refused, network drop, etc). Each job can also be
+stopped/restarted individually, and error output from the last failed
+attempt is kept so it can be inspected from the Bitrate Monitor.
+
 Also handles SRT Push Control routes: monitoring and controlling the
 srt-push systemd service (Xvfb + Chromium + ffmpeg screen-to-SRT pipeline).
 """
@@ -21,7 +27,7 @@ from flask import Blueprint, request, jsonify, render_template, Response, stream
 
 srt_bp = Blueprint("srt_bp", __name__, url_prefix="/srt")
 
-# Track running ffmpeg processes: { job_id: { process, config, stats_buf } }
+# Track running ffmpeg processes: { job_id: { process, config, stats_buf, ... } }
 _running_jobs: dict = {}
 _jobs_lock = threading.Lock()
 _job_counter = 0
@@ -30,6 +36,17 @@ _job_counter = 0
 CBR_DEFAULT_MBPS = 8.0
 CBR_BUFSIZE_FACTOR = 2  # bufsize = bitrate * factor
 TS_SOURCE_DIR = "/opt/web/store/gop-results"
+
+# Delay before an unattended job auto-reconnects after ffmpeg exits.
+RETRY_DELAY_SECONDS = 3
+
+# Job statuses:
+#   starting     - initial launch in progress
+#   running      - ffmpeg is up and streaming
+#   reconnecting - ffmpeg exited unexpectedly, waiting to relaunch automatically
+#   stopping     - SIGTERM sent, waiting for ffmpeg to exit
+#   stopped      - user explicitly stopped the job (no auto-retry)
+#   error        - ffmpeg could not even be launched (e.g. missing binary/file)
 
 
 def _next_job_id() -> int:
@@ -129,6 +146,98 @@ def _parse_ffmpeg_line(line: str) -> Optional[dict]:
     }
 
 
+def _launch_process(job: dict) -> None:
+    """Start (or relaunch) the ffmpeg subprocess for an existing job dict,
+    using its stored configuration. Mutates the job dict in place.
+    Raises OSError if the process cannot be spawned at all.
+    """
+    cmd = _build_ffmpeg_cmd(
+        job["input_file"], job["host"], job["port"], job["passphrase"],
+        job["bitrate_mbps"], job["passthrough"],
+    )
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
+        bufsize=1,
+    )
+    job["process"] = process
+    job["pid"] = process.pid
+    job["cmd"] = " ".join(cmd)
+    job["status"] = "running"
+    job["stats_buf"].clear()
+    job["last_stat"] = None
+
+
+def _job_reader_thread(job_id: int) -> None:
+    """Owns the full lifecycle of a job's ffmpeg process(es).
+
+    Reads stderr into stats_buf/error_log while the process is alive. When
+    the process exits, it auto-relaunches after RETRY_DELAY_SECONDS unless
+    the job has been explicitly stopped (stop_requested). This is what keeps
+    a job trying to connect indefinitely until the user stops it.
+    """
+    while True:
+        with _jobs_lock:
+            job = _running_jobs.get(job_id)
+            proc = job["process"] if job else None
+
+        if job is None:
+            return
+
+        if proc is None:
+            # No live process (previous launch attempt failed) — wait, then retry.
+            time.sleep(RETRY_DELAY_SECONDS)
+            with _jobs_lock:
+                job = _running_jobs.get(job_id)
+                if job is None or job.get("stop_requested"):
+                    return
+                try:
+                    _launch_process(job)
+                except OSError as e:
+                    job["status"] = "error"
+                    job["last_error"] = f"Failed to launch ffmpeg: {e}"
+                    job["retry_count"] = job.get("retry_count", 0) + 1
+            continue
+
+        buf = ""
+        for chunk in iter(lambda: proc.stderr.read(256), ""):
+            buf += chunk
+            while "\r" in buf or "\n" in buf:
+                sep = "\r" if "\r" in buf else "\n"
+                line, buf = buf.split(sep, 1)
+                stat = _parse_ffmpeg_line(line)
+                with _jobs_lock:
+                    j = _running_jobs.get(job_id)
+                    if j is None:
+                        return
+                    if stat:
+                        j["stats_buf"].append(stat)
+                        j["last_stat"] = stat
+                    elif line.strip():
+                        j["error_log"].append(line.strip())
+        proc.wait()
+
+        with _jobs_lock:
+            job = _running_jobs.get(job_id)
+            if job is None:
+                return
+            if job.get("stop_requested"):
+                job["status"] = "stopped"
+                job["process"] = None
+                return
+            job["last_error"] = (
+                job["error_log"][-1] if job["error_log"]
+                else f"ffmpeg exited with code {proc.returncode}"
+            )
+            job["status"] = "reconnecting"
+            job["retry_count"] = job.get("retry_count", 0) + 1
+            job["process"] = None
+
+        time.sleep(RETRY_DELAY_SECONDS)
+
+
 def _launch_job(
     input_file: str,
     host: str,
@@ -137,60 +246,42 @@ def _launch_job(
     bitrate_mbps: float = CBR_DEFAULT_MBPS,
     passthrough: bool = False,
 ) -> dict:
-    """Launch a single ffmpeg process and register it."""
+    """Create a job record and launch its ffmpeg process for the first time."""
     job_id = _next_job_id()
-    cmd = _build_ffmpeg_cmd(input_file, host, port, passphrase, bitrate_mbps, passthrough)
-
-    process = subprocess.Popen(
-        cmd,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-        text=True,
-        bufsize=1,
-    )
 
     job = {
         "id": job_id,
         "host": host,
         "port": port,
-        "pid": process.pid,
+        "passphrase": passphrase,
+        "input_file": input_file,
         "bitrate_mbps": bitrate_mbps,
         "passthrough": passthrough,
         "mode": "passthrough" if passthrough else "transcode",
-        "status": "running",
-        "process": process,
-        "cmd": " ".join(cmd),
+        "status": "starting",
+        "process": None,
+        "pid": None,
+        "cmd": "",
         # Ring buffer: last 300 stat samples (~5 min at 1 sample/s)
         "stats_buf": deque(maxlen=300),
         "last_stat": None,
+        # Ring buffer of raw non-progress stderr lines, for diagnostics.
+        "error_log": deque(maxlen=40),
+        "last_error": None,
+        "stop_requested": False,
+        "retry_count": 0,
     }
 
     with _jobs_lock:
         _running_jobs[job_id] = job
 
-    def _read_stderr(jid: int, proc: subprocess.Popen) -> None:
-        """Read ffmpeg stderr, parse progress lines into stats_buf."""
-        buf = ""
-        for chunk in iter(lambda: proc.stderr.read(256), ""):
-            buf += chunk
-            # ffmpeg progress lines end with \r
-            while "\r" in buf or "\n" in buf:
-                sep = "\r" if "\r" in buf else "\n"
-                line, buf = buf.split(sep, 1)
-                stat = _parse_ffmpeg_line(line)
-                if stat:
-                    with _jobs_lock:
-                        if jid in _running_jobs:
-                            _running_jobs[jid]["stats_buf"].append(stat)
-                            _running_jobs[jid]["last_stat"] = stat
-        proc.wait()
-        with _jobs_lock:
-            if jid in _running_jobs:
-                _running_jobs[jid]["status"] = (
-                    "finished" if proc.returncode == 0 else "error"
-                )
+    try:
+        _launch_process(job)
+    except OSError as e:
+        job["status"] = "error"
+        job["last_error"] = f"Failed to launch ffmpeg: {e}"
 
-    threading.Thread(target=_read_stderr, args=(job_id, process), daemon=True).start()
+    threading.Thread(target=_job_reader_thread, args=(job_id,), daemon=True).start()
     return job
 
 
@@ -206,6 +297,8 @@ def _job_info(job: dict) -> dict:
         "mode": job["mode"],
         "status": job["status"],
         "last_stat": job.get("last_stat"),
+        "retry_count": job.get("retry_count", 0),
+        "last_error": job.get("last_error"),
     }
 
 
@@ -224,6 +317,7 @@ def ingest_single():
     """
     Start a single SRT ingest.
     Body JSON: { host, port, passphrase, input_file?, bitrate_mbps? }
+    The job keeps retrying to connect automatically until stopped.
     """
     data = request.get_json(force=True)
     host = data.get("host", "").strip()
@@ -247,6 +341,7 @@ def ingest_multi():
     """
     Start ingest to multiple SRT destinations (port range).
     Body JSON: { host, port_start, port_end, passphrase, input_file?, bitrate_mbps? }
+    Each destination job keeps retrying to connect automatically until stopped.
     """
     data = request.get_json(force=True)
     host = data.get("host", "").strip()
@@ -297,39 +392,117 @@ def get_job(job_id: int):
 
 @srt_bp.route("/jobs/<int:job_id>/stop", methods=["POST"])
 def stop_job(job_id: int):
-    """Stop (SIGTERM) a running ingest job."""
+    """Stop a job for good (SIGTERM). Disables auto-reconnect for this job."""
     with _jobs_lock:
         job = _running_jobs.get(job_id)
-    if not job:
-        return jsonify({"error": "Job not found"}), 404
-    if job["status"] != "running":
-        return jsonify({"error": "Job is not running"}), 400
+        if not job:
+            return jsonify({"error": "Job not found"}), 404
+        if job["status"] not in ("running", "reconnecting", "starting", "stopping"):
+            return jsonify({"error": "Job is not running"}), 400
 
-    try:
-        os.kill(job["pid"], signal.SIGTERM)
-        job["status"] = "stopping"
-    except ProcessLookupError:
-        job["status"] = "finished"
+        job["stop_requested"] = True
+        proc = job["process"]
+        if proc is not None:
+            try:
+                os.kill(proc.pid, signal.SIGTERM)
+                job["status"] = "stopping"
+            except ProcessLookupError:
+                job["status"] = "stopped"
+        else:
+            # Currently waiting between reconnect attempts — nothing to kill.
+            job["status"] = "stopped"
+        info = _job_info(job)
 
-    return jsonify({"message": "Stop signal sent", "job": _job_info(job)})
+    return jsonify({"message": "Stop signal sent", "job": info})
+
+
+@srt_bp.route("/jobs/<int:job_id>/restart", methods=["POST"])
+def restart_job(job_id: int):
+    """
+    Restart a single job using its stored configuration (host, port,
+    passphrase, bitrate, source file). Works whether the job is currently
+    running (forces a fresh reconnect) or stopped/errored (relaunches it).
+    """
+    with _jobs_lock:
+        job = _running_jobs.get(job_id)
+        if not job:
+            return jsonify({"error": "Job not found"}), 404
+
+        job["stop_requested"] = False
+        job["retry_count"] = 0
+        job["last_error"] = None
+        proc = job["process"]
+        currently_alive = proc is not None and job["status"] in (
+            "running", "reconnecting", "starting", "stopping"
+        )
+        pid = proc.pid if proc is not None else None
+
+    if currently_alive:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        # The reader thread will pick up the exit and relaunch automatically
+        # since stop_requested is now False (same path as auto-reconnect).
+        with _jobs_lock:
+            info = _job_info(_running_jobs[job_id])
+        return jsonify({"message": "Restart requested, reconnecting shortly", "job": info})
+
+    # Job was stopped/errored — its reader thread has already exited, so
+    # relaunch here and start a fresh reader thread for it.
+    with _jobs_lock:
+        job = _running_jobs.get(job_id)
+        if not job:
+            return jsonify({"error": "Job not found"}), 404
+        try:
+            _launch_process(job)
+        except OSError as e:
+            job["status"] = "error"
+            job["last_error"] = f"Failed to launch ffmpeg: {e}"
+            return jsonify({"error": job["last_error"]}), 500
+        info = _job_info(job)
+
+    threading.Thread(target=_job_reader_thread, args=(job_id,), daemon=True).start()
+    return jsonify({"message": "Job restarted", "job": info}), 200
 
 
 @srt_bp.route("/jobs/stop-all", methods=["POST"])
 def stop_all_jobs():
-    """Stop all running ingest jobs."""
+    """Stop all active jobs (running/reconnecting/starting). Disables auto-reconnect for each."""
     stopped = []
     with _jobs_lock:
         for job in _running_jobs.values():
-            if job["status"] == "running":
-                try:
-                    os.kill(job["pid"], signal.SIGTERM)
-                    job["status"] = "stopping"
-                    stopped.append(job["id"])
-                except ProcessLookupError:
-                    job["status"] = "finished"
+            if job["status"] in ("running", "reconnecting", "starting", "stopping"):
+                job["stop_requested"] = True
+                proc = job["process"]
+                if proc is not None:
+                    try:
+                        os.kill(proc.pid, signal.SIGTERM)
+                        job["status"] = "stopping"
+                    except ProcessLookupError:
+                        job["status"] = "stopped"
+                else:
+                    job["status"] = "stopped"
+                stopped.append(job["id"])
 
     return jsonify({"message": f"Stopped {len(stopped)} jobs", "stopped_ids": stopped})
 
+
+@srt_bp.route("/jobs/clear", methods=["POST"])
+def clear_jobs():
+    """
+    Remove all finished jobs (stopped/error) from the list. Active jobs
+    (running/reconnecting/starting/stopping) are left untouched — stop them
+    first so their ffmpeg process is cleaned up properly.
+    """
+    removed = []
+    with _jobs_lock:
+        for jid, job in list(_running_jobs.items()):
+            if job["status"] in ("stopped", "error"):
+                del _running_jobs[jid]
+                removed.append(jid)
+
+    return jsonify({"message": f"Cleared {len(removed)} jobs", "removed_ids": removed})
 
 
 @srt_bp.route("/sources", methods=["GET"])
@@ -352,11 +525,12 @@ def list_sources():
     return jsonify({"sources": sources})
 
 
-
 @srt_bp.route("/jobs/<int:job_id>/stats", methods=["GET"])
 def job_stats_sse(job_id: int):
     """
-    SSE stream: sends a JSON stat event every second for the given job.
+    SSE stream: sends a JSON stat event every 0.5s for the given job, plus a
+    "status" event whenever the job's status/last_error changes (so the
+    client can show reconnect attempts and error details live).
     Clients connect once per job and receive live bitrate/fps/frame data.
     """
     with _jobs_lock:
@@ -367,6 +541,8 @@ def job_stats_sse(job_id: int):
     @stream_with_context
     def _generate():
         last_idx = 0
+        last_status = None
+        last_error = None
         while True:
             with _jobs_lock:
                 j = _running_jobs.get(job_id)
@@ -374,18 +550,25 @@ def job_stats_sse(job_id: int):
                 yield "event: done\ndata: {}\n\n"
                 break
 
+            if j["status"] != last_status or j.get("last_error") != last_error:
+                last_status = j["status"]
+                last_error = j.get("last_error")
+                yield "event: status\ndata: " + json.dumps({
+                    "status": last_status,
+                    "last_error": last_error,
+                    "retry_count": j.get("retry_count", 0),
+                }) + "\n\n"
+
             buf = list(j["stats_buf"])
             new = buf[last_idx:]
             last_idx = len(buf)
 
             if new:
-                import json as _json
                 for stat in new:
-                    yield f"data: {_json.dumps(stat)}\n\n"
+                    yield f"data: {json.dumps(stat)}\n\n"
 
-            if j["status"] in ("finished", "error", "stopping"):
-                import json as _json
-                yield f"event: done\ndata: {_json.dumps({'status': j['status']})}\n\n"
+            if j["status"] in ("stopped", "error"):
+                yield f"event: done\ndata: {json.dumps({'status': j['status']})}\n\n"
                 break
 
             time.sleep(0.5)
@@ -572,7 +755,7 @@ def push_set_config():
                 return jsonify({"error": f"Invalid value for '{key}'"}), 400
 
     _save_push_config(cfg)
-    
+
     # Em vez de esperar o systemctl síncrono, joga para o background
     try:
         subprocess.Popen(["bash", "-c", f"sleep 1 && systemctl restart {PUSH_SERVICE_NAME}"])
@@ -589,7 +772,7 @@ def push_service_action(action: str):
     """Control the srt-push systemd service in background. action: start | stop | restart."""
     if action not in ("start", "stop", "restart"):
         return jsonify({"error": "Invalid action, use start/stop/restart"}), 400
-        
+
     try:
         # Dispara a ação do systemctl em background para o Flask responder na hora
         subprocess.Popen(["bash", "-c", f"sleep 0.5 && systemctl {action} {PUSH_SERVICE_NAME}"])

@@ -131,17 +131,36 @@
     .job-status {
       font-size: 10px; padding: 3px 8px; border-radius: 20px; letter-spacing: .08em;
     }
-    .status-running  { background:rgba(0,255,136,.12); color:var(--green);  border:1px solid rgba(0,255,136,.3); }
-    .status-stopping { background:rgba(255,209,102,.12);color:var(--yellow); border:1px solid rgba(255,209,102,.3); }
-    .status-error    { background:rgba(255,59,92,.12);  color:var(--red);   border:1px solid rgba(255,59,92,.3); }
-    .status-finished { background:rgba(74,90,110,.2);   color:var(--muted); border:1px solid var(--border); }
-    .btn-stop-job {
+    .status-running      { background:rgba(0,255,136,.12); color:var(--green);  border:1px solid rgba(0,255,136,.3); }
+    .status-starting     { background:rgba(0,212,255,.12); color:var(--accent); border:1px solid rgba(0,212,255,.3); }
+    .status-reconnecting { background:rgba(255,209,102,.12);color:var(--yellow); border:1px solid rgba(255,209,102,.3); animation:blink-status 1.2s ease-in-out infinite; }
+    .status-stopping     { background:rgba(255,209,102,.12);color:var(--yellow); border:1px solid rgba(255,209,102,.3); }
+    .status-error        { background:rgba(255,59,92,.12);  color:var(--red);   border:1px solid rgba(255,59,92,.3); }
+    .status-stopped      { background:rgba(74,90,110,.2);   color:var(--muted); border:1px solid var(--border); }
+    .status-finished     { background:rgba(74,90,110,.2);   color:var(--muted); border:1px solid var(--border); }
+    @keyframes blink-status { 0%,100% { opacity:1; } 50% { opacity:.5; } }
+    .job-actions { display:flex; gap:6px; }
+    .btn-stop-job, .btn-restart-job {
       width:auto; margin:0; padding:4px 10px; font-size:10px;
-      background:transparent; border:1px solid var(--red); color:var(--red);
-      border-radius:3px; cursor:pointer; font-family:var(--mono); letter-spacing:.08em;
+      background:transparent; border-radius:3px; cursor:pointer; font-family:var(--mono); letter-spacing:.08em;
       transition:background .15s;
     }
+    .btn-stop-job { border:1px solid var(--red); color:var(--red); }
     .btn-stop-job:hover { background:rgba(255,59,92,.15); }
+    .btn-restart-job { border:1px solid var(--accent); color:var(--accent); }
+    .btn-restart-job:hover { background:rgba(0,212,255,.15); }
+    .btn-clear-jobs { background:transparent; border:1px solid var(--muted); color:var(--muted); }
+    .btn-clear-jobs:hover { background:rgba(74,90,110,.15); color:var(--text); }
+    .job-error-line {
+      grid-column: 1 / -1; font-size:10px; color:var(--red); opacity:.85;
+      margin-top:4px; word-break:break-all;
+    }
+    .monitor-error-box {
+      display:none; margin-top:14px; padding:10px 12px; border-radius:3px;
+      background:rgba(255,59,92,.08); border:1px solid rgba(255,59,92,.3);
+      font-family:var(--mono); font-size:11px; color:var(--red); word-break:break-all;
+    }
+    .monitor-error-box.show { display:block; }
 
     .host-combo { display: flex; gap: 8px; }
     .host-combo select {
@@ -335,6 +354,8 @@
         <div class="cstat-val" id="cs-time">—</div>
       </div>
     </div>
+
+    <div class="monitor-error-box" id="monitor-error-box"></div>
   </div>
 
   <!-- Jobs monitor — full width -->
@@ -343,7 +364,7 @@
     <div class="stats-bar">
       <div><span class="stat-val" id="stat-total">0</span>Total</div>
       <div><span class="stat-val" id="stat-running" style="color:var(--green)">0</span>Running</div>
-      <div><span class="stat-val" id="stat-done" style="color:var(--muted)">0</span>Finished</div>
+      <div><span class="stat-val" id="stat-done" style="color:var(--muted)">0</span>Stopped</div>
       <div><span class="stat-val" id="stat-err" style="color:var(--red)">0</span>Errors</div>
     </div>
     <div class="jobs-list" id="jobs-list">
@@ -351,6 +372,7 @@
     </div>
     <button class="btn-refresh" onclick="refreshJobs()" style="margin-top:14px;">↻ Refresh</button>
     <button class="btn-stop-all" onclick="stopAll()">■ Stop All Jobs</button>
+    <button class="btn-clear-jobs" onclick="clearJobs()">🗑 Clear Finished Jobs</button>
   </div>
 
 </div><!-- /layout -->
@@ -519,7 +541,22 @@ function switchJob() {
   chartData.length = 0;
   // Update target stat box
   document.getElementById('cs-target').textContent = watchedPassthrough ? 'passthrough' : `${targetMbps} Mbps`;
+  hideMonitorError();
   connectSSE(jid);
+}
+
+function showMonitorError(status, lastError, retryCount) {
+  const box = document.getElementById('monitor-error-box');
+  if (!lastError) { hideMonitorError(); return; }
+  const label = status === 'reconnecting' ? `Reconnect attempt #${retryCount} failed` : 'Last error';
+  box.innerHTML = `<b>${label}:</b> ${esc(lastError)}`;
+  box.classList.add('show');
+}
+
+function hideMonitorError() {
+  const box = document.getElementById('monitor-error-box');
+  box.classList.remove('show');
+  box.innerHTML = '';
 }
 
 function connectSSE(jobId) {
@@ -562,21 +599,47 @@ function connectSSE(jobId) {
     drawChart();
   };
 
-  activeSSE.addEventListener('done', () => {
-    disconnectSSE(true);
+  activeSSE.addEventListener('status', (e) => {
+    const s = JSON.parse(e.data);
+    const badge = document.getElementById('live-badge');
+    badge.style.color = '';
+    if (s.status === 'running') {
+      badge.textContent = '● LIVE';
+      badge.classList.remove('off');
+      hideMonitorError();
+    } else if (s.status === 'reconnecting') {
+      badge.textContent = '● RECONNECTING';
+      badge.classList.add('off');
+      badge.style.color = 'var(--yellow)';
+      showMonitorError(s.status, s.last_error, s.retry_count);
+    } else if (s.status === 'error') {
+      badge.textContent = '● ERROR';
+      badge.classList.add('off');
+      badge.style.color = 'var(--red)';
+      showMonitorError(s.status, s.last_error, s.retry_count);
+    } else if (s.status === 'stopping' || s.status === 'starting') {
+      badge.textContent = `● ${s.status.toUpperCase()}`;
+      badge.classList.add('off');
+    }
+  });
+
+  activeSSE.addEventListener('done', (e) => {
+    const d = e.data ? JSON.parse(e.data) : {};
+    disconnectSSE(d.status === 'stopped' ? 'stopped' : 'error');
   });
 
   activeSSE.onerror = () => {
-    badge.textContent = '● ERROR';
+    badge.textContent = '● CONNECTION LOST';
     badge.style.color = 'var(--red)';
   };
 }
 
-function disconnectSSE(finished = false) {
+function disconnectSSE(endStatus = null) {
   if (activeSSE) { activeSSE.close(); activeSSE = null; }
   watchedJobId = null;
   const badge = document.getElementById('live-badge');
-  badge.textContent = finished ? '● DONE' : '● IDLE';
+  badge.style.color = '';
+  badge.textContent = endStatus === 'stopped' ? '● STOPPED' : endStatus === 'error' ? '● ERROR' : '● IDLE';
   badge.classList.add('off');
 }
 
@@ -700,6 +763,26 @@ async function stopJob(id) {
   } catch(e) { toast('Network error','err'); }
 }
 
+async function restartJob(id) {
+  try {
+    const r = await fetch(`${BASE}/jobs/${id}/restart`, { method:'POST' });
+    const d = await r.json();
+    if (!r.ok) { toast(d.error || 'Error','err'); return; }
+    toast(`Job #${id} restarting…`,'info');
+    refreshJobs();
+  } catch(e) { toast('Network error','err'); }
+}
+
+async function clearJobs() {
+  try {
+    const r = await fetch(`${BASE}/jobs/clear`, { method:'POST' });
+    const d = await r.json();
+    if (!r.ok) { toast(d.error || 'Error','err'); return; }
+    toast(d.message,'info');
+    refreshJobs();
+  } catch(e) { toast('Network error','err'); }
+}
+
 async function stopAll() {
   try {
     const r = await fetch(`${BASE}/jobs/stop-all`, { method:'POST' });
@@ -721,8 +804,8 @@ function renderJobs(jobs) {
   const list  = document.getElementById('jobs-list');
   const sel   = document.getElementById('job-select');
   const total   = jobs.length;
-  const running = jobs.filter(j => j.status === 'running').length;
-  const done    = jobs.filter(j => j.status === 'finished').length;
+  const running = jobs.filter(j => ['running','starting','reconnecting'].includes(j.status)).length;
+  const done    = jobs.filter(j => j.status === 'stopped' || j.status === 'finished').length;
   const errs    = jobs.filter(j => j.status === 'error').length;
 
   document.getElementById('stat-total').textContent   = total;
@@ -749,15 +832,25 @@ function renderJobs(jobs) {
     return;
   }
 
+  const activeStatuses = ['running','starting','reconnecting','stopping'];
+
   list.innerHTML = jobs.slice().reverse().map(j => {
     const last = j.last_stat;
     const br   = last ? `<span style="color:var(--accent);margin-left:8px">${last.bitrate}</span>` : '';
+    const statusLabel = j.status === 'reconnecting' ? `reconnecting${j.retry_count ? ' #'+j.retry_count : ''}` : j.status;
+    const isActive = activeStatuses.includes(j.status);
+    const actions = isActive
+      ? `<button class="btn-stop-job" onclick="stopJob(${j.id})">STOP</button>`
+      : `<button class="btn-restart-job" onclick="restartJob(${j.id})">↻ RESTART</button>`;
+    const errorLine = (j.last_error && (j.status === 'error' || j.status === 'reconnecting'))
+      ? `<div class="job-error-line">⚠ ${esc(j.last_error)}</div>` : '';
     return `
       <div class="job-item">
         <span class="job-id">#${j.id}</span>
-        <span class="job-dest">${j.host}:<b>${j.port}</b> <span style="color:var(--muted);font-size:10px">pid:${j.pid}</span> <span style="font-size:9px;padding:2px 5px;border-radius:2px;background:${j.mode==="passthrough"?"rgba(255,107,53,.15)":"rgba(0,212,255,.1)"};color:${j.mode==="passthrough"?"var(--accent2)":"var(--accent)"}">${j.mode||"transcode"}</span>${br}</span>
-        <span class="job-status status-${j.status}">${j.status}</span>
-        ${j.status === 'running' ? `<button class="btn-stop-job" onclick="stopJob(${j.id})">STOP</button>` : '<span></span>'}
+        <span class="job-dest">${j.host}:<b>${j.port}</b> <span style="color:var(--muted);font-size:10px">pid:${j.pid ?? '—'}</span> <span style="font-size:9px;padding:2px 5px;border-radius:2px;background:${j.mode==="passthrough"?"rgba(255,107,53,.15)":"rgba(0,212,255,.1)"};color:${j.mode==="passthrough"?"var(--accent2)":"var(--accent)"}">${j.mode||"transcode"}</span>${br}</span>
+        <span class="job-status status-${j.status}">${statusLabel}</span>
+        <div class="job-actions">${actions}</div>
+        ${errorLine}
       </div>`;
   }).join('');
 }
