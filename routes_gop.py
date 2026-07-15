@@ -1015,58 +1015,174 @@ def gop_jobs_running():
     return jsonify(running)
 
 
+# ── Results index cache ──────────────────────────────────────────────────
+# GOP_DIR can hold thousands of result JSON files. Re-parsing every file on
+# every /gop/results request doesn't scale, so we keep an in-memory index
+# keyed by filename, invalidated per-file via mtime. Only new/changed files
+# are (re)parsed; deleted files are dropped from the cache automatically.
+_results_cache = {}          # filename -> {"mtime": float, "item": dict}
+_results_cache_lock = threading.Lock()
+
+
+def _parse_result_item(f, path):
+    with open(path) as fh:
+        d = json.load(fh)
+    override      = d.get("override")
+    raw_status    = d.get("status", "done")
+    raw_ov_status = d.get("overall_status", "UNKNOWN")
+    if override:
+        eff_status = "ACCEPTED (Override)"
+    elif raw_status in ("failed", "error"):
+        eff_status = raw_status.upper()
+    else:
+        eff_status = raw_ov_status
+
+    v_fps_val        = d.get("v_fps_val", 0)
+    v_fps_compliance = d.get("v_fps_compliance", v_fps_val)
+    v_scan           = d.get("v_scan", "progressive")
+    return {
+        "file":             f,
+        "url":              d.get("url", ""),
+        "url_host":         d.get("url_host", ""),
+        "url_port":         d.get("url_port", ""),
+        "tag":              d.get("tag", ""),
+        "username":         d.get("username", "anonymous"),
+        "started_at":       d.get("started_at", ""),
+        "ended_at":         d.get("ended_at", ""),
+        "has_idr":          d.get("has_idr", False),
+        "has_b_frames":     d.get("has_b_frames", False),
+        "gop_type":         d.get("gop_type", ""),
+        "gop_avg":          d.get("gop_avg", 0),
+        "v_codec":          d.get("v_codec", ""),
+        "v_width":          d.get("v_width", 0),
+        "v_height":         d.get("v_height", 0),
+        "v_fps_val":        v_fps_val,
+        "v_fps_compliance": v_fps_compliance,
+        "v_scan":           v_scan,
+        "run_status":       raw_status,
+        "overall_status":   eff_status,
+        "override":         override,
+        "error":            d.get("error", ""),
+        "ts_file":          d.get("ts_file"),
+        "is_scheduled":     d.get("is_scheduled", False),
+        "log_count":        len(d.get("log", [])),
+        "test_id":          d.get("test_id", ""),
+    }
+
+
+def _get_results_index():
+    """Return all result items (list of dicts), sorted by filename desc,
+    using the mtime-invalidated in-memory cache to avoid re-reading every
+    JSON file from disk on every request."""
+    with _results_cache_lock:
+        try:
+            files = [f for f in os.listdir(GOP_DIR) if f.endswith(".json")]
+        except FileNotFoundError:
+            files = []
+
+        seen = set(files)
+        for stale in set(_results_cache) - seen:
+            del _results_cache[stale]
+
+        for f in files:
+            path = os.path.join(GOP_DIR, f)
+            try:
+                mtime = os.path.getmtime(path)
+            except OSError:
+                continue
+            cached = _results_cache.get(f)
+            if cached is not None and cached["mtime"] == mtime:
+                continue
+            try:
+                item = _parse_result_item(f, path)
+            except Exception:
+                continue
+            _results_cache[f] = {"mtime": mtime, "item": item}
+
+        items = [v["item"] for v in _results_cache.values()]
+        items.sort(key=lambda it: it["file"], reverse=True)
+        return items
+
+
+def _host_labels():
+    """Build IP -> friendly label map from SRT_LOCAL_* env presets, so the
+    server-side text search matches the same labels the frontend shows via
+    resolveHost() instead of only raw IPs."""
+    labels = {}
+    for k, v in os.environ.items():
+        if re.match(r"^SRT_LOCAL_\d+$", k):
+            ip, _, label = (v or "").partition("|")
+            ip = ip.strip()
+            if ip:
+                labels[ip] = (label or ip).strip()
+    return labels
+
+
 @gop_bp.route("/gop/results", methods=["GET"])
 def gop_results():
-    files = sorted([f for f in os.listdir(GOP_DIR) if f.endswith(".json")], reverse=True)
-    items = []
-    for f in files[:500]:
-        try:
-            with open(os.path.join(GOP_DIR, f)) as fh:
-                d = json.load(fh)
-            override      = d.get("override")
-            raw_status    = d.get("status", "done")
-            raw_ov_status = d.get("overall_status", "UNKNOWN")
-            if override:
-                eff_status = "ACCEPTED (Override)"
-            elif raw_status in ("failed", "error"):
-                eff_status = raw_status.upper()
-            else:
-                eff_status = raw_ov_status
+    search = (request.args.get("search") or "").strip().lower()
+    date   = (request.args.get("date") or "").strip()
+    tag    = (request.args.get("tag") or "").strip().lower()
+    server = (request.args.get("server") or "").strip()
+    user   = (request.args.get("user") or "").strip().lower()
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except ValueError:
+        page = 1
+    try:
+        page_size = int(request.args.get("page_size", 50))
+    except ValueError:
+        page_size = 50
+    page_size = max(1, min(page_size, 200))
 
-            v_fps_val        = d.get("v_fps_val", 0)
-            v_fps_compliance = d.get("v_fps_compliance", v_fps_val)
-            v_scan           = d.get("v_scan", "progressive")
-            items.append({
-                "file":             f,
-                "url":              d.get("url", ""),
-                "url_host":         d.get("url_host", ""),
-                "url_port":         d.get("url_port", ""),
-                "tag":              d.get("tag", ""),
-                "username":         d.get("username", "anonymous"),
-                "started_at":       d.get("started_at", ""),
-                "ended_at":         d.get("ended_at", ""),
-                "has_idr":          d.get("has_idr", False),
-                "has_b_frames":     d.get("has_b_frames", False),
-                "gop_type":         d.get("gop_type", ""),
-                "gop_avg":          d.get("gop_avg", 0),
-                "v_codec":          d.get("v_codec", ""),
-                "v_width":          d.get("v_width", 0),
-                "v_height":         d.get("v_height", 0),
-                "v_fps_val":        v_fps_val,
-                "v_fps_compliance": v_fps_compliance,
-                "v_scan":           v_scan,
-                "run_status":       raw_status,
-                "overall_status":   eff_status,
-                "override":         override,
-                "error":            d.get("error", ""),
-                "ts_file":          d.get("ts_file"),
-                "is_scheduled":     d.get("is_scheduled", False),
-                "log_count":        len(d.get("log", [])),
-                "test_id":          d.get("test_id", ""),
-            })
-        except Exception:
-            pass
-    return jsonify(items)
+    all_items = _get_results_index()
+    labels = _host_labels() if search else {}
+
+    def matches(item):
+        if search:
+            haystack = " ".join(str(x or "").lower() for x in (
+                item.get("url_host"), labels.get(item.get("url_host"), ""),
+                item.get("url_port"), item.get("tag"), item.get("test_id"),
+                item.get("v_codec"), item.get("url"),
+            ))
+            if search not in haystack:
+                return False
+        if date and not (item.get("started_at") or "").startswith(date):
+            return False
+        if tag:
+            tag_parts = [t.strip().lower() for t in (item.get("tag") or "").split(",")]
+            if not any(tag in t for t in tag_parts):
+                return False
+        if server and item.get("url_host") != server:
+            return False
+        if user and user not in (item.get("username") or "anonymous").lower():
+            return False
+        return True
+
+    # Filters run against the FULL index (not just the current page), so
+    # search always covers the entire history, however many tests exist.
+    filtered = [it for it in all_items if matches(it)] if (search or date or tag or server or user) else all_items
+
+    total = len(filtered)
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    page = min(page, total_pages)
+    start = (page - 1) * page_size
+    page_items = filtered[start:start + page_size]
+
+    # Tag suggestions are built from the full index so the datalist/autocomplete
+    # always reflects the entire history, not just the current filtered page.
+    all_tags = sorted({
+        t.strip() for it in all_items for t in (it.get("tag") or "").split(",") if t.strip()
+    })
+
+    return jsonify({
+        "items":       page_items,
+        "total":       total,
+        "page":        page,
+        "page_size":   page_size,
+        "total_pages": total_pages,
+        "tags":        all_tags,
+    })
 
 
 @gop_bp.route("/gop/result/<path:filename>", methods=["GET"])

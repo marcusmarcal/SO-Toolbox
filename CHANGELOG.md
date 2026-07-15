@@ -7,6 +7,24 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.27.0] - 2026-07-15
+
+### Added
+
+- Server-side filtering and pagination for the GOP results history,
+  so search/tag/user/date filters cover the entire history instead
+  of only the 500 most recently created results
+- In-memory results index with mtime-based cache invalidation to
+  avoid re-parsing every JSON result file on each request
+- Numbered pagination controls in the History panel
+
+### Changed
+
+- GET /gop/results now returns a paginated object
+  (items, total, page, page_size, total_pages, tags) instead of a
+  flat array; filtering moved from client-side to query parameters
+  (search, date, tag, server, user, page, page_size)
+
 ## [2.26.5] - 2026-07-13
 
 ### Added

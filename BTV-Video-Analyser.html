@@ -732,6 +732,55 @@
         flex: 1;
         overflow-y: auto;
       }
+      .hist-pagination {
+        display: flex;
+        gap: 0.25rem;
+        padding: 0.35rem 0.55rem;
+        background: var(--bg3);
+        border-top: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .hist-page-info {
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        color: var(--muted);
+        margin-right: 0.4rem;
+      }
+      .hist-page-btn {
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        padding: 2px 7px;
+        cursor: pointer;
+        min-width: 22px;
+      }
+      .hist-page-btn:hover:not(:disabled) {
+        border-color: var(--purple);
+        color: var(--purple);
+      }
+      .hist-page-btn:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+      .hist-page-btn.active {
+        background: var(--purple);
+        border-color: var(--purple);
+        color: #fff;
+        cursor: default;
+      }
+      .hist-page-ellipsis {
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        color: var(--muted);
+        padding: 0 2px;
+      }
       .history-list::-webkit-scrollbar {
         width: 4px;
       }
@@ -1593,7 +1642,7 @@
               id="hist-search"
               type="text"
               placeholder="search…"
-              oninput="loadHistory()"
+              oninput="loadHistoryDebounced(true)"
               title="Search by host, port, test ID, tag"
             />
             <button
@@ -1613,7 +1662,7 @@
               class="f-date"
               id="hist-date"
               type="date"
-              oninput="loadHistory()"
+              oninput="loadHistoryDebounced(true)"
               title="Filter by date"
             />
             <input
@@ -1622,10 +1671,10 @@
               type="text"
               placeholder="tag…"
               list="hist-tag-list"
-              oninput="loadHistory()"
+              oninput="loadHistoryDebounced(true)"
             />
             <datalist id="hist-tag-list"></datalist>
-            <select class="f-server" id="hist-server" onchange="loadHistory()">
+            <select class="f-server" id="hist-server" onchange="loadHistory(true)">
               <option value="">All servers</option>
             </select>
             <input
@@ -1633,7 +1682,7 @@
               id="hist-user"
               type="text"
               placeholder="user…"
-              oninput="loadHistory();document.getElementById('btn-my-checks').classList.remove('active')"
+              oninput="loadHistoryDebounced(true);document.getElementById('btn-my-checks').classList.remove('active')"
               title="Filter by username"
             />
             <button
@@ -1648,6 +1697,7 @@
           <div class="history-list" id="history-list">
             <div class="hist-empty">No analyses yet</div>
           </div>
+          <div class="hist-pagination" id="hist-pagination"></div>
           <div class="hist-bulk-bar" id="bulk-bar">
             <span class="hist-bulk-txt" id="bulk-count">0 selected</span>
             <button class="btn-bulk-del" onclick="openBulkDeleteModal()">
@@ -3022,75 +3072,59 @@
       }
 
       // ── History ───────────────────────────────────────────────────────
-      async function loadHistory() {
+      let _histPage = 1;
+      let _histDebounceTimer = null;
+      const HIST_PAGE_SIZE = 50;
+
+      // Text filters call this on every keystroke — debounce so we don't
+      // hit the backend on every character while typing.
+      function loadHistoryDebounced(resetPage) {
+        clearTimeout(_histDebounceTimer);
+        _histDebounceTimer = setTimeout(() => loadHistory(resetPage), 300);
+      }
+
+      async function loadHistory(resetPage) {
+        if (resetPage) _histPage = 1;
         try {
-          const res = await fetch(`${PROXY}/gop/results`);
-          const items = await res.json();
-          const list = document.getElementById("history-list");
           const search = (
             document.getElementById("hist-search").value || ""
-          ).toLowerCase();
+          ).trim();
           const date = (
             document.getElementById("hist-date").value || ""
           ).trim();
           const tag = (
             document.getElementById("hist-tag").value || ""
-          ).toLowerCase();
+          ).trim();
           const server = (
             document.getElementById("hist-server").value || ""
           ).trim();
-          const userFilter = (document.getElementById("hist-user").value || "")
-            .toLowerCase()
-            .trim();
+          const userFilter = (
+            document.getElementById("hist-user").value || ""
+          ).trim();
 
-          // Remember which files are currently checked before rebuilding
-          const checkedFiles = new Set(
-            [...document.querySelectorAll(".hist-item-cb:checked")].map(
-              (cb) => cb.dataset.file
-            )
-          );
+          const params = new URLSearchParams({
+            page: _histPage,
+            page_size: HIST_PAGE_SIZE,
+          });
+          if (search) params.set("search", search);
+          if (date) params.set("date", date);
+          if (tag) params.set("tag", tag);
+          if (server) params.set("server", server);
+          if (userFilter) params.set("user", userFilter);
 
-          // Populate tag datalist
-          const allTags = [
-            ...new Set(
-              items.flatMap((i) =>
-                (i.tag || "")
-                  .split(",")
-                  .map((t) => t.trim())
-                  .filter(Boolean)
-              )
-            ),
-          ];
-          document.getElementById("hist-tag-list").innerHTML = allTags
+          const res = await fetch(`${PROXY}/gop/results?${params}`);
+          const data = await res.json();
+          const filtered = data.items || [];
+          _histPage = data.page || 1;
+          const list = document.getElementById("history-list");
+
+          // Populate tag datalist from the full history (backend-provided),
+          // not just the current page
+          document.getElementById("hist-tag-list").innerHTML = (data.tags || [])
             .map((t) => `<option value="${t}">`)
             .join("");
 
-          const filtered = items.filter((item) => {
-            const searchable = [
-              resolveHost(item.url_host),
-              item.url_host,
-              item.url_port,
-              item.tag,
-              item.test_id,
-              item.v_codec,
-              item.url,
-            ]
-              .map((v) => (v || "").toLowerCase())
-              .join(" ");
-            const tagParts = (item.tag || "")
-              .split(",")
-              .map((t) => t.trim().toLowerCase());
-            if (search && !searchable.includes(search)) return false;
-            if (date && !(item.started_at || "").startsWith(date)) return false;
-            if (tag && !tagParts.some((t) => t.includes(tag))) return false;
-            if (server && item.url_host !== server) return false;
-            if (
-              userFilter &&
-              !(item.username || "anonymous").toLowerCase().includes(userFilter)
-            )
-              return false;
-            return true;
-          });
+          renderHistPagination(data.page || 1, data.total_pages || 1, data.total || 0);
 
           if (!filtered.length) {
             list.innerHTML = '<div class="hist-empty">No analyses found</div>';
@@ -3245,6 +3279,47 @@
         } catch (e) {
           console.error(e);
         }
+      }
+
+      // Renders numbered pagination controls for the history list. Search
+      // filters always run against the full backend history — pagination
+      // only affects how many of the matching results are shown at once.
+      function renderHistPagination(page, totalPages, total) {
+        const bar = document.getElementById("hist-pagination");
+        if (!bar) return;
+        if (totalPages <= 1) {
+          bar.innerHTML = total
+            ? `<span class="hist-page-info">${total} result${
+                total === 1 ? "" : "s"
+              }</span>`
+            : "";
+          return;
+        }
+
+        const btn = (label, target, opts = {}) => {
+          const disabled = opts.disabled ? "disabled" : "";
+          const active = opts.active ? "active" : "";
+          return `<button class="hist-page-btn ${active}" ${disabled} ${
+            opts.active ? "" : `onclick="_histPage=${target};loadHistory()"`
+          }>${label}</button>`;
+        };
+
+        // Windowed page list: first, last, current ±1, with ellipses
+        const pages = new Set([1, totalPages, page - 1, page, page + 1]);
+        const sorted = [...pages].filter((p) => p >= 1 && p <= totalPages).sort((a, b) => a - b);
+
+        let html = `<span class="hist-page-info">${total} result${
+          total === 1 ? "" : "s"
+        }</span>`;
+        html += btn("‹", page - 1, { disabled: page <= 1 });
+        let prev = 0;
+        for (const p of sorted) {
+          if (prev && p - prev > 1) html += `<span class="hist-page-ellipsis">…</span>`;
+          html += btn(String(p), p, { active: p === page });
+          prev = p;
+        }
+        html += btn("›", page + 1, { disabled: page >= totalPages });
+        bar.innerHTML = html;
       }
 
       function resolveHost(ip) {
@@ -4158,7 +4233,7 @@
         if (sv) sv.value = "";
         const mc = document.getElementById("btn-my-checks");
         if (mc) mc.classList.remove("active");
-        loadHistory();
+        loadHistory(true);
       }
 
       // ── TS Upload ─────────────────────────────────────────────────────
@@ -5250,7 +5325,7 @@
         if (!_currentUser) {
           userEl.value = "anonymous";
           btn.classList.add("active");
-          loadHistory();
+          loadHistory(true);
           return;
         }
         const isActive = btn.classList.contains("active");
@@ -5261,7 +5336,7 @@
           btn.classList.add("active");
           userEl.value = _currentUser;
         }
-        loadHistory();
+        loadHistory(true);
       }
 
       loadConfig();
