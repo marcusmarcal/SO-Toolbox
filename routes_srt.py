@@ -120,6 +120,39 @@ def _build_ffmpeg_cmd(
     ]
 
 
+def _build_ffmpeg_cmd_shared(input_file: str, destinations: list, passphrase: str) -> list:
+    """Build a SINGLE ffmpeg command that reads input_file once and pushes an
+    unmodified copy (-c copy) to every destination in `destinations`.
+
+    This is the fix for CPU spiking to 100% when fanning out to many SRT
+    targets: the previous approach spawned one whole ffmpeg process (one
+    decode, and for transcode mode one libx264 encode) PER destination. With
+    10 destinations in transcode mode that is 10 simultaneous libx264
+    encodes of the same source. Here there is one demux and zero re-encode
+    (stream copy), shared across all destinations, in a single process.
+
+    Passthrough/copy only — sharing a single re-encode across destinations
+    would need the ffmpeg 'tee' muxer, which is not implemented here.
+    """
+    cmd = ["ffmpeg", "-stream_loop", "-1", "-fflags", "+genpts+discardcorrupt", "-re", "-i", input_file]
+    for dest in destinations:
+        srt_url = (
+            f"srt://{dest['host']}:{dest['port']}?passphrase={passphrase}"
+            if passphrase else f"srt://{dest['host']}:{dest['port']}"
+        )
+        cmd += [
+            "-map", "0:v:0",
+            "-map", "0:a?",
+            "-c", "copy",
+            "-avoid_negative_ts", "make_zero",
+            "-f", "mpegts",
+            "-muxdelay", "0",
+            "-muxpreload", "0",
+            srt_url,
+        ]
+    return cmd
+
+
 # Regex to parse ffmpeg progress lines:
 # frame=  120 fps= 25 q=28.0 size=    1536kB time=00:00:04.80 bitrate=2621.4kbits/s speed=   1x
 _FFMPEG_RE = re.compile(
@@ -151,10 +184,13 @@ def _launch_process(job: dict) -> None:
     using its stored configuration. Mutates the job dict in place.
     Raises OSError if the process cannot be spawned at all.
     """
-    cmd = _build_ffmpeg_cmd(
-        job["input_file"], job["host"], job["port"], job["passphrase"],
-        job["bitrate_mbps"], job["passthrough"],
-    )
+    if job.get("type") == "shared":
+        cmd = _build_ffmpeg_cmd_shared(job["input_file"], job["destinations"], job["passphrase"])
+    else:
+        cmd = _build_ffmpeg_cmd(
+            job["input_file"], job["host"], job["port"], job["passphrase"],
+            job["bitrate_mbps"], job["passthrough"],
+        )
     process = subprocess.Popen(
         cmd,
         stdout=subprocess.DEVNULL,
@@ -285,10 +321,54 @@ def _launch_job(
     return job
 
 
+def _launch_shared_job(input_file: str, destinations: list, passphrase: str) -> dict:
+    """Create and launch a SHARED job: one ffmpeg process, one decode, fanning
+    out an unmodified copy to every destination in `destinations`. Reuses the
+    same reader-thread/reconnect/stop/restart machinery as a single job.
+    """
+    job_id = _next_job_id()
+
+    job = {
+        "id": job_id,
+        "type": "shared",
+        "destinations": destinations,  # [{"host": ..., "port": ...}, ...]
+        "host": None,
+        "port": None,
+        "passphrase": passphrase,
+        "input_file": input_file,
+        "bitrate_mbps": None,
+        "passthrough": True,
+        "mode": "passthrough-shared",
+        "status": "starting",
+        "process": None,
+        "pid": None,
+        "cmd": "",
+        "stats_buf": deque(maxlen=300),
+        "last_stat": None,
+        "error_log": deque(maxlen=40),
+        "last_error": None,
+        "stop_requested": False,
+        "retry_count": 0,
+    }
+
+    with _jobs_lock:
+        _running_jobs[job_id] = job
+
+    try:
+        _launch_process(job)
+    except OSError as e:
+        job["status"] = "error"
+        job["last_error"] = f"Failed to launch ffmpeg: {e}"
+
+    threading.Thread(target=_job_reader_thread, args=(job_id,), daemon=True).start()
+    return job
+
+
 def _job_info(job: dict) -> dict:
     """Serialisable snapshot of a job (no subprocess object)."""
-    return {
+    info = {
         "id": job["id"],
+        "type": job.get("type", "single"),
         "host": job["host"],
         "port": job["port"],
         "pid": job["pid"],
@@ -300,6 +380,9 @@ def _job_info(job: dict) -> dict:
         "retry_count": job.get("retry_count", 0),
         "last_error": job.get("last_error"),
     }
+    if job.get("type") == "shared":
+        info["destinations"] = job["destinations"]
+    return info
 
 
 # ---------------------------------------------------------------------------
@@ -369,6 +452,41 @@ def ingest_multi():
     return jsonify({
         "message": f"Ingest started to {len(jobs)} destinations",
         "jobs": jobs,
+    }), 201
+
+
+@srt_bp.route("/ingest/multi-shared", methods=["POST"])
+def ingest_multi_shared():
+    """
+    Start ONE ffmpeg process (passthrough / -c copy only) that reads the
+    input file a single time and fans it out, unmodified, to every
+    destination in the port range. Use this instead of /ingest/multi when
+    pushing to many destinations at once — it avoids one decode (and, in
+    transcode mode, one libx264 encode) per destination, which is what
+    causes CPU to spike with large fan-outs.
+    Body JSON: { host, port_start, port_end, passphrase, input_file? }
+    """
+    data = request.get_json(force=True)
+    host = data.get("host", "").strip()
+    port_start = int(data.get("port_start", 0))
+    port_end = int(data.get("port_end", 0))
+    passphrase = data.get("passphrase", "").strip()
+    input_file = data.get("input_file", "test.mp4").strip()
+
+    if not host or not port_start or not port_end:
+        return jsonify({"error": "host, port_start and port_end are required"}), 400
+    if port_start > port_end:
+        return jsonify({"error": "port_start must be <= port_end"}), 400
+    if (port_end - port_start) > 99:
+        return jsonify({"error": "Port range limited to 100 destinations"}), 400
+    if not os.path.isfile(input_file):
+        return jsonify({"error": f"Input file not found: {input_file}"}), 400
+
+    destinations = [{"host": host, "port": port} for port in range(port_start, port_end + 1)]
+    job = _launch_shared_job(input_file, destinations, passphrase)
+    return jsonify({
+        "message": f"Shared ingest started to {len(destinations)} destinations (1 ffmpeg process)",
+        "job": _job_info(job),
     }), 201
 
 

@@ -298,6 +298,12 @@
       </label>
     </div>
     <div class="field">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+        <input type="checkbox" id="m-shared" onchange="onSharedChange()" style="width:auto;accent-color:var(--accent2)" />
+        <span>Shared single process <span style="color:var(--muted);font-size:10px">(1 ffmpeg, -c copy, no re-encode — use this for many destinations to avoid CPU spikes)</span></span>
+      </label>
+    </div>
+    <div class="field">
       <label>Host / Server</label>
       <div class="host-combo">
         <select id="m-server-select" onchange="applyServerSelect('m')">
@@ -692,12 +698,16 @@ function updateMultiPreview() {
   const count = pe - ps + 1;
   const br    = parseFloat(document.getElementById('m-bitrate').value) || 8;
   const mPt   = document.getElementById('m-passthrough').checked;
-  const modeLabel = mPt ? '<span class="hl2">passthrough</span>' : `<span class="hlg">${br} Mbps CBR</span>`;
+  const shared = document.getElementById('m-shared').checked;
+  const modeLabel = shared
+    ? '<span class="hl2">passthrough · 1 shared ffmpeg process</span>'
+    : mPt ? '<span class="hl2">passthrough</span>' : `<span class="hlg">${br} Mbps CBR</span>`;
   let html = `<span class="hl">${count} destination${count>1?'s':''}</span> @ ${modeLabel} → <span class="hl2">${esc(host)}</span>:\n`;
   for (let p = ps; p <= Math.min(pe, ps + 4); p++) {
     html += `  srt://${esc(host)}:<span class="hl2">${p}</span>\n`;
   }
   if (count > 5) html += `  <span style="color:var(--muted)">… and ${count - 5} more</span>`;
+  if (shared) html += `\n<span style="color:var(--muted)">All destinations share a single decode — no per-destination re-encode.</span>`;
   el.innerHTML = html;
 }
 
@@ -730,25 +740,38 @@ async function startSingle() {
 }
 
 async function startMulti() {
-  const body = {
+  const shared = document.getElementById('m-shared').checked;
+  const base = {
     input_file:   document.getElementById('m-input').value.trim(),
     host:         document.getElementById('m-host').value.trim(),
     port_start:   parseInt(document.getElementById('m-port-start').value),
     port_end:     parseInt(document.getElementById('m-port-end').value),
     passphrase:   document.getElementById('m-pass').value.trim(),
+  };
+  if (!base.host || !base.port_start || !base.port_end) { toast('Host and port range are required.','err'); return; }
+
+  const endpoint = shared ? '/ingest/multi-shared' : '/ingest/multi';
+  const body = shared ? base : {
+    ...base,
     bitrate_mbps: parseFloat(document.getElementById('m-bitrate').value) || 8,
     passthrough:  document.getElementById('m-passthrough').checked,
   };
-  if (!body.host || !body.port_start || !body.port_end) { toast('Host and port range are required.','err'); return; }
   try {
-    const r = await fetch(`${BASE}/ingest/multi`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+    const r = await fetch(`${BASE}${endpoint}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
     const d = await r.json();
     if (!r.ok) { toast(d.error || 'Error','err'); return; }
-    toast(`${d.jobs.length} jobs started`,'ok');
-    await refreshJobs();
-    if (d.jobs.length) {
-      document.getElementById('job-select').value = d.jobs[0].id;
+    if (shared) {
+      toast(`Shared job #${d.job.id} started (1 process → ${d.job.destinations.length} destinations)`,'ok');
+      await refreshJobs();
+      document.getElementById('job-select').value = d.job.id;
       switchJob();
+    } else {
+      toast(`${d.jobs.length} jobs started`,'ok');
+      await refreshJobs();
+      if (d.jobs.length) {
+        document.getElementById('job-select').value = d.jobs[0].id;
+        switchJob();
+      }
     }
   } catch(e) { toast('Network error','err'); }
 }
@@ -821,7 +844,10 @@ function renderJobs(jobs) {
     o.value = j.id;
     o.dataset.target = j.bitrate_mbps;
     o.dataset.passthrough = j.passthrough ? 'true' : 'false';
-    o.textContent = `#${j.id} ${j.host}:${j.port} [${j.mode||j.status}]`;
+    const destLabel = j.type === 'shared'
+      ? `${j.destinations[0].host}:${j.destinations[0].port}-${j.destinations[j.destinations.length-1].port} (${j.destinations.length} dests, shared)`
+      : `${j.host}:${j.port}`;
+    o.textContent = `#${j.id} ${destLabel} [${j.mode||j.status}]`;
     if (j.status !== 'running') o.style.color = 'var(--muted)';
     sel.appendChild(o);
   });
@@ -844,10 +870,16 @@ function renderJobs(jobs) {
       : `<button class="btn-restart-job" onclick="restartJob(${j.id})">↻ RESTART</button>`;
     const errorLine = (j.last_error && (j.status === 'error' || j.status === 'reconnecting'))
       ? `<div class="job-error-line">⚠ ${esc(j.last_error)}</div>` : '';
+    const modeTag = j.type === 'shared'
+      ? `<span style="font-size:9px;padding:2px 5px;border-radius:2px;background:rgba(255,107,53,.15);color:var(--accent2)">shared·1proc</span>`
+      : `<span style="font-size:9px;padding:2px 5px;border-radius:2px;background:${j.mode==="passthrough"?"rgba(255,107,53,.15)":"rgba(0,212,255,.1)"};color:${j.mode==="passthrough"?"var(--accent2)":"var(--accent)"}">${j.mode||"transcode"}</span>`;
+    const destText = j.type === 'shared'
+      ? `${esc(j.destinations[0].host)}:<b>${j.destinations[0].port}-${j.destinations[j.destinations.length-1].port}</b> <span style="color:var(--muted);font-size:10px">(${j.destinations.length} dests) pid:${j.pid ?? '—'}</span>`
+      : `${esc(j.host)}:<b>${j.port}</b> <span style="color:var(--muted);font-size:10px">pid:${j.pid ?? '—'}</span>`;
     return `
       <div class="job-item">
         <span class="job-id">#${j.id}</span>
-        <span class="job-dest">${j.host}:<b>${j.port}</b> <span style="color:var(--muted);font-size:10px">pid:${j.pid ?? '—'}</span> <span style="font-size:9px;padding:2px 5px;border-radius:2px;background:${j.mode==="passthrough"?"rgba(255,107,53,.15)":"rgba(0,212,255,.1)"};color:${j.mode==="passthrough"?"var(--accent2)":"var(--accent)"}">${j.mode||"transcode"}</span>${br}</span>
+        <span class="job-dest">${destText} ${modeTag}${br}</span>
         <span class="job-status status-${j.status}">${statusLabel}</span>
         <div class="job-actions">${actions}</div>
         ${errorLine}
@@ -901,6 +933,27 @@ function onPassthroughChange(prefix) {
   if (brRow) brRow.style.display = checked ? 'none' : '';
   if (prefix === 's') updateSinglePreview();
   else updateMultiPreview();
+}
+
+function onSharedChange() {
+  const shared = document.getElementById('m-shared').checked;
+  const brRow  = document.getElementById('m-bitrate-row');
+  const ptRow  = document.getElementById('m-passthrough-row');
+  const ptBox  = document.getElementById('m-passthrough');
+  // Shared mode is always passthrough (-c copy): hide/lock the bitrate and
+  // passthrough-toggle fields so the choice is unambiguous.
+  if (shared) {
+    ptBox.checked = true;
+    if (brRow) brRow.style.display = 'none';
+    if (ptRow) ptRow.style.display = 'none';
+  } else {
+    ptBox.checked = false;
+    const sel  = document.getElementById('m-source-select');
+    const type = sel.options[sel.selectedIndex]?.dataset.type;
+    if (ptRow) ptRow.style.display = type === 'ts' ? '' : 'none';
+    if (brRow) brRow.style.display = '';
+  }
+  updateMultiPreview();
 }
 
 function applySourceSelect(prefix) {

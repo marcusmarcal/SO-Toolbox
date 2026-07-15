@@ -7,6 +7,21 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.28.1] - 2026-07-15
+
+### Added
+
+- Multi-destination ingest can now run as a single shared ffmpeg process
+  (passthrough / -c copy) instead of one process per destination, to avoid
+  CPU spikes when fanning out to many SRT targets at once.
+- New endpoint POST /srt/ingest/multi-shared for the shared-process mode.
+- "Shared single process" option in the Multi Destination form.
+
+### Notes
+
+- Shared mode only supports passthrough (-c copy). A shared-encode option
+  for CBR transcode fan-out (via ffmpeg's tee muxer) is not implemented yet.
+
 ## [2.28.0] - 2026-07-15
 
 ### Added
