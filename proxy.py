@@ -3,6 +3,8 @@ import requests
 import routes_auth
 import routes_gop
 
+from routes_auth import require_admin_role
+
 from flask import Flask, request, jsonify, Response, send_from_directory
 from flask_cors import CORS
 from urllib.parse import quote
@@ -106,6 +108,7 @@ def _check_password(req):
 
 
 @app.route("/git-pull", methods=["POST"])
+@require_admin_role
 def git_pull():
     import subprocess, os
     repo_dir = os.path.dirname(os.path.abspath(__file__))
@@ -156,11 +159,9 @@ def git_branch():
 
 
 @app.route("/restart-proxy", methods=["POST"])
+@require_admin_role
 def restart_proxy():
     import subprocess
-    ok, err = _check_password(request)
-    if not ok:
-        return err
     try:
         subprocess.Popen(["bash", "-c", "sleep 2 && systemctl restart so-proxy"])
         return jsonify({"success": True, "output": "Proxy restart scheduled in 2 seconds."})

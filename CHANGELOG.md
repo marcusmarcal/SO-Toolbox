@@ -7,6 +7,20 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.30.1] - 2026-07-16
+
+### Fixed
+
+- Restart Proxy was still rejecting requests with "Invalid admin
+  password" after the 2.30.0 frontend change, because proxy.py's
+  /restart-proxy endpoint still validated the X-Admin-Password header
+  that the frontend no longer sends. /git-pull and /restart-proxy now
+  use the existing require_admin_role decorator from routes_auth.py
+  (admin/engineer only) instead of the ADMIN_PASSWORD check. The
+  password check is unchanged for /mtr/kill and /mtr/delete.
+
+---
+
 ## [2.30.0] - 2026-07-16
 
 ### Fixed
