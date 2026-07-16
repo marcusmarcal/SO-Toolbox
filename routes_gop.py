@@ -1,6 +1,6 @@
 """
 routes_gop.py — GOP Analyzer Blueprint
-SO-Toolbox v2.28.0
+SO-Toolbox v2.28.1
 
 All /gop/* routes (run, upload, status, results, schedule, specs, overrides, delete).
 GOP results JSON now includes a `username` field (from /me session) for every test —
@@ -476,6 +476,14 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
         if current_gop:
             gops.append(current_gop)
 
+        # Drop incomplete leading GOP: frames captured before the first I frame
+        # (current_gop starts accumulating even before any key frame is seen).
+        if gops and not gops[0][0]["key"]:
+            gops = gops[1:]
+
+        # Drop incomplete trailing GOP: frames after the last I frame, cut off
+        # by the end of capture. GOP stats must only reflect complete GOPs,
+        # i.e. from the first I frame up to the frame before the last I frame.
         complete_gops = gops[:-1] if len(gops) > 1 else gops
 
         def _is_open_gop(gop_list):

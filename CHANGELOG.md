@@ -7,6 +7,16 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.29.0] - 2026-07-16
+
+### Fixed
+
+- GOP analysis: incomplete leading GOP (frames captured before the
+  first I frame) is now excluded from GOP statistics, matching the
+  existing exclusion of the incomplete trailing GOP. GOP size,
+  min/max/avg, and open/closed detection now only consider complete
+  GOPs between the first and last I frame.
+
 ## [2.28.1] - 2026-07-15
 
 ### Added
