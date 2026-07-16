@@ -1272,6 +1272,7 @@
           ⟳ Update
         </button>
         <button
+          id="btn-restart-proxy"
           class="git-pull-btn"
           data-tip="Restart proxy service"
           onclick="openRestartConfirm()"
@@ -1483,23 +1484,6 @@
           <button onclick="closeRestartConfirm()" class="git-close-btn">
             Cancel
           </button>
-          <input
-            id="restart-pw"
-            type="password"
-            placeholder="admin password…"
-            style="
-              display: none;
-              background: var(--card);
-              border: 1px solid var(--border);
-              border-radius: 5px;
-              color: #fff;
-              font-family: var(--mono);
-              font-size: 0.7rem;
-              padding: 4px 10px;
-              outline: none;
-              width: 160px;
-            "
-          />
         </div>
         <div
           id="restart-pw-err"
@@ -1610,7 +1594,16 @@
             continue;
           }
           const im = line.match(itemRe);
-          if (im && curSection) cur.sections[curSection].push(im[1]);
+          if (im && curSection) {
+            cur.sections[curSection].push(im[1]);
+            continue;
+          }
+          // Wrapped continuation line of the previous bullet (indented,
+          // no leading "- "): append it instead of silently dropping it.
+          if (curSection && line.trim() && cur.sections[curSection].length) {
+            const items = cur.sections[curSection];
+            items[items.length - 1] += " " + line.trim();
+          }
         }
         if (cur) entries.push(cur);
 
@@ -1715,7 +1708,8 @@
       })();
 
       const PROXY_URL = "/so-proxy";
-      let _hasAdminPw = false;
+      let _userRole = sessionStorage.getItem("sotb-role") || null;
+      const _CAN_ADMIN = (role) => role === "admin" || role === "engineer";
 
       // ── Server Resources Monitor ──────────────────────────────────
       const _RES_T = {
@@ -1786,17 +1780,8 @@
       updateClocks();
       setInterval(updateClocks, 1000);
 
-      // Load config to check admin password
-      fetch(`${PROXY_URL}/config`)
-        .then((r) => r.json())
-        .then((d) => {
-          _hasAdminPw = (d.config || {}).HAS_ADMIN_PASSWORD === "true";
-          const pwEl = document.getElementById("restart-pw");
-          if (pwEl) pwEl.style.display = _hasAdminPw ? "" : "none";
-        })
-        .catch(() => {});
-
       async function gitPull() {
+        if (!_CAN_ADMIN(_userRole)) return;
         const btn = document.getElementById("btn-git-pull");
         const modal = document.getElementById("git-modal");
         const output = document.getElementById("git-output");
@@ -1826,11 +1811,9 @@
       }
 
       function openRestartConfirm() {
+        if (!_CAN_ADMIN(_userRole)) return;
         document.getElementById("restart-output").style.display = "none";
         document.getElementById("restart-pw-err").textContent = "";
-        const pwEl = document.getElementById("restart-pw");
-        pwEl.value = "";
-        pwEl.style.display = _hasAdminPw ? "" : "none";
         document.getElementById("restart-modal").style.display = "flex";
       }
       function closeRestartConfirm() {
@@ -1838,24 +1821,23 @@
       }
 
       async function confirmRestart() {
+        if (!_CAN_ADMIN(_userRole)) return;
         const out = document.getElementById("restart-output");
-        const pw = document.getElementById("restart-pw").value;
         const errEl = document.getElementById("restart-pw-err");
         errEl.textContent = "";
         out.style.display = "block";
         out.className = "git-output";
         out.textContent = "Restarting proxy...";
-        const headers = { "Content-Type": "application/json" };
-        if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
         try {
           const res = await fetch(`${PROXY_URL}/restart-proxy`, {
             method: "POST",
-            headers,
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
           });
           const data = await res.json();
           if (res.status === 403) {
             out.style.display = "none";
-            errEl.textContent = "❌ Invalid admin password";
+            errEl.textContent = "❌ You don't have permission to restart the proxy";
             return;
           }
           out.textContent = data.output || "(no output)";
@@ -2542,6 +2524,15 @@
       }
 
       // ── Session: show username + logout ─────────────────────────────
+      function applyRolePermissions() {
+        const canAdmin = _CAN_ADMIN(_userRole);
+        const btnUpdate = document.getElementById("btn-git-pull");
+        const btnRestart = document.getElementById("btn-restart-proxy");
+        if (btnUpdate) btnUpdate.style.display = canAdmin ? "" : "none";
+        if (btnRestart) btnRestart.style.display = canAdmin ? "" : "none";
+      }
+      applyRolePermissions(); // apply cached role immediately to avoid flash
+
       (function initSession() {
         const stored = sessionStorage.getItem("sotb-user");
         if (stored) {
@@ -2553,6 +2544,9 @@
             document.getElementById("session-username").textContent =
               d.username;
             sessionStorage.setItem("sotb-user", d.username);
+            _userRole = d.role || null;
+            sessionStorage.setItem("sotb-role", _userRole || "");
+            applyRolePermissions();
           })
           .catch(() => {
             // Session expired — redirect to login

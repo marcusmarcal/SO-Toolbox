@@ -7,6 +7,26 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.30.0] - 2026-07-16
+
+### Fixed
+
+- Changelog modal: bullet items that wrap onto multiple lines in
+  CHANGELOG.md were silently truncated at the first line, since the
+  parser only matched lines starting with "- " and dropped indented
+  continuation lines. Wrapped continuation lines are now appended to
+  the previous bullet instead of being discarded.
+
+### Changed
+
+- Update and Restart Proxy actions are now restricted to users with
+  the admin or engineer role, read from /so-proxy/me. The buttons are
+  hidden for other roles and the actions no-op client-side if called
+  directly. The admin password prompt on Restart Proxy has been
+  removed.
+
+---
+
 ## [2.29.0] - 2026-07-16
 
 ### Fixed
