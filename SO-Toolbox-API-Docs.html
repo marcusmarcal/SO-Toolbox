@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SO-Toolbox &mdash; API Documentation</title>
+<style>
+  :root{
+    --bg:#0f1216;
+    --panel:#161a20;
+    --panel-2:#1c212a;
+    --border:#262c36;
+    --text:#e6e9ee;
+    --text-dim:#9aa4b2;
+    --accent:#4f9dff;
+    --accent-2:#7ee0c3;
+    --get:#3fb950;
+    --post:#4f9dff;
+    --put:#e3b341;
+    --patch:#c297ff;
+    --delete:#f85149;
+    --code-bg:#0b0d11;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    display:flex;
+    min-height:100vh;
+  }
+
+  /* ---------- Sidebar ---------- */
+  #sidebar{
+    width:280px;
+    flex:0 0 280px;
+    background:var(--panel);
+    border-right:1px solid var(--border);
+    padding:20px 0 40px;
+    position:sticky;
+    top:0;
+    height:100vh;
+    overflow-y:auto;
+  }
+  #sidebar .brand{
+    padding:0 20px 16px;
+    border-bottom:1px solid var(--border);
+    margin-bottom:12px;
+  }
+  #sidebar .brand h1{
+    font-size:16px;
+    margin:0 0 4px;
+    letter-spacing:0.3px;
+  }
+  #sidebar .brand span{
+    font-size:11px;
+    color:var(--text-dim);
+  }
+  #sidebar .search-box{
+    margin:0 16px 14px;
+  }
+  #sidebar .search-box input{
+    width:100%;
+    background:var(--code-bg);
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:8px 10px;
+    border-radius:6px;
+    font-size:13px;
+    outline:none;
+  }
+  #sidebar .search-box input:focus{
+    border-color:var(--accent);
+  }
+  #sidebar nav .group{
+    margin-bottom:6px;
+  }
+  #sidebar nav .group-title{
+    padding:10px 20px 6px;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.6px;
+    color:var(--text-dim);
+    font-weight:600;
+  }
+  #sidebar nav a{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:6px 20px;
+    color:var(--text-dim);
+    text-decoration:none;
+    font-size:13px;
+    border-left:2px solid transparent;
+  }
+  #sidebar nav a:hover{
+    color:var(--text);
+    background:var(--panel-2);
+  }
+  #sidebar nav a.active{
+    color:var(--accent);
+    border-left-color:var(--accent);
+    background:var(--panel-2);
+  }
+  #sidebar nav a .count{
+    margin-left:auto;
+    font-size:10px;
+    color:var(--text-dim);
+    background:var(--code-bg);
+    padding:1px 6px;
+    border-radius:10px;
+  }
+
+  /* ---------- Main ---------- */
+  #main{
+    flex:1;
+    min-width:0;
+    padding:36px 44px 100px;
+    max-width:980px;
+  }
+  .top-meta{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    flex-wrap:wrap;
+    gap:16px;
+    margin-bottom:28px;
+    padding-bottom:20px;
+    border-bottom:1px solid var(--border);
+  }
+  .top-meta h1{
+    font-size:26px;
+    margin:0 0 6px;
+  }
+  .top-meta p{
+    color:var(--text-dim);
+    font-size:13px;
+    margin:0;
+    max-width:640px;
+    line-height:1.5;
+  }
+  .top-meta .badges{
+    display:flex;
+    gap:6px;
+    flex-wrap:wrap;
+  }
+  .pill{
+    font-size:11px;
+    padding:4px 9px;
+    border-radius:20px;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    color:var(--text-dim);
+  }
+
+  .blueprint-section{
+    margin-bottom:56px;
+    scroll-margin-top:20px;
+  }
+  .blueprint-header{
+    margin-bottom:6px;
+  }
+  .blueprint-header h2{
+    font-size:20px;
+    margin:0 0 4px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .blueprint-header .file-tag{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--accent-2);
+    background:rgba(126,224,195,0.08);
+    border:1px solid rgba(126,224,195,0.25);
+    padding:2px 8px;
+    border-radius:5px;
+  }
+  .blueprint-header .prefix-tag{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--text-dim);
+  }
+  .blueprint-desc{
+    color:var(--text-dim);
+    font-size:13.5px;
+    line-height:1.6;
+    margin:8px 0 22px;
+    max-width:820px;
+  }
+
+  .endpoint{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    margin-bottom:14px;
+    overflow:hidden;
+    scroll-margin-top:20px;
+  }
+  .endpoint-head{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:13px 16px;
+    cursor:pointer;
+    user-select:none;
+    flex-wrap:wrap;
+  }
+  .endpoint-head:hover{
+    background:var(--panel-2);
+  }
+  .method{
+    font-family:var(--mono);
+    font-size:11px;
+    font-weight:700;
+    padding:3px 8px;
+    border-radius:4px;
+    color:#08110b;
+    min-width:52px;
+    text-align:center;
+    flex:0 0 auto;
+  }
+  .method.GET{background:var(--get);}
+  .method.POST{background:var(--post); color:#04101f;}
+  .method.PUT{background:var(--put); color:#241a02;}
+  .method.PATCH{background:var(--patch); color:#1c0e2e;}
+  .method.DELETE{background:var(--delete); color:#280303;}
+
+  .path{
+    font-family:var(--mono);
+    font-size:13.5px;
+    color:var(--text);
+    flex:1 1 auto;
+    word-break:break-all;
+  }
+  .path .param{
+    color:var(--accent-2);
+  }
+  .tag-row{
+    display:flex;
+    gap:6px;
+    flex:0 0 auto;
+  }
+  .tag{
+    font-size:10px;
+    padding:2px 7px;
+    border-radius:10px;
+    border:1px solid var(--border);
+    color:var(--text-dim);
+    white-space:nowrap;
+  }
+  .tag.auth-none{color:#6fd67a;border-color:rgba(111,214,122,0.35);}
+  .tag.auth-any{color:#7ec8ff;border-color:rgba(126,200,255,0.35);}
+  .tag.auth-admin{color:#ffb454;border-color:rgba(255,180,84,0.35);}
+  .tag.auth-pwd{color:#c297ff;border-color:rgba(194,151,255,0.35);}
+  .tag.sse{color:#ff9ecb;border-color:rgba(255,158,203,0.35);}
+
+  .chevron{
+    color:var(--text-dim);
+    font-size:11px;
+    transition:transform .15s ease;
+    flex:0 0 auto;
+  }
+  .endpoint.open .chevron{
+    transform:rotate(90deg);
+  }
+
+  .endpoint-body{
+    display:none;
+    padding:0 18px 18px;
+    border-top:1px solid var(--border);
+  }
+  .endpoint.open .endpoint-body{
+    display:block;
+    padding-top:14px;
+  }
+  .endpoint-body p.summary{
+    font-size:13px;
+    color:var(--text-dim);
+    line-height:1.6;
+    margin:0 0 14px;
+  }
+  .field-title{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+    color:var(--text-dim);
+    margin:14px 0 6px;
+  }
+  table.params{
+    width:100%;
+    border-collapse:collapse;
+    font-size:12.5px;
+  }
+  table.params th{
+    text-align:left;
+    color:var(--text-dim);
+    font-weight:600;
+    padding:5px 8px;
+    border-bottom:1px solid var(--border);
+    font-size:11px;
+  }
+  table.params td{
+    padding:6px 8px;
+    border-bottom:1px solid var(--border);
+    vertical-align:top;
+  }
+  table.params code{
+    font-family:var(--mono);
+    color:var(--accent-2);
+    font-size:12px;
+  }
+  table.params tr:last-child td{border-bottom:none;}
+
+  .code-block{
+    background:var(--code-bg);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:12px 14px;
+    font-family:var(--mono);
+    font-size:12px;
+    line-height:1.55;
+    overflow-x:auto;
+    white-space:pre;
+    color:#d3d9e0;
+  }
+  .code-block .k{color:#7ee0c3;}
+  .code-block .s{color:#e3b341;}
+  .code-block .n{color:#c297ff;}
+  .code-block .c{color:#6b7684;}
+
+  .resp-grid{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:6px;
+  }
+  .resp-chip{
+    font-family:var(--mono);
+    font-size:11.5px;
+    background:var(--code-bg);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:4px 9px;
+    color:var(--text-dim);
+  }
+  .resp-chip b{color:var(--text);}
+
+  .note{
+    margin-top:12px;
+    font-size:12px;
+    color:var(--text-dim);
+    background:rgba(79,157,255,0.06);
+    border:1px solid rgba(79,157,255,0.2);
+    border-left:3px solid var(--accent);
+    padding:8px 12px;
+    border-radius:4px;
+    line-height:1.55;
+  }
+
+  footer{
+    margin-top:60px;
+    padding-top:20px;
+    border-top:1px solid var(--border);
+    color:var(--text-dim);
+    font-size:12px;
+  }
+
+  ::-webkit-scrollbar{width:10px; height:10px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:#2b323d; border-radius:6px;}
+
+  @media (max-width: 860px){
+    #sidebar{display:none;}
+    #main{padding:24px;}
+  }
+</style>
+</head>
+<body>
+
+<aside id="sidebar">
+  <div class="brand">
+    <h1>SO-Toolbox</h1>
+    <span>Internal API Reference</span>
+  </div>
+  <div class="search-box">
+    <input type="text" id="searchInput" placeholder="Filter endpoints...">
+  </div>
+  <nav id="navRoot"></nav>
+</aside>
+
+<main id="main">
+  <div class="top-meta">
+    <div>
+      <h1>SO-Toolbox API Documentation</h1>
+      <p>Reference for all Flask Blueprints registered in <code style="color:var(--accent-2);font-family:var(--mono);">proxy.py</code>, deployed behind nginx at <code style="color:var(--accent-2);font-family:var(--mono);">/so-proxy/</code>. Covers authentication, broadcast monitoring, ingest/analysis, and provisioning endpoints.</p>
+    </div>
+    <div class="badges">
+      <span class="pill">Flask / Python 3.9</span>
+      <span class="pill">Blueprints: 8</span>
+      <span class="pill">Auth: session token</span>
+    </div>
+  </div>
+
+  <div id="content"></div>
+
+  <footer>
+    Generated documentation &middot; source: proxy.py, routes_auth.py, routes_gop.py, routes_srt.py, routes_txcore.py, rts_routes.py, id3as_routes.py, wc2026_routes.py
+  </footer>
+</main>
+
+<script>
+/* ============================================================
+   DATA MODEL
+   Each blueprint has: id, title, file, prefix, description, endpoints[]
+   Each endpoint has: method, path, auth ('none'|'any'|'admin'|'password'),
+   sse (bool), summary, params (array of {name,in,type,required,desc}),
+   body (string, optional code sample), responses (array of "code desc")
+============================================================ */
+const DATA = [
+  {
+    id: "auth",
+    title: "Authentication &amp; User Management",
+    file: "routes_auth.py",
+    prefix: "/ (root)",
+    description: "Session-token authentication and role-based user management (admin, engineer, analyst, specialist, user). Sessions live in-memory with an 8 hour TTL and are issued as both a Bearer token and an httpOnly cookie (sotb-session).",
+    endpoints: [
+      {
+        method: "POST", path: "/login", auth: "none",
+        summary: "Authenticate with username/password. On success, creates a session and returns a Bearer token plus sets the sotb-session cookie.",
+        body: `{
+  <span class="s">"username"</span>: <span class="s">"marcus"</span>,
+  <span class="s">"password"</span>: <span class="s">"••••••••"</span>
+}`,
+        responses: ["200 { ok, token, role, username }", "400 Missing credentials", "401 Invalid username or password"]
+      },
+      {
+        method: "POST", path: "/logout", auth: "none",
+        summary: "Invalidate the current session token (from Authorization header or cookie) and clear the session cookie.",
+        responses: ["200 { ok: true }"]
+      },
+      {
+        method: "GET", path: "/me", auth: "any",
+        summary: "Return the username and role for the currently authenticated session.",
+        responses: ["200 { ok, username, role }", "401 Unauthorized"]
+      },
+      {
+        method: "GET", path: "/users", auth: "admin",
+        summary: "List all users with their role and creation date. Passwords are never returned.",
+        responses: ["200 { ok, users: [...] }"]
+      },
+      {
+        method: "POST", path: "/users", auth: "admin",
+        summary: "Create a new user account.",
+        body: `{
+  <span class="s">"username"</span>: <span class="s">"jsmith"</span>,
+  <span class="s">"password"</span>: <span class="s">"••••••••"</span>,
+  <span class="s">"role"</span>: <span class="s">"engineer"</span>
+}`,
+        responses: ["201 { ok, username }", "400 Missing/invalid field", "409 User already exists"]
+      },
+      {
+        method: "PUT", path: "/users/<span class=\"param\">&lt;username&gt;</span>", auth: "admin",
+        summary: "Update a user's role and/or password. Engineers cannot modify admin accounts (admin-only escalation guard).",
+        params: [{name:"username", in:"path", type:"string", required:true, desc:"Target username"}],
+        body: `{
+  <span class="s">"role"</span>: <span class="s">"specialist"</span>,
+  <span class="s">"password"</span>: <span class="s">"(optional new password)"</span>
+}`,
+        responses: ["200 { ok, username }", "403 Engineers cannot modify admin accounts", "404 User not found"]
+      },
+      {
+        method: "DELETE", path: "/users/<span class=\"param\">&lt;username&gt;</span>", auth: "admin",
+        summary: "Delete a user account and invalidate all of its active sessions. Engineers cannot delete admin accounts.",
+        params: [{name:"username", in:"path", type:"string", required:true, desc:"Target username"}],
+        responses: ["200 { ok, username }", "403 Engineers cannot delete admin accounts", "404 User not found"]
+      },
+    ]
+  },
+  {
+    id: "gop",
+    title: "BTV Video Analyser (GOP Compliance)",
+    file: "routes_gop.py",
+    prefix: "/gop",
+    description: "GOP structure and compliance analysis on SRT streams or uploaded .ts files, against per-workflow spec profiles (dc_aminos_tp, rts, wb). Supports scheduling, history browsing with pagination/search, manual overrides, and re-evaluation against a different workflow.",
+    endpoints: [
+      {
+        method: "POST", path: "/gop/run", auth: "none",
+        summary: "Start a background GOP analysis job by capturing an SRT (or other ffmpeg-readable) URL for a fixed duration and analysing the resulting stream.",
+        body: `{
+  <span class="s">"url"</span>: <span class="s">"srt://10.11.203.1:3292?mode=caller"</span>,
+  <span class="s">"duration"</span>: <span class="n">30</span>,
+  <span class="s">"passphrase"</span>: <span class="s">""</span>,
+  <span class="s">"tag"</span>: <span class="s">"Match 43 - Venue A"</span>,
+  <span class="s">"workflow"</span>: <span class="s">"dc_aminos_tp"</span>
+}`,
+        responses: ["200 { job_id }", "400 url is required"],
+        note: "duration is capped at 120s server-side. If workflow is omitted, the currently configured default workflow is used."
+      },
+      {
+        method: "POST", path: "/gop/upload", auth: "none",
+        summary: "Upload a .ts file directly and run GOP analysis on it, skipping the live capture step.",
+        params: [
+          {name:"file", in:"form-data", type:"file", required:true, desc:"The .ts capture to analyse"},
+          {name:"tag", in:"form-data", type:"string", required:false, desc:"Free-text label for the result"},
+          {name:"workflow", in:"form-data", type:"string", required:false, desc:"Spec workflow key; defaults to the configured default"},
+        ],
+        responses: ["200 { job_id }", "400 No file uploaded / not a .ts file / file too small"]
+      },
+      {
+        method: "GET", path: "/gop/status/<span class=\"param\">&lt;job_id&gt;</span>", auth: "none",
+        summary: "Poll the status and log/result of a running or completed analysis job.",
+        params: [{name:"job_id", in:"path", type:"string", required:true, desc:"Job id returned by /gop/run or /gop/upload"}],
+        responses: ["200 job object", "404 Job not found"]
+      },
+      {
+        method: "GET", path: "/gop/jobs/running", auth: "none",
+        summary: "List every in-progress job across all clients (HTML frontend, Chrome extension, or any other caller). Log lines are stripped to keep the polling payload small.",
+        responses: ["200 [ job, ... ]"]
+      },
+      {
+        method: "GET", path: "/gop/results", auth: "none",
+        summary: "Paginated, filterable index of stored analysis results. Backed by an in-memory cache keyed by filename mtime for scale across thousands of results.",
+        params: [
+          {name:"search", in:"query", type:"string", required:false, desc:"Free-text match against host, port, tag, test id, codec, URL"},
+          {name:"date", in:"query", type:"string", required:false, desc:"Filter by result start date prefix"},
+          {name:"tag", in:"query", type:"string", required:false, desc:"Filter by tag substring"},
+          {name:"server", in:"query", type:"string", required:false, desc:"Filter by exact source host"},
+          {name:"user", in:"query", type:"string", required:false, desc:"Filter by username substring"},
+          {name:"page", in:"query", type:"int", required:false, desc:"Default 1"},
+          {name:"page_size", in:"query", type:"int", required:false, desc:"Default 50, max 200"},
+        ],
+        responses: ["200 { items, total, page, page_size, total_pages, tags }"]
+      },
+      {
+        method: "GET", path: "/gop/result/<span class=\"param\">&lt;filename&gt;</span>", auth: "none",
+        summary: "Fetch the raw stored result JSON file.",
+        params: [{name:"filename", in:"path", type:"string", required:true, desc:"Result filename"}],
+        responses: ["200 file contents"]
+      },
+      {
+        method: "PATCH", path: "/gop/result/<span class=\"param\">&lt;filename&gt;</span>", auth: "none",
+        summary: "Update the tag on a stored result.",
+        body: `{ <span class="s">"tag"</span>: <span class="s">"new tag value"</span> }`,
+        responses: ["200 { ok: true }", "404 not found"]
+      },
+      {
+        method: "GET", path: "/gop/ts/<span class=\"param\">&lt;filename&gt;</span>", auth: "none",
+        summary: "Download the raw .ts capture file associated with a result, as an attachment.",
+        responses: ["200 file download"]
+      },
+      {
+        method: "POST", path: "/gop/override/<span class=\"param\">&lt;filename&gt;</span>", auth: "none",
+        summary: "Manually override the compliance result for a stored analysis, setting overall_status to ACCEPTED (Override) with a reason.",
+        body: `{ <span class="s">"reason"</span>: <span class="s">"Confirmed acceptable by broadcast ops"</span> }`,
+        responses: ["200 { success: true }", "400 reason is required", "404 File not found"]
+      },
+      {
+        method: "DELETE", path: "/gop/override/<span class=\"param\">&lt;filename&gt;</span>", auth: "none",
+        summary: "Remove a previously applied override and recompute overall_status from the stored compliance rows.",
+        responses: ["200 { success, overall_status }", "404 File not found"]
+      },
+      {
+        method: "DELETE", path: "/gop/delete/<span class=\"param\">&lt;filename&gt;</span>", auth: "password",
+        summary: "Permanently delete a result JSON and its associated .ts capture. Requires the X-Admin-Password header if ADMIN_PASSWORD is configured.",
+        responses: ["200 { success, deleted }", "403 Invalid admin password", "500 Could not delete file"]
+      },
+      {
+        method: "POST", path: "/gop/schedule", auth: "none",
+        summary: "Schedule a GOP analysis to run automatically at a future UTC time.",
+        body: `{
+  <span class="s">"url"</span>: <span class="s">"srt://10.11.203.1:3292"</span>,
+  <span class="s">"run_at_utc"</span>: <span class="s">"2026-07-20T14:00:00Z"</span>,
+  <span class="s">"duration"</span>: <span class="n">30</span>,
+  <span class="s">"passphrase"</span>: <span class="s">""</span>,
+  <span class="s">"tag"</span>: <span class="s">"Scheduled - Semi Final"</span>,
+  <span class="s">"workflow"</span>: <span class="s">"rts"</span>
+}`,
+        responses: ["200 { sched_id, run_at_utc }", "400 url and run_at_utc are required / Invalid run_at_utc format"]
+      },
+      {
+        method: "GET", path: "/gop/schedule", auth: "none",
+        summary: "List all scheduled analysis jobs (pending, running, done, cancelled).",
+        responses: ["200 [ scheduled job, ... ]"]
+      },
+      {
+        method: "POST", path: "/gop/schedule/<span class=\"param\">&lt;sched_id&gt;</span>/cancel", auth: "password",
+        summary: "Cancel a pending scheduled job. Requires X-Admin-Password if configured. Only jobs still in pending status can be cancelled.",
+        responses: ["200 { success: true }", "400 Cannot cancel job with status '...'", "404 Scheduled job not found"]
+      },
+      {
+        method: "GET", path: "/gop/specs", auth: "none",
+        summary: "Get the current compliance spec profile for a workflow.",
+        params: [{name:"workflow", in:"query", type:"string", required:false, desc:"Defaults to the configured default workflow"}],
+        responses: ["200 specs object"]
+      },
+      {
+        method: "POST", path: "/gop/specs", auth: "admin",
+        summary: "Save/overwrite the compliance spec profile for a workflow. Stamps _meta.saved_by / _meta.saved_at.",
+        params: [{name:"workflow", in:"query", type:"string", required:false, desc:"Defaults to the configured default workflow"}],
+        responses: ["200 { success: true }", "400 No specs data provided", "403 Permission denied"]
+      },
+      {
+        method: "POST", path: "/gop/specs/reset", auth: "admin",
+        summary: "Reset a workflow's spec profile back to the built-in defaults.",
+        params: [{name:"workflow", in:"query", type:"string", required:false, desc:"Defaults to the configured default workflow"}],
+        responses: ["200 { success, specs }", "403 Permission denied"]
+      },
+      {
+        method: "GET", path: "/gop/workflows", auth: "none",
+        summary: "List all workflow keys with their display labels and the currently configured default workflow.",
+        responses: ["200 { labels, default }"]
+      },
+      {
+        method: "POST", path: "/gop/workflows/rename", auth: "admin",
+        summary: "Rename the display label of a workflow.",
+        body: `{ <span class="s">"workflow"</span>: <span class="s">"rts"</span>, <span class="s">"label"</span>: <span class="s">"RTS Broadcast"</span> }`,
+        responses: ["200 { success, labels }", "400 workflow and label are required / Unknown workflow"]
+      },
+      {
+        method: "POST", path: "/gop/workflows/default", auth: "admin",
+        summary: "Set the default workflow used when no workflow is explicitly specified on a request.",
+        body: `{ <span class="s">"workflow"</span>: <span class="s">"wb"</span> }`,
+        responses: ["200 { success, default }", "400 workflow field required / Unknown workflow"]
+      },
+      {
+        method: "GET", path: "/gop/reeval/<span class=\"param\">&lt;filename&gt;</span>", auth: "none",
+        summary: "Re-evaluate a stored result against a different workflow's specs without modifying the stored file. Returns the recomputed compliance/overall_status.",
+        params: [{name:"workflow", in:"query", type:"string", required:true, desc:"Target workflow key (dc_aminos_tp / rts / wb)"}],
+        responses: ["200 full result with overridden compliance", "400 workflow parameter required", "404 Result not found", "500 Re-evaluation failed"]
+      },
+      {
+        method: "PATCH", path: "/gop/result/<span class=\"param\">&lt;filename&gt;</span>/workflow", auth: "admin",
+        summary: "Permanently change the workflow of a stored historical result: re-runs compliance against the new workflow's specs and appends an entry to the workflow change log.",
+        body: `{ <span class="s">"workflow"</span>: <span class="s">"dc_aminos_tp"</span> }`,
+        responses: ["200 { success, overall_status }", "400 workflow field required", "403 Permission denied"]
+      },
+    ]
+  },
+  {
+    id: "srt-ingest",
+    title: "SRT Ingest Tool",
+    file: "routes_srt.py",
+    prefix: "/srt",
+    description: "Launches and manages ffmpeg-based SRT ingest jobs from local source files (test.mp4 or captured .ts files) to one or many SRT destinations, with auto-reconnect and live per-job SSE bitrate/fps telemetry.",
+    endpoints: [
+      {
+        method: "GET", path: "/srt/", auth: "none",
+        summary: "Serve the SRT Ingest Tool single-page HTML frontend.",
+        responses: ["200 text/html"]
+      },
+      {
+        method: "POST", path: "/srt/ingest/single", auth: "none",
+        summary: "Start a single SRT ingest job to one destination. The job auto-retries the connection until stopped.",
+        body: `{
+  <span class="s">"host"</span>: <span class="s">"10.11.203.1"</span>,
+  <span class="s">"port"</span>: <span class="n">3292</span>,
+  <span class="s">"passphrase"</span>: <span class="s">""</span>,
+  <span class="s">"input_file"</span>: <span class="s">"test.mp4"</span>,
+  <span class="s">"bitrate_mbps"</span>: <span class="n">8</span>,
+  <span class="s">"passthrough"</span>: <span class="k">false</span>
+}`,
+        responses: ["201 { message, job }", "400 host and port are required / Input file not found"]
+      },
+      {
+        method: "POST", path: "/srt/ingest/multi", auth: "none",
+        summary: "Start one independent ffmpeg process per destination across a port range (each is decoded/encoded separately). Limited to 100 destinations.",
+        body: `{
+  <span class="s">"host"</span>: <span class="s">"10.11.203.1"</span>,
+  <span class="s">"port_start"</span>: <span class="n">3292</span>,
+  <span class="s">"port_end"</span>: <span class="n">3301</span>,
+  <span class="s">"passphrase"</span>: <span class="s">""</span>,
+  <span class="s">"input_file"</span>: <span class="s">"test.mp4"</span>,
+  <span class="s">"bitrate_mbps"</span>: <span class="n">8</span>,
+  <span class="s">"passthrough"</span>: <span class="k">false</span>
+}`,
+        responses: ["201 { message, jobs: [...] }", "400 validation errors (missing fields, range too large, port_start > port_end)"]
+      },
+      {
+        method: "POST", path: "/srt/ingest/multi-shared", auth: "none",
+        summary: "Start a single ffmpeg process (stream copy only, no re-encode) that reads the input file once and fans it out unmodified to every destination in the port range. Preferred over /ingest/multi for large fan-outs since it avoids per-destination decode/encode CPU cost.",
+        body: `{
+  <span class="s">"host"</span>: <span class="s">"10.11.203.1"</span>,
+  <span class="s">"port_start"</span>: <span class="n">3292</span>,
+  <span class="s">"port_end"</span>: <span class="n">3320</span>,
+  <span class="s">"passphrase"</span>: <span class="s">""</span>,
+  <span class="s">"input_file"</span>: <span class="s">"test.mp4"</span>
+}`,
+        responses: ["201 { message, job }", "400 validation errors"]
+      },
+      {
+        method: "GET", path: "/srt/jobs", auth: "none",
+        summary: "List all known ingest jobs (single and shared) and their current status.",
+        responses: ["200 { jobs: [...] }"]
+      },
+      {
+        method: "GET", path: "/srt/jobs/<span class=\"param\">&lt;job_id&gt;</span>", auth: "none",
+        summary: "Get the status of one ingest job.",
+        responses: ["200 job object", "404 Job not found"]
+      },
+      {
+        method: "POST", path: "/srt/jobs/<span class=\"param\">&lt;job_id&gt;</span>/stop", auth: "none",
+        summary: "Stop a job for good (SIGTERM) and disable its auto-reconnect behaviour.",
+        responses: ["200 { message, job }", "400 Job is not running", "404 Job not found"]
+      },
+      {
+        method: "POST", path: "/srt/jobs/<span class=\"param\">&lt;job_id&gt;</span>/restart", auth: "none",
+        summary: "Restart a job using its stored configuration. Works whether the job is currently running (forces a fresh reconnect) or stopped/errored (relaunches it).",
+        responses: ["200 { message, job }", "404 Job not found", "500 Failed to launch ffmpeg"]
+      },
+      {
+        method: "POST", path: "/srt/jobs/stop-all", auth: "none",
+        summary: "Stop every active job (running/reconnecting/starting) and disable auto-reconnect for each.",
+        responses: ["200 { message, stopped_ids }"]
+      },
+      {
+        method: "POST", path: "/srt/jobs/clear", auth: "none",
+        summary: "Remove all finished jobs (stopped/error) from the in-memory job list. Active jobs are left untouched.",
+        responses: ["200 { message, removed_ids }"]
+      },
+      {
+        method: "GET", path: "/srt/sources", auth: "none",
+        summary: "List available source files: the built-in test.mp4 plus any .ts files found in the configured TS source directory (most recent first).",
+        responses: ["200 { sources: [...] }"]
+      },
+      {
+        method: "GET", path: "/srt/jobs/<span class=\"param\">&lt;job_id&gt;</span>/stats", auth: "none", sse: true,
+        summary: "Server-Sent Events stream: emits a JSON stat event roughly every 0.5s (bitrate/fps/frame/time/speed) plus a status event whenever the job's status or last_error changes.",
+        responses: ["200 text/event-stream", "404 Job not found"]
+      },
+    ]
+  },
+  {
+    id: "srt-push",
+    title: "SRT Push Monitor",
+    file: "routes_srt.py",
+    prefix: "/srt/push",
+    description: "Web control panel for the srt-push.py systemd pipeline (Xvfb &rarr; Chromium &rarr; ffmpeg &rarr; SRT push), providing config management, service control, live preview, log tail, and combined status.",
+    endpoints: [
+      {
+        method: "GET", path: "/srt/push", auth: "none",
+        summary: "Serve the SRT Push Control single-page HTML frontend.",
+        responses: ["200 text/html"]
+      },
+      {
+        method: "GET", path: "/srt/push/status", auth: "none",
+        summary: "Combined snapshot: systemd service state (active/sub state, PID, start time), live ffmpeg telemetry, and the current saved configuration.",
+        responses: ["200 { service, stats, config }"]
+      },
+      {
+        method: "GET", path: "/srt/push/config", auth: "none",
+        summary: "Return the currently saved srt-push configuration (URL to capture, SRT destination, resolution, fps, bitrate).",
+        responses: ["200 config object"]
+      },
+      {
+        method: "POST", path: "/srt/push/config", auth: "none",
+        summary: "Save a new configuration and schedule a background restart of the srt-push systemd service to apply it.",
+        body: `{
+  <span class="s">"html_url"</span>: <span class="s">"https://127.0.0.1/id3as-DC-Monitor.html?..."</span>,
+  <span class="s">"srt_host"</span>: <span class="s">"10.11.203.1"</span>,
+  <span class="s">"srt_port"</span>: <span class="n">3292</span>,
+  <span class="s">"srt_mode"</span>: <span class="s">"caller"</span>,
+  <span class="s">"srt_latency"</span>: <span class="n">1000</span>,
+  <span class="s">"srt_passphrase"</span>: <span class="s">"••••••••"</span>,
+  <span class="s">"width"</span>: <span class="n">1920</span>,
+  <span class="s">"height"</span>: <span class="n">1080</span>,
+  <span class="s">"fps"</span>: <span class="n">5</span>,
+  <span class="s">"video_bitrate_kbps"</span>: <span class="n">500</span>
+}`,
+        responses: ["200 { message, config }", "400 Invalid value for '<field>'", "500 Config saved but failed to schedule restart"]
+      },
+      {
+        method: "POST", path: "/srt/push/service/<span class=\"param\">&lt;action&gt;</span>", auth: "none",
+        summary: "Control the srt-push systemd service in the background.",
+        params: [{name:"action", in:"path", type:"string", required:true, desc:"One of: start, stop, restart"}],
+        responses: ["200 { ok, message }", "400 Invalid action", "500 { ok: false, stderr }"]
+      },
+      {
+        method: "GET", path: "/srt/push/preview.jpg", auth: "none",
+        summary: "Serve the latest Xvfb screenshot captured by srt-push (single overwritten JPEG, no history). Response is marked no-store/no-cache.",
+        responses: ["200 image/jpeg", "404 Preview not available yet"]
+      },
+      {
+        method: "GET", path: "/srt/push/log", auth: "none",
+        summary: "Return the last N lines of the srt-push log file.",
+        params: [{name:"lines", in:"query", type:"int", required:false, desc:"Default 200, clamped between 1 and 2000"}],
+        responses: ["200 text/plain log tail"]
+      },
+    ]
+  },
+  {
+    id: "txcore",
+    title: "TXCore Manager",
+    file: "routes_txcore.py",
+    prefix: "/api/txcore",
+    description: "Bulk provisioning of TXCore categories and channels via the TXCore API, ported from a standalone script. Channel creation runs as a background job with persisted, pollable progress. Configuration (bearer token, base URL, geofence IDs) comes from .env.",
+    endpoints: [
+      {
+        method: "GET", path: "/api/txcore/status", auth: "admin",
+        summary: "Report which required TXCore environment variables are configured, without leaking secret values.",
+        responses: ["200 { bearer_token_set, api_url_set, api_url, geofence_ids_set }", "403 Permission denied"]
+      },
+      {
+        method: "POST", path: "/api/txcore/category", auth: "admin",
+        summary: "Create a new TXCore category and return its generated category_id.",
+        body: `{
+  <span class="s">"name"</span>: <span class="s">"WC2026_Venue_A"</span>,
+  <span class="s">"desc"</span>: <span class="s">"World Cup Venue A"</span>,
+  <span class="s">"dry_run"</span>: <span class="k">false</span>
+}`,
+        responses: ["200 { category_id, response }", "400 Missing required field: name", "500 TXCore API is not configured", "502 TXCore API request failed"]
+      },
+      {
+        method: "GET", path: "/api/txcore/categories", auth: "admin",
+        summary: "List existing TXCore categories (id, name, description), sorted by name, limited to 500.",
+        responses: ["200 category list payload", "403 Permission denied", "500/502 configuration or upstream errors"]
+      },
+      {
+        method: "POST", path: "/api/txcore/channels/preview", auth: "admin",
+        summary: "Build and return the exact request bodies that a bulk channel creation call would send, without contacting the TXCore API. Useful for reviewing IP/name assignments before committing.",
+        body: `{
+  <span class="s">"channel_count"</span>: <span class="n">5</span>,
+  <span class="s">"first_ch"</span>: <span class="n">1</span>,
+  <span class="s">"provider_name"</span>: <span class="s">"PROV"</span>,
+  <span class="s">"channel_number"</span>: <span class="n">1000</span>,
+  <span class="s">"category_id"</span>: <span class="s">"6512ab..."</span>,
+  <span class="s">"locations"</span>: {
+    <span class="s">"ave"</span>: { <span class="s">"udp_ip_3_oct"</span>: <span class="s">"239.1.1"</span>, <span class="s">"udp_ip_4_oct"</span>: <span class="n">10</span>, <span class="s">"port"</span>: <span class="n">5000</span> },
+    <span class="s">"lmk"</span>: { <span class="s">"udp_ip_3_oct"</span>: <span class="s">"239.1.2"</span>, <span class="s">"udp_ip_4_oct"</span>: <span class="n">10</span>, <span class="s">"port"</span>: <span class="n">5000</span> },
+    <span class="s">"yer"</span>: { <span class="s">"udp_ip_3_oct"</span>: <span class="s">"239.1.3"</span>, <span class="s">"udp_ip_4_oct"</span>: <span class="n">10</span>, <span class="s">"port"</span>: <span class="n">5000</span> }
+  }
+}`,
+        responses: ["200 { count, request_bodies }", "400 Missing/invalid field", "403 Permission denied"],
+        note: "Known issue on the roadmap: channel_number (globally unique TXCore id) and first_ch (local index used for name suffix and IP last octet) are independent values, currently linked by a frontend sync default that needs to be removed."
+      },
+      {
+        method: "POST", path: "/api/txcore/channels", auth: "admin",
+        summary: "Start a background job that creates channel_count channels sequentially against the TXCore API, persisting progress to disk after each request so it can be polled.",
+        body: "Same payload shape as /channels/preview, plus optional sleep_time (seconds between requests, default 1) and dry_run (bool).",
+        responses: ["202 { job_id, status: 'queued' }", "400 validation errors", "500 TXCore API is not configured"]
+      },
+      {
+        method: "GET", path: "/api/txcore/channels/job/<span class=\"param\">&lt;job_id&gt;</span>", auth: "admin",
+        summary: "Poll the status/progress/results of a bulk channel creation job.",
+        params: [{name:"job_id", in:"path", type:"string", required:true, desc:"Job id returned by POST /channels"}],
+        responses: ["200 job object with progress, total, results[]", "404 Job not found"]
+      },
+    ]
+  },
+  {
+    id: "rts",
+    title: "RTS-Monitor (Phenix RTS)",
+    file: "rts_routes.py",
+    prefix: "/ (root)",
+    description: "Thin proxy to the Phenix RTS (pcast.phenixrts.com) REST API for channel state/publisher counts, viewing reports, and EdgeAuth token generation used by the Phenix Web SDK for real-time stream preview.",
+    endpoints: [
+      {
+        method: "GET", path: "/channels", auth: "none",
+        summary: "Proxy to the Phenix pcast/channels endpoint, listing available channels for the given application credentials.",
+        params: [
+          {name:"X-App-Id", in:"header", type:"string", required:true, desc:"Phenix application id"},
+          {name:"X-Password", in:"header", type:"string", required:true, desc:"Phenix application secret"},
+        ],
+        responses: ["200 raw Phenix JSON response", "400 Missing headers", "502 upstream error"]
+      },
+      {
+        method: "GET", path: "/publishers/count/<span class=\"param\">&lt;channel_id&gt;</span>", auth: "none",
+        summary: "Proxy to the Phenix publishers/count endpoint for a specific channel, returning the current publisher count.",
+        params: [
+          {name:"channel_id", in:"path", type:"string", required:true, desc:"Phenix channel id (URL-encoded server-side)"},
+          {name:"X-App-Id", in:"header", type:"string", required:true, desc:"Phenix application id"},
+          {name:"X-Password", in:"header", type:"string", required:true, desc:"Phenix application secret"},
+        ],
+        responses: ["200 text/plain count", "502 upstream error"]
+      },
+      {
+        method: "POST", path: "/rts/viewing-report", auth: "none",
+        summary: "Proxy to the Phenix real-time viewing report endpoint; returns the raw CSV response from Phenix for the requested channel and time window.",
+        params: [
+          {name:"X-App-Id", in:"header", type:"string", required:true, desc:"Phenix application id"},
+          {name:"X-Password", in:"header", type:"string", required:true, desc:"Phenix application secret"},
+        ],
+        body: `{
+  <span class="s">"channel_alias"</span>: <span class="s">"venue-a-primary"</span>,
+  <span class="s">"start"</span>: <span class="s">"2026-07-17T10:00:00Z"</span>,
+  <span class="s">"end"</span>: <span class="s">"2026-07-17T12:00:00Z"</span>
+}`,
+        responses: ["200 text/csv", "400 Missing credentials headers / missing fields", "502 upstream error"]
+      },
+      {
+        method: "POST", path: "/edge-token", auth: "none",
+        summary: "Generate a Phenix EdgeAuth digest token for viewing a channel's real-time state, used by the Web SDK for authenticated stream preview.",
+        params: [
+          {name:"X-App-Id", in:"header", type:"string", required:true, desc:"Phenix application id"},
+          {name:"X-Password", in:"header", type:"string", required:true, desc:"Phenix application secret"},
+        ],
+        body: `{
+  <span class="s">"channel_id"</span>: <span class="s">"(or channel_alias)"</span>,
+  <span class="s">"expires_in_seconds"</span>: <span class="n">3600</span>
+}`,
+        responses: ["200 { token: 'DIGEST:...' }", "400 channel_id or channel_alias is required / invalid expires_in_seconds", "502 token build error"],
+        note: "Last known issue: the stream preview modal's watch button produces no visible result. Suspected cause is the Phenix Web SDK global name (sdk.express.PCastExpress) or CDN URL — pending verification via DevTools."
+      },
+    ]
+  },
+  {
+    id: "id3as",
+    title: "id3as-DC-Monitor",
+    file: "id3as_routes.py",
+    prefix: "/id3as",
+    description: "Proxy to per-datacenter id3as encoder control APIs (channels, flags, running/scheduled events, nodes, system logs, packaging events). Aggressively retries and parses response bodies regardless of HTTP status, since several id3as endpoints return 500 even with valid JSON payloads.",
+    endpoints: [
+      {
+        method: "GET", path: "/id3as/config", auth: "none",
+        summary: "Return the id3as GUI base URL for each configured datacenter, so the frontend can build external deep-links without hardcoding hostnames.",
+        responses: ["200 { <dc>: 'https://<host>/ctl/admin', ... }"]
+      },
+      {
+        method: "GET", path: "/id3as/<span class=\"param\">&lt;dc&gt;</span>/channels/<span class=\"param\">&lt;variant&gt;</span>", auth: "none",
+        summary: "List channels for a datacenter, filtered by variant.",
+        params: [
+          {name:"dc", in:"path", type:"string", required:true, desc:"Datacenter key (e.g. ix, ave, lmk, yer)"},
+          {name:"variant", in:"path", type:"string", required:true, desc:"Channel variant filter"},
+        ],
+        responses: ["200 [ channel, ... ]"]
+      },
+      {
+        method: "GET", path: "/id3as/<span class=\"param\">&lt;dc&gt;</span>/channel/<span class=\"param\">&lt;ch_id&gt;</span>", auth: "none",
+        summary: "Fetch details for a single channel.",
+        responses: ["200 channel object"]
+      },
+      {
+        method: "GET", path: "/id3as/<span class=\"param\">&lt;dc&gt;</span>/channel/<span class=\"param\">&lt;ch_id&gt;</span>/status", auth: "none",
+        summary: "Fetch the current live status for a single channel.",
+        responses: ["200 status object"]
+      },
+      {
+        method: "GET", path: "/id3as/<span class=\"param\">&lt;dc&gt;</span>/flags/channels", auth: "none",
+        summary: "List active flags/alerts raised at the channel level for a datacenter.",
+        responses: ["200 [ flag, ... ]"]
+      },
+      {
+        method: "GET", path: "/id3as/<span class=\"param\">&lt;dc&gt;</span>/flags/events", auth: "none",
+        summary: "List active flags/alerts raised at the event level. Upstream data can arrive as a dict keyed by system_id or a nested list; the response is always normalised to a flat array of flag objects.",
+        responses: ["200 [ flag, ... ]"]
+      },
+      {
+        method: "GET", path: "/id3as/<span class=\"param\">&lt;dc&gt;</span>/flags", auth: "none",
+        summary: "List all flags/alerts for a datacenter (unfiltered).",
+        responses: ["200 [ flag, ... ]"]
+      },
+      {
+        method: "GET", path: "/id3as/<span class=\"param\">&lt;dc&gt;</span>/running_events", auth: "none",
+        summary: "List currently running events for a datacenter.",
+        responses: ["200 [ event, ... ]"]
+      },
+      {
+        method: "GET", path: "/id3as/<span class=\"param\">&lt;dc&gt;</span>/running_events/channel/<span class=\"param\">&lt;ch_id&gt;</span>", auth: "none",
+        summary: "List currently running events filtered to a specific channel.",
+        responses: ["200 [ event, ... ]"]
+      },
+      {
+        method: "GET", path: "/id3as/<span class=\"param\">&lt;dc&gt;</span>/scheduled_events", auth: "none",
+        summary: "List scheduled (future) events for a datacenter.",
+        responses: ["200 [ event, ... ]"]
+      },
+      {
+        method: "GET", path: "/id3as/<span class=\"param\">&lt;dc&gt;</span>/nodes", auth: "none",
+        summary: "List encoding nodes for a datacenter.",
+        responses: ["200 [ node, ... ]"]
+      },
+      {
+        method: "GET", path: "/id3as/<span class=\"param\">&lt;dc&gt;</span>/nodes/info", auth: "none",
+        summary: "List extended info for encoding nodes in a datacenter.",
+        responses: ["200 [ node info, ... ]"]
+      },
+      {
+        method: "GET", path: "/id3as/<span class=\"param\">&lt;dc&gt;</span>/logs", auth: "none",
+        summary: "Fetch system event logs for a datacenter for the current UTC date. An alternate route accepts an explicit date.",
+        responses: ["200 [ event, ... ] (reverse chronological)", "500 PRFAUTH not set or unknown DC"]
+      },
+      {
+        method: "GET", path: "/id3as/<span class=\"param\">&lt;dc&gt;</span>/logs/<span class=\"param\">&lt;year&gt;</span>/<span class=\"param\">&lt;month&gt;</span>/<span class=\"param\">&lt;day&gt;</span>", auth: "none",
+        summary: "Fetch system event logs for a datacenter on a specific UTC date.",
+        params: [
+          {name:"year", in:"path", type:"int", required:true, desc:""},
+          {name:"month", in:"path", type:"int", required:true, desc:""},
+          {name:"day", in:"path", type:"int", required:true, desc:""},
+        ],
+        responses: ["200 [ event, ... ] (reverse chronological)", "500 PRFAUTH not set or unknown DC"]
+      },
+      {
+        method: "GET", path: "/id3as/<span class=\"param\">&lt;dc&gt;</span>/packaging/event/<span class=\"param\">&lt;event_id&gt;</span>", auth: "none",
+        summary: "Fetch packaging status/details for a specific event from the datacenter's packaging service.",
+        responses: ["200 packaging event object"]
+      },
+    ]
+  },
+  {
+    id: "wc2026",
+    title: "WC2026 Rota Management",
+    file: "wc2026_routes.py",
+    prefix: "/wc2026",
+    description: "Persistence layer for the FIFA World Cup 2026 broadcast engineering rota: per-day/match engineer assignments, engineer display names, match scores, and team name overrides synced from openfootball.",
+    endpoints: [
+      {
+        method: "GET", path: "/wc2026/assignments", auth: "any",
+        summary: "Return the full current state: assignments, engineer names, scores, team name overrides, and last-updated metadata. Readable by any authenticated user.",
+        responses: ["200 { ok, data }"]
+      },
+      {
+        method: "POST", path: "/wc2026/assignments", auth: "admin",
+        summary: "Persist assignments and engineer display names. Scores and team names sent in the same payload are merged onto existing values rather than overwritten, so a concurrent save never discards previously synced results.",
+        body: `{
+  <span class="s">"assignments"</span>: { <span class="s">"43"</span>: <span class="s">"N"</span>, <span class="s">"44"</span>: <span class="s">"G"</span> },
+  <span class="s">"engNames"</span>: { <span class="s">"N"</span>: <span class="s">"Nuno"</span>, <span class="s">"G"</span>: <span class="s">"Goncalo"</span>, <span class="s">"H"</span>: <span class="s">"Hugo"</span>, <span class="s">"M"</span>: <span class="s">"Marcus"</span> },
+  <span class="s">"scores"</span>: {},
+  <span class="s">"teamNames"</span>: {}
+}`,
+        responses: ["200 { ok, updatedBy, updatedAt }", "400 Invalid payload"],
+        note: "assignments keys must be numeric match ids; values must be one of N, G, H, M or empty string."
+      },
+      {
+        method: "POST", path: "/wc2026/teamnames", auth: "any",
+        summary: "Persist team name overrides synced from openfootball, merging onto existing entries. Any authenticated user may call this.",
+        body: `{ <span class="s">"teamNames"</span>: { <span class="s">"43"</span>: { <span class="s">"t1"</span>: <span class="s">"Portugal"</span>, <span class="s">"t2"</span>: <span class="s">"Spain"</span> } } }`,
+        responses: ["200 { ok: true }", "400 invalid payload"]
+      },
+      {
+        method: "POST", path: "/wc2026/scores", auth: "any",
+        summary: "Persist match scores synced from openfootball, merging onto existing entries. Any authenticated user may call this; GET /assignments returns scores in the same response blob.",
+        body: `{ <span class="s">"scores"</span>: { <span class="s">"43"</span>: <span class="s">"2-1"</span> } }`,
+        responses: ["200 { ok: true }", "400 invalid payload"]
+      },
+    ]
+  },
+  {
+    id: "system",
+    title: "Proxy System &amp; Utility Routes",
+    file: "proxy.py",
+    prefix: "/ (root)",
+    description: "Top-level Flask app: bootstraps every blueprint above and hosts standalone utility endpoints for server config, git/deploy control, network diagnostics (MTR), and the standalone SRT ingest/GOP analysis tool used outside the BTV Video Analyser workflow.",
+    endpoints: [
+      {
+        method: "GET", path: "/config", auth: "none",
+        summary: "Read .env from disk and return only the safe, non-secret UI configuration keys (tool titles, versions, whether an admin password is set). Credentials and internal URLs are never exposed.",
+        responses: ["200 { status, config }", "404 .env not found"]
+      },
+      {
+        method: "POST", path: "/git-pull", auth: "admin",
+        summary: "Run git pull in the proxy's repository directory and return combined stdout/stderr.",
+        responses: ["200 { success, output }", "500 { success: false, output }"]
+      },
+      {
+        method: "GET", path: "/git-branch", auth: "none",
+        summary: "Return the current git branch name for the deployed repository.",
+        responses: ["200 { success, branch, output }"]
+      },
+      {
+        method: "POST", path: "/restart-proxy", auth: "admin",
+        summary: "Schedule an asynchronous systemctl restart so-proxy 2 seconds in the future, allowing the current response to complete first.",
+        responses: ["200 { success: true, output }", "500 { success: false, output }"]
+      },
+      {
+        method: "GET", path: "/server-info", auth: "none",
+        summary: "Return local network interface info, default route, and the server's public IP (via api.ipify.org) for the network diagnostics header.",
+        responses: ["200 { ip_addr, default_route, public_ip }"]
+      },
+      {
+        method: "GET", path: "/mtr/stream", auth: "none", sse: true,
+        summary: "Run an mtr network trace toward a host and stream progress ticks + the final report over SSE. Also spawns a background job that persists the completed report to disk so reconnecting clients (or /mtr/results) can pick it up.",
+        params: [
+          {name:"host", in:"query", type:"string", required:true, desc:"Target hostname or IP"},
+          {name:"mode", in:"query", type:"string", required:false, desc:"'packets' or 'time', default 'packets'"},
+          {name:"count", in:"query", type:"int", required:false, desc:"Packet count mode: 1-500, default 50"},
+          {name:"seconds", in:"query", type:"int", required:false, desc:"Time mode duration: 10-86400, default 60"},
+          {name:"no_dns", in:"query", type:"string", required:false, desc:"'1' to disable reverse DNS"},
+          {name:"proto", in:"query", type:"string", required:false, desc:"'icmp' or 'udp53', default 'icmp'"},
+          {name:"geo", in:"query", type:"string", required:false, desc:"'country' or 'asn', default 'country'"},
+          {name:"src_ip", in:"query", type:"string", required:false, desc:"Client source IP, for report metadata"},
+          {name:"pub_ip", in:"query", type:"string", required:false, desc:"Client public IP, for report metadata"},
+          {name:"tag", in:"query", type:"string", required:false, desc:"Free-text label for the report"},
+        ],
+        responses: ["200 text/event-stream", "200 (stream) ERROR: Host is required."],
+        note: "Reconnecting to the same job (same host/timestamp bucket) attaches to the existing background run rather than starting a duplicate."
+      },
+      {
+        method: "POST", path: "/mtr/kill/<span class=\"param\">&lt;job_id&gt;</span>", auth: "password",
+        summary: "Kill a currently running MTR job. Requires X-Admin-Password header if ADMIN_PASSWORD is configured.",
+        responses: ["200 { success, output }", "403 Invalid admin password", "404 Job not found or already finished"]
+      },
+      {
+        method: "DELETE", path: "/mtr/delete/<span class=\"param\">&lt;filename&gt;</span>", auth: "password",
+        summary: "Delete a completed MTR result JSON file. Requires X-Admin-Password header if ADMIN_PASSWORD is configured.",
+        responses: ["200 { success: true }", "403 Invalid admin password", "404 File not found"]
+      },
+      {
+        method: "GET", path: "/mtr/running", auth: "none",
+        summary: "List currently running MTR jobs with elapsed/remaining time, parsed from .running.json state files.",
+        responses: ["200 [ job, ... ]"]
+      },
+      {
+        method: "POST", path: "/mtr/tag/<span class=\"param\">&lt;filename&gt;</span>", auth: "none",
+        summary: "Update the tag on a saved MTR result.",
+        body: `{ <span class="s">"tag"</span>: <span class="s">"pre-match check"</span> }`,
+        responses: ["200 { ok: true }", "404 File not found"]
+      },
+      {
+        method: "GET", path: "/mtr/results", auth: "none",
+        summary: "List saved MTR result files (completed only), most recent 50.",
+        responses: ["200 [ result summary, ... ]"]
+      },
+      {
+        method: "GET", path: "/mtr/results/<span class=\"param\">&lt;filename&gt;</span>", auth: "none",
+        summary: "Download a specific MTR result JSON as an attachment.",
+        responses: ["200 file download"]
+      },
+      {
+        method: "POST", path: "/ingest/run", auth: "none",
+        summary: "Start a background job that captures a URL via the run-ingest-analysis.sh script and produces a GOP/ingest report bundle (zip + report directory).",
+        body: `{ <span class="s">"url"</span>: <span class="s">"srt://..."</span>, <span class="s">"tag"</span>: <span class="s">"optional label"</span> }`,
+        responses: ["200 { job_id }", "400 url is required"]
+      },
+      {
+        method: "POST", path: "/ingest/upload", auth: "none",
+        summary: "Upload a .ts file and run ingest analysis on it directly, skipping live capture.",
+        params: [
+          {name:"file", in:"form-data", type:"file", required:true, desc:"Must have a .ts extension"},
+          {name:"tag", in:"form-data", type:"string", required:false, desc:"Free-text label"},
+        ],
+        responses: ["200 { job_id }", "400 No file uploaded / Only .ts files are supported / file too small"]
+      },
+      {
+        method: "GET", path: "/ingest/status/<span class=\"param\">&lt;job_id&gt;</span>", auth: "none",
+        summary: "Poll the status/log of a running or completed ingest job.",
+        responses: ["200 job object", "404 Job not found"]
+      },
+      {
+        method: "GET", path: "/ingest/results", auth: "none",
+        summary: "List saved ingest results (most recent 50 directories), reading meta.json (or falling back to report.json) for tag/url/status metadata.",
+        responses: ["200 [ result summary, ... ]"]
+      },
+      {
+        method: "GET", path: "/ingest/report-txt/<span class=\"param\">&lt;dirname&gt;</span>", auth: "none",
+        summary: "Return the plain-text report.txt for a saved ingest result.",
+        responses: ["200 text/plain", "404 report.txt not found"]
+      },
+      {
+        method: "GET", path: "/ingest/download/<span class=\"param\">&lt;filename&gt;</span>", auth: "none",
+        summary: "Download a saved ingest result archive (zip) as an attachment.",
+        responses: ["200 file download"]
+      },
+      {
+        method: "GET", path: "/ingest/report/<span class=\"param\">&lt;filepath&gt;</span>", auth: "none",
+        summary: "Serve individual files (index.html, charts, assets) from inside a saved ingest report directory.",
+        responses: ["200 file contents"]
+      },
+      {
+        method: "GET", path: "/server-stats", auth: "none",
+        summary: "Return current server CPU%, memory%, and disk usage% (disk measured on /opt/web/store).",
+        responses: ["200 { cpu, memory, disk }", "500 { error }"]
+      },
+    ]
+  },
+];
+
+/* ============================================================
+   RENDER
+============================================================ */
+const AUTH_LABELS = {
+  none: {text: "No auth", cls: "auth-none"},
+  any: {text: "Any authenticated user", cls: "auth-any"},
+  admin: {text: "Admin / Engineer", cls: "auth-admin"},
+  password: {text: "X-Admin-Password", cls: "auth-pwd"},
+};
+
+function renderSidebar(){
+  const nav = document.getElementById("navRoot");
+  DATA.forEach(bp => {
+    const group = document.createElement("div");
+    group.className = "group";
+    const title = document.createElement("div");
+    title.className = "group-title";
+    title.innerHTML = bp.title;
+    group.appendChild(title);
+
+    const link = document.createElement("a");
+    link.href = "#" + bp.id;
+    link.dataset.section = bp.id;
+    link.innerHTML = `<span>${bp.prefix}</span><span class="count">${bp.endpoints.length}</span>`;
+    group.appendChild(link);
+
+    nav.appendChild(group);
+  });
+}
+
+function renderContent(){
+  const root = document.getElementById("content");
+  DATA.forEach(bp => {
+    const section = document.createElement("section");
+    section.className = "blueprint-section";
+    section.id = bp.id;
+
+    section.innerHTML = `
+      <div class="blueprint-header">
+        <h2>${bp.title} <span class="file-tag">${bp.file}</span></h2>
+        <span class="prefix-tag">prefix: ${bp.prefix}</span>
+      </div>
+      <p class="blueprint-desc">${bp.description}</p>
+    `;
+
+    bp.endpoints.forEach((ep, idx) => {
+      const authInfo = AUTH_LABELS[ep.auth] || AUTH_LABELS.none;
+      const epEl = document.createElement("div");
+      epEl.className = "endpoint";
+      epEl.id = bp.id + "-" + idx;
+      epEl.dataset.searchable = (ep.method + " " + ep.path + " " + ep.summary).toLowerCase().replace(/<[^>]*>/g, "");
+
+      let paramsHtml = "";
+      if(ep.params && ep.params.length){
+        paramsHtml += `<div class="field-title">Parameters</div>
+        <table class="params"><thead><tr><th>Name</th><th>In</th><th>Type</th><th>Required</th><th>Description</th></tr></thead><tbody>`;
+        ep.params.forEach(p => {
+          paramsHtml += `<tr><td><code>${p.name}</code></td><td>${p.in}</td><td>${p.type}</td><td>${p.required ? "yes" : "no"}</td><td>${p.desc}</td></tr>`;
+        });
+        paramsHtml += `</tbody></table>`;
+      }
+
+      let bodyHtml = "";
+      if(ep.body){
+        bodyHtml = `<div class="field-title">Request Body</div><div class="code-block">${ep.body}</div>`;
+      }
+
+      let respHtml = "";
+      if(ep.responses && ep.responses.length){
+        respHtml = `<div class="field-title">Responses</div><div class="resp-grid">`;
+        ep.responses.forEach(r => {
+          const m = r.match(/^(\d{3})\s+(.*)$/);
+          if(m){
+            respHtml += `<div class="resp-chip"><b>${m[1]}</b> ${m[2]}</div>`;
+          } else {
+            respHtml += `<div class="resp-chip">${r}</div>`;
+          }
+        });
+        respHtml += `</div>`;
+      }
+
+      let noteHtml = ep.note ? `<div class="note">${ep.note}</div>` : "";
+
+      epEl.innerHTML = `
+        <div class="endpoint-head">
+          <span class="method ${ep.method}">${ep.method}</span>
+          <span class="path">${ep.path}</span>
+          <div class="tag-row">
+            ${ep.sse ? '<span class="tag sse">SSE</span>' : ''}
+            <span class="tag ${authInfo.cls}">${authInfo.text}</span>
+          </div>
+          <span class="chevron">&#9656;</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="summary">${ep.summary}</p>
+          ${paramsHtml}
+          ${bodyHtml}
+          ${respHtml}
+          ${noteHtml}
+        </div>
+      `;
+
+      epEl.querySelector(".endpoint-head").addEventListener("click", () => {
+        epEl.classList.toggle("open");
+      });
+
+      section.appendChild(epEl);
+    });
+
+    root.appendChild(section);
+  });
+}
+
+function setupSearch(){
+  const input = document.getElementById("searchInput");
+  input.addEventListener("input", () => {
+    const q = input.value.trim().toLowerCase();
+    document.querySelectorAll(".endpoint").forEach(ep => {
+      const match = !q || ep.dataset.searchable.includes(q);
+      ep.style.display = match ? "" : "none";
+      if(q && match) ep.classList.add("open");
+      if(!q) ep.classList.remove("open");
+    });
+    document.querySelectorAll(".blueprint-section").forEach(sec => {
+      const anyVisible = Array.from(sec.querySelectorAll(".endpoint")).some(ep => ep.style.display !== "none");
+      sec.style.display = anyVisible ? "" : "none";
+    });
+  });
+}
+
+function setupScrollSpy(){
+  const links = document.querySelectorAll("#navRoot a");
+  const sections = DATA.map(bp => document.getElementById(bp.id));
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if(entry.isIntersecting){
+        links.forEach(l => l.classList.remove("active"));
+        const active = document.querySelector(`#navRoot a[data-section="${entry.target.id}"]`);
+        if(active) active.classList.add("active");
+      }
+    });
+  }, { rootMargin: "-10% 0px -75% 0px" });
+  sections.forEach(s => s && io.observe(s));
+}
+
+renderSidebar();
+renderContent();
+setupSearch();
+setupScrollSpy();
+</script>
+</body>
+</html>

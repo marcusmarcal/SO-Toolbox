@@ -7,6 +7,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.32.0] - 2026-07-17
+
+### Added
+
+- New standalone API documentation page (SO-Toolbox-API-Docs.html) covering all Flask Blueprints: auth, GOP compliance, SRT ingest, SRT push monitor, TXCore manager, RTS monitor, id3as DC monitor, WC2026 rota, and proxy.py utility routes. Includes searchable sidebar, collapsible endpoint cards, auth requirements, request/response examples, and known-issue notes carried over from current backlog items.
+
 ## [2.30.1] - 2026-07-16
 
 ### Fixed
