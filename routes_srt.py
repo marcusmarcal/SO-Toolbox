@@ -62,6 +62,7 @@ def _build_ffmpeg_cmd(
     passphrase: str,
     bitrate_mbps: float = CBR_DEFAULT_MBPS,
     passthrough: bool = False,
+    source_mode: str = "file",
 ) -> list:
     """Build ffmpeg command for a single SRT destination.
 
@@ -69,6 +70,45 @@ def _build_ffmpeg_cmd(
     passthrough=False: full CBR transcode with libx264/aac.
     """
     srt_url = f"srt://{host}:{port}?passphrase={passphrase}" if passphrase else f"srt://{host}:{port}"
+
+    if source_mode == "bars_tone":
+        # A dedicated source is required per destination because the port is
+        # burned into the video.  The signal is 1080p25 SMPTE colour bars with
+        # a continuous 1 kHz tone, encoded as AVC/H.264 at 1 Mbps.
+        return [
+            "ffmpeg", "-re",
+            "-f", "lavfi", "-i", "smptebars=size=1920x1080:rate=25",
+            "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=48000",
+            "-filter:v", (
+                "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:"
+                f"text='PORT {port}':fontcolor=white:fontsize=72:"
+                "box=1:boxcolor=black@0.70:boxborderw=20:x=(w-text_w)/2:y=h-140"
+            ),
+            "-map", "0:v:0",
+            "-map", "1:a:0",
+            "-c:v", "libx264",
+            "-profile:v", "high",
+            "-pix_fmt", "yuv420p",
+            "-x264-params", "force-cfr=1:pic-struct=1:scenecut=0",
+            "-bf", "0",
+            "-flags", "+cgop",
+            "-r", "25",
+            "-g", "25",
+            "-keyint_min", "25",
+            "-sc_threshold", "0",
+            "-b:v", "1M",
+            "-minrate", "1M",
+            "-maxrate", "1M",
+            "-bufsize", "2M",
+            "-c:a", "aac",
+            "-b:a", "128k",
+            "-ar", "48000",
+            "-ac", "2",
+            "-f", "mpegts",
+            "-muxdelay", "0",
+            "-muxpreload", "0",
+            srt_url,
+        ]
 
     if passthrough:
         return [
@@ -189,7 +229,7 @@ def _launch_process(job: dict) -> None:
     else:
         cmd = _build_ffmpeg_cmd(
             job["input_file"], job["host"], job["port"], job["passphrase"],
-            job["bitrate_mbps"], job["passthrough"],
+            job["bitrate_mbps"], job["passthrough"], job.get("source_mode", "file"),
         )
     process = subprocess.Popen(
         cmd,
@@ -281,6 +321,7 @@ def _launch_job(
     passphrase: str,
     bitrate_mbps: float = CBR_DEFAULT_MBPS,
     passthrough: bool = False,
+    source_mode: str = "file",
 ) -> dict:
     """Create a job record and launch its ffmpeg process for the first time."""
     job_id = _next_job_id()
@@ -293,7 +334,8 @@ def _launch_job(
         "input_file": input_file,
         "bitrate_mbps": bitrate_mbps,
         "passthrough": passthrough,
-        "mode": "passthrough" if passthrough else "transcode",
+        "source_mode": source_mode,
+        "mode": "bars-tone" if source_mode == "bars_tone" else ("passthrough" if passthrough else "transcode"),
         "status": "starting",
         "process": None,
         "pid": None,
@@ -374,6 +416,7 @@ def _job_info(job: dict) -> dict:
         "pid": job["pid"],
         "bitrate_mbps": job["bitrate_mbps"],
         "passthrough": job["passthrough"],
+        "source_mode": job.get("source_mode", "file"),
         "mode": job["mode"],
         "status": job["status"],
         "last_stat": job.get("last_stat"),
@@ -434,6 +477,9 @@ def ingest_multi():
     input_file = data.get("input_file", "test.mp4").strip()
     bitrate_mbps = float(data.get("bitrate_mbps", CBR_DEFAULT_MBPS))
     passthrough = bool(data.get("passthrough", False))
+    source_mode = data.get("source_mode", "file")
+    if source_mode not in ("file", "bars_tone"):
+        return jsonify({"error": "Invalid source_mode"}), 400
 
     if not host or not port_start or not port_end:
         return jsonify({"error": "host, port_start and port_end are required"}), 400
@@ -441,12 +487,20 @@ def ingest_multi():
         return jsonify({"error": "port_start must be <= port_end"}), 400
     if (port_end - port_start) > 99:
         return jsonify({"error": "Port range limited to 100 destinations"}), 400
-    if not os.path.isfile(input_file):
+    if source_mode == "bars_tone":
+        # B&T has a fixed compliance profile; do not inherit the UI bitrate
+        # or passthrough choice.
+        bitrate_mbps = 1.0
+        passthrough = False
+    elif not os.path.isfile(input_file):
         return jsonify({"error": f"Input file not found: {input_file}"}), 400
 
     jobs = []
     for port in range(port_start, port_end + 1):
-        job = _launch_job(input_file, host, port, passphrase, bitrate_mbps, passthrough)
+        job = _launch_job(
+            input_file, host, port, passphrase, bitrate_mbps, passthrough,
+            source_mode=source_mode,
+        )
         jobs.append(_job_info(job))
 
     return jsonify({

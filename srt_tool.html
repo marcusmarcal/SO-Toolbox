@@ -287,6 +287,7 @@
       <div class="host-combo">
         <select id="m-source-select" onchange="applySourceSelect('m')">
           <option value="test.mp4" data-type="mp4">test.mp4</option>
+          <option value="__bars_tone__" data-type="bars-tone">B&amp;T — Colour Bars + 1 kHz Tone (port overlay)</option>
         </select>
         <input type="text" id="m-input" value="test.mp4" placeholder="or type path" />
       </div>
@@ -699,7 +700,10 @@ function updateMultiPreview() {
   const br    = parseFloat(document.getElementById('m-bitrate').value) || 8;
   const mPt   = document.getElementById('m-passthrough').checked;
   const shared = document.getElementById('m-shared').checked;
-  const modeLabel = shared
+  const isBarsTone = document.getElementById('m-source-select').value === '__bars_tone__';
+  const modeLabel = isBarsTone
+    ? '<span class="hlg">B&T · 1080p25 · AVC · 1 Mbps · GOP 1 s · no B-frames</span>'
+    : shared
     ? '<span class="hl2">passthrough · 1 shared ffmpeg process</span>'
     : mPt ? '<span class="hl2">passthrough</span>' : `<span class="hlg">${br} Mbps CBR</span>`;
   let html = `<span class="hl">${count} destination${count>1?'s':''}</span> @ ${modeLabel} → <span class="hl2">${esc(host)}</span>:\n`;
@@ -741,20 +745,22 @@ async function startSingle() {
 
 async function startMulti() {
   const shared = document.getElementById('m-shared').checked;
+  const isBarsTone = document.getElementById('m-source-select').value === '__bars_tone__';
   const base = {
     input_file:   document.getElementById('m-input').value.trim(),
     host:         document.getElementById('m-host').value.trim(),
     port_start:   parseInt(document.getElementById('m-port-start').value),
     port_end:     parseInt(document.getElementById('m-port-end').value),
     passphrase:   document.getElementById('m-pass').value.trim(),
+    source_mode:  document.getElementById('m-source-select').value === '__bars_tone__' ? 'bars_tone' : 'file',
   };
   if (!base.host || !base.port_start || !base.port_end) { toast('Host and port range are required.','err'); return; }
 
   const endpoint = shared ? '/ingest/multi-shared' : '/ingest/multi';
   const body = shared ? base : {
     ...base,
-    bitrate_mbps: parseFloat(document.getElementById('m-bitrate').value) || 8,
-    passthrough:  document.getElementById('m-passthrough').checked,
+    bitrate_mbps: isBarsTone ? 1 : (parseFloat(document.getElementById('m-bitrate').value) || 8),
+    passthrough:  isBarsTone ? false : document.getElementById('m-passthrough').checked,
   };
   try {
     const r = await fetch(`${BASE}${endpoint}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
@@ -915,6 +921,13 @@ async function loadSources() {
         o.textContent = s.type === 'ts' ? `📼 ${s.name}` : `🎬 ${s.file}`;
         sel.appendChild(o);
       });
+      if (selId === 'm-source-select') {
+        const o = document.createElement('option');
+        o.value = '__bars_tone__';
+        o.dataset.type = 'bars-tone';
+        o.textContent = 'B&T — Colour Bars + 1 kHz Tone (port overlay)';
+        sel.appendChild(o);
+      }
     });
     // Set initial input value to first source
     const first = d.sources[0];
@@ -960,13 +973,22 @@ function applySourceSelect(prefix) {
   const sel  = document.getElementById(`${prefix}-source-select`);
   const file = sel.value;
   const type = sel.options[sel.selectedIndex]?.dataset.type;
-  document.getElementById(`${prefix}-input`).value = file;
-  // Show passthrough option only for .ts files
+  const isBarsTone = prefix === 'm' && type === 'bars-tone';
+  document.getElementById(`${prefix}-input`).value = isBarsTone ? '' : file;
+
   const ptRow = document.getElementById(`${prefix}-passthrough-row`);
-  ptRow.style.display = type === 'ts' ? '' : 'none';
-  if (type !== 'ts') {
-    document.getElementById(`${prefix}-passthrough`).checked = false;
-    const brRow = document.getElementById(`${prefix}-bitrate-row`);
+  const brRow = document.getElementById(`${prefix}-bitrate-row`);
+  if (isBarsTone) {
+    // B&T is generated per destination, so shared/copy mode is unavailable.
+    document.getElementById('m-shared').checked = false;
+    document.getElementById('m-shared').disabled = true;
+    document.getElementById('m-passthrough').checked = false;
+    ptRow.style.display = 'none';
+    brRow.style.display = 'none';
+  } else {
+    if (prefix === 'm') document.getElementById('m-shared').disabled = false;
+    ptRow.style.display = type === 'ts' ? '' : 'none';
+    if (type !== 'ts') document.getElementById(`${prefix}-passthrough`).checked = false;
     if (brRow) brRow.style.display = '';
   }
   if (prefix === 's') updateSinglePreview();
