@@ -7,6 +7,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.33.0] - 2026-07-17
+
+### Added
+
+- B&T to SRT Ingest
+
 ## [2.32.0] - 2026-07-17
 
 ### Added
