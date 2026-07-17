@@ -7,6 +7,23 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.34.0] - 2026-07-17
+
+### Fixed
+
+- Extraction returned zero fields and empty raw text on some machines/
+  sessions where the ServiceNow RITM ticket loads through the "Unified
+  Navigation App" shell (now/nav/ui), because pageExtractor read the page
+  before any async-mounted content existed.
+
+### Changed
+
+- pageExtractor now waits (up to 12s, polling every 400ms) inside the
+  page for real content or form fields to appear before reading them.
+- Extraction retries up to 3 times across all frames as a fallback for
+  frames created after the initial call.
+- Loading state shows attempt/progress feedback during longer waits.
+
 ## [2.33.0] - 2026-07-17
 
 ### Added
