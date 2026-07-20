@@ -7,6 +7,37 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.35.1] - 2026-07-20
+
+### Added
+
+- GOP Analyzer: AV sync now measured via mediainfo's "Delay relative to
+  video" metric, read directly from the recorded .ts file after capture
+  or upload, before compliance evaluation.
+- New spec "mediainfo_delay" with an adjustable hard limit (default
+  1000ms / 1s), applied to all workflows. Exceeding the limit rejects
+  the result. Editable in the specs editor under the new "TIMING"
+  section.
+
+### Removed
+
+- The unreliable ffprobe PTS-offset based AV sync analysis and its
+  "AV SYNC & TIMING" spec block (av_sync_warn, av_sync_max,
+  v_pts_jitter, a_pts_jitter), along with all related fields and UI
+  sections.
+
+### Changed
+
+- Result JSON: av_sync_min_ms, av_sync_max_ms, av_sync_avg_ms,
+  av_sync_median_ms, v_pts_jitter_ms and a_pts_jitter_ms replaced by a
+  single mediainfo_delay_ms field.
+
+### Requires
+
+- mediainfo installed on the server (apt-get install mediainfo).
+  Analysis falls back to UNKNOWN status if mediainfo is missing or the
+  delay metric cannot be measured.
+
 ## [2.35.0] - 2026-07-20
 
 ### Added

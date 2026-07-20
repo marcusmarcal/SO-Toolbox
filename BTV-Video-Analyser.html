@@ -2829,43 +2829,12 @@
           ["B-frame count", r.b_frame_count],
           ["Total frames", r.total_frames],
           [
-            "AV Sync Avg",
-            r.av_sync_avg_ms != null ? r.av_sync_avg_ms + " ms" : "—",
-            r.av_sync_avg_ms != null
-              ? r.av_sync_avg_ms < 15
+            "Delay rel. to video (mediainfo)",
+            r.mediainfo_delay_ms != null ? r.mediainfo_delay_ms + " ms" : "—",
+            r.mediainfo_delay_ms != null
+              ? Math.abs(r.mediainfo_delay_ms) <= 1000
                 ? "green"
-                : r.av_sync_avg_ms < 175
-                ? "yellow"
                 : "red"
-              : "",
-          ],
-          [
-            "AV Sync Max",
-            r.av_sync_max_ms != null ? r.av_sync_max_ms + " ms" : "—",
-            r.av_sync_max_ms != null
-              ? r.av_sync_max_ms < 175
-                ? "green"
-                : r.av_sync_max_ms < 230
-                ? "yellow"
-                : "red"
-              : "",
-          ],
-          [
-            "Video PTS Jitter",
-            r.v_pts_jitter_ms != null ? r.v_pts_jitter_ms + " ms" : "—",
-            r.v_pts_jitter_ms != null
-              ? r.v_pts_jitter_ms < 5
-                ? "green"
-                : "yellow"
-              : "",
-          ],
-          [
-            "Audio PTS Jitter",
-            r.a_pts_jitter_ms != null ? r.a_pts_jitter_ms + " ms" : "—",
-            r.a_pts_jitter_ms != null
-              ? r.a_pts_jitter_ms < 5
-                ? "green"
-                : "yellow"
               : "",
           ],
         ]);
@@ -2914,6 +2883,9 @@
         if ("warn" in s) {
           const mode = s.mode === "inform" ? " (inform only)" : "";
           return `< ${s.warn}ms preferred, < ${s.hard}ms limit${mode}`;
+        }
+        if ("hard" in s) {
+          return `± ${s.hard}ms (hard limit)`;
         }
         if (s.values) {
           const vals = s.values.join(", ");
@@ -2974,26 +2946,14 @@
             "a_bits",
             "a_br_kbps",
           ],
-          "AV SYNC & TIMING": [
-            "av_sync_warn",
-            "av_sync_max",
-            "v_pts_jitter",
-            "a_pts_jitter",
-          ],
-        };
-
-        const avSyncSpec = {
-          av_sync_warn: ["AV Sync Avg Offset", "< 15 ms (preferred)"],
-          av_sync_max: ["AV Sync Max Offset", "< 175 ms (hard limit 230ms)"],
-          v_pts_jitter: ["Video PTS Jitter", "< 5.0 ms"],
-          a_pts_jitter: ["Audio PTS Jitter", "< 5.0 ms"],
+          "TIMING": ["mediainfo_delay"],
         };
 
         let html = "";
         for (const [section, keys] of Object.entries(sections)) {
           html += `<tr class="section-hdr"><td colspan="4">${section}</td></tr>`;
           for (const key of keys) {
-            const info = avSyncSpec[key] || spec[key] || [key, "—"];
+            const info = spec[key] || [key, "—"];
             const [status, measured, note] = c[key] || ["UNKNOWN", "—", ""];
             html += `<tr>
         <td>${info[0]}</td>
@@ -3794,30 +3754,12 @@
           r.a_br_kbps ? r.a_br_kbps + " Kbps" : "—",
           "a_br_kbps"
         )}
-        ${vsec("AV SYNC & TIMING")}
+        ${vsec("TIMING")}
         ${vrow(
-          "AV Sync Avg Offset",
-          "< 15 ms preferred",
-          r.av_sync_avg_ms != null ? r.av_sync_avg_ms + " ms" : "—",
-          "av_sync_warn"
-        )}
-        ${vrow(
-          "AV Sync Max Offset",
-          "< 175 ms hard limit",
-          r.av_sync_max_ms != null ? r.av_sync_max_ms + " ms" : "—",
-          "av_sync_max"
-        )}
-        ${vrow(
-          "Video PTS Jitter",
-          "< 5.0 ms",
-          r.v_pts_jitter_ms != null ? r.v_pts_jitter_ms + " ms" : "—",
-          "v_pts_jitter"
-        )}
-        ${vrow(
-          "Audio PTS Jitter",
-          "< 5.0 ms",
-          r.a_pts_jitter_ms != null ? r.a_pts_jitter_ms + " ms" : "—",
-          "a_pts_jitter"
+          "Delay relative to video (mediainfo)",
+          "≤ 1000 ms hard limit",
+          r.mediainfo_delay_ms != null ? r.mediainfo_delay_ms + " ms" : "—",
+          "mediainfo_delay"
         )}
       </tbody>
     </table>
@@ -4019,30 +3961,12 @@
             "a_br_kbps"
           ),
           ``,
-          `AV SYNC & TIMING`,
+          `TIMING`,
           tr(
-            "AV Sync Avg Offset",
-            "< 15 ms preferred",
-            r.av_sync_avg_ms != null ? r.av_sync_avg_ms + " ms" : "—",
-            "av_sync_warn"
-          ),
-          tr(
-            "AV Sync Max Offset",
-            "< 175 ms hard limit",
-            r.av_sync_max_ms != null ? r.av_sync_max_ms + " ms" : "—",
-            "av_sync_max"
-          ),
-          tr(
-            "Video PTS Jitter",
-            "< 5.0 ms",
-            r.v_pts_jitter_ms != null ? r.v_pts_jitter_ms + " ms" : "—",
-            "v_pts_jitter"
-          ),
-          tr(
-            "Audio PTS Jitter",
-            "< 5.0 ms",
-            r.a_pts_jitter_ms != null ? r.a_pts_jitter_ms + " ms" : "—",
-            "a_pts_jitter"
+            "Delay relative to video (mediainfo)",
+            "≤ 1000 ms hard limit",
+            r.mediainfo_delay_ms != null ? r.mediainfo_delay_ms + " ms" : "—",
+            "mediainfo_delay"
           ),
           sep,
           `GOP STRUCTURE`,
@@ -4693,12 +4617,7 @@
             "a_bits",
             "a_br_kbps",
           ],
-          "AV SYNC & TIMING": [
-            "av_sync_warn",
-            "av_sync_max",
-            "v_pts_jitter",
-            "a_pts_jitter",
-          ],
+          "TIMING": ["mediainfo_delay"],
         };
 
         let html = `<table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.72rem">
@@ -4728,6 +4647,10 @@
               specialEl = `<label style="cursor:pointer"><input type="checkbox" data-key="${key}" data-field="mode_inform" ${
                 modeInform ? "checked" : ""
               } /> Inform only (never reject)</label>`;
+            } else if ("hard" in s) {
+              // Single hard-threshold spec (e.g. mediainfo delay) — reject when |measured| exceeds this
+              allowedEl = `Reject above: <input data-key="${key}" data-field="hard" type="number" value="${s.hard}" step="50" style="${inStyle};width:70px" title="Hard limit (ms)" /> ms`;
+              prefEl = ``;
             } else if ("lo" in s) {
               // Range spec
               allowedEl = `<input data-key="${key}" data-field="lo" type="number" value="${s.lo}" step="0.1" style="${inStyle}" title="Min" /> – <input data-key="${key}" data-field="hi" type="number" value="${s.hi}" step="0.1" style="${inStyle}" title="Max" />`;

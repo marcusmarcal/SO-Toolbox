@@ -1,12 +1,19 @@
 """
 routes_gop.py — GOP Analyzer Blueprint
-SO-Toolbox v2.28.1
+SO-Toolbox v2.29.0
 
 All /gop/* routes (run, upload, status, results, schedule, specs, overrides, delete).
 GOP results JSON now includes a `username` field (from /me session) for every test —
 "anonymous" when the request has no valid session.
 Each result also includes a `workflow` field; specs are now stored per workflow
 (dc_aminos_tp / rts / wb), each with its own specs JSON file on disk.
+
+AV sync is now measured by running mediainfo on the recorded .ts file and reading
+the "Delay relative to video" metric (mediainfo JSON field `Video_Delay` on the
+Audio track), replacing the old unreliable ffprobe PTS-offset heuristic. The
+"AV SYNC & TIMING" spec block (av_sync_warn / av_sync_max / v_pts_jitter /
+a_pts_jitter) has been removed and replaced by a single "mediainfo_delay" spec
+with an adjustable hard limit (default 1000ms) that REJECTs when exceeded.
 
 Registers all /gop/* routes (nginx strips /so-proxy prefix).
 """
@@ -142,11 +149,9 @@ DEFAULT_SPECS = {
     "a_sample_rate":{"lo": 44.1, "hi": 48.0, "pref_lo": 48.0, "pref_hi": 48.0, "label": "Sample Rate (kHz)"},
     "a_bits":       {"values": ["fltp","16","s16"], "preferred": "16", "label": "Audio Bits per Sample"},
     "a_br_kbps":    {"lo": 118, "hi": 512, "pref_lo": 256, "pref_hi": 256, "label": "Audio Bitrate (Kbps)"},
-    # AV Sync & Timing — mode "inform" means never REJECT; "enforce" enables REJECTED status.
-    "av_sync_warn": {"warn": 15.0,  "hard": 230.0, "mode": "inform", "label": "AV Sync Avg Offset (ms)"},
-    "av_sync_max":  {"warn": 175.0, "hard": 230.0, "mode": "inform", "label": "AV Sync Max Offset (ms)"},
-    "v_pts_jitter": {"warn": 5.0,   "hard": 10.0,  "mode": "inform", "label": "Video PTS Jitter (ms)"},
-    "a_pts_jitter": {"warn": 5.0,   "hard": 10.0,  "mode": "inform", "label": "Audio PTS Jitter (ms)"},
+    # Delay relative to video — measured via mediainfo on the recorded .ts file.
+    # "hard" is the maximum allowed |offset| in ms before REJECTED. Adjustable per workflow.
+    "mediainfo_delay": {"hard": 1000.0, "label": "Delay relative to video (ms)"},
 }
 
 
@@ -230,6 +235,45 @@ def _run_gop_on_file(job_id, ts_path, tag, url_display, started_at, workflow=DEF
                 "status": "error", "log": log_lines,
                 "ended_at": datetime.datetime.utcnow().isoformat() + "Z"
             })
+
+
+def _run_mediainfo_delay(ts_path, log):
+    """Run mediainfo on the recorded/uploaded .ts file and extract the audio
+    'Delay relative to video' metric (mediainfo JSON field `Video_Delay`, in
+    seconds, on the Audio track — reported by mediainfo's text output as
+    "Delay relative to video"). Returns {"mediainfo_delay_ms": float|None}.
+
+    If a file has multiple audio tracks, the worst-case (largest absolute)
+    offset across tracks is used. Returns None if mediainfo is not installed
+    or the metric could not be measured (e.g. missing timing info)."""
+    result = {"mediainfo_delay_ms": None}
+    try:
+        cmd = ["mediainfo", "--Output=JSON", ts_path]
+        r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+        data = json.loads(r.stdout.decode())
+        tracks = data.get("media", {}).get("track", [])
+        delays_ms = []
+        for t in tracks:
+            if t.get("@type") != "Audio":
+                continue
+            raw = t.get("Video_Delay")
+            if raw in (None, ""):
+                continue
+            try:
+                delays_ms.append(float(raw) * 1000.0)
+            except (ValueError, TypeError):
+                continue
+        if delays_ms:
+            worst = max(delays_ms, key=abs)
+            result["mediainfo_delay_ms"] = round(worst, 1)
+            log(f"mediainfo: Delay relative to video = {result['mediainfo_delay_ms']} ms")
+        else:
+            log("mediainfo: 'Delay relative to video' not reported for this file")
+    except FileNotFoundError:
+        log("WARNING: mediainfo is not installed on this server")
+    except Exception as e:
+        log(f"WARNING: mediainfo analysis failed: {e}")
+    return result
 
 
 def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, _original_name=None, workflow=DEFAULT_WORKFLOW):
@@ -376,78 +420,9 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
 
         log(f"Analysed {len(frames_data)} video frames")
 
-        # ── AV sync ───────────────────────────────────────────────────
-        log("Running ffprobe for AV sync analysis…")
-        av_sync = {"av_sync_min_ms": None, "av_sync_max_ms": None,
-                   "av_sync_avg_ms": None, "av_sync_median_ms": None,
-                   "v_pts_jitter_ms": None, "a_pts_jitter_ms": None}
-        try:
-            def _get_pts(f):
-                for key in ("pts_time", "pkt_dts_time"):
-                    val = f.get(key)
-                    if val not in (None, "N/A"):
-                        try:
-                            return float(val)
-                        except (ValueError, TypeError):
-                            pass
-                return None
-
-            def _probe_pts(stream_spec):
-                cmd = [
-                    "ffprobe", "-v", "error", "-print_format", "json",
-                    "-select_streams", stream_spec,
-                    "-show_frames",
-                    "-show_entries", "frame=pts_time,pkt_dts_time",
-                    ts_path
-                ]
-                r = subprocess.run(cmd, stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE, timeout=60)
-                stderr_out = r.stderr.decode(errors="replace").strip()
-                if stderr_out:
-                    log(f"ffprobe [{stream_spec}] stderr: {stderr_out[:200]}")
-                frames = json.loads(r.stdout.decode()).get("frames", [])
-                pts = sorted([t for f in frames for t in [_get_pts(f)] if t is not None])
-                log(f"ffprobe [{stream_spec}]: {len(frames)} frames, {len(pts)} valid PTS")
-                return pts
-
-            v_pts = _probe_pts("v:0")
-            a_pts = _probe_pts("a:0")
-
-            if v_pts and a_pts:
-                offsets = []
-                a_idx = 0
-                for vt in v_pts:
-                    while a_idx + 1 < len(a_pts) and abs(a_pts[a_idx+1] - vt) < abs(a_pts[a_idx] - vt):
-                        a_idx += 1
-                    offsets.append(abs(vt - a_pts[a_idx]) * 1000)
-
-                if offsets:
-                    av_sync["av_sync_min_ms"]    = round(min(offsets), 2)
-                    av_sync["av_sync_max_ms"]    = round(max(offsets), 2)
-                    av_sync["av_sync_avg_ms"]    = round(sum(offsets)/len(offsets), 2)
-                    s_off = sorted(offsets)
-                    mid = len(s_off) // 2
-                    av_sync["av_sync_median_ms"] = round(
-                        s_off[mid] if len(s_off) % 2 else (s_off[mid-1]+s_off[mid])/2, 2)
-
-            def _jitter(pts_list):
-                if len(pts_list) < 2:
-                    return 0.0
-                diffs = [abs(pts_list[i+1] - pts_list[i]) for i in range(len(pts_list)-1)]
-                avg = sum(diffs) / len(diffs)
-                variations = [abs(d - avg) * 1000 for d in diffs]
-                return round(sum(variations)/len(variations), 2)
-
-            if len(v_pts) > 2:
-                av_sync["v_pts_jitter_ms"] = _jitter(v_pts)
-            if len(a_pts) > 2:
-                av_sync["a_pts_jitter_ms"] = _jitter(a_pts)
-
-            log(f"AV sync: min={av_sync['av_sync_min_ms']}ms max={av_sync['av_sync_max_ms']}ms "
-                f"avg={av_sync['av_sync_avg_ms']}ms jitter V={av_sync['v_pts_jitter_ms']}ms "
-                f"A={av_sync['a_pts_jitter_ms']}ms")
-        except Exception as e:
-            log(f"WARNING: AV sync analysis failed: {e}")
+        # ── mediainfo: Delay relative to video ──────────────────────────
+        log("Running mediainfo on the recorded file…")
+        mediainfo_result = _run_mediainfo_delay(ts_path, log)
 
         # ── GOP parsing ───────────────────────────────────────────────
         gops = []
@@ -627,22 +602,14 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
 
         v_rate_ctrl = "CBR" if file_br and v_br and abs(file_br - v_br) < file_br * 0.1 else "VBR"
 
-        def _av_check(measured_ms, sp):
-            warn  = float(sp.get("warn", 15.0))
-            hard  = float(sp.get("hard", 230.0))
-            mode  = sp.get("mode", "inform")  # "inform" = informational only, never affects overall
+        def _mediainfo_check(measured_ms, sp):
+            hard = float(sp.get("hard", 1000.0))
             if measured_ms is None:
-                return ("UNKNOWN", "—", "Could not measure")
-            m = round(measured_ms, 2)
-            if mode == "inform":
-                note = f"< {warn}ms preferred" if m < warn else (
-                       f"< {hard}ms limit" if m < hard else f"Exceeds {hard}ms")
-                return ("INFO", f"{m} ms", f"{note} (inform only)")
-            if m < warn:
-                return ("COMPLIANT", f"{m} ms", f"< {warn}ms preferred")
-            if m < hard:
-                return ("ACCEPTED", f"{m} ms", f"< {hard}ms limit; prefer < {warn}ms")
-            return ("REJECTED", f"{m} ms", f"Exceeds hard limit of {hard}ms")
+                return ("UNKNOWN", "—", "Could not measure (mediainfo unavailable or no delay reported)")
+            m = round(measured_ms, 1)
+            if abs(m) > hard:
+                return ("REJECTED", f"{m} ms", f"Exceeds {hard}ms limit")
+            return ("COMPLIANT", f"{m} ms", f"Within {hard}ms limit")
 
         # ── Compliance ────────────────────────────────────────────────
         specs = _load_specs(workflow)
@@ -771,10 +738,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             "a_sample_rate":comply_range(a_rate_khz, "a_sample_rate"),
             "a_bits":       comply_enum_multi(a_bps.lower(), "a_bits"),
             "a_br_kbps":    comply_range(a_br_kbps_f, "a_br_kbps"),
-            "av_sync_warn": _av_check(av_sync.get("av_sync_avg_ms"),  _s("av_sync_warn")),
-            "av_sync_max":  _av_check(av_sync.get("av_sync_max_ms"),  _s("av_sync_max")),
-            "v_pts_jitter": _av_check(av_sync.get("v_pts_jitter_ms"), _s("v_pts_jitter")),
-            "a_pts_jitter": _av_check(av_sync.get("a_pts_jitter_ms"), _s("a_pts_jitter")),
+            "mediainfo_delay": _mediainfo_check(mediainfo_result.get("mediainfo_delay_ms"), _s("mediainfo_delay")),
         }
 
         statuses = [v[0] for v in compliance.values() if v[0] != "INFO"]
@@ -821,12 +785,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             "specs": specs,
             "overall_status": overall_status,
             "test_id": str(uuid.uuid4()),
-            "av_sync_min_ms":    av_sync.get("av_sync_min_ms"),
-            "av_sync_max_ms":    av_sync.get("av_sync_max_ms"),
-            "av_sync_avg_ms":    av_sync.get("av_sync_avg_ms"),
-            "av_sync_median_ms": av_sync.get("av_sync_median_ms"),
-            "v_pts_jitter_ms":   av_sync.get("v_pts_jitter_ms"),
-            "a_pts_jitter_ms":   av_sync.get("a_pts_jitter_ms"),
+            "mediainfo_delay_ms": mediainfo_result.get("mediainfo_delay_ms"),
         }
 
         ts_str   = datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S")
@@ -1593,22 +1552,14 @@ def _reeval_compliance(stored: dict, specs: dict) -> tuple:
             return "ACCEPTED", measured, f"Preferred {pref_raw}"
         return "COMPLIANT", measured, ""
 
-    def _av_check(measured_ms, sp):
-        warn = float(sp.get("warn", 15.0))
-        hard = float(sp.get("hard", 230.0))
-        mode = sp.get("mode", "inform")
+    def _mediainfo_check(measured_ms, sp):
+        hard = float(sp.get("hard", 1000.0))
         if measured_ms is None:
-            return ("UNKNOWN", "—", "Could not measure")
-        m = round(measured_ms, 2)
-        if mode == "inform":
-            note = (f"< {warn}ms preferred" if m < warn else
-                    f"< {hard}ms limit" if m < hard else f"Exceeds {hard}ms")
-            return ("INFO", f"{m} ms", f"{note} (inform only)")
-        if m < warn:
-            return ("COMPLIANT", f"{m} ms", f"< {warn}ms preferred")
-        if m < hard:
-            return ("ACCEPTED", f"{m} ms", f"< {hard}ms limit; prefer < {warn}ms")
-        return ("REJECTED", f"{m} ms", f"Exceeds hard limit of {hard}ms")
+            return ("UNKNOWN", "—", "Could not measure (mediainfo unavailable or no delay reported)")
+        m = round(measured_ms, 1)
+        if abs(m) > hard:
+            return ("REJECTED", f"{m} ms", f"Exceeds {hard}ms limit")
+        return ("COMPLIANT", f"{m} ms", f"Within {hard}ms limit")
 
     r = stored
 
@@ -1715,10 +1666,7 @@ def _reeval_compliance(stored: dict, specs: dict) -> tuple:
         "a_sample_rate":comply_range(a_rate_khz, "a_sample_rate"),
         "a_bits":       comply_enum_multi(a_bps.lower(), "a_bits"),
         "a_br_kbps":    comply_range(a_br_kbps_f, "a_br_kbps"),
-        "av_sync_warn": _av_check(r.get("av_sync_avg_ms"),  _s("av_sync_warn")),
-        "av_sync_max":  _av_check(r.get("av_sync_max_ms"),  _s("av_sync_max")),
-        "v_pts_jitter": _av_check(r.get("v_pts_jitter_ms"), _s("v_pts_jitter")),
-        "a_pts_jitter": _av_check(r.get("a_pts_jitter_ms"), _s("a_pts_jitter")),
+        "mediainfo_delay": _mediainfo_check(r.get("mediainfo_delay_ms"), _s("mediainfo_delay")),
     }
 
     statuses = [v[0] for v in compliance.values() if v[0] != "INFO"]
