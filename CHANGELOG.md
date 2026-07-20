@@ -7,6 +7,16 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.35.3] - 2026-07-20
+
+### Fixed
+
+- Audio Coding compliance falsely REJECTED AAC-LATM streams because
+  ffprobe reports codec_name as "aac_latm" (underscore), which bypassed
+  the AAC profile-detection branch and produced "AAC_LATM" instead of
+  the spec's "AAC-LATM". \_audio_display_name now recognizes codec_name
+  "aac_latm" directly and normalizes it to "AAC-LATM".
+
 ## [2.35.2] - 2026-07-20
 
 ### Changed

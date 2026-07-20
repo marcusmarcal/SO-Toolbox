@@ -564,8 +564,8 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
         def _audio_display_name(codec, profile):
             c = (codec or "").lower()
             p = (profile or "").upper()
-            if c == "aac":
-                if "LATM" in p:     return "AAC-LATM"
+            if c in ("aac", "aac_latm"):
+                if c == "aac_latm" or "LATM" in p: return "AAC-LATM"
                 if "HE" in p:       return "AAC-HE"
                 if "LD" in p:       return "AAC-LD"
                 if "ELD" in p:      return "AAC-ELD"
