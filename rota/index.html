@@ -200,6 +200,169 @@
     }
     td.team-sep { border-left: 2px solid #333 !important; }
 
+    /* ── DRAFT CELL SELECTION ── */
+    table.rota.draft-selectable { user-select: none; }
+    table.rota.draft-selectable tbody td:not(.date-col) { cursor: crosshair; }
+    table.rota.draft-selectable tbody td.selected-cell {
+      background-color: rgba(230,168,80,0.22) !important;
+    }
+    table.rota.draft-selectable tbody td.selected-cell .shift-cell {
+      color: #fff !important;
+    }
+    #selection-overlay {
+      position: absolute; pointer-events: none; z-index: 50;
+      top: 0; left: 0; width: 100%; height: 100%;
+    }
+    .selection-box {
+      position: absolute; border: 2px solid rgba(230,168,80,0.9);
+      border-radius: 2px; background: transparent; pointer-events: none;
+    }
+
+    /* ── NOTE TRIANGLE ── */
+    td.has-note { position: relative; }
+    td.has-note::after {
+      content: ''; position: absolute; top: 0; right: 0;
+      width: 0; height: 0;
+      border-style: solid;
+      border-width: 0 7px 7px 0;
+      border-color: transparent #E2725B transparent transparent;
+    }
+
+    /* ── ABSENT OVERLAY ── */
+    .shift-cell.absent-overlay {
+      background-image: repeating-linear-gradient(
+        45deg, rgba(80,80,80,0.55) 0px, rgba(80,80,80,0.55) 2px,
+        transparent 2px, transparent 6px
+      );
+    }
+
+    /* ── SHIFT POPOVER ── */
+    #shift-popover {
+      display: none; position: fixed; z-index: 800;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px; width: 300px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6); font-family: var(--mono);
+      max-height: 90vh; overflow-y: auto;
+    }
+    #shift-popover.open { display: block; }
+    .popover-header {
+      font-size: 0.65rem; font-weight: 700; color: var(--accent);
+      text-transform: uppercase; letter-spacing: 0.1em;
+      margin-bottom: 12px; padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .popover-close {
+      background: none; border: none; color: var(--muted);
+      cursor: pointer; font-size: 0.9rem; padding: 0;
+    }
+    .popover-close:hover { color: var(--text); }
+    .popover-section { margin-bottom: 12px; }
+    .popover-section-label {
+      font-size: 0.55rem; color: var(--muted); text-transform: uppercase;
+      letter-spacing: 0.12em; margin-bottom: 6px; display: block;
+    }
+    .shift-group-label {
+      font-size: 0.5rem; color: var(--border); text-transform: uppercase;
+      letter-spacing: 0.1em; padding: 4px 0 2px; display: block;
+      border-top: 1px solid var(--border); margin-top: 4px;
+    }
+    
+    .shift-group-label:first-child { border-top: none; margin-top: 0; }
+    .shift-btn {
+      display: inline-block; font-family: var(--mono); font-size: 0.62rem;
+      font-weight: 700; padding: 3px 8px; border-radius: 4px;
+      border: 1px solid var(--border); cursor: pointer;
+      background: var(--card); color: var(--text);
+      margin: 2px; transition: all 0.15s;
+    }
+    .shift-btn:hover  { border-color: var(--accent); color: var(--accent); }
+    .shift-btn.active { border-color: var(--accent); color: var(--accent);
+                        background: rgba(161,139,245,0.2); }
+    .shift-btn.off-btn    { color: var(--muted); }
+    .shift-btn.absent-btn { color: #e57373; border-color: rgba(229,115,115,0.4); }
+    .shift-btn.absent-btn:hover    { background: rgba(229,115,115,0.1); }
+    .shift-btn.absent-btn.active   { background: rgba(229,115,115,0.2); }
+    .shift-btn.remove-absent-btn   { color: #9ee6a6; border-color: rgba(63,185,80,0.4); }
+    .shift-btn.remove-absent-btn:hover { background: rgba(63,185,80,0.1); }
+    .popover-input {
+      width: 100%; background: var(--card); border: 1px solid var(--border);
+      color: var(--text); font-family: var(--mono); font-size: 0.7rem;
+      padding: 5px 8px; border-radius: 5px; outline: none;
+      transition: border-color 0.2s; margin-top: 4px;
+    }
+    .popover-input:focus { border-color: var(--accent); }
+    .popover-input.invalid { border-color: var(--danger); }
+    .popover-input-err {
+      font-size: 0.55rem; color: var(--danger); margin-top: 3px; display: none;
+    }
+    .al-toggle-row { display: flex; gap: 6px; flex-wrap: wrap; }
+    .al-btn {
+      font-family: var(--mono); font-size: 0.6rem; font-weight: 700;
+      padding: 4px 10px; border-radius: 4px; cursor: pointer;
+      border: 1px solid var(--border); background: var(--card);
+      color: var(--muted); transition: all 0.15s;
+    }
+    .al-btn.none.active { border-color: var(--muted);              color: var(--text);  background: var(--card); }
+    .al-btn.prov.active { border-color: rgba(244,143,177,0.6);     color: #f48fb1;      background: rgba(244,143,177,0.12); }
+    .al-btn.conf.active { border-color: rgba(63,185,80,0.6);       color: #9ee6a6;      background: rgba(63,185,80,0.12); }
+    .coverage-row {
+      display: flex; align-items: center; gap: 8px; margin-top: 6px;
+      font-size: 0.62rem; color: var(--muted);
+    }
+    .coverage-row input[type=checkbox] { accent-color: var(--accent); }
+    .color-swatch-row { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+    .color-swatch {
+      width: 20px; height: 20px; border-radius: 4px; cursor: pointer;
+      border: 2px solid transparent; transition: border-color 0.15s;
+    }
+    .color-swatch:hover, .color-swatch.active { border-color: var(--accent); }
+    .popover-actions {
+      display: flex; gap: 8px; justify-content: flex-end;
+      margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border);
+    }
+    .popover-actions .btn:disabled {
+      opacity: 0.35; cursor: not-allowed; pointer-events: none;
+    }
+    .popover-note-required {
+      font-size: 0.55rem; color: #e6a850; margin-top: 4px; display: none;
+    }
+
+    /* ── DRAFT MODE ── */
+    #draft-banner {
+      display: none; align-items: center; gap: 12px; flex-wrap: wrap;
+      padding: 10px 28px; background: rgba(230,168,80,0.08);
+      border-bottom: 2px solid rgba(230,168,80,0.5);
+      font-family: var(--mono); font-size: 0.72rem;
+    }
+    #draft-banner.active { display: flex; }
+    .draft-banner-label {
+      color: #e6a850; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .draft-banner-who { color: var(--muted); }
+    .draft-banner-actions { display: flex; gap: 8px; margin-left: auto; }
+    .btn.draft-enter {
+      border-color: rgba(230,168,80,0.5); color: #e6a850;
+      background: rgba(230,168,80,0.06);
+    }
+    .btn.draft-enter:hover { background: rgba(230,168,80,0.15); }
+    .btn.publish {
+      border-color: rgba(63,185,80,0.5); color: #9ee6a6;
+      background: rgba(63,185,80,0.06);
+    }
+    .btn.publish:hover { background: rgba(63,185,80,0.15); }
+    #rota-wrap.draft-mode {
+      border-color: rgba(230,168,80,0.4);
+      box-shadow: 0 0 0 1px rgba(230,168,80,0.2);
+    }
+    #rota-wrap.draft-mode table.rota thead th {
+      background: #1a1500;
+    }
+    #rota-wrap.draft-mode table.rota thead th.date-col {
+      background: #0f0d00;
+    }
+
     /* ── LEGEND ── */
     #legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
     .legend-item {
@@ -405,6 +568,25 @@
     }
     .modal-card textarea:focus { border-color: var(--accent); }
     .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+
+       /* ── NOTE TOOLTIP & EDIT OVERLAY ── */
+    #note-tooltip {
+      display: none; position: fixed; z-index: 999;
+      background: #2d2d2d; border: 1px solid #444; border-radius: 6px;
+      padding: 10px; width: 260px; box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+      font-family: var(--mono); font-size: 0.65rem; color: #fff;
+    }
+    #note-tooltip-text { margin-bottom: 6px; white-space: pre-wrap; word-break: break-word; }
+    .note-tooltip-actions {
+      display: flex; gap: 6px; justify-content: flex-end; margin-top: 6px;
+      padding-top: 6px; border-top: 1px solid #444;
+    }
+    .note-tooltip-btn {
+      background: none; border: none; color: var(--accent); cursor: pointer;
+      font-size: 0.55rem; font-weight: bold; text-transform: uppercase; padding: 2px 4px;
+    }
+    .note-tooltip-btn.del { color: #e57373; }
+    .note-tooltip-btn:hover { opacity: 0.8; }
   </style>
 </head>
 <body>
@@ -430,6 +612,20 @@
     <button class="tab-btn" data-tab="access" id="tab-access" style="display:none;">👥 Team Access</button>
   </nav>
 
+  <!-- ── DRAFT BANNER ── -->
+  <div id="draft-banner">
+    <span class="draft-banner-label">⚠ Draft Mode</span>
+    <span class="draft-banner-who" id="draft-banner-who"></span>
+    <div class="draft-banner-actions" id="draft-mine-actions" style="display:none;">
+      <button class="btn publish" id="btn-publish">⬆ Publish</button>
+      <button class="btn warn"    id="btn-save-close">💾 Save & Close</button>
+      <button class="btn"         id="btn-close-draft">✕ Close Draft</button>
+    </div>
+    <div class="draft-banner-actions" id="draft-other-actions" style="display:none;">
+      <button class="btn reject" id="btn-kick-draft">⏏ Kick User</button>
+    </div>
+  </div>
+
   <!-- ══ TAB: ROTA ══ -->
   <div class="tab-panel active" id="panel-rota">
     <div id="rota-toolbar">
@@ -454,6 +650,7 @@
       <div class="sep"></div>
       <button class="btn today" id="btn-today">⤵ Today</button>
       <button class="btn" id="btn-refresh">⟳ Refresh</button>
+      <button class="btn draft-enter" id="btn-draft" style="display:none;">✎ Draft</button>
     </div>
     <div id="rota-wrap">
       <div class="loading-row"><div class="spinner"></div> Loading rota…</div>
@@ -558,6 +755,68 @@
     <div id="access-list"><div class="loading-row"><div class="spinner"></div> Loading…</div></div>
   </div>
 
+  <!-- ── SHIFT POPOVER ── -->
+  <div id="shift-popover">
+    <div class="popover-header">
+      <span id="popover-title">Edit Cell</span>
+      <button class="popover-close" id="popover-close">✕</button>
+    </div>
+    <div class="popover-section" id="popover-absent-warn" style="display:none;">
+      <span style="color:#e57373;font-size:0.65rem;">
+        ⚠ This cell is marked Absent. Remove Absent state before changing shift or AL.
+      </span>
+    </div>
+    <div id="popover-main-sections">
+      <div class="popover-section">
+        <span class="popover-section-label">Shift</span>
+        <div id="shift-options-list"></div>
+        <div style="margin-top:6px;">
+          <input class="popover-input" id="popover-custom-shift"
+            placeholder="Custom: 0800-1700" maxlength="9" />
+          <div class="popover-input-err" id="custom-shift-err">
+            Format must be ####-#### (e.g. 0800-1700)
+          </div>
+          <div class="color-swatch-row" id="custom-color-row" style="display:none;">
+            <input type="color" id="custom-color-picker"
+              style="width:28px;height:28px;border:none;background:none;cursor:pointer;padding:0;" />
+            <div id="recent-colors"></div>
+          </div>
+        </div>
+      </div>
+      <div class="popover-section">
+        <span class="popover-section-label">Annual Leave</span>
+        <div class="al-toggle-row">
+          <button class="al-btn none active" data-al="none">None</button>
+          <button class="al-btn prov"        data-al="provisional">Provisional</button>
+          <button class="al-btn conf"        data-al="confirmed">Confirmed</button>
+        </div>
+      </div>
+      <div class="popover-section">
+        <span class="popover-section-label">
+          Note <span id="note-required-star" style="color:#e6a850;display:none;">*</span>
+        </span>
+        <select class="popover-input" id="popover-coverage-person"
+          style="margin-bottom:4px;display:none;">
+          <option value="">— covering for… —</option>
+        </select>
+        <div class="coverage-row">
+          <input type="checkbox" id="not-coverage-chk" />
+          <label for="not-coverage-chk">Not a coverage change</label>
+        </div>
+        <textarea class="popover-input" id="popover-note" rows="2"
+          placeholder="Note…" style="resize:none;margin-top:6px;"></textarea>
+        <div class="popover-input-err" id="note-required-msg">
+          Note is required for Absent and coverage shifts.
+        </div>
+      </div>
+    </div>
+    <div class="popover-actions">
+      <button class="btn danger" id="popover-reset" style="margin-right:auto;">Reset to original</button>
+      <button class="btn" id="popover-cancel">Cancel</button>
+      <button class="btn primary" id="popover-apply">Apply</button>
+    </div>
+  </div>
+
   <!-- ── CUSTOM CONFIRM MODAL ── -->
   <div id="confirm-modal">
     <div class="confirm-card">
@@ -604,6 +863,20 @@
   // ════════════════════════════════════════════════════════════════
   const PROXY = '/so-proxy';
 
+  function authHeaders(headers = {}) {
+    const token = sessionStorage.getItem('sotb-token');
+    if (token) {
+      return { ...headers, Authorization: `Bearer ${token}` };
+    }
+    return headers;
+  }
+
+  async function apiFetch(url, opts = {}) {
+    opts = { credentials: 'same-origin', ...opts };
+    opts.headers = authHeaders(opts.headers || {});
+    return fetch(url, opts);
+  }
+
   const SHIFT_COLORS = {
     '0700-1800': { bg:'#49B1E8', fg:'#000' },
     '0900-2000': { bg:'#8474E3', fg:'#fff' },
@@ -620,6 +893,7 @@
     'AL_PENDING':  { bg:'#F48FB1', fg:'#5D4037' },
     'PARENTAL':    { bg:'#00BCD4', fg:'#fff', dotted: true },
     'MARITAL':     { bg:'#3a3a3a', fg:'#999', dotted: true },
+    'ABSENT':      { bg:'#2a2a2a', fg:'#777', absent: true },
   };
 
   // Roles considered valid for dropdowns and Team Access
@@ -638,6 +912,15 @@
     dateFrom:    null,
     dateTo:      null,
     onBehalf:    false,
+    draft: {
+      active:      false,
+      lock:        null,
+      overrides:   [],
+      selection:   [],
+      lastCell:    null,
+      dragging:    false,
+      dragStart:   null,
+    },
   };
 
   // ════════════════════════════════════════════════════════════════
@@ -675,10 +958,10 @@
   // ════════════════════════════════════════════════════════════════
   (async function init() {
     try {
-      const rm = await fetch(`${PROXY}/rota/me`, { credentials: 'same-origin' });
+      const rm = await apiFetch(`${PROXY}/rota/me`);
       state.me = await rm.json();
 
-      const ru = await fetch(`${PROXY}/rota/members`, { credentials: 'same-origin' });
+      const ru = await apiFetch(`${PROXY}/rota/members`);
       const ud = await ru.json();
       if (ud.ok) {
         // Filter to valid roles only
@@ -693,6 +976,7 @@
       setupLeaveForm();
       setupApprovals();
       setupFeedback();
+      setupDraft();
       loadRota();
     } catch(e) {
       console.error('Init failed', e);
@@ -810,7 +1094,7 @@
     wrap.innerHTML = '<div class="loading-row"><div class="spinner"></div> Loading rota…</div>';
     const { from, to } = getDateRange();
     try {
-      const r = await fetch(`${PROXY}/rota/schedule?from=${from}&to=${to}`, { credentials: 'same-origin' });
+      const r = await apiFetch(`${PROXY}/rota/schedule?from=${from}&to=${to}`);
       const d = await r.json();
       if (!d.ok) throw new Error(d.error);
       state.rotaData = d.days;
@@ -861,16 +1145,28 @@
           if (shift.includes('|')) {
             const [code, orig] = shift.split('|');
             const c = SHIFT_COLORS[code] || SHIFT_COLORS['AL_APPROVED'];
-            bg = c.bg; fg = c.fg; text = orig + ' H';
+            bg = c.bg; fg = c.fg;
+            if (code === 'ABSENT') {
+              text = orig; extra = ' absent-overlay';
+            } else if (code === 'AL_APPROVED' || code === 'AL_PENDING') {
+              text = orig + ' H';
+            } else {
+              text = orig;
+            }
           } else {
             const c = SHIFT_COLORS[shift];
             if (c) {
               bg = c.bg; fg = c.fg;
-              if (c.dotted) extra = ' dotted';
+              if (c.dotted)  extra = ' dotted';
+              if (c.absent)  extra = ' absent-overlay';
               if (['AL_APPROVED','AL_PENDING','PARENTAL','MARITAL'].includes(shift)) text = '';
             }
           }
-          tbody += `<td class="${sep}" style="background:${bg};">`
+          const noteText = (day.shifts[name] && day.shifts[name].note) ? day.shifts[name].note : '';
+          const hasNote = !!noteText;
+          const noteCls = hasNote ? ' has-note' : '';
+          const safeNote = noteText.replace(/"/g, '&quot;');
+          tbody += `<td class="${sep}${noteCls}" style="background:${bg};" data-person="${name}" data-date="${day.date}" data-note="${safeNote}">`
                  + `<span class="shift-cell${extra}" style="color:${day.is_today && shift !== 'OFF' ? '#fff' : fg};">${text}</span>`
                  + `</td>`;
         });
@@ -879,6 +1175,65 @@
     });
 
     wrap.innerHTML = `<table class="rota"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+
+    // Overlay container for selection boxes
+    const existingOv = document.getElementById('selection-overlay');
+    if (existingOv) existingOv.remove();
+    const ov = document.createElement('div');
+    ov.id = 'selection-overlay';
+    wrap.style.position = 'relative';
+    wrap.appendChild(ov);
+
+    if (state.draft.active) {
+      const table = wrap.querySelector('table.rota');
+      table.classList.add('draft-selectable');
+
+      // Prevent context menu on table
+      table.addEventListener('contextmenu', e => {
+        if (e.target.closest('td[data-person]')) e.preventDefault();
+      });
+
+      table.querySelectorAll('tbody td[data-person]').forEach(td => {
+        td.addEventListener('mousedown',    _onCellMouseDown);
+        td.addEventListener('mouseenter',   _onCellMouseEnter);
+        td.addEventListener('contextmenu',  _onCellRightClick);
+      });
+
+      document.addEventListener('mouseup', _onDocMouseUp, { once: false });
+    }
+
+    scrollToToday();
+
+    // Add selection overlay container (used for contiguous range outlines)
+    if (!document.getElementById('selection-overlay')) {
+      const ov = document.createElement('div');
+      ov.id = 'selection-overlay';
+      wrap.style.position = 'relative';
+      wrap.appendChild(ov);
+    }
+
+    // Wire up cell click handlers when in draft mode
+    if (state.draft.active) {
+      const table = wrap.querySelector('table.rota');
+      table.classList.add('draft-selectable');
+      table.querySelectorAll('tbody td:not(.date-col)').forEach(td => {
+        td.addEventListener('click', onDraftCellClick);
+        td.addEventListener('dblclick', e => {
+          e.stopPropagation();
+          const person = td.dataset.person;
+          const date   = td.dataset.date;
+          if (!person || !date) return;
+          // Ensure this cell is selected before opening popover
+          if (!state.draft.selection.find(c => c.person === person && c.date === date)) {
+            if (!e.ctrlKey && !e.metaKey && !e.shiftKey) _clearSelection();
+            _selectCell({ person, date, td });
+            _renderSelectionOverlay();
+          }
+          openShiftPopover();
+        });
+      });
+    }
+
     scrollToToday();
   }
 
@@ -929,7 +1284,7 @@
 
   async function loadConfig() {
     try {
-      const r = await fetch(`${PROXY}/rota/config`, { credentials: 'same-origin' });
+      const r = await apiFetch(`${PROXY}/rota/config`);
       const d = await r.json();
       if (d.ok) {
         state.config = d.config;
@@ -944,8 +1299,8 @@
   async function saveConfig() {
     const val = document.getElementById('config-open-input').value.trim();
     if (!/^\d{2}-\d{2}$/.test(val)) { toast('Format must be MM-DD', 'err'); return; }
-    const r = await fetch(`${PROXY}/rota/config`, {
-      method: 'PUT', credentials: 'same-origin',
+    const r = await apiFetch(`${PROXY}/rota/config`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ next_year_open_from: val }),
     });
@@ -979,8 +1334,8 @@
     };
     if (onBehalf) body.target_username = targetUser;
 
-    const r = await fetch(`${PROXY}/rota/leave`, {
-      method: 'POST', credentials: 'same-origin',
+    const r = await apiFetch(`${PROXY}/rota/leave`, {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
@@ -1009,7 +1364,7 @@
     const wrap = document.getElementById('my-leave-wrap');
     wrap.innerHTML = '<div class="loading-row"><div class="spinner"></div> Loading…</div>';
 
-    const r = await fetch(`${PROXY}/rota/leave`, { credentials: 'same-origin' });
+    const r = await apiFetch(`${PROXY}/rota/leave`);
     const d = await r.json();
 
     if (!d.ok || !d.leave || !d.leave.length) {
@@ -1017,11 +1372,9 @@
       return;
     }
 
-    // Staff: exclude on-behalf entries (those are management-submitted for others)
-    const isManagement = state.me && state.me.rota_role === 'management';
-    const entries = isManagement
-      ? d.leave
-      : d.leave.filter(e => !e.on_behalf);
+    // Only show requests where I am the subject — regardless of who submitted them
+    const myUsername = state.me?.username;
+    const entries = d.leave.filter(e => e.username === myUsername);
 
     if (!entries.length) {
       wrap.innerHTML = '<div class="empty-state">No leave requests yet.</div>';
@@ -1113,8 +1466,8 @@
     );
     if (!confirmed) return;
 
-    const r = await fetch(`${PROXY}/rota/leave/${leaveId}`, {
-      method: 'PUT', credentials: 'same-origin',
+    const r = await apiFetch(`${PROXY}/rota/leave/${leaveId}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'Cancelled' }),
     });
@@ -1137,8 +1490,8 @@
     );
     if (!confirmed) return;
 
-    const r = await fetch(`${PROXY}/rota/leave/${leaveId}`, {
-      method: 'PUT', credentials: 'same-origin',
+    const r = await apiFetch(`${PROXY}/rota/leave/${leaveId}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'Withdrawal Pending' }),
     });
@@ -1181,7 +1534,7 @@
     const el = document.getElementById('approvals-pending');
     el.innerHTML = '<div class="loading-row"><div class="spinner"></div> Loading…</div>';
 
-    const r = await fetch(`${PROXY}/rota/leave`, { credentials: 'same-origin' });
+    const r = await apiFetch(`${PROXY}/rota/leave`);
     const d = await r.json();
     const pending = (d.leave || []).filter(e =>
       e.status === 'Pending' || e.status === 'Withdrawal Pending'
@@ -1245,7 +1598,7 @@
       return;
     }
 
-    const r = await fetch(`${PROXY}/rota/leave`, { credentials: 'same-origin' });
+    const r = await apiFetch(`${PROXY}/rota/leave`);
     const d = await r.json();
 
     const ACTIONED = ['Confirmed','Rejected','Withdrawn','Withdrawal Rejected'];
@@ -1317,8 +1670,8 @@
     const confirmed = await uiConfirm('Confirm Action', msg, okLabel, okClass);
     if (!confirmed) return;
 
-    const r = await fetch(`${PROXY}/rota/leave/${leaveId}`, {
-      method: 'PUT', credentials: 'same-origin',
+    const r = await apiFetch(`${PROXY}/rota/leave/${leaveId}`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
     });
@@ -1384,8 +1737,8 @@
     const body  = document.getElementById('fb-body').value.trim();
     if (!title) { toast('Title required', 'err'); return; }
     if (!body)  { toast('Description required', 'err'); return; }
-    const r = await fetch(`${PROXY}/rota/feedback`, {
-      method: 'POST', credentials: 'same-origin',
+    const r = await apiFetch(`${PROXY}/rota/feedback`, {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type, title, body }),
     });
@@ -1398,6 +1751,885 @@
     } else {
       toast(d.error || 'Failed to send', 'err');
     }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  DRAFT CELL SELECTION + POPOVER
+  // ════════════════════════════════════════════════════════════════
+
+  function _cellKey(person, date) { return `${person}__${date}`; }
+
+  function _getAllCells() {
+    const wrap  = document.getElementById('rota-wrap');
+    const table = wrap?.querySelector('table.rota');
+    if (!table) return [];
+    return Array.from(table.querySelectorAll('tbody td[data-person]'));
+  }
+
+  function _tdCoords(td) {
+    const wrap  = document.getElementById('rota-wrap');
+    const table = wrap?.querySelector('table.rota');
+    if (!table) return null;
+    const rows = Array.from(table.querySelectorAll('tbody tr'));
+    for (let ri = 0; ri < rows.length; ri++) {
+      const tds = Array.from(rows[ri].querySelectorAll('td[data-person]'));
+      for (let ci = 0; ci < tds.length; ci++) {
+        if (tds[ci] === td) return { ri, ci };
+      }
+    }
+    return null;
+  }
+
+  function _clearSelection() {
+    state.draft.selection.forEach(c => c.td?.classList.remove('selected-cell'));
+    state.draft.selection = [];
+    state.draft.lastCell  = null;
+    _renderSelectionOverlay();
+  }
+
+  function _selectCell(person, dateStr, td) {
+    const key = _cellKey(person, dateStr);
+    if (!state.draft.selection.find(c => _cellKey(c.person, c.date) === key)) {
+      state.draft.selection.push({ person, date: dateStr, td });
+    }
+    td.classList.add('selected-cell');
+  }
+
+  function _deselectCell(person, dateStr, td) {
+    state.draft.selection = state.draft.selection.filter(
+      c => _cellKey(c.person, c.date) !== _cellKey(person, dateStr)
+    );
+    td?.classList.remove('selected-cell');
+  }
+
+  function _selectRange(fromTd, toTd) {
+    const wrap  = document.getElementById('rota-wrap');
+    const table = wrap?.querySelector('table.rota');
+    if (!table) return;
+    const rows = Array.from(table.querySelectorAll('tbody tr'));
+    let fromCoord = null, toCoord = null;
+    rows.forEach((tr, ri) => {
+      Array.from(tr.querySelectorAll('td[data-person]')).forEach((td, ci) => {
+        if (td === fromTd) fromCoord = { ri, ci };
+        if (td === toTd)   toCoord   = { ri, ci };
+      });
+    });
+    if (!fromCoord || !toCoord) return;
+    const r1 = Math.min(fromCoord.ri, toCoord.ri);
+    const r2 = Math.max(fromCoord.ri, toCoord.ri);
+    const c1 = Math.min(fromCoord.ci, toCoord.ci);
+    const c2 = Math.max(fromCoord.ci, toCoord.ci);
+    _clearSelection();
+    rows.slice(r1, r2 + 1).forEach(tr => {
+      const tds = Array.from(tr.querySelectorAll('td[data-person]'));
+      tds.slice(c1, c2 + 1).forEach(td => {
+        if (td.dataset.person && td.dataset.date)
+          _selectCell(td.dataset.person, td.dataset.date, td);
+      });
+    });
+  }
+
+  // ── Mouse event handlers ──────────────────────────────────────────────
+  function _onCellMouseDown(e) {
+    if (e.button !== 0) return; // left button only
+    const td     = e.currentTarget;
+    const person = td.dataset.person;
+    const dateS  = td.dataset.date;
+    if (!person || !dateS) return;
+
+    // Handle shift+click selection ranges
+    if (e.shiftKey && state.draft.lastCell) {
+      e.preventDefault();
+      _selectRange(state.draft.lastCell, td);
+      state.draft.dragging = false;
+      return;
+    } 
+    
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const key = _cellKey(person, dateS);
+      if (state.draft.selection.find(c => _cellKey(c.person, c.date) === key)) {
+        _deselectCell(person, dateS, td);
+      } else {
+        _selectCell(person, dateS, td);
+        state.draft.lastCell = td;
+      }
+      state.draft.dragging = false;
+    } else {
+      state.draft.dragging  = true;
+      state.draft.dragStart = td;
+      // Only clear if we aren't clicking an already selected cell to prevent instant clearing
+      const key = _cellKey(person, dateS);
+      if (!state.draft.selection.find(c => _cellKey(c.person, c.date) === key)) {
+        _clearSelection();
+        _selectCell(person, dateS, td);
+      }
+      state.draft.lastCell = td;
+    }
+    _renderSelectionOverlay();
+  }
+
+  function _onCellMouseEnter(e) {
+    if (!state.draft.dragging || !state.draft.dragStart) return;
+    const td = e.currentTarget;
+    _selectRange(state.draft.dragStart, td);
+    _renderSelectionOverlay();
+
+    const wrap = document.getElementById('rota-wrap');
+    const rect = wrap.getBoundingClientRect();
+    const ZONE = 40, SPEED = 8;
+    if (e.clientY > rect.bottom - ZONE) wrap.scrollTop += SPEED;
+    if (e.clientY < rect.top    + ZONE) wrap.scrollTop -= SPEED;
+  }
+
+  function _onDocMouseUp(e) {
+    if (e.button === 0) {
+      state.draft.dragging  = false;
+      state.draft.dragStart = null;
+    }
+  }
+
+  function _onCellRightClick(e) {
+    e.preventDefault();
+    const td     = e.currentTarget;
+    const person = td.dataset.person;
+    const dateS  = td.dataset.date;
+    if (!person || !dateS) return;
+
+    const key   = _cellKey(person, dateS);
+    const inSel = state.draft.selection.find(c => _cellKey(c.person, c.date) === key);
+    
+    if (!inSel) {
+      _clearSelection();
+      _selectCell(person, dateS, td);
+      state.draft.lastCell = td;
+      _renderSelectionOverlay();
+    }
+    closeShiftPopover();
+    // Use client coordinates relative to the viewport window configuration
+    openShiftPopover(e.clientX, e.clientY);
+  }
+
+  // ── Selection overlay ─────────────────────────────────────────────────
+  function _renderSelectionOverlay() {
+    const wrap = document.getElementById('rota-wrap');
+    const ov   = document.getElementById('selection-overlay');
+    if (!ov) return;
+    ov.innerHTML = '';
+    if (!state.draft.selection.length) return;
+
+    const wrapRect   = wrap.getBoundingClientRect();
+    const scrollTop  = wrap.scrollTop;
+    const scrollLeft = wrap.scrollLeft;
+    const groups     = _findContiguousGroups(state.draft.selection);
+
+    groups.forEach(group => {
+      if (!group.length) return;
+      let minTop = Infinity, minLeft = Infinity, maxBottom = -Infinity, maxRight = -Infinity;
+      group.forEach(({ td }) => {
+        if (!td) return;
+        const r     = td.getBoundingClientRect();
+        const top   = r.top    - wrapRect.top  + scrollTop;
+        const left  = r.left   - wrapRect.left + scrollLeft;
+        const bot   = r.bottom - wrapRect.top  + scrollTop;
+        const right = r.right  - wrapRect.left + scrollLeft;
+        minTop    = Math.min(minTop, top);
+        minLeft   = Math.min(minLeft, left);
+        maxBottom = Math.max(maxBottom, bot);
+        maxRight  = Math.max(maxRight, right);
+      });
+      const box = document.createElement('div');
+      box.className  = 'selection-box';
+      box.style.top  = (minTop  - 1) + 'px';
+      box.style.left = (minLeft - 1) + 'px';
+      box.style.width  = (maxRight  - minLeft + 2) + 'px';
+      box.style.height = (maxBottom - minTop  + 2) + 'px';
+      ov.appendChild(box);
+    });
+  }
+
+  function _findContiguousGroups(selection) {
+    if (!selection.length) return [];
+    const wrap  = document.getElementById('rota-wrap');
+    const table = wrap?.querySelector('table.rota');
+    if (!table) return [selection];
+    const rows   = Array.from(table.querySelectorAll('tbody tr'));
+    const selSet = new Set(selection.map(c => _cellKey(c.person, c.date)));
+    const coordMap = new Map();
+    rows.forEach((tr, ri) => {
+      Array.from(tr.querySelectorAll('td[data-person]')).forEach((td, ci) => {
+        const k = _cellKey(td.dataset.person, td.dataset.date);
+        if (selSet.has(k)) coordMap.set(`${ri},${ci}`, { td, person: td.dataset.person, date: td.dataset.date });
+      });
+    });
+    const visited = new Set();
+    const groups  = [];
+    for (const key of coordMap.keys()) {
+      if (visited.has(key)) continue;
+      const group = [], queue = [key];
+      while (queue.length) {
+        const k = queue.shift();
+        if (visited.has(k)) continue;
+        visited.add(k);
+        group.push(coordMap.get(k));
+        const [r, c] = k.split(',').map(Number);
+        for (const [dr, dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+          const nk = `${r+dr},${c+dc}`;
+          if (coordMap.has(nk) && !visited.has(nk)) queue.push(nk);
+        }
+      }
+      groups.push(group);
+    }
+    return groups;
+  }
+
+  // ── Popover ───────────────────────────────────────────────────────────
+  let _pop = { alMode: 'none', pendingShift: null, customColor: null };
+
+  function _currentShiftOf(cell) {
+    const day = state.rotaData?.find(d => d.date === cell.date);
+    return (day?.shifts[cell.person] || {}).shift || 'OFF';
+  }
+
+  function _stripAlPrefix(shift) {
+    if (shift.startsWith('AL_APPROVED|') || shift.startsWith('AL_PENDING|'))
+      return shift.split('|')[1];
+    if (shift === 'AL_APPROVED' || shift === 'AL_PENDING') return 'OFF';
+    return shift;
+  }
+
+  function _isAbsent(shift) {
+    return shift === 'ABSENT' || shift.startsWith('ABSENT|');
+  }
+
+  function openShiftPopover(screenX, screenY) {
+    const sel   = state.draft.selection;
+    if (!sel.length) return;
+    const multi = sel.length > 1;
+    const first = sel[0];
+
+    const currentShift = _currentShiftOf(first);
+    const isAbsent     = _isAbsent(currentShift);
+
+    document.getElementById('popover-absent-warn').style.display = isAbsent ? '' : 'none';
+    document.getElementById('popover-main-sections').style.display = isAbsent ? 'none' : '';
+
+    document.getElementById('popover-title').textContent = multi
+      ? `Edit ${sel.length} cells`
+      : `${first.person} · ${_fmtDateShort(first.date)}`;
+
+    if (!isAbsent) {
+      const team      = _personTeam(first.person);
+      const suggested = (SHIFT_SHIFTS_BY_TEAM ? SHIFT_SHIFTS_BY_TEAM[team] : SHIFTS_BY_TEAM[team]) || [];
+      const others    = ALL_SHIFTS.filter(s => !suggested.includes(s));
+
+      const list = document.getElementById('shift-options-list');
+      list.innerHTML = '';
+
+      const allCurrentShifts = new Set(sel.map(c => _stripAlPrefix(_currentShiftOf(c))));
+      const singleBase = allCurrentShifts.size === 1 ? [...allCurrentShifts][0] : null;
+
+      const renderGroup = (label, shifts) => {
+        // Redundancy elimination: Strip raw 'OFF' from suggestion/other categories
+        const filteredShifts = shifts.filter(s => s !== 'OFF');
+        if (!filteredShifts.length) return;
+        const lbl = document.createElement('span');
+        lbl.className   = 'shift-group-label';
+        lbl.textContent = label;
+        list.appendChild(lbl);
+        filteredShifts.forEach(s => {
+          const c   = SHIFT_COLORS[s] || {};
+          const btn = document.createElement('button');
+          btn.className   = 'shift-btn';
+          btn.textContent = s;
+          btn.style.background  = c.bg || '';
+          btn.style.color       = c.fg || '';
+          btn.style.borderColor = c.bg || '';
+          if (singleBase === s) btn.classList.add('active');
+          btn.addEventListener('click', () => {
+            list.querySelectorAll('.shift-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            _pop.pendingShift = s;
+            document.getElementById('popover-custom-shift').value = '';
+            document.getElementById('custom-color-row').style.setProperty('display', 'none', 'important');
+            _validateApply();
+          });
+          list.appendChild(btn);
+        });
+      };
+
+      renderGroup('Suggested', suggested);
+      renderGroup('Other', others);
+
+      // Clean single Clear Group for OFF
+      const offLbl = document.createElement('span');
+      offLbl.className = 'shift-group-label'; offLbl.textContent = 'Clear';
+      list.appendChild(offLbl);
+      const offBtn = document.createElement('button');
+      offBtn.className = 'shift-btn off-btn';
+      offBtn.textContent = 'OFF';
+      if (singleBase === 'OFF') offBtn.classList.add('active');
+      offBtn.addEventListener('click', () => {
+        list.querySelectorAll('.shift-btn').forEach(b => b.classList.remove('active'));
+        offBtn.classList.add('active');
+        _pop.pendingShift = 'OFF';
+        document.getElementById('popover-custom-shift').value = '';
+        document.getElementById('custom-color-row').style.setProperty('display', 'none', 'important');
+        _validateApply();
+      });
+      list.appendChild(offBtn);
+
+      const absentLbl = document.createElement('span');
+      absentLbl.className = 'shift-group-label'; absentLbl.textContent = 'Status';
+      list.appendChild(absentLbl);
+      const absentBtn = document.createElement('button');
+      absentBtn.className = 'shift-btn absent-btn';
+      absentBtn.textContent = 'ABSENT';
+      absentBtn.addEventListener('click', () => {
+        list.querySelectorAll('.shift-btn').forEach(b => b.classList.remove('active'));
+        absentBtn.classList.add('active');
+        _pop.pendingShift = 'ABSENT';
+        document.getElementById('popover-custom-shift').value = '';
+        document.getElementById('custom-color-row').style.setProperty('display', 'none', 'important');
+        _updateNoteRequired();
+        _validateApply();
+      });
+      list.appendChild(absentBtn);
+
+      const customIn = document.getElementById('popover-custom-shift');
+      customIn.value = '';
+      customIn.classList.remove('invalid');
+      document.getElementById('custom-shift-err').style.display = 'none';
+      document.getElementById('custom-color-row').style.setProperty('display', 'none', 'important');
+
+      // Real-time listener to toggle custom color picker visibility
+      customIn.addEventListener('input', () => {
+        const val = customIn.value.trim();
+        const isTimeFormat = /^\d{4}-\d{4}$/.test(val);
+        const colorRow = document.getElementById('custom-color-row');
+        if (colorRow) {
+          if (isTimeFormat) {
+            colorRow.style.setProperty('display', 'flex', 'important');
+          } else {
+            colorRow.style.setProperty('display', 'none', 'important');
+          }
+        }
+      });
+
+      const alStates = new Set(sel.map(c => {
+        const sh = _currentShiftOf(c);
+        if (sh === 'AL_PENDING'  || sh.startsWith('AL_PENDING|'))  return 'provisional';
+        if (sh === 'AL_APPROVED' || sh.startsWith('AL_APPROVED|')) return 'confirmed';
+        return 'none';
+      }));
+      const singleAL = alStates.size === 1 ? [...alStates][0] : 'none';
+      _pop.alMode = singleAL;
+      document.querySelectorAll('.al-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.al === singleAL);
+        btn.onclick = () => {
+          document.querySelectorAll('.al-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          _pop.alMode = btn.dataset.al;
+        };
+      });
+
+      const notCovChk = document.getElementById('not-coverage-chk');
+      notCovChk.checked = false;
+      const covSel = document.getElementById('popover-coverage-person');
+      covSel.innerHTML = '<option value="">— covering for… —</option>';
+      Object.entries(state.allUsers || {})
+        .sort((a, b) => a[1].name.localeCompare(b[1].name))
+        .forEach(([email, u]) => {
+          if (u.name === first.person) return;
+          const opt = document.createElement('option');
+          opt.value = u.name; opt.textContent = u.name;
+          covSel.appendChild(opt);
+        });
+      covSel.style.display = '';
+      notCovChk.onchange = () => {
+        covSel.style.display = notCovChk.checked ? 'none' : '';
+        _updateNoteRequired();
+        _validateApply();
+      };
+      covSel.onchange = () => {
+        if (covSel.value) {
+          document.getElementById('popover-note').value = `Covering for ${covSel.value}`;
+          _validateApply();
+        }
+      };
+
+      const existingNote = sel.length === 1
+        ? (state.draft.overrides.find(o => o.person === first.person && o.date === first.date)?.note || '')
+        : '';
+      document.getElementById('popover-note').value = existingNote;
+      _pop.pendingShift = null;
+      _updateNoteRequired();
+    } else {
+      const list = document.getElementById('shift-options-list');
+      list.innerHTML = '';
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'shift-btn remove-absent-btn';
+      removeBtn.textContent = '✓ Remove Absent';
+      removeBtn.addEventListener('click', async () => {
+        for (const cell of sel) {
+          const base = _stripAlPrefix(_currentShiftOf(cell));
+          await _saveOverride(cell.person, cell.date, base, null, 'shift_change');
+        }
+        closeShiftPopover();
+        _clearSelection();
+        await _lazyUpdateCells(sel);
+      });
+      list.appendChild(removeBtn);
+    }
+
+    _validateApply();
+
+    const pop = document.getElementById('shift-popover');
+    pop.classList.add('open');
+    const pw = 300, ph = pop.scrollHeight || 400;
+    let left = screenX + 8, top = screenY;
+    if (left + pw > window.innerWidth  - 8) left = screenX - pw - 8;
+    if (top  + ph > window.innerHeight - 8) top  = window.innerHeight - ph - 8;
+    pop.style.left = Math.max(8, left) + 'px';
+    pop.style.top  = Math.max(8, top)  + 'px';
+  }
+
+  function _validateApply() {
+    const popApply = document.getElementById('popover-apply');
+    if (!popApply) return;
+
+    const customVal = document.getElementById('popover-custom-shift')?.value.trim();
+    const note = document.getElementById('popover-note')?.value.trim();
+    const rawShift = _pop.pendingShift || (customVal && /^\d{4}-\d{4}$/.test(customVal) ? customVal : null);
+    const isAbsent = rawShift === 'ABSENT';
+    const hasRequiredNote = !isAbsent || !!note;
+    const canApply = !!(rawShift || (customVal && /^\d{4}-\d{4}$/.test(customVal))) && hasRequiredNote;
+    popApply.disabled = !canApply;
+  }
+
+  function _updateNoteRequired() {
+    const noteIn = document.getElementById('popover-note');
+    const noteStar = document.getElementById('note-required-star');
+    const noteMsg = document.getElementById('note-required-msg');
+    if (!noteIn) return;
+
+    const isAbsent = _pop.pendingShift === 'ABSENT';
+    noteIn.placeholder = isAbsent ? 'Reason for absence (Required)…' : 'Add a note…';
+    noteIn.required = isAbsent;
+    if (noteStar) noteStar.style.display = isAbsent ? '' : 'none';
+    if (noteMsg) noteMsg.style.display = isAbsent ? '' : 'none';
+  }
+
+  function closeShiftPopover() {
+    document.getElementById('shift-popover')?.classList.remove('open');
+  }
+
+  async function applyPopover() {
+    const sel = state.draft.selection;
+    if (!sel.length) { closeShiftPopover(); return; }
+
+    const note       = document.getElementById('popover-note').value.trim();
+    const alMode     = _pop.alMode;
+    const customVal  = document.getElementById('popover-custom-shift').value.trim();
+    const rawShift   = _pop.pendingShift || (customVal && /^\d{4}-\d{4}$/.test(customVal) ? customVal : null);
+    const customColor = _pop.customColor || document.getElementById('custom-color-picker')?.value;
+
+    if (!rawShift && !customVal) { closeShiftPopover(); return; }
+
+    // Save custom color if used
+    if (customVal && /^\d{4}-\d{4}$/.test(customVal) && customColor) {
+      const cfg    = state.config || {};
+      const colors = [...(cfg.custom_shift_colors || [])].filter(c => c !== customColor);
+      colors.push(customColor);
+      const newColors = colors.slice(-5);
+      await apiFetch(`${PROXY}/rota/config`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ custom_shift_colors: newColors }),
+      });
+      if (state.config) state.config.custom_shift_colors = newColors;
+    }
+
+    const affected = [];
+    for (const cell of sel) {
+      const currentShift = _currentShiftOf(cell);
+      const stripped     = _stripAlPrefix(currentShift);
+
+      let finalShift = rawShift || stripped;
+      if (finalShift === 'ABSENT') finalShift = `ABSENT|${stripped}`;
+
+      const isOffDay = stripped === 'OFF';
+      let ovType = 'shift_change';
+      if (!isOffDay && (alMode === 'provisional' || alMode === 'confirmed')) {
+        ovType = 'al_toggle';
+      }
+
+      if (alMode === 'provisional') {
+        finalShift = isOffDay ? 'AL_PENDING'  : `AL_PENDING|${finalShift}`;
+      } else if (alMode === 'confirmed') {
+        finalShift = isOffDay ? 'AL_APPROVED' : `AL_APPROVED|${finalShift}`;
+      }
+
+      await _saveOverride(cell.person, cell.date, finalShift, note || null, ovType);
+      affected.push(cell);
+    }
+
+    closeShiftPopover();
+    await _lazyUpdateCells(affected);
+  }
+
+  async function _saveOverride(person, dateStr, shift, note, ovType) {
+    try {
+      const r = await apiFetch(`${PROXY}/rota/draft/override`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ person, date: dateStr, shift, note, type: ovType }),
+      });
+      const d = await r.json();
+      if (d.ok) {
+        state.draft.overrides = d.overrides;
+        // Also save note to persistent notes if provided
+        if (note) {
+          await apiFetch(`${PROXY}/rota/note`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ person, date: dateStr, note }),
+          });
+        }
+      } else {
+        toast(d.error || 'Failed to save', 'err');
+      }
+    } catch(e) {
+      toast('Network error', 'err');
+    }
+  }
+
+  async function _lazyUpdateCells(cells) {
+    // Fetch only the affected date range to avoid full table refresh
+    if (!cells.length) return;
+    const dates = cells.map(c => c.date).sort();
+    const from  = dates[0];
+    const to    = dates[dates.length - 1];
+
+    try {
+      const r = await apiFetch(
+        `${PROXY}/rota/draft?from=${from}&to=${to}`
+      );
+      const d = await r.json();
+      if (!d.ok) return;
+
+      // Merge updated days into state.rotaData
+      d.days.forEach(newDay => {
+        const idx = state.rotaData?.findIndex(dd => dd.date === newDay.date);
+        if (idx !== undefined && idx >= 0) state.rotaData[idx] = newDay;
+      });
+      state.draft.overrides = d.overrides;
+
+      // Update only the affected cells in the DOM
+      const wrap  = document.getElementById('rota-wrap');
+      const table = wrap?.querySelector('table.rota');
+      if (!table) return;
+
+      cells.forEach(cell => {
+        const td = table.querySelector(
+          `td[data-person="${cell.person}"][data-date="${cell.date}"]`
+        );
+        if (!td) return;
+        const day   = state.rotaData?.find(dd => dd.date === cell.date);
+        const shift = (day?.shifts[cell.person] || {}).shift || 'OFF';
+        const note  = (day?.shifts[cell.person] || {}).note  || null;
+
+        // Compute display values
+        let bg = '#2a2a2a', fg = '#555', text = shift, extra = '';
+        if (shift.includes('|')) {
+          const [code, orig] = shift.split('|');
+          const c = SHIFT_COLORS[code] || SHIFT_COLORS['AL_APPROVED'];
+          bg = c.bg; fg = c.fg;
+          if (code === 'ABSENT') {
+            text = orig; extra = ' absent-overlay';
+          } else if (code === 'AL_APPROVED' || code === 'AL_PENDING') {
+            text = orig + ' H';
+          } else {
+            text = orig;
+          }
+        } else {
+          const c = SHIFT_COLORS[shift];
+          if (c) {
+            bg = c.bg; fg = c.fg;
+            if (c.dotted) extra = ' dotted';
+            if (c.absent) extra = ' absent-overlay';
+            if (['AL_APPROVED','AL_PENDING','PARENTAL','MARITAL'].includes(shift)) text = '';
+          }
+        }
+
+        td.style.background = bg;
+        td.classList.toggle('has-note', !!note);
+        const span = td.querySelector('.shift-cell');
+        if (span) {
+          span.className = `shift-cell${extra}`;
+          span.style.color = fg;
+          span.textContent = text;
+        }
+      });
+    } catch(e) { console.error('Lazy update failed', e); }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  DRAFT MODE
+  // ════════════════════════════════════════════════════════════════
+  function setupDraft() {
+    if (!state.me || state.me.rota_role !== 'management') return;
+    document.getElementById('btn-draft').style.display = '';
+
+    document.getElementById('btn-draft').addEventListener('click', enterDraft);
+    document.getElementById('btn-publish').addEventListener('click', publishDraft);
+    document.getElementById('btn-save-close').addEventListener('click', saveCloseDraft);
+    document.getElementById('btn-close-draft').addEventListener('click', closeDraft);
+    document.getElementById('btn-kick-draft').addEventListener('click', kickDraft);
+    document.getElementById('popover-close').addEventListener('click', closeShiftPopover);
+    document.getElementById('popover-cancel').addEventListener('click', closeShiftPopover);
+    document.getElementById('popover-apply').addEventListener('click', applyPopover);
+
+    const popNote = document.getElementById('popover-note');
+    if (popNote) {
+      popNote.addEventListener('input', _validateApply);
+    }
+
+    const colorPicker = document.getElementById('custom-color-picker');
+    if (colorPicker) {
+      colorPicker.addEventListener('input', e => {
+        _pop.customColor = e.target.value;
+      });
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        const pop = document.getElementById('shift-popover');
+        if (pop?.classList.contains('open')) {
+          closeShiftPopover();
+        } else if (state.draft.active) {
+          _clearSelection();
+        }
+      }
+    });
+
+    // Global event delegation to handle sticky note triangle interaction
+    document.getElementById('rota-wrap')?.addEventListener('click', e => {
+      const target = e.target.closest('.has-note');
+      if (target) {
+        const person = target.dataset.person;
+        const date = target.dataset.date;
+        const day = state.rotaData?.find(d => d.date === date);
+        const note = day?.shifts[person]?.note || '';
+        if (note) toast(`${person} (${_fmtDateShort(date)}): ${note}`, 'info');
+      }
+    });
+
+    // Poll draft status every 30s so the banner stays accurate
+    // if another manager enters/exits while we're on the rota tab
+    checkDraftStatus();
+    setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        checkDraftStatus();
+      }
+    }, 5000);
+
+    // Hook tab state to execute an immediate check when the user returns
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        checkDraftStatus();
+      }
+    });
+  }
+
+  async function checkDraftStatus() {
+    try {
+      const r = await apiFetch(`${PROXY}/rota/draft/status`);
+      const d = await r.json();
+      if (!d.ok) return;
+      state.draft.lock = d.lock;
+      renderDraftBanner();
+    } catch(e) { /* silent */ }
+  }
+
+  function renderDraftBanner() {
+    if (!state.me || state.me.rota_role !== 'management') return;
+    const lock    = state.draft.lock;
+    const banner  = document.getElementById('draft-banner');
+    const who     = document.getElementById('draft-banner-who');
+    const myAct   = document.getElementById('draft-mine-actions');
+    const othAct  = document.getElementById('draft-other-actions');
+    const rotaWrap = document.getElementById('rota-wrap');
+    const btnDraft = document.getElementById('btn-draft');
+
+    if (!lock) {
+      // No one in draft
+      banner.classList.remove('active');
+      rotaWrap.classList.remove('draft-mode');
+      state.draft.active = false;
+      btnDraft.textContent = '✎ Draft';
+      btnDraft.disabled = false;
+      myAct.style.display  = 'none';
+      othAct.style.display = 'none';
+      return;
+    }
+
+    const isMe = lock.locked_by === state.me.username;
+    banner.classList.add('active');
+
+    if (isMe) {
+      who.textContent = 'You are editing';
+      rotaWrap.classList.add('draft-mode');
+      state.draft.active = true;
+      btnDraft.textContent = '✎ Editing…';
+      btnDraft.disabled = true;
+      myAct.style.display  = 'flex';
+      othAct.style.display = 'none';
+    } else {
+      const name = lock.locked_by_name || lock.locked_by;
+      who.textContent = `${name} is editing`;
+      rotaWrap.classList.remove('draft-mode');
+      state.draft.active = false;
+      btnDraft.textContent = '✎ Draft';
+      btnDraft.disabled = false;
+      myAct.style.display  = 'none';
+      othAct.style.display = 'flex';
+    }
+  }
+
+  async function enterDraft() {
+    const r = await apiFetch(`${PROXY}/rota/draft/lock`, {
+      method: 'POST',
+    });
+    const d = await r.json();
+    if (d.ok) {
+      state.draft.lock = d.lock;
+      renderDraftBanner();
+      // Switch to full-year range for draft mode
+      document.getElementById('view-select').value = 'full';
+      state.viewMode = 'full';
+      state.rotaData = null;
+      loadDraftRota();
+      toast('Draft mode active', 'ok');
+    } else {
+      await uiAlert(d.error || 'Could not enter draft mode', 'Draft Locked');
+    }
+  }
+
+  async function saveCloseDraft() {
+    const confirmed = await uiConfirm(
+      'Save & Close Draft',
+      'Your changes are already saved. This will exit draft mode and release the lock. Others will be able to continue editing.',
+      'Save & Close',
+      'warn'
+    );
+    if (!confirmed) return;
+    await _releaseDraftLock();
+    toast('Draft saved and closed', 'ok');
+  }
+
+  async function closeDraft() {
+    const confirmed = await uiConfirm(
+      'Close Draft',
+      'Exit draft mode? Your saved changes remain in the draft. The lock will be released so others can edit.',
+      'Close Draft',
+      'reject'
+    );
+    if (!confirmed) return;
+    const r = await apiFetch(`${PROXY}/rota/draft/discard`, {
+      method: 'POST',
+    });
+    const d = await r.json();
+    if (d.ok) {
+      state.draft.lock   = null;
+      state.draft.active = false;
+      renderDraftBanner();
+      // Return to published view
+      document.getElementById('view-select').value = 'published';
+      state.viewMode = 'published';
+      state.rotaData = null;
+      loadRota();
+      toast('Exited draft mode', 'ok');
+    } else {
+      toast(d.error || 'Failed to close draft', 'err');
+    }
+  }
+
+  async function publishDraft() {
+    const confirmed = await uiConfirm(
+      'Publish Draft',
+      'Publish all draft changes to the live rota? This cannot be undone. AL toggles will create confirmed leave entries.',
+      'Publish',
+      'approve'
+    );
+    if (!confirmed) return;
+    const r = await fetch(`${PROXY}/rota/draft/publish`, {
+      method: 'POST', credentials: 'same-origin',
+    });
+    const d = await r.json();
+    if (d.ok) {
+      state.draft.lock   = null;
+      state.draft.active = false;
+      renderDraftBanner();
+      document.getElementById('view-select').value = 'published';
+      state.viewMode = 'published';
+      state.rotaData = null;
+      loadRota();
+      const msg = `Published — ${d.shift_applied} shift${d.shift_applied !== 1 ? 's' : ''}, ${d.al_created} AL entr${d.al_created !== 1 ? 'ies' : 'y'}`;
+      if (d.warnings && d.warnings.length) {
+        await uiAlert(
+          `${msg}\n\n⚠ Warnings:\n${d.warnings.join('\n')}`,
+          'Published with Warnings'
+        );
+      } else {
+        toast(msg, 'ok');
+      }
+    } else {
+      await uiAlert(d.error || 'Publish failed', 'Publish Failed');
+    }
+  }
+
+  async function kickDraft() {
+    const name = state.draft.lock?.locked_by_name || state.draft.lock?.locked_by || 'this user';
+    const confirmed = await uiConfirm(
+      'Kick User from Draft',
+      `Remove ${name} from draft mode? Any unsaved changes in their browser will be lost, but previously autosaved changes remain in the draft.`,
+      'Kick User',
+      'reject'
+    );
+    if (!confirmed) return;
+    const r = await fetch(`${PROXY}/rota/draft/unlock`, {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ force: true }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      state.draft.lock = null;
+      renderDraftBanner();
+      toast(`${name} removed from draft`, 'ok');
+    } else {
+      toast(d.error || 'Failed', 'err');
+    }
+  }
+
+  async function _releaseDraftLock() {
+    const r = await fetch(`${PROXY}/rota/draft/unlock`, {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ force: false }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      state.draft.lock   = null;
+      state.draft.active = false;
+      renderDraftBanner();
+      document.getElementById('view-select').value = 'published';
+      state.viewMode = 'published';
+      state.rotaData = null;
+      loadRota();
+    }
+    return d.ok;
   }
 
   // ════════════════════════════════════════════════════════════════
