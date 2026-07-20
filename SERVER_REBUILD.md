@@ -10,7 +10,7 @@ The application code lives in Git — this document covers everything that does 
 ### CentOS / RHEL
 
 ```bash
-yum install nginx git python3 python3-pip ffmpeg curl mtr -y
+yum install nginx git python3 python3-pip ffmpeg curl mtr mediainfo -y
 pip3 install flask flask-cors requests
 pip3 install bcrypt --break-system-packages
 pip3 install phenix-edge-auth --break-system-packages
@@ -21,7 +21,7 @@ pip3 install phenix-edge-auth --break-system-packages
 
 ```bash
 apt update
-apt install nginx git python3 python3-flask python3-requests ffmpeg curl mtr -y
+apt install nginx git python3 python3-flask python3-requests ffmpeg curl mtr mediainfo -y
 apt install python3-pip -y
 pip3 install flask-cors --break-system-packages
 pip3 install bcrypt --break-system-packages

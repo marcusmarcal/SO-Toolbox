@@ -7,6 +7,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.35.0] - 2026-07-20
+
+### Added
+
+- MediaInfo to SERVER_REBUILD
+
 ## [2.34.0] - 2026-07-17
 
 ### Fixed
