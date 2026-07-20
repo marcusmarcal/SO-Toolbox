@@ -7,6 +7,22 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.35.2] - 2026-07-20
+
+### Changed
+
+- mediainfo_delay spec now uses two adjustable thresholds instead of a
+  single hard limit: |delay| <= warn (default 350ms) is COMPLIANT,
+  <= hard (default 1000ms) is ACCEPTED, above hard is REJECTED. Both
+  thresholds are adjustable per workflow in the specs editor.
+- Specs editor, results panel, and HTML/text reports updated to reflect
+  the three-tier compliant/accepted/rejected status.
+
+### Removed
+
+- Obsolete "Inform only (never reject)" toggle for mediainfo_delay
+  (leftover from the old AV sync spec pattern; no longer applicable).
+
 ## [2.35.1] - 2026-07-20
 
 ### Added

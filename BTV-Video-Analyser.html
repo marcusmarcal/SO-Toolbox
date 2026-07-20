@@ -2832,8 +2832,10 @@
             "Delay rel. to video (mediainfo)",
             r.mediainfo_delay_ms != null ? r.mediainfo_delay_ms + " ms" : "—",
             r.mediainfo_delay_ms != null
-              ? Math.abs(r.mediainfo_delay_ms) <= 1000
+              ? Math.abs(r.mediainfo_delay_ms) <= 350
                 ? "green"
+                : Math.abs(r.mediainfo_delay_ms) <= 1000
+                ? "yellow"
                 : "red"
               : "",
           ],
@@ -2882,10 +2884,7 @@
         if (!s) return "—";
         if ("warn" in s) {
           const mode = s.mode === "inform" ? " (inform only)" : "";
-          return `< ${s.warn}ms preferred, < ${s.hard}ms limit${mode}`;
-        }
-        if ("hard" in s) {
-          return `± ${s.hard}ms (hard limit)`;
+          return `≤ ${s.warn}ms compliant, ≤ ${s.hard}ms accepted${mode}`;
         }
         if (s.values) {
           const vals = s.values.join(", ");
@@ -3757,7 +3756,7 @@
         ${vsec("TIMING")}
         ${vrow(
           "Delay relative to video (mediainfo)",
-          "≤ 1000 ms hard limit",
+          "≤ 350 ms compliant, ≤ 1000 ms accepted",
           r.mediainfo_delay_ms != null ? r.mediainfo_delay_ms + " ms" : "—",
           "mediainfo_delay"
         )}
@@ -3964,7 +3963,7 @@
           `TIMING`,
           tr(
             "Delay relative to video (mediainfo)",
-            "≤ 1000 ms hard limit",
+            "≤ 350 ms compliant, ≤ 1000 ms accepted",
             r.mediainfo_delay_ms != null ? r.mediainfo_delay_ms + " ms" : "—",
             "mediainfo_delay"
           ),
@@ -4640,16 +4639,8 @@
               specialEl = "";
 
             if ("warn" in s) {
-              // AV Sync threshold spec
-              allowedEl = `Warn: <input data-key="${key}" data-field="warn" type="number" value="${s.warn}" step="0.5" style="${inStyle};width:60px" title="Warn threshold (ms)" /> ms &nbsp; Limit: <input data-key="${key}" data-field="hard" type="number" value="${s.hard}" step="0.5" style="${inStyle};width:60px" title="Hard limit (ms)" /> ms`;
-              prefEl = ``;
-              const modeInform = (s.mode || "inform") === "inform";
-              specialEl = `<label style="cursor:pointer"><input type="checkbox" data-key="${key}" data-field="mode_inform" ${
-                modeInform ? "checked" : ""
-              } /> Inform only (never reject)</label>`;
-            } else if ("hard" in s) {
-              // Single hard-threshold spec (e.g. mediainfo delay) — reject when |measured| exceeds this
-              allowedEl = `Reject above: <input data-key="${key}" data-field="hard" type="number" value="${s.hard}" step="50" style="${inStyle};width:70px" title="Hard limit (ms)" /> ms`;
+              // Delay threshold spec: warn = max |ms| still COMPLIANT, hard = max |ms| still ACCEPTED (above = REJECTED)
+              allowedEl = `Compliant up to: <input data-key="${key}" data-field="warn" type="number" value="${s.warn}" step="10" style="${inStyle};width:70px" title="Compliant threshold (ms)" /> ms &nbsp; Accepted up to: <input data-key="${key}" data-field="hard" type="number" value="${s.hard}" step="10" style="${inStyle};width:70px" title="Reject above this (ms)" /> ms`;
               prefEl = ``;
             } else if ("lo" in s) {
               // Range spec

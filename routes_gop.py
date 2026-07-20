@@ -13,7 +13,8 @@ the "Delay relative to video" metric (mediainfo JSON field `Video_Delay` on the
 Audio track), replacing the old unreliable ffprobe PTS-offset heuristic. The
 "AV SYNC & TIMING" spec block (av_sync_warn / av_sync_max / v_pts_jitter /
 a_pts_jitter) has been removed and replaced by a single "mediainfo_delay" spec
-with an adjustable hard limit (default 1000ms) that REJECTs when exceeded.
+with two adjustable thresholds per workflow: |delay| <= warn (default 350ms) is
+COMPLIANT, <= hard (default 1000ms) is ACCEPTED, above hard is REJECTED.
 
 Registers all /gop/* routes (nginx strips /so-proxy prefix).
 """
@@ -150,8 +151,9 @@ DEFAULT_SPECS = {
     "a_bits":       {"values": ["fltp","16","s16"], "preferred": "16", "label": "Audio Bits per Sample"},
     "a_br_kbps":    {"lo": 118, "hi": 512, "pref_lo": 256, "pref_hi": 256, "label": "Audio Bitrate (Kbps)"},
     # Delay relative to video — measured via mediainfo on the recorded .ts file.
-    # "hard" is the maximum allowed |offset| in ms before REJECTED. Adjustable per workflow.
-    "mediainfo_delay": {"hard": 1000.0, "label": "Delay relative to video (ms)"},
+    # "warn" = max |offset| in ms still COMPLIANT; between "warn" and "hard" is ACCEPTED;
+    # above "hard" is REJECTED. Both thresholds are adjustable per workflow.
+    "mediainfo_delay": {"warn": 350.0, "hard": 1000.0, "label": "Delay relative to video (ms)"},
 }
 
 
@@ -603,13 +605,17 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
         v_rate_ctrl = "CBR" if file_br and v_br and abs(file_br - v_br) < file_br * 0.1 else "VBR"
 
         def _mediainfo_check(measured_ms, sp):
+            warn = float(sp.get("warn", 350.0))
             hard = float(sp.get("hard", 1000.0))
             if measured_ms is None:
                 return ("UNKNOWN", "—", "Could not measure (mediainfo unavailable or no delay reported)")
             m = round(measured_ms, 1)
-            if abs(m) > hard:
-                return ("REJECTED", f"{m} ms", f"Exceeds {hard}ms limit")
-            return ("COMPLIANT", f"{m} ms", f"Within {hard}ms limit")
+            am = abs(m)
+            if am <= warn:
+                return ("COMPLIANT", f"{m} ms", f"Within {warn}ms")
+            if am <= hard:
+                return ("ACCEPTED", f"{m} ms", f"Within {hard}ms limit; prefer within {warn}ms")
+            return ("REJECTED", f"{m} ms", f"Exceeds {hard}ms limit")
 
         # ── Compliance ────────────────────────────────────────────────
         specs = _load_specs(workflow)
@@ -1553,13 +1559,17 @@ def _reeval_compliance(stored: dict, specs: dict) -> tuple:
         return "COMPLIANT", measured, ""
 
     def _mediainfo_check(measured_ms, sp):
+        warn = float(sp.get("warn", 350.0))
         hard = float(sp.get("hard", 1000.0))
         if measured_ms is None:
             return ("UNKNOWN", "—", "Could not measure (mediainfo unavailable or no delay reported)")
         m = round(measured_ms, 1)
-        if abs(m) > hard:
-            return ("REJECTED", f"{m} ms", f"Exceeds {hard}ms limit")
-        return ("COMPLIANT", f"{m} ms", f"Within {hard}ms limit")
+        am = abs(m)
+        if am <= warn:
+            return ("COMPLIANT", f"{m} ms", f"Within {warn}ms")
+        if am <= hard:
+            return ("ACCEPTED", f"{m} ms", f"Within {hard}ms limit; prefer within {warn}ms")
+        return ("REJECTED", f"{m} ms", f"Exceeds {hard}ms limit")
 
     r = stored
 
