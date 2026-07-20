@@ -581,10 +581,13 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
         a_rate     = aud.get("sample_rate", "?")
         a_lang     = aud.get("tags", {}).get("language", "?")
 
+        a_sample_fmt = (aud.get("sample_fmt") or "").lower()
         a_bps_raw  = aud.get("bits_per_raw_sample") or aud.get("bits_per_coded_sample")
         if a_bps_raw and int(a_bps_raw) > 0:
             a_bps  = str(int(a_bps_raw))
-        elif a_codec in ("aac", "mp3", "mp2", "mp1", "opus", "vorbis"):
+        elif a_sample_fmt.startswith("flt") or a_sample_fmt.startswith("dbl"):
+            a_bps  = "FLTP"
+        elif a_codec in ("aac", "aac_latm", "mp3", "mp2", "mp1", "opus", "vorbis"):
             a_bps  = "FLTP"
         else:
             a_bps  = "?"

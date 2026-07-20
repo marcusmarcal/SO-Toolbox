@@ -7,6 +7,16 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.35.4] - 2026-07-20
+
+### Fixed
+
+- Audio Bits per Sample falsely REJECTED aac_latm streams ("?" instead
+  of "fltp") because the codec whitelist used to infer floating-point
+  sample format didn't include aac_latm. Now derived primarily from
+  ffprobe's sample_fmt field, with the codec whitelist (now including
+  aac_latm) kept only as a fallback.
+
 ## [2.35.3] - 2026-07-20
 
 ### Fixed
