@@ -1478,6 +1478,25 @@
                     ↺ Re-run
                   </button>
                   <button
+                    id="btn-ingest-report"
+                    onclick="openIngestReport()"
+                    style="
+                      display: none;
+                      background: transparent;
+                      border: 1px solid var(--cyan);
+                      border-radius: 5px;
+                      color: var(--cyan);
+                      font-family: var(--mono);
+                      font-size: 0.7rem;
+                      font-weight: 700;
+                      padding: 4px 12px;
+                      cursor: pointer;
+                    "
+                    title="Open the Ingest Analyser report for this test"
+                  >
+                    🔎 Ingest Analyser Report
+                  </button>
+                  <button
                     id="btn-report"
                     onclick="generateReport()"
                     style="
@@ -2621,6 +2640,11 @@
         _currentResult = r;
         _currentResultFile = r.res_file || _currentResultFile; // keep track of file
         _overrideReason = r.override ? r.override.reason : null;
+
+        // Show "Ingest Analyser Report" only when this test has one saved
+        const ingestBtn = document.getElementById("btn-ingest-report");
+        ingestBtn.style.display = r.ingest_dir ? "" : "none";
+
         // Reset override UI
         document.getElementById("override-notice").style.display = "none";
         document.getElementById("btn-override").textContent = "⚡ Override";
@@ -3519,6 +3543,15 @@
           ).innerHTML = `<span class="status-pill ${os}" style="font-size:.72rem;padding:3px 12px">${os}</span>`;
         }
         loadHistory();
+      }
+
+      // ── Ingest Analyser report ──────────────────────────────────────────
+      function openIngestReport() {
+        if (!_currentResult || !_currentResult.ingest_dir) return;
+        window.open(
+          `${PROXY}/ingest/report/${encodeURIComponent(_currentResult.ingest_dir)}`,
+          "_blank"
+        );
       }
 
       // ── Generate Report ───────────────────────────────────────────────

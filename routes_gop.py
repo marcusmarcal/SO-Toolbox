@@ -1,6 +1,6 @@
 """
 routes_gop.py — GOP Analyzer Blueprint
-SO-Toolbox v2.29.0
+SO-Toolbox v2.30.0
 
 All /gop/* routes (run, upload, status, results, schedule, specs, overrides, delete).
 GOP results JSON now includes a `username` field (from /me session) for every test —
@@ -15,6 +15,15 @@ Audio track), replacing the old unreliable ffprobe PTS-offset heuristic. The
 a_pts_jitter) has been removed and replaced by a single "mediainfo_delay" spec
 with two adjustable thresholds per workflow: |delay| <= warn (default 350ms) is
 COMPLIANT, <= hard (default 1000ms) is ACCEPTED, above hard is REJECTED.
+
+Every test run now also runs the Ingest Analyser (run-ingest-analysis.sh, the
+same script used by the standalone /ingest/* tool in routes_ingest.py) on the
+already-recorded .ts file — faster than a live re-capture, and it's the same
+source. The report is saved into the same store/ingest-results directory so it
+is served by the existing /ingest/report/<dir>, /ingest/report-txt/<dir> and
+/ingest/download/<zip> routes unchanged. The result JSON gets `ingest_dir` /
+`ingest_zip` fields (null if the Ingest Analyser failed or isn't installed —
+this never blocks or fails the GOP result itself).
 
 Registers all /gop/* routes (nginx strips /so-proxy prefix).
 """
@@ -41,6 +50,11 @@ _BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
 GOP_DIR    = os.path.join(_BASE_DIR, "store/gop-results")
 SPECS_FILE = os.path.join(_BASE_DIR, "specs.json")
 os.makedirs(GOP_DIR, exist_ok=True)
+
+# Same directory used by routes_ingest.py — reports saved here are served
+# directly by the existing /ingest/report/<dir>, /ingest/download/<zip> etc.
+INGEST_RESULTS_DIR = os.path.join(_BASE_DIR, "store/ingest-results")
+os.makedirs(INGEST_RESULTS_DIR, exist_ok=True)
 
 # ── Workflows ─────────────────────────────────────────────────────────────
 # Each workflow has its own specs file. "dc_aminos_tp" keeps using the
@@ -239,6 +253,79 @@ def _run_gop_on_file(job_id, ts_path, tag, url_display, started_at, workflow=DEF
             })
 
 
+def _run_ingest_analysis(ts_path, tag, log):
+    """Run the Ingest Analyser (same run-ingest-analysis.sh script and same
+    store/ingest-results output dir used by routes_ingest.py) on the .ts file
+    the GOP analyzer just recorded/received. This is run synchronously, on
+    the file rather than the live source, since it's faster and avoids a
+    second capture.
+
+    Saves the report into INGEST_RESULTS_DIR so the existing /ingest/report/<dir>,
+    /ingest/report-txt/<dir> and /ingest/download/<zip> routes serve it as-is.
+
+    Returns {"ingest_dir": <saved dir name>|None, "ingest_zip": <saved zip name>|None}.
+    Never raises — logs a warning and returns Nones on any failure, since the
+    GOP result must not be blocked by an Ingest Analyser failure.
+    """
+    result = {"ingest_dir": None, "ingest_zip": None}
+    try:
+        log("Running Ingest Analyser on the recorded file…")
+        started_at = datetime.datetime.utcnow().isoformat() + "Z"
+        r = subprocess.run(
+            ["run-ingest-analysis.sh", ts_path],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=300
+        )
+        stdout = r.stdout.decode(errors="replace")
+        exit_code = r.returncode
+        log(f"Ingest Analyser exited with code {exit_code}")
+
+        actual_dir = None
+        actual_zip = None
+        for line in stdout.splitlines():
+            if "Report location:" in line:
+                actual_dir = os.path.dirname(line.split("Report location:")[-1].strip())
+            if "Archive location:" in line:
+                actual_zip = line.split("Archive location:")[-1].strip()
+
+        if actual_zip and os.path.isfile(actual_zip):
+            dest = os.path.join(INGEST_RESULTS_DIR, os.path.basename(actual_zip))
+            shutil.copy2(actual_zip, dest)
+            result["ingest_zip"] = os.path.basename(actual_zip)
+
+        if actual_dir and os.path.isdir(actual_dir):
+            dest_dir = os.path.join(INGEST_RESULTS_DIR, os.path.basename(actual_dir))
+            if os.path.isdir(dest_dir):
+                shutil.rmtree(dest_dir)
+            shutil.copytree(actual_dir, dest_dir)
+            result["ingest_dir"] = os.path.basename(actual_dir)
+
+            meta = {
+                "url":        tag or os.path.basename(ts_path),
+                "tag":        tag,
+                "started_at": started_at,
+                "ended_at":   datetime.datetime.utcnow().isoformat() + "Z",
+                "exit_code":  exit_code,
+                "status":     "done" if exit_code in (0, 45) else "failed",
+                "source":     "gop",
+            }
+            try:
+                with open(os.path.join(dest_dir, "meta.json"), "w") as f:
+                    json.dump(meta, f, indent=2)
+            except Exception as e:
+                log(f"WARNING: Could not save Ingest Analyser meta.json: {e}")
+
+            log(f"Ingest Analyser report saved: {result['ingest_dir']}")
+        else:
+            log("WARNING: Ingest Analyser output directory not found — check script output above.")
+    except FileNotFoundError:
+        log("WARNING: run-ingest-analysis.sh not found on this server")
+    except subprocess.TimeoutExpired:
+        log("WARNING: Ingest Analyser timed out")
+    except Exception as e:
+        log(f"WARNING: Ingest Analyser failed: {e}")
+    return result
+
+
 def _run_mediainfo_delay(ts_path, log):
     """Run mediainfo on the recorded/uploaded .ts file and extract the audio
     'Delay relative to video' metric (mediainfo JSON field `Video_Delay`, in
@@ -425,6 +512,9 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
         # ── mediainfo: Delay relative to video ──────────────────────────
         log("Running mediainfo on the recorded file…")
         mediainfo_result = _run_mediainfo_delay(ts_path, log)
+
+        # ── Ingest Analyser (same .ts file — faster than a live re-capture) ──
+        ingest_result = _run_ingest_analysis(ts_path, tag, log)
 
         # ── GOP parsing ───────────────────────────────────────────────
         gops = []
@@ -795,6 +885,8 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             "overall_status": overall_status,
             "test_id": str(uuid.uuid4()),
             "mediainfo_delay_ms": mediainfo_result.get("mediainfo_delay_ms"),
+            "ingest_dir": ingest_result.get("ingest_dir"),
+            "ingest_zip": ingest_result.get("ingest_zip"),
         }
 
         ts_str   = datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S")

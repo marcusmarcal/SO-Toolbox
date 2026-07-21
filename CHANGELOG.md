@@ -7,6 +7,22 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.36.0] - 2026-07-21
+
+### Added
+
+- Every GOP test now automatically runs the Ingest Analyser on the
+  recorded .ts file (same script and same store/ingest-results output
+  used by the standalone Ingest Analyser tool), right after the
+  mediainfo delay check. Faster than a live re-capture and uses the
+  same source file.
+- GOP result JSON: new ingest_dir / ingest_zip fields, null if the
+  Ingest Analyser is unavailable or fails (never blocks or fails the
+  GOP result itself).
+- Frontend: new "Ingest Analyser Report" button (left of Generate
+  Report, right of Re-run), shown only for tests that have an Ingest
+  Analyser report, opening it in a new tab.
+
 ## [2.35.4] - 2026-07-20
 
 ### Fixed
