@@ -61,10 +61,10 @@
     #topbar h1 { font-size: 1.05rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
     #topbar h1 span { color: var(--accent); }
     .topbar-sep { flex: 1; }
-    #topbar-user { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 0.65rem; }
+    #topbar-user { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 0.68rem; }
 
     .team-badge {
-      font-family: var(--mono); font-size: 0.52rem; font-weight: 700;
+      font-family: var(--mono); font-size: 0.55rem; font-weight: 700;
       padding: 2px 8px; border-radius: 20px; color: #fff; letter-spacing: 0.05em;
     }
     .team-badge.Management  { background: var(--mgmt); }
@@ -107,8 +107,11 @@
     .btn.reject:hover  { background: rgba(255,78,106,0.15); }
     .btn.warn    { border-color: rgba(230,168,80,0.4); color: #e6a850; background: rgba(230,168,80,0.06); }
     .btn.warn:hover    { background: rgba(230,168,80,0.15); }
-    .btn.cancel-req { border-color: rgba(155,155,155,0.4); color: #9b9b9b; background: rgba(155,155,155,0.06); font-size:0.52rem; padding:3px 8px; }
+    .btn.cancel-req { border-color: rgba(155,155,155,0.4); color: #9b9b9b; background: rgba(155,155,155,0.06); font-size:0.6rem; padding:3px 8px; }
     .btn.cancel-req:hover { border-color: var(--danger); color: #ffb3be; background: rgba(255,78,106,0.06); }
+    .btn.danger { border-color: rgba(255,78,106,0.4); color: #ffb3be; background: rgba(255,78,106,0.05); }
+    .btn.danger:hover { background: rgba(255,78,106,0.15); }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
     .sep { flex: 1; }
 
     /* ── TOOLBAR ── */
@@ -145,6 +148,7 @@
     #rota-wrap {
       overflow: auto; max-height: calc(100vh - 180px);
       border-radius: 8px; border: 1px solid var(--border); background: var(--surface);
+      position: relative;
     }
     #rota-wrap::-webkit-scrollbar { width: 6px; height: 6px; }
     #rota-wrap::-webkit-scrollbar-track { background: var(--bg); }
@@ -198,13 +202,19 @@
       background-image: radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px);
       background-size: 4px 4px;
     }
+    .shift-cell.absent-overlay {
+      background-image: repeating-linear-gradient(
+        45deg, rgba(80,80,80,0.55) 0px, rgba(80,80,80,0.55) 2px,
+        transparent 2px, transparent 6px
+      );
+    }
     td.team-sep { border-left: 2px solid #333 !important; }
 
     /* ── DRAFT CELL SELECTION ── */
     table.rota.draft-selectable { user-select: none; }
-    table.rota.draft-selectable tbody td:not(.date-col) { cursor: crosshair; }
+    table.rota.draft-selectable tbody td[data-person] { cursor: crosshair; }
     table.rota.draft-selectable tbody td.selected-cell {
-      background-color: rgba(230,168,80,0.22) !important;
+      background-color: rgba(230,168,80,0.24) !important;
     }
     table.rota.draft-selectable tbody td.selected-cell .shift-cell {
       color: #fff !important;
@@ -222,21 +232,24 @@
     td.has-note { position: relative; }
     td.has-note::after {
       content: ''; position: absolute; top: 0; right: 0;
-      width: 0; height: 0;
-      border-style: solid;
-      border-width: 0 7px 7px 0;
+      width: 0; height: 0; border-style: solid; border-width: 0 8px 8px 0;
       border-color: transparent #E2725B transparent transparent;
+      pointer-events: none;
     }
 
-    /* ── ABSENT OVERLAY ── */
-    .shift-cell.absent-overlay {
-      background-image: repeating-linear-gradient(
-        45deg, rgba(80,80,80,0.55) 0px, rgba(80,80,80,0.55) 2px,
-        transparent 2px, transparent 6px
-      );
+    /* ── NOTE TOOLTIP ── */
+    #note-tooltip {
+      display: none; position: fixed; z-index: 900;
+      background: #2d2d2d; border: 1px solid #444; border-radius: 8px;
+      padding: 10px 12px; max-width: 260px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+      font-family: var(--mono); font-size: 0.68rem; color: #fff;
     }
+    #note-tooltip.open { display: block; }
+    #note-tooltip-text { white-space: pre-wrap; word-break: break-word; line-height: 1.4; }
+    #note-tooltip-meta { color: var(--muted); font-size: 0.58rem; margin-top: 6px; }
 
-    /* ── SHIFT POPOVER ── */
+    /* ── SHIFT / NOTE POPOVER ── */
     #shift-popover {
       display: none; position: fixed; z-index: 800;
       background: var(--surface); border: 1px solid var(--border);
@@ -267,7 +280,6 @@
       letter-spacing: 0.1em; padding: 4px 0 2px; display: block;
       border-top: 1px solid var(--border); margin-top: 4px;
     }
-    
     .shift-group-label:first-child { border-top: none; margin-top: 0; }
     .shift-btn {
       display: inline-block; font-family: var(--mono); font-size: 0.62rem;
@@ -276,14 +288,13 @@
       background: var(--card); color: var(--text);
       margin: 2px; transition: all 0.15s;
     }
-    .shift-btn:hover  { border-color: var(--accent); color: var(--accent); }
-    .shift-btn.active { border-color: var(--accent); color: var(--accent);
-                        background: rgba(161,139,245,0.2); }
-    .shift-btn.off-btn    { color: var(--muted); }
-    .shift-btn.absent-btn { color: #e57373; border-color: rgba(229,115,115,0.4); }
-    .shift-btn.absent-btn:hover    { background: rgba(229,115,115,0.1); }
-    .shift-btn.absent-btn.active   { background: rgba(229,115,115,0.2); }
-    .shift-btn.remove-absent-btn   { color: #9ee6a6; border-color: rgba(63,185,80,0.4); }
+    .shift-btn:hover  { filter: brightness(1.15); }
+    .shift-btn.active { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .shift-btn.off-btn    { color: var(--muted); background: var(--card); }
+    .shift-btn.absent-btn { color: #e57373; border-color: rgba(229,115,115,0.4); background: var(--card); }
+    .shift-btn.absent-btn:hover  { background: rgba(229,115,115,0.1); }
+    .shift-btn.absent-btn.active { background: rgba(229,115,115,0.2); }
+    .shift-btn.remove-absent-btn { color: #9ee6a6; border-color: rgba(63,185,80,0.4); background: var(--card); }
     .shift-btn.remove-absent-btn:hover { background: rgba(63,185,80,0.1); }
     .popover-input {
       width: 100%; background: var(--card); border: 1px solid var(--border);
@@ -303,29 +314,23 @@
       border: 1px solid var(--border); background: var(--card);
       color: var(--muted); transition: all 0.15s;
     }
-    .al-btn.none.active { border-color: var(--muted);              color: var(--text);  background: var(--card); }
-    .al-btn.prov.active { border-color: rgba(244,143,177,0.6);     color: #f48fb1;      background: rgba(244,143,177,0.12); }
-    .al-btn.conf.active { border-color: rgba(63,185,80,0.6);       color: #9ee6a6;      background: rgba(63,185,80,0.12); }
+    .al-btn.none.active { border-color: var(--muted);          color: var(--text);  background: var(--card); }
+    .al-btn.prov.active { border-color: rgba(244,143,177,0.6); color: #f48fb1;      background: rgba(244,143,177,0.12); }
+    .al-btn.conf.active { border-color: rgba(63,185,80,0.6);   color: #9ee6a6;      background: rgba(63,185,80,0.12); }
     .coverage-row {
       display: flex; align-items: center; gap: 8px; margin-top: 6px;
       font-size: 0.62rem; color: var(--muted);
     }
     .coverage-row input[type=checkbox] { accent-color: var(--accent); }
-    .color-swatch-row { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+    .color-swatch-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
     .color-swatch {
       width: 20px; height: 20px; border-radius: 4px; cursor: pointer;
       border: 2px solid transparent; transition: border-color 0.15s;
     }
     .color-swatch:hover, .color-swatch.active { border-color: var(--accent); }
     .popover-actions {
-      display: flex; gap: 8px; justify-content: flex-end;
+      display: flex; gap: 8px; justify-content: flex-end; align-items: center;
       margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border);
-    }
-    .popover-actions .btn:disabled {
-      opacity: 0.35; cursor: not-allowed; pointer-events: none;
-    }
-    .popover-note-required {
-      font-size: 0.55rem; color: #e6a850; margin-top: 4px; display: none;
     }
 
     /* ── DRAFT MODE ── */
@@ -356,12 +361,8 @@
       border-color: rgba(230,168,80,0.4);
       box-shadow: 0 0 0 1px rgba(230,168,80,0.2);
     }
-    #rota-wrap.draft-mode table.rota thead th {
-      background: #1a1500;
-    }
-    #rota-wrap.draft-mode table.rota thead th.date-col {
-      background: #0f0d00;
-    }
+    #rota-wrap.draft-mode table.rota thead th { background: #1a1500; }
+    #rota-wrap.draft-mode table.rota thead th.date-col { background: #0f0d00; }
 
     /* ── LEGEND ── */
     #legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
@@ -525,21 +526,21 @@
     }
     .confirm-msg {
       font-family: var(--mono); font-size: 0.8rem; color: var(--muted);
-      margin-bottom: 20px; line-height: 1.6;
+      margin-bottom: 20px; line-height: 1.6; white-space: pre-line;
     }
     .confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
 
     /* ── TOAST ── */
     #toast {
-      position: fixed; bottom: 28px; right: 28px;
+      position: fixed; top: 72px; left: 50%; transform: translateX(-50%) translateY(-8px);
       font-family: var(--mono); font-size: 0.75rem;
-      padding: 10px 18px; border-radius: 8px;
+      padding: 10px 24px; border-radius: 8px;
       border: 1px solid var(--border); background: var(--surface);
-      opacity: 0; transform: translateY(8px);
+      opacity: 0;
       transition: opacity 0.25s, transform 0.25s;
-      pointer-events: none; z-index: 9000;
+      pointer-events: none; z-index: 9000; white-space: nowrap;
     }
-    #toast.show { opacity: 1; transform: translateY(0); }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
     #toast.ok  { border-color: rgba(63,185,80,0.5);  color: #9ee6a6; background: rgba(63,185,80,0.08); }
     #toast.err { border-color: rgba(255,78,106,0.5); color: #ffb3be; background: rgba(255,78,106,0.08); }
 
@@ -568,25 +569,6 @@
     }
     .modal-card textarea:focus { border-color: var(--accent); }
     .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
-
-       /* ── NOTE TOOLTIP & EDIT OVERLAY ── */
-    #note-tooltip {
-      display: none; position: fixed; z-index: 999;
-      background: #2d2d2d; border: 1px solid #444; border-radius: 6px;
-      padding: 10px; width: 260px; box-shadow: 0 4px 16px rgba(0,0,0,0.5);
-      font-family: var(--mono); font-size: 0.65rem; color: #fff;
-    }
-    #note-tooltip-text { margin-bottom: 6px; white-space: pre-wrap; word-break: break-word; }
-    .note-tooltip-actions {
-      display: flex; gap: 6px; justify-content: flex-end; margin-top: 6px;
-      padding-top: 6px; border-top: 1px solid #444;
-    }
-    .note-tooltip-btn {
-      background: none; border: none; color: var(--accent); cursor: pointer;
-      font-size: 0.55rem; font-weight: bold; text-transform: uppercase; padding: 2px 4px;
-    }
-    .note-tooltip-btn.del { color: #e57373; }
-    .note-tooltip-btn:hover { opacity: 0.8; }
   </style>
 </head>
 <body>
@@ -599,8 +581,8 @@
     <div id="topbar-user">
       <span id="topbar-name" style="color:var(--accent);font-weight:700;">…</span>
       <span id="topbar-badge" class="team-badge"></span>
-      <button class="btn" id="btn-feedback" style="font-size:0.55rem;padding:4px 10px;">💬 Feedback</button>
-      <button class="btn" id="btn-signout" style="font-size:0.55rem;padding:4px 10px;">Sign out</button>
+      <button class="btn" id="btn-feedback" style="font-size:0.6rem;padding:4px 10px;">💬 Feedback</button>
+      <button class="btn" id="btn-signout" style="font-size:0.6rem;padding:4px 10px;">Sign out</button>
     </div>
   </header>
 
@@ -669,6 +651,8 @@
       <div class="legend-item"><div class="legend-swatch" style="background:#00BCD4;"></div>Parental</div>
       <div class="legend-item"><div class="legend-swatch" style="background:#3a3a3a;border:1px solid #555;"></div>Marital</div>
       <div class="legend-item"><div class="legend-swatch" style="background:#FF5722;"></div>Public Holiday</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#2a2a2a;background-image:repeating-linear-gradient(45deg,rgba(150,150,150,0.5) 0px,rgba(150,150,150,0.5) 1px,transparent 1px,transparent 3px);"></div>Absent</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#2a2a2a;position:relative;"><span style="position:absolute;top:0;right:0;width:0;height:0;border-style:solid;border-width:0 8px 8px 0;border-color:transparent #E2725B transparent transparent;"></span></div>Has note</div>
     </div>
   </div>
 
@@ -705,7 +689,7 @@
     </div>
     <button class="btn primary" id="btn-submit-leave">Submit Request</button>
     <div id="leave-blocker-note" style="display:none;margin-top:10px;font-family:var(--mono);font-size:0.72rem;color:#e6a850;"></div>
-    <div id="config-row" style="display:none;margin-top:10px;display:none;align-items:center;gap:12px;flex-wrap:wrap;">
+    <div id="config-row" style="display:none;margin-top:14px;align-items:center;gap:12px;flex-wrap:wrap;">
       <span style="font-family:var(--mono);font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;">Next-year AL opens:</span>
       <span id="config-open-date" style="font-family:var(--mono);font-size:0.75rem;color:var(--text);"></span>
       <button class="btn" id="btn-edit-config" style="font-size:0.65rem;padding:4px 10px;">✎ Edit</button>
@@ -755,35 +739,42 @@
     <div id="access-list"><div class="loading-row"><div class="spinner"></div> Loading…</div></div>
   </div>
 
-  <!-- ── SHIFT POPOVER ── -->
+  <!-- ── NOTE TOOLTIP (hover, read-only) ── -->
+  <div id="note-tooltip">
+    <div id="note-tooltip-text"></div>
+    <div id="note-tooltip-meta"></div>
+  </div>
+
+  <!-- ── SHIFT / NOTE POPOVER ── -->
   <div id="shift-popover">
     <div class="popover-header">
       <span id="popover-title">Edit Cell</span>
       <button class="popover-close" id="popover-close">✕</button>
     </div>
+
     <div class="popover-section" id="popover-absent-warn" style="display:none;">
       <span style="color:#e57373;font-size:0.65rem;">
-        ⚠ This cell is marked Absent. Remove Absent state before changing shift or AL.
+        ⚠ This cell is marked Absent. Remove Absent state below before changing shift or AL.
       </span>
     </div>
+
     <div id="popover-main-sections">
-      <div class="popover-section">
+      <div class="popover-section" id="popover-shift-section">
         <span class="popover-section-label">Shift</span>
         <div id="shift-options-list"></div>
-        <div style="margin-top:6px;">
-          <input class="popover-input" id="popover-custom-shift"
-            placeholder="Custom: 0800-1700" maxlength="9" />
-          <div class="popover-input-err" id="custom-shift-err">
-            Format must be ####-#### (e.g. 0800-1700)
-          </div>
-          <div class="color-swatch-row" id="custom-color-row" style="display:none;">
-            <input type="color" id="custom-color-picker"
-              style="width:28px;height:28px;border:none;background:none;cursor:pointer;padding:0;" />
-            <div id="recent-colors"></div>
-          </div>
+        <input class="popover-input" id="popover-custom-shift"
+          placeholder="Custom: 0800-1700" maxlength="9" />
+        <div class="popover-input-err" id="custom-shift-err">
+          Format must be ####-#### (e.g. 0800-1700)
+        </div>
+        <div class="color-swatch-row" id="custom-color-row" style="display:none;">
+          <input type="color" id="custom-color-picker" value="#7a7a7a"
+            style="width:26px;height:26px;border:none;background:none;cursor:pointer;padding:0;" />
+          <div id="recent-colors" style="display:flex;gap:6px;"></div>
         </div>
       </div>
-      <div class="popover-section">
+
+      <div class="popover-section" id="popover-al-section">
         <span class="popover-section-label">Annual Leave</span>
         <div class="al-toggle-row">
           <button class="al-btn none active" data-al="none">None</button>
@@ -791,27 +782,29 @@
           <button class="al-btn conf"        data-al="confirmed">Confirmed</button>
         </div>
       </div>
-      <div class="popover-section">
-        <span class="popover-section-label">
-          Note <span id="note-required-star" style="color:#e6a850;display:none;">*</span>
-        </span>
-        <select class="popover-input" id="popover-coverage-person"
-          style="margin-bottom:4px;display:none;">
-          <option value="">— covering for… —</option>
-        </select>
-        <div class="coverage-row">
-          <input type="checkbox" id="not-coverage-chk" />
-          <label for="not-coverage-chk">Not a coverage change</label>
-        </div>
-        <textarea class="popover-input" id="popover-note" rows="2"
-          placeholder="Note…" style="resize:none;margin-top:6px;"></textarea>
-        <div class="popover-input-err" id="note-required-msg">
-          Note is required for Absent and coverage shifts.
-        </div>
+    </div>
+
+    <div class="popover-section">
+      <span class="popover-section-label">
+        Note <span id="note-required-star" style="color:#e6a850;display:none;">*</span>
+      </span>
+      <select class="popover-input" id="popover-coverage-person" style="margin-bottom:4px;display:none;">
+        <option value="">— covering for… —</option>
+      </select>
+      <div class="coverage-row" id="popover-coverage-row" style="display:none;">
+        <input type="checkbox" id="not-coverage-chk" />
+        <label for="not-coverage-chk">Not a coverage change</label>
+      </div>
+      <textarea class="popover-input" id="popover-note" rows="2"
+        placeholder="Note…" style="resize:none;margin-top:6px;"></textarea>
+      <div class="popover-input-err" id="note-required-msg">
+        Note is required for this change.
       </div>
     </div>
+
     <div class="popover-actions">
-      <button class="btn danger" id="popover-reset" style="margin-right:auto;">Reset to original</button>
+      <button class="btn danger" id="popover-revert" style="margin-right:auto;display:none;">↩ Revert to Original</button>
+      <button class="btn danger" id="popover-delete-note" style="margin-right:auto;display:none;">🗑 Delete Note</button>
       <button class="btn" id="popover-cancel">Cancel</button>
       <button class="btn primary" id="popover-apply">Apply</button>
     </div>
@@ -863,20 +856,6 @@
   // ════════════════════════════════════════════════════════════════
   const PROXY = '/so-proxy';
 
-  function authHeaders(headers = {}) {
-    const token = sessionStorage.getItem('sotb-token');
-    if (token) {
-      return { ...headers, Authorization: `Bearer ${token}` };
-    }
-    return headers;
-  }
-
-  async function apiFetch(url, opts = {}) {
-    opts = { credentials: 'same-origin', ...opts };
-    opts.headers = authHeaders(opts.headers || {});
-    return fetch(url, opts);
-  }
-
   const SHIFT_COLORS = {
     '0700-1800': { bg:'#49B1E8', fg:'#000' },
     '0900-2000': { bg:'#8474E3', fg:'#fff' },
@@ -896,8 +875,16 @@
     'ABSENT':      { bg:'#2a2a2a', fg:'#777', absent: true },
   };
 
-  // Roles considered valid for dropdowns and Team Access
   const VALID_ROLES = new Set(['admin', 'engineer', 'specialist']);
+  const MGMT_NAMES = ['Joao R','Marcus','Joao L','Tiago C'];
+  const ENG_NAMES  = ['Hugo','Goncalo','Nuno'];
+  const SHIFTS_BY_TEAM = {
+    Management:  ['0800-1630','0900-1730','0930-1800'],
+    Engineering: ['0900-1800','1000-2000'],
+    Specialists: ['0700-1800','0900-2000','1300-0000','1500-0200','2100-0700'],
+  };
+  const ALL_SHIFTS = ['0700-1800','0800-1630','0900-1730','0900-1800','0900-2000',
+                      '0930-1800','1000-2000','1300-0000','1500-0200','2100-0700'];
 
   // ════════════════════════════════════════════════════════════════
   //  STATE
@@ -913,18 +900,21 @@
     dateTo:      null,
     onBehalf:    false,
     draft: {
-      active:      false,
-      lock:        null,
-      overrides:   [],
-      selection:   [],
-      lastCell:    null,
-      dragging:    false,
-      dragStart:   null,
+      active:    false,
+      lock:      null,
+      overrides: [],
+      selection: [],
+      lastCell:  null,
+      dragging:  false,
+      dragStart: null,
     },
   };
 
+  // Popover working state
+  let _pop = { alMode: 'none', pendingShift: null, customColor: null, noteOnly: false, targetCell: null };
+
   // ════════════════════════════════════════════════════════════════
-  //  CUSTOM CONFIRM MODAL
+  //  CUSTOM CONFIRM / ALERT MODAL
   // ════════════════════════════════════════════════════════════════
   function uiConfirm(title, msg, okLabel, okClass) {
     return new Promise(resolve => {
@@ -933,23 +923,47 @@
       const okBtn = document.getElementById('confirm-ok-btn');
       okBtn.textContent = okLabel || 'Confirm';
       okBtn.className   = 'btn ' + (okClass || 'reject');
+      document.getElementById('confirm-cancel-btn').style.display = '';
 
       const modal = document.getElementById('confirm-modal');
       modal.classList.add('open');
 
       const cleanup = result => {
         modal.classList.remove('open');
-        okBtn.replaceWith(okBtn.cloneNode(true));           // remove old listeners
+        okBtn.replaceWith(okBtn.cloneNode(true));
         document.getElementById('confirm-cancel-btn').replaceWith(
           document.getElementById('confirm-cancel-btn').cloneNode(true)
         );
         resolve(result);
       };
 
-      // Re-query after clone
       document.getElementById('confirm-ok-btn').addEventListener('click',     () => cleanup(true),  { once: true });
       document.getElementById('confirm-cancel-btn').addEventListener('click', () => cleanup(false), { once: true });
       modal.addEventListener('click', e => { if (e.target === modal) cleanup(false); }, { once: true });
+    });
+  }
+
+  function uiAlert(msg, title = 'Notice') {
+    return new Promise(resolve => {
+      document.getElementById('confirm-title').textContent = title;
+      document.getElementById('confirm-msg').textContent   = msg;
+      const okBtn = document.getElementById('confirm-ok-btn');
+      okBtn.textContent = 'OK';
+      okBtn.className   = 'btn primary';
+      const cancelBtn = document.getElementById('confirm-cancel-btn');
+      cancelBtn.style.display = 'none';
+
+      const modal = document.getElementById('confirm-modal');
+      modal.classList.add('open');
+
+      const cleanup = () => {
+        modal.classList.remove('open');
+        cancelBtn.style.display = '';
+        okBtn.replaceWith(okBtn.cloneNode(true));
+        resolve();
+      };
+      document.getElementById('confirm-ok-btn').addEventListener('click', cleanup, { once: true });
+      modal.addEventListener('click', e => { if (e.target === modal) cleanup(); }, { once: true });
     });
   }
 
@@ -958,13 +972,12 @@
   // ════════════════════════════════════════════════════════════════
   (async function init() {
     try {
-      const rm = await apiFetch(`${PROXY}/rota/me`);
+      const rm = await fetch(`${PROXY}/rota/me`, { credentials: 'same-origin' });
       state.me = await rm.json();
 
-      const ru = await apiFetch(`${PROXY}/rota/members`);
+      const ru = await fetch(`${PROXY}/rota/members`, { credentials: 'same-origin' });
       const ud = await ru.json();
       if (ud.ok) {
-        // Filter to valid roles only
         Object.entries(ud.members).forEach(([email, u]) => {
           if (VALID_ROLES.has(u.role)) state.allUsers[email] = u;
         });
@@ -977,6 +990,8 @@
       setupApprovals();
       setupFeedback();
       setupDraft();
+      setupPopoverGlobalHandlers();
+      setupNoteTooltip();
       loadRota();
     } catch(e) {
       console.error('Init failed', e);
@@ -1020,6 +1035,10 @@
         if (btn.dataset.tab === 'leave')     loadMyLeave();
       });
     });
+    document.getElementById('btn-signout').addEventListener('click', async () => {
+      await fetch(`${PROXY}/logout`, { method: 'POST', credentials: 'same-origin' });
+      window.location.href = '/login.html';
+    });
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -1032,16 +1051,18 @@
     viewSel.addEventListener('change', () => {
       state.viewMode = viewSel.value;
       customRange.style.display = state.viewMode === 'custom' ? '' : 'none';
-      if (state.viewMode !== 'custom') loadRota();
+      if (state.viewMode !== 'custom') {
+        state.draft.active ? loadDraftRota() : loadRota();
+      }
     });
 
     document.getElementById('date-from').addEventListener('change', e => {
       state.dateFrom = e.target.value;
-      if (state.dateFrom && state.dateTo) loadRota();
+      if (state.dateFrom && state.dateTo) (state.draft.active ? loadDraftRota() : loadRota());
     });
     document.getElementById('date-to').addEventListener('change', e => {
       state.dateTo = e.target.value;
-      if (state.dateFrom && state.dateTo) loadRota();
+      if (state.dateFrom && state.dateTo) (state.draft.active ? loadDraftRota() : loadRota());
     });
 
     if (state.me && state.me.rota_role !== 'management') {
@@ -1061,7 +1082,8 @@
 
     document.getElementById('btn-today').addEventListener('click', scrollToToday);
     document.getElementById('btn-refresh').addEventListener('click', () => {
-      state.rotaData = null; loadRota();
+      state.rotaData = null;
+      state.draft.active ? loadDraftRota() : loadRota();
     });
   }
 
@@ -1075,6 +1097,12 @@
     const fmt        = d => d.toISOString().split('T')[0];
     const rota_start = '2026-01-01';
 
+    if (state.draft.active) {
+      const endYear = new Date(today.getFullYear(), 11, 31);
+      const plus3m  = new Date(today);
+      plus3m.setMonth(plus3m.getMonth() + 3);
+      return { from: rota_start, to: fmt(endYear > plus3m ? endYear : plus3m) };
+    }
     if (state.viewMode === 'published') {
       const end = new Date(monday);
       end.setDate(monday.getDate() + 34);
@@ -1094,7 +1122,7 @@
     wrap.innerHTML = '<div class="loading-row"><div class="spinner"></div> Loading rota…</div>';
     const { from, to } = getDateRange();
     try {
-      const r = await apiFetch(`${PROXY}/rota/schedule?from=${from}&to=${to}`);
+      const r = await fetch(`${PROXY}/rota/schedule?from=${from}&to=${to}`, { credentials: 'same-origin' });
       const d = await r.json();
       if (!d.ok) throw new Error(d.error);
       state.rotaData = d.days;
@@ -1102,6 +1130,50 @@
     } catch(e) {
       wrap.innerHTML = `<div class="empty-state">Failed to load rota: ${e.message}</div>`;
     }
+  }
+
+  async function loadDraftRota() {
+    const wrap = document.getElementById('rota-wrap');
+    wrap.innerHTML = '<div class="loading-row"><div class="spinner"></div> Loading draft…</div>';
+    const { from, to } = getDateRange();
+    try {
+      const r = await fetch(`${PROXY}/rota/draft?from=${from}&to=${to}`, { credentials: 'same-origin' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error);
+      state.rotaData         = d.days;
+      state.draft.overrides  = d.overrides;
+      renderRota();
+    } catch(e) {
+      wrap.innerHTML = `<div class="empty-state">Failed to load draft: ${e.message}</div>`;
+    }
+  }
+
+  function _computeCellDisplay(shift) {
+    let bg = '#2a2a2a', fg = '#555', text = shift, extra = '';
+    if (shift.includes('|')) {
+      const [code, orig] = shift.split('|');
+      const c = SHIFT_COLORS[code] || SHIFT_COLORS['AL_APPROVED'];
+      bg = c.bg; fg = c.fg;
+      if (code === 'ABSENT') {
+        text = orig; extra = ' absent-overlay';
+      } else if (code === 'AL_APPROVED' || code === 'AL_PENDING') {
+        text = orig + ' H';
+      } else {
+        text = orig;
+      }
+    } else {
+      const c = SHIFT_COLORS[shift];
+      if (c) {
+        bg = c.bg; fg = c.fg;
+        if (c.dotted) extra = ' dotted';
+        if (c.absent) extra = ' absent-overlay';
+        if (['AL_APPROVED','AL_PENDING','PARENTAL','MARITAL'].includes(shift)) text = '';
+      } else if (/^\d{4}-\d{4}$/.test(shift)) {
+        // Custom shift with no predefined color — try stored custom colors
+        bg = '#7a7a7a'; fg = '#000';
+      }
+    }
+    return { bg, fg, text, extra };
   }
 
   function renderRota() {
@@ -1140,32 +1212,11 @@
       teams.forEach(team => {
         team.members.forEach((name, mi) => {
           const shift = (day.shifts[name] || {}).shift || 'OFF';
+          const note  = (day.shifts[name] || {}).note  || '';
           const sep   = mi === 0 ? ' team-sep' : '';
-          let bg = '#2a2a2a', fg = '#555', text = shift, extra = '';
-          if (shift.includes('|')) {
-            const [code, orig] = shift.split('|');
-            const c = SHIFT_COLORS[code] || SHIFT_COLORS['AL_APPROVED'];
-            bg = c.bg; fg = c.fg;
-            if (code === 'ABSENT') {
-              text = orig; extra = ' absent-overlay';
-            } else if (code === 'AL_APPROVED' || code === 'AL_PENDING') {
-              text = orig + ' H';
-            } else {
-              text = orig;
-            }
-          } else {
-            const c = SHIFT_COLORS[shift];
-            if (c) {
-              bg = c.bg; fg = c.fg;
-              if (c.dotted)  extra = ' dotted';
-              if (c.absent)  extra = ' absent-overlay';
-              if (['AL_APPROVED','AL_PENDING','PARENTAL','MARITAL'].includes(shift)) text = '';
-            }
-          }
-          const noteText = (day.shifts[name] && day.shifts[name].note) ? day.shifts[name].note : '';
-          const hasNote = !!noteText;
-          const noteCls = hasNote ? ' has-note' : '';
-          const safeNote = noteText.replace(/"/g, '&quot;');
+          const { bg, fg, text, extra } = _computeCellDisplay(shift);
+          const noteCls  = note ? ' has-note' : '';
+          const safeNote = note.replace(/"/g, '&quot;');
           tbody += `<td class="${sep}${noteCls}" style="background:${bg};" data-person="${name}" data-date="${day.date}" data-note="${safeNote}">`
                  + `<span class="shift-cell${extra}" style="color:${day.is_today && shift !== 'OFF' ? '#fff' : fg};">${text}</span>`
                  + `</td>`;
@@ -1176,61 +1227,41 @@
 
     wrap.innerHTML = `<table class="rota"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
 
-    // Overlay container for selection boxes
-    const existingOv = document.getElementById('selection-overlay');
-    if (existingOv) existingOv.remove();
     const ov = document.createElement('div');
     ov.id = 'selection-overlay';
-    wrap.style.position = 'relative';
     wrap.appendChild(ov);
 
-    if (state.draft.active) {
-      const table = wrap.querySelector('table.rota');
-      table.classList.add('draft-selectable');
+    const table = wrap.querySelector('table.rota');
 
-      // Prevent context menu on table
+    // Hover tooltip works for everyone, in any mode
+    table.querySelectorAll('tbody td[data-person]').forEach(td => {
+      td.addEventListener('mouseenter', _onCellHoverEnter);
+      td.addEventListener('mouseleave', _onCellHoverLeave);
+    });
+
+    if (state.draft.active) {
+      table.classList.add('draft-selectable');
       table.addEventListener('contextmenu', e => {
         if (e.target.closest('td[data-person]')) e.preventDefault();
       });
-
       table.querySelectorAll('tbody td[data-person]').forEach(td => {
-        td.addEventListener('mousedown',    _onCellMouseDown);
-        td.addEventListener('mouseenter',   _onCellMouseEnter);
-        td.addEventListener('contextmenu',  _onCellRightClick);
+        td.addEventListener('mousedown',   _onCellMouseDown);
+        td.addEventListener('mouseenter',  _onCellMouseEnterDrag);
+        td.addEventListener('contextmenu', _onCellRightClickDraft);
       });
-
-      document.addEventListener('mouseup', _onDocMouseUp, { once: false });
-    }
-
-    scrollToToday();
-
-    // Add selection overlay container (used for contiguous range outlines)
-    if (!document.getElementById('selection-overlay')) {
-      const ov = document.createElement('div');
-      ov.id = 'selection-overlay';
-      wrap.style.position = 'relative';
-      wrap.appendChild(ov);
-    }
-
-    // Wire up cell click handlers when in draft mode
-    if (state.draft.active) {
-      const table = wrap.querySelector('table.rota');
-      table.classList.add('draft-selectable');
-      table.querySelectorAll('tbody td:not(.date-col)').forEach(td => {
-        td.addEventListener('click', onDraftCellClick);
-        td.addEventListener('dblclick', e => {
-          e.stopPropagation();
-          const person = td.dataset.person;
-          const date   = td.dataset.date;
-          if (!person || !date) return;
-          // Ensure this cell is selected before opening popover
-          if (!state.draft.selection.find(c => c.person === person && c.date === date)) {
-            if (!e.ctrlKey && !e.metaKey && !e.shiftKey) _clearSelection();
-            _selectCell({ person, date, td });
-            _renderSelectionOverlay();
-          }
-          openShiftPopover();
-        });
+      // Restore prior selection highlight if any (after lazy update / re-render)
+      state.draft.selection.forEach(c => {
+        const td = table.querySelector(`td[data-person="${c.person}"][data-date="${c.date}"]`);
+        if (td) { c.td = td; td.classList.add('selected-cell'); }
+      });
+      _renderSelectionOverlay();
+    } else if (state.me && state.me.rota_role === 'management') {
+      // Published view, management: right-click any cell for note-only editing
+      table.addEventListener('contextmenu', e => {
+        if (e.target.closest('td[data-person]')) e.preventDefault();
+      });
+      table.querySelectorAll('tbody td[data-person]').forEach(td => {
+        td.addEventListener('contextmenu', _onCellRightClickNoteOnly);
       });
     }
 
@@ -1241,6 +1272,36 @@
     const wrap = document.getElementById('rota-wrap');
     const row  = wrap.querySelector('tr.today-row');
     if (row) wrap.scrollTop = row.offsetTop - 44;
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  NOTE TOOLTIP (hover, read-only, all users/modes)
+  // ════════════════════════════════════════════════════════════════
+  function setupNoteTooltip() { /* tooltip element already in DOM */ }
+
+  let _tooltipTimer;
+  function _onCellHoverEnter(e) {
+    const td   = e.currentTarget;
+    const note = td.dataset.note;
+    if (!note) return;
+    clearTimeout(_tooltipTimer);
+    _tooltipTimer = setTimeout(() => {
+      const tip = document.getElementById('note-tooltip');
+      document.getElementById('note-tooltip-text').textContent = note;
+      document.getElementById('note-tooltip-meta').textContent =
+        `${td.dataset.person} · ${_fmtDateShort(td.dataset.date)}`;
+      const rect = td.getBoundingClientRect();
+      tip.classList.add('open');
+      let left = rect.left, top = rect.bottom + 6;
+      const tw = tip.offsetWidth || 260;
+      if (left + tw > window.innerWidth - 8) left = window.innerWidth - tw - 8;
+      tip.style.left = Math.max(8, left) + 'px';
+      tip.style.top  = top + 'px';
+    }, 250);
+  }
+  function _onCellHoverLeave() {
+    clearTimeout(_tooltipTimer);
+    document.getElementById('note-tooltip').classList.remove('open');
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -1267,7 +1328,6 @@
         if (!state.onBehalf) sel.value = '';
       });
 
-      // Config row — management only
       loadConfig();
       document.getElementById('btn-edit-config').addEventListener('click', () => {
         document.getElementById('config-edit-row').style.display = 'flex';
@@ -1279,18 +1339,17 @@
       document.getElementById('btn-save-config').addEventListener('click', saveConfig);
     }
 
-    document.getElementById('btn-submit-leave').addEventListener('click', submitLeave);
+    document.getElementById('btn-submit-leave').addEventListener('click', () => submitLeave(false));
   }
 
   async function loadConfig() {
     try {
-      const r = await apiFetch(`${PROXY}/rota/config`);
+      const r = await fetch(`${PROXY}/rota/config`, { credentials: 'same-origin' });
       const d = await r.json();
       if (d.ok) {
         state.config = d.config;
         const [mm, dd] = d.config.next_year_open_from.split('-');
-        const label = `${dd}-${mm} (dd-mm) each year`;
-        document.getElementById('config-open-date').textContent = label;
+        document.getElementById('config-open-date').textContent = `${dd}-${mm} (dd-mm) each year`;
         document.getElementById('config-row').style.display = 'flex';
       }
     } catch(e) { console.error('Config load failed', e); }
@@ -1298,9 +1357,9 @@
 
   async function saveConfig() {
     const val = document.getElementById('config-open-input').value.trim();
-    if (!/^\d{2}-\d{2}$/.test(val)) { toast('Format must be MM-DD', 'err'); return; }
-    const r = await apiFetch(`${PROXY}/rota/config`, {
-      method: 'PUT',
+    if (!/^\d{2}-\d{2}$/.test(val)) { await uiAlert('Format must be MM-DD'); return; }
+    const r = await fetch(`${PROXY}/rota/config`, {
+      method: 'PUT', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ next_year_open_from: val }),
     });
@@ -1312,7 +1371,7 @@
       document.getElementById('config-edit-row').style.display = 'none';
       toast('Saved', 'ok');
     } else {
-      toast(d.error || 'Failed', 'err');
+      await uiAlert(d.error || 'Failed to save');
     }
   }
 
@@ -1323,9 +1382,9 @@
     const onBehalf   = state.onBehalf;
     const targetUser = document.getElementById('onbehalf-user').value;
 
-    if (!dateStart || !dateEnd)  { toast('Select dates', 'err'); return; }
-    if (dateEnd < dateStart)     { toast('End date must be after start', 'err'); return; }
-    if (onBehalf && !targetUser) { toast('Select a user for on-behalf request', 'err'); return; }
+    if (!dateStart || !dateEnd)  { await uiAlert('Please select both start and end dates.'); return; }
+    if (dateEnd < dateStart)     { await uiAlert('End date must be on or after the start date.'); return; }
+    if (onBehalf && !targetUser) { await uiAlert('Please select a user for the on-behalf request.'); return; }
 
     const body = {
       date_start: dateStart, date_end: dateEnd,
@@ -1334,8 +1393,8 @@
     };
     if (onBehalf) body.target_username = targetUser;
 
-    const r = await apiFetch(`${PROXY}/rota/leave`, {
-      method: 'POST',
+    const r = await fetch(`${PROXY}/rota/leave`, {
+      method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
@@ -1346,14 +1405,15 @@
       loadMyLeave();
       state.rotaData = null; loadRota();
     } else if (d.blocked && state.me?.rota_role === 'management') {
-      // Management can bypass — show inline option
       const note = document.getElementById('leave-blocker-note');
       note.style.display = 'block';
       note.innerHTML = `⚠ ${d.error}. &nbsp;
         <button class="btn warn" style="font-size:0.65rem;padding:3px 10px;"
           onclick="submitLeave(true)">Submit anyway</button>`;
+    } else if (d.blocked) {
+      await uiAlert(d.error, 'Leave Requests Blocked');
     } else {
-      toast(d.error || 'Failed to submit', 'err');
+      await uiAlert(d.error || 'Failed to submit request.');
     }
   }
 
@@ -1364,7 +1424,7 @@
     const wrap = document.getElementById('my-leave-wrap');
     wrap.innerHTML = '<div class="loading-row"><div class="spinner"></div> Loading…</div>';
 
-    const r = await apiFetch(`${PROXY}/rota/leave`);
+    const r = await fetch(`${PROXY}/rota/leave`, { credentials: 'same-origin' });
     const d = await r.json();
 
     if (!d.ok || !d.leave || !d.leave.length) {
@@ -1372,7 +1432,6 @@
       return;
     }
 
-    // Only show requests where I am the subject — regardless of who submitted them
     const myUsername = state.me?.username;
     const entries = d.leave.filter(e => e.username === myUsername);
 
@@ -1381,10 +1440,7 @@
       return;
     }
 
-    // Newest first
-    const sorted = [...entries].sort((a, b) =>
-      (b.created_at || '').localeCompare(a.created_at || '')
-    );
+    const sorted = [...entries].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
 
     const tableRows = sorted.map(e => {
       const statusClass = e.status.replace(/\s+/g, '-');
@@ -1461,13 +1517,12 @@
       isWithdrawal
         ? 'Cancel this withdrawal request? Your leave will remain as Confirmed.'
         : 'Cancel this pending leave request?',
-      'Yes, cancel',
-      'reject'
+      'Yes, cancel', 'reject'
     );
     if (!confirmed) return;
 
-    const r = await apiFetch(`${PROXY}/rota/leave/${leaveId}`, {
-      method: 'PUT',
+    const r = await fetch(`${PROXY}/rota/leave/${leaveId}`, {
+      method: 'PUT', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'Cancelled' }),
     });
@@ -1477,7 +1532,7 @@
       loadMyLeave();
       state.rotaData = null; loadRota();
     } else {
-      toast(d.error || 'Failed', 'err');
+      await uiAlert(d.error || 'Failed');
     }
   }
 
@@ -1485,13 +1540,12 @@
     const confirmed = await uiConfirm(
       'Request Withdrawal',
       'Submit a withdrawal request for this confirmed leave? Management will need to approve it.',
-      'Submit Withdrawal',
-      'warn'
+      'Submit Withdrawal', 'warn'
     );
     if (!confirmed) return;
 
-    const r = await apiFetch(`${PROXY}/rota/leave/${leaveId}`, {
-      method: 'PUT',
+    const r = await fetch(`${PROXY}/rota/leave/${leaveId}`, {
+      method: 'PUT', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'Withdrawal Pending' }),
     });
@@ -1501,7 +1555,7 @@
       loadMyLeave();
       state.rotaData = null; loadRota();
     } else {
-      toast(d.error || 'Failed', 'err');
+      await uiAlert(d.error || 'Failed');
     }
   }
 
@@ -1534,18 +1588,15 @@
     const el = document.getElementById('approvals-pending');
     el.innerHTML = '<div class="loading-row"><div class="spinner"></div> Loading…</div>';
 
-    const r = await apiFetch(`${PROXY}/rota/leave`);
+    const r = await fetch(`${PROXY}/rota/leave`, { credentials: 'same-origin' });
     const d = await r.json();
-    const pending = (d.leave || []).filter(e =>
-      e.status === 'Pending' || e.status === 'Withdrawal Pending'
-    );
+    const pending = (d.leave || []).filter(e => e.status === 'Pending' || e.status === 'Withdrawal Pending');
 
     if (!pending.length) {
       el.innerHTML = '<div class="empty-state">No pending requests.</div>';
       return;
     }
 
-    // Group by name
     const grouped = {};
     pending.forEach(e => {
       const key = e.name || e.username;
@@ -1598,7 +1649,7 @@
       return;
     }
 
-    const r = await apiFetch(`${PROXY}/rota/leave`);
+    const r = await fetch(`${PROXY}/rota/leave`, { credentials: 'same-origin' });
     const d = await r.json();
 
     const ACTIONED = ['Confirmed','Rejected','Withdrawn','Withdrawal Rejected'];
@@ -1613,9 +1664,7 @@
       return;
     }
 
-    const tableRows = [...entries].sort((a, b) =>
-      (b.created_at || '').localeCompare(a.created_at || '')
-    ).map(e => {
+    const tableRows = [...entries].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')).map(e => {
       const statusClass = e.status.replace(/\s+/g, '-');
       const onBehalfTag = e.on_behalf
         ? `<span class="on-behalf-tag">via ${_userName(e.created_by)}</span>` : '';
@@ -1670,8 +1719,8 @@
     const confirmed = await uiConfirm('Confirm Action', msg, okLabel, okClass);
     if (!confirmed) return;
 
-    const r = await apiFetch(`${PROXY}/rota/leave/${leaveId}`, {
-      method: 'PUT',
+    const r = await fetch(`${PROXY}/rota/leave/${leaveId}`, {
+      method: 'PUT', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
     });
@@ -1681,7 +1730,7 @@
       loadApprovals();
       state.rotaData = null; loadRota();
     } else {
-      toast(d.error || 'Failed', 'err');
+      await uiAlert(d.error || 'Failed');
     }
   }
 
@@ -1704,7 +1753,7 @@
         <div class="approvals-group-header">${team}</div>
         ${grouped[team].map(u => `
           <div style="display:flex;align-items:center;gap:14px;padding:8px 0;
-                      border-bottom:1px solid #252525;font-family:var(--mono);font-size:0.62rem;">
+                      border-bottom:1px solid #252525;font-family:var(--mono);font-size:0.7rem;">
             <span style="font-weight:700;min-width:120px;">${u.name}</span>
             <span style="color:var(--muted);flex:1;">${u.email}</span>
             <span class="team-badge ${team}" style="background:${BADGE[team]||'#555'}">${team}</span>
@@ -1735,10 +1784,10 @@
     const type  = document.getElementById('fb-type').value;
     const title = document.getElementById('fb-title').value.trim();
     const body  = document.getElementById('fb-body').value.trim();
-    if (!title) { toast('Title required', 'err'); return; }
-    if (!body)  { toast('Description required', 'err'); return; }
-    const r = await apiFetch(`${PROXY}/rota/feedback`, {
-      method: 'POST',
+    if (!title) { await uiAlert('Title required'); return; }
+    if (!body)  { await uiAlert('Description required'); return; }
+    const r = await fetch(`${PROXY}/rota/feedback`, {
+      method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type, title, body }),
     });
@@ -1749,39 +1798,23 @@
       document.getElementById('fb-title').value = '';
       document.getElementById('fb-body').value  = '';
     } else {
-      toast(d.error || 'Failed to send', 'err');
+      await uiAlert(d.error || 'Failed to send');
     }
   }
 
   // ════════════════════════════════════════════════════════════════
-  //  DRAFT CELL SELECTION + POPOVER
+  //  DRAFT CELL SELECTION
   // ════════════════════════════════════════════════════════════════
+  function _personTeam(person) {
+    if (MGMT_NAMES.includes(person)) return 'Management';
+    if (ENG_NAMES.includes(person))  return 'Engineering';
+    return 'Specialists';
+  }
 
   function _cellKey(person, date) { return `${person}__${date}`; }
 
-  function _getAllCells() {
-    const wrap  = document.getElementById('rota-wrap');
-    const table = wrap?.querySelector('table.rota');
-    if (!table) return [];
-    return Array.from(table.querySelectorAll('tbody td[data-person]'));
-  }
-
-  function _tdCoords(td) {
-    const wrap  = document.getElementById('rota-wrap');
-    const table = wrap?.querySelector('table.rota');
-    if (!table) return null;
-    const rows = Array.from(table.querySelectorAll('tbody tr'));
-    for (let ri = 0; ri < rows.length; ri++) {
-      const tds = Array.from(rows[ri].querySelectorAll('td[data-person]'));
-      for (let ci = 0; ci < tds.length; ci++) {
-        if (tds[ci] === td) return { ri, ci };
-      }
-    }
-    return null;
-  }
-
   function _clearSelection() {
-    state.draft.selection.forEach(c => c.td?.classList.remove('selected-cell'));
+    state.draft.selection.forEach(c => c.td && c.td.classList.remove('selected-cell'));
     state.draft.selection = [];
     state.draft.lastCell  = null;
     _renderSelectionOverlay();
@@ -1796,9 +1829,7 @@
   }
 
   function _deselectCell(person, dateStr, td) {
-    state.draft.selection = state.draft.selection.filter(
-      c => _cellKey(c.person, c.date) !== _cellKey(person, dateStr)
-    );
+    state.draft.selection = state.draft.selection.filter(c => _cellKey(c.person, c.date) !== _cellKey(person, dateStr));
     td?.classList.remove('selected-cell');
   }
 
@@ -1815,37 +1846,29 @@
       });
     });
     if (!fromCoord || !toCoord) return;
-    const r1 = Math.min(fromCoord.ri, toCoord.ri);
-    const r2 = Math.max(fromCoord.ri, toCoord.ri);
-    const c1 = Math.min(fromCoord.ci, toCoord.ci);
-    const c2 = Math.max(fromCoord.ci, toCoord.ci);
+    const r1 = Math.min(fromCoord.ri, toCoord.ri), r2 = Math.max(fromCoord.ri, toCoord.ri);
+    const c1 = Math.min(fromCoord.ci, toCoord.ci), c2 = Math.max(fromCoord.ci, toCoord.ci);
     _clearSelection();
     rows.slice(r1, r2 + 1).forEach(tr => {
       const tds = Array.from(tr.querySelectorAll('td[data-person]'));
       tds.slice(c1, c2 + 1).forEach(td => {
-        if (td.dataset.person && td.dataset.date)
-          _selectCell(td.dataset.person, td.dataset.date, td);
+        if (td.dataset.person && td.dataset.date) _selectCell(td.dataset.person, td.dataset.date, td);
       });
     });
   }
 
-  // ── Mouse event handlers ──────────────────────────────────────────────
   function _onCellMouseDown(e) {
-    if (e.button !== 0) return; // left button only
+    if (e.button !== 0) return;
     const td     = e.currentTarget;
     const person = td.dataset.person;
     const dateS  = td.dataset.date;
     if (!person || !dateS) return;
 
-    // Handle shift+click selection ranges
     if (e.shiftKey && state.draft.lastCell) {
       e.preventDefault();
       _selectRange(state.draft.lastCell, td);
       state.draft.dragging = false;
-      return;
-    } 
-    
-    if (e.ctrlKey || e.metaKey) {
+    } else if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
       const key = _cellKey(person, dateS);
       if (state.draft.selection.find(c => _cellKey(c.person, c.date) === key)) {
@@ -1858,23 +1881,18 @@
     } else {
       state.draft.dragging  = true;
       state.draft.dragStart = td;
-      // Only clear if we aren't clicking an already selected cell to prevent instant clearing
-      const key = _cellKey(person, dateS);
-      if (!state.draft.selection.find(c => _cellKey(c.person, c.date) === key)) {
-        _clearSelection();
-        _selectCell(person, dateS, td);
-      }
+      _clearSelection();
+      _selectCell(person, dateS, td);
       state.draft.lastCell = td;
     }
     _renderSelectionOverlay();
   }
 
-  function _onCellMouseEnter(e) {
+  function _onCellMouseEnterDrag(e) {
     if (!state.draft.dragging || !state.draft.dragStart) return;
     const td = e.currentTarget;
     _selectRange(state.draft.dragStart, td);
     _renderSelectionOverlay();
-
     const wrap = document.getElementById('rota-wrap');
     const rect = wrap.getBoundingClientRect();
     const ZONE = 40, SPEED = 8;
@@ -1889,7 +1907,7 @@
     }
   }
 
-  function _onCellRightClick(e) {
+  function _onCellRightClickDraft(e) {
     e.preventDefault();
     const td     = e.currentTarget;
     const person = td.dataset.person;
@@ -1898,19 +1916,24 @@
 
     const key   = _cellKey(person, dateS);
     const inSel = state.draft.selection.find(c => _cellKey(c.person, c.date) === key);
-    
     if (!inSel) {
       _clearSelection();
       _selectCell(person, dateS, td);
       state.draft.lastCell = td;
       _renderSelectionOverlay();
     }
-    closeShiftPopover();
-    // Use client coordinates relative to the viewport window configuration
-    openShiftPopover(e.clientX, e.clientY);
+    openShiftPopover(e.clientX, e.clientY, false);
   }
 
-  // ── Selection overlay ─────────────────────────────────────────────────
+  function _onCellRightClickNoteOnly(e) {
+    e.preventDefault();
+    const td     = e.currentTarget;
+    const person = td.dataset.person;
+    const dateS  = td.dataset.date;
+    if (!person || !dateS) return;
+    openShiftPopover(e.clientX, e.clientY, true, { person, date: dateS, td });
+  }
+
   function _renderSelectionOverlay() {
     const wrap = document.getElementById('rota-wrap');
     const ov   = document.getElementById('selection-overlay');
@@ -1928,7 +1951,7 @@
       let minTop = Infinity, minLeft = Infinity, maxBottom = -Infinity, maxRight = -Infinity;
       group.forEach(({ td }) => {
         if (!td) return;
-        const r     = td.getBoundingClientRect();
+        const r = td.getBoundingClientRect();
         const top   = r.top    - wrapRect.top  + scrollTop;
         const left  = r.left   - wrapRect.left + scrollLeft;
         const bot   = r.bottom - wrapRect.top  + scrollTop;
@@ -1983,46 +2006,58 @@
     return groups;
   }
 
-  // ── Popover ───────────────────────────────────────────────────────────
-  let _pop = { alMode: 'none', pendingShift: null, customColor: null };
-
+  // ════════════════════════════════════════════════════════════════
+  //  POPOVER
+  // ════════════════════════════════════════════════════════════════
   function _currentShiftOf(cell) {
     const day = state.rotaData?.find(d => d.date === cell.date);
     return (day?.shifts[cell.person] || {}).shift || 'OFF';
   }
-
+  function _currentNoteOf(cell) {
+    const day = state.rotaData?.find(d => d.date === cell.date);
+    return (day?.shifts[cell.person] || {}).note || '';
+  }
   function _stripAlPrefix(shift) {
-    if (shift.startsWith('AL_APPROVED|') || shift.startsWith('AL_PENDING|'))
-      return shift.split('|')[1];
+    if (shift.startsWith('AL_APPROVED|') || shift.startsWith('AL_PENDING|')) return shift.split('|')[1];
     if (shift === 'AL_APPROVED' || shift === 'AL_PENDING') return 'OFF';
     return shift;
   }
+  function _isAbsent(shift) { return shift === 'ABSENT' || shift.startsWith('ABSENT|'); }
 
-  function _isAbsent(shift) {
-    return shift === 'ABSENT' || shift.startsWith('ABSENT|');
-  }
-
-  function openShiftPopover(screenX, screenY) {
-    const sel   = state.draft.selection;
+  function openShiftPopover(screenX, screenY, noteOnly, singleCell) {
+    let sel;
+    if (noteOnly) {
+      sel = [singleCell];
+    } else {
+      sel = state.draft.selection;
+    }
     if (!sel.length) return;
+
+    _pop = { alMode: 'none', pendingShift: null, customColor: null, noteOnly: !!noteOnly, targetCell: sel[0] };
+
     const multi = sel.length > 1;
     const first = sel[0];
-
     const currentShift = _currentShiftOf(first);
-    const isAbsent     = _isAbsent(currentShift);
+    const isAbsent     = !noteOnly && _isAbsent(currentShift);
 
-    document.getElementById('popover-absent-warn').style.display = isAbsent ? '' : 'none';
-    document.getElementById('popover-main-sections').style.display = isAbsent ? 'none' : '';
+    document.getElementById('popover-absent-warn').style.display   = isAbsent ? '' : 'none';
+    document.getElementById('popover-main-sections').style.display = (isAbsent || noteOnly) ? 'none' : '';
+    document.getElementById('popover-coverage-row').style.display  = noteOnly ? 'none' : '';
+    document.getElementById('popover-coverage-person').style.display = noteOnly ? 'none' : '';
 
-    document.getElementById('popover-title').textContent = multi
-      ? `Edit ${sel.length} cells`
-      : `${first.person} · ${_fmtDateShort(first.date)}`;
+    document.getElementById('popover-title').textContent = noteOnly
+      ? `Note · ${first.person} · ${_fmtDateShort(first.date)}`
+      : (multi ? `Edit ${sel.length} cells` : `${first.person} · ${_fmtDateShort(first.date)}`);
 
-    if (!isAbsent) {
+    const revertBtn = document.getElementById('popover-revert');
+    const deleteBtn = document.getElementById('popover-delete-note');
+    revertBtn.style.display = (!noteOnly) ? '' : 'none';
+    deleteBtn.style.display = noteOnly && _currentNoteOf(first) ? '' : 'none';
+
+    if (!noteOnly && !isAbsent) {
       const team      = _personTeam(first.person);
-      const suggested = (SHIFT_SHIFTS_BY_TEAM ? SHIFT_SHIFTS_BY_TEAM[team] : SHIFTS_BY_TEAM[team]) || [];
+      const suggested = SHIFTS_BY_TEAM[team] || [];
       const others    = ALL_SHIFTS.filter(s => !suggested.includes(s));
-
       const list = document.getElementById('shift-options-list');
       list.innerHTML = '';
 
@@ -2030,41 +2065,35 @@
       const singleBase = allCurrentShifts.size === 1 ? [...allCurrentShifts][0] : null;
 
       const renderGroup = (label, shifts) => {
-        // Redundancy elimination: Strip raw 'OFF' from suggestion/other categories
-        const filteredShifts = shifts.filter(s => s !== 'OFF');
-        if (!filteredShifts.length) return;
+        if (!shifts.length) return;
         const lbl = document.createElement('span');
-        lbl.className   = 'shift-group-label';
-        lbl.textContent = label;
+        lbl.className = 'shift-group-label'; lbl.textContent = label;
         list.appendChild(lbl);
-        filteredShifts.forEach(s => {
+        shifts.forEach(s => {
           const c   = SHIFT_COLORS[s] || {};
           const btn = document.createElement('button');
-          btn.className   = 'shift-btn';
+          btn.className = 'shift-btn';
           btn.textContent = s;
-          btn.style.background  = c.bg || '';
-          btn.style.color       = c.fg || '';
-          btn.style.borderColor = c.bg || '';
+          btn.style.background  = c.bg || '#555';
+          btn.style.color       = c.fg || '#fff';
           if (singleBase === s) btn.classList.add('active');
           btn.addEventListener('click', () => {
             list.querySelectorAll('.shift-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             _pop.pendingShift = s;
             document.getElementById('popover-custom-shift').value = '';
-            document.getElementById('custom-color-row').style.setProperty('display', 'none', 'important');
+            document.getElementById('custom-color-row').style.display = 'none';
             _validateApply();
           });
           list.appendChild(btn);
         });
       };
-
       renderGroup('Suggested', suggested);
       renderGroup('Other', others);
 
-      // Clean single Clear Group for OFF
-      const offLbl = document.createElement('span');
-      offLbl.className = 'shift-group-label'; offLbl.textContent = 'Clear';
-      list.appendChild(offLbl);
+      const clearLbl = document.createElement('span');
+      clearLbl.className = 'shift-group-label'; clearLbl.textContent = 'Clear';
+      list.appendChild(clearLbl);
       const offBtn = document.createElement('button');
       offBtn.className = 'shift-btn off-btn';
       offBtn.textContent = 'OFF';
@@ -2074,14 +2103,14 @@
         offBtn.classList.add('active');
         _pop.pendingShift = 'OFF';
         document.getElementById('popover-custom-shift').value = '';
-        document.getElementById('custom-color-row').style.setProperty('display', 'none', 'important');
+        document.getElementById('custom-color-row').style.display = 'none';
         _validateApply();
       });
       list.appendChild(offBtn);
 
-      const absentLbl = document.createElement('span');
-      absentLbl.className = 'shift-group-label'; absentLbl.textContent = 'Status';
-      list.appendChild(absentLbl);
+      const statusLbl = document.createElement('span');
+      statusLbl.className = 'shift-group-label'; statusLbl.textContent = 'Status';
+      list.appendChild(statusLbl);
       const absentBtn = document.createElement('button');
       absentBtn.className = 'shift-btn absent-btn';
       absentBtn.textContent = 'ABSENT';
@@ -2090,7 +2119,7 @@
         absentBtn.classList.add('active');
         _pop.pendingShift = 'ABSENT';
         document.getElementById('popover-custom-shift').value = '';
-        document.getElementById('custom-color-row').style.setProperty('display', 'none', 'important');
+        document.getElementById('custom-color-row').style.display = 'none';
         _updateNoteRequired();
         _validateApply();
       });
@@ -2100,21 +2129,25 @@
       customIn.value = '';
       customIn.classList.remove('invalid');
       document.getElementById('custom-shift-err').style.display = 'none';
-      document.getElementById('custom-color-row').style.setProperty('display', 'none', 'important');
-
-      // Real-time listener to toggle custom color picker visibility
-      customIn.addEventListener('input', () => {
-        const val = customIn.value.trim();
-        const isTimeFormat = /^\d{4}-\d{4}$/.test(val);
-        const colorRow = document.getElementById('custom-color-row');
-        if (colorRow) {
-          if (isTimeFormat) {
-            colorRow.style.setProperty('display', 'flex', 'important');
-          } else {
-            colorRow.style.setProperty('display', 'none', 'important');
-          }
+      document.getElementById('custom-color-row').style.display = 'none';
+      _buildRecentColors();
+      customIn.oninput = () => {
+        const v = customIn.value.trim();
+        const valid = /^\d{4}-\d{4}$/.test(v);
+        list.querySelectorAll('.shift-btn').forEach(b => b.classList.remove('active'));
+        if (v) {
+          customIn.classList.toggle('invalid', !valid);
+          document.getElementById('custom-shift-err').style.display = valid ? 'none' : '';
+          document.getElementById('custom-color-row').style.display = valid ? 'flex' : 'none';
+          _pop.pendingShift = valid ? v : null;
+        } else {
+          customIn.classList.remove('invalid');
+          document.getElementById('custom-shift-err').style.display = 'none';
+          document.getElementById('custom-color-row').style.display = 'none';
+          _pop.pendingShift = null;
         }
-      });
+        _validateApply();
+      };
 
       const alStates = new Set(sel.map(c => {
         const sh = _currentShiftOf(c);
@@ -2130,6 +2163,7 @@
           document.querySelectorAll('.al-btn').forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
           _pop.alMode = btn.dataset.al;
+          _validateApply();
         };
       });
 
@@ -2137,7 +2171,7 @@
       notCovChk.checked = false;
       const covSel = document.getElementById('popover-coverage-person');
       covSel.innerHTML = '<option value="">— covering for… —</option>';
-      Object.entries(state.allUsers || {})
+      Object.entries(state.allUsers)
         .sort((a, b) => a[1].name.localeCompare(b[1].name))
         .forEach(([email, u]) => {
           if (u.name === first.person) return;
@@ -2146,25 +2180,14 @@
           covSel.appendChild(opt);
         });
       covSel.style.display = '';
-      notCovChk.onchange = () => {
-        covSel.style.display = notCovChk.checked ? 'none' : '';
-        _updateNoteRequired();
+      document.getElementById('popover-coverage-row').style.display = '';
+      notCovChk.onchange = () => { covSel.style.display = notCovChk.checked ? 'none' : ''; _updateNoteRequired(); _validateApply(); };
+      covSel.onchange = () => {
+        if (covSel.value) document.getElementById('popover-note').value = `Covering for ${covSel.value}`;
         _validateApply();
       };
-      covSel.onchange = () => {
-        if (covSel.value) {
-          document.getElementById('popover-note').value = `Covering for ${covSel.value}`;
-          _validateApply();
-        }
-      };
-
-      const existingNote = sel.length === 1
-        ? (state.draft.overrides.find(o => o.person === first.person && o.date === first.date)?.note || '')
-        : '';
-      document.getElementById('popover-note').value = existingNote;
-      _pop.pendingShift = null;
       _updateNoteRequired();
-    } else {
+    } else if (isAbsent) {
       const list = document.getElementById('shift-options-list');
       list.innerHTML = '';
       const removeBtn = document.createElement('button');
@@ -2177,16 +2200,56 @@
         }
         closeShiftPopover();
         _clearSelection();
-        await _lazyUpdateCells(sel);
+        await loadDraftRota();
       });
       list.appendChild(removeBtn);
     }
+
+    // Note field (shared by all modes)
+    document.getElementById('popover-note').value = noteOnly
+      ? _currentNoteOf(first)
+      : (sel.length === 1
+          ? (state.draft.overrides.find(o => o.person === first.person && o.date === first.date)?.note || _currentNoteOf(first))
+          : '');
+
+    document.getElementById('popover-note').oninput = _validateApply;
+    document.getElementById('popover-delete-note').onclick = async () => {
+      const confirmed = await uiConfirm('Delete Note', 'Remove this note?', 'Delete', 'reject');
+      if (!confirmed) return;
+      await fetch(`${PROXY}/rota/note`, {
+        method: 'DELETE', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ person: first.person, date: first.date }),
+      });
+      closeShiftPopover();
+      state.rotaData = null;
+      state.draft.active ? await loadDraftRota() : await loadRota();
+      toast('Note deleted', 'ok');
+    };
+
+    document.getElementById('popover-revert').onclick = async () => {
+      for (const cell of sel) {
+        const ov = state.draft.overrides.find(o => o.person === cell.person && o.date === cell.date);
+        if (ov) {
+          await fetch(`${PROXY}/rota/draft/override/${ov.id}`, { method: 'DELETE', credentials: 'same-origin' });
+        }
+        await fetch(`${PROXY}/rota/note`, {
+          method: 'DELETE', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ person: cell.person, date: cell.date }),
+        });
+      }
+      closeShiftPopover();
+      _clearSelection();
+      await loadDraftRota();
+      toast('Reverted to original', 'ok');
+    };
 
     _validateApply();
 
     const pop = document.getElementById('shift-popover');
     pop.classList.add('open');
-    const pw = 300, ph = pop.scrollHeight || 400;
+    const pw = 300, ph = pop.scrollHeight || 380;
     let left = screenX + 8, top = screenY;
     if (left + pw > window.innerWidth  - 8) left = screenX - pw - 8;
     if (top  + ph > window.innerHeight - 8) top  = window.innerHeight - ph - 8;
@@ -2194,30 +2257,57 @@
     pop.style.top  = Math.max(8, top)  + 'px';
   }
 
-  function _validateApply() {
-    const popApply = document.getElementById('popover-apply');
-    if (!popApply) return;
-
-    const customVal = document.getElementById('popover-custom-shift')?.value.trim();
-    const note = document.getElementById('popover-note')?.value.trim();
-    const rawShift = _pop.pendingShift || (customVal && /^\d{4}-\d{4}$/.test(customVal) ? customVal : null);
-    const isAbsent = rawShift === 'ABSENT';
-    const hasRequiredNote = !isAbsent || !!note;
-    const canApply = !!(rawShift || (customVal && /^\d{4}-\d{4}$/.test(customVal))) && hasRequiredNote;
-    popApply.disabled = !canApply;
+  function _updateNoteRequired() {
+    const isAbsent = _pop.pendingShift === 'ABSENT';
+    const notCov   = document.getElementById('not-coverage-chk')?.checked;
+    const isRealShiftChange = !!_pop.pendingShift && _pop.pendingShift !== 'ABSENT' && _pop.pendingShift !== 'OFF';
+    const required = isAbsent || (isRealShiftChange && !notCov);
+    document.getElementById('note-required-star').style.display = required ? '' : 'none';
   }
 
-  function _updateNoteRequired() {
-    const noteIn = document.getElementById('popover-note');
-    const noteStar = document.getElementById('note-required-star');
-    const noteMsg = document.getElementById('note-required-msg');
-    if (!noteIn) return;
+  function _validateApply() {
+    const btn = document.getElementById('popover-apply');
+    if (!btn) return;
 
-    const isAbsent = _pop.pendingShift === 'ABSENT';
-    noteIn.placeholder = isAbsent ? 'Reason for absence (Required)…' : 'Add a note…';
-    noteIn.required = isAbsent;
-    if (noteStar) noteStar.style.display = isAbsent ? '' : 'none';
-    if (noteMsg) noteMsg.style.display = isAbsent ? '' : 'none';
+    if (_pop.noteOnly) {
+      btn.disabled = false; // note edits always allowed (empty note = no-op / delete via dedicated button)
+      return;
+    }
+
+    const customVal = document.getElementById('popover-custom-shift')?.value.trim();
+    const customBad = customVal && !/^\d{4}-\d{4}$/.test(customVal);
+    const note      = document.getElementById('popover-note')?.value.trim();
+    const isAbsent  = _pop.pendingShift === 'ABSENT';
+    const notCov    = document.getElementById('not-coverage-chk')?.checked;
+    const isRealShiftChange = !!_pop.pendingShift && _pop.pendingShift !== 'ABSENT' && _pop.pendingShift !== 'OFF';
+    const noteFail  = (isAbsent || (isRealShiftChange && !notCov)) && !note;
+
+    // No shift change requested AND no AL change requested -> note-only edit, always OK
+    const noShiftOrAlChange = !_pop.pendingShift && !customVal && _pop.alMode === 'none';
+
+    btn.disabled = customBad || noteFail;
+    if (noShiftOrAlChange && !customBad) btn.disabled = false;
+  }
+
+  function _buildRecentColors() {
+    const cfg    = state.config || {};
+    const recent = cfg.custom_shift_colors || [];
+    const row    = document.getElementById('recent-colors');
+    if (!row) return;
+    row.innerHTML = '';
+    recent.forEach(color => {
+      const sw = document.createElement('div');
+      sw.className = 'color-swatch';
+      sw.style.background = color;
+      sw.title = color;
+      sw.addEventListener('click', () => {
+        document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+        sw.classList.add('active');
+        _pop.customColor = color;
+        document.getElementById('custom-color-picker').value = color;
+      });
+      row.appendChild(sw);
+    });
   }
 
   function closeShiftPopover() {
@@ -2225,44 +2315,68 @@
   }
 
   async function applyPopover() {
+    if (_pop.noteOnly) {
+      const cell = _pop.targetCell;
+      const note = document.getElementById('popover-note').value.trim();
+      await fetch(`${PROXY}/rota/note`, {
+        method: 'PUT', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ person: cell.person, date: cell.date, note }),
+      });
+      closeShiftPopover();
+      state.rotaData = null;
+      state.draft.active ? await loadDraftRota() : await loadRota();
+      toast('Note saved', 'ok');
+      return;
+    }
+
     const sel = state.draft.selection;
     if (!sel.length) { closeShiftPopover(); return; }
 
-    const note       = document.getElementById('popover-note').value.trim();
-    const alMode     = _pop.alMode;
-    const customVal  = document.getElementById('popover-custom-shift').value.trim();
-    const rawShift   = _pop.pendingShift || (customVal && /^\d{4}-\d{4}$/.test(customVal) ? customVal : null);
-    const customColor = _pop.customColor || document.getElementById('custom-color-picker')?.value;
+    const note        = document.getElementById('popover-note').value.trim();
+    const alMode       = _pop.alMode;
+    const customVal    = document.getElementById('popover-custom-shift').value.trim();
+    const rawShift     = _pop.pendingShift || (customVal && /^\d{4}-\d{4}$/.test(customVal) ? customVal : null);
+    const customColor  = _pop.customColor || document.getElementById('custom-color-picker')?.value;
+    const noShiftOrAl  = !rawShift && alMode === 'none';
 
-    if (!rawShift && !customVal) { closeShiftPopover(); return; }
+    if (noShiftOrAl) {
+      // Note-only edit within the draft popover
+      for (const cell of sel) {
+        await fetch(`${PROXY}/rota/note`, {
+          method: 'PUT', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ person: cell.person, date: cell.date, note }),
+        });
+      }
+      closeShiftPopover();
+      await loadDraftRota();
+      return;
+    }
 
-    // Save custom color if used
     if (customVal && /^\d{4}-\d{4}$/.test(customVal) && customColor) {
       const cfg    = state.config || {};
       const colors = [...(cfg.custom_shift_colors || [])].filter(c => c !== customColor);
       colors.push(customColor);
       const newColors = colors.slice(-5);
-      await apiFetch(`${PROXY}/rota/config`, {
-        method: 'PUT',
+      await fetch(`${PROXY}/rota/config`, {
+        method: 'PUT', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ custom_shift_colors: newColors }),
       });
       if (state.config) state.config.custom_shift_colors = newColors;
+      SHIFT_COLORS[customVal] = { bg: customColor, fg: '#000' };
     }
 
-    const affected = [];
     for (const cell of sel) {
       const currentShift = _currentShiftOf(cell);
       const stripped     = _stripAlPrefix(currentShift);
-
       let finalShift = rawShift || stripped;
       if (finalShift === 'ABSENT') finalShift = `ABSENT|${stripped}`;
 
       const isOffDay = stripped === 'OFF';
       let ovType = 'shift_change';
-      if (!isOffDay && (alMode === 'provisional' || alMode === 'confirmed')) {
-        ovType = 'al_toggle';
-      }
+      if (!isOffDay && (alMode === 'provisional' || alMode === 'confirmed')) ovType = 'al_toggle';
 
       if (alMode === 'provisional') {
         finalShift = isOffDay ? 'AL_PENDING'  : `AL_PENDING|${finalShift}`;
@@ -2271,111 +2385,69 @@
       }
 
       await _saveOverride(cell.person, cell.date, finalShift, note || null, ovType);
-      affected.push(cell);
     }
 
     closeShiftPopover();
-    await _lazyUpdateCells(affected);
+    await loadDraftRota();
   }
 
   async function _saveOverride(person, dateStr, shift, note, ovType) {
     try {
-      const r = await apiFetch(`${PROXY}/rota/draft/override`, {
-        method: 'PUT',
+      const r = await fetch(`${PROXY}/rota/draft/override`, {
+        method: 'PUT', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ person, date: dateStr, shift, note, type: ovType }),
       });
       const d = await r.json();
       if (d.ok) {
         state.draft.overrides = d.overrides;
-        // Also save note to persistent notes if provided
         if (note) {
-          await apiFetch(`${PROXY}/rota/note`, {
-            method: 'PUT',
+          await fetch(`${PROXY}/rota/note`, {
+            method: 'PUT', credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ person, date: dateStr, note }),
           });
         }
       } else {
-        toast(d.error || 'Failed to save', 'err');
+        await uiAlert(d.error || 'Failed to save');
       }
     } catch(e) {
-      toast('Network error', 'err');
+      await uiAlert('Network error saving change');
     }
   }
 
-  async function _lazyUpdateCells(cells) {
-    // Fetch only the affected date range to avoid full table refresh
-    if (!cells.length) return;
-    const dates = cells.map(c => c.date).sort();
-    const from  = dates[0];
-    const to    = dates[dates.length - 1];
+  function setupPopoverGlobalHandlers() {
+    document.getElementById('popover-close').addEventListener('click', closeShiftPopover);
+    document.getElementById('popover-cancel').addEventListener('click', closeShiftPopover);
+    document.getElementById('popover-apply').addEventListener('click', applyPopover);
+    document.getElementById('custom-color-picker').addEventListener('input', e => {
+      _pop.customColor = e.target.value;
+    });
 
-    try {
-      const r = await apiFetch(
-        `${PROXY}/rota/draft?from=${from}&to=${to}`
-      );
-      const d = await r.json();
-      if (!d.ok) return;
+    // Left-click outside popover closes it
+    document.addEventListener('mousedown', e => {
+      const pop = document.getElementById('shift-popover');
+      if (pop.classList.contains('open') && !pop.contains(e.target) && !e.target.closest('td[data-person]')) {
+        closeShiftPopover();
+      }
+    });
 
-      // Merge updated days into state.rotaData
-      d.days.forEach(newDay => {
-        const idx = state.rotaData?.findIndex(dd => dd.date === newDay.date);
-        if (idx !== undefined && idx >= 0) state.rotaData[idx] = newDay;
-      });
-      state.draft.overrides = d.overrides;
-
-      // Update only the affected cells in the DOM
-      const wrap  = document.getElementById('rota-wrap');
-      const table = wrap?.querySelector('table.rota');
-      if (!table) return;
-
-      cells.forEach(cell => {
-        const td = table.querySelector(
-          `td[data-person="${cell.person}"][data-date="${cell.date}"]`
-        );
-        if (!td) return;
-        const day   = state.rotaData?.find(dd => dd.date === cell.date);
-        const shift = (day?.shifts[cell.person] || {}).shift || 'OFF';
-        const note  = (day?.shifts[cell.person] || {}).note  || null;
-
-        // Compute display values
-        let bg = '#2a2a2a', fg = '#555', text = shift, extra = '';
-        if (shift.includes('|')) {
-          const [code, orig] = shift.split('|');
-          const c = SHIFT_COLORS[code] || SHIFT_COLORS['AL_APPROVED'];
-          bg = c.bg; fg = c.fg;
-          if (code === 'ABSENT') {
-            text = orig; extra = ' absent-overlay';
-          } else if (code === 'AL_APPROVED' || code === 'AL_PENDING') {
-            text = orig + ' H';
-          } else {
-            text = orig;
-          }
-        } else {
-          const c = SHIFT_COLORS[shift];
-          if (c) {
-            bg = c.bg; fg = c.fg;
-            if (c.dotted) extra = ' dotted';
-            if (c.absent) extra = ' absent-overlay';
-            if (['AL_APPROVED','AL_PENDING','PARENTAL','MARITAL'].includes(shift)) text = '';
-          }
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        if (document.getElementById('shift-popover').classList.contains('open')) {
+          closeShiftPopover();
+        } else if (state.draft.active) {
+          _clearSelection();
         }
+      }
+    });
 
-        td.style.background = bg;
-        td.classList.toggle('has-note', !!note);
-        const span = td.querySelector('.shift-cell');
-        if (span) {
-          span.className = `shift-cell${extra}`;
-          span.style.color = fg;
-          span.textContent = text;
-        }
-      });
-    } catch(e) { console.error('Lazy update failed', e); }
+    // Single global mouseup for drag-selection end (not re-bound per render)
+    document.addEventListener('mouseup', _onDocMouseUp);
   }
 
   // ════════════════════════════════════════════════════════════════
-  //  DRAFT MODE
+  //  DRAFT MODE (lock / publish / discard / banner)
   // ════════════════════════════════════════════════════════════════
   function setupDraft() {
     if (!state.me || state.me.rota_role !== 'management') return;
@@ -2386,84 +2458,40 @@
     document.getElementById('btn-save-close').addEventListener('click', saveCloseDraft);
     document.getElementById('btn-close-draft').addEventListener('click', closeDraft);
     document.getElementById('btn-kick-draft').addEventListener('click', kickDraft);
-    document.getElementById('popover-close').addEventListener('click', closeShiftPopover);
-    document.getElementById('popover-cancel').addEventListener('click', closeShiftPopover);
-    document.getElementById('popover-apply').addEventListener('click', applyPopover);
 
-    const popNote = document.getElementById('popover-note');
-    if (popNote) {
-      popNote.addEventListener('input', _validateApply);
-    }
-
-    const colorPicker = document.getElementById('custom-color-picker');
-    if (colorPicker) {
-      colorPicker.addEventListener('input', e => {
-        _pop.customColor = e.target.value;
-      });
-    }
-
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape') {
-        const pop = document.getElementById('shift-popover');
-        if (pop?.classList.contains('open')) {
-          closeShiftPopover();
-        } else if (state.draft.active) {
-          _clearSelection();
-        }
-      }
-    });
-
-    // Global event delegation to handle sticky note triangle interaction
-    document.getElementById('rota-wrap')?.addEventListener('click', e => {
-      const target = e.target.closest('.has-note');
-      if (target) {
-        const person = target.dataset.person;
-        const date = target.dataset.date;
-        const day = state.rotaData?.find(d => d.date === date);
-        const note = day?.shifts[person]?.note || '';
-        if (note) toast(`${person} (${_fmtDateShort(date)}): ${note}`, 'info');
-      }
-    });
-
-    // Poll draft status every 30s so the banner stays accurate
-    // if another manager enters/exits while we're on the rota tab
     checkDraftStatus();
-    setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        checkDraftStatus();
-      }
-    }, 5000);
-
-    // Hook tab state to execute an immediate check when the user returns
+    setInterval(() => { if (document.visibilityState === 'visible') checkDraftStatus(); }, 10000);
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        checkDraftStatus();
-      }
+      if (document.visibilityState === 'visible') checkDraftStatus();
     });
   }
 
   async function checkDraftStatus() {
     try {
-      const r = await apiFetch(`${PROXY}/rota/draft/status`);
+      const r = await fetch(`${PROXY}/rota/draft/status`, { credentials: 'same-origin' });
       const d = await r.json();
       if (!d.ok) return;
+      const wasActive = state.draft.active;
       state.draft.lock = d.lock;
       renderDraftBanner();
+      // If the lock disappeared and we weren't the ones holding it, refresh view
+      if (wasActive === false && !d.lock && state.viewMode !== 'published' && !state.draft.active) {
+        // no-op: only refresh automatically if we're viewing published and someone else's draft ended
+      }
     } catch(e) { /* silent */ }
   }
 
   function renderDraftBanner() {
     if (!state.me || state.me.rota_role !== 'management') return;
-    const lock    = state.draft.lock;
-    const banner  = document.getElementById('draft-banner');
-    const who     = document.getElementById('draft-banner-who');
-    const myAct   = document.getElementById('draft-mine-actions');
-    const othAct  = document.getElementById('draft-other-actions');
+    const lock     = state.draft.lock;
+    const banner   = document.getElementById('draft-banner');
+    const who      = document.getElementById('draft-banner-who');
+    const myAct    = document.getElementById('draft-mine-actions');
+    const othAct   = document.getElementById('draft-other-actions');
     const rotaWrap = document.getElementById('rota-wrap');
     const btnDraft = document.getElementById('btn-draft');
 
     if (!lock) {
-      // No one in draft
       banner.classList.remove('active');
       rotaWrap.classList.remove('draft-mode');
       state.draft.active = false;
@@ -2498,14 +2526,11 @@
   }
 
   async function enterDraft() {
-    const r = await apiFetch(`${PROXY}/rota/draft/lock`, {
-      method: 'POST',
-    });
+    const r = await fetch(`${PROXY}/rota/draft/lock`, { method: 'POST', credentials: 'same-origin' });
     const d = await r.json();
     if (d.ok) {
       state.draft.lock = d.lock;
       renderDraftBanner();
-      // Switch to full-year range for draft mode
       document.getElementById('view-select').value = 'full';
       state.viewMode = 'full';
       state.rotaData = null;
@@ -2520,8 +2545,7 @@
     const confirmed = await uiConfirm(
       'Save & Close Draft',
       'Your changes are already saved. This will exit draft mode and release the lock. Others will be able to continue editing.',
-      'Save & Close',
-      'warn'
+      'Save & Close', 'warn'
     );
     if (!confirmed) return;
     await _releaseDraftLock();
@@ -2532,42 +2556,37 @@
     const confirmed = await uiConfirm(
       'Close Draft',
       'Exit draft mode? Your saved changes remain in the draft. The lock will be released so others can edit.',
-      'Close Draft',
-      'reject'
+      'Close Draft', 'reject'
     );
     if (!confirmed) return;
-    const r = await apiFetch(`${PROXY}/rota/draft/discard`, {
-      method: 'POST',
-    });
+    const r = await fetch(`${PROXY}/rota/draft/discard`, { method: 'POST', credentials: 'same-origin' });
     const d = await r.json();
     if (d.ok) {
+      _clearSelection();
       state.draft.lock   = null;
       state.draft.active = false;
       renderDraftBanner();
-      // Return to published view
       document.getElementById('view-select').value = 'published';
       state.viewMode = 'published';
       state.rotaData = null;
       loadRota();
       toast('Exited draft mode', 'ok');
     } else {
-      toast(d.error || 'Failed to close draft', 'err');
+      await uiAlert(d.error || 'Failed to close draft');
     }
   }
 
   async function publishDraft() {
     const confirmed = await uiConfirm(
       'Publish Draft',
-      'Publish all draft changes to the live rota? This cannot be undone. AL toggles will create confirmed leave entries.',
-      'Publish',
-      'approve'
+      'Publish all draft changes to the live rota? This cannot be undone. AL toggles will create confirmed or pending leave entries as appropriate.',
+      'Publish', 'approve'
     );
     if (!confirmed) return;
-    const r = await fetch(`${PROXY}/rota/draft/publish`, {
-      method: 'POST', credentials: 'same-origin',
-    });
+    const r = await fetch(`${PROXY}/rota/draft/publish`, { method: 'POST', credentials: 'same-origin' });
     const d = await r.json();
     if (d.ok) {
+      _clearSelection();
       state.draft.lock   = null;
       state.draft.active = false;
       renderDraftBanner();
@@ -2577,10 +2596,7 @@
       loadRota();
       const msg = `Published — ${d.shift_applied} shift${d.shift_applied !== 1 ? 's' : ''}, ${d.al_created} AL entr${d.al_created !== 1 ? 'ies' : 'y'}`;
       if (d.warnings && d.warnings.length) {
-        await uiAlert(
-          `${msg}\n\n⚠ Warnings:\n${d.warnings.join('\n')}`,
-          'Published with Warnings'
-        );
+        await uiAlert(`${msg}\n\n⚠ Warnings:\n${d.warnings.join('\n')}`, 'Published with Warnings');
       } else {
         toast(msg, 'ok');
       }
@@ -2593,9 +2609,8 @@
     const name = state.draft.lock?.locked_by_name || state.draft.lock?.locked_by || 'this user';
     const confirmed = await uiConfirm(
       'Kick User from Draft',
-      `Remove ${name} from draft mode? Any unsaved changes in their browser will be lost, but previously autosaved changes remain in the draft.`,
-      'Kick User',
-      'reject'
+      `Remove ${name} from draft mode? Previously autosaved changes remain in the draft.`,
+      'Kick User', 'reject'
     );
     if (!confirmed) return;
     const r = await fetch(`${PROXY}/rota/draft/unlock`, {
@@ -2609,7 +2624,7 @@
       renderDraftBanner();
       toast(`${name} removed from draft`, 'ok');
     } else {
-      toast(d.error || 'Failed', 'err');
+      await uiAlert(d.error || 'Failed');
     }
   }
 
@@ -2621,6 +2636,7 @@
     });
     const d = await r.json();
     if (d.ok) {
+      _clearSelection();
       state.draft.lock   = null;
       state.draft.active = false;
       renderDraftBanner();
@@ -2633,7 +2649,7 @@
   }
 
   // ════════════════════════════════════════════════════════════════
-  //  HELPERS -
+  //  HELPERS
   // ════════════════════════════════════════════════════════════════
   function _populateUserDropdown(sel) {
     Object.entries(state.allUsers)
@@ -2658,7 +2674,7 @@
   function _fmtDate(iso) {
     if (!iso) return '—';
     try {
-      const d = new Date(iso);
+      const d   = new Date(iso);
       const dd  = String(d.getDate()).padStart(2, '0');
       const mm  = String(d.getMonth() + 1).padStart(2, '0');
       const yyyy = d.getFullYear();
@@ -2669,7 +2685,6 @@
   }
 
   function _fmtDateShort(isoDate) {
-    // Converts "2026-07-04" → "04-07-2026"
     if (!isoDate) return '—';
     const [y, m, d] = isoDate.split('-');
     if (!y || !m || !d) return isoDate;
