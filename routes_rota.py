@@ -196,6 +196,24 @@ def _resolve_shift(name: str, d: date, leave_map: dict,
         return "AL_PENDING" if base == "OFF" else f"AL_PENDING|{base}"
     return base
 
+def _flanking_off_range(person: str, ds: date, de: date) -> tuple:
+    """Extend [ds, de] backwards/forwards over consecutive rota-OFF days
+    for this person, so a confirmed AL block visually swallows the
+    weekends/off-days it's adjacent to. Capped at 14 days each direction."""
+    d = ds - timedelta(days=1)
+    while _base_shift(person, d) == 'OFF':
+        ds = d
+        d -= timedelta(days=1)
+        if (ds - d).days > 14:
+            break
+    d = de + timedelta(days=1)
+    while _base_shift(person, d) == 'OFF':
+        de = d
+        d += timedelta(days=1)
+        if (d - de).days > 14:
+            break
+    return ds, de
+
 def _build_leave_map(leave_list: list) -> dict:
     lmap = {}
     for r in leave_list:
@@ -204,6 +222,11 @@ def _build_leave_map(leave_list: list) -> dict:
             de = date.fromisoformat(r["date_end"])
         except (KeyError, ValueError):
             continue
+        # Only expand over flanking OFF days once AL is actually confirmed
+        # (or in a state that was previously confirmed). Pending/provisional
+        # requests show exactly the days requested, nothing more.
+        if r.get("leave_type") == "Annual Leave" and r.get("status") in AL_APPROVED_STATUSES:
+            ds, de = _flanking_off_range(r["name"], ds, de)
         d = ds
         while d <= de:
             lmap[(r["name"], d)] = {
@@ -601,14 +624,28 @@ def rota_leave_put(leave_id):
 
     entry          = leave_list[idx]
     current_status = entry.get('status', '')
-    allowed        = VALID_TRANSITIONS.get(current_status, set())
-    if new_status not in allowed:
-        return jsonify({'ok': False,
-                        'error': f'Cannot transition from {current_status} '
-                                 f'to {new_status}'}), 400
+    mgmt_force     = bool(data.get('mgmt_force', False))
+    mgmt_reinstate = bool(data.get('mgmt_reinstate', False))
 
-    SELF_SERVICE = {'Withdrawal Pending', 'Cancelled'}
-    if rota_role != 'management':
+    # Management-only bypass transitions
+    if rota_role == 'management':
+        if mgmt_force and current_status == 'Confirmed' and new_status == 'Withdrawal Pending':
+            pass  # allowed — skip normal transition check
+        elif mgmt_reinstate and current_status == 'Withdrawn' and new_status == 'Confirmed':
+            pass  # reinstate a withdrawn entry
+        else:
+            allowed = VALID_TRANSITIONS.get(current_status, set())
+            if new_status not in allowed:
+                return jsonify({'ok': False,
+                                'error': f'Cannot transition from {current_status} '
+                                         f'to {new_status}'}), 400
+    else:
+        allowed = VALID_TRANSITIONS.get(current_status, set())
+        if new_status not in allowed:
+            return jsonify({'ok': False,
+                            'error': f'Cannot transition from {current_status} '
+                                     f'to {new_status}'}), 400
+        SELF_SERVICE = {'Withdrawal Pending', 'Cancelled'}
         if new_status not in SELF_SERVICE:
             return jsonify({'ok': False, 'error': 'Not authorised'}), 403
         if entry.get('username') != session['username']:
