@@ -1021,7 +1021,11 @@ def rota_draft_publish():
         # ── Handle AL removals — find matching leave entries ──────────────
         for ov in remove_ovs:
             ov_date = date.fromisoformat(ov['date'])
-            # Find leave entries that cover this date for this person
+            # Find leave entries that cover this date for this person.
+            # We must also check the expanded (flanking-OFF) range because
+            # _build_leave_map extends confirmed AL to adjacent OFF days —
+            # so a user may have placed a "None" override on a flanking day
+            # that isn't within the stored date_start/date_end.
             for entry in leave_list:
                 if entry.get('name') != person:
                     continue
@@ -1030,9 +1034,13 @@ def rota_draft_publish():
                     entry_de = date.fromisoformat(entry['date_end'])
                 except (KeyError, ValueError):
                     continue
-                if not (entry_ds <= ov_date <= entry_de):
-                    continue
+                # Check both the stored range and the expanded range
                 current_status = entry.get('status', '')
+                if current_status not in AL_APPROVED_STATUSES | AL_PENDING_STATUSES:
+                    continue
+                exp_ds, exp_de = _flanking_off_range(person, entry_ds, entry_de)
+                if not (exp_ds <= ov_date <= exp_de):
+                    continue
                 if current_status in AL_CLEAR_STATUSES:
                     continue  # already cleared
                 new_status = ('Withdrawn' if current_status in AL_APPROVED_STATUSES
@@ -1047,6 +1055,26 @@ def rota_draft_publish():
                     entry['history'] = []
                 entry['history'].append({'status': new_status,
                                          'by': session['username'], 'at': now})
+
+            # Also write a published_override for this specific cell so
+            # _resolve_shift (which checks override_map first) returns the
+            # correct base shift immediately after publish, without waiting
+            # for the leave_map to be rebuilt.
+            base = _base_shift(person, ov_date)
+            published_overrides = [
+                p for p in published_overrides
+                if not (p['person'] == person and p['date'] == ov['date'])
+            ]
+            published_overrides.append({
+                'id':           str(uuid.uuid4())[:8],
+                'person':       person,
+                'date':         ov['date'],
+                'shift':        base,
+                'note':         ov.get('note'),
+                'type':         'al_remove',
+                'published_by': session['username'],
+                'published_at': now,
+            })
 
     # ── Process shift_change / weekend_toggle / coverage_swap ────────────
     for ov in other_overrides:
