@@ -768,8 +768,9 @@
           Format must be ####-#### (e.g. 0800-1700)
         </div>
         <div class="color-swatch-row" id="custom-color-row" style="display:none;">
-          <input type="color" id="custom-color-picker" value="#7a7a7a"
-            style="width:26px;height:26px;border:none;background:none;cursor:pointer;padding:0;" />
+          <button type="button" class="btn primary" id="btn-pick-color" style="font-size:0.65rem;padding:4px 10px;letter-spacing:0.04em;">
+            Colour Picker
+          </button>
           <div id="recent-colors" style="display:flex;gap:6px;"></div>
         </div>
       </div>
@@ -807,6 +808,22 @@
       <button class="btn danger" id="popover-delete-note" style="margin-right:auto;display:none;">🗑 Delete Note</button>
       <button class="btn" id="popover-cancel">Cancel</button>
       <button class="btn primary" id="popover-apply">Apply</button>
+    </div>
+  </div>
+
+  <!-- ── COLOR PICKER POPOVER (adjacent to shift popover) ── -->
+  <div id="color-popover" style="display:none;position:fixed;z-index:810;background:var(--surface);
+       border:1px solid var(--border);border-radius:10px;padding:14px;width:180px;
+       box-shadow:0 8px 32px rgba(0,0,0,0.6);font-family:var(--mono);">
+    <div class="popover-header">
+      <span>Cell colour</span>
+      <button class="popover-close" id="color-popover-close">✕</button>
+    </div>
+    <input type="color" id="custom-color-picker" value="#7a7a7a"
+      style="width:100%;height:40px;border:none;background:none;cursor:pointer;padding:0;" />
+    <div class="popover-actions" style="margin-top:12px;">
+      <button class="btn" id="color-popover-cancel">Cancel</button>
+      <button class="btn primary" id="color-popover-use">Use colour</button>
     </div>
   </div>
 
@@ -907,6 +924,7 @@
       lastCell:  null,
       dragging:  false,
       dragStart: null,
+      ctrlDrag:  false,   // true when ctrl/meta is held during a drag
     },
   };
 
@@ -1652,7 +1670,7 @@
     const r = await fetch(`${PROXY}/rota/leave`, { credentials: 'same-origin' });
     const d = await r.json();
 
-    const ACTIONED = ['Confirmed','Rejected','Withdrawn','Withdrawal Rejected'];
+    const ACTIONED = ['Confirmed','Rejected','Withdrawn','Withdrawal Rejected','Withdrawal Pending'];
     const entries  = (d.leave || []).filter(e => {
       if (e.username !== username) return false;
       if (!ACTIONED.includes(e.status)) return false;
@@ -1672,6 +1690,21 @@
       const rowId      = 'ahist-' + e.id;
       const hasHistory = (e.history || []).length > 0;
 
+      let mgmtAction = '';
+      if (e.status === 'Confirmed') {
+        mgmtAction = `<button class="btn warn" style="font-size:0.62rem;padding:3px 9px;"
+          onclick="event.stopPropagation();mgmtWithdrawLeave('${e.id}')">↩ Withdraw</button>`;
+      } else if (e.status === 'Withdrawal Pending') {
+        mgmtAction = `
+          <button class="btn approve" style="font-size:0.62rem;padding:3px 9px;"
+            onclick="event.stopPropagation();decideLeave('${e.id}','Withdrawn')">✓ Approve</button>
+          <button class="btn reject" style="font-size:0.62rem;padding:3px 9px;"
+            onclick="event.stopPropagation();decideLeave('${e.id}','Withdrawal Rejected')">✗ Reject</button>`;
+      } else if (e.status === 'Withdrawn') {
+        mgmtAction = `<button class="btn" style="font-size:0.62rem;padding:3px 9px;"
+          onclick="event.stopPropagation();mgmtReinstateLeave('${e.id}')">↺ Reinstate</button>`;
+      }
+
       let rows = `<tr class="history-parent" onclick="${hasHistory ? `toggleHistory('${rowId}')` : ''}">
         <td class="col-dates">
           ${hasHistory ? `<button class="collapse-toggle" id="tog-${rowId}">▶</button>` : '<span style="display:inline-block;width:18px;"></span>'}
@@ -1681,6 +1714,7 @@
         <td><span class="status-badge main ${statusClass}">${e.status}</span>${onBehalfTag}</td>
         <td class="col-meta"></td>
         <td class="col-meta"></td>
+        <td style="white-space:nowrap;">${mgmtAction}</td>
       </tr>`;
 
       const history = [...(e.history || [])].reverse();
@@ -1693,6 +1727,7 @@
           <td><span class="status-badge muted ${evClass}">${ev.status}</span></td>
           <td class="col-meta">${_fmtDate(ev.at)}</td>
           <td class="col-meta">${_userName(ev.by)}</td>
+          <td></td>
         </tr>`;
       });
 
@@ -1702,7 +1737,7 @@
     el.innerHTML = `
       <table class="data-table">
         <thead>
-          <tr><th>Dates</th><th>Type</th><th>Status</th><th>When</th><th>By</th></tr>
+          <tr><th>Dates</th><th>Type</th><th>Status</th><th>When</th><th>By</th><th></th></tr>
         </thead>
         <tbody>${tableRows}</tbody>
       </table>`;
@@ -1731,6 +1766,59 @@
       state.rotaData = null; loadRota();
     } else {
       await uiAlert(d.error || 'Failed');
+    }
+  }
+
+  async function mgmtWithdrawLeave(leaveId) {
+    const confirmed = await uiConfirm(
+      'Withdraw Leave',
+      'Mark this confirmed leave as Withdrawn on behalf of the user? This cannot be undone without reinstating it.',
+      'Withdraw', 'warn'
+    );
+    if (!confirmed) return;
+    // Management bypasses the normal self-service flow by going direct to Withdrawn
+    const r = await fetch(`${PROXY}/rota/leave/${leaveId}`, {
+      method: 'PUT', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'Withdrawal Pending', mgmt_force: true }),
+    });
+    const d1 = await r.json();
+    if (!d1.ok) { await uiAlert(d1.error || 'Failed'); return; }
+    // Immediately approve the withdrawal
+    const r2 = await fetch(`${PROXY}/rota/leave/${leaveId}`, {
+      method: 'PUT', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'Withdrawn' }),
+    });
+    const d2 = await r2.json();
+    if (d2.ok) {
+      toast('Leave withdrawn', 'ok');
+      loadApprovals();
+      state.rotaData = null; loadRota();
+    } else {
+      await uiAlert(d2.error || 'Failed to complete withdrawal');
+    }
+  }
+
+  async function mgmtReinstateLeave(leaveId) {
+    const confirmed = await uiConfirm(
+      'Reinstate Leave',
+      'Reinstate this withdrawn leave entry as Confirmed?',
+      'Reinstate', 'approve'
+    );
+    if (!confirmed) return;
+    const r = await fetch(`${PROXY}/rota/leave/${leaveId}`, {
+      method: 'PUT', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'Confirmed', mgmt_reinstate: true }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast('Leave reinstated', 'ok');
+      loadApprovals();
+      state.rotaData = null; loadRota();
+    } else {
+      await uiAlert(d.error || 'Failed to reinstate');
     }
   }
 
@@ -1870,16 +1958,22 @@
       state.draft.dragging = false;
     } else if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
-      const key = _cellKey(person, dateS);
-      if (state.draft.selection.find(c => _cellKey(c.person, c.date) === key)) {
-        _deselectCell(person, dateS, td);
-      } else {
-        _selectCell(person, dateS, td);
-        state.draft.lastCell = td;
-      }
-      state.draft.dragging = false;
-    } else {
+      // Start an additive drag — preserve existing selection and build a new
+      // rectangle on top of it as the mouse moves.
+      const popEl = document.getElementById('shift-popover');
+      if (popEl && popEl.classList.contains('open')) closeShiftPopover();
       state.draft.dragging  = true;
+      state.draft.ctrlDrag  = true;
+      state.draft.dragStart = td;
+      state.draft.lastCell  = td;
+      // Snapshot current selection so the additive range is merged into it
+      state.draft._preCtrlSelection = state.draft.selection.map(c => ({ ...c }));
+      _selectCell(person, dateS, td);
+    } else {
+      const popEl = document.getElementById('shift-popover');
+      if (popEl && popEl.classList.contains('open')) closeShiftPopover();
+      state.draft.dragging  = true;
+      state.draft.ctrlDrag  = false;
       state.draft.dragStart = td;
       _clearSelection();
       _selectCell(person, dateS, td);
@@ -1891,7 +1985,37 @@
   function _onCellMouseEnterDrag(e) {
     if (!state.draft.dragging || !state.draft.dragStart) return;
     const td = e.currentTarget;
-    _selectRange(state.draft.dragStart, td);
+    if (state.draft.ctrlDrag) {
+      // Additive: restore the pre-drag snapshot then add the new rect on top
+      const wrap  = document.getElementById('rota-wrap');
+      const table = wrap?.querySelector('table.rota');
+      if (!table) return;
+      // Clear visual state without wiping the snapshot
+      state.draft.selection.forEach(c => c.td?.classList.remove('selected-cell'));
+      state.draft.selection = state.draft._preCtrlSelection.map(c => ({ ...c }));
+      state.draft.selection.forEach(c => c.td?.classList.add('selected-cell'));
+      // Now compute the new rect
+      const rows = Array.from(table.querySelectorAll('tbody tr'));
+      let fromCoord = null, toCoord = null;
+      rows.forEach((tr, ri) => {
+        Array.from(tr.querySelectorAll('td[data-person]')).forEach((cell, ci) => {
+          if (cell === state.draft.dragStart) fromCoord = { ri, ci };
+          if (cell === td)                   toCoord   = { ri, ci };
+        });
+      });
+      if (fromCoord && toCoord) {
+        const r1 = Math.min(fromCoord.ri, toCoord.ri), r2 = Math.max(fromCoord.ri, toCoord.ri);
+        const c1 = Math.min(fromCoord.ci, toCoord.ci), c2 = Math.max(fromCoord.ci, toCoord.ci);
+        rows.slice(r1, r2 + 1).forEach(tr => {
+          Array.from(tr.querySelectorAll('td[data-person]')).slice(c1, c2 + 1).forEach(cell => {
+            if (cell.dataset.person && cell.dataset.date)
+              _selectCell(cell.dataset.person, cell.dataset.date, cell);
+          });
+        });
+      }
+    } else {
+      _selectRange(state.draft.dragStart, td);
+    }
     _renderSelectionOverlay();
     const wrap = document.getElementById('rota-wrap');
     const rect = wrap.getBoundingClientRect();
@@ -1903,7 +2027,9 @@
   function _onDocMouseUp(e) {
     if (e.button === 0) {
       state.draft.dragging  = false;
+      state.draft.ctrlDrag  = false;
       state.draft.dragStart = null;
+      state.draft._preCtrlSelection = null;
     }
   }
 
@@ -2305,13 +2431,30 @@
         sw.classList.add('active');
         _pop.customColor = color;
         document.getElementById('custom-color-picker').value = color;
+        if (preview) preview.style.background = color;
       });
       row.appendChild(sw);
     });
   }
 
+  function openColorPopover() {
+    const mainPop = document.getElementById('shift-popover');
+    const colorPop = document.getElementById('color-popover');
+    const mainRect = mainPop.getBoundingClientRect();
+    colorPop.style.display = 'block';
+    let left = mainRect.right + 8;
+    if (left + 180 > window.innerWidth - 8) left = mainRect.left - 180 - 8;
+    colorPop.style.left = Math.max(8, left) + 'px';
+    colorPop.style.top  = Math.max(8, mainRect.top) + 'px';
+  }
+
+  function closeColorPopover() {
+    document.getElementById('color-popover').style.display = 'none';
+  }
+
   function closeShiftPopover() {
     document.getElementById('shift-popover')?.classList.remove('open');
+    closeColorPopover();
   }
 
   async function applyPopover() {
@@ -2338,7 +2481,14 @@
     const customVal    = document.getElementById('popover-custom-shift').value.trim();
     const rawShift     = _pop.pendingShift || (customVal && /^\d{4}-\d{4}$/.test(customVal) ? customVal : null);
     const customColor  = _pop.customColor || document.getElementById('custom-color-picker')?.value;
-    const noShiftOrAl  = !rawShift && alMode === 'none';
+    // True note-only: no shift picked AND no AL mode change AND none of the
+    // selected cells currently have AL on them.
+    const anyCellHasAl = sel.some(c => {
+      const sh = _currentShiftOf(c);
+      return sh === 'AL_APPROVED' || sh === 'AL_PENDING'
+          || sh.startsWith('AL_APPROVED|') || sh.startsWith('AL_PENDING|');
+    });
+    const noShiftOrAl  = !rawShift && alMode === 'none' && !anyCellHasAl;
 
     if (noShiftOrAl) {
       // Note-only edit within the draft popover
@@ -2370,17 +2520,25 @@
 
     for (const cell of sel) {
       const currentShift = _currentShiftOf(cell);
+      const hasAl = currentShift === 'AL_APPROVED' || currentShift === 'AL_PENDING'
+                 || currentShift.startsWith('AL_APPROVED|') || currentShift.startsWith('AL_PENDING|');
       const stripped     = _stripAlPrefix(currentShift);
       let finalShift = rawShift || stripped;
       if (finalShift === 'ABSENT') finalShift = `ABSENT|${stripped}`;
 
       const isOffDay = stripped === 'OFF';
       let ovType = 'shift_change';
-      if (!isOffDay && (alMode === 'provisional' || alMode === 'confirmed')) ovType = 'al_toggle';
 
-      if (alMode === 'provisional') {
+      if (alMode === 'none' && hasAl) {
+        // Actively remove AL: revert to the base shift (al_toggle type so
+        // publish knows to cancel/withdraw the corresponding leave entry)
+        finalShift = stripped;   // 'OFF' if it was a pure AL day
+        ovType     = 'al_toggle';
+      } else if (alMode === 'provisional') {
+        ovType     = 'al_toggle';
         finalShift = isOffDay ? 'AL_PENDING'  : `AL_PENDING|${finalShift}`;
       } else if (alMode === 'confirmed') {
+        ovType     = 'al_toggle';
         finalShift = isOffDay ? 'AL_APPROVED' : `AL_APPROVED|${finalShift}`;
       }
 
@@ -2422,13 +2580,29 @@
     document.getElementById('popover-apply').addEventListener('click', applyPopover);
     document.getElementById('custom-color-picker').addEventListener('input', e => {
       _pop.customColor = e.target.value;
+      if (preview) preview.style.background = e.target.value;
+    });
+
+    document.getElementById('btn-pick-color').addEventListener('click', openColorPopover);
+    document.getElementById('color-popover-close').addEventListener('click', closeColorPopover);
+    document.getElementById('color-popover-cancel').addEventListener('click', closeColorPopover);
+    document.getElementById('color-popover-use').addEventListener('click', () => {
+      const val = document.getElementById('custom-color-picker').value;
+      _pop.customColor = val;
+      if (preview) preview.style.background = val;
+      closeColorPopover();
     });
 
     // Left-click outside popover closes it
     document.addEventListener('mousedown', e => {
+      const colorPop = document.getElementById('color-popover');
+      if (colorPop.style.display === 'block' && !colorPop.contains(e.target) && e.target.id !== 'btn-pick-color' && !e.target.closest('#btn-pick-color')) {
+        closeColorPopover();
+      }
       const pop = document.getElementById('shift-popover');
-      if (pop.classList.contains('open') && !pop.contains(e.target) && !e.target.closest('td[data-person]')) {
+      if (pop.classList.contains('open') && !pop.contains(e.target) && !colorPop.contains(e.target) && !e.target.closest('td[data-person]')) {
         closeShiftPopover();
+        closeColorPopover();
       }
     });
 
