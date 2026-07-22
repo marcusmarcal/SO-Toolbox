@@ -7,6 +7,32 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.37.0] - 2026-07-22
+
+### Fixed
+
+- Chroma Subsampling falsely REJECTED high-bit-depth / non-8-bit
+  formats (e.g. yuv422p10le showed as an unrecognised raw pix_fmt
+  string instead of "4:2:2") because the chroma lookup table only
+  covered plain 8-bit yuv420p/yuv422p/yuv444p variants. Now derived
+  via regex, robust to bit-depth/endianness suffixes and NV/semi-planar
+  layouts (nv12, nv16, p010le, etc).
+- Colour Range showed the raw pix_fmt string as its measured value
+  instead of "limited"/"full". Now reports the actual colour range,
+  preferring ffprobe's color_range tag over the deprecated yuvj\*
+  pix_fmt heuristic.
+
+### Added
+
+- New informational-only "Pixel Format" field (spec key
+  pixel_format), showing the raw pix_fmt value (e.g. yuv422p10le) on
+  its own row across the compliance table, HTML report, text/Jira
+  report and specs editor — separate from Chroma Subsampling and
+  Colour Range. Never affects overall_status.
+- Result JSON: new v_full_range field, so reeval/workflow-change
+  compliance reuses the accurate colour-range value instead of
+  re-deriving it from pix_fmt alone.
+
 ## [2.36.0] - 2026-07-21
 
 ### Added

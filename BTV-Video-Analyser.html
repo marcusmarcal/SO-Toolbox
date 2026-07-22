@@ -2906,6 +2906,7 @@
 
       function formatSpecText(s) {
         if (!s) return "—";
+        if (s.info) return "Informational only";
         if ("warn" in s) {
           const mode = s.mode === "inform" ? " (inform only)" : "";
           return `≤ ${s.warn}ms compliant, ≤ ${s.hard}ms accepted${mode}`;
@@ -2947,6 +2948,7 @@
             "frame_size",
             "aspect_ratio",
             "chroma",
+            "pixel_format",
             "colour_range",
             "scan_type",
             "bit_depth",
@@ -3721,7 +3723,13 @@
         )}
         ${vrow("Aspect Ratio", "16:9", r.v_dar || "—", "aspect_ratio")}
         ${vrow("Chroma", "4:2:0", r.v_chroma || "—", "chroma")}
-        ${vrow("Colour Range", "limited", r.v_pix_fmt || "—", "colour_range")}
+        ${vrow("Pixel Format", "informational", r.v_pix_fmt || "—", "pixel_format")}
+        ${vrow(
+          "Colour Range",
+          "limited",
+          r.v_full_range ? "full" : "limited",
+          "colour_range"
+        )}
         ${vrow(
           "Scan Type",
           "progressive / interlaced",
@@ -3936,7 +3944,8 @@
           ),
           tr("Aspect Ratio", "16:9", r.v_dar || "—", "aspect_ratio"),
           tr("Chroma", "4:2:0", r.v_chroma || "—", "chroma"),
-          tr("Colour Range", "limited", r.v_pix_fmt || "—", "colour_range"),
+          tr("Pixel Format", "informational", r.v_pix_fmt || "—", "pixel_format"),
+          tr("Colour Range", "limited", r.v_full_range ? "full" : "limited", "colour_range"),
           tr("Scan Type", "prog/interlaced", r.v_scan || "—", "scan_type"),
           tr("Bit Depth", "8", String(r.v_bits || "—"), "bit_depth"),
           tr("Colour Gamut", "bt709", r.v_color_sp || "—", "colour_gamut"),
@@ -4627,6 +4636,7 @@
             "frame_size",
             "aspect_ratio",
             "chroma",
+            "pixel_format",
             "colour_range",
             "scan_type",
             "bit_depth",
@@ -4671,7 +4681,10 @@
               prefEl = "",
               specialEl = "";
 
-            if ("warn" in s) {
+            if ("info" in s) {
+              // Informational-only field — not adjustable, always displayed as INFO
+              allowedEl = `<span style="color:var(--muted)">Informational only — not enforced</span>`;
+            } else if ("warn" in s) {
               // Delay threshold spec: warn = max |ms| still COMPLIANT, hard = max |ms| still ACCEPTED (above = REJECTED)
               allowedEl = `Compliant up to: <input data-key="${key}" data-field="warn" type="number" value="${s.warn}" step="10" style="${inStyle};width:70px" title="Compliant threshold (ms)" /> ms &nbsp; Accepted up to: <input data-key="${key}" data-field="hard" type="number" value="${s.hard}" step="10" style="${inStyle};width:70px" title="Reject above this (ms)" /> ms`;
               prefEl = ``;

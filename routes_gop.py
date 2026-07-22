@@ -1,6 +1,6 @@
 """
 routes_gop.py — GOP Analyzer Blueprint
-SO-Toolbox v2.30.0
+SO-Toolbox v2.30.1
 
 All /gop/* routes (run, upload, status, results, schedule, specs, overrides, delete).
 GOP results JSON now includes a `username` field (from /me session) for every test —
@@ -24,6 +24,15 @@ is served by the existing /ingest/report/<dir>, /ingest/report-txt/<dir> and
 /ingest/download/<zip> routes unchanged. The result JSON gets `ingest_dir` /
 `ingest_zip` fields (null if the Ingest Analyser failed or isn't installed —
 this never blocks or fails the GOP result itself).
+
+Chroma subsampling is now derived from the pix_fmt name via regex (covers
+bit-depth/endianness suffixes like yuv422p10le and NV/semi-planar layouts),
+instead of a fixed lookup table that only recognised plain 8-bit yuv420p/
+yuv422p/yuv444p variants. Colour Range now reports the actual "limited"/"full"
+value (preferring ffprobe's color_range tag over the deprecated yuvj* pix_fmt
+heuristic) instead of leaking the raw pix_fmt string into that field. A new
+informational-only "pixel_format" spec/result field shows the raw pix_fmt
+value (e.g. yuv422p10le) separately, never affecting overall_status.
 
 Registers all /gop/* routes (nginx strips /so-proxy prefix).
 """
@@ -144,6 +153,7 @@ DEFAULT_SPECS = {
     "frame_size":   {"values": ["1280x720","1920x1080"], "preferred": "1920x1080", "label": "Frame Size"},
     "aspect_ratio": {"values": ["16:9"], "label": "Aspect Ratio"},
     "chroma":       {"values": ["4:2:0"], "label": "Chroma Subsampling"},
+    "pixel_format": {"info": True, "label": "Pixel Format"},
     "colour_range": {"values": ["limited", "full"], "preferred": "limited", "label": "Colour Range"},
     "scan_type":    {"values": ["progressive","interlaced","mbaff"], "preferred": "interlaced", "label": "Scan Type"},
     "bit_depth":    {"values": ["8"], "label": "Bit Depth"},
@@ -634,13 +644,40 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
         if not dar and v_width and v_height:
             from math import gcd; g = gcd(v_width, v_height); dar = f"{v_width//g}:{v_height//g}"
 
-        chroma_map  = {
-            "yuv420p":  "4:2:0", "yuvj420p":  "4:2:0",
-            "yuv422p":  "4:2:2", "yuvj422p":  "4:2:2",
-            "yuv444p":  "4:4:4", "yuvj444p":  "4:4:4",
+        # Chroma subsampling: derive from the pix_fmt name itself, robust to
+        # bit-depth/endianness suffixes (e.g. yuv422p10le -> 4:2:2, not the
+        # raw pix_fmt string) and to semi-planar / NV-style layouts.
+        _NV_CHROMA_MAP = {
+            "nv12": "4:2:0", "nv21": "4:2:0", "p010le": "4:2:0", "p010be": "4:2:0",
+            "p016le": "4:2:0", "p016be": "4:2:0",
+            "nv16": "4:2:2", "nv20le": "4:2:2", "nv20be": "4:2:2",
+            "nv24": "4:4:4", "nv42": "4:4:4",
         }
-        v_chroma       = chroma_map.get(v_pix_fmt, v_pix_fmt)
-        v_full_range   = v_pix_fmt.startswith("yuvj")
+
+        def _chroma_from_pix_fmt(pix_fmt):
+            pf = (pix_fmt or "").lower()
+            m = re.match(r"^yuv[aj]?(410|411|420|422|440|444)p?", pf)
+            if m:
+                d = m.group(1)
+                return f"{d[0]}:{d[1]}:{d[2]}"
+            if pf in _NV_CHROMA_MAP:
+                return _NV_CHROMA_MAP[pf]
+            if pf.startswith("gray") or pf.startswith("y8") or pf == "y400a":
+                return "4:0:0"
+            return pf  # unrecognised format — show raw pix_fmt rather than guess
+
+        v_chroma = _chroma_from_pix_fmt(v_pix_fmt)
+
+        # Colour range: prefer ffprobe's explicit color_range tag ("tv"/"pc")
+        # over the deprecated yuvj*/yuv* pix_fmt naming convention, falling
+        # back to the pix_fmt heuristic only when the tag is absent/unknown.
+        v_color_range_raw = (vid.get("color_range") or "").lower()
+        if v_color_range_raw in ("tv", "limited"):
+            v_full_range = False
+        elif v_color_range_raw in ("pc", "full"):
+            v_full_range = True
+        else:
+            v_full_range = v_pix_fmt.startswith("yuvj")
         v_entropy   = "CABAC" if v_profile in ("High","Main","High 10","High 422","High 444") else "CAVLC"
 
         hdr_transfers = ("smpte2084", "smpte428")
@@ -732,6 +769,10 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
                 return "ACCEPTED", str(measured), f"Preferred {plo}–{phi}"
             return "COMPLIANT", str(measured), ""
 
+        def _info_check(measured):
+            """Informational-only field — always displayed, never affects overall_status."""
+            return ("INFO", str(measured) if measured not in (None, "") else "—", "Informational only")
+
         def comply_enum_multi(measured, key):
             sp = _s(key)
             allowed    = [str(v).lower() for v in sp.get("values", [])]
@@ -817,8 +858,8 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             "frame_size":   comply_enum_multi(f"{v_width}x{v_height}", "frame_size"),
             "aspect_ratio": comply_enum_multi(dar, "aspect_ratio"),
             "chroma":       comply_enum_multi(v_chroma, "chroma"),
-            "colour_range": (lambda res: (res[0], v_pix_fmt, res[2]))(
-                                comply_enum_multi("full" if v_full_range else "limited", "colour_range")),
+            "pixel_format": _info_check(v_pix_fmt),
+            "colour_range": comply_enum_multi("full" if v_full_range else "limited", "colour_range"),
             "scan_type":    comply_enum_multi(v_scan, "scan_type"),
             "bit_depth":    comply_enum_multi(str(v_bits), "bit_depth"),
             "colour_gamut": comply_enum_multi(v_color_sp, "colour_gamut"),
@@ -864,7 +905,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             "v_color_sp": v_color_sp, "v_color_tr": v_color_tr,
             "v_color_combined": f"{v_color_sp} | {v_color_tr}",
             "v_field": v_field, "v_scan": v_scan,
-            "v_bits": str(v_bits), "v_chroma": v_chroma, "v_dar": dar,
+            "v_bits": str(v_bits), "v_chroma": v_chroma, "v_full_range": v_full_range, "v_dar": dar,
             "v_entropy": v_entropy, "v_hdr": v_hdr, "v_rate_ctrl": v_rate_ctrl,
             "a_codec": a_codec, "a_codec_display": a_codec_display,
             "a_profile": a_profile, "a_channels": a_ch,
@@ -1634,6 +1675,10 @@ def _reeval_compliance(stored: dict, specs: dict) -> tuple:
             return "ACCEPTED", str(measured), f"Preferred {plo}–{phi}"
         return "COMPLIANT", str(measured), ""
 
+    def _info_check(measured):
+        """Informational-only field — always displayed, never affects overall_status."""
+        return ("INFO", str(measured) if measured not in (None, "") else "—", "Informational only")
+
     def comply_enum_multi(measured, key):
         sp = _s(key)
         allowed   = [str(v).lower() for v in sp.get("values", [])]
@@ -1682,7 +1727,8 @@ def _reeval_compliance(stored: dict, specs: dict) -> tuple:
     dar          = r.get("v_dar", "")
     v_chroma     = r.get("v_chroma", "")
     v_pix_fmt    = r.get("v_pix_fmt", "")
-    v_full_range = v_pix_fmt.startswith("yuvj") if v_pix_fmt else False
+    v_full_range = r["v_full_range"] if "v_full_range" in r else (
+        v_pix_fmt.startswith("yuvj") if v_pix_fmt else False)
     v_scan       = r.get("v_scan", "progressive")
     v_bits       = str(r.get("v_bits", ""))
     v_color_sp   = r.get("v_color_sp", "unknown")
@@ -1751,8 +1797,8 @@ def _reeval_compliance(stored: dict, specs: dict) -> tuple:
         "frame_size":   comply_enum_multi(f"{v_width}x{v_height}", "frame_size"),
         "aspect_ratio": comply_enum_multi(dar, "aspect_ratio"),
         "chroma":       comply_enum_multi(v_chroma, "chroma"),
-        "colour_range": (lambda res: (res[0], v_pix_fmt, res[2]))(
-                            comply_enum_multi("full" if v_full_range else "limited", "colour_range")),
+        "pixel_format": _info_check(v_pix_fmt),
+        "colour_range": comply_enum_multi("full" if v_full_range else "limited", "colour_range"),
         "scan_type":    comply_enum_multi(v_scan, "scan_type"),
         "bit_depth":    comply_enum_multi(v_bits, "bit_depth"),
         "colour_gamut": comply_enum_multi(v_color_sp, "colour_gamut"),
