@@ -1441,8 +1441,7 @@ def rota_hours_export():
                                    wrap_text=True)
         cell.border    = border
         ws.column_dimensions[get_column_letter(col_idx)].width = width
-    ws.row_dimensions[2].height = 36
-
+    
     # ── Data rows ─────────────────────────────────────────────────────────
     for row_idx, name in enumerate(members, start=3):
         h      = hours.get(name, {'night_h': 0, 'ph_day_h': 0,
