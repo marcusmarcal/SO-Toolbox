@@ -591,7 +591,7 @@
     <button class="tab-btn active" data-tab="rota">📅 Rota</button>
     <button class="tab-btn" data-tab="leave" id="tab-leave">📝 Request Leave</button>
     <button class="tab-btn" data-tab="approvals" id="tab-approvals" style="display:none;">✅ Leave Approvals</button>
-    <button class="tab-btn" data-tab="access" id="tab-access" style="display:none;">👥 Team Access</button>
+    <button class="tab-btn" data-tab="hours" id="tab-hours" style="display:none;">🌙 Night & PH Hours</button>
   </nav>
 
   <!-- ── DRAFT BANNER ── -->
@@ -733,10 +733,34 @@
     </div>
   </div>
 
-  <!-- ══ TAB: TEAM ACCESS ══ -->
-  <div class="tab-panel" id="panel-access">
-    <p class="section-title">Team Access</p>
-    <div id="access-list"><div class="loading-row"><div class="spinner"></div> Loading…</div></div>
+  <!-- ══ TAB: NIGHT & PH HOURS ══ -->
+  <div class="tab-panel" id="panel-hours">
+    <div id="hours-toolbar" style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;">
+      <div class="toolbar-group">
+        <span class="toolbar-label">Period</span>
+        <select class="toolbar-select" id="hours-period">
+          <option value="month">Calendar Month</option>
+          <option value="custom">Custom Range</option>
+        </select>
+      </div>
+      <div class="toolbar-group" id="hours-month-group">
+        <input type="month" class="toolbar-select" id="hours-month" />
+      </div>
+      <div class="toolbar-group" id="hours-custom-group" style="display:none;">
+        <input type="date" class="toolbar-select" id="hours-from" />
+        <span style="color:var(--muted);font-family:var(--mono);font-size:0.6rem;">→</span>
+        <input type="date" class="toolbar-select" id="hours-to" />
+      </div>
+      <button class="btn primary" id="btn-hours-compute" style="margin-left:4px;">▶ Compute</button>
+      <div class="sep"></div>
+      <div id="hours-export-btns" style="display:none;gap:8px;display:none;">
+        <button class="btn" id="btn-export-soe">⬇ SOE Sheet</button>
+        <button class="btn" id="btn-export-sos">⬇ SOS Sheet</button>
+      </div>
+    </div>
+    <div id="hours-result">
+      <div class="empty-state">Select a period and click Compute.</div>
+    </div>
   </div>
 
   <!-- ── NOTE TOOLTIP (hover, read-only) ── -->
@@ -1030,8 +1054,11 @@
 
     if (m.rota_role === 'management') {
       document.getElementById('tab-approvals').style.display = '';
-      document.getElementById('tab-access').style.display    = '';
+      document.getElementById('tab-hours').style.display     = '';
       document.getElementById('opt-full').style.display      = '';
+    }
+    if (m.rota_role === 'staff') {
+      document.getElementById('tab-hours').style.display = '';
     }
     if (m.rota_role === 'guest') {
       document.getElementById('tab-leave').style.display = 'none';
@@ -1049,7 +1076,7 @@
         btn.classList.add('active');
         document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
         if (btn.dataset.tab === 'approvals') loadApprovals();
-        if (btn.dataset.tab === 'access')    loadAccess();
+        if (btn.dataset.tab === 'hours')     setupHoursTab();
         if (btn.dataset.tab === 'leave')     loadMyLeave();
       });
     });
@@ -1825,30 +1852,157 @@
   // ════════════════════════════════════════════════════════════════
   //  TEAM ACCESS
   // ════════════════════════════════════════════════════════════════
-  async function loadAccess() {
-    const el    = document.getElementById('access-list');
-    const BADGE = { Management:'var(--mgmt)', Engineering:'var(--eng)', Specialists:'var(--spec)' };
+  // ════════════════════════════════════════════════════════════════
+  //  NIGHT & PH HOURS TAB
+  // ════════════════════════════════════════════════════════════════
+  let _hoursTabReady = false;
 
-    const grouped = {};
-    Object.entries(state.allUsers).forEach(([email, u]) => {
-      if (!grouped[u.team]) grouped[u.team] = [];
-      grouped[u.team].push({ email, ...u });
+  function setupHoursTab() {
+    if (_hoursTabReady) return;
+    _hoursTabReady = true;
+
+    // Default month = current month
+    const now = new Date();
+    const mm  = String(now.getMonth() + 1).padStart(2, '0');
+    document.getElementById('hours-month').value = `${now.getFullYear()}-${mm}`;
+
+    const periodSel   = document.getElementById('hours-period');
+    const monthGroup  = document.getElementById('hours-month-group');
+    const customGroup = document.getElementById('hours-custom-group');
+
+    periodSel.addEventListener('change', () => {
+      const isCustom = periodSel.value === 'custom';
+      monthGroup.style.display  = isCustom ? 'none' : '';
+      customGroup.style.display = isCustom ? '' : 'none';
     });
 
-    const teamOrder = ['Management', 'Engineering', 'Specialists'];
-    el.innerHTML = teamOrder.filter(t => grouped[t]).map(team => `
-      <div style="margin-bottom:24px;">
-        <div class="approvals-group-header">${team}</div>
-        ${grouped[team].map(u => `
-          <div style="display:flex;align-items:center;gap:14px;padding:8px 0;
-                      border-bottom:1px solid #252525;font-family:var(--mono);font-size:0.7rem;">
-            <span style="font-weight:700;min-width:120px;">${u.name}</span>
-            <span style="color:var(--muted);flex:1;">${u.email}</span>
-            <span class="team-badge ${team}" style="background:${BADGE[team]||'#555'}">${team}</span>
-          </div>
-        `).join('')}
-      </div>
-    `).join('');
+    document.getElementById('btn-hours-compute').addEventListener('click', loadHours);
+
+    // Export buttons — management only
+    if (state.me && state.me.rota_role === 'management') {
+      const exportDiv = document.getElementById('hours-export-btns');
+      exportDiv.style.display = 'flex';
+
+      document.getElementById('btn-export-soe').addEventListener('click', () => {
+        exportHrSheet('SOE');
+      });
+      document.getElementById('btn-export-sos').addEventListener('click', () => {
+        exportHrSheet('SOS');
+      });
+    }
+  }
+
+  function _hoursDateRange() {
+    const period = document.getElementById('hours-period').value;
+    if (period === 'month') {
+      const val = document.getElementById('hours-month').value; // YYYY-MM
+      if (!val) return null;
+      const [y, m] = val.split('-').map(Number);
+      const from   = `${y}-${String(m).padStart(2,'0')}-01`;
+      const lastDay = new Date(y, m, 0).getDate();
+      const to     = `${y}-${String(m).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+      return { from, to, month: val };
+    } else {
+      const from = document.getElementById('hours-from').value;
+      const to   = document.getElementById('hours-to').value;
+      if (!from || !to) return null;
+      return { from, to, month: from.slice(0, 7) };
+    }
+  }
+
+  async function loadHours() {
+    const range = _hoursDateRange();
+    if (!range) { toast('Select a valid period', 'err'); return; }
+
+    const el = document.getElementById('hours-result');
+    el.innerHTML = '<div class="loading-row"><div class="spinner"></div> Computing hours…</div>';
+
+    const r = await fetch(`${PROXY}/rota/hours?from=${range.from}&to=${range.to}`,
+                          { credentials: 'same-origin' });
+    const d = await r.json();
+
+    if (!d.ok) { el.innerHTML = `<div class="empty-state">Error: ${d.error}</div>`; return; }
+
+    const hours = d.hours;
+    const isManagement = state.me && state.me.rota_role === 'management';
+
+    if (!isManagement) {
+      // Staff: single-row own view
+      const myName = state.me ? state.me.name : '';
+      const h = hours[myName];
+      if (!h) { el.innerHTML = '<div class="empty-state">No data for your account.</div>'; return; }
+      el.innerHTML = _renderHoursTable({ [myName]: h }, `${range.from} → ${range.to}`);
+      return;
+    }
+
+    // Management: grouped by rota team
+    const groups = { Management: {}, Engineering: {}, Specialists: {} };
+    Object.entries(hours).forEach(([name, h]) => {
+      const t = h.rota_team || 'Specialists';
+      groups[t][name] = h;
+    });
+
+    const periodLabel = document.getElementById('hours-period').value === 'month'
+      ? new Date(range.from + 'T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+      : `${range.from} → ${range.to}`;
+
+    el.innerHTML = ['Management','Engineering','Specialists']
+      .filter(t => Object.keys(groups[t]).length)
+      .map(t => `
+        <div style="margin-bottom:28px;">
+          <div class="approvals-group-header">${t}</div>
+          ${_renderHoursTable(groups[t], periodLabel)}
+        </div>`)
+      .join('');
+  }
+
+  function _renderHoursTable(hoursMap, periodLabel) {
+    const names = Object.keys(hoursMap);
+    if (!names.length) return '<div class="empty-state">No data.</div>';
+
+    const rows = names.map(name => {
+      const h = hoursMap[name];
+      const phDates = h.ph_dates && h.ph_dates.length
+        ? h.ph_dates.join(', ')
+        : '<span style="color:var(--muted)">—</span>';
+      const fmt = v => v === 0
+        ? '<span style="color:var(--muted)">0.00</span>'
+        : `<strong>${v.toFixed(2)}</strong>`;
+      return `<tr>
+        <td style="font-weight:700;">${name}</td>
+        <td style="text-align:center;">${fmt(h.night_h)}</td>
+        <td style="text-align:center;">${fmt(h.ph_day_h)}</td>
+        <td style="text-align:center;">${fmt(h.ph_night_h)}</td>
+        <td style="color:var(--muted);font-size:0.6rem;">${phDates}</td>
+        ${h.mcr !== undefined ? `<td style="text-align:center;color:var(--muted);font-size:0.6rem;">${h.mcr ?? '—'}</td>` : ''}
+      </tr>`;
+    }).join('');
+
+    const mcrCol = hoursMap[names[0]]?.mcr !== undefined
+      ? '<th>MCR</th>' : '';
+
+    return `
+      <table class="data-table" style="margin-top:8px;">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th style="text-align:center;">Night Hours</th>
+            <th style="text-align:center;">PH Daytime</th>
+            <th style="text-align:center;">PH Night</th>
+            <th>PH Dates</th>
+            ${mcrCol}
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  function exportHrSheet(team) {
+    const range = _hoursDateRange();
+    if (!range) { toast('Select a valid period first', 'err'); return; }
+    // Use YYYY-MM from the range
+    const month = range.month;
+    window.open(`${PROXY}/rota/hours/export?team=${team}&month=${month}`, '_blank');
   }
 
   // ════════════════════════════════════════════════════════════════

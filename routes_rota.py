@@ -6,8 +6,9 @@ import re
 import json
 import uuid
 import datetime
+import io
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_file
 from routes_auth import require_auth, require_admin_role
 
 # ── Blueprint ─────────────────────────────────────────────────────────────
@@ -296,6 +297,7 @@ DRAFT_FILE               = os.path.join(ROTA_DIR, 'draft_overrides.json')
 DRAFT_LOCK_FILE          = os.path.join(ROTA_DIR, 'draft_lock.json')
 PUBLISHED_OVERRIDES_FILE = os.path.join(ROTA_DIR, 'published_overrides.json')
 CELL_NOTES_FILE          = os.path.join(ROTA_DIR, 'cell_notes.json')
+HR_CONFIG_FILE           = os.path.join(ROTA_DIR, 'hr_config.json')
 
 # ── Config ────────────────────────────────────────────────────────────────
 DEFAULT_CONFIG = {
@@ -1106,6 +1108,414 @@ def rota_draft_publish():
         'shift_applied': shift_applied,
         'warnings':     warnings,
     })
+
+
+# ════════════════════════════════════════════════════════════════════════════
+#  HOURS COMPUTATION ENGINE
+# ════════════════════════════════════════════════════════════════════════════
+
+# Net night minutes (22:00–07:00 window, after 1h lunch break deducted
+# from cheapest portion first) per shift code.
+# Lunch break (60 min) only applied to shifts ≥ 6 h (all named shifts qualify).
+# Priority for deduction: daytime first, then night, then PH.
+#
+# Derivation per shift:
+#   0700-1800  11h all day  → break from day → 0 night min
+#   0900-1800   9h all day  → break from day → 0 night min
+#   0900-2000  11h all day  → break from day → 0 night min
+#   0930-1800  8.5h all day → break from day → 0 night min
+#   0900-1730  8.5h all day → break from day → 0 night min
+#   0800-1630  8.5h all day → break from day → 0 night min
+#   1000-2020  10h all day  → break from day → 0 night min  (note: 1000-2020 typo; real shift is 1000-2000)
+#   1000-2000  10h all day  → break from day → 0 night min
+#   1300-0000  11h: 9h day (13-22) + 2h night (22-00) → break from day → 2h night = 120 min
+#   1500-0200  11h: 7h day (15-22) + 4h night (22-02) → break from day → 4h night = 240 min
+#   2100-0700  10h: 1h day (21-22) + 9h night (22-07) → break fully from day → 9h night = 540 min
+
+SHIFT_NIGHT_MINUTES: dict[str, int] = {
+    '0700-1800': 0,
+    '0900-1800': 0,
+    '0900-2000': 0,
+    '0930-1800': 0,
+    '0900-1730': 0,
+    '0800-1630': 0,
+    '1000-2000': 0,
+    '1300-0000': 120,   # 2h
+    '1500-0200': 240,   # 4h
+    '2100-0700': 540,   # 9h
+    'OFF':       0,
+}
+
+# Total shift duration in minutes (raw, before lunch break) per code
+SHIFT_TOTAL_MINUTES: dict[str, int] = {
+    '0700-1800': 660,
+    '0900-1800': 540,
+    '0900-2000': 660,
+    '0930-1800': 510,
+    '0900-1730': 510,
+    '0800-1630': 510,
+    '1000-2000': 600,
+    '1300-0000': 660,
+    '1500-0200': 660,
+    '2100-0700': 600,
+    'OFF':       0,
+}
+
+LUNCH_BREAK_MINUTES = 60
+LUNCH_BREAK_THRESHOLD_MINUTES = 360  # 6h
+
+def _net_minutes(shift_code: str) -> tuple[int, int]:
+    """Return (net_daytime_minutes, net_night_minutes) after lunch break.
+    Break is deducted from daytime first. Returns (0,0) for OFF/unknown."""
+    total = SHIFT_TOTAL_MINUTES.get(shift_code, 0)
+    night = SHIFT_NIGHT_MINUTES.get(shift_code, 0)
+    if total == 0:
+        return (0, 0)
+    day = total - night
+    break_min = LUNCH_BREAK_MINUTES if total >= LUNCH_BREAK_THRESHOLD_MINUTES else 0
+    # Deduct from daytime first
+    day_after = max(0, day - break_min)
+    remaining_break = max(0, break_min - day)
+    night_after = max(0, night - remaining_break)
+    return (day_after, night_after)
+
+
+def _ph_minutes(shift_code: str) -> tuple[int, int]:
+    """Return (ph_daytime_minutes, ph_night_minutes) for a shift worked on a PH.
+    Uses same breakdown as _net_minutes but categorised as PH."""
+    return _net_minutes(shift_code)
+
+
+def _effective_shift_for_hours(name: str, d: date,
+                                leave_map: dict, override_map: dict) -> str:
+    """Return the shift code to use for hours accounting.
+    For coverage_swap overrides: use whichever of shift/previous_shift
+    gives MORE night minutes (protects the covered person's NH entitlement).
+    For everything else: use _resolve_shift as normal but strip leave overlays
+    to the base shift (leave days = 0 hours)."""
+    # Check for coverage_swap override first
+    if override_map:
+        ov = override_map.get((name, d))
+        if ov is not None and ov.get('type') == 'coverage_swap':
+            coverage_shift  = ov['shift']
+            original_shift  = ov.get('previous_shift', coverage_shift)
+            _, coverage_nh  = _net_minutes(coverage_shift)
+            _, original_nh  = _net_minutes(original_shift)
+            # Use whichever pays more night hours; PH hours follow actual shift worked
+            return coverage_shift if coverage_nh >= original_nh else original_shift
+
+    resolved = _resolve_shift(name, d, leave_map, override_map)
+
+    # Leave/off states → 0 hours
+    if resolved in ('OFF', 'PARENTAL', 'MARITAL'):
+        return 'OFF'
+    if resolved.startswith('AL_'):
+        return 'OFF'
+
+    # Strip any AL_ prefix from hybrid codes (shouldn't occur but defensive)
+    if '|' in resolved:
+        resolved = resolved.split('|', 1)[1]
+
+    return resolved
+
+
+def _load_hr_config() -> dict:
+    cfg = _load_json(HR_CONFIG_FILE)
+    if not isinstance(cfg, dict):
+        cfg = {}
+    # Defaults
+    cfg.setdefault('mcr', {})
+    cfg.setdefault('hr_teams', {
+        'SOE': ['Marcus', 'Hugo', 'Goncalo', 'Nuno'],
+        'SOS': ['Joao L', 'Tiago C', 'Sabina', 'Sergio', 'Tiago O',
+                'Vitor', 'Fernando', 'Marc', 'Gabriel', 'Mario', 'Isaac'],
+    })
+    return cfg
+
+
+def _compute_hours(date_from: date, date_to: date,
+                   names: list[str],
+                   leave_map: dict, override_map: dict) -> dict:
+    """Compute night and PH hours for each name over the date range.
+    Returns dict: name → {night_h, ph_day_h, ph_night_h, ph_dates}"""
+    results = {n: {'night_min': 0, 'ph_day_min': 0,
+                   'ph_night_min': 0, 'ph_dates': []} for n in names}
+    d = date_from
+    while d <= date_to:
+        is_ph = d in PUBLIC_HOLIDAYS
+        for name in names:
+            shift = _effective_shift_for_hours(name, d, leave_map, override_map)
+            if shift == 'OFF':
+                d_next = d + timedelta(days=1)
+                continue
+            day_min, night_min = _net_minutes(shift)
+
+            if is_ph:
+                # Coverage swap: PH hours use the actual shift worked, not the
+                # original — only NH gets the favourable swap treatment.
+                actual_shift = _resolve_shift(name, d, leave_map, override_map)
+                if actual_shift in ('OFF', 'PARENTAL', 'MARITAL') or actual_shift.startswith('AL_'):
+                    d_next = d + timedelta(days=1)
+                    continue
+                if '|' in actual_shift:
+                    actual_shift = actual_shift.split('|', 1)[1]
+                ph_day_min, ph_night_min = _ph_minutes(actual_shift)
+                results[name]['ph_day_min']   += ph_day_min
+                results[name]['ph_night_min']  += ph_night_min
+                if ph_day_min + ph_night_min > 0:
+                    results[name]['ph_dates'].append(
+                        d.strftime('%-d %B').lstrip('0') if hasattr(d, 'strftime') else d.isoformat()
+                    )
+            else:
+                results[name]['night_min'] += night_min
+
+        d += timedelta(days=1)
+
+    # Convert minutes → decimal hours (2dp), format PH dates
+    out = {}
+    for name, r in results.items():
+        out[name] = {
+            'night_h':    round(r['night_min'] / 60, 2),
+            'ph_day_h':   round(r['ph_day_min'] / 60, 2),
+            'ph_night_h': round(r['ph_night_min'] / 60, 2),
+            'ph_dates':   r['ph_dates'],
+        }
+    return out
+
+
+# ── Hours routes ───────────────────────────────────────────────────────────
+
+@rota_bp.route('/rota/hours', methods=['GET'])
+@require_auth
+def rota_hours_get():
+    """Compute night + PH hours for a date range.
+    Management: all members. Staff: own row only."""
+    session   = request.session
+    rota_role = _get_rota_role(session)
+    username  = session['username']
+
+    try:
+        date_from = date.fromisoformat(
+            request.args.get('from', date.today().replace(day=1).isoformat()))
+        date_to   = date.fromisoformat(
+            request.args.get('to', date.today().isoformat()))
+    except ValueError:
+        return jsonify({'ok': False, 'error': 'Invalid date format, use YYYY-MM-DD'}), 400
+
+    leave_list = _load_json(LEAVE_FILE)
+    if not isinstance(leave_list, list):
+        leave_list = []
+    published_overrides = _load_json(PUBLISHED_OVERRIDES_FILE)
+    if not isinstance(published_overrides, list):
+        published_overrides = []
+
+    leave_map    = _build_leave_map(leave_list)
+    override_map = _build_override_map(published_overrides)
+    hr_cfg       = _load_hr_config()
+
+    all_names = (list(MANAGEMENT_SHIFTS) +
+                 list(ENGINEERING_OFFSETS) +
+                 list(SPECIALIST_OFFSETS))
+
+    if rota_role != 'management':
+        # Staff: only own name
+        my_name = _rota_display_name(username)
+        names = [my_name] if my_name in all_names else []
+    else:
+        names = all_names
+
+    hours = _compute_hours(date_from, date_to, names, leave_map, override_map)
+
+    # Annotate with team and MCR
+    hr_teams = hr_cfg.get('hr_teams', {})
+    mcr_map  = hr_cfg.get('mcr', {})
+    name_to_team = {}
+    for team, members in hr_teams.items():
+        for m in members:
+            name_to_team[m] = team
+    # Also add rota team for display grouping
+    rota_team_map = {}
+    for n in MANAGEMENT_SHIFTS:
+        rota_team_map[n] = 'Management'
+    for n in ENGINEERING_OFFSETS:
+        rota_team_map[n] = 'Engineering'
+    for n in SPECIALIST_OFFSETS:
+        rota_team_map[n] = 'Specialists'
+
+    result = {}
+    for name, h in hours.items():
+        result[name] = {
+            **h,
+            'rota_team': rota_team_map.get(name, 'Unknown'),
+            'hr_team':   name_to_team.get(name),
+            'mcr':       mcr_map.get(name),
+        }
+
+    return jsonify({'ok': True, 'from': date_from.isoformat(),
+                    'to': date_to.isoformat(), 'hours': result})
+
+
+@rota_bp.route('/rota/hours/export', methods=['GET'])
+@require_auth
+def rota_hours_export():
+    """Generate HR Excel sheet for a team and month. Management only."""
+    if _get_rota_role(request.session) != 'management':
+        return jsonify({'ok': False, 'error': 'Not authorised'}), 403
+
+    team_param = request.args.get('team', '').upper()
+    month_param = request.args.get('month', '')  # YYYY-MM
+
+    if team_param not in ('SOE', 'SOS'):
+        return jsonify({'ok': False, 'error': 'team must be SOE or SOS'}), 400
+    try:
+        year, month = [int(x) for x in month_param.split('-')]
+        date_from = date(year, month, 1)
+        # Last day of month
+        if month == 12:
+            date_to = date(year + 1, 1, 1) - timedelta(days=1)
+        else:
+            date_to = date(year, month + 1, 1) - timedelta(days=1)
+    except (ValueError, AttributeError):
+        return jsonify({'ok': False, 'error': 'month must be YYYY-MM'}), 400
+
+    leave_list = _load_json(LEAVE_FILE)
+    if not isinstance(leave_list, list):
+        leave_list = []
+    published_overrides = _load_json(PUBLISHED_OVERRIDES_FILE)
+    if not isinstance(published_overrides, list):
+        published_overrides = []
+
+    leave_map    = _build_leave_map(leave_list)
+    override_map = _build_override_map(published_overrides)
+    hr_cfg       = _load_hr_config()
+    hr_teams     = hr_cfg.get('hr_teams', {})
+    mcr_map      = hr_cfg.get('mcr', {})
+
+    members = hr_teams.get(team_param, [])
+    if not members:
+        return jsonify({'ok': False, 'error': f'No members configured for {team_param}'}), 400
+
+    hours = _compute_hours(date_from, date_to, members, leave_map, override_map)
+
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        return jsonify({'ok': False, 'error': 'openpyxl not available'}), 500
+
+    wb = Workbook()
+    ws = wb.active
+    month_label = date_from.strftime('%B %Y')
+    ws.title = f'{team_param} {month_label}'
+
+    # ── Styles ────────────────────────────────────────────────────────────
+    hdr_font   = Font(name='Arial', bold=True, size=10, color='FFFFFF')
+    hdr_fill   = PatternFill('solid', fgColor='1F3864')
+    body_font  = Font(name='Arial', size=10)
+    note_font  = Font(name='Arial', size=9, italic=True, color='595959')
+    center     = Alignment(horizontal='center', vertical='center')
+    left       = Alignment(horizontal='left',   vertical='center')
+    thin       = Side(style='thin', color='CCCCCC')
+    border     = Border(left=thin, right=thin, top=thin, bottom=thin)
+    zero_fill  = PatternFill('solid', fgColor='F5F5F5')
+
+    # ── Title row ─────────────────────────────────────────────────────────
+    ws.merge_cells('A1:H1')
+    ws['A1'] = f'{team_param} — Night & Public Holiday Hours — {month_label}'
+    ws['A1'].font      = Font(name='Arial', bold=True, size=12, color='1F3864')
+    ws['A1'].alignment = left
+    ws.row_dimensions[1].height = 22
+
+    # ── Header row (row 2) ────────────────────────────────────────────────
+    headers = [
+        'Employee ID', 'MCR',
+        'Horas Noturnas\nNight hours (10pm-7 am)',
+        'Feriado Diurnas\n| Public Holidays',
+        'Feriado Noturnas\n| Night Holiday',
+        'Holiday Date',
+        'Horas Extra\n|Overtime hours',
+        'Over time Date',
+    ]
+    col_widths = [14, 18, 28, 26, 26, 26, 22, 18]
+
+    for col_idx, (hdr, width) in enumerate(zip(headers, col_widths), start=1):
+        cell = ws.cell(row=2, column=col_idx, value=hdr)
+        cell.font      = hdr_font
+        cell.fill      = hdr_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center',
+                                   wrap_text=True)
+        cell.border    = border
+        ws.column_dimensions[get_column_letter(col_idx)].width = width
+    ws.row_dimensions[2].height = 36
+
+    # ── Data rows ─────────────────────────────────────────────────────────
+    for row_idx, name in enumerate(members, start=3):
+        h      = hours.get(name, {'night_h': 0, 'ph_day_h': 0,
+                                   'ph_night_h': 0, 'ph_dates': []})
+        mcr    = mcr_map.get(name)
+        ph_str = ', '.join(h['ph_dates']) if h['ph_dates'] else ''
+
+        row_data = [
+            mcr if mcr is not None else '',
+            name,
+            round(h['night_h'], 2),
+            round(h['ph_day_h'], 2),
+            round(h['ph_night_h'], 2),
+            ph_str,
+            '0.00',
+            '',
+        ]
+        is_zero_row = (h['night_h'] == 0 and h['ph_day_h'] == 0
+                       and h['ph_night_h'] == 0)
+
+        for col_idx, value in enumerate(row_data, start=1):
+            cell = ws.cell(row=row_idx, column=col_idx, value=value)
+            cell.font   = body_font
+            cell.border = border
+            if is_zero_row:
+                cell.fill = zero_fill
+            # Number format for hour columns (cols 3,4,5)
+            if col_idx in (3, 4, 5):
+                cell.number_format = '0.00'
+                cell.alignment     = center
+            elif col_idx in (1, 7):
+                cell.alignment = center
+            else:
+                cell.alignment = left
+        ws.row_dimensions[row_idx].height = 18
+
+    # ── Footer notes ──────────────────────────────────────────────────────
+    note_row = len(members) + 4
+    notes = [
+        '* Kindly note if employee number is incorrect, person will not be paid.',
+        '** Numbers need to have 2 decimal houses. No cell should be left empty. '
+        'If there are no hours it should say 0.00',
+    ]
+    for i, note in enumerate(notes):
+        cell = ws.cell(row=note_row + i, column=1, value=note)
+        cell.font = note_font
+        ws.merge_cells(
+            start_row=note_row + i, start_column=1,
+            end_row=note_row + i, end_column=8
+        )
+
+    # ── Freeze header rows ────────────────────────────────────────────────
+    ws.freeze_panes = 'A3'
+
+    # ── Stream to response ────────────────────────────────────────────────
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    filename = (f'{team_param}_NightHours_'
+                f'{date_from.strftime("%b%Y")}.xlsx')
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name=filename,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
 
 
 def register_routes(app) -> None:
