@@ -1413,20 +1413,13 @@ def rota_hours_export():
 
     hdr_font   = Font(name='Calibri', bold=True, size=11, color='FFFFFF')
     hdr_fill   = PatternFill('solid', fgColor='000000')
-    body_font  = Font(name='Calibri', size=11)
+    body_font  = Font(name='Calibri', size=11, bold=True)
     note_font  = Font(name='Calibri', size=11, italic=True, color='595959')
     center     = Alignment(horizontal='center', vertical='center')
     left       = Alignment(horizontal='left',   vertical='center')
     thin       = Side(style='thin', color='CCCCCC')
     border     = Border(left=thin, right=thin, top=thin, bottom=thin)
-    zero_fill  = PatternFill('solid', fgColor='FCE4D6')
-
-    # ── Title row ─────────────────────────────────────────────────────────
-    ws.merge_cells('A1:H1')
-    ws['A1'] = f'{team_param} — Night & Public Holiday Hours — {month_label}'
-    ws['A1'].font      = Font(name='Calibri', bold=True, size=11, color='000000')
-    ws['A1'].alignment = left
-    ws.row_dimensions[1].height = 22
+    zero_fill  = PatternFill('solid', fgColor='FFF2CC')
 
     # ── Header row (row 2) ────────────────────────────────────────────────
     headers = [
