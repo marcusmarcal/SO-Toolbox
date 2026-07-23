@@ -1,0 +1,24 @@
+{
+  "mcr": {
+    "Joao L":   13780,
+    "Tiago C":  15409,
+    "Sabina":   13781,
+    "Sergio":   16450,
+    "Tiago O":  16282,
+    "Vitor":    8139,
+    "Fernando": 20664,
+    "Marc":     16952,
+    "Gabriel":  21266,
+    "Mario":    5014,
+    "Isaac":    21738,
+    "Marcus":   15892,
+    "Hugo":     5022,
+    "Goncalo":  13814,
+    "Nuno":     17590
+  },
+  "hr_teams": {
+    "SOE": ["Marcus", "Hugo", "Goncalo", "Nuno"],
+    "SOS": ["Joao L", "Tiago C", "Sabina", "Sergio", "Tiago O",
+            "Vitor", "Fernando", "Marc", "Gabriel", "Mario", "Isaac"]
+  }
+}
