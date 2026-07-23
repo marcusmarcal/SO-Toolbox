@@ -1417,7 +1417,7 @@ def rota_hours_export():
     note_font  = Font(name='Calibri', size=11, italic=True, color='595959')
     center     = Alignment(horizontal='center', vertical='center')
     left       = Alignment(horizontal='left',   vertical='center')
-    thin       = Side(style='thin', color='CCCCCC')
+    thin       = Side(style='thin', color='000000')
     border     = Border(left=thin, right=thin, top=thin, bottom=thin)
     zero_fill  = PatternFill('solid', fgColor='FFF2CC')
 
@@ -1431,10 +1431,10 @@ def rota_hours_export():
         'Horas Extra\n|Overtime hours',
         'Over time Date',
     ]
-    col_widths = [14, 18, 28, 26, 26, 26, 22, 18]
+    col_widths = [11, 21, 14, 14, 14, 32, 14, 17]
 
     for col_idx, (hdr, width) in enumerate(zip(headers, col_widths), start=1):
-        cell = ws.cell(row=2, column=col_idx, value=hdr)
+        cell = ws.cell(row=1, column=col_idx, value=hdr)
         cell.font      = hdr_font
         cell.fill      = hdr_fill
         cell.alignment = Alignment(horizontal='center', vertical='center',
