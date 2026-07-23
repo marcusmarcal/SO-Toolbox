@@ -1409,33 +1409,22 @@ def rota_hours_export():
     month_label = date_from.strftime('%B %Y')
     ws.title = f'{team_param} {month_label}'
 
-    # ── Styles ────────────────────────────────────────────────────────────
-    # Header text remains bold white
+        # ── Styles ────────────────────────────────────────────────────────────
+
     hdr_font   = Font(name='Calibri', bold=True, size=11, color='FFFFFF')
-    # Header background changed from dark blue to pure black
-    hdr_fill   = PatternFill('solid', fgColor='000000') 
-
-    # Standard data font (black text)
-    body_font  = Font(name='Calibri', size=11, color='000000')
-    # Added the light tan/cream background fill seen across all data cells
-    body_fill  = PatternFill('solid', fgColor='FCE4D6') 
-
-    # Note text at the bottom is regular black, non-italic text
-    note_font  = Font(name='Calibri', size=11, color='000000')  
-
-    # Alignment (Enabled wrap_text=True to support the multi-line header text)
-    center     = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    hdr_fill   = PatternFill('solid', fgColor='000000')
+    body_font  = Font(name='Calibri', size=11)
+    note_font  = Font(name='Calibri', size=11, italic=True, color='595959')
+    center     = Alignment(horizontal='center', vertical='center')
     left       = Alignment(horizontal='left',   vertical='center')
-
-    # Grid borders changed from light gray (CCCCCC) to sharp thin black (000000)
-    thin       = Side(style='thin', color='000000') 
+    thin       = Side(style='thin', color='CCCCCC')
     border     = Border(left=thin, right=thin, top=thin, bottom=thin)
-
+    zero_fill  = PatternFill('solid', fgColor='FCE4D6')
 
     # ── Title row ─────────────────────────────────────────────────────────
     ws.merge_cells('A1:H1')
     ws['A1'] = f'{team_param} — Night & Public Holiday Hours — {month_label}'
-    ws['A1'].font      = Font(name='Arial', bold=True, size=12, color='1F3864')
+    ws['A1'].font      = Font(name='Calibri', bold=True, size=11, color='000000')
     ws['A1'].alignment = left
     ws.row_dimensions[1].height = 22
 
