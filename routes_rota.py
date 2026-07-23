@@ -1421,7 +1421,7 @@ def rota_hours_export():
     border     = Border(left=thin, right=thin, top=thin, bottom=thin)
     zero_fill  = PatternFill('solid', fgColor='FFF2CC')
 
-    # ── Header row (row 2) ────────────────────────────────────────────────
+    # ── Header row (row 1) ────────────────────────────────────────────────
     headers = [
         'Employee ID', 'MCR',
         'Horas Noturnas\nNight hours (10pm-7 am)',
@@ -1443,7 +1443,7 @@ def rota_hours_export():
         ws.column_dimensions[get_column_letter(col_idx)].width = width
     
     # ── Data rows ─────────────────────────────────────────────────────────
-    for row_idx, name in enumerate(members, start=3):
+    for row_idx, name in enumerate(members, start=2):
         h      = hours.get(name, {'night_h': 0, 'ph_day_h': 0,
                                    'ph_night_h': 0, 'ph_dates': []})
         mcr    = mcr_map.get(name)
@@ -1494,7 +1494,7 @@ def rota_hours_export():
         )
 
     # ── Freeze header rows ────────────────────────────────────────────────
-    ws.freeze_panes = 'A3'
+    ws.freeze_panes = 'A2'
 
     # ── Stream to response ────────────────────────────────────────────────
     buf = io.BytesIO()
