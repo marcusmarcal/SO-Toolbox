@@ -1,24 +1,24 @@
 {
   "mcr": {
-    "Joao L":   13780,
-    "Tiago C":  15409,
-    "Sabina":   13781,
-    "Sergio":   16450,
-    "Tiago O":  16282,
-    "Vitor":    8139,
-    "Fernando": 20664,
-    "Marc":     16952,
-    "Gabriel":  21266,
-    "Mario":    5014,
-    "Isaac":    21738,
-    "Marcus":   15892,
-    "Hugo":     5022,
-    "Goncalo":  13814,
-    "Nuno":     17590
+    "Joao Lopes":   13780,
+    "Tiago Carvalho":  15409,
+    "Sabina Barros":   13781,
+    "Sergio Silva":   16450,
+    "Tiago Oliveira":  16282,
+    "Vitor Cassama":    8139,
+    "Fernando Carvalho": 20664,
+    "Marc Ribeiro":     16952,
+    "Gabriel Ribeiro":  21266,
+    "Mario Branco":    5014,
+    "Isaac Santiago":    21738,
+    "Marcus Marcal":   15892,
+    "Hugo Carvalho":     5022,
+    "Goncalo Paiva":  13814,
+    "Nuno Carvalho":     17590
   },
   "hr_teams": {
-    "SOE": ["Marcus", "Hugo", "Goncalo", "Nuno"],
-    "SOS": ["Joao L", "Tiago C", "Sabina", "Sergio", "Tiago O",
-            "Vitor", "Fernando", "Marc", "Gabriel", "Mario", "Isaac"]
+    "SOE": ["Marcus Marcal", "Hugo Carvalho", "Goncalo Paiva", "Nuno Carvalho"],
+    "SOS": ["Joao Lopes", "Tiago Carvalho", "Sabina Barros", "Sergio Silva", "Tiago Oliveira",
+            "Vitor Cassama", "Fernando Carvalho", "Marc Ribeiro", "Gabriel Ribeiro", "Mario Branco", "Isaac Santiago"]
   }
 }

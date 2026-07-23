@@ -1410,15 +1410,27 @@ def rota_hours_export():
     ws.title = f'{team_param} {month_label}'
 
     # ── Styles ────────────────────────────────────────────────────────────
-    hdr_font   = Font(name='Arial', bold=True, size=10, color='FFFFFF')
-    hdr_fill   = PatternFill('solid', fgColor='1F3864')
-    body_font  = Font(name='Arial', size=10)
-    note_font  = Font(name='Arial', size=9, italic=True, color='595959')
-    center     = Alignment(horizontal='center', vertical='center')
+    # Header text remains bold white
+    hdr_font   = Font(name='Calibri', bold=True, size=11, color='FFFFFF')
+    # Header background changed from dark blue to pure black
+    hdr_fill   = PatternFill('solid', fgColor='000000') 
+
+    # Standard data font (black text)
+    body_font  = Font(name='Calibri', size=11, color='000000')
+    # Added the light tan/cream background fill seen across all data cells
+    body_fill  = PatternFill('solid', fgColor='FCE4D6') 
+
+    # Note text at the bottom is regular black, non-italic text
+    note_font  = Font(name='Calibri', size=11, color='000000')  
+
+    # Alignment (Enabled wrap_text=True to support the multi-line header text)
+    center     = Alignment(horizontal='center', vertical='center', wrap_text=True)
     left       = Alignment(horizontal='left',   vertical='center')
-    thin       = Side(style='thin', color='CCCCCC')
+
+    # Grid borders changed from light gray (CCCCCC) to sharp thin black (000000)
+    thin       = Side(style='thin', color='000000') 
     border     = Border(left=thin, right=thin, top=thin, bottom=thin)
-    zero_fill  = PatternFill('solid', fgColor='F5F5F5')
+
 
     # ── Title row ─────────────────────────────────────────────────────────
     ws.merge_cells('A1:H1')
