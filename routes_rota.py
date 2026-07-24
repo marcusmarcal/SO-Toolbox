@@ -1415,7 +1415,8 @@ def rota_hours_export():
     body_font = Font(name='Calibri', size=11)
     num_font  = Font(name='Calibri', size=11, bold=True)
     note_font = Font(name='Calibri', size=11, italic=True, color='595959')
-    row_fill  = PatternFill('solid', fgColor='FFF2CC')   # yellow — all data rows
+    row_fill  = PatternFill('solid', fgColor='FFF2CC')   # yellow — numeric columns
+    id_fill   = PatternFill('solid', fgColor='D9D9D9')   # gray  — ID/name columns
     center    = Alignment(horizontal='center', vertical='center')
     left      = Alignment(horizontal='left',   vertical='center')
     thin      = Side(style='thin', color='000000')
@@ -1464,7 +1465,7 @@ def rota_hours_export():
 
         for col_idx, value in enumerate(row_data, start=1):
             cell        = ws.cell(row=row_idx, column=col_idx, value=value)
-            cell.fill   = row_fill   # yellow on every data row
+            cell.fill   = id_fill if col_idx <= 2 else row_fill
             cell.border = border
             if col_idx in (3, 4, 5, 7):   # numeric hour columns — bold
                 cell.font          = num_font
