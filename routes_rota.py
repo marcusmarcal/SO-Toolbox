@@ -1553,3 +1553,56 @@ def rota_hours_export():
 
 def register_routes(app) -> None:
     app.register_blueprint(rota_bp)
+
+
+@rota_bp.route('/rota/hours/debug', methods=['GET'])
+@require_auth
+def rota_hours_debug():
+    if _get_rota_role(request.session) != 'management':
+        return jsonify({'ok': False, 'error': 'Not authorised'}), 403
+
+    hr_cfg       = _load_hr_config()
+    raw_cfg      = _load_json(HR_CONFIG_FILE)
+    sos_members  = hr_cfg.get('hr_teams', {}).get('SOS', [])
+    soe_members  = hr_cfg.get('hr_teams', {}).get('SOE', [])
+
+    known = list(set(MANAGEMENT_SHIFTS) | set(ENGINEERING_OFFSETS) | set(SPECIALIST_OFFSETS))
+
+    leave_list = _load_json(LEAVE_FILE)
+    if not isinstance(leave_list, list): leave_list = []
+    published_overrides = _load_json(PUBLISHED_OVERRIDES_FILE)
+    if not isinstance(published_overrides, list): published_overrides = []
+
+    leave_map    = _build_leave_map(leave_list)
+    override_map = _build_override_map(published_overrides)
+
+    test_month_from = date(2026, 6, 1)
+    test_month_to   = date(2026, 6, 30)
+    all_members = sos_members + soe_members
+    hours = _compute_hours(test_month_from, test_month_to,
+                           all_members, leave_map, override_map)
+
+    # Spot-check Fernando on 3 days
+    spot = {}
+    for d_str in ['2026-06-01', '2026-06-02', '2026-06-04']:
+        d = date.fromisoformat(d_str)
+        for name in ['Fernando', sos_members[0] if sos_members else '']:
+            if name:
+                spot[f'{name}@{d_str}'] = {
+                    'effective': _effective_shift_for_hours(name, d, leave_map, override_map),
+                    'resolved':  _resolve_shift(name, d, leave_map, override_map),
+                    'base':      _base_shift(name, d),
+                }
+
+    return jsonify({
+        'raw_hr_config_keys_mcr':      list(raw_cfg.get('mcr', {}).keys())[:5],
+        'raw_hr_config_keys_sos':      raw_cfg.get('hr_teams', {}).get('SOS', [])[:3],
+        'normalised_sos_members':      sos_members,
+        'normalised_soe_members':      soe_members,
+        'known_rota_names':            sorted(known),
+        'hours_keys':                  list(hours.keys()),
+        'hours_fernando':              hours.get('Fernando'),
+        'hours_first_sos':             hours.get(sos_members[0]) if sos_members else None,
+        'spot_checks':                 spot,
+        'mcr_normalised':              hr_cfg.get('mcr'),
+    })
