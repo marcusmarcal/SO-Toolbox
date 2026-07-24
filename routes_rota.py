@@ -1409,17 +1409,17 @@ def rota_hours_export():
     month_label = date_from.strftime('%B %Y')
     ws.title = f'{team_param} {month_label}'
 
-        # ── Styles ────────────────────────────────────────────────────────────
-
-    hdr_font   = Font(name='Calibri', bold=True, size=11, color='FFFFFF')
-    hdr_fill   = PatternFill('solid', fgColor='000000')
-    body_font  = Font(name='Calibri', size=11, bold=True)
-    note_font  = Font(name='Calibri', size=11, italic=True, color='595959')
-    center     = Alignment(horizontal='center', vertical='center')
-    left       = Alignment(horizontal='left',   vertical='center')
-    thin       = Side(style='thin', color='000000')
-    border     = Border(left=thin, right=thin, top=thin, bottom=thin)
-    zero_fill  = PatternFill('solid', fgColor='FFF2CC')
+    # ── Styles ────────────────────────────────────────────────────────────
+    hdr_font  = Font(name='Calibri', bold=True, size=11, color='FFFFFF')
+    hdr_fill  = PatternFill('solid', fgColor='000000')
+    body_font = Font(name='Calibri', size=11)
+    num_font  = Font(name='Calibri', size=11, bold=True)
+    note_font = Font(name='Calibri', size=11, italic=True, color='595959')
+    row_fill  = PatternFill('solid', fgColor='FFF2CC')   # yellow — all data rows
+    center    = Alignment(horizontal='center', vertical='center')
+    left      = Alignment(horizontal='left',   vertical='center')
+    thin      = Side(style='thin', color='000000')
+    border    = Border(left=thin, right=thin, top=thin, bottom=thin)
 
     # ── Header row (row 1) ────────────────────────────────────────────────
     headers = [
@@ -1434,14 +1434,15 @@ def rota_hours_export():
     col_widths = [11, 21, 14, 14, 14, 32, 14, 17]
 
     for col_idx, (hdr, width) in enumerate(zip(headers, col_widths), start=1):
-        cell = ws.cell(row=1, column=col_idx, value=hdr)
+        cell           = ws.cell(row=1, column=col_idx, value=hdr)
         cell.font      = hdr_font
         cell.fill      = hdr_fill
         cell.alignment = Alignment(horizontal='center', vertical='center',
                                    wrap_text=True)
         cell.border    = border
         ws.column_dimensions[get_column_letter(col_idx)].width = width
-    
+    ws.row_dimensions[1].height = 48
+
     # ── Data rows ─────────────────────────────────────────────────────────
     for row_idx, name in enumerate(members, start=2):
         h      = hours.get(name, {'night_h': 0, 'ph_day_h': 0,
@@ -1449,60 +1450,56 @@ def rota_hours_export():
         mcr    = mcr_map.get(name)
         ph_str = ', '.join(h['ph_dates']) if h['ph_dates'] else ''
 
+        total_night = round(h['night_h'] + h['ph_night_h'], 2)
         row_data = [
             mcr if mcr is not None else '',
             name,
-            round(h['night_h'], 2),
+            total_night,
             round(h['ph_day_h'], 2),
             round(h['ph_night_h'], 2),
             ph_str,
-            '0.00',
+            0.00,
             '',
         ]
-        is_zero_row = (h['night_h'] == 0 and h['ph_day_h'] == 0
-                       and h['ph_night_h'] == 0)
 
         for col_idx, value in enumerate(row_data, start=1):
-            cell = ws.cell(row=row_idx, column=col_idx, value=value)
-            cell.font   = body_font
+            cell        = ws.cell(row=row_idx, column=col_idx, value=value)
+            cell.fill   = row_fill   # yellow on every data row
             cell.border = border
-            if is_zero_row:
-                cell.fill = zero_fill
-            # Number format for hour columns (cols 3,4,5)
-            if col_idx in (3, 4, 5):
+            if col_idx in (3, 4, 5, 7):   # numeric hour columns — bold
+                cell.font          = num_font
                 cell.number_format = '0.00'
                 cell.alignment     = center
-            elif col_idx in (1, 7):
+            elif col_idx == 1:             # Employee ID — centred, normal weight
+                cell.font      = body_font
                 cell.alignment = center
             else:
+                cell.font      = body_font
                 cell.alignment = left
         ws.row_dimensions[row_idx].height = 18
 
-    # ── Footer notes ──────────────────────────────────────────────────────
-    note_row = len(members) + 4
+    # ── Footer notes (2 rows below last data row) ──────────────────────────
+    note_row = len(members) + 3
     notes = [
         '* Kindly note if employee number is incorrect, person will not be paid.',
         '** Numbers need to have 2 decimal houses. No cell should be left empty. '
         'If there are no hours it should say 0.00',
     ]
-    for i, note in enumerate(notes):
-        cell = ws.cell(row=note_row + i, column=1, value=note)
+    for i, note_text in enumerate(notes):
+        cell      = ws.cell(row=note_row + i, column=1, value=note_text)
         cell.font = note_font
-        ws.merge_cells(
-            start_row=note_row + i, start_column=1,
-            end_row=note_row + i, end_column=8
-        )
+        ws.merge_cells(start_row=note_row + i, start_column=1,
+                       end_row=note_row + i,   end_column=8)
 
-    # ── Freeze header rows ────────────────────────────────────────────────
+    # ── Freeze panes below header ──────────────────────────────────────────
     ws.freeze_panes = 'A2'
 
-    # ── Stream to response ────────────────────────────────────────────────
+    # ── Stream to response ─────────────────────────────────────────────────
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
 
-    filename = (f'{team_param}_NightHours_'
-                f'{date_from.strftime("%b%Y")}.xlsx')
+    filename = f'{team_param}_NightHours_{date_from.strftime("%b%Y")}.xlsx'
     return send_file(
         buf,
         as_attachment=True,
