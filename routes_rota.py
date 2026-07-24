@@ -1412,9 +1412,9 @@ def rota_hours_export():
     # ── Styles ────────────────────────────────────────────────────────────
     hdr_font  = Font(name='Calibri', bold=True, size=11, color='FFFFFF')
     hdr_fill  = PatternFill('solid', fgColor='000000')
-    body_font = Font(name='Calibri', size=11)
+    body_font = Font(name='Calibri', size=11, bold=True)
     num_font  = Font(name='Calibri', size=11, bold=True)
-    note_font = Font(name='Calibri', size=11, italic=True, color='595959')
+    note_font = Font(name='Calibri', size=11, color='000000')
     row_fill  = PatternFill('solid', fgColor='FFF2CC')   # yellow — numeric columns
     id_fill   = PatternFill('solid', fgColor='D9D9D9')   # gray  — ID/name columns
     center    = Alignment(horizontal='center', vertical='center')
@@ -1442,7 +1442,7 @@ def rota_hours_export():
                                    wrap_text=True)
         cell.border    = border
         ws.column_dimensions[get_column_letter(col_idx)].width = width
-    ws.row_dimensions[1].height = 48
+    ws.row_dimensions[1].height = 60
 
     # ── Data rows ─────────────────────────────────────────────────────────
     for row_idx, name in enumerate(members, start=2):
@@ -1477,7 +1477,7 @@ def rota_hours_export():
             else:
                 cell.font      = body_font
                 cell.alignment = left
-        ws.row_dimensions[row_idx].height = 18
+        ws.row_dimensions[row_idx].height = 15
 
     # ── Footer notes (2 rows below last data row) ──────────────────────────
     note_row = len(members) + 3
