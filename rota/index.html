@@ -1319,6 +1319,68 @@
     if (row) wrap.scrollTop = row.offsetTop - 44;
   }
 
+  // Patch only the cells that changed after a draft action, without rebuilding
+  // the whole table or resetting scroll. Falls back to full renderRota if the
+  // table doesn't exist yet.
+  function _patchRotaCells(changedCells) {
+    // changedCells: array of {person, date} objects that were just modified
+    const wrap  = document.getElementById('rota-wrap');
+    const table = wrap.querySelector('table.rota');
+    if (!table || !state.rotaData) { renderRota(); return; }
+
+    const savedScroll = wrap.scrollTop;
+
+    changedCells.forEach(({ person, date: dateStr }) => {
+      const td = table.querySelector(`td[data-person="${person}"][data-date="${dateStr}"]`);
+      if (!td) return;
+
+      // Find the day data
+      const day = state.rotaData.find(d => d.date === dateStr);
+      if (!day) return;
+
+      const shift = (day.shifts[person] || {}).shift || 'OFF';
+      const note  = (day.shifts[person] || {}).note  || '';
+
+      // Apply the override from state.draft.overrides directly
+      const ov = (state.draft.overrides || []).find(
+        o => o.person === person && o.date === dateStr
+      );
+      const displayShift = ov ? ov.shift : shift;
+      const displayNote  = ov ? (ov.note || '') : note;
+
+      const { bg, fg, text, extra } = _computeCellDisplay(displayShift);
+      const noteCls  = displayNote ? ' has-note' : '';
+      const safeNote = displayNote.replace(/"/g, '&quot;');
+
+      // Update td attributes and content in-place
+      td.style.background = bg;
+      td.dataset.note = safeNote;
+
+      // Toggle note class
+      td.classList.toggle('has-note', !!displayNote);
+
+      // Rebuild inner span only
+      td.innerHTML = `<span class="shift-cell${extra}" style="color:${day.is_today && displayShift !== 'OFF' ? '#fff' : fg};">${text}</span>`;
+
+      // Re-attach event listeners for this cell
+      td.addEventListener('mouseenter', _onCellHoverEnter);
+      td.addEventListener('mouseleave', _onCellHoverLeave);
+      if (state.draft.active) {
+        td.addEventListener('mousedown',   _onCellMouseDown);
+        td.addEventListener('mouseenter',  _onCellMouseEnterDrag);
+        td.addEventListener('contextmenu', _onCellRightClickDraft);
+        // Restore selection highlight if this cell was selected
+        const isSelected = state.draft.selection.some(
+          c => c.person === person && c.date === dateStr
+        );
+        if (isSelected) td.classList.add('selected-cell');
+      }
+    });
+
+    // Restore scroll position exactly
+    wrap.scrollTop = savedScroll;
+  }
+
   // ════════════════════════════════════════════════════════════════
   //  NOTE TOOLTIP (hover, read-only, all users/modes)
   // ════════════════════════════════════════════════════════════════
@@ -1968,9 +2030,10 @@
       const fmt = v => v === 0
         ? '<span style="color:var(--muted)">0.00</span>'
         : `<strong>${v.toFixed(2)}</strong>`;
+      const totalNight = +(h.night_h + h.ph_night_h).toFixed(2);
       return `<tr>
         <td style="font-weight:700;">${name}</td>
-        <td style="text-align:center;">${fmt(h.night_h)}</td>
+        <td style="text-align:center;">${fmt(totalNight)}</td>
         <td style="text-align:center;">${fmt(h.ph_day_h)}</td>
         <td style="text-align:center;">${fmt(h.ph_night_h)}</td>
         <td style="color:var(--muted);font-size:0.6rem;">${phDates}</td>
@@ -2480,7 +2543,7 @@
         }
         closeShiftPopover();
         _clearSelection();
-        await loadDraftRota();
+        _patchRotaCells(sel.map(c => ({ person: c.person, date: c.date })));
       });
       list.appendChild(removeBtn);
     }
@@ -2502,8 +2565,10 @@
         body: JSON.stringify({ person: first.person, date: first.date }),
       });
       closeShiftPopover();
-      state.rotaData = null;
-      state.draft.active ? await loadDraftRota() : await loadRota();
+      // Clear note from rotaData so patch renders correctly
+      const day = state.rotaData && state.rotaData.find(d => d.date === first.date);
+      if (day && day.shifts[first.person]) day.shifts[first.person].note = '';
+      _patchRotaCells([{ person: first.person, date: first.date }]);
       toast('Note deleted', 'ok');
     };
 
@@ -2521,7 +2586,7 @@
       }
       closeShiftPopover();
       _clearSelection();
-      await loadDraftRota();
+      _patchRotaCells(sel.map(c => ({ person: c.person, date: c.date })));
       toast('Reverted to original', 'ok');
     };
 
@@ -2652,9 +2717,12 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ person: cell.person, date: cell.date, note }),
         });
+        // Update note in rotaData so _patchRotaCells reads it correctly
+        const day = state.rotaData && state.rotaData.find(d => d.date === cell.date);
+        if (day && day.shifts[cell.person]) day.shifts[cell.person].note = note;
       }
       closeShiftPopover();
-      await loadDraftRota();
+      _patchRotaCells(sel.map(c => ({ person: c.person, date: c.date })));
       return;
     }
 
@@ -2700,10 +2768,8 @@
     }
 
     closeShiftPopover();
-    await loadDraftRota();
+    _patchRotaCells(sel.map(c => ({ person: c.person, date: c.date })));
   }
-
-  async function _saveOverride(person, dateStr, shift, note, ovType) {
     try {
       const r = await fetch(`${PROXY}/rota/draft/override`, {
         method: 'PUT', credentials: 'same-origin',
