@@ -1219,17 +1219,59 @@ def _effective_shift_for_hours(name: str, d: date,
     return resolved
 
 
+def _normalise_to_rota_name(full_name: str) -> str:
+    """Convert a full name ('Antonio Silva') to the short rota-style name
+    ('Antonio S') used as keys in SPECIALIST_OFFSETS etc.
+    Falls back gracefully if no match found."""
+    known = (set(MANAGEMENT_SHIFTS) |
+             set(ENGINEERING_OFFSETS) |
+             set(SPECIALIST_OFFSETS))
+
+    parts = full_name.strip().split()
+    if not parts:
+        return full_name
+
+    first = parts[0].capitalize()
+
+    if len(parts) == 1:
+        if first in known:
+            return first
+        matches = [n for n in known if n.split()[0].lower() == first.lower()]
+        return matches[0] if len(matches) == 1 else first
+
+    # Build short form: "First L"
+    short = f"{first} {parts[-1][0].upper()}"
+    if short in known:
+        return short
+
+    # Short form not in known — try first name alone if unambiguous
+    matches = [n for n in known if n.split()[0].lower() == first.lower()]
+    if len(matches) == 1:
+        return matches[0]
+
+    return short  # return best guess; produces 0h gracefully if still unmatched
+
+
 def _load_hr_config() -> dict:
     cfg = _load_json(HR_CONFIG_FILE)
     if not isinstance(cfg, dict):
         cfg = {}
-    # Defaults
     cfg.setdefault('mcr', {})
     cfg.setdefault('hr_teams', {
         'SOE': ['Marcus', 'Hugo', 'Goncalo', 'Nuno'],
         'SOS': ['Joao L', 'Tiago C', 'Sabina', 'Sergio', 'Tiago O',
                 'Vitor', 'Fernando', 'Marc', 'Gabriel', 'Mario', 'Isaac'],
     })
+
+    # Normalise any full names in the file → rota short names
+    cfg['mcr'] = {
+        _normalise_to_rota_name(k): v for k, v in cfg['mcr'].items()
+    }
+    cfg['hr_teams'] = {
+        team: [_normalise_to_rota_name(n) for n in members]
+        for team, members in cfg['hr_teams'].items()
+    }
+
     return cfg
 
 
@@ -1412,9 +1454,9 @@ def rota_hours_export():
     # ── Styles ────────────────────────────────────────────────────────────
     hdr_font  = Font(name='Calibri', bold=True, size=11, color='FFFFFF')
     hdr_fill  = PatternFill('solid', fgColor='000000')
-    body_font = Font(name='Calibri', size=11, bold=True)
+    body_font = Font(name='Calibri', size=11)
     num_font  = Font(name='Calibri', size=11, bold=True)
-    note_font = Font(name='Calibri', size=11, color='000000')
+    note_font = Font(name='Calibri', size=11, italic=True, color='595959')
     row_fill  = PatternFill('solid', fgColor='FFF2CC')   # yellow — numeric columns
     id_fill   = PatternFill('solid', fgColor='D9D9D9')   # gray  — ID/name columns
     center    = Alignment(horizontal='center', vertical='center')
@@ -1442,7 +1484,7 @@ def rota_hours_export():
                                    wrap_text=True)
         cell.border    = border
         ws.column_dimensions[get_column_letter(col_idx)].width = width
-    ws.row_dimensions[1].height = 60
+    ws.row_dimensions[1].height = 48
 
     # ── Data rows ─────────────────────────────────────────────────────────
     for row_idx, name in enumerate(members, start=2):
@@ -1477,7 +1519,7 @@ def rota_hours_export():
             else:
                 cell.font      = body_font
                 cell.alignment = left
-        ws.row_dimensions[row_idx].height = 15
+        ws.row_dimensions[row_idx].height = 18
 
     # ── Footer notes (2 rows below last data row) ──────────────────────────
     note_row = len(members) + 3
