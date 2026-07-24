@@ -1531,7 +1531,7 @@ def rota_hours_export():
                 cell.alignment = center
             else:
                 cell.font      = body_font
-                cell.alignment = left
+                cell.alignment = center
         ws.row_dimensions[row_idx].height = 18
 
     # ── Footer notes (2 rows below last data row) ──────────────────────────
