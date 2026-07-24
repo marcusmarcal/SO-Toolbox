@@ -1263,13 +1263,24 @@ def _load_hr_config() -> dict:
                 'Vitor', 'Fernando', 'Marc', 'Gabriel', 'Mario', 'Isaac'],
     })
 
-    # Normalise any full names in the file → rota short names
+    # Build display_names: short rota name → original full name from file
+    # and normalise hr_teams/mcr keys to short names for lookup
+    raw_teams = cfg.get('hr_teams', {})
+    raw_mcr   = cfg.get('mcr', {})
+
+    display_names = {}  # short_name → full name as written in hr_config.json
+    for members in raw_teams.values():
+        for full_name in members:
+            short = _normalise_to_rota_name(full_name)
+            display_names[short] = full_name
+
+    cfg['display_names'] = display_names
     cfg['mcr'] = {
-        _normalise_to_rota_name(k): v for k, v in cfg['mcr'].items()
+        _normalise_to_rota_name(k): v for k, v in raw_mcr.items()
     }
     cfg['hr_teams'] = {
         team: [_normalise_to_rota_name(n) for n in members]
-        for team, members in cfg['hr_teams'].items()
+        for team, members in raw_teams.items()
     }
 
     return cfg
@@ -1427,11 +1438,12 @@ def rota_hours_export():
     if not isinstance(published_overrides, list):
         published_overrides = []
 
-    leave_map    = _build_leave_map(leave_list)
-    override_map = _build_override_map(published_overrides)
-    hr_cfg       = _load_hr_config()
-    hr_teams     = hr_cfg.get('hr_teams', {})
-    mcr_map      = hr_cfg.get('mcr', {})
+    leave_map     = _build_leave_map(leave_list)
+    override_map  = _build_override_map(published_overrides)
+    hr_cfg        = _load_hr_config()
+    hr_teams      = hr_cfg.get('hr_teams', {})
+    mcr_map       = hr_cfg.get('mcr', {})
+    display_names = hr_cfg.get('display_names', {})
 
     members = hr_teams.get(team_param, [])
     if not members:
@@ -1490,13 +1502,14 @@ def rota_hours_export():
     for row_idx, name in enumerate(members, start=2):
         h      = hours.get(name, {'night_h': 0, 'ph_day_h': 0,
                                    'ph_night_h': 0, 'ph_dates': []})
-        mcr    = mcr_map.get(name)
-        ph_str = ', '.join(h['ph_dates']) if h['ph_dates'] else ''
+        mcr         = mcr_map.get(name)
+        full_name   = display_names.get(name, name)
+        ph_str      = ', '.join(h['ph_dates']) if h['ph_dates'] else ''
 
         total_night = round(h['night_h'] + h['ph_night_h'], 2)
         row_data = [
             mcr if mcr is not None else '',
-            name,
+            full_name,
             total_night,
             round(h['ph_day_h'], 2),
             round(h['ph_night_h'], 2),
