@@ -1,12 +1,25 @@
 """
 routes_gop.py — GOP Analyzer Blueprint
-SO-Toolbox v2.30.1
+SO-Toolbox v2.31.0
 
 All /gop/* routes (run, upload, status, results, schedule, specs, overrides, delete).
 GOP results JSON now includes a `username` field (from /me session) for every test —
 "anonymous" when the request has no valid session.
 Each result also includes a `workflow` field; specs are now stored per workflow
 (dc_aminos_tp / rts / wb), each with its own specs JSON file on disk.
+
+New: /gop/assign-user/<filename> — one-time assignment of an "anonymous" test
+result to a real user, gated to admin/engineer roles. Reads the user list from
+the existing /so-proxy/users endpoint (not implemented here). Fails with 409 if
+the result is already assigned to a non-anonymous user.
+
+Fixed: comply_range() (used for codec_level, overall_br, v_br, a_streams,
+a_channels, a_sample_rate, a_br_kbps) now auto-widens the hard lo/hi bound to
+include the preferred (pref_lo/pref_hi) sub-range if a spec edit only widened
+the preferred range. Previously, widening only pref_hi (e.g. adding codec
+level 5.1 as "acceptable") without also widening the hard hi bound left the
+hard bound narrower than the preferred range, silently REJECTing values that
+were supposed to be ACCEPTED/COMPLIANT.
 
 AV sync is now measured by running mediainfo on the recorded .ts file and reading
 the "Delay relative to video" metric (mediainfo JSON field `Video_Delay` on the
@@ -758,6 +771,12 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             lo, hi = sp.get("lo", 0), sp.get("hi", float("inf"))
             plo = sp.get("pref_lo")
             phi = sp.get("pref_hi")
+            # A preferred/compliant sub-range must always be reachable — if it
+            # was widened past the hard lo/hi (e.g. only pref_hi was edited),
+            # auto-widen the hard bound to match rather than reject values
+            # that are supposed to be ACCEPTED.
+            if plo is not None and plo < lo: lo = plo
+            if phi is not None and phi > hi: hi = phi
             if measured is None:
                 return "UNKNOWN", "—", ""
             in_range = lo <= measured <= hi
@@ -1364,6 +1383,52 @@ def gop_override_remove(filename):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@gop_bp.route("/gop/assign-user/<path:filename>", methods=["POST"])
+def gop_assign_user(filename):
+    """Assign an 'anonymous' test result to a real user.
+
+    Auth: requires admin or engineer role (checked via session).
+    One-time only: fails if the result is already assigned to a non-anonymous
+    user, so a completed assignment can't be silently overwritten.
+    """
+    actor_username, role = _get_user_and_role()
+    if role not in ("admin", "engineer"):
+        return jsonify({"success": False, "error": "Permission denied — admin or engineer role required"}), 403
+
+    data = request.get_json(silent=True) or {}
+    new_username = (data.get("username") or "").strip()
+    if not new_username:
+        return jsonify({"success": False, "error": "username is required"}), 400
+    if new_username.lower() == "anonymous":
+        return jsonify({"success": False, "error": "Cannot assign to 'anonymous'"}), 400
+
+    filepath = os.path.join(GOP_DIR, filename)
+    if not os.path.isfile(filepath):
+        return jsonify({"success": False, "error": "File not found"}), 404
+
+    try:
+        with open(filepath) as f:
+            d = json.load(f)
+
+        current = (d.get("username") or "anonymous")
+        if current.lower() != "anonymous":
+            return jsonify({
+                "success": False,
+                "error": f"Already assigned to {current} — cannot reassign"
+            }), 409
+
+        d["username"] = new_username
+        d["assigned"] = {
+            "by":       actor_username,
+            "at":       datetime.datetime.utcnow().isoformat() + "Z",
+        }
+        with open(filepath, "w") as f:
+            json.dump(d, f, indent=2)
+        return jsonify({"success": True, "username": new_username})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @gop_bp.route("/gop/delete/<path:filename>", methods=["DELETE"])
 def gop_delete(filename):
     ok, err = _check_password(request)
@@ -1664,6 +1729,8 @@ def _reeval_compliance(stored: dict, specs: dict) -> tuple:
         lo, hi = sp.get("lo", 0), sp.get("hi", float("inf"))
         plo = sp.get("pref_lo")
         phi = sp.get("pref_hi")
+        if plo is not None and plo < lo: lo = plo
+        if phi is not None and phi > hi: hi = phi
         if measured is None:
             return "UNKNOWN", "—", ""
         in_range = lo <= measured <= hi

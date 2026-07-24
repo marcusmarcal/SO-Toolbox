@@ -7,6 +7,30 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.38.0] - 2026-07-24
+
+### Added
+
+- Added support for assigning ownership of anonymous GOP Analyzer test results.
+- Added `POST /gop/assign-user/<filename>` endpoint for admins and engineers.
+- Added searchable floating user selector for anonymous test ownership assignment.
+- Added ownership assignment support from both the test detail view and history table.
+- Added assignment audit metadata (`assigned.by`, `assigned.at`) to result files.
+
+### Changed
+
+- Improved history user badge behaviour for anonymous results.
+- Improved specifications editor labels by clearly distinguishing:
+  - **Accept range** (hard validation limits)
+  - **Compliant within** (preferred compliance range)
+
+### Fixed
+
+- Fixed CODEC Level compliance evaluation incorrectly rejecting values that fell inside the configured preferred range but outside the hard range.
+- Updated `comply_range()` and `_reeval_compliance()` to automatically expand hard limits when preferred bounds exceed configured acceptance limits.
+- Prevented configuration mismatches where `pref_lo`/`pref_hi` could allow values that were still rejected by `lo`/`hi`.
+- Validated fix using the reported scenario (`lo=3`, `hi=4.2`, `pref_lo=4.1`, `pref_hi=5.1`, `measured=5.1`), which now evaluates as **COMPLIANT**.
+
 ## [2.37.0] - 2026-07-22
 
 ### Fixed
