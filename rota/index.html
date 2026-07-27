@@ -2848,7 +2848,7 @@
     _patchRotaCells(sel.map(c => ({ person: c.person, date: c.date })));
   }
 
-  async function _saveOverride(person, dateStr, shift, note, ovType) {
+  
     try {
       const r = await fetch(`${PROXY}/rota/draft/override`, {
         method: 'PUT', credentials: 'same-origin',
