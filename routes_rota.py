@@ -1108,6 +1108,188 @@ def rota_draft_publish():
         'shift_applied': shift_applied,
         'warnings':     warnings,
     })
+    
+# ════════════════════════════════════════════════════════════════════════════
+#  WEEKEND SWAP
+# ════════════════════════════════════════════════════════════════════════════
+
+# All 3 engineering patterns that can appear in a Fri–Mon coverage window.
+# Each entry: (before_sequence, after_sequence)
+# 10-cell window = Wed, Thu, Fri, Sat, Sun, Mon, Tue, Wed, Thu, Fri+7
+# Indices:         0    1    2    3    4    5    6    7    8    9
+
+_S = {  # shift aliases for readability
+    'A': '0900-1800',
+    'B': '1000-2000',
+    'O': 'OFF',
+}
+
+WEEKEND_SWAP_PATTERNS = [
+    # Pattern 1 — Case A: covering eng was OFF all Fri–Mon
+    (
+        ('B','B','O','O','O','O','A','A','A','A'),   # before
+        ('O','O','B','B','A','A','O','A','A','O'),   # after
+    ),
+    # Pattern 2 — Case B1: covering eng had Fri(A)+Mon(A), Sat+Sun OFF
+    (
+        ('A','A','A','O','O','A','B','O','O','B'),   # before
+        ('A','O','A','A','A','B','O','O','O','B'),   # after
+    ),
+    # Pattern 3 — Case B2: covering eng had Fri(B)+Mon(B), Sat+Sun OFF
+    (
+        ('O','A','B','O','O','B','B','B','B','O'),   # before
+        ('O','O','B','A','B','B','O','O','B','O'),   # after (Thu→Sat, Tue→Sun, Wed→Mon)
+    ),
+]
+
+# Expand alias tuples to real shift strings
+def _expand(seq):
+    return tuple(_S[c] for c in seq)
+
+WEEKEND_SWAP_PATTERNS = [
+    (_expand(b), _expand(a)) for b, a in WEEKEND_SWAP_PATTERNS
+]
+
+# Coverage note indices (0-based within the 10-cell window) = Fri, Sat, Sun, Mon = 2,3,4,5
+COVERAGE_NOTE_INDICES = {2, 3, 4, 5}
+
+
+def _infer_absent_engineer(fri_date: date, leave_map: dict) -> str | None:
+    """Find which engineer has AL on Sat+Sun of the given weekend."""
+    sat = fri_date + timedelta(days=1)
+    sun = fri_date + timedelta(days=2)
+    for name in ENGINEERING_OFFSETS:
+        sat_leave = leave_map.get((name, sat))
+        sun_leave = leave_map.get((name, sun))
+        if (sat_leave and sat_leave['status'] in AL_APPROVED_STATUSES | AL_PENDING_STATUSES
+                and sun_leave and sun_leave['status'] in AL_APPROVED_STATUSES | AL_PENDING_STATUSES):
+            return name
+    return None
+
+
+def _get_window_shifts(person: str, fri_date: date,
+                       leave_map: dict, override_map: dict) -> tuple:
+    """Return the 10-cell window (Wed–Fri+7) as a tuple of shift strings."""
+    wed = fri_date - timedelta(days=2)
+    return tuple(
+        _resolve_shift(person, wed + timedelta(days=i), leave_map, override_map)
+        for i in range(10)
+    )
+
+
+def _match_weekend_pattern(window: tuple):
+    """Return (pattern_idx, direction) where direction is 'swap' or 'revert',
+    or None if no pattern matches."""
+    for idx, (before, after) in enumerate(WEEKEND_SWAP_PATTERNS):
+        if window == before:
+            return idx, 'swap'
+        if window == after:
+            return idx, 'revert'
+    return None
+
+
+@rota_bp.route('/rota/draft/weekend-swap', methods=['PUT'])
+@require_auth
+def rota_draft_weekend_swap():
+    """Apply or revert a weekend coverage swap for one engineering member.
+    Requires draft lock. Expects {person, fri_date} in body."""
+    err = _require_management()
+    if err: return err
+    err = _require_draft_lock_held_by_me()
+    if err: return err
+
+    session = request.session
+    data    = request.get_json(silent=True) or {}
+    person  = data.get('person', '').strip()
+    fri_s   = data.get('fri_date', '').strip()
+
+    if not person or not fri_s:
+        return jsonify({'ok': False, 'error': 'person and fri_date required'}), 400
+    if person not in ENGINEERING_OFFSETS:
+        return jsonify({'ok': False, 'error': f'{person} is not an engineer'}), 400
+    try:
+        fri_date = date.fromisoformat(fri_s)
+    except ValueError:
+        return jsonify({'ok': False, 'error': 'Invalid date format'}), 400
+    if fri_date.weekday() != 4:  # 4 = Friday
+        return jsonify({'ok': False, 'error': 'fri_date must be a Friday'}), 400
+
+    # Load all state
+    overrides = _load_draft_overrides()
+    leave_list = _load_json(LEAVE_FILE)
+    if not isinstance(leave_list, list):
+        leave_list = []
+    published_overrides = _load_json(PUBLISHED_OVERRIDES_FILE)
+    if not isinstance(published_overrides, list):
+        published_overrides = []
+
+    leave_map     = _build_leave_map(leave_list)
+    published_map = _build_override_map(published_overrides)
+    draft_map     = _build_override_map(overrides)
+    combined_map  = {**published_map, **draft_map}
+
+    # Read current 10-cell window
+    window = _get_window_shifts(person, fri_date, leave_map, combined_map)
+    match  = _match_weekend_pattern(window)
+
+    if match is None:
+        return jsonify({
+            'ok':    False,
+            'error': 'No matching weekend swap pattern found for this window.',
+            'window': list(window),
+        }), 400
+
+    pattern_idx, direction = match
+    before_seq, after_seq  = WEEKEND_SWAP_PATTERNS[pattern_idx]
+    target_seq = after_seq if direction == 'swap' else before_seq
+
+    # Infer absent engineer for note
+    absent = _infer_absent_engineer(fri_date, leave_map)
+    if absent:
+        note_text = f'Covering for {absent} weekend absence'
+    else:
+        note_text = 'Covering weekend absence'
+
+    # Apply the 10 overrides
+    wed = fri_date - timedelta(days=2)
+    now = _now_iso()
+
+    for i, new_shift in enumerate(target_seq):
+        cell_date = wed + timedelta(days=i)
+        date_s    = cell_date.isoformat()
+        # Note only on Fri–Mon (indices 2–5) when swapping, not reverting
+        cell_note = (note_text
+                     if direction == 'swap' and i in COVERAGE_NOTE_INDICES
+                     else None)
+
+        # Remove any existing draft override for this cell
+        overrides = [o for o in overrides
+                     if not (o['person'] == person and o['date'] == date_s)]
+
+        previous_shift = _resolve_shift(person, cell_date, leave_map, published_map)
+
+        overrides.append({
+            'id':             str(uuid.uuid4())[:8],
+            'person':         person,
+            'date':           date_s,
+            'shift':          new_shift,
+            'previous_shift': previous_shift,
+            'note':           cell_note,
+            'type':           'weekend_swap',
+            'created_by':     session['username'],
+            'created_at':     now,
+        })
+
+    _save_draft_overrides(overrides)
+    return jsonify({
+        'ok':        True,
+        'direction': direction,
+        'pattern':   pattern_idx,
+        'absent':    absent,
+        'overrides': overrides,
+        'window_before': list(window),
+        'window_after':  list(target_seq),
+    })
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -1478,7 +1660,7 @@ def rota_hours_export():
 
     # ── Header row (row 1) ────────────────────────────────────────────────
     headers = [
-        'Employee ID', 'MCR',
+        'Employee ID', 'Employee',
         'Horas Noturnas\nNight hours (10pm-7 am)',
         'Feriado Diurnas\n| Public Holidays',
         'Feriado Noturnas\n| Night Holiday',

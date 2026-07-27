@@ -830,6 +830,7 @@
     <div class="popover-actions">
       <button class="btn danger" id="popover-revert" style="margin-right:auto;display:none;">↩ Revert to Original</button>
       <button class="btn danger" id="popover-delete-note" style="margin-right:auto;display:none;">🗑 Delete Note</button>
+      <button class="btn warn"   id="popover-weekend-swap" style="display:none;">⇄ Weekend Swap</button>
       <button class="btn" id="popover-cancel">Cancel</button>
       <button class="btn primary" id="popover-apply">Apply</button>
     </div>
@@ -2555,6 +2556,82 @@
           ? (state.draft.overrides.find(o => o.person === first.person && o.date === first.date)?.note || _currentNoteOf(first))
           : '');
 
+    document.getElementById('popover-note').oninput = _validateApply;
+    document.getElementById('popover-delete-note').onclick = async () => {
+
+    // ── Weekend Swap button ───────────────────────────────────────────────
+    const wswapBtn = document.getElementById('popover-weekend-swap');
+    wswapBtn.style.display = 'none';
+    wswapBtn.disabled = true;
+    wswapBtn.onclick = null;
+
+    const isValidWeekendSwap = (() => {
+      if (!state.draft.active) return false;
+      if (sel.length !== 4) return false;
+      const person = sel[0].person;
+      if (!ENG_NAMES.includes(person)) return false;
+      if (!sel.every(c => c.person === person)) return false;
+      const dates = sel.map(c => new Date(c.date + 'T00:00:00')).sort((a,b) => a-b);
+      for (let i = 1; i < dates.length; i++) {
+        if ((dates[i] - dates[i-1]) !== 86400000) return false;
+      }
+      return dates[0].getDay() === 5;
+    })();
+
+    if (isValidWeekendSwap) {
+      wswapBtn.style.display = '';
+      wswapBtn.disabled = false;
+      wswapBtn.onclick = async () => {
+        const person  = sel[0].person;
+        const friDate = sel.map(c => c.date).sort()[0];
+        wswapBtn.disabled = true;
+        wswapBtn.textContent = '…';
+
+        const r = await fetch(`${PROXY}/rota/draft/weekend-swap`, {
+          method: 'PUT', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ person, fri_date: friDate }),
+        });
+        const d = await r.json();
+        wswapBtn.disabled = false;
+        wswapBtn.textContent = '⇄ Weekend Swap';
+
+        if (!d.ok) {
+          toast(d.error || 'No matching pattern', 'err');
+          return;
+        }
+
+        state.draft.overrides = d.overrides;
+
+        // Update rotaData for all 10 window cells and patch DOM
+        const wed = new Date(friDate + 'T00:00:00');
+        wed.setDate(wed.getDate() - 2);
+        const patchCells = [];
+        d.window_after.forEach((shift, i) => {
+          const cellDate = new Date(wed);
+          cellDate.setDate(wed.getDate() + i);
+          const dateStr = cellDate.toISOString().split('T')[0];
+          const day = state.rotaData && state.rotaData.find(dd => dd.date === dateStr);
+          if (day && day.shifts[person]) {
+            day.shifts[person].shift = shift;
+            const ov = d.overrides.find(o => o.person === person && o.date === dateStr);
+            if (ov) day.shifts[person].note = ov.note || '';
+          }
+          patchCells.push({ person, date: dateStr });
+        });
+
+        closeShiftPopover();
+        _clearSelection();
+        _patchRotaCells(patchCells);
+
+        const label = d.direction === 'swap' ? 'Weekend swap applied' : 'Weekend swap reverted';
+        toast(label + (d.absent ? ` — covering for ${d.absent}` : ''), 'ok');
+        if (d.direction === 'swap') {
+          setTimeout(() => toast('To revert: select same Fri–Mon cells → ⇄ Weekend Swap', 'ok'), 3500);
+        }
+      };
+    }
+    
     document.getElementById('popover-note').oninput = _validateApply;
     document.getElementById('popover-delete-note').onclick = async () => {
       const confirmed = await uiConfirm('Delete Note', 'Remove this note?', 'Delete', 'reject');
