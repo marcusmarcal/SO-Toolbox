@@ -2557,7 +2557,6 @@
           : '');
 
     document.getElementById('popover-note').oninput = _validateApply;
-    document.getElementById('popover-delete-note').onclick = async () => {
 
     // ── Weekend Swap button ───────────────────────────────────────────────
     const wswapBtn = document.getElementById('popover-weekend-swap');
@@ -2571,9 +2570,9 @@
       const person = sel[0].person;
       if (!ENG_NAMES.includes(person)) return false;
       if (!sel.every(c => c.person === person)) return false;
-      const dates = sel.map(c => new Date(c.date + 'T00:00:00')).sort((a,b) => a-b);
+      const dates = sel.map(c => new Date(c.date + 'T00:00:00')).sort((a, b) => a - b);
       for (let i = 1; i < dates.length; i++) {
-        if ((dates[i] - dates[i-1]) !== 86400000) return false;
+        if ((dates[i] - dates[i - 1]) !== 86400000) return false;
       }
       return dates[0].getDay() === 5;
     })();
@@ -2631,8 +2630,7 @@
         }
       };
     }
-    
-    document.getElementById('popover-note').oninput = _validateApply;
+
     document.getElementById('popover-delete-note').onclick = async () => {
       const confirmed = await uiConfirm('Delete Note', 'Remove this note?', 'Delete', 'reject');
       if (!confirmed) return;
