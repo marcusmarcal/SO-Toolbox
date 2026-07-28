@@ -2564,7 +2564,6 @@
           : '');
 
     document.getElementById('popover-note').oninput = _validateApply;
-    document.getElementById('popover-delete-note').onclick = async () => {
 
     // ── Weekend Swap toggle ───────────────────────────────────────────────
     const wswapSection = document.getElementById('popover-weekend-swap-section');
@@ -2660,7 +2659,6 @@
       }
     }
 
-    document.getElementById('popover-note').oninput = _validateApply;
     document.getElementById('popover-delete-note').onclick = async () => {
       const confirmed = await uiConfirm('Delete Note', 'Remove this note?', 'Delete', 'reject');
       if (!confirmed) return;
