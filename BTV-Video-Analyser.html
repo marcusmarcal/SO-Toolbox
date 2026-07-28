@@ -1460,10 +1460,7 @@
               <span id="meta-port" style="color: var(--muted)"></span>
               <span id="meta-tags" style="color: var(--yellow)"></span>
               <span id="meta-user" style="color: var(--green)"></span>
-              <span
-                id="meta-workflow"
-                style="font-family: var(--mono); font-size: 0.68rem"
-              ></span>
+              <span id="meta-workflow" style="font-family:var(--mono);font-size:.68rem"></span>
               <span id="meta-ts-download" style="margin-left: auto"></span>
             </div>
 
@@ -1791,11 +1788,7 @@
               oninput="loadHistoryDebounced(true)"
             />
             <datalist id="hist-tag-list"></datalist>
-            <select
-              class="f-server"
-              id="hist-server"
-              onchange="loadHistory(true)"
-            >
+            <select class="f-server" id="hist-server" onchange="loadHistory(true)">
               <option value="">All servers</option>
             </select>
             <input
@@ -1850,32 +1843,11 @@
             flex-shrink: 0;
           "
         >
-          <div
-            class="modal-title"
-            style="
-              color: var(--purple);
-              margin: 0;
-              display: flex;
-              align-items: center;
-              gap: 0.6rem;
-            "
-          >
+          <div class="modal-title" style="color: var(--purple); margin: 0; display:flex; align-items:center; gap:.6rem">
             ⚙ Compliance Specs Editor —
-            <select
-              id="specs-workflow-select"
-              onchange="onSpecsWorkflowChange()"
-              style="
-                background: var(--bg3);
-                border: 1px solid var(--border);
-                border-radius: 5px;
-                color: var(--purple);
-                font-family: var(--mono);
-                font-size: 0.8rem;
-                padding: 2px 8px;
-                outline: none;
-                cursor: pointer;
-              "
-            ></select>
+            <select id="specs-workflow-select" onchange="onSpecsWorkflowChange()"
+              style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--purple);font-family:var(--mono);font-size:.8rem;padding:2px 8px;outline:none;cursor:pointer">
+            </select>
           </div>
           <div style="display: flex; gap: 0.5rem">
             <button
@@ -1963,26 +1935,9 @@
           >
             ★ Set as API default
           </button>
-          <span
-            id="specs-no-perm"
-            style="
-              font-family: var(--mono);
-              font-size: 0.68rem;
-              color: var(--muted);
-              display: none;
-            "
-            >View only — requires admin or engineer role to edit</span
-          >
+          <span id="specs-no-perm" style="font-family:var(--mono);font-size:.68rem;color:var(--muted);display:none">View only — requires admin or engineer role to edit</span>
           <div class="modal-err" id="specs-err"></div>
-          <span
-            id="specs-saved-by"
-            style="
-              font-family: var(--mono);
-              font-size: 0.62rem;
-              color: var(--muted);
-              margin-left: auto;
-            "
-          ></span>
+          <span id="specs-saved-by" style="font-family:var(--mono);font-size:.62rem;color:var(--muted);margin-left:auto"></span>
         </div>
       </div>
     </div>
@@ -2222,10 +2177,13 @@
     <div class="modal-overlay" id="live-probe-modal">
       <div class="modal-card wide">
         <div class="modal-title" style="color: var(--green)">
-          📡 Live IAT / MLR Probe - TEST ONLY!
+          📡 Live IAT / MLR Probe
         </div>
         <div class="modal-body" style="margin-bottom: 0.6rem">
-          <span class="live-probe-dot" id="live-probe-dot"></span
+          <span
+            class="live-probe-dot"
+            id="live-probe-dot"
+          ></span
           ><span id="live-probe-host" style="color: #fff"></span>
           <span
             id="live-probe-state"
@@ -2257,12 +2215,7 @@
 
         <div
           id="live-probe-start-row"
-          style="
-            margin-top: 1rem;
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-          "
+          style="margin-top: 1rem; display: flex; gap: 0.5rem; align-items: center"
         >
           <input
             class="modal-pw"
@@ -2618,120 +2571,41 @@
 
     <!-- Re-evaluate with another workflow modal -->
     <div class="modal-overlay" id="reeval-modal">
-      <div class="modal-card" style="width: 480px">
-        <div class="modal-title" style="color: var(--cyan)">
-          🔄 Re-evaluate with Different Workflow
+      <div class="modal-card" style="width:480px">
+        <div class="modal-title" style="color:var(--cyan)">🔄 Re-evaluate with Different Workflow</div>
+        <div class="modal-body" style="margin-bottom:.6rem">
+          Re-apply compliance rules from another workflow to the stored probe data of this result.
+          The original result is <strong>not modified</strong>. A new read-only report is shown.
         </div>
-        <div class="modal-body" style="margin-bottom: 0.6rem">
-          Re-apply compliance rules from another workflow to the stored probe
-          data of this result. The original result is
-          <strong>not modified</strong>. A new read-only report is shown.
-        </div>
-        <div style="margin-bottom: 0.8rem">
-          <label
-            style="
-              font-family: var(--mono);
-              font-size: 0.65rem;
-              font-weight: 700;
-              letter-spacing: 0.08em;
-              text-transform: uppercase;
-              color: var(--muted);
-              display: block;
-              margin-bottom: 0.35rem;
-            "
-            >Target Workflow</label
-          >
-          <select
-            id="reeval-workflow"
-            style="
-              width: 100%;
-              background: var(--bg3);
-              border: 1px solid var(--border);
-              border-radius: 5px;
-              color: #fff;
-              font-family: var(--mono);
-              font-size: 0.82rem;
-              padding: 0.45rem 0.65rem;
-              outline: none;
-            "
-          ></select>
+        <div style="margin-bottom:.8rem">
+          <label style="font-family:var(--mono);font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:.35rem">Target Workflow</label>
+          <select id="reeval-workflow" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:#fff;font-family:var(--mono);font-size:.82rem;padding:.45rem .65rem;outline:none">
+          </select>
         </div>
         <div class="modal-actions">
-          <button
-            class="btn-danger"
-            style="background: var(--cyan); color: #000"
-            onclick="confirmReeval()"
-          >
-            Re-evaluate
-          </button>
-          <button class="btn-cancel" onclick="closeReevalModal()">
-            Cancel
-          </button>
-          <div
-            class="modal-err"
-            id="reeval-err"
-            style="color: var(--red)"
-          ></div>
+          <button class="btn-danger" style="background:var(--cyan);color:#000" onclick="confirmReeval()">Re-evaluate</button>
+          <button class="btn-cancel" onclick="closeReevalModal()">Cancel</button>
+          <div class="modal-err" id="reeval-err" style="color:var(--red)"></div>
         </div>
       </div>
     </div>
 
     <!-- Change workflow of historical entry modal -->
     <div class="modal-overlay" id="change-wf-modal">
-      <div class="modal-card" style="width: 480px">
-        <div class="modal-title" style="color: var(--yellow)">
-          🔀 Change Workflow of Historical Entry
+      <div class="modal-card" style="width:480px">
+        <div class="modal-title" style="color:var(--yellow)">🔀 Change Workflow of Historical Entry</div>
+        <div class="modal-body" style="margin-bottom:.6rem">
+          Permanently re-assigns the workflow of the stored result and re-runs compliance checks against the new workflow's specs. The change is logged.
         </div>
-        <div class="modal-body" style="margin-bottom: 0.6rem">
-          Permanently re-assigns the workflow of the stored result and re-runs
-          compliance checks against the new workflow's specs. The change is
-          logged.
-        </div>
-        <div style="margin-bottom: 0.8rem">
-          <label
-            style="
-              font-family: var(--mono);
-              font-size: 0.65rem;
-              font-weight: 700;
-              letter-spacing: 0.08em;
-              text-transform: uppercase;
-              color: var(--muted);
-              display: block;
-              margin-bottom: 0.35rem;
-            "
-            >New Workflow</label
-          >
-          <select
-            id="change-wf-select"
-            style="
-              width: 100%;
-              background: var(--bg3);
-              border: 1px solid var(--border);
-              border-radius: 5px;
-              color: #fff;
-              font-family: var(--mono);
-              font-size: 0.82rem;
-              padding: 0.45rem 0.65rem;
-              outline: none;
-            "
-          ></select>
+        <div style="margin-bottom:.8rem">
+          <label style="font-family:var(--mono);font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:.35rem">New Workflow</label>
+          <select id="change-wf-select" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:#fff;font-family:var(--mono);font-size:.82rem;padding:.45rem .65rem;outline:none">
+          </select>
         </div>
         <div class="modal-actions">
-          <button
-            class="btn-danger"
-            style="background: var(--yellow); color: #000"
-            onclick="confirmChangeWorkflow()"
-          >
-            Change Workflow
-          </button>
-          <button class="btn-cancel" onclick="closeChangeWfModal()">
-            Cancel
-          </button>
-          <div
-            class="modal-err"
-            id="change-wf-err"
-            style="color: var(--red)"
-          ></div>
+          <button class="btn-danger" style="background:var(--yellow);color:#000" onclick="confirmChangeWorkflow()">Change Workflow</button>
+          <button class="btn-cancel" onclick="closeChangeWfModal()">Cancel</button>
+          <div class="modal-err" id="change-wf-err" style="color:var(--red)"></div>
         </div>
       </div>
     </div>
@@ -3059,7 +2933,7 @@
         _wireAssignUserTrigger(metaUserEl, r.username, r.res_file);
         const wfLabel = r.reeval_label
           ? `⇄ ${r.reeval_label}`
-          : WORKFLOW_LABELS[r.workflow] || r.workflow || "—";
+          : (WORKFLOW_LABELS[r.workflow] || r.workflow || "—");
         const wfEl = document.getElementById("meta-workflow");
         wfEl.textContent = "📋 " + wfLabel;
         wfEl.style.color = r.reeval_label ? "var(--cyan)" : "var(--purple)";
@@ -3271,9 +3145,7 @@
         }
         if (s.values) {
           const vals = s.values.join(", ");
-          return s.preferred !== undefined
-            ? `${vals} (pref. ${s.preferred})`
-            : vals;
+          return s.preferred !== undefined ? `${vals} (pref. ${s.preferred})` : vals;
         }
         if (s.required !== undefined) {
           return typeof s.required === "string" ? s.required : "Required";
@@ -3295,10 +3167,7 @@
         const liveSpecs = r.specs || {};
         const spec = {};
         for (const key of Object.keys(liveSpecs)) {
-          spec[key] = [
-            liveSpecs[key].label || key,
-            formatSpecText(liveSpecs[key]),
-          ];
+          spec[key] = [liveSpecs[key].label || key, formatSpecText(liveSpecs[key])];
         }
 
         const sections = {
@@ -3334,7 +3203,7 @@
             "a_bits",
             "a_br_kbps",
           ],
-          TIMING: ["mediainfo_delay"],
+          "TIMING": ["mediainfo_delay"],
         };
 
         let html = "";
@@ -3440,7 +3309,9 @@
           const date = (
             document.getElementById("hist-date").value || ""
           ).trim();
-          const tag = (document.getElementById("hist-tag").value || "").trim();
+          const tag = (
+            document.getElementById("hist-tag").value || ""
+          ).trim();
           const server = (
             document.getElementById("hist-server").value || ""
           ).trim();
@@ -3470,11 +3341,7 @@
             .map((t) => `<option value="${t}">`)
             .join("");
 
-          renderHistPagination(
-            data.page || 1,
-            data.total_pages || 1,
-            data.total || 0
-          );
+          renderHistPagination(data.page || 1, data.total_pages || 1, data.total || 0);
 
           if (!filtered.length) {
             list.innerHTML = '<div class="hist-empty">No analyses found</div>';
@@ -3548,21 +3415,8 @@
                 /"/g,
                 "&quot;"
               )})" style="background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:${HIST_BTN_SIZE};cursor:pointer;padding:0" title="Edit tags" onmouseover="this.style.color='var(--purple)'" onmouseout="this.style.color='var(--muted)'">✎</button>`;
-              const reevalBtn = !isFailed
-                ? `<button onclick="event.stopPropagation();openReevalModal('${item.file}')" style="background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:${HIST_BTN_SIZE};cursor:pointer;padding:0" title="Re-evaluate with different workflow" onmouseover="this.style.color='var(--cyan)'" onmouseout="this.style.color='var(--muted)'">⇄</button>`
-                : "";
-              const changeWfBtn =
-                !isFailed && ["admin", "engineer"].includes(_currentUserRole)
-                  ? `<button onclick="event.stopPropagation();openChangeWfModal('${
-                      item.file
-                    }','${(item.workflow || "").replace(
-                      /'/g,
-                      "\\'"
-                    )}',${JSON.stringify(item.tag || "").replace(
-                      /"/g,
-                      "&quot;"
-                    )})" style="background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:${HIST_BTN_SIZE};cursor:pointer;padding:0" title="Change workflow (admin/engineer only)" onmouseover="this.style.color='var(--yellow)'" onmouseout="this.style.color='var(--muted)'">🔀</button>`
-                  : "";
+              const reevalBtn = !isFailed ? `<button onclick="event.stopPropagation();openReevalModal('${item.file}')" style="background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:${HIST_BTN_SIZE};cursor:pointer;padding:0" title="Re-evaluate with different workflow" onmouseover="this.style.color='var(--cyan)'" onmouseout="this.style.color='var(--muted)'">⇄</button>` : "";
+              const changeWfBtn = (!isFailed && ["admin","engineer"].includes(_currentUserRole)) ? `<button onclick="event.stopPropagation();openChangeWfModal('${item.file}','${(item.workflow||'').replace(/'/g,"\\'")}',${JSON.stringify(item.tag||'').replace(/"/g,'&quot;')})" style="background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:${HIST_BTN_SIZE};cursor:pointer;padding:0" title="Change workflow (admin/engineer only)" onmouseover="this.style.color='var(--yellow)'" onmouseout="this.style.color='var(--muted)'">🔀</button>` : "";
               const errorHint =
                 isFailed && item.error
                   ? `<div style="font-family:var(--mono);font-size:.62rem;color:var(--red);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.error}</div>`
@@ -3621,13 +3475,13 @@
             ${tagBadges}
             ${tsLink}
             <span ${
-              (item.username || "anonymous").toLowerCase() === "anonymous" &&
-              ["admin", "engineer"].includes(_currentUserRole)
-                ? `onclick="event.stopPropagation();openAssignUserDropdown(event,'${item.file}')" style="font-family:var(--mono);font-size:${HIST_BTN_SIZE};color:var(--muted);opacity:.7;cursor:pointer;text-decoration:underline dotted"`
-                : `style="font-family:var(--mono);font-size:${HIST_BTN_SIZE};color:var(--muted);opacity:.7"`
-            } title="Tested by ${item.username || "anonymous"}">👤 ${
-                (item.username || "anonymous").split("@")[0]
-              }</span>
+                (item.username || "anonymous").toLowerCase() === "anonymous" &&
+                ["admin", "engineer"].includes(_currentUserRole)
+                  ? `onclick="event.stopPropagation();openAssignUserDropdown(event,'${item.file}')" style="font-family:var(--mono);font-size:${HIST_BTN_SIZE};color:var(--muted);opacity:.7;cursor:pointer;text-decoration:underline dotted"`
+                  : `style="font-family:var(--mono);font-size:${HIST_BTN_SIZE};color:var(--muted);opacity:.7"`
+              } title="Tested by ${
+                item.username || "anonymous"
+              }">👤 ${(item.username || "anonymous").split("@")[0]}</span>
             ${rerunBtn}
             ${editTagBtn}
             ${reevalBtn}
@@ -3674,9 +3528,7 @@
 
         // Windowed page list: first, last, current ±1, with ellipses
         const pages = new Set([1, totalPages, page - 1, page, page + 1]);
-        const sorted = [...pages]
-          .filter((p) => p >= 1 && p <= totalPages)
-          .sort((a, b) => a - b);
+        const sorted = [...pages].filter((p) => p >= 1 && p <= totalPages).sort((a, b) => a - b);
 
         let html = `<span class="hist-page-info">${total} result${
           total === 1 ? "" : "s"
@@ -3684,8 +3536,7 @@
         html += btn("‹", page - 1, { disabled: page <= 1 });
         let prev = 0;
         for (const p of sorted) {
-          if (prev && p - prev > 1)
-            html += `<span class="hist-page-ellipsis">…</span>`;
+          if (prev && p - prev > 1) html += `<span class="hist-page-ellipsis">…</span>`;
           html += btn(String(p), p, { active: p === page });
           prev = p;
         }
@@ -3938,9 +3789,7 @@
       function openIngestReport() {
         if (!_currentResult || !_currentResult.ingest_dir) return;
         window.open(
-          `${PROXY}/ingest/report/${encodeURIComponent(
-            _currentResult.ingest_dir
-          )}`,
+          `${PROXY}/ingest/report/${encodeURIComponent(_currentResult.ingest_dir)}`,
           "_blank"
         );
       }
@@ -3950,6 +3799,8 @@
       let _liveProbeSessionId = null;
       let _liveProbeSamples = []; // rolling buffer of {t, iat_avg_ms, iat_max_ms, mlr}
       const LIVE_PROBE_MAX_SAMPLES = 300; // 5 min @ 1 sample/sec
+      const LIVE_PROBE_IAT_WARN_MS = 130; // orange warning threshold
+      const LIVE_PROBE_IAT_CRIT_MS = 150; // red critical threshold
 
       // Host/port/tag currently loaded into the modal — set by whichever
       // entry point opened it (a saved test result, or the SRT form fields).
@@ -3988,9 +3839,8 @@
         _liveProbePort = port;
         _liveProbeTag = tag || "";
 
-        document.getElementById("live-probe-host").textContent = `${host}:${
-          port || ""
-        }`;
+        document.getElementById("live-probe-host").textContent =
+          `${host}:${port || ""}`;
         document.getElementById("live-probe-err").textContent = "";
         document.getElementById("live-probe-start-row").style.display = "flex";
         document.getElementById("live-probe-stop-btn").style.display = "none";
@@ -3999,6 +3849,13 @@
         _drawLiveProbeChart();
 
         document.getElementById("live-probe-pass").value = passphrase || "";
+        ["live-probe-iat-avg", "live-probe-iat-max", "live-probe-mlr"].forEach(
+          (id) => {
+            const el = document.getElementById(id);
+            el.textContent = "—";
+            el.style.color = "";
+          }
+        );
 
         document.getElementById("live-probe-modal").classList.add("open");
       }
@@ -4028,9 +3885,7 @@
         const errEl = document.getElementById("live-probe-err");
         errEl.textContent = "";
 
-        const passphrase = document
-          .getElementById("live-probe-pass")
-          .value.trim();
+        const passphrase = document.getElementById("live-probe-pass").value.trim();
 
         try {
           const res = await fetch(`${PROXY}/live-probe/start`, {
@@ -4048,8 +3903,7 @@
 
           _liveProbeSessionId = data.session_id;
           _liveProbeSamples = [];
-          document.getElementById("live-probe-start-row").style.display =
-            "none";
+          document.getElementById("live-probe-start-row").style.display = "none";
           document.getElementById("live-probe-stop-btn").style.display = "";
           _setLiveProbeState("connecting");
 
@@ -4070,16 +3924,28 @@
               _setLiveProbeState("unreachable");
             } else if (msg.type === "sample") {
               _setLiveProbeState("running");
-              document.getElementById(
-                "live-probe-iat-avg"
-              ).textContent = `${msg.iat_avg_ms} ms`;
-              document.getElementById(
-                "live-probe-iat-max"
-              ).textContent = `${msg.iat_max_ms} ms`;
-              document.getElementById("live-probe-mlr").textContent = msg.mlr;
-              document.getElementById(
-                "live-probe-bitrate"
-              ).textContent = `${msg.bitrate_kbps} kbps`;
+
+              const iatAvgEl = document.getElementById("live-probe-iat-avg");
+              const iatMaxEl = document.getElementById("live-probe-iat-max");
+              const mlrEl = document.getElementById("live-probe-mlr");
+
+              if (msg.iat_avg_ms == null) {
+                iatAvgEl.textContent = "…";
+                iatMaxEl.textContent = "…";
+                iatAvgEl.style.color = "";
+                iatMaxEl.style.color = "";
+              } else {
+                iatAvgEl.textContent = `${msg.iat_avg_ms} ms`;
+                iatMaxEl.textContent = `${msg.iat_max_ms} ms`;
+                iatAvgEl.style.color = _liveProbeIatColor(msg.iat_avg_ms);
+                iatMaxEl.style.color = _liveProbeIatColor(msg.iat_max_ms);
+              }
+
+              mlrEl.textContent = msg.mlr;
+              mlrEl.style.color = msg.mlr > 0 ? "var(--red)" : "var(--green)";
+
+              document.getElementById("live-probe-bitrate").textContent =
+                `${msg.bitrate_kbps} kbps`;
 
               _liveProbeSamples.push(msg);
               if (_liveProbeSamples.length > LIVE_PROBE_MAX_SAMPLES)
@@ -4128,6 +3994,12 @@
         }
       });
 
+      function _liveProbeIatColor(ms) {
+        if (ms >= LIVE_PROBE_IAT_CRIT_MS) return "var(--red)";
+        if (ms >= LIVE_PROBE_IAT_WARN_MS) return "#fff";
+        return "var(--green)";
+      }
+
       function _drawLiveProbeChart() {
         const canvas = document.getElementById("live-probe-canvas");
         if (!canvas) return;
@@ -4138,27 +4010,53 @@
 
         if (_liveProbeSamples.length < 2) return;
 
-        const maxIat = Math.max(
-          100,
-          ..._liveProbeSamples.map((s) => s.iat_max_ms)
+        // Fixed-ish scale: always show some headroom above the critical
+        // line so 130/150 stay meaningful references, but stretch further
+        // if a real spike exceeds it.
+        const highestSeen = Math.max(
+          0,
+          ...(_liveProbeSamples
+            .map((s) => s.iat_max_ms)
+            .filter((v) => v != null))
         );
-        const n = _liveProbeSamples.length;
+        const maxIat = Math.max(LIVE_PROBE_IAT_CRIT_MS * 1.2, highestSeen * 1.1);
         const barW = w / LIVE_PROBE_MAX_SAMPLES;
 
-        // IAT area (green), spikes over 3x avg baseline drawn in orange
         _liveProbeSamples.forEach((s, i) => {
+          if (s.iat_max_ms == null) return; // PCR_PID not discovered yet this sample
           const x = i * barW;
           const barH = Math.min(h, (s.iat_avg_ms / maxIat) * h);
           const spikeH = Math.min(h, (s.iat_max_ms / maxIat) * h);
-          const isSpike = s.mlr > 0 || s.iat_max_ms > s.iat_avg_ms * 3 + 20;
 
-          ctx.fillStyle = isSpike
-            ? "rgba(250,165,26,0.85)"
-            : "rgba(63,185,80,0.75)";
+          let color;
+          if (s.mlr > 0 || s.iat_max_ms >= LIVE_PROBE_IAT_CRIT_MS) {
+            color = "rgba(248,81,73,0.85)"; // red — loss or critical IAT
+          } else if (s.iat_max_ms >= LIVE_PROBE_IAT_WARN_MS) {
+            color = "rgba(250,165,26,0.85)"; // orange — warning IAT
+          } else {
+            color = "rgba(63,185,80,0.75)"; // green — healthy
+          }
+
+          ctx.fillStyle = color;
           ctx.fillRect(x, h - spikeH, Math.max(1, barW - 1), spikeH);
         });
 
-        // Zero-loss baseline
+        // Reference lines at warning (130ms) and critical (150ms)
+        const drawRefLine = (ms, color) => {
+          const y = h - (ms / maxIat) * h;
+          if (y < 0 || y > h) return;
+          ctx.strokeStyle = color;
+          ctx.setLineDash([4, 3]);
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(w, y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        };
+        drawRefLine(LIVE_PROBE_IAT_WARN_MS, "rgba(250,165,26,0.6)");
+        drawRefLine(LIVE_PROBE_IAT_CRIT_MS, "rgba(248,81,73,0.6)");
+
+        // Baseline
         ctx.strokeStyle = "rgba(255,255,255,0.15)";
         ctx.beginPath();
         ctx.moveTo(0, h - 1);
@@ -4174,9 +4072,7 @@
       function _wireAssignUserTrigger(el, username, resFile) {
         const isAnon = (username || "anonymous").toLowerCase() === "anonymous";
         const canAssign =
-          isAnon &&
-          ["admin", "engineer"].includes(_currentUserRole) &&
-          !!resFile;
+          isAnon && ["admin", "engineer"].includes(_currentUserRole) && !!resFile;
         el.style.cursor = canAssign ? "pointer" : "";
         el.style.textDecoration = canAssign ? "underline dotted" : "";
         el.onclick = canAssign
@@ -4251,9 +4147,7 @@
               style="padding:6px 10px;cursor:pointer;font-size:.75rem;color:#fff;border-bottom:1px solid var(--border)"
               onmouseover="this.style.background='var(--bg3)'"
               onmouseout="this.style.background='transparent'"
-            >${
-              u.username
-            }<span style="color:var(--muted);font-size:.65rem;margin-left:6px">${
+            >${u.username}<span style="color:var(--muted);font-size:.65rem;margin-left:6px">${
               u.role || ""
             }</span></div>`
           )
@@ -4378,12 +4272,9 @@
               INFO: "rgba(88,166,255,.1)",
             }[status] || "rgba(255,255,255,.04)";
           const col =
-            {
-              COMPLIANT: "#3fb950",
-              ACCEPTED: "#e3b341",
-              REJECTED: "#f85149",
-              INFO: "#58a6ff",
-            }[status] || "#6e7681";
+            { COMPLIANT: "#3fb950", ACCEPTED: "#e3b341", REJECTED: "#f85149", INFO: "#58a6ff" }[
+              status
+            ] || "#6e7681";
           return `<span style="display:inline-block;background:${bg};color:${col};border:1px solid ${col};border-radius:3px;padding:1px 7px;font-size:.62rem;font-weight:700">${
             status || "—"
           }</span>`;
@@ -4393,9 +4284,7 @@
         const liveSpecsV = r.specs || {};
         const vrow = (label, spec, measured, key) => {
           const [s] = c[key] || ["—"];
-          const specText = liveSpecsV[key]
-            ? formatSpecText(liveSpecsV[key])
-            : spec;
+          const specText = liveSpecsV[key] ? formatSpecText(liveSpecsV[key]) : spec;
           return `<tr style="border-bottom:1px solid rgba(255,255,255,.05)">
       <td style="padding:.22rem .5rem;color:#8b949e;white-space:nowrap;font-size:.7rem">${label}</td>
       <td style="padding:.22rem .5rem;color:#6e7681;font-size:.64rem">${specText}</td>
@@ -4436,9 +4325,7 @@
         r.username || "anonymous"
       }</span></div>
       <div style="grid-column:1/-1"><span style="color:#6e7681">Workflow: </span><span style="color:#58a6ff">${
-        r.reeval_label
-          ? `⇄ ${r.reeval_label} (re-evaluated)`
-          : WORKFLOW_LABELS[r.workflow] || r.workflow || "—"
+        r.reeval_label ? `⇄ ${r.reeval_label} (re-evaluated)` : (WORKFLOW_LABELS[r.workflow] || r.workflow || "—")
       }</span></div>
     </div>
     <table style="width:100%;border-collapse:collapse">
@@ -4462,12 +4349,7 @@
           `${r.gop_avg || "—"} frames`,
           "gop_size"
         )}
-        ${vrow(
-          "GOP Type",
-          "CLOSED (preferred) / OPEN (accepted)",
-          r.gop_type || "—",
-          "gop_type"
-        )}
+        ${vrow("GOP Type", "CLOSED (preferred) / OPEN (accepted)", r.gop_type || "—", "gop_type")}
         ${vrow(
           "IDR Frames",
           "Required",
@@ -4488,12 +4370,7 @@
         )}
         ${vrow("Aspect Ratio", "16:9", r.v_dar || "—", "aspect_ratio")}
         ${vrow("Chroma", "4:2:0", r.v_chroma || "—", "chroma")}
-        ${vrow(
-          "Pixel Format",
-          "informational",
-          r.v_pix_fmt || "—",
-          "pixel_format"
-        )}
+        ${vrow("Pixel Format", "informational", r.v_pix_fmt || "—", "pixel_format")}
         ${vrow(
           "Colour Range",
           "limited",
@@ -4533,9 +4410,7 @@
               : ""
           }${(() => {
             const [fpsStatus, , fpsNote] = c.fps || [];
-            return fpsNote && fpsNote.includes("720")
-              ? " — accepted: 50p @ 720p"
-              : "";
+            return fpsNote && fpsNote.includes("720") ? " — accepted: 50p @ 720p" : "";
           })()}`,
           "fps"
         )}
@@ -4661,9 +4536,7 @@
         const sep = "─".repeat(W1 + W2 + W3 + W4 + 3);
         const tr = (el, spec, meas, key) => {
           const [s] = c[key] || ["—"];
-          const specText = liveSpecsV[key]
-            ? formatSpecText(liveSpecsV[key])
-            : spec;
+          const specText = liveSpecsV[key] ? formatSpecText(liveSpecsV[key]) : spec;
           return `${el.padEnd(W1)} ${specText.padEnd(W2)} ${String(
             meas || "—"
           ).padEnd(W3)} ${s}`;
@@ -4676,11 +4549,7 @@
           `Generated : ${now}`,
           `Test Date : ${testDate}`,
           `Tested by : ${r.username || "anonymous"}`,
-          `Workflow  : ${
-            r.reeval_label
-              ? `⇄ ${r.reeval_label} (re-evaluated)`
-              : WORKFLOW_LABELS[r.workflow] || r.workflow || "—"
-          }`,
+          `Workflow  : ${r.reeval_label ? `⇄ ${r.reeval_label} (re-evaluated)` : (WORKFLOW_LABELS[r.workflow] || r.workflow || "—")}`,
           `Server    : ${serverName}:${port}`,
           `URL       : ${r.url || "—"}`,
           `Tags      : ${tags}`,
@@ -4706,12 +4575,7 @@
             `${r.gop_avg || "—"} frames`,
             "gop_size"
           ),
-          tr(
-            "GOP Type",
-            "CLOSED preferred / OPEN accepted",
-            r.gop_type || "—",
-            "gop_type"
-          ),
+          tr("GOP Type", "CLOSED preferred / OPEN accepted", r.gop_type || "—", "gop_type"),
           tr("IDR Frames", "Required", r.has_idr ? "Present" : "ABSENT", "idr"),
           tr(
             "B-Frames",
@@ -4727,18 +4591,8 @@
           ),
           tr("Aspect Ratio", "16:9", r.v_dar || "—", "aspect_ratio"),
           tr("Chroma", "4:2:0", r.v_chroma || "—", "chroma"),
-          tr(
-            "Pixel Format",
-            "informational",
-            r.v_pix_fmt || "—",
-            "pixel_format"
-          ),
-          tr(
-            "Colour Range",
-            "limited",
-            r.v_full_range ? "full" : "limited",
-            "colour_range"
-          ),
+          tr("Pixel Format", "informational", r.v_pix_fmt || "—", "pixel_format"),
+          tr("Colour Range", "limited", r.v_full_range ? "full" : "limited", "colour_range"),
           tr("Scan Type", "prog/interlaced", r.v_scan || "—", "scan_type"),
           tr("Bit Depth", "8", String(r.v_bits || "—"), "bit_depth"),
           tr("Colour Gamut", "bt709", r.v_color_sp || "—", "colour_gamut"),
@@ -4767,9 +4621,7 @@
                 : ""
             }${(() => {
               const [, , fpsNote] = c.fps || [];
-              return fpsNote && fpsNote.includes("720")
-                ? " [accepted: 50p@720p]"
-                : "";
+              return fpsNote && fpsNote.includes("720") ? " [accepted: 50p@720p]" : "";
             })()}`,
             "fps"
           ),
@@ -5336,33 +5188,19 @@
         } catch {}
 
         const canEdit = ["admin", "engineer"].includes(_currentUserRole);
-        document.getElementById("btn-save-specs").style.display = canEdit
-          ? ""
-          : "none";
-        document.getElementById("btn-rename-wf").style.display = canEdit
-          ? ""
-          : "none";
-        document.getElementById("btn-set-default-wf").style.display = canEdit
-          ? ""
-          : "none";
-        document.getElementById("specs-no-perm").style.display = canEdit
-          ? "none"
-          : "";
+        document.getElementById("btn-save-specs").style.display = canEdit ? "" : "none";
+        document.getElementById("btn-rename-wf").style.display = canEdit ? "" : "none";
+        document.getElementById("btn-set-default-wf").style.display = canEdit ? "" : "none";
+        document.getElementById("specs-no-perm").style.display = canEdit ? "none" : "";
 
         // Populate the specs-modal's own workflow select
         const sel = document.getElementById("specs-workflow-select");
-        sel.innerHTML = Object.entries(WORKFLOW_LABELS)
-          .map(
-            ([k, v]) =>
-              `<option value="${k}"${
-                k === _apiDefaultWorkflow ? " data-default='1'" : ""
-              }>${v}${k === _apiDefaultWorkflow ? " ★" : ""}</option>`
-          )
-          .join("");
+        sel.innerHTML = Object.entries(WORKFLOW_LABELS).map(([k, v]) =>
+          `<option value="${k}"${k === _apiDefaultWorkflow ? " data-default='1'" : ""}>${v}${k === _apiDefaultWorkflow ? " ★" : ""}</option>`
+        ).join("");
         // Default to currently selected workflow in main UI, or API default
         const initialWf = getSelectedWorkflow();
-        if ([...sel.options].some((o) => o.value === initialWf))
-          sel.value = initialWf;
+        if ([...sel.options].some(o => o.value === initialWf)) sel.value = initialWf;
         else sel.value = _apiDefaultWorkflow;
 
         await _loadSpecsForModal();
@@ -5383,16 +5221,10 @@
 
         // Update Set as default button label
         const defBtn = document.getElementById("btn-set-default-wf");
-        if (defBtn)
-          defBtn.textContent =
-            workflow === _apiDefaultWorkflow
-              ? "★ API default"
-              : "★ Set as API default";
+        if (defBtn) defBtn.textContent = workflow === _apiDefaultWorkflow ? "★ API default" : "★ Set as API default";
 
         try {
-          const res = await fetch(
-            `${PROXY}/gop/specs?workflow=${encodeURIComponent(workflow)}`
-          );
+          const res = await fetch(`${PROXY}/gop/specs?workflow=${encodeURIComponent(workflow)}`);
           _currentSpecs = await res.json();
           renderSpecsEditor(_currentSpecs);
 
@@ -5405,9 +5237,8 @@
             savedByEl.textContent = "";
           }
         } catch (e) {
-          document.getElementById(
-            "specs-editor-body"
-          ).innerHTML = `<div style="color:var(--red);font-family:var(--mono);font-size:.72rem">Failed to load specs: ${e.message}</div>`;
+          document.getElementById("specs-editor-body").innerHTML =
+            `<div style="color:var(--red);font-family:var(--mono);font-size:.72rem">Failed to load specs: ${e.message}</div>`;
         }
       }
 
@@ -5417,11 +5248,7 @@
         errEl.textContent = "";
         try {
           const meRes = await fetch(`${PROXY}/me`);
-          if (meRes.ok) {
-            const me = await meRes.json();
-            _currentUserRole = me.role || null;
-            _currentUser = me.username || null;
-          }
+          if (meRes.ok) { const me = await meRes.json(); _currentUserRole = me.role || null; _currentUser = me.username || null; }
         } catch {}
         if (!["admin", "engineer"].includes(_currentUserRole)) {
           errEl.textContent = "❌ Requires admin or engineer role";
@@ -5440,21 +5267,14 @@
           await loadWorkflowLabels();
           // Refresh specs-modal select markers
           const sel = document.getElementById("specs-workflow-select");
-          Array.from(sel.options).forEach((o) => {
+          Array.from(sel.options).forEach(o => {
             const base = WORKFLOW_LABELS[o.value] || o.value;
-            o.textContent =
-              base + (o.value === _apiDefaultWorkflow ? " ★" : "");
+            o.textContent = base + (o.value === _apiDefaultWorkflow ? " ★" : "");
           });
-          document.getElementById("btn-set-default-wf").textContent =
-            "★ API default";
+          document.getElementById("btn-set-default-wf").textContent = "★ API default";
           errEl.style.color = "var(--green)";
-          errEl.textContent = `✓ ${
-            WORKFLOW_LABELS[workflow] || workflow
-          } is now the API default`;
-          setTimeout(() => {
-            errEl.textContent = "";
-            errEl.style.color = "";
-          }, 3000);
+          errEl.textContent = `✓ ${WORKFLOW_LABELS[workflow] || workflow} is now the API default`;
+          setTimeout(() => { errEl.textContent = ""; errEl.style.color = ""; }, 3000);
         } catch (e) {
           errEl.textContent = `Error: ${e.message}`;
         }
@@ -5497,7 +5317,7 @@
             "a_bits",
             "a_br_kbps",
           ],
-          TIMING: ["mediainfo_delay"],
+          "TIMING": ["mediainfo_delay"],
         };
 
         let html = `<table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.72rem">
@@ -5537,26 +5357,16 @@
               const valStr = Array.isArray(s.values)
                 ? s.values.join(", ")
                 : s.values || "";
-              const noteHtml =
-                key === "colour_range"
-                  ? `<div style="color:var(--muted);font-size:.6rem;margin-top:2px">internal values: <code>limited</code> / <code>full</code> (not pix_fmt)</div>`
-                  : "";
+              const noteHtml = key === "colour_range"
+                ? `<div style="color:var(--muted);font-size:.6rem;margin-top:2px">internal values: <code>limited</code> / <code>full</code> (not pix_fmt)</div>`
+                : "";
               allowedEl = `<input data-key="${key}" data-field="values" type="text" value="${valStr}" style="${inStyle};width:190px" placeholder="comma separated" />${noteHtml}`;
               // For short fixed-value specs (b_frames, gop_type) render preferred as a select
               const valArr = Array.isArray(s.values) ? s.values : [];
-              if (
-                valArr.length > 0 &&
-                valArr.length <= 4 &&
-                valArr.every((v) => typeof v === "string")
-              ) {
-                const optHtml = valArr
-                  .map(
-                    (v) =>
-                      `<option value="${v}" ${
-                        String(s.preferred) === String(v) ? "selected" : ""
-                      }>${v}</option>`
-                  )
-                  .join("");
+              if (valArr.length > 0 && valArr.length <= 4 && valArr.every(v => typeof v === "string")) {
+                const optHtml = valArr.map(v =>
+                  `<option value="${v}" ${String(s.preferred) === String(v) ? "selected" : ""}>${v}</option>`
+                ).join("");
                 prefEl = `<select data-key="${key}" data-field="preferred" style="${inStyle};width:110px">${optHtml}</select>`;
               } else {
                 const prefStr = Array.isArray(s.preferred)
@@ -5689,13 +5499,9 @@
           errEl.textContent = "✓ Saved — new analyses will use these specs";
 
           // Update saved-by display
-          const now =
-            new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC";
-          document.getElementById(
-            "specs-saved-by"
-          ).textContent = `Last saved by ${
-            _currentUser || "unknown"
-          } on ${now}`;
+          const now = new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC";
+          document.getElementById("specs-saved-by").textContent =
+            `Last saved by ${_currentUser || "unknown"} on ${now}`;
 
           setTimeout(() => {
             errEl.textContent = "";
@@ -5727,7 +5533,8 @@
             body: JSON.stringify({ workflow, label }),
           });
           const data = await res.json();
-          if (!data.success) throw new Error(data.error || "Failed to rename");
+          if (!data.success)
+            throw new Error(data.error || "Failed to rename");
           Object.assign(WORKFLOW_LABELS, data.labels);
           document.getElementById("specs-modal-workflow").textContent = label;
           const sel = document.getElementById("inp-workflow");
@@ -5790,9 +5597,7 @@
         errEl.textContent = "";
         try {
           const res = await fetch(
-            `${PROXY}/gop/reeval/${encodeURIComponent(
-              _reevalFile
-            )}?workflow=${encodeURIComponent(workflow)}`
+            `${PROXY}/gop/reeval/${encodeURIComponent(_reevalFile)}?workflow=${encodeURIComponent(workflow)}`
           );
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const data = await res.json();
@@ -5807,8 +5612,7 @@
           const metaBar = document.getElementById("test-meta-bar");
           if (metaBar) {
             const note = document.createElement("span");
-            note.style.cssText =
-              "color:var(--cyan);font-family:var(--mono);font-size:.68rem;background:var(--cyan-d);border:1px solid var(--cyan);border-radius:3px;padding:1px 7px";
+            note.style.cssText = "color:var(--cyan);font-family:var(--mono);font-size:.68rem;background:var(--cyan-d);border:1px solid var(--cyan);border-radius:3px;padding:1px 7px";
             note.textContent = `⇄ Re-evaluated: ${data._reeval_label}`;
             metaBar.appendChild(note);
           }
@@ -5830,8 +5634,7 @@
           .map(([k, v]) => `<option value="${k}">${v}</option>`)
           .join("");
         if (!sel.options.length) {
-          document.getElementById("change-wf-err").textContent =
-            "No other workflows available.";
+          document.getElementById("change-wf-err").textContent = "No other workflows available.";
           return;
         }
         document.getElementById("change-wf-modal").classList.add("open");
@@ -5876,15 +5679,9 @@
           const data = await res.json();
           closeChangeWfModal();
           loadHistory();
-          setStatus(
-            "ok",
-            `Workflow changed to: ${WORKFLOW_LABELS[workflow] || workflow}`
-          );
+          setStatus("ok", `Workflow changed to: ${WORKFLOW_LABELS[workflow] || workflow}`);
           // Render updated compliance immediately from the PATCH response
-          if (data.result) {
-            data.result.res_file = _changeWfFile;
-            renderResult(data.result);
-          }
+          if (data.result) { data.result.res_file = _changeWfFile; renderResult(data.result); }
         } catch (e) {
           errEl.textContent = `Error: ${e.message}`;
         }

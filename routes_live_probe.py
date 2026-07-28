@@ -1,6 +1,6 @@
 """
 routes_live_probe.py — Live SRT Probe Blueprint
-SO-Toolbox v2.32.0
+SO-Toolbox v2.33.0
 
 Real-time IAT (Inter-Arrival Time) / MLR (Media Loss Rate) monitor for GOP
 Analyser tests whose source is a live SRT stream (never shown for uploaded
@@ -22,12 +22,28 @@ Metrics:
         1-second window. Null packets (PID 0x1FFF) and adaptation-field-only
         packets (no payload, CC does not increment) are excluded. A single
         repeated CC is treated as a legal retransmit duplicate, not a loss.
-  IAT = wall-clock delta between successive stdout reads from
-        srt-live-transmit, in ms. avg/max reported per 1-second window.
+        v2.33.0 fix: packet-boundary tracking now carries any partial TS
+        packet left at the end of a stdout read over to the next read
+        instead of discarding it. Discarding was desyncing the 188-byte
+        packet alignment on almost every read (stdout reads rarely land on
+        a clean packet boundary), which fed the CC tracker garbage bytes
+        and produced a near-constant stream of false "loss" — this is why
+        MLR never reached 0 even on a tunnel with no real loss.
+  IAT = wall-clock interval between successive arrivals of a PCR (Program
+        Clock Reference) field on the stream's PCR_PID, discovered by
+        parsing PAT -> PMT. This mirrors the standard ETSI TR 101 290
+        "PCR repetition" QoS check that broadcast probes (including
+        Bridge Technologies) report as IAT/MLR: MPEG-TS requires a PCR at
+        least every 100ms, so a healthy feed reports IAT close to 100ms.
+        v2.33.0 fix: earlier this measured wall-clock gaps between our own
+        stdout reads, which is dominated by our own pipe/chunking behaviour
+        (a few ms) rather than the transport-level pacing the Bridgetech
+        probe reports (~100-110ms) — the two were never measuring the same
+        thing. IAT_WARN_MS/IAT_CRIT_MS below classify each sample.
         A full stream stall is reported as state="stalled" once no data has
         been read for STALL_TIMEOUT_S. The first STARTUP_GRACE_S seconds
         after each (re)connect are not emitted — SRT handshake / prebuffer
-        catch-up produces an expected, non-network-related IAT spike there.
+        catch-up produces an expected, non-network-related reading there.
 
 Requires `srt-live-transmit` on PATH (Haivision srt-tools build):
   https://github.com/Haivision/srt  ->  ./configure && make && make install
@@ -61,9 +77,11 @@ live_probe_bp = Blueprint('live_probe', __name__)
 # ── Config ────────────────────────────────────────────────────────────────
 SRT_LIVE_TRANSMIT = shutil.which("srt-live-transmit") or "srt-live-transmit"
 
-CHUNK_SIZE         = 65536
+CHUNK_SIZE          = 4096         # small reads -> finer-grained PCR arrival timestamps
 STALL_TIMEOUT_S     = 5
 STARTUP_GRACE_S     = 2.0          # suppress samples for this long after (re)connecting
+IAT_WARN_MS         = 130.0        # orange warning threshold (matches broadcast probe convention)
+IAT_CRIT_MS         = 150.0        # red critical threshold
 SESSION_TTL_S       = 4 * 3600     # hard cap per session, regardless of activity
 IDLE_GRACE_S        = 20           # reap if no SSE client attached this long
 RECONNECT_DELAY_S   = 2
@@ -83,47 +101,140 @@ def _get_username_from_request() -> str:
 
 
 # ════════════════════════════════════════════════════════════════════════════
-#  MPEG-TS continuity-counter tracker
+#  MPEG-TS analyzer: continuity-counter loss + PCR inter-arrival time
 # ════════════════════════════════════════════════════════════════════════════
 
-class _CCTracker:
-    """Per-PID continuity-counter tracker -> lost packet count.
+class _TsAnalyzer:
+    """Parses raw TS bytes across successive reads to produce two metrics:
 
+    MLR — per-PID continuity-counter discontinuities (packets lost), summed
+    across the whole multiplex. Null packets (PID 0x1FFF) and adaptation-
+    field-only packets (no payload, CC does not increment) are excluded. A
+    single repeated CC is a legal retransmit duplicate, not a loss.
     Note: CC is only 4 bits wide, so a burst loss of 16+ consecutive packets
-    on the same PID is indistinguishable from zero loss. This is an inherent
-    limitation of continuity-counter-based loss detection, not a bug.
+    on the same PID is indistinguishable from zero loss — an inherent limit
+    of CC-based detection, not a bug.
+
+    IAT — wall-clock interval between successive PCR fields on the stream's
+    PCR_PID (found by parsing PAT -> PMT), matching how broadcast probes
+    define IAT/MLR (ETSI TR 101 290 "PCR repetition" check).
+
+    Any partial 188-byte packet left at the end of a read is carried over
+    to the next feed() call rather than discarded, since stdout reads
+    rarely land on a clean packet boundary.
     """
 
     def __init__(self):
-        self._last_cc = {}   # pid -> last continuity_counter seen (0-15)
+        self._last_cc = {}       # pid -> last continuity_counter seen (0-15)
+        self._carry = b""        # partial TS packet left over between reads
+        self._pmt_pid = None
+        self._pcr_pid = None
+        self._psi_buf = {}       # pid -> bytearray (partial PAT/PMT section)
+        self._last_pcr_arrival = None  # wall time of last PCR field seen
 
-    def feed(self, buf: bytes):
-        """Scan a chunk of raw TS bytes. Returns (lost_packets, packets_seen)."""
+    # -- PSI (PAT/PMT) parsing, just enough to find PCR_PID -----------------
+    def _feed_psi(self, pid, pkt, pusi):
+        afc = (pkt[3] >> 4) & 0x3
+        if afc in (0x0, 0x2):
+            return  # no payload in this packet
+        off = 4
+        if afc == 0x3:
+            adapt_len = pkt[4]
+            off = 5 + adapt_len
+        payload = pkt[off:]
+        if not payload:
+            return
+
+        if pusi:
+            pointer = payload[0]
+            payload = payload[1 + pointer:]
+            self._psi_buf[pid] = bytearray(payload)
+        else:
+            if pid not in self._psi_buf:
+                return  # haven't seen the section start yet
+            self._psi_buf[pid].extend(payload)
+
+        buf = self._psi_buf.get(pid)
+        if not buf or len(buf) < 3:
+            return
+        section_length = ((buf[1] & 0x0F) << 8) | buf[2]
+        total_len = 3 + section_length
+        if len(buf) < total_len:
+            return  # wait for the continuation packet
+
+        section = bytes(buf[:total_len])
+        del self._psi_buf[pid]
+
+        if pid == 0:
+            self._parse_pat(section)
+        elif pid == self._pmt_pid:
+            self._parse_pmt(section)
+
+    def _parse_pat(self, section):
+        pos = 8
+        end = len(section) - 4  # exclude trailing CRC32
+        while pos + 4 <= end:
+            program_number = (section[pos] << 8) | section[pos + 1]
+            pid = ((section[pos + 2] & 0x1F) << 8) | section[pos + 3]
+            pos += 4
+            if program_number != 0 and self._pmt_pid is None:
+                self._pmt_pid = pid  # first service is enough for a single-program feed
+                break
+
+    def _parse_pmt(self, section):
+        if len(section) < 12:
+            return
+        self._pcr_pid = ((section[8] & 0x1F) << 8) | section[9]
+
+    # -- main entry -----------------------------------------------------
+    def feed(self, buf: bytes, now: float):
+        """Scan a chunk of raw TS bytes received at wall-clock time `now`.
+        Returns (lost_packets, packets_seen, pcr_iat_samples_ms)."""
+        data = self._carry + buf
         lost = 0
         seen = 0
-        n = len(buf) - (len(buf) % 188)
-        for i in range(0, n, 188):
-            if buf[i] != 0x47:
-                continue  # not sync-aligned; skip (shouldn't happen on aligned input)
+        pcr_iat_samples = []
+        i = 0
+        n = len(data)
+
+        while i + 188 <= n:
+            if data[i] != 0x47:
+                nxt = data.find(b'\x47', i + 1)
+                if nxt == -1:
+                    i = n
+                    break
+                i = nxt
+                continue
+
+            pkt = data[i:i + 188]
             seen += 1
-            pid = ((buf[i + 1] & 0x1F) << 8) | buf[i + 2]
-            if pid == 0x1FFF:
-                continue  # null/stuffing packet — no CC semantics
-            afc = (buf[i + 3] >> 4) & 0x3   # adaptation_field_control
-            if afc in (0x0, 0x2):
-                continue  # no payload present -> CC does not increment
-            cc = buf[i + 3] & 0x0F
-            prev = self._last_cc.get(pid)
-            if prev is not None:
-                expected = (prev + 1) % 16
-                if cc == expected:
-                    pass
-                elif cc == prev:
-                    pass  # legal single duplicate (retransmit marker)
-                else:
-                    lost += (cc - expected) % 16
-            self._last_cc[pid] = cc
-        return lost, seen
+            pid = ((pkt[1] & 0x1F) << 8) | pkt[2]
+            pusi = bool(pkt[1] & 0x40)
+            afc = (pkt[3] >> 4) & 0x3
+
+            if pid != 0x1FFF and afc not in (0x0, 0x2):
+                cc = pkt[3] & 0x0F
+                prev = self._last_cc.get(pid)
+                if prev is not None:
+                    expected = (prev + 1) % 16
+                    if cc != expected and cc != prev:
+                        lost += (cc - expected) % 16
+                self._last_cc[pid] = cc
+
+            if pid == 0 or (self._pmt_pid is not None and pid == self._pmt_pid):
+                self._feed_psi(pid, pkt, pusi)
+
+            if self._pcr_pid is not None and pid == self._pcr_pid and afc in (0x2, 0x3):
+                adapt_len = pkt[4]
+                if adapt_len > 0 and (pkt[5] & 0x10):  # PCR_flag
+                    if self._last_pcr_arrival is not None:
+                        pcr_iat_samples.append((now - self._last_pcr_arrival) * 1000.0)
+                    self._last_pcr_arrival = now
+
+            i += 188
+
+        self._carry = data[i:]
+        return lost, seen, pcr_iat_samples
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -164,10 +275,10 @@ class LiveProbeSession:
 
     def _run(self):
         reconnects = 0
-        cc = _CCTracker()
+        analyzer = _TsAnalyzer()
         window_lost = 0
         window_bytes = 0
-        iat_samples = []
+        window_iat = []
         window_start = time.time()
 
         while not self.stop_flag.is_set() and reconnects <= MAX_RECONNECTS:
@@ -190,7 +301,6 @@ class LiveProbeSession:
 
             self._emit({"type": "status", "state": "connecting"})
             connected_once = False
-            last_read_t = time.time()
             conn_start_t = None  # set on first byte received this connection
 
             try:
@@ -201,45 +311,46 @@ class LiveProbeSession:
                         break  # process ended / stream closed
 
                     if not connected_once:
-                        # First data of this connection — the initial IAT reading
-                        # is dominated by SRT handshake / prebuffer latency, not
-                        # real network jitter, so start the grace window here and
-                        # align the first aggregation window to it.
+                        # First data of this connection — align the first
+                        # aggregation window to it and start the grace period.
                         connected_once = True
                         conn_start_t = now
                         window_start = now
                         window_lost = 0
                         window_bytes = 0
-                        iat_samples = []
-                        last_read_t = now
+                        window_iat = []
 
-                    delta_ms = (now - last_read_t) * 1000.0
-                    last_read_t = now
-                    iat_samples.append(delta_ms)
-
-                    lost, _seen = cc.feed(buf)
+                    lost, _seen, pcr_iat = analyzer.feed(buf, now)
                     window_lost += lost
                     window_bytes += len(buf)
+                    window_iat.extend(pcr_iat)
 
                     elapsed = now - window_start
                     if elapsed >= 1.0:
                         in_grace = (window_start - conn_start_t) < STARTUP_GRACE_S
                         if not in_grace:
-                            avg_iat = sum(iat_samples) / len(iat_samples) if iat_samples else 0.0
-                            max_iat = max(iat_samples) if iat_samples else 0.0
                             kbps = (window_bytes * 8 / 1000.0) / elapsed if elapsed > 0 else 0.0
+                            if window_iat:
+                                avg_iat = round(sum(window_iat) / len(window_iat), 1)
+                                max_iat = round(max(window_iat), 1)
+                            else:
+                                # PCR_PID not discovered yet (or no PCR seen
+                                # this window) — report MLR/bitrate anyway,
+                                # but don't fabricate an IAT reading.
+                                avg_iat = None
+                                max_iat = None
                             self._emit({
                                 "type": "sample",
                                 "t": now,
-                                "iat_avg_ms": round(avg_iat, 1),
-                                "iat_max_ms": round(max_iat, 1),
+                                "iat_avg_ms": avg_iat,
+                                "iat_max_ms": max_iat,
                                 "mlr": window_lost,
                                 "bitrate_kbps": round(kbps, 1),
                                 "state": "running",
                             })
                         window_lost = 0
                         window_bytes = 0
-                        iat_samples = []
+                        window_iat = []
                         window_start = now
             finally:
                 try:

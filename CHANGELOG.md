@@ -7,6 +7,32 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.39.2] - 2026-07-28
+
+### Fixed
+
+- Live Probe MLR was never reaching 0 even on loss-free tunnels: a
+  partial TS packet left at the end of each stdout read was being
+  discarded instead of carried to the next read, desyncing 188-byte
+  packet alignment on nearly every read and feeding the continuity-
+  counter tracker garbage. Fixed by carrying the remainder forward
+  and resyncing on the next TS sync byte if alignment is ever lost.
+- Live Probe IAT was measuring our own pipe-read timing (a few ms),
+  not the transport-level pacing broadcast probes report. IAT is now
+  computed from PCR (Program Clock Reference) inter-arrival time via
+  PAT -> PMT -> PCR_PID parsing, matching the ETSI TR 101 290 "PCR
+  repetition" convention (~100ms nominal on a healthy feed).
+
+### Added
+
+- IAT warning (130ms, orange) and critical (150ms, red) thresholds,
+  applied to the live chart bars, IAT avg/max readout color, and two
+  dashed reference lines on the chart. MLR readout turns red when
+  nonzero.
+- Unit test (test_ts_analyzer.py) for the TS analyzer: PAT/PMT
+  parsing, PCR-based IAT, continuity-counter loss detection, and
+  chunk-boundary carry-over.
+
 ## [2.39.1] - 2026-07-28
 
 ### Fixed
