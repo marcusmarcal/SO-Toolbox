@@ -2574,17 +2574,20 @@
     wswapBtn.onclick = null;
 
     const _isValidFriMonSel = (() => {
-      if (!state.draft.active) return false;
-      if (sel.length !== 4) return false;
+      if (!state.draft.active) { console.log('[wswap] draft not active'); return false; }
+      if (sel.length !== 4) { console.log('[wswap] sel.length=', sel.length); return false; }
       const person = sel[0].person;
-      if (!ENG_NAMES.includes(person)) return false;
-      if (!sel.every(c => c.person === person)) return false;
+      if (!ENG_NAMES.includes(person)) { console.log('[wswap] not engineer:', person, 'ENG_NAMES=', ENG_NAMES); return false; }
+      if (!sel.every(c => c.person === person)) { console.log('[wswap] mixed persons'); return false; }
       const dates = sel.map(c => new Date(c.date + 'T00:00:00')).sort((a,b) => a-b);
       for (let i = 1; i < dates.length; i++) {
-        if ((dates[i] - dates[i-1]) !== 86400000) return false;
+        if ((dates[i] - dates[i-1]) !== 86400000) { console.log('[wswap] not consecutive', dates); return false; }
       }
-      return dates[0].getDay() === 5;
+      const day = dates[0].getDay();
+      if (day !== 5) { console.log('[wswap] first date is not Friday, getDay()=', day, dates[0]); return false; }
+      return true;
     })();
+    console.log('[wswap] _isValidFriMonSel=', _isValidFriMonSel);
 
     if (_isValidFriMonSel) {
       const person  = sel[0].person;
@@ -2618,6 +2621,7 @@
 
       const isSwapped   = _WS_AFTER.some(p   => p.every((s,i) => s === window10[i]));
       const isSwappable = _WS_BEFORE.some(p => p.every((s,i) => s === window10[i]));
+      console.log('[wswap] window10=', window10, 'isSwapped=', isSwapped, 'isSwappable=', isSwappable);
 
       if (isSwapped || isSwappable) {
         wswapSection.style.display = '';
