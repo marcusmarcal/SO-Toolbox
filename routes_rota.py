@@ -1108,7 +1108,7 @@ def rota_draft_publish():
         'shift_applied': shift_applied,
         'warnings':     warnings,
     })
-    
+
 # ════════════════════════════════════════════════════════════════════════════
 #  WEEKEND SWAP
 # ════════════════════════════════════════════════════════════════════════════
@@ -1254,6 +1254,8 @@ def rota_draft_weekend_swap():
     wed = fri_date - timedelta(days=2)
     now = _now_iso()
 
+    notes = _load_notes()
+
     for i, new_shift in enumerate(target_seq):
         cell_date = wed + timedelta(days=i)
         date_s    = cell_date.isoformat()
@@ -1280,7 +1282,24 @@ def rota_draft_weekend_swap():
             'created_at':     now,
         })
 
+        # Sync the same note into the cell-notes store so it renders through
+        # the normal note pipeline (_build_note_map), same as any manually
+        # added note. Clears it on revert.
+        if i in COVERAGE_NOTE_INDICES:
+            notes = [n for n in notes
+                     if not (n['person'] == person and n['date'] == date_s)]
+            if cell_note:
+                notes.append({
+                    'id':         str(uuid.uuid4())[:8],
+                    'person':     person,
+                    'date':       date_s,
+                    'note':       cell_note,
+                    'created_by': session['username'],
+                    'created_at': now,
+                })
+
     _save_draft_overrides(overrides)
+    _save_notes(notes)
     return jsonify({
         'ok':        True,
         'direction': direction,
