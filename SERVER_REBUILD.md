@@ -19,7 +19,7 @@ sudo dnf install -y nginx git python3 python3-pip ffmpeg curl mtr mediainfo
 # Compile srt-live-transmit (required for Oracle Linux 9 / RHEL 9)
 sudo dnf groupinstall -y "Development Tools"
 sudo dnf install -y cmake gcc-c++ openssl-devel tcl pkgconfig
-cd /tmp && git clone --depth 1 [https://github.com/Haivision/srt.git](https://github.com/Haivision/srt.git) && cd srt
+cd /tmp && git clone --depth 1 https://github.com/Haivision/srt.git && cd srt
 mkdir build && cd build && cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local && make -j$(nproc) && sudo make install && sudo ldconfig
 
 # Python packages
