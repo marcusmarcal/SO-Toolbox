@@ -27,6 +27,9 @@ app.register_blueprint(wc2026_bp)
 from routes_txcore import txcore_bp
 app.register_blueprint(txcore_bp)
 
+from routes_live_probe import live_probe_bp
+app.register_blueprint(live_probe_bp)
+
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024 * 1024  # 2 GB upload limit
 CORS(app)
 

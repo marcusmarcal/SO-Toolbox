@@ -991,6 +991,58 @@
         align-items: center;
         flex-wrap: wrap;
       }
+      .modal-card.wide {
+        width: 780px;
+      }
+      .live-probe-dot {
+        display: inline-block;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--muted);
+        margin-right: 0.5rem;
+        vertical-align: middle;
+      }
+      .live-probe-dot.connecting {
+        background: var(--yellow);
+      }
+      .live-probe-dot.running {
+        background: var(--green);
+        box-shadow: 0 0 6px var(--green);
+      }
+      .live-probe-dot.stalled,
+      .live-probe-dot.unreachable {
+        background: var(--red);
+        box-shadow: 0 0 6px var(--red);
+      }
+      .live-probe-readouts {
+        display: flex;
+        gap: 1.4rem;
+        font-family: var(--mono);
+        margin-top: 0.6rem;
+      }
+      .live-probe-readouts div {
+        text-align: center;
+      }
+      .live-probe-readouts .lbl {
+        font-size: 0.6rem;
+        color: var(--muted);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .live-probe-readouts .val {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #fff;
+      }
+      #live-probe-canvas {
+        width: 100%;
+        height: 160px;
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        display: block;
+      }
       .modal-pw {
         background: var(--bg3);
         border: 1px solid var(--border);
@@ -1495,6 +1547,25 @@
                     title="Open the Ingest Analyser report for this test"
                   >
                     🔎 Ingest Analyser Report
+                  </button>
+                  <button
+                    id="btn-live-probe"
+                    onclick="openLiveProbeModal()"
+                    style="
+                      display: none;
+                      background: transparent;
+                      border: 1px solid var(--green);
+                      border-radius: 5px;
+                      color: var(--green);
+                      font-family: var(--mono);
+                      font-size: 0.7rem;
+                      font-weight: 700;
+                      padding: 4px 12px;
+                      cursor: pointer;
+                    "
+                    title="Open a real-time IAT/MLR monitor for this SRT source"
+                  >
+                    📡 Live Probe
                   </button>
                   <button
                     id="btn-report"
@@ -2078,6 +2149,89 @@
       </div>
     </div>
 
+    <!-- Live Probe modal -->
+    <div class="modal-overlay" id="live-probe-modal">
+      <div class="modal-card wide">
+        <div class="modal-title" style="color: var(--green)">
+          📡 Live IAT / MLR Probe
+        </div>
+        <div class="modal-body" style="margin-bottom: 0.6rem">
+          <span
+            class="live-probe-dot"
+            id="live-probe-dot"
+          ></span
+          ><span id="live-probe-host" style="color: #fff"></span>
+          <span
+            id="live-probe-state"
+            style="color: var(--muted); margin-left: 0.5rem"
+            >idle</span
+          >
+        </div>
+
+        <canvas id="live-probe-canvas" width="1400" height="160"></canvas>
+
+        <div class="live-probe-readouts">
+          <div>
+            <div class="lbl">IAT avg</div>
+            <div class="val" id="live-probe-iat-avg">—</div>
+          </div>
+          <div>
+            <div class="lbl">IAT max</div>
+            <div class="val" id="live-probe-iat-max">—</div>
+          </div>
+          <div>
+            <div class="lbl">MLR</div>
+            <div class="val" id="live-probe-mlr">—</div>
+          </div>
+          <div>
+            <div class="lbl">Bitrate</div>
+            <div class="val" id="live-probe-bitrate">—</div>
+          </div>
+        </div>
+
+        <div
+          id="live-probe-start-row"
+          style="margin-top: 1rem; display: flex; gap: 0.5rem; align-items: center"
+        >
+          <input
+            class="modal-pw"
+            id="live-probe-pass"
+            type="text"
+            placeholder="passphrase (optional)"
+            style="flex: 1"
+          />
+          <button
+            class="btn-cancel"
+            id="live-probe-start-btn"
+            onclick="startLiveProbe()"
+            style="border-color: var(--green); color: var(--green)"
+          >
+            ▶ Start
+          </button>
+        </div>
+
+        <div id="live-probe-err" class="modal-err"></div>
+
+        <div class="modal-actions" style="margin-top: 1rem">
+          <button
+            class="btn-cancel"
+            id="live-probe-stop-btn"
+            onclick="stopLiveProbe()"
+            style="display: none; border-color: var(--red); color: var(--red)"
+          >
+            ■ Stop
+          </button>
+          <button
+            class="btn-cancel"
+            onclick="closeLiveProbeModal()"
+            style="margin-left: auto"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Report modal -->
     <div class="modal-overlay" id="report-modal">
       <div
@@ -2537,6 +2691,7 @@
           const d = await res.json();
           const env = d.config || {};
           _hasAdminPw = env.HAS_ADMIN_PASSWORD === "true";
+          _lastEnvConfig = env;
 
           const dl = document.getElementById("srt-host-presets");
           dl.innerHTML = "";
@@ -2688,6 +2843,13 @@
         // Show "Ingest Analyser Report" only when this test has one saved
         const ingestBtn = document.getElementById("btn-ingest-report");
         ingestBtn.style.display = r.ingest_dir ? "" : "none";
+
+        // Show "Live Probe" only for SRT-source tests — never for uploaded files
+        const liveProbeBtn = document.getElementById("btn-live-probe");
+        if (liveProbeBtn) {
+          liveProbeBtn.style.display =
+            r.url_host && r.url_host !== "upload" ? "" : "none";
+        }
 
         // Reset override UI
         document.getElementById("override-notice").style.display = "none";
@@ -3492,6 +3654,7 @@
 
       // ── Override ──────────────────────────────────────────────────────
       let _currentResult = null;
+      let _lastEnvConfig = {};
       let _overrideReason = null;
 
       function openOverrideModal() {
@@ -3605,6 +3768,184 @@
           `${PROXY}/ingest/report/${encodeURIComponent(_currentResult.ingest_dir)}`,
           "_blank"
         );
+      }
+
+      // ── Live IAT/MLR Probe (SRT sources only) ─────────────────────────────
+      let _liveProbeEventSource = null;
+      let _liveProbeSessionId = null;
+      let _liveProbeSamples = []; // rolling buffer of {t, iat_avg_ms, iat_max_ms, mlr}
+      const LIVE_PROBE_MAX_SAMPLES = 300; // 5 min @ 1 sample/sec
+
+      function openLiveProbeModal() {
+        if (!_currentResult || !_currentResult.url_host) return;
+        document.getElementById("live-probe-host").textContent =
+          `${_currentResult.url_host}:${_currentResult.url_port || ""}`;
+        document.getElementById("live-probe-err").textContent = "";
+        document.getElementById("live-probe-start-row").style.display = "flex";
+        document.getElementById("live-probe-stop-btn").style.display = "none";
+        _setLiveProbeState("idle");
+        _liveProbeSamples = [];
+        _drawLiveProbeChart();
+
+        const passEl = document.getElementById("live-probe-pass");
+        passEl.value = (_lastEnvConfig && _lastEnvConfig.SRT_PASSPHRASE) || "";
+
+        document.getElementById("live-probe-modal").classList.add("open");
+      }
+
+      function closeLiveProbeModal() {
+        stopLiveProbe();
+        document.getElementById("live-probe-modal").classList.remove("open");
+      }
+
+      function _setLiveProbeState(state) {
+        const dot = document.getElementById("live-probe-dot");
+        const label = document.getElementById("live-probe-state");
+        dot.className = "live-probe-dot " + state;
+        const labels = {
+          idle: "idle",
+          connecting: "connecting…",
+          running: "running",
+          stalled: "stalled — no signal",
+          unreachable: "unreachable — retrying…",
+          stopped: "stopped",
+        };
+        label.textContent = labels[state] || state;
+      }
+
+      async function startLiveProbe() {
+        if (!_currentResult || !_currentResult.url_host) return;
+        const errEl = document.getElementById("live-probe-err");
+        errEl.textContent = "";
+
+        const passphrase = document.getElementById("live-probe-pass").value.trim();
+
+        try {
+          const res = await fetch(`${PROXY}/live-probe/start`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              host: _currentResult.url_host,
+              port: _currentResult.url_port,
+              passphrase,
+              tag: _currentResult.tag || "",
+            }),
+          });
+          const data = await res.json();
+          if (!data.session_id) throw new Error(data.error || "No session_id");
+
+          _liveProbeSessionId = data.session_id;
+          _liveProbeSamples = [];
+          document.getElementById("live-probe-start-row").style.display = "none";
+          document.getElementById("live-probe-stop-btn").style.display = "";
+          _setLiveProbeState("connecting");
+
+          _liveProbeEventSource = new EventSource(
+            `${PROXY}/live-probe/stream/${data.session_id}`
+          );
+          _liveProbeEventSource.onmessage = (evt) => {
+            let msg;
+            try {
+              msg = JSON.parse(evt.data);
+            } catch (e) {
+              return;
+            }
+            if (msg.type === "status") {
+              _setLiveProbeState(msg.state);
+            } else if (msg.type === "error") {
+              errEl.textContent = msg.message || "Live probe error";
+              _setLiveProbeState("unreachable");
+            } else if (msg.type === "sample") {
+              _setLiveProbeState("running");
+              document.getElementById("live-probe-iat-avg").textContent =
+                `${msg.iat_avg_ms} ms`;
+              document.getElementById("live-probe-iat-max").textContent =
+                `${msg.iat_max_ms} ms`;
+              document.getElementById("live-probe-mlr").textContent = msg.mlr;
+              document.getElementById("live-probe-bitrate").textContent =
+                `${msg.bitrate_kbps} kbps`;
+
+              _liveProbeSamples.push(msg);
+              if (_liveProbeSamples.length > LIVE_PROBE_MAX_SAMPLES)
+                _liveProbeSamples.shift();
+              _drawLiveProbeChart();
+            }
+          };
+          _liveProbeEventSource.onerror = () => {
+            // EventSource auto-reconnects; just reflect it visually
+            _setLiveProbeState("connecting");
+          };
+        } catch (e) {
+          errEl.textContent = `Error: ${e.message}`;
+        }
+      }
+
+      async function stopLiveProbe() {
+        if (_liveProbeEventSource) {
+          _liveProbeEventSource.close();
+          _liveProbeEventSource = null;
+        }
+        if (_liveProbeSessionId) {
+          const sid = _liveProbeSessionId;
+          _liveProbeSessionId = null;
+          try {
+            await fetch(`${PROXY}/live-probe/stop/${sid}`, { method: "POST" });
+          } catch (e) {
+            /* best-effort */
+          }
+        }
+        document.getElementById("live-probe-start-row").style.display = "flex";
+        document.getElementById("live-probe-stop-btn").style.display = "none";
+        _setLiveProbeState("stopped");
+      }
+
+      // Stop the capture even if the tab is closed/refreshed without clicking Stop
+      window.addEventListener("beforeunload", () => {
+        if (_liveProbeSessionId) {
+          try {
+            navigator.sendBeacon(
+              `${PROXY}/live-probe/stop/${_liveProbeSessionId}`
+            );
+          } catch (e) {
+            /* best-effort */
+          }
+        }
+      });
+
+      function _drawLiveProbeChart() {
+        const canvas = document.getElementById("live-probe-canvas");
+        if (!canvas) return;
+        const ctx = canvas.getContext("2d");
+        const w = canvas.width;
+        const h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+
+        if (_liveProbeSamples.length < 2) return;
+
+        const maxIat = Math.max(
+          100,
+          ...(_liveProbeSamples.map((s) => s.iat_max_ms))
+        );
+        const n = _liveProbeSamples.length;
+        const barW = w / LIVE_PROBE_MAX_SAMPLES;
+
+        // IAT area (green), spikes over 3x avg baseline drawn in orange
+        _liveProbeSamples.forEach((s, i) => {
+          const x = i * barW;
+          const barH = Math.min(h, (s.iat_avg_ms / maxIat) * h);
+          const spikeH = Math.min(h, (s.iat_max_ms / maxIat) * h);
+          const isSpike = s.mlr > 0 || s.iat_max_ms > s.iat_avg_ms * 3 + 20;
+
+          ctx.fillStyle = isSpike ? "rgba(250,165,26,0.85)" : "rgba(63,185,80,0.75)";
+          ctx.fillRect(x, h - spikeH, Math.max(1, barW - 1), spikeH);
+        });
+
+        // Zero-loss baseline
+        ctx.strokeStyle = "rgba(255,255,255,0.15)";
+        ctx.beginPath();
+        ctx.moveTo(0, h - 1);
+        ctx.lineTo(w, h - 1);
+        ctx.stroke();
       }
 
       // ── Assign anonymous test to a user (admin/engineer only, one-time) ──
@@ -4698,6 +5039,11 @@
             if (e.target === this) this.classList.remove("open");
           });
       });
+      document
+        .getElementById("live-probe-modal")
+        .addEventListener("click", function (e) {
+          if (e.target === this) closeLiveProbeModal();
+        });
 
       // ── Specs Editor ─────────────────────────────────────────────────
       let _currentSpecs = null;

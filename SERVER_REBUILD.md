@@ -7,27 +7,35 @@ The application code lives in Git — this document covers everything that does 
 
 ## 1. System packages
 
-### CentOS / RHEL
+### CentOS / RHEL / Oracle Linux
 
-```bash
-yum install nginx git python3 python3-pip ffmpeg curl mtr mediainfo -y
+````bash
+# Enable EPEL repository (required for ffmpeg / mediainfo on RHEL/Oracle Linux)
+sudo dnf install -y epel-release
+
+# System packages
+sudo dnf install -y nginx git python3 python3-pip ffmpeg curl mtr mediainfo
+
+# Compile srt-live-transmit (required for Oracle Linux 9 / RHEL 9)
+sudo dnf groupinstall -y "Development Tools"
+sudo dnf install -y cmake gcc-c++ openssl-devel tcl pkgconfig
+cd /tmp && git clone --depth 1 [https://github.com/Haivision/srt.git](https://github.com/Haivision/srt.git) && cd srt
+mkdir build && cd build && cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local && make -j$(nproc) && sudo make install && sudo ldconfig
+
+# Python packages
 pip3 install flask flask-cors requests
 pip3 install bcrypt --break-system-packages
 pip3 install phenix-edge-auth --break-system-packages
 
-```
-
-### Debian / Ubuntu (incl. WSL)
-
 ```bash
 apt update
-apt install nginx git python3 python3-flask python3-requests ffmpeg curl mtr mediainfo -y
+apt install nginx git python3 python3-flask python3-requests ffmpeg curl mtr mediainfo srt-tools  -y
 apt install python3-pip -y
 pip3 install flask-cors --break-system-packages
 pip3 install bcrypt --break-system-packages
 pip3 install phenix-edge-auth --break-system-packages
 
-```
+````
 
 > On newer Debian/Ubuntu, `flask` and `requests` are available via `apt` as
 > `python3-flask` and `python3-requests`. Use `apt` first to avoid pip conflicts.

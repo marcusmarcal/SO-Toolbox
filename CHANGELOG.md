@@ -7,6 +7,28 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.39.0] - 2026-07-28
+
+### Added
+
+- New Live Probe: real-time IAT (Inter-Arrival Time) and MLR (Media Loss
+  Rate) monitor for SRT-source GOP Analyser tests, built independently
+  in-house (no external probe dependency). MLR is computed from MPEG-TS
+  continuity-counter discontinuities; IAT from inter-packet read timing.
+  Capture uses srt-live-transmit (not ffmpeg) so continuity counters
+  reflect exactly what was received off the wire. New blueprint
+  routes_live_probe.py exposes /live-probe/start, /live-probe/stream/<id>
+  (SSE), and /live-probe/stop/<id>, with idle/TTL session reaping.
+- "Live Probe" button in the GOP test detail panel, shown only for
+  SRT-source tests (never for uploaded-file tests), opening a modal with
+  a live area chart plus IAT avg/max, MLR, and bitrate readouts.
+
+### Requires
+
+- `srt-live-transmit` (Haivision srt-tools) installed and on PATH on the
+  server. Not available via default Oracle Linux 9.8 repos — build from
+  https://github.com/Haivision/srt.
+
 ## [2.38.0] - 2026-07-24
 
 ### Added
