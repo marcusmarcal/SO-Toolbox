@@ -1274,6 +1274,30 @@
           🕐 Schedule
         </button>
         <button
+          id="btn-live-probe-standalone"
+          onclick="openLiveProbeModalStandalone()"
+          style="
+            background: transparent;
+            border: 1px solid var(--green);
+            border-radius: 5px;
+            color: var(--green);
+            font-family: var(--mono);
+            font-size: 0.76rem;
+            font-weight: 700;
+            padding: 0 0.9rem;
+            height: 36px;
+            cursor: pointer;
+            white-space: nowrap;
+            align-self: flex-end;
+            transition: background 0.15s;
+          "
+          onmouseover="this.style.background='var(--green-d)'"
+          onmouseout="this.style.background='transparent'"
+          title="Open a real-time IAT/MLR monitor using the Host/Port/Passphrase above, without running a GOP test"
+        >
+          📡 Live Probe
+        </button>
+        <button
           onclick="clearForm()"
           style="
             background: transparent;
@@ -1550,7 +1574,7 @@
                   </button>
                   <button
                     id="btn-live-probe"
-                    onclick="openLiveProbeModal()"
+                    onclick="openLiveProbeModalForTest()"
                     style="
                       display: none;
                       background: transparent;
@@ -3776,10 +3800,45 @@
       let _liveProbeSamples = []; // rolling buffer of {t, iat_avg_ms, iat_max_ms, mlr}
       const LIVE_PROBE_MAX_SAMPLES = 300; // 5 min @ 1 sample/sec
 
-      function openLiveProbeModal() {
+      // Host/port/tag currently loaded into the modal — set by whichever
+      // entry point opened it (a saved test result, or the SRT form fields).
+      let _liveProbeHost = null;
+      let _liveProbePort = null;
+      let _liveProbeTag = "";
+
+      // Entry point: "Live Probe" button on a saved GOP test result
+      function openLiveProbeModalForTest() {
         if (!_currentResult || !_currentResult.url_host) return;
+        _openLiveProbeModal(
+          _currentResult.url_host,
+          _currentResult.url_port,
+          (_lastEnvConfig && _lastEnvConfig.SRT_PASSPHRASE) || "",
+          _currentResult.tag || ""
+        );
+      }
+
+      // Entry point: standalone "Live Probe" button in the SRT run form —
+      // uses whatever is currently typed into Host/Port/Passphrase, without
+      // running a GOP test at all.
+      function openLiveProbeModalStandalone() {
+        const host = document.getElementById("inp-host").value.trim();
+        const port = document.getElementById("inp-port").value.trim();
+        const pass = document.getElementById("inp-pass").value.trim();
+        const tag = (document.getElementById("inp-tag").value || "").trim();
+        if (!host || !port) {
+          alert("Enter a Host/IP and Port above first.");
+          return;
+        }
+        _openLiveProbeModal(host, port, pass, tag);
+      }
+
+      function _openLiveProbeModal(host, port, passphrase, tag) {
+        _liveProbeHost = host;
+        _liveProbePort = port;
+        _liveProbeTag = tag || "";
+
         document.getElementById("live-probe-host").textContent =
-          `${_currentResult.url_host}:${_currentResult.url_port || ""}`;
+          `${host}:${port || ""}`;
         document.getElementById("live-probe-err").textContent = "";
         document.getElementById("live-probe-start-row").style.display = "flex";
         document.getElementById("live-probe-stop-btn").style.display = "none";
@@ -3787,8 +3846,7 @@
         _liveProbeSamples = [];
         _drawLiveProbeChart();
 
-        const passEl = document.getElementById("live-probe-pass");
-        passEl.value = (_lastEnvConfig && _lastEnvConfig.SRT_PASSPHRASE) || "";
+        document.getElementById("live-probe-pass").value = passphrase || "";
 
         document.getElementById("live-probe-modal").classList.add("open");
       }
@@ -3814,7 +3872,7 @@
       }
 
       async function startLiveProbe() {
-        if (!_currentResult || !_currentResult.url_host) return;
+        if (!_liveProbeHost || !_liveProbePort) return;
         const errEl = document.getElementById("live-probe-err");
         errEl.textContent = "";
 
@@ -3825,10 +3883,10 @@
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              host: _currentResult.url_host,
-              port: _currentResult.url_port,
+              host: _liveProbeHost,
+              port: _liveProbePort,
               passphrase,
-              tag: _currentResult.tag || "",
+              tag: _liveProbeTag,
             }),
           });
           const data = await res.json();
@@ -4718,6 +4776,12 @@
           ? "transparent"
           : "var(--purple)";
         tabUpload.style.color = isSrt ? "var(--muted)" : "#fff";
+
+        const liveProbeStandaloneBtn = document.getElementById(
+          "btn-live-probe-standalone"
+        );
+        if (liveProbeStandaloneBtn)
+          liveProbeStandaloneBtn.style.display = isSrt ? "" : "none";
       }
 
       function clearHistFilters() {

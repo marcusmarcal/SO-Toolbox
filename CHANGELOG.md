@@ -7,6 +7,22 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.39.1] - 2026-07-28
+
+### Fixed
+
+- Live Probe: suppress the first 2 seconds of samples after each
+  connect/reconnect. SRT handshake and prebuffer catch-up produced an
+  expected IAT spike on start that was being drawn on the chart as if
+  it were a real network event.
+
+### Added
+
+- Standalone "Live Probe" button in the GOP Analyser SRT run form
+  (between Schedule and Clear), letting the IAT/MLR monitor run
+  directly from the Host/Port/Passphrase fields without running a
+  GOP test first. Hidden in Upload mode.
+
 ## [2.39.0] - 2026-07-28
 
 ### Added

@@ -25,7 +25,9 @@ Metrics:
   IAT = wall-clock delta between successive stdout reads from
         srt-live-transmit, in ms. avg/max reported per 1-second window.
         A full stream stall is reported as state="stalled" once no data has
-        been read for STALL_TIMEOUT_S.
+        been read for STALL_TIMEOUT_S. The first STARTUP_GRACE_S seconds
+        after each (re)connect are not emitted — SRT handshake / prebuffer
+        catch-up produces an expected, non-network-related IAT spike there.
 
 Requires `srt-live-transmit` on PATH (Haivision srt-tools build):
   https://github.com/Haivision/srt  ->  ./configure && make && make install
@@ -61,6 +63,7 @@ SRT_LIVE_TRANSMIT = shutil.which("srt-live-transmit") or "srt-live-transmit"
 
 CHUNK_SIZE         = 65536
 STALL_TIMEOUT_S     = 5
+STARTUP_GRACE_S     = 2.0          # suppress samples for this long after (re)connecting
 SESSION_TTL_S       = 4 * 3600     # hard cap per session, regardless of activity
 IDLE_GRACE_S        = 20           # reap if no SSE client attached this long
 RECONNECT_DELAY_S   = 2
@@ -188,6 +191,7 @@ class LiveProbeSession:
             self._emit({"type": "status", "state": "connecting"})
             connected_once = False
             last_read_t = time.time()
+            conn_start_t = None  # set on first byte received this connection
 
             try:
                 while not self.stop_flag.is_set():
@@ -196,7 +200,19 @@ class LiveProbeSession:
                     if not buf:
                         break  # process ended / stream closed
 
-                    connected_once = True
+                    if not connected_once:
+                        # First data of this connection — the initial IAT reading
+                        # is dominated by SRT handshake / prebuffer latency, not
+                        # real network jitter, so start the grace window here and
+                        # align the first aggregation window to it.
+                        connected_once = True
+                        conn_start_t = now
+                        window_start = now
+                        window_lost = 0
+                        window_bytes = 0
+                        iat_samples = []
+                        last_read_t = now
+
                     delta_ms = (now - last_read_t) * 1000.0
                     last_read_t = now
                     iat_samples.append(delta_ms)
@@ -207,18 +223,20 @@ class LiveProbeSession:
 
                     elapsed = now - window_start
                     if elapsed >= 1.0:
-                        avg_iat = sum(iat_samples) / len(iat_samples) if iat_samples else 0.0
-                        max_iat = max(iat_samples) if iat_samples else 0.0
-                        kbps = (window_bytes * 8 / 1000.0) / elapsed if elapsed > 0 else 0.0
-                        self._emit({
-                            "type": "sample",
-                            "t": now,
-                            "iat_avg_ms": round(avg_iat, 1),
-                            "iat_max_ms": round(max_iat, 1),
-                            "mlr": window_lost,
-                            "bitrate_kbps": round(kbps, 1),
-                            "state": "running",
-                        })
+                        in_grace = (window_start - conn_start_t) < STARTUP_GRACE_S
+                        if not in_grace:
+                            avg_iat = sum(iat_samples) / len(iat_samples) if iat_samples else 0.0
+                            max_iat = max(iat_samples) if iat_samples else 0.0
+                            kbps = (window_bytes * 8 / 1000.0) / elapsed if elapsed > 0 else 0.0
+                            self._emit({
+                                "type": "sample",
+                                "t": now,
+                                "iat_avg_ms": round(avg_iat, 1),
+                                "iat_max_ms": round(max_iat, 1),
+                                "mlr": window_lost,
+                                "bitrate_kbps": round(kbps, 1),
+                                "state": "running",
+                            })
                         window_lost = 0
                         window_bytes = 0
                         iat_samples = []
