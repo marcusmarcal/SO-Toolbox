@@ -1147,7 +1147,7 @@
     const today  = new Date();
     const monday = new Date(today);
     monday.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1));
-    const fmt        = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const fmt        = d => d.toISOString().split('T')[0];
     const rota_start = '2026-01-01';
 
     if (state.draft.active) {
@@ -1198,6 +1198,26 @@
       renderRota();
     } catch(e) {
       wrap.innerHTML = `<div class="empty-state">Failed to load draft: ${e.message}</div>`;
+    }
+  }
+
+  // Scroll-preserving reload — fetches fresh data but keeps the user's
+  // scroll position. Used after weekend swap / revert where cells span
+  // 12 days so _patchRotaCells can't reliably cover all affected cells.
+  async function _reloadDraftPreservingScroll() {
+    const wrap        = document.getElementById('rota-wrap');
+    const savedScroll = wrap.scrollTop;
+    const { from, to } = getDateRange();
+    try {
+      const r = await fetch(`${PROXY}/rota/draft?from=${from}&to=${to}`, { credentials: 'same-origin' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error);
+      state.rotaData        = d.days;
+      state.draft.overrides = d.overrides;
+      renderRota();
+      wrap.scrollTop = savedScroll;
+    } catch(e) {
+      wrap.innerHTML = `<div class="empty-state">Failed to reload draft: ${e.message}</div>`;
     }
   }
 
@@ -2574,20 +2594,17 @@
     wswapBtn.onclick = null;
 
     const _isValidFriMonSel = (() => {
-      if (!state.draft.active) { console.log('[wswap] draft not active'); return false; }
-      if (sel.length !== 4) { console.log('[wswap] sel.length=', sel.length); return false; }
+      if (!state.draft.active) return false;
+      if (sel.length !== 4) return false;
       const person = sel[0].person;
-      if (!ENG_NAMES.includes(person)) { console.log('[wswap] not engineer:', person, 'ENG_NAMES=', ENG_NAMES); return false; }
-      if (!sel.every(c => c.person === person)) { console.log('[wswap] mixed persons'); return false; }
+      if (!ENG_NAMES.includes(person)) return false;
+      if (!sel.every(c => c.person === person)) return false;
       const dates = sel.map(c => new Date(c.date + 'T00:00:00')).sort((a,b) => a-b);
       for (let i = 1; i < dates.length; i++) {
-        if ((dates[i] - dates[i-1]) !== 86400000) { console.log('[wswap] not consecutive', dates); return false; }
+        if ((dates[i] - dates[i-1]) !== 86400000) return false;
       }
-      const day = dates[0].getDay();
-      if (day !== 5) { console.log('[wswap] first date is not Friday, getDay()=', day, dates[0]); return false; }
-      return true;
+      return dates[0].getDay() === 5;
     })();
-    console.log('[wswap] _isValidFriMonSel=', _isValidFriMonSel);
 
     if (_isValidFriMonSel) {
       const person  = sel[0].person;
@@ -2597,20 +2614,22 @@
 
       // Client-side pattern tables for toggle-state detection only
       const _WS_BEFORE = [
-        ['1000-2000','1000-2000','OFF','OFF','OFF','OFF','0900-1800','0900-1800','0900-1800','0900-1800'],
+        // Pattern 1 — Case B: Fri(A)+Mon(A) working, Sat+Sun OFF
         ['0900-1800','0900-1800','0900-1800','OFF','OFF','0900-1800','1000-2000','OFF','OFF','1000-2000'],
-        ['OFF','0900-1800','1000-2000','OFF','OFF','1000-2000','1000-2000','1000-2000','1000-2000','OFF'],
+        // Pattern 2 — Case A: all Fri–Mon OFF
+        ['1000-2000','1000-2000','OFF','OFF','OFF','OFF','0900-1800','0900-1800','0900-1800','0900-1800'],
       ];
       const _WS_AFTER = [
-        ['OFF','OFF','1000-2000','1000-2000','0900-1800','0900-1800','OFF','0900-1800','0900-1800','OFF'],
-        ['0900-1800','OFF','0900-1800','0900-1800','0900-1800','1000-2000','OFF','OFF','OFF','1000-2000'],
-        ['OFF','OFF','1000-2000','0900-1800','1000-2000','1000-2000','OFF','OFF','1000-2000','OFF'],
+        // Pattern 1 after
+        ['0900-1800','OFF','0900-1800','0900-1800','1000-2000','1000-2000','OFF','OFF','OFF','OFF'],
+        // Pattern 2 after
+        ['OFF','OFF','1000-2000','1000-2000','0900-1800','0900-1800','OFF','OFF','0900-1800','0900-1800'],
       ];
 
       const window10 = [];
       for (let i = 0; i < 10; i++) {
         const d = new Date(wedD); d.setDate(wedD.getDate() + i);
-        const ds  = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const ds  = d.toISOString().split('T')[0];
         const day = state.rotaData && state.rotaData.find(dd => dd.date === ds);
         let sh = (day && day.shifts[person] && day.shifts[person].shift) || 'OFF';
         // Normalise: strip AL overlay, treat leave as OFF for pattern matching
@@ -2621,7 +2640,6 @@
 
       const isSwapped   = _WS_AFTER.some(p   => p.every((s,i) => s === window10[i]));
       const isSwappable = _WS_BEFORE.some(p => p.every((s,i) => s === window10[i]));
-      console.log('[wswap] window10=', window10, 'isSwapped=', isSwapped, 'isSwappable=', isSwappable);
 
       if (isSwapped || isSwappable) {
         wswapSection.style.display = '';
@@ -2652,11 +2670,7 @@
           state.draft.overrides = d.overrides;
           closeShiftPopover();
           _clearSelection();
-
-          // Full reload — swap touches 10 cells over 12 days,
-          // some may be outside current rotaData range
-          await loadDraftRota();
-
+          await _reloadDraftPreservingScroll();
           const label = d.direction === 'swap' ? 'Weekend swap applied' : 'Weekend swap reverted';
           toast(label + (d.absent ? ` — covering for ${d.absent}` : ''), 'ok');
         };
@@ -2680,10 +2694,31 @@
     };
 
     document.getElementById('popover-revert').onclick = async () => {
-      for (const cell of sel) {
+      // If any selected cell has a weekend_swap override, expand the revert
+      // to cover all 10 cells in the swap window (Wed–Fri+7), not just sel
+      const hasSwap = sel.some(c =>
+        state.draft.overrides.find(o => o.person === c.person && o.date === c.date && o.type === 'weekend_swap')
+      );
+
+      let cellsToRevert = sel;
+      if (hasSwap) {
+        // Find the Friday — first date in sorted sel
+        const sorted   = [...sel].sort((a,b) => a.date.localeCompare(b.date));
+        const person   = sorted[0].person;
+        const friDate  = new Date(sorted[0].date + 'T00:00:00');
+        const wedDate  = new Date(friDate); wedDate.setDate(friDate.getDate() - 2);
+        // Build all 10 dates in the window
+        cellsToRevert = Array.from({ length: 10 }, (_, i) => {
+          const d = new Date(wedDate); d.setDate(wedDate.getDate() + i);
+          return { person, date: d.toISOString().split('T')[0] };
+        });
+      }
+
+      for (const cell of cellsToRevert) {
         const ov = state.draft.overrides.find(o => o.person === cell.person && o.date === cell.date);
         if (ov) {
-          await fetch(`${PROXY}/rota/draft/override/${ov.id}`, { method: 'DELETE', credentials: 'same-origin' });
+          await fetch(`${PROXY}/rota/draft/override/${ov.id}`,
+            { method: 'DELETE', credentials: 'same-origin' });
         }
         await fetch(`${PROXY}/rota/note`, {
           method: 'DELETE', credentials: 'same-origin',
@@ -2691,9 +2726,10 @@
           body: JSON.stringify({ person: cell.person, date: cell.date }),
         });
       }
+
       closeShiftPopover();
       _clearSelection();
-      _patchRotaCells(sel.map(c => ({ person: c.person, date: c.date })));
+      await _reloadDraftPreservingScroll();
       toast('Reverted to original', 'ok');
     };
 

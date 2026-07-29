@@ -1109,6 +1109,7 @@ def rota_draft_publish():
         'warnings':     warnings,
     })
 
+
 # ════════════════════════════════════════════════════════════════════════════
 #  WEEKEND SWAP
 # ════════════════════════════════════════════════════════════════════════════
@@ -1118,36 +1119,17 @@ def rota_draft_publish():
 # 10-cell window = Wed, Thu, Fri, Sat, Sun, Mon, Tue, Wed, Thu, Fri+7
 # Indices:         0    1    2    3    4    5    6    7    8    9
 
-_S = {  # shift aliases for readability
-    'A': '0900-1800',
-    'B': '1000-2000',
-    'O': 'OFF',
-}
-
 WEEKEND_SWAP_PATTERNS = [
-    # Pattern 1 — Case A: covering eng was OFF all Fri–Mon
+    # Pattern 1 — Case B: covering eng had Fri(A)+Mon(A), Sat+Sun OFF
     (
-        ('B','B','O','O','O','O','A','A','A','A'),   # before
-        ('O','O','B','B','A','A','O','A','A','O'),   # after
+        ('0900-1800','0900-1800','0900-1800','OFF','OFF','0900-1800','1000-2000','OFF','OFF','1000-2000'),
+        ('0900-1800','OFF','0900-1800','0900-1800','1000-2000','1000-2000','OFF','OFF','OFF','OFF'),
     ),
-    # Pattern 2 — Case B1: covering eng had Fri(A)+Mon(A), Sat+Sun OFF
+    # Pattern 2 — Case A: covering eng was OFF all Fri–Mon
     (
-        ('A','A','A','O','O','A','B','O','O','B'),   # before
-        ('A','O','A','A','A','B','O','O','O','B'),   # after
+        ('1000-2000','1000-2000','OFF','OFF','OFF','OFF','0900-1800','0900-1800','0900-1800','0900-1800'),
+        ('OFF','OFF','1000-2000','1000-2000','0900-1800','0900-1800','OFF','OFF','0900-1800','0900-1800'),
     ),
-    # Pattern 3 — Case B2: covering eng had Fri(B)+Mon(B), Sat+Sun OFF
-    (
-        ('O','A','B','O','O','B','B','B','B','O'),   # before
-        ('O','O','B','A','B','B','O','O','B','O'),   # after (Thu→Sat, Tue→Sun, Wed→Mon)
-    ),
-]
-
-# Expand alias tuples to real shift strings
-def _expand(seq):
-    return tuple(_S[c] for c in seq)
-
-WEEKEND_SWAP_PATTERNS = [
-    (_expand(b), _expand(a)) for b, a in WEEKEND_SWAP_PATTERNS
 ]
 
 # Coverage note indices (0-based within the 10-cell window) = Fri, Sat, Sun, Mon = 2,3,4,5
