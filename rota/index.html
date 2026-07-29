@@ -2629,7 +2629,7 @@
       const window10 = [];
       for (let i = 0; i < 10; i++) {
         const d = new Date(wedD); d.setDate(wedD.getDate() + i);
-        const ds  = d.toISOString().split('T')[0];
+        const ds  = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         const day = state.rotaData && state.rotaData.find(dd => dd.date === ds);
         let sh = (day && day.shifts[person] && day.shifts[person].shift) || 'OFF';
         // Normalise: strip AL overlay, treat leave as OFF for pattern matching
@@ -2710,7 +2710,8 @@
         // Build all 10 dates in the window
         cellsToRevert = Array.from({ length: 10 }, (_, i) => {
           const d = new Date(wedDate); d.setDate(wedDate.getDate() + i);
-          return { person, date: d.toISOString().split('T')[0] };
+          const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          return { person, date: ds };
         });
       }
 
