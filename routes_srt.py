@@ -86,7 +86,7 @@ def _build_ffmpeg_cmd(
         f"text='PORT {port}':fontcolor=white:fontsize=72:"
         "box=1:boxcolor=black@0.70:boxborderw=20:x=(w-text_w)/2:y=h-140,"
         "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:"
-        "text='UTC %{gmtime\\:%H\\:%M\\:%S}.%{eif\\:mod(n\\,25)*40\\:d\\:3}':fontcolor=#00ff88:fontsize=56:"
+        "text='UTC %{gmtime\\:%H\\\\:%M\\\\:%S}.%{eif\\:mod(n\\,25)*40\\:d\\:3}':fontcolor=#00ff88:fontsize=56:"
         "box=1:boxcolor=black@0.70:boxborderw=16:x=(w-text_w)/2:y=40"
     ),
     "-map", "0:v:0",
