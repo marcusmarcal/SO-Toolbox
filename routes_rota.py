@@ -1363,158 +1363,141 @@ def _net_minutes(shift_code: str) -> tuple[int, int]:
     return (day_after, night_after)
 
 
-def _ph_minutes(shift_code: str) -> tuple[int, int]:
-    """Return (ph_daytime_minutes, ph_night_minutes) for a shift worked on a PH.
-    Uses same breakdown as _net_minutes but categorised as PH."""
-    return _net_minutes(shift_code)
+# Same-day night minutes (22:00–00:00 of the shift's own calendar day)
+# after lunch break. Used for PH NH when the shift is ON the PH date.
+SHIFT_SAME_DAY_NIGHT_MINUTES: dict[str, int] = {
+    '0700-1800': 0,
+    '0900-1800': 0,
+    '0900-2000': 0,
+    '0930-1800': 0,
+    '0900-1730': 0,
+    '0800-1630': 0,
+    '1000-2000': 0,
+    '1300-0000': 120,   # 22:00–00:00 = 2h
+    '1500-0200': 120,   # 22:00–00:00 = 2h
+    '2100-0700': 120,   # 22:00–00:00 = 2h (lunch consumed daytime 21-22)
+    'OFF':       0,
+}
+
+# Spillover night minutes (00:00–shift_end on the NEXT calendar day)
+SHIFT_SPILLOVER_NIGHT_MINUTES: dict[str, int] = {
+    '0700-1800': 0,
+    '0900-1800': 0,
+    '0900-2000': 0,
+    '0930-1800': 0,
+    '0900-1730': 0,
+    '0800-1630': 0,
+    '1000-2000': 0,
+    '1300-0000': 0,     # ends exactly at midnight, no spillover
+    '1500-0200': 120,   # 00:00–02:00 = 2h
+    '2100-0700': 420,   # 00:00–07:00 = 7h
+    'OFF':       0,
+}
 
 
 def _effective_shift_for_hours(name: str, d: date,
                                 leave_map: dict, override_map: dict) -> str:
-    """Return the shift code to use for hours accounting.
-    For coverage_swap overrides: use whichever of shift/previous_shift
-    gives MORE night minutes (protects the covered person's NH entitlement).
-    For everything else: use _resolve_shift as normal but strip leave overlays
-    to the base shift (leave days = 0 hours)."""
-    # Check for coverage_swap override first
+    """Return the shift code to use for NH accounting.
+    For any override: use max(NH(new), NH(original)) to protect entitlement.
+    ABSENT and leave states → 'OFF' (0h)."""
+    def _clean(s):
+        if not s or s in ('OFF', 'PARENTAL', 'MARITAL'): return 'OFF'
+        if s.startswith('AL_') or s.startswith('ABSENT'): return 'OFF'
+        if '|' in s:
+            pfx = s.split('|', 1)[0]
+            if pfx in ('AL_APPROVED', 'AL_PENDING', 'ABSENT'): return 'OFF'
+            return s.split('|', 1)[1]
+        return s
+
     if override_map:
         ov = override_map.get((name, d))
-        if ov is not None and ov.get('type') == 'coverage_swap':
-            coverage_shift  = ov['shift']
-            original_shift  = ov.get('previous_shift', coverage_shift)
-            _, coverage_nh  = _net_minutes(coverage_shift)
-            _, original_nh  = _net_minutes(original_shift)
-            # Use whichever pays more night hours; PH hours follow actual shift worked
-            return coverage_shift if coverage_nh >= original_nh else original_shift
+        if ov is not None:
+            new_clean  = _clean(ov.get('shift', 'OFF'))
+            orig_clean = _clean(ov.get('previous_shift', ov.get('shift', 'OFF')))
+            _, new_nh  = _net_minutes(new_clean)
+            _, orig_nh = _net_minutes(orig_clean)
+            return new_clean if new_nh >= orig_nh else orig_clean
 
     resolved = _resolve_shift(name, d, leave_map, override_map)
-
-    # Leave/off states → 0 hours
-    if resolved in ('OFF', 'PARENTAL', 'MARITAL'):
-        return 'OFF'
-    if resolved.startswith('AL_'):
-        return 'OFF'
-
-    # Strip any AL_ prefix from hybrid codes (shouldn't occur but defensive)
-    if '|' in resolved:
-        resolved = resolved.split('|', 1)[1]
-
-    return resolved
-
-
-def _normalise_to_rota_name(full_name: str) -> str:
-    """Convert a full name ('Antonio Silva') to the short rota-style name
-    ('Antonio S') used as keys in SPECIALIST_OFFSETS etc.
-    Falls back gracefully if no match found."""
-    known = (set(MANAGEMENT_SHIFTS) |
-             set(ENGINEERING_OFFSETS) |
-             set(SPECIALIST_OFFSETS))
-
-    parts = full_name.strip().split()
-    if not parts:
-        return full_name
-
-    first = parts[0].capitalize()
-
-    if len(parts) == 1:
-        if first in known:
-            return first
-        matches = [n for n in known if n.split()[0].lower() == first.lower()]
-        return matches[0] if len(matches) == 1 else first
-
-    # Build short form: "First L"
-    short = f"{first} {parts[-1][0].upper()}"
-    if short in known:
-        return short
-
-    # Short form not in known — try first name alone if unambiguous
-    matches = [n for n in known if n.split()[0].lower() == first.lower()]
-    if len(matches) == 1:
-        return matches[0]
-
-    return short  # return best guess; produces 0h gracefully if still unmatched
-
-
-def _load_hr_config() -> dict:
-    cfg = _load_json(HR_CONFIG_FILE)
-    if not isinstance(cfg, dict):
-        cfg = {}
-    cfg.setdefault('mcr', {})
-    cfg.setdefault('hr_teams', {
-        'SOE': ['Marcus', 'Hugo', 'Goncalo', 'Nuno'],
-        'SOS': ['Joao L', 'Tiago C', 'Sabina', 'Sergio', 'Tiago O',
-                'Vitor', 'Fernando', 'Marc', 'Gabriel', 'Mario', 'Isaac'],
-    })
-
-    # Build display_names: short rota name → original full name from file
-    # and normalise hr_teams/mcr keys to short names for lookup
-    raw_teams = cfg.get('hr_teams', {})
-    raw_mcr   = cfg.get('mcr', {})
-
-    display_names = {}  # short_name → full name as written in hr_config.json
-    for members in raw_teams.values():
-        for full_name in members:
-            short = _normalise_to_rota_name(full_name)
-            display_names[short] = full_name
-
-    cfg['display_names'] = display_names
-    cfg['mcr'] = {
-        _normalise_to_rota_name(k): v for k, v in raw_mcr.items()
-    }
-    cfg['hr_teams'] = {
-        team: [_normalise_to_rota_name(n) for n in members]
-        for team, members in raw_teams.items()
-    }
-
-    return cfg
+    return _clean(resolved)
 
 
 def _compute_hours(date_from: date, date_to: date,
                    names: list[str],
                    leave_map: dict, override_map: dict) -> dict:
     """Compute night and PH hours for each name over the date range.
-    Returns dict: name → {night_h, ph_day_h, ph_night_h, ph_dates}"""
-    results = {n: {'night_min': 0, 'ph_day_min': 0,
-                   'ph_night_min': 0, 'ph_dates': []} for n in names}
-    d = date_from
-    while d <= date_to:
-        is_ph = d in PUBLIC_HOLIDAYS
-        for name in names:
-            shift = _effective_shift_for_hours(name, d, leave_map, override_map)
-            if shift == 'OFF':
-                d_next = d + timedelta(days=1)
-                continue
-            day_min, night_min = _net_minutes(shift)
 
-            if is_ph:
-                # Coverage swap: PH hours use the actual shift worked, not the
-                # original — only NH gets the favourable swap treatment.
-                actual_shift = _resolve_shift(name, d, leave_map, override_map)
-                if actual_shift in ('OFF', 'PARENTAL', 'MARITAL') or actual_shift.startswith('AL_'):
-                    d_next = d + timedelta(days=1)
-                    continue
-                if '|' in actual_shift:
-                    actual_shift = actual_shift.split('|', 1)[1]
-                ph_day_min, ph_night_min = _ph_minutes(actual_shift)
-                results[name]['ph_day_min']   += ph_day_min
-                results[name]['ph_night_min']  += ph_night_min
-                if ph_day_min + ph_night_min > 0:
-                    results[name]['ph_dates'].append(
-                        d.strftime('%-d %B').lstrip('0') if hasattr(d, 'strftime') else d.isoformat()
-                    )
-            else:
-                results[name]['night_min'] += night_min
+    PH hours split by calendar day boundary:
+    - Shift ON a PH: earns PH NH for 22:00–00:00 (same-day night only).
+      PH daytime = net daytime of that shift.
+    - Shift on DAY BEFORE a PH: spillover (00:00–shift_end) counts as PH NH.
+    - Regular NH: total NH entitlement minus any portions counted as PH NH.
+
+    Returns dict: name → {night_h, ph_day_h, ph_night_h, ph_dates}
+    """
+    results = {n: {'night_min': 0, 'ph_day_min': 0,
+                   'ph_night_min': 0, 'ph_dates': set()} for n in names}
+
+    def _clean_actual(s):
+        if not s or s in ('OFF', 'PARENTAL', 'MARITAL'): return 'OFF'
+        if s.startswith('AL_') or s.startswith('ABSENT'): return 'OFF'
+        if '|' in s:
+            pfx = s.split('|', 1)[0]
+            if pfx in ('AL_APPROVED', 'AL_PENDING', 'ABSENT'): return 'OFF'
+            return s.split('|', 1)[1]
+        return s
+
+    # Start one day before date_from to catch spillover into first day
+    d = date_from - timedelta(days=1)
+
+    while d <= date_to:
+        is_ph      = d in PUBLIC_HOLIDAYS
+        next_is_ph = (d + timedelta(days=1)) in PUBLIC_HOLIDAYS
+        in_range   = d >= date_from
+
+        for name in names:
+            nh_shift     = _effective_shift_for_hours(name, d, leave_map, override_map)
+            actual_shift = _clean_actual(_resolve_shift(name, d, leave_map, override_map))
+
+            if actual_shift == 'OFF' and nh_shift == 'OFF':
+                continue
+
+            _, night_min_nh   = _net_minutes(nh_shift)
+            day_min_actual, _ = _net_minutes(actual_shift)
+            same_day_night    = SHIFT_SAME_DAY_NIGHT_MINUTES.get(actual_shift, 0)
+            spillover_night   = SHIFT_SPILLOVER_NIGHT_MINUTES.get(actual_shift, 0)
+
+            # ── PH: same-day contribution ─────────────────────────────────
+            if is_ph and in_range and actual_shift != 'OFF':
+                results[name]['ph_day_min']  += day_min_actual
+                results[name]['ph_night_min'] += same_day_night
+                if day_min_actual + same_day_night > 0:
+                    results[name]['ph_dates'].add(d)
+
+            # ── PH: spillover from previous day into next (PH) day ────────
+            if next_is_ph and spillover_night > 0 and actual_shift != 'OFF':
+                next_d = d + timedelta(days=1)
+                if next_d >= date_from:
+                    results[name]['ph_night_min'] += spillover_night
+                    results[name]['ph_dates'].add(next_d)
+
+            # ── Regular NH (non-PH days) ──────────────────────────────────
+            if in_range and not is_ph:
+                # Deduct any spillover that will count as PH NH on next day
+                nh_spillover = SHIFT_SPILLOVER_NIGHT_MINUTES.get(nh_shift, 0)
+                regular_nh   = max(0, night_min_nh - (nh_spillover if next_is_ph else 0))
+                results[name]['night_min'] += regular_nh
 
         d += timedelta(days=1)
 
-    # Convert minutes → decimal hours (2dp), format PH dates
     out = {}
     for name, r in results.items():
+        ph_date_strs = sorted(dd.strftime('%-d %B') for dd in r['ph_dates'])
         out[name] = {
             'night_h':    round(r['night_min'] / 60, 2),
             'ph_day_h':   round(r['ph_day_min'] / 60, 2),
             'ph_night_h': round(r['ph_night_min'] / 60, 2),
-            'ph_dates':   r['ph_dates'],
+            'ph_dates':   ph_date_strs,
         }
     return out
 
