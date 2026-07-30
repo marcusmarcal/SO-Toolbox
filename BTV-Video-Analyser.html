@@ -1293,7 +1293,7 @@
           "
           onmouseover="this.style.background='var(--green-d)'"
           onmouseout="this.style.background='transparent'"
-          title="Open a real-time IAT/MLR monitor using the Host/Port/Passphrase above, without running a GOP test"
+          title="Open a real-time post-SRT PCR-interval & TS-loss monitor using the Host/Port/Passphrase above, without running a GOP test"
         >
           📡 Live Probe
         </button>
@@ -1587,7 +1587,7 @@
                       padding: 4px 12px;
                       cursor: pointer;
                     "
-                    title="Open a real-time IAT/MLR monitor for this SRT source"
+                    title="Open a real-time post-SRT PCR-interval & TS-loss monitor for this SRT source"
                   >
                     📡 Live Probe
                   </button>
@@ -2177,7 +2177,20 @@
     <div class="modal-overlay" id="live-probe-modal">
       <div class="modal-card wide">
         <div class="modal-title" style="color: var(--green)">
-          📡 Live IAT / MLR Probe
+          📡 Live SRT Transport Probe
+        </div>
+        <div
+          style="
+            font-size: 0.68rem;
+            color: var(--muted);
+            margin-bottom: 0.6rem;
+            line-height: 1.4;
+          "
+        >
+          Measured on the MPEG-TS after SRT delivery (post-ARQ) — not the
+          same measurement point as a raw-multicast probe such as Bridge
+          Technologies, since SRT already recovers most network loss before
+          this point.
         </div>
         <div class="modal-body" style="margin-bottom: 0.6rem">
           <span
@@ -2196,15 +2209,15 @@
 
         <div class="live-probe-readouts">
           <div>
-            <div class="lbl">IAT avg</div>
+            <div class="lbl">PCR interval avg</div>
             <div class="val" id="live-probe-iat-avg">—</div>
           </div>
           <div>
-            <div class="lbl">IAT max</div>
+            <div class="lbl">PCR interval max</div>
             <div class="val" id="live-probe-iat-max">—</div>
           </div>
           <div>
-            <div class="lbl">MLR</div>
+            <div class="lbl">TS CC loss</div>
             <div class="val" id="live-probe-mlr">—</div>
           </div>
           <div>
@@ -3794,13 +3807,13 @@
         );
       }
 
-      // ── Live IAT/MLR Probe (SRT sources only) ─────────────────────────────
+      // ── Live SRT Transport Probe (post-SRT PCR interval / TS CC loss) ─────
       let _liveProbeEventSource = null;
       let _liveProbeSessionId = null;
-      let _liveProbeSamples = []; // rolling buffer of {t, iat_avg_ms, iat_max_ms, mlr}
+      let _liveProbeSamples = []; // rolling buffer of {t, pcr_interval_avg_ms, pcr_interval_max_ms, ts_cc_loss, bitrate_kbps, state}
       const LIVE_PROBE_MAX_SAMPLES = 300; // 5 min @ 1 sample/sec
-      const LIVE_PROBE_IAT_WARN_MS = 130; // orange warning threshold
-      const LIVE_PROBE_IAT_CRIT_MS = 150; // red critical threshold
+      const LIVE_PROBE_PCR_WARN_MS = 130; // orange warning threshold
+      const LIVE_PROBE_PCR_CRIT_MS = 150; // red critical threshold
 
       // Host/port/tag currently loaded into the modal — set by whichever
       // entry point opened it (a saved test result, or the SRT form fields).
@@ -3923,27 +3936,29 @@
               errEl.textContent = msg.message || "Live probe error";
               _setLiveProbeState("unreachable");
             } else if (msg.type === "sample") {
-              _setLiveProbeState("running");
+              _setLiveProbeState(msg.state || "running");
 
               const iatAvgEl = document.getElementById("live-probe-iat-avg");
               const iatMaxEl = document.getElementById("live-probe-iat-max");
               const mlrEl = document.getElementById("live-probe-mlr");
 
-              if (msg.iat_avg_ms == null) {
+              if (msg.pcr_interval_avg_ms == null) {
                 iatAvgEl.textContent = "…";
                 iatMaxEl.textContent = "…";
                 iatAvgEl.style.color = "";
                 iatMaxEl.style.color = "";
               } else {
-                iatAvgEl.textContent = `${msg.iat_avg_ms} ms`;
-                iatMaxEl.textContent = `${msg.iat_max_ms} ms`;
-                iatAvgEl.style.color = _liveProbeIatColor(msg.iat_avg_ms);
-                iatMaxEl.style.color = _liveProbeIatColor(msg.iat_max_ms);
+                iatAvgEl.textContent = `${msg.pcr_interval_avg_ms} ms`;
+                iatMaxEl.textContent = `${msg.pcr_interval_max_ms} ms`;
+                iatAvgEl.style.color = _liveProbePcrColor(msg.pcr_interval_avg_ms);
+                iatMaxEl.style.color = _liveProbePcrColor(msg.pcr_interval_max_ms);
               }
 
-              mlrEl.textContent = msg.mlr;
-              mlrEl.style.color = msg.mlr > 0 ? "var(--red)" : "var(--green)";
+              mlrEl.textContent = msg.ts_cc_loss;
+              mlrEl.style.color = msg.ts_cc_loss > 0 ? "var(--red)" : "var(--green)";
 
+              // Always show the real bitrate, including 0 during a stall —
+              // freezing on the last good value looks identical to "fine".
               document.getElementById("live-probe-bitrate").textContent =
                 `${msg.bitrate_kbps} kbps`;
 
@@ -3994,9 +4009,9 @@
         }
       });
 
-      function _liveProbeIatColor(ms) {
-        if (ms >= LIVE_PROBE_IAT_CRIT_MS) return "var(--red)";
-        if (ms >= LIVE_PROBE_IAT_WARN_MS) return "#fff";
+      function _liveProbePcrColor(ms) {
+        if (ms >= LIVE_PROBE_PCR_CRIT_MS) return "var(--red)";
+        if (ms >= LIVE_PROBE_PCR_WARN_MS) return "#fff";
         return "var(--green)";
       }
 
@@ -4016,23 +4031,31 @@
         const highestSeen = Math.max(
           0,
           ...(_liveProbeSamples
-            .map((s) => s.iat_max_ms)
+            .map((s) => s.pcr_interval_max_ms)
             .filter((v) => v != null))
         );
-        const maxIat = Math.max(LIVE_PROBE_IAT_CRIT_MS * 1.2, highestSeen * 1.1);
+        const maxIat = Math.max(LIVE_PROBE_PCR_CRIT_MS * 1.2, highestSeen * 1.1);
         const barW = w / LIVE_PROBE_MAX_SAMPLES;
 
         _liveProbeSamples.forEach((s, i) => {
-          if (s.iat_max_ms == null) return; // PCR_PID not discovered yet this sample
           const x = i * barW;
-          const barH = Math.min(h, (s.iat_avg_ms / maxIat) * h);
-          const spikeH = Math.min(h, (s.iat_max_ms / maxIat) * h);
+
+          if (s.state === "stalled") {
+            // No signal this second — draw a flat marker so the outage is
+            // visible on the timeline instead of leaving a silent gap.
+            ctx.fillStyle = "rgba(248,81,73,0.9)";
+            ctx.fillRect(x, h - Math.max(4, h * 0.04), Math.max(1, barW - 1), Math.max(4, h * 0.04));
+            return;
+          }
+          if (s.pcr_interval_max_ms == null) return; // still connecting / PCR_PID not found yet
+
+          const spikeH = Math.min(h, (s.pcr_interval_max_ms / maxIat) * h);
 
           let color;
-          if (s.mlr > 0 || s.iat_max_ms >= LIVE_PROBE_IAT_CRIT_MS) {
-            color = "rgba(248,81,73,0.85)"; // red — loss or critical IAT
-          } else if (s.iat_max_ms >= LIVE_PROBE_IAT_WARN_MS) {
-            color = "rgba(250,165,26,0.85)"; // orange — warning IAT
+          if (s.ts_cc_loss > 0 || s.pcr_interval_max_ms >= LIVE_PROBE_PCR_CRIT_MS) {
+            color = "rgba(248,81,73,0.85)"; // red — loss or critical PCR interval
+          } else if (s.pcr_interval_max_ms >= LIVE_PROBE_PCR_WARN_MS) {
+            color = "rgba(250,165,26,0.85)"; // orange — warning PCR interval
           } else {
             color = "rgba(63,185,80,0.75)"; // green — healthy
           }
@@ -4053,8 +4076,8 @@
           ctx.stroke();
           ctx.setLineDash([]);
         };
-        drawRefLine(LIVE_PROBE_IAT_WARN_MS, "rgba(250,165,26,0.6)");
-        drawRefLine(LIVE_PROBE_IAT_CRIT_MS, "rgba(248,81,73,0.6)");
+        drawRefLine(LIVE_PROBE_PCR_WARN_MS, "rgba(250,165,26,0.6)");
+        drawRefLine(LIVE_PROBE_PCR_CRIT_MS, "rgba(248,81,73,0.6)");
 
         // Baseline
         ctx.strokeStyle = "rgba(255,255,255,0.15)";

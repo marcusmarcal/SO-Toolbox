@@ -1,49 +1,66 @@
 """
 routes_live_probe.py — Live SRT Probe Blueprint
-SO-Toolbox v2.33.0
+SO-Toolbox v2.34.0
 
-Real-time IAT (Inter-Arrival Time) / MLR (Media Loss Rate) monitor for GOP
-Analyser tests whose source is a live SRT stream (never shown for uploaded
-file tests). Reuses the same host/port already stored on the test result.
-This is fully independent of any external probe appliance — capture and
-analysis both happen inside SO-Toolbox.
+Real-time post-SRT transport monitor for GOP Analyser tests whose source is
+a live SRT stream (never shown for uploaded file tests). Reuses the same
+host/port already stored on the test result. This is fully independent of
+any external probe appliance — capture and analysis both happen inside
+SO-Toolbox.
+
+Why this cannot read the same as a raw-multicast probe (e.g. Bridge
+Technologies watching the LAN multicast feed directly):
+SRT itself performs packet-level ARQ (retransmission) and re-ordering
+before delivering data to the receiving application. By the time
+`srt-live-transmit` hands us bytes, SRT has already recovered most
+transient network loss/jitter within its latency window — we are looking
+at the multiplex *after* SRT's own error correction, not the raw network
+path. A multicast probe watching the LAN feed directly sees the network
+before any such correction. The two are legitimately different
+measurement points, not the same signal disagreeing.
 
 Why srt-live-transmit instead of ffmpeg:
 ffmpeg's SRT input demuxes the transport stream into elementary streams and
 then re-multiplexes it (even with `-c copy`), which regenerates MPEG-TS
-continuity counters and can shuffle PIDs. That would hide genuine network
-packet loss instead of exposing it. `srt-live-transmit` (Haivision srt-tools)
+continuity counters and can shuffle PIDs. That would hide genuine loss
+remaining after SRT's own ARQ. `srt-live-transmit` (Haivision srt-tools)
 does no such transformation — piping to `file://con` writes the exact bytes
-received off the wire to stdout, so continuity counters reflect what the
-network actually delivered.
+delivered by the SRT socket to stdout, so continuity counters reflect
+exactly what SRT handed off to the application layer.
 
-Metrics:
-  MLR = MPEG-TS continuity-counter discontinuities per PID, counted per
-        1-second window. Null packets (PID 0x1FFF) and adaptation-field-only
-        packets (no payload, CC does not increment) are excluded. A single
-        repeated CC is treated as a legal retransmit duplicate, not a loss.
+What is actually measured (labelled precisely in the UI, not as generic
+"IAT"/"MLR", since those already have a specific different meaning on a
+multicast probe):
+  PCR interval (ms) — wall-clock interval between successive arrivals of a
+        PCR (Program Clock Reference) field on the stream's PCR_PID,
+        discovered by parsing PAT -> PMT. MPEG-TS requires a PCR at least
+        every 100ms, so a healthy post-SRT feed reads close to 100ms.
+        PCR_INTERVAL_WARN_MS/CRIT_MS below classify each sample.
+  TS CC loss (packets) — MPEG-TS continuity-counter discontinuities per PID,
+        counted per 1-second window, on the stream as delivered by SRT
+        (i.e. after SRT's own retransmission). Null packets (PID 0x1FFF)
+        and adaptation-field-only packets (no payload, CC does not
+        increment) are excluded. A single repeated CC is a legal retransmit
+        duplicate, not a loss. On a healthy SRT session this should read 0
+        even if the underlying network had real loss, precisely because
+        SRT already recovered it — a nonzero value here means loss that
+        exceeded SRT's own recovery window.
         v2.33.0 fix: packet-boundary tracking now carries any partial TS
         packet left at the end of a stdout read over to the next read
-        instead of discarding it. Discarding was desyncing the 188-byte
-        packet alignment on almost every read (stdout reads rarely land on
-        a clean packet boundary), which fed the CC tracker garbage bytes
-        and produced a near-constant stream of false "loss" — this is why
-        MLR never reached 0 even on a tunnel with no real loss.
-  IAT = wall-clock interval between successive arrivals of a PCR (Program
-        Clock Reference) field on the stream's PCR_PID, discovered by
-        parsing PAT -> PMT. This mirrors the standard ETSI TR 101 290
-        "PCR repetition" QoS check that broadcast probes (including
-        Bridge Technologies) report as IAT/MLR: MPEG-TS requires a PCR at
-        least every 100ms, so a healthy feed reports IAT close to 100ms.
-        v2.33.0 fix: earlier this measured wall-clock gaps between our own
-        stdout reads, which is dominated by our own pipe/chunking behaviour
-        (a few ms) rather than the transport-level pacing the Bridgetech
-        probe reports (~100-110ms) — the two were never measuring the same
-        thing. IAT_WARN_MS/IAT_CRIT_MS below classify each sample.
-        A full stream stall is reported as state="stalled" once no data has
-        been read for STALL_TIMEOUT_S. The first STARTUP_GRACE_S seconds
-        after each (re)connect are not emitted — SRT handshake / prebuffer
-        catch-up produces an expected, non-network-related reading there.
+        instead of discarding it, which had been desyncing 188-byte
+        alignment on almost every read and producing constant false loss.
+
+Stall handling (v2.34.0):
+  Reads are polled with a 1-second select() timeout instead of a plain
+  blocking read, so a network stall is detected even if srt-live-transmit's
+  process stays alive and simply stops delivering bytes (a plain blocking
+  read would hang silently and the UI would just stop updating with no
+  indication anything was wrong). Once STALL_TIMEOUT_S passes with no data,
+  every 1-second window still emits a sample with bitrate_kbps=0 and
+  state="stalled" instead of going quiet, so the chart keeps populating at
+  zero and the readouts don't just freeze on the last good value. If the
+  stall continues past HARD_STALL_S, the subprocess is killed and a fresh
+  connection attempt is made.
 
 Requires `srt-live-transmit` on PATH (Haivision srt-tools build):
   https://github.com/Haivision/srt  ->  ./configure && make && make install
@@ -57,6 +74,7 @@ IDLE_GRACE_S, and hard-caps any session at SESSION_TTL_S, so an abandoned
 browser tab can never leave an orphaned capture process running forever.
 """
 
+import select
 import os
 import re
 import json
@@ -78,10 +96,12 @@ live_probe_bp = Blueprint('live_probe', __name__)
 SRT_LIVE_TRANSMIT = shutil.which("srt-live-transmit") or "srt-live-transmit"
 
 CHUNK_SIZE          = 4096         # small reads -> finer-grained PCR arrival timestamps
-STALL_TIMEOUT_S     = 5
+SELECT_POLL_S        = 1.0         # select() timeout per read poll
+STALL_TIMEOUT_S     = 5            # no data for this long -> state="stalled"
+HARD_STALL_S        = 15           # no data for this long -> kill & reconnect
 STARTUP_GRACE_S     = 2.0          # suppress samples for this long after (re)connecting
-IAT_WARN_MS         = 130.0        # orange warning threshold (matches broadcast probe convention)
-IAT_CRIT_MS         = 150.0        # red critical threshold
+PCR_INTERVAL_WARN_MS = 130.0       # orange warning threshold (matches broadcast probe convention)
+PCR_INTERVAL_CRIT_MS = 150.0       # red critical threshold
 SESSION_TTL_S       = 4 * 3600     # hard cap per session, regardless of activity
 IDLE_GRACE_S        = 20           # reap if no SSE client attached this long
 RECONNECT_DELAY_S   = 2
@@ -301,57 +321,97 @@ class LiveProbeSession:
 
             self._emit({"type": "status", "state": "connecting"})
             connected_once = False
-            conn_start_t = None  # set on first byte received this connection
+            conn_start_t = None       # set on first byte received this connection
+            last_data_t = time.time()
+            window_start = time.time()
+            window_lost = 0
+            window_bytes = 0
+            window_iat = []
+            reported_stalled = False
 
             try:
                 while not self.stop_flag.is_set():
-                    buf = self.proc.stdout.read(CHUNK_SIZE)
+                    # Poll with a timeout instead of a plain blocking read, so a
+                    # network stall is detected even while the subprocess stays
+                    # alive and simply stops delivering bytes.
+                    ready, _, _ = select.select([self.proc.stdout], [], [], SELECT_POLL_S)
                     now = time.time()
-                    if not buf:
-                        break  # process ended / stream closed
 
-                    if not connected_once:
-                        # First data of this connection — align the first
-                        # aggregation window to it and start the grace period.
-                        connected_once = True
-                        conn_start_t = now
-                        window_start = now
-                        window_lost = 0
-                        window_bytes = 0
-                        window_iat = []
+                    if ready:
+                        buf = self.proc.stdout.read(CHUNK_SIZE)
+                        if not buf:
+                            break  # process ended / stream closed
+                        last_data_t = now
 
-                    lost, _seen, pcr_iat = analyzer.feed(buf, now)
-                    window_lost += lost
-                    window_bytes += len(buf)
-                    window_iat.extend(pcr_iat)
+                        if reported_stalled:
+                            # Data resumed after a stall — start a clean window
+                            # instead of mixing pre/post-stall bytes together.
+                            reported_stalled = False
+                            window_start = now
+                            window_lost = 0
+                            window_bytes = 0
+                            window_iat = []
 
+                        if not connected_once:
+                            connected_once = True
+                            conn_start_t = now
+                            window_start = now
+                            window_lost = 0
+                            window_bytes = 0
+                            window_iat = []
+
+                        lost, _seen, pcr_iat = analyzer.feed(buf, now)
+                        window_lost += lost
+                        window_bytes += len(buf)
+                        window_iat.extend(pcr_iat)
+
+                    stalled_now = connected_once and (now - last_data_t) >= STALL_TIMEOUT_S
                     elapsed = now - window_start
+
                     if elapsed >= 1.0:
-                        in_grace = (window_start - conn_start_t) < STARTUP_GRACE_S
-                        if not in_grace:
-                            kbps = (window_bytes * 8 / 1000.0) / elapsed if elapsed > 0 else 0.0
-                            if window_iat:
-                                avg_iat = round(sum(window_iat) / len(window_iat), 1)
-                                max_iat = round(max(window_iat), 1)
-                            else:
-                                # PCR_PID not discovered yet (or no PCR seen
-                                # this window) — report MLR/bitrate anyway,
-                                # but don't fabricate an IAT reading.
-                                avg_iat = None
-                                max_iat = None
+                        if stalled_now:
+                            # Keep populating the chart at zero instead of
+                            # just going quiet — a frozen UI looks identical
+                            # to "everything is fine and unchanged".
                             self._emit({
                                 "type": "sample",
                                 "t": now,
-                                "iat_avg_ms": avg_iat,
-                                "iat_max_ms": max_iat,
-                                "mlr": window_lost,
-                                "bitrate_kbps": round(kbps, 1),
-                                "state": "running",
+                                "pcr_interval_avg_ms": None,
+                                "pcr_interval_max_ms": None,
+                                "ts_cc_loss": 0,
+                                "bitrate_kbps": 0.0,
+                                "state": "stalled",
                             })
+                            reported_stalled = True
+                        elif connected_once:
+                            in_grace = (window_start - conn_start_t) < STARTUP_GRACE_S
+                            if not in_grace:
+                                kbps = (window_bytes * 8 / 1000.0) / elapsed if elapsed > 0 else 0.0
+                                if window_iat:
+                                    avg_iat = round(sum(window_iat) / len(window_iat), 1)
+                                    max_iat = round(max(window_iat), 1)
+                                else:
+                                    # PCR_PID not discovered yet (or no PCR seen
+                                    # this window) — report loss/bitrate anyway,
+                                    # but don't fabricate a PCR interval reading.
+                                    avg_iat = None
+                                    max_iat = None
+                                self._emit({
+                                    "type": "sample",
+                                    "t": now,
+                                    "pcr_interval_avg_ms": avg_iat,
+                                    "pcr_interval_max_ms": max_iat,
+                                    "ts_cc_loss": window_lost,
+                                    "bitrate_kbps": round(kbps, 1),
+                                    "state": "running",
+                                })
                         window_lost = 0
                         window_bytes = 0
                         window_iat = []
                         window_start = now
+
+                    if connected_once and (now - last_data_t) >= HARD_STALL_S:
+                        break  # SRT itself never noticed — force a fresh attempt
             finally:
                 try:
                     self.proc.terminate()

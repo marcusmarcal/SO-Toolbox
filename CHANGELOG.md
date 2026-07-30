@@ -7,6 +7,28 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.39.3] - 2026-07-28
+
+### Changed
+
+- Live Probe terminology renamed throughout the UI and API payload to
+  describe exactly what is measured: "PCR interval avg/max" (was IAT)
+  and "TS CC loss" (was MLR), both computed on the MPEG-TS as
+  delivered by SRT (post-ARQ). Added an explanatory note in the modal
+  that this is not the same measurement point as a raw-multicast
+  probe such as Bridge Technologies, since SRT recovers most network
+  loss before this point.
+
+### Fixed
+
+- A feed that stopped delivering data while srt-live-transmit stayed
+  running previously hung on a blocking read with no indication
+  anything was wrong — the UI just froze on the last good values.
+  Reads are now polled with select() so a stall is detected: after
+  5s the chart/readouts show a real "stalled" state with bitrate
+  explicitly at 0 (populated every second, not frozen); after 15s
+  the subprocess is killed and a fresh connection is attempted.
+
 ## [2.39.2] - 2026-07-28
 
 ### Fixed
