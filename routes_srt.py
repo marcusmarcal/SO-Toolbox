@@ -74,7 +74,9 @@ def _build_ffmpeg_cmd(
     if source_mode == "bars_tone":
         # A dedicated source is required per destination because the port is
         # burned into the video.  The signal is 1080p25 SMPTE colour bars with
-        # a continuous 1 kHz tone, encoded as AVC/H.264 at 1 Mbps.
+        # a continuous 1 kHz tone, encoded as AVC/H.264 at 1 Mbps. A live UTC
+        # clock is also burned in (top of frame) so an operator can compare it
+        # against wall-clock time at the receiving end to estimate latency.
         return [
             "ffmpeg", "-re",
             "-f", "lavfi", "-i", "smptebars=size=1920x1080:rate=25",
@@ -82,7 +84,10 @@ def _build_ffmpeg_cmd(
             "-filter:v", (
                 "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:"
                 f"text='PORT {port}':fontcolor=white:fontsize=72:"
-                "box=1:boxcolor=black@0.70:boxborderw=20:x=(w-text_w)/2:y=h-140"
+                "box=1:boxcolor=black@0.70:boxborderw=20:x=(w-text_w)/2:y=h-140,"
+                "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:"
+                "text='UTC %{gmtime\\:%X}':fontcolor=#00ff88:fontsize=56:"
+                "box=1:boxcolor=black@0.70:boxborderw=16:x=(w-text_w)/2:y=40"
             ),
             "-map", "0:v:0",
             "-map", "1:a:0",
@@ -452,13 +457,21 @@ def ingest_single():
     input_file = data.get("input_file", "test.mp4").strip()
     bitrate_mbps = float(data.get("bitrate_mbps", CBR_DEFAULT_MBPS))
     passthrough = bool(data.get("passthrough", False))
+    source_mode = data.get("source_mode", "file")
+    if source_mode not in ("file", "bars_tone"):
+        return jsonify({"error": "Invalid source_mode"}), 400
 
     if not host or not port:
         return jsonify({"error": "host and port are required"}), 400
-    if not os.path.isfile(input_file):
+    if source_mode == "bars_tone":
+        # B&T has a fixed compliance profile; do not inherit the UI bitrate
+        # or passthrough choice.
+        bitrate_mbps = 1.0
+        passthrough = False
+    elif not os.path.isfile(input_file):
         return jsonify({"error": f"Input file not found: {input_file}"}), 400
 
-    job = _launch_job(input_file, host, port, passphrase, bitrate_mbps, passthrough)
+    job = _launch_job(input_file, host, port, passphrase, bitrate_mbps, passthrough, source_mode=source_mode)
     return jsonify({"message": "Ingest started", "job": _job_info(job)}), 201
 
 

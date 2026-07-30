@@ -249,6 +249,7 @@
       <label>Source File</label>
       <div class="host-combo">
         <select id="s-source-select" onchange="applySourceSelect('s')">
+          <option value="__bars_tone__" data-type="bars-tone">B&amp;T — Colour Bars + 1 kHz Tone (port + UTC clock overlay)</option>
           <option value="test.mp4" data-type="mp4">test.mp4</option>
         </select>
         <input type="text" id="s-input" value="test.mp4" placeholder="or type path" />
@@ -286,8 +287,8 @@
       <label>Source File</label>
       <div class="host-combo">
         <select id="m-source-select" onchange="applySourceSelect('m')">
+          <option value="__bars_tone__" data-type="bars-tone">B&amp;T — Colour Bars + 1 kHz Tone (port + UTC clock overlay)</option>
           <option value="test.mp4" data-type="mp4">test.mp4</option>
-          <option value="__bars_tone__" data-type="bars-tone">B&amp;T — Colour Bars + 1 kHz Tone (port overlay)</option>
         </select>
         <input type="text" id="m-input" value="test.mp4" placeholder="or type path" />
       </div>
@@ -682,7 +683,18 @@ function updateSinglePreview() {
   const pass    = document.getElementById('s-pass').value.trim();
   const bitrate    = parseFloat(document.getElementById('s-bitrate').value) || 8;
   const passthrough = document.getElementById('s-passthrough').checked;
+  const isBarsTone = document.getElementById('s-source-select').value === '__bars_tone__';
   const el      = document.getElementById('s-preview');
+  if (isBarsTone) {
+    if (!host || !port) {
+      el.innerHTML = '<span style="color:var(--muted)">Fill the fields above to preview the command.</span>';
+      return;
+    }
+    const srtUrl = `srt://${esc(host)}:${port}${pass ? "?passphrase=***" : ""}`;
+    el.innerHTML = `<span class="hlg">B&T · 1080p25 · AVC · 1 Mbps · GOP 1 s · no B-frames · UTC clock overlay</span>\n`
+      + `→ <span class="hl2">${srtUrl}</span>`;
+    return;
+  }
   const cmd     = buildCmd(input, host, port, pass, bitrate, passthrough);
   el.innerHTML  = cmd || '<span style="color:var(--muted)">Fill the fields above to preview the command.</span>';
 }
@@ -722,13 +734,15 @@ function updateMultiPreview() {
 
 // ── API calls ────────────────────────────────────────────────────────────────
 async function startSingle() {
+  const isBarsTone = document.getElementById('s-source-select').value === '__bars_tone__';
   const body = {
-    input_file:  document.getElementById('s-input').value.trim(),
-    host:        document.getElementById('s-host').value.trim(),
-    port:        parseInt(document.getElementById('s-port').value),
+    input_file:   document.getElementById('s-input').value.trim(),
+    host:         document.getElementById('s-host').value.trim(),
+    port:         parseInt(document.getElementById('s-port').value),
     passphrase:   document.getElementById('s-pass').value.trim(),
-    bitrate_mbps: parseFloat(document.getElementById('s-bitrate').value) || 8,
-    passthrough:  document.getElementById('s-passthrough').checked,
+    source_mode:  isBarsTone ? 'bars_tone' : 'file',
+    bitrate_mbps: isBarsTone ? 1 : (parseFloat(document.getElementById('s-bitrate').value) || 8),
+    passthrough:  isBarsTone ? false : document.getElementById('s-passthrough').checked,
   };
   if (!body.host || !body.port) { toast('Host and port are required.','err'); return; }
   try {
@@ -914,6 +928,12 @@ async function loadSources() {
     ['s-source-select','m-source-select'].forEach(selId => {
       const sel = document.getElementById(selId);
       while (sel.options.length) sel.remove(0);
+      // B&T colour bars is the standard reference source: always list it first.
+      const bt = document.createElement('option');
+      bt.value = '__bars_tone__';
+      bt.dataset.type = 'bars-tone';
+      bt.textContent = 'B&T — Colour Bars + 1 kHz Tone (port + UTC clock overlay)';
+      sel.appendChild(bt);
       d.sources.forEach(s => {
         const o = document.createElement('option');
         o.value = s.file;
@@ -921,13 +941,6 @@ async function loadSources() {
         o.textContent = s.type === 'ts' ? `📼 ${s.name}` : `🎬 ${s.file}`;
         sel.appendChild(o);
       });
-      if (selId === 'm-source-select') {
-        const o = document.createElement('option');
-        o.value = '__bars_tone__';
-        o.dataset.type = 'bars-tone';
-        o.textContent = 'B&T — Colour Bars + 1 kHz Tone (port overlay)';
-        sel.appendChild(o);
-      }
     });
     // Set initial input value to first source
     const first = d.sources[0];
@@ -973,16 +986,18 @@ function applySourceSelect(prefix) {
   const sel  = document.getElementById(`${prefix}-source-select`);
   const file = sel.value;
   const type = sel.options[sel.selectedIndex]?.dataset.type;
-  const isBarsTone = prefix === 'm' && type === 'bars-tone';
+  const isBarsTone = type === 'bars-tone';
   document.getElementById(`${prefix}-input`).value = isBarsTone ? '' : file;
 
   const ptRow = document.getElementById(`${prefix}-passthrough-row`);
   const brRow = document.getElementById(`${prefix}-bitrate-row`);
   if (isBarsTone) {
     // B&T is generated per destination, so shared/copy mode is unavailable.
-    document.getElementById('m-shared').checked = false;
-    document.getElementById('m-shared').disabled = true;
-    document.getElementById('m-passthrough').checked = false;
+    if (prefix === 'm') {
+      document.getElementById('m-shared').checked = false;
+      document.getElementById('m-shared').disabled = true;
+    }
+    document.getElementById(`${prefix}-passthrough`).checked = false;
     ptRow.style.display = 'none';
     brRow.style.display = 'none';
   } else {

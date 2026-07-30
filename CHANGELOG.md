@@ -7,6 +7,17 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.40.0] - 2026-07-30
+
+### Added
+
+- Single-destination ingest now supports B&T (Colour Bars + 1 kHz Tone) source mode, previously available only on multi-destination.
+- B&T signal now burns in a live UTC clock overlay (top of frame), enabling latency measurement by comparing it against wall-clock time at the receiving end.
+
+### Changed
+
+- Source selects (single and multi destination) now list B&T Colour Bars first, followed by test.mp4 and other available sources.
+
 ## [2.39.3] - 2026-07-28
 
 ### Changed
