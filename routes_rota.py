@@ -1832,5 +1832,5 @@ def rota_hours_debug():
     })
 
 
-    def register_routes(app) -> None:
+def register_routes(app) -> None:
     app.register_blueprint(rota_bp)
