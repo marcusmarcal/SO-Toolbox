@@ -1421,6 +1421,55 @@ def _effective_shift_for_hours(name: str, d: date,
     resolved = _resolve_shift(name, d, leave_map, override_map)
     return _clean(resolved)
 
+def _normalise_to_rota_name(full_name: str) -> str:
+    """Convert a full name ('Antonio Silva') to the short rota-style name
+    ('Antonio S') used as keys in SPECIALIST_OFFSETS etc."""
+    known = (set(MANAGEMENT_SHIFTS) |
+             set(ENGINEERING_OFFSETS) |
+             set(SPECIALIST_OFFSETS))
+    parts = full_name.strip().split()
+    if not parts:
+        return full_name
+    first = parts[0].capitalize()
+    if len(parts) == 1:
+        if first in known:
+            return first
+        matches = [n for n in known if n.split()[0].lower() == first.lower()]
+        return matches[0] if len(matches) == 1 else first
+    short = f"{first} {parts[-1][0].upper()}"
+    if short in known:
+        return short
+    matches = [n for n in known if n.split()[0].lower() == first.lower()]
+    if len(matches) == 1:
+        return matches[0]
+    return short
+
+def _load_hr_config() -> dict:
+    cfg = _load_json(HR_CONFIG_FILE)
+    if not isinstance(cfg, dict):
+        cfg = {}
+    cfg.setdefault('mcr', {})
+    cfg.setdefault('hr_teams', {
+        'SOE': ['Marcus', 'Hugo', 'Goncalo', 'Nuno'],
+        'SOS': ['Joao L', 'Tiago C', 'Sabina', 'Sergio', 'Tiago O',
+                'Vitor', 'Fernando', 'Marc', 'Gabriel', 'Mario', 'Isaac'],
+    })
+    raw_teams = cfg.get('hr_teams', {})
+    raw_mcr   = cfg.get('mcr', {})
+    display_names = {}
+    for members in raw_teams.values():
+        for full_name in members:
+            short = _normalise_to_rota_name(full_name)
+            display_names[short] = full_name
+    cfg['display_names'] = display_names
+    cfg['mcr'] = {
+        _normalise_to_rota_name(k): v for k, v in raw_mcr.items()
+    }
+    cfg['hr_teams'] = {
+        team: [_normalise_to_rota_name(n) for n in members]
+        for team, members in raw_teams.items()
+    }
+    return cfg
 
 def _compute_hours(date_from: date, date_to: date,
                    names: list[str],
@@ -1492,7 +1541,7 @@ def _compute_hours(date_from: date, date_to: date,
 
     out = {}
     for name, r in results.items():
-        ph_date_strs = sorted(dd.strftime('%-d %B') for dd in r['ph_dates'])
+        ph_date_strs = sorted(dd.strftime('%d %B').lstrip('0') for dd in r['ph_dates'])
         out[name] = {
             'night_h':    round(r['night_min'] / 60, 2),
             'ph_day_h':   round(r['ph_day_min'] / 60, 2),
@@ -1730,10 +1779,6 @@ def rota_hours_export():
     )
 
 
-def register_routes(app) -> None:
-    app.register_blueprint(rota_bp)
-
-
 @rota_bp.route('/rota/hours/debug', methods=['GET'])
 @require_auth
 def rota_hours_debug():
@@ -1785,3 +1830,7 @@ def rota_hours_debug():
         'spot_checks':                 spot,
         'mcr_normalised':              hr_cfg.get('mcr'),
     })
+
+
+    def register_routes(app) -> None:
+    app.register_blueprint(rota_bp)
