@@ -2497,10 +2497,19 @@
       list.appendChild(absentBtn);
 
       const customIn = document.getElementById('popover-custom-shift');
-      customIn.value = '';
+      const isCustomBase = singleBase && /^\d{4}-\d{4}$/.test(singleBase) && !ALL_SHIFTS.includes(singleBase);
+      customIn.value = isCustomBase ? singleBase : '';
       customIn.classList.remove('invalid');
       document.getElementById('custom-shift-err').style.display = 'none';
-      document.getElementById('custom-color-row').style.display = 'none';
+      document.getElementById('custom-color-row').style.display = isCustomBase ? 'flex' : 'none';
+      if (isCustomBase) {
+        _pop.pendingShift = singleBase;
+        const knownColor = (SHIFT_COLORS[singleBase] || {}).bg;
+        if (knownColor) {
+          _pop.customColor = knownColor;
+          document.getElementById('custom-color-picker').value = knownColor;
+        }
+      }
       _buildRecentColors();
       customIn.oninput = () => {
         const v = customIn.value.trim();
@@ -2789,12 +2798,12 @@
       sw.className = 'color-swatch';
       sw.style.background = color;
       sw.title = color;
+      if (_pop.customColor && color === _pop.customColor) sw.classList.add('active');
       sw.addEventListener('click', () => {
         document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
         sw.classList.add('active');
         _pop.customColor = color;
         document.getElementById('custom-color-picker').value = color;
-        if (preview) preview.style.background = color;
       });
       row.appendChild(sw);
     });
@@ -2946,7 +2955,6 @@
     document.getElementById('popover-apply').addEventListener('click', applyPopover);
     document.getElementById('custom-color-picker').addEventListener('input', e => {
       _pop.customColor = e.target.value;
-      if (preview) preview.style.background = e.target.value;
     });
 
     document.getElementById('btn-pick-color').addEventListener('click', openColorPopover);
@@ -2955,7 +2963,6 @@
     document.getElementById('color-popover-use').addEventListener('click', () => {
       const val = document.getElementById('custom-color-picker').value;
       _pop.customColor = val;
-      if (preview) preview.style.background = val;
       closeColorPopover();
     });
 
