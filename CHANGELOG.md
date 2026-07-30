@@ -7,6 +7,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.40.1] - 2026-07-30
+
+### Fixed
+
+- Source select desync on page load: listing B&T Colour Bars first (2.31.0) left the dropdown defaulting to B&T while the input field and preview still showed test.mp4, causing Start Ingest to launch the wrong source. loadSources() now re-syncs select value and dependent UI (input, passthrough/bitrate rows, preview) after populating options.
+
 ## [2.40.0] - 2026-07-30
 
 ### Added

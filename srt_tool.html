@@ -942,11 +942,16 @@ async function loadSources() {
         sel.appendChild(o);
       });
     });
-    // Set initial input value to first source
+    // Default selection stays on the first real source (e.g. test.mp4), not
+    // B&T — listing B&T first is a UX convenience, not a change of default.
+    // Explicitly sync select value + dependent UI so the visible input field,
+    // passthrough/bitrate rows and preview never desync from what's selected.
     const first = d.sources[0];
     if (first) {
-      document.getElementById('s-input').value = first.file;
-      document.getElementById('m-input').value = first.file;
+      document.getElementById('s-source-select').value = first.file;
+      document.getElementById('m-source-select').value = first.file;
+      applySourceSelect('s');
+      applySourceSelect('m');
     }
   } catch(e) {
     console.warn('Could not load sources:', e);
