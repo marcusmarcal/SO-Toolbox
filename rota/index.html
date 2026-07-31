@@ -2797,6 +2797,8 @@ function _removeCellFromBoxes(ri, ci) {
       // Clear note from rotaData so patch renders correctly
       const day = state.rotaData && state.rotaData.find(d => d.date === first.date);
       if (day && day.shifts[first.person]) day.shifts[first.person].note = '';
+      const ov = state.draft.overrides.find(o => o.person === first.person && o.date === first.date);
+      if (ov) ov.note = '';
       _patchRotaCells([{ person: first.person, date: first.date }]);
       toast('Note deleted', 'ok');
     };
@@ -3015,6 +3017,8 @@ function _removeCellFromBoxes(ri, ci) {
           });
           const day = state.rotaData && state.rotaData.find(d => d.date === cell.date);
           if (day && day.shifts[cell.person]) day.shifts[cell.person].note = note;
+          const ov = state.draft.overrides.find(o => o.person === cell.person && o.date === cell.date);
+          if (ov) ov.note = note;
         }
       }
       closeShiftPopover();
@@ -3034,6 +3038,8 @@ function _removeCellFromBoxes(ri, ci) {
         // Update note in rotaData so _patchRotaCells reads it correctly
         const day = state.rotaData && state.rotaData.find(d => d.date === cell.date);
         if (day && day.shifts[cell.person]) day.shifts[cell.person].note = note;
+        const ov = state.draft.overrides.find(o => o.person === cell.person && o.date === cell.date);
+        if (ov) ov.note = note;
       }
       closeShiftPopover();
       _patchRotaCells(sel.map(c => ({ person: c.person, date: c.date })));
