@@ -7,6 +7,13 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.40.2] - 2026-07-31
+
+### Changed
+
+- B&T burned-in UTC clock overlay now shows millisecond precision (HH:MM:SS.mmm) for finer-grained latency estimation.
+- Single-destination Command Preview now renders the complete, real ffmpeg command for B&T, consistent with file-based sources, instead of a summary line.
+
 ## [2.40.1] - 2026-07-30
 
 ### Fixed

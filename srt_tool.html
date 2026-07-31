@@ -676,6 +676,29 @@ function buildCmd(input, host, port, pass, bitrate, passthrough) {
     + `<span class="hl2">${srtUrl}</span>`;
 }
 
+function buildBarsToneCmd(host, port, pass) {
+  if (!host || !port) return null;
+  const srtUrl = `srt://${esc(host)}:${port}${pass ? "?passphrase=***" : ""}`;
+  const filter =
+    `drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:` +
+    `text='PORT ${port}':fontcolor=white:fontsize=72:` +
+    `box=1:boxcolor=black@0.70:boxborderw=20:x=(w-text_w)/2:y=h-140,` +
+    `drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:` +
+    `text='UTC %{gmtime\\:%X}.%{eif\\:mod(n\\,25)*40\\:d\\:3}':fontcolor=#00ff88:fontsize=56:` +
+    `box=1:boxcolor=black@0.70:boxborderw=16:x=(w-text_w)/2:y=40`;
+  return `ffmpeg -re -f lavfi -i smptebars=size=1920x1080:rate=25 \\\n`
+    + `  -f lavfi -i sine=frequency=1000:sample_rate=48000\n`
+    + `-filter:v <span class="hl">"${esc(filter)}"</span>\n`
+    + `-map 0:v:0 -map 1:a:0\n`
+    + `-c:v libx264 -profile:v high -pix_fmt yuv420p\n`
+    + `-x264-params "force-cfr=1:pic-struct=1:scenecut=0" -bf 0 -flags +cgop\n`
+    + `-r 25 -g 25 -keyint_min 25 -sc_threshold 0\n`
+    + `<span class="hlg">-b:v 1M -minrate 1M -maxrate 1M -bufsize 2M</span>\n`
+    + `-c:a aac -b:a 128k -ar 48000 -ac 2\n`
+    + `-f mpegts -muxdelay 0 -muxpreload 0\n`
+    + `<span class="hl2">${srtUrl}</span>`;
+}
+
 function updateSinglePreview() {
   const input   = document.getElementById('s-input').value.trim();
   const host    = document.getElementById('s-host').value.trim();
@@ -686,13 +709,8 @@ function updateSinglePreview() {
   const isBarsTone = document.getElementById('s-source-select').value === '__bars_tone__';
   const el      = document.getElementById('s-preview');
   if (isBarsTone) {
-    if (!host || !port) {
-      el.innerHTML = '<span style="color:var(--muted)">Fill the fields above to preview the command.</span>';
-      return;
-    }
-    const srtUrl = `srt://${esc(host)}:${port}${pass ? "?passphrase=***" : ""}`;
-    el.innerHTML = `<span class="hlg">B&T · 1080p25 · AVC · 1 Mbps · GOP 1 s · no B-frames · UTC clock overlay</span>\n`
-      + `→ <span class="hl2">${srtUrl}</span>`;
+    const cmd = buildBarsToneCmd(host, port, pass);
+    el.innerHTML = cmd || '<span style="color:var(--muted)">Fill the fields above to preview the command.</span>';
     return;
   }
   const cmd     = buildCmd(input, host, port, pass, bitrate, passthrough);

@@ -78,42 +78,42 @@ def _build_ffmpeg_cmd(
         # clock is also burned in (top of frame) so an operator can compare it
         # against wall-clock time at the receiving end to estimate latency.
         return [
-    "ffmpeg", "-re",
-    "-f", "lavfi", "-i", "smptebars=size=1920x1080:rate=25",
-    "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=48000",
-    "-filter:v", (
-        "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:"
-        f"text='PORT {port}':fontcolor=white:fontsize=72:"
-        "box=1:boxcolor=black@0.70:boxborderw=20:x=(w-text_w)/2:y=h-140,"
-        "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:"
-        r"text='UTC %{gmtime\:%H\:%M\:%S}.%{eif\:mod(n\,25)*40\:d\:3}':fontcolor=#00ff88:fontsize=56:"
-        "box=1:boxcolor=black@0.70:boxborderw=16:x=(w-text_w)/2:y=40"
-    ),
-    "-map", "0:v:0",
-    "-map", "1:a:0",
-    "-c:v", "libx264",
-    "-profile:v", "high",
-    "-pix_fmt", "yuv420p",
-    "-x264-params", "force-cfr=1:pic-struct=1:scenecut=0",
-    "-bf", "0",
-    "-flags", "+cgop",
-    "-r", "25",
-    "-g", "25",
-    "-keyint_min", "25",
-    "-sc_threshold", "0",
-    "-b:v", "1M",
-    "-minrate", "1M",
-    "-maxrate", "1M",
-    "-bufsize", "2M",
-    "-c:a", "aac",
-    "-b:a", "128k",
-    "-ar", "48000",
-    "-ac", "2",
-    "-f", "mpegts",
-    "-muxdelay", "0",
-    "-muxpreload", "0",
-    srt_url,
-]
+            "ffmpeg", "-re",
+            "-f", "lavfi", "-i", "smptebars=size=1920x1080:rate=25",
+            "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=48000",
+            "-filter:v", (
+                "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:"
+                f"text='PORT {port}':fontcolor=white:fontsize=72:"
+                "box=1:boxcolor=black@0.70:boxborderw=20:x=(w-text_w)/2:y=h-140,"
+                "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:"
+                "text='UTC %{gmtime\\:%X}.%{eif\\:mod(n\\,25)*40\\:d\\:3}':fontcolor=#00ff88:fontsize=56:"
+                "box=1:boxcolor=black@0.70:boxborderw=16:x=(w-text_w)/2:y=40"
+            ),
+            "-map", "0:v:0",
+            "-map", "1:a:0",
+            "-c:v", "libx264",
+            "-profile:v", "high",
+            "-pix_fmt", "yuv420p",
+            "-x264-params", "force-cfr=1:pic-struct=1:scenecut=0",
+            "-bf", "0",
+            "-flags", "+cgop",
+            "-r", "25",
+            "-g", "25",
+            "-keyint_min", "25",
+            "-sc_threshold", "0",
+            "-b:v", "1M",
+            "-minrate", "1M",
+            "-maxrate", "1M",
+            "-bufsize", "2M",
+            "-c:a", "aac",
+            "-b:a", "128k",
+            "-ar", "48000",
+            "-ac", "2",
+            "-f", "mpegts",
+            "-muxdelay", "0",
+            "-muxpreload", "0",
+            srt_url,
+        ]
 
     if passthrough:
         return [
