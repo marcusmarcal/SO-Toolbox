@@ -961,7 +961,7 @@
   };
 
   // Popover working state
-  let _pop = { alMode: 'none', pendingShift: null, customColor: null, noteOnly: false, targetCell: null };
+  let _pop = { alMode: 'none', pendingShift: null, customColor: null, colorChanged: false, noteOnly: false, targetCell: null };
 
   // ════════════════════════════════════════════════════════════════
   //  CUSTOM CONFIRM / ALERT MODAL
@@ -2395,6 +2395,10 @@
   }
   function _isAbsent(shift) { return shift === 'ABSENT' || shift.startsWith('ABSENT|'); }
 
+  function _isCustomShiftCode(shift) {
+    return /^\d{4}-\d{4}$/.test(shift) && !ALL_SHIFTS.includes(shift);
+  }
+
   function openShiftPopover(screenX, screenY, noteOnly, singleCell) {
     let sel;
     if (noteOnly) {
@@ -2404,7 +2408,7 @@
     }
     if (!sel.length) return;
 
-    _pop = { alMode: 'none', pendingShift: null, customColor: null, noteOnly: !!noteOnly, targetCell: sel[0] };
+    _pop = { alMode: 'none', pendingShift: null, customColor: null, colorChanged: false, noteOnly: !!noteOnly, targetCell: sel[0] };
 
     const multi = sel.length > 1;
     const first = sel[0];
@@ -2496,18 +2500,28 @@
       });
       list.appendChild(absentBtn);
 
-      const customIn = document.getElementById('popover-custom-shift');
-      const isCustomBase = singleBase && /^\d{4}-\d{4}$/.test(singleBase) && !ALL_SHIFTS.includes(singleBase);
+      const customIn       = document.getElementById('popover-custom-shift');
+      const isCustomBase   = singleBase && _isCustomShiftCode(singleBase);
+      const allCellsCustom = sel.every(c => _isCustomShiftCode(_stripAlPrefix(_currentShiftOf(c))));
       customIn.value = isCustomBase ? singleBase : '';
       customIn.classList.remove('invalid');
       document.getElementById('custom-shift-err').style.display = 'none';
-      document.getElementById('custom-color-row').style.display = isCustomBase ? 'flex' : 'none';
+      document.getElementById('custom-color-row').style.display = (isCustomBase || allCellsCustom) ? 'flex' : 'none';
       if (isCustomBase) {
         _pop.pendingShift = singleBase;
         const knownColor = (SHIFT_COLORS[singleBase] || {}).bg;
         if (knownColor) {
           _pop.customColor = knownColor;
           document.getElementById('custom-color-picker').value = knownColor;
+        }
+      } else if (allCellsCustom) {
+        // Mixed custom codes — leave the shift code untouched, just let
+        // the color picker be used for a batch recolor.
+        const codes = [...new Set(sel.map(c => _stripAlPrefix(_currentShiftOf(c))))];
+        const firstColor = (SHIFT_COLORS[codes[0]] || {}).bg;
+        if (firstColor && codes.every(code => (SHIFT_COLORS[code] || {}).bg === firstColor)) {
+          _pop.customColor = firstColor;
+          document.getElementById('custom-color-picker').value = firstColor;
         }
       }
       _buildRecentColors();
@@ -2803,6 +2817,7 @@
         document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
         sw.classList.add('active');
         _pop.customColor = color;
+        _pop.colorChanged = true;
         document.getElementById('custom-color-picker').value = color;
       });
       row.appendChild(sw);
@@ -2861,6 +2876,40 @@
           || sh.startsWith('AL_APPROVED|') || sh.startsWith('AL_PENDING|');
     });
     const noShiftOrAl  = !rawShift && alMode === 'none' && !anyCellHasAl;
+    
+    const allCellsCustomForColor = sel.every(c => _isCustomShiftCode(_stripAlPrefix(_currentShiftOf(c))));
+    const colorOnlyUpdate = !rawShift && alMode === 'none' && allCellsCustomForColor && _pop.colorChanged && customColor;
+
+    if (colorOnlyUpdate) {
+      // Batch recolor: each cell keeps its own (possibly different) custom
+      // code — only the color mapping changes, no override PUT needed.
+      const codes = [...new Set(sel.map(c => _stripAlPrefix(_currentShiftOf(c))))];
+      codes.forEach(code => { SHIFT_COLORS[code] = { bg: customColor, fg: '#000' }; });
+
+      const cfg    = state.config || {};
+      const colors = [...(cfg.custom_shift_colors || [])].filter(c => c !== customColor);
+      const newColors = colors.concat(customColor).slice(-5);
+      await fetch(`${PROXY}/rota/config`, {
+        method: 'PUT', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ custom_shift_colors: newColors }),
+      });
+      if (state.config) state.config.custom_shift_colors = newColors;
+
+      for (const cell of sel) {
+        await fetch(`${PROXY}/rota/note`, {
+          method: 'PUT', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ person: cell.person, date: cell.date, note }),
+        });
+        const day = state.rotaData && state.rotaData.find(d => d.date === cell.date);
+        if (day && day.shifts[cell.person]) day.shifts[cell.person].note = note;
+      }
+      closeShiftPopover();
+      _patchRotaCells(sel.map(c => ({ person: c.person, date: c.date })));
+      toast('Colour updated', 'ok');
+      return;
+    }
 
     if (noShiftOrAl) {
       // Note-only edit within the draft popover
@@ -2955,6 +3004,7 @@
     document.getElementById('popover-apply').addEventListener('click', applyPopover);
     document.getElementById('custom-color-picker').addEventListener('input', e => {
       _pop.customColor = e.target.value;
+      _pop.colorChanged = true;
     });
 
     document.getElementById('btn-pick-color').addEventListener('click', openColorPopover);
@@ -2963,6 +3013,7 @@
     document.getElementById('color-popover-use').addEventListener('click', () => {
       const val = document.getElementById('custom-color-picker').value;
       _pop.customColor = val;
+      _pop.colorChanged = true;
       closeColorPopover();
     });
 
