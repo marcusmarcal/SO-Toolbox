@@ -95,6 +95,7 @@ def _build_ffmpeg_cmd(
             "-profile:v", "high",
             "-pix_fmt", "yuv420p",
             "-x264-params", "force-cfr=1:pic-struct=1:scenecut=0",
+            "-tune zerolatency",
             "-bf", "0",
             "-flags", "+cgop",
             "-r", "25",
