@@ -2355,10 +2355,8 @@
 
     groups.forEach(group => {
       if (!group.length) return;
-      // Bucket the group's cells by table row, then draw one rectangle per
-      // contiguous column-run within each row. A group that isn't a filled
-      // rectangle (e.g. an L) will render as multiple stacked boxes instead
-      // of one box that overstates the selection.
+
+      // 1. Bucket by row, sort by column, split into contiguous column-runs.
       const byRow = new Map();
       group.forEach(cell => {
         if (!cell.td) return;
@@ -2366,35 +2364,67 @@
         byRow.get(cell.ri).push(cell);
       });
 
-      byRow.forEach(cells => {
+      const runs = []; // { ri, ciStart, ciEnd, cellsByCi: Map }
+      byRow.forEach((cells, ri) => {
         cells.sort((a, b) => a.ci - b.ci);
         let run = [cells[0]];
-        const flushRun = () => {
-          let minTop = Infinity, minLeft = Infinity, maxBottom = -Infinity, maxRight = -Infinity;
-          run.forEach(({ td }) => {
-            const r = td.getBoundingClientRect();
-            minTop    = Math.min(minTop, r.top    - wrapRect.top  + scrollTop);
-            minLeft   = Math.min(minLeft, r.left  - wrapRect.left + scrollLeft);
-            maxBottom = Math.max(maxBottom, r.bottom - wrapRect.top  + scrollTop);
-            maxRight  = Math.max(maxRight, r.right  - wrapRect.left + scrollLeft);
-          });
-          const box = document.createElement('div');
-          box.className  = 'selection-box';
-          box.style.top  = (minTop  - 1) + 'px';
-          box.style.left = (minLeft - 1) + 'px';
-          box.style.width  = (maxRight  - minLeft + 2) + 'px';
-          box.style.height = (maxBottom - minTop  + 2) + 'px';
-          ov.appendChild(box);
+        const pushRun = () => {
+          const cellsByCi = new Map(run.map(c => [c.ci, c]));
+          runs.push({ ri, ciStart: run[0].ci, ciEnd: run[run.length - 1].ci, cellsByCi });
         };
         for (let i = 1; i < cells.length; i++) {
           if (cells[i].ci === cells[i-1].ci + 1) {
             run.push(cells[i]);
           } else {
-            flushRun();
+            pushRun();
             run = [cells[i]];
           }
         }
-        flushRun();
+        pushRun();
+      });
+
+      // 2. Merge runs vertically when consecutive rows share the exact same
+      // column range (ciStart/ciEnd match). This turns e.g. a 1-wide run at
+      // row N and an identical 1-wide run at row N+1 into one tall box.
+      runs.sort((a, b) => a.ciStart - b.ciStart || a.ciEnd - b.ciEnd || a.ri - b.ri);
+      const used = new Array(runs.length).fill(false);
+      const rects = []; // { tds: [] }
+
+      for (let i = 0; i < runs.length; i++) {
+        if (used[i]) continue;
+        let chain = [runs[i]];
+        used[i] = true;
+        let lastRi = runs[i].ri;
+        for (let j = i + 1; j < runs.length; j++) {
+          if (used[j]) continue;
+          if (runs[j].ciStart === runs[i].ciStart && runs[j].ciEnd === runs[i].ciEnd
+              && runs[j].ri === lastRi + 1) {
+            chain.push(runs[j]);
+            used[j] = true;
+            lastRi = runs[j].ri;
+          }
+        }
+        const tds = chain.flatMap(r => [...r.cellsByCi.values()].map(c => c.td));
+        rects.push({ tds });
+      }
+
+      // 3. Draw one box per merged rectangle.
+      rects.forEach(({ tds }) => {
+        let minTop = Infinity, minLeft = Infinity, maxBottom = -Infinity, maxRight = -Infinity;
+        tds.forEach(td => {
+          const r = td.getBoundingClientRect();
+          minTop    = Math.min(minTop, r.top    - wrapRect.top  + scrollTop);
+          minLeft   = Math.min(minLeft, r.left  - wrapRect.left + scrollLeft);
+          maxBottom = Math.max(maxBottom, r.bottom - wrapRect.top  + scrollTop);
+          maxRight  = Math.max(maxRight, r.right  - wrapRect.left + scrollLeft);
+        });
+        const box = document.createElement('div');
+        box.className  = 'selection-box';
+        box.style.top  = (minTop  - 1) + 'px';
+        box.style.left = (minLeft - 1) + 'px';
+        box.style.width  = (maxRight  - minLeft + 2) + 'px';
+        box.style.height = (maxBottom - minTop  + 2) + 'px';
+        ov.appendChild(box);
       });
     });
   }
