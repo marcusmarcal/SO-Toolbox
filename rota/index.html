@@ -2512,7 +2512,7 @@ function _removeCellFromBoxes(ri, ci) {
     const revertBtn = document.getElementById('popover-revert');
     const deleteBtn = document.getElementById('popover-delete-note');
     revertBtn.style.display = (!noteOnly) ? '' : 'none';
-    deleteBtn.style.display = noteOnly && _currentNoteOf(first) ? '' : 'none';
+    deleteBtn.style.display = _currentNoteOf(first) ? '' : 'none';
 
     if (!noteOnly && !isAbsent) {
       const team      = _personTeam(first.person);
@@ -3091,13 +3091,11 @@ function _removeCellFromBoxes(ri, ci) {
       const d = await r.json();
       if (d.ok) {
         state.draft.overrides = d.overrides;
-        if (note) {
-          await fetch(`${PROXY}/rota/note`, {
-            method: 'PUT', credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ person, date: dateStr, note }),
-          });
-        }
+        await fetch(`${PROXY}/rota/note`, {
+        method: 'PUT', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ person, date: dateStr, note: note || '' }),
+      });
       } else {
         await uiAlert(d.error || 'Failed to save');
       }
