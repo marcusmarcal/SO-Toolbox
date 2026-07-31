@@ -957,6 +957,7 @@
       lock:      null,
       overrides: [],
       selection: [],
+      selectionBoxes: [],
       lastCell:  null,
       dragging:  false,
       dragStart: null,
@@ -2170,6 +2171,7 @@
   function _clearSelection() {
     state.draft.selection.forEach(c => c.td && c.td.classList.remove('selected-cell'));
     state.draft.selection = [];
+    state.draft.selectionBoxes = [];
     state.draft.lastCell  = null;
     _renderSelectionOverlay();
   }
@@ -2203,13 +2205,56 @@
     const r1 = Math.min(fromCoord.ri, toCoord.ri), r2 = Math.max(fromCoord.ri, toCoord.ri);
     const c1 = Math.min(fromCoord.ci, toCoord.ci), c2 = Math.max(fromCoord.ci, toCoord.ci);
     _clearSelection();
+    const addedCells = [];
     rows.slice(r1, r2 + 1).forEach(tr => {
       const tds = Array.from(tr.querySelectorAll('td[data-person]'));
       tds.slice(c1, c2 + 1).forEach(td => {
-        if (td.dataset.person && td.dataset.date) _selectCell(td.dataset.person, td.dataset.date, td);
+        if (td.dataset.person && td.dataset.date) {
+          _selectCell(td.dataset.person, td.dataset.date, td);
+          addedCells.push({ person: td.dataset.person, date: td.dataset.date });
+        }
       });
     });
+    _addCellsAsBox(addedCells);
   }
+
+  function _buildCoordMap() {
+  const wrap  = document.getElementById('rota-wrap');
+  const table = wrap?.querySelector('table.rota');
+  const map = new Map();
+  if (!table) return map;
+  Array.from(table.querySelectorAll('tbody tr')).forEach((tr, ri) => {
+    Array.from(tr.querySelectorAll('td[data-person]')).forEach((td, ci) => {
+      map.set(_cellKey(td.dataset.person, td.dataset.date), { ri, ci, td });
+    });
+  });
+  return map;
+}
+
+function _addCellsAsBox(cells) {
+  const coordMap = _buildCoordMap();
+  const coords = cells.map(c => coordMap.get(_cellKey(c.person, c.date))).filter(Boolean);
+  if (!coords.length) return;
+  let minRi = Infinity, maxRi = -Infinity, minCi = Infinity, maxCi = -Infinity;
+  coords.forEach(c => {
+    minRi = Math.min(minRi, c.ri); maxRi = Math.max(maxRi, c.ri);
+    minCi = Math.min(minCi, c.ci); maxCi = Math.max(maxCi, c.ci);
+  });
+  state.draft.selectionBoxes.push({ minRi, maxRi, minCi, maxCi });
+}
+
+function _removeCellFromBoxes(ri, ci) {
+  const idx = state.draft.selectionBoxes.findIndex(
+    b => ri >= b.minRi && ri <= b.maxRi && ci >= b.minCi && ci <= b.maxCi
+  );
+  if (idx === -1) return;
+  const b = state.draft.selectionBoxes[idx];
+  state.draft.selectionBoxes.splice(idx, 1);
+  if (ri > b.minRi) state.draft.selectionBoxes.push({ minRi: b.minRi, maxRi: ri - 1, minCi: b.minCi, maxCi: b.maxCi });
+  if (ri < b.maxRi) state.draft.selectionBoxes.push({ minRi: ri + 1, maxRi: b.maxRi, minCi: b.minCi, maxCi: b.maxCi });
+  if (ci > b.minCi) state.draft.selectionBoxes.push({ minRi: ri, maxRi: ri, minCi: b.minCi, maxCi: ci - 1 });
+  if (ci < b.maxCi) state.draft.selectionBoxes.push({ minRi: ri, maxRi: ri, minCi: ci + 1, maxCi: b.maxCi });
+}
 
   function _onCellMouseDown(e) {
     if (e.button !== 0) return;
@@ -2231,9 +2276,9 @@
       const alreadySelected = state.draft.selection.some(c => _cellKey(c.person, c.date) === key);
 
       if (alreadySelected) {
-        // Plain toggle-off: deselect just this cell, keep the rest intact,
-        // do not start a drag.
         _deselectCell(person, dateS, td);
+        const c = _buildCoordMap().get(key);
+        if (c) _removeCellFromBoxes(c.ri, c.ci);
         state.draft.dragging  = false;
         state.draft.ctrlDrag  = false;
         state.draft.dragStart = null;
@@ -2242,14 +2287,14 @@
         return;
       }
 
-      // Not yet selected: add just this cell, then allow an additive
-      // ctrl+drag to build a new rectangle from here (existing behavior).
       state.draft.dragging  = true;
       state.draft.ctrlDrag  = true;
       state.draft.dragStart = td;
       state.draft.lastCell  = td;
       state.draft._preCtrlSelection = state.draft.selection.map(c => ({ ...c }));
+      state.draft._preCtrlBoxes     = state.draft.selectionBoxes.map(b => ({ ...b }));
       _selectCell(person, dateS, td);
+      _addCellsAsBox([{ person, date: dateS }]);
     } else {
       const popEl = document.getElementById('shift-popover');
       if (popEl && popEl.classList.contains('open')) closeShiftPopover();
@@ -2258,6 +2303,7 @@
       state.draft.dragStart = td;
       _clearSelection();
       _selectCell(person, dateS, td);
+      _addCellsAsBox([{ person, date: dateS }]);
       state.draft.lastCell = td;
     }
     _renderSelectionOverlay();
@@ -2287,12 +2333,17 @@
       if (fromCoord && toCoord) {
         const r1 = Math.min(fromCoord.ri, toCoord.ri), r2 = Math.max(fromCoord.ri, toCoord.ri);
         const c1 = Math.min(fromCoord.ci, toCoord.ci), c2 = Math.max(fromCoord.ci, toCoord.ci);
+        state.draft.selectionBoxes = (state.draft._preCtrlBoxes || []).map(b => ({ ...b }));
+        const rectCells = [];
         rows.slice(r1, r2 + 1).forEach(tr => {
           Array.from(tr.querySelectorAll('td[data-person]')).slice(c1, c2 + 1).forEach(cell => {
-            if (cell.dataset.person && cell.dataset.date)
+            if (cell.dataset.person && cell.dataset.date) {
               _selectCell(cell.dataset.person, cell.dataset.date, cell);
+              rectCells.push({ person: cell.dataset.person, date: cell.dataset.date });
+            }
           });
         });
+        _addCellsAsBox(rectCells);
       }
     } else {
       _selectRange(state.draft.dragStart, td);
@@ -2326,6 +2377,7 @@
     if (!inSel) {
       _clearSelection();
       _selectCell(person, dateS, td);
+      _addCellsAsBox([{ person, date: dateS }]);
       state.draft.lastCell = td;
       _renderSelectionOverlay();
     }
@@ -2346,86 +2398,32 @@
     const ov   = document.getElementById('selection-overlay');
     if (!ov) return;
     ov.innerHTML = '';
-    if (!state.draft.selection.length) return;
+    if (!state.draft.selectionBoxes.length) return;
 
+    const table = wrap.querySelector('table.rota');
+    if (!table) return;
+    const rows       = Array.from(table.querySelectorAll('tbody tr'));
     const wrapRect   = wrap.getBoundingClientRect();
     const scrollTop  = wrap.scrollTop;
     const scrollLeft = wrap.scrollLeft;
-    const groups     = _findContiguousGroups(state.draft.selection);
 
-    groups.forEach(group => {
-      if (!group.length) return;
-
-      // 1. Bucket by row, sort by column, split into contiguous column-runs.
-      const byRow = new Map();
-      group.forEach(cell => {
-        if (!cell.td) return;
-        if (!byRow.has(cell.ri)) byRow.set(cell.ri, []);
-        byRow.get(cell.ri).push(cell);
-      });
-
-      const runs = []; // { ri, ciStart, ciEnd, cellsByCi: Map }
-      byRow.forEach((cells, ri) => {
-        cells.sort((a, b) => a.ci - b.ci);
-        let run = [cells[0]];
-        const pushRun = () => {
-          const cellsByCi = new Map(run.map(c => [c.ci, c]));
-          runs.push({ ri, ciStart: run[0].ci, ciEnd: run[run.length - 1].ci, cellsByCi });
-        };
-        for (let i = 1; i < cells.length; i++) {
-          if (cells[i].ci === cells[i-1].ci + 1) {
-            run.push(cells[i]);
-          } else {
-            pushRun();
-            run = [cells[i]];
-          }
-        }
-        pushRun();
-      });
-
-      // 2. Merge runs vertically when consecutive rows share the exact same
-      // column range (ciStart/ciEnd match). This turns e.g. a 1-wide run at
-      // row N and an identical 1-wide run at row N+1 into one tall box.
-      runs.sort((a, b) => a.ciStart - b.ciStart || a.ciEnd - b.ciEnd || a.ri - b.ri);
-      const used = new Array(runs.length).fill(false);
-      const rects = []; // { tds: [] }
-
-      for (let i = 0; i < runs.length; i++) {
-        if (used[i]) continue;
-        let chain = [runs[i]];
-        used[i] = true;
-        let lastRi = runs[i].ri;
-        for (let j = i + 1; j < runs.length; j++) {
-          if (used[j]) continue;
-          if (runs[j].ciStart === runs[i].ciStart && runs[j].ciEnd === runs[i].ciEnd
-              && runs[j].ri === lastRi + 1) {
-            chain.push(runs[j]);
-            used[j] = true;
-            lastRi = runs[j].ri;
-          }
-        }
-        const tds = chain.flatMap(r => [...r.cellsByCi.values()].map(c => c.td));
-        rects.push({ tds });
-      }
-
-      // 3. Draw one box per merged rectangle.
-      rects.forEach(({ tds }) => {
-        let minTop = Infinity, minLeft = Infinity, maxBottom = -Infinity, maxRight = -Infinity;
-        tds.forEach(td => {
-          const r = td.getBoundingClientRect();
-          minTop    = Math.min(minTop, r.top    - wrapRect.top  + scrollTop);
-          minLeft   = Math.min(minLeft, r.left  - wrapRect.left + scrollLeft);
-          maxBottom = Math.max(maxBottom, r.bottom - wrapRect.top  + scrollTop);
-          maxRight  = Math.max(maxRight, r.right  - wrapRect.left + scrollLeft);
-        });
-        const box = document.createElement('div');
-        box.className  = 'selection-box';
-        box.style.top  = (minTop  - 1) + 'px';
-        box.style.left = (minLeft - 1) + 'px';
-        box.style.width  = (maxRight  - minLeft + 2) + 'px';
-        box.style.height = (maxBottom - minTop  + 2) + 'px';
-        ov.appendChild(box);
-      });
+    state.draft.selectionBoxes.forEach(({ minRi, maxRi, minCi, maxCi }) => {
+      const topTd = rows[minRi]?.querySelectorAll('td[data-person]')[minCi];
+      const botTd = rows[maxRi]?.querySelectorAll('td[data-person]')[maxCi];
+      if (!topTd || !botTd) return;
+      const r1 = topTd.getBoundingClientRect();
+      const r2 = botTd.getBoundingClientRect();
+      const top    = r1.top    - wrapRect.top  + scrollTop;
+      const left   = r1.left   - wrapRect.left + scrollLeft;
+      const bottom = r2.bottom - wrapRect.top  + scrollTop;
+      const right  = r2.right  - wrapRect.left + scrollLeft;
+      const box = document.createElement('div');
+      box.className    = 'selection-box';
+      box.style.top    = (top    - 1) + 'px';
+      box.style.left   = (left   - 1) + 'px';
+      box.style.width  = (right  - left + 2) + 'px';
+      box.style.height = (bottom - top  + 2) + 'px';
+      ov.appendChild(box);
     });
   }
 
