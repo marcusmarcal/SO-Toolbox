@@ -194,6 +194,10 @@
     }
     table.rota tbody tr.today-row td:not(.date-col) .shift-cell { filter: brightness(1.25); }
 
+    table.rota tbody tr.week-start td {
+      border-top: 2px solid #666;
+    }
+
     .shift-cell {
       display: block; width: 100%; height: 26px; line-height: 26px;
       font-weight: 700; font-size: inherit; letter-spacing: 0.03em;
@@ -1283,7 +1287,8 @@
       const label = `<span style="display:inline-block;width:82px;">${dstr}</span>`
                   + `<span style="display:inline-block;width:96px;text-align:center;">${wday}${icon}</span>`;
 
-      tbody += `<tr${day.is_today ? ' class="today-row"' : ''}><td class="${dateCls}">${label}</td>`;
+      const weekStartCls = day.weekday === 'Monday' ? ' week-start' : '';
+      tbody += `<tr class="${day.is_today ? 'today-row' : ''}${weekStartCls}"><td class="${dateCls}">${label}</td>`;
       teams.forEach(team => {
         team.members.forEach((name, mi) => {
           const shift = (day.shifts[name] || {}).shift || 'OFF';
