@@ -814,8 +814,10 @@
     </div>
 
     <div class="popover-section">
-      <span class="popover-section-label">
-        Note <span id="note-required-star" style="color:#e6a850;display:none;">*</span>
+      <span class="popover-section-label" style="display:flex;align-items:center;justify-content:space-between;">
+      <span>Note <span id="note-required-star" style="color:#e6a850;display:none;">*</span></span>
+        <button class="btn danger" id="popover-delete-note"
+          style="display:none;font-size:0.5rem;padding:2px 6px;margin:0;letter-spacing:0.04em;">🗑</button>
       </span>
       <select class="popover-input" id="popover-coverage-person" style="margin-bottom:4px;display:none;">
         <option value="">— covering for… —</option>
@@ -841,7 +843,6 @@
 
     <div class="popover-actions">
       <button class="btn danger" id="popover-revert" style="margin-right:auto;display:none;">↩ Revert to Original</button>
-      <button class="btn danger" id="popover-delete-note" style="margin-right:auto;display:none;">🗑 Delete Note</button>
       <button class="btn" id="popover-cancel">Cancel</button>
       <button class="btn primary" id="popover-apply">Apply</button>
     </div>
