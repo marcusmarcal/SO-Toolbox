@@ -1242,9 +1242,11 @@ def rota_draft_weekend_swap():
         cell_date = wed + timedelta(days=i)
         date_s    = cell_date.isoformat()
         # Note only on Fri–Mon (indices 2–5) when swapping, not reverting
-        cell_note = (note_text
-                     if direction == 'swap' and i in COVERAGE_NOTE_INDICES
-                     else None)
+        if direction == 'swap' and i in COVERAGE_NOTE_INDICES:
+            original = _base_shift(person, cell_date)
+            cell_note = f'{note_text} | Original shift: {original}'
+        else:
+            cell_note = None
 
         # Remove any existing draft override for this cell
         overrides = [o for o in overrides
@@ -1413,7 +1415,7 @@ def _effective_shift_for_hours(name: str, d: date,
         ov = override_map.get((name, d))
         if ov is not None:
             new_clean  = _clean(ov.get('shift', 'OFF'))
-            orig_clean = _clean(ov.get('previous_shift', ov.get('shift', 'OFF')))
+            orig_clean = _clean(_base_shift(name, d))
             _, new_nh  = _net_minutes(new_clean)
             _, orig_nh = _net_minutes(orig_clean)
             return new_clean if new_nh >= orig_nh else orig_clean
