@@ -2227,12 +2227,32 @@
       // Start an additive drag — preserve existing selection and build a new
       // rectangle on top of it as the mouse moves.
       const popEl = document.getElementById('shift-popover');
+      } else if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const popEl = document.getElementById('shift-popover');
       if (popEl && popEl.classList.contains('open')) closeShiftPopover();
+
+      const key = _cellKey(person, dateS);
+      const alreadySelected = state.draft.selection.some(c => _cellKey(c.person, c.date) === key);
+
+      if (alreadySelected) {
+        // Plain toggle-off: deselect just this cell, keep the rest intact,
+        // do not start a drag.
+        _deselectCell(person, dateS, td);
+        state.draft.dragging  = false;
+        state.draft.ctrlDrag  = false;
+        state.draft.dragStart = null;
+        state.draft.lastCell  = null;
+        _renderSelectionOverlay();
+        return;
+      }
+
+      // Not yet selected: add just this cell, then allow an additive
+      // ctrl+drag to build a new rectangle from here (existing behavior).
       state.draft.dragging  = true;
       state.draft.ctrlDrag  = true;
       state.draft.dragStart = td;
       state.draft.lastCell  = td;
-      // Snapshot current selection so the additive range is merged into it
       state.draft._preCtrlSelection = state.draft.selection.map(c => ({ ...c }));
       _selectCell(person, dateS, td);
     } else {
