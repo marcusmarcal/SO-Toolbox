@@ -2355,26 +2355,47 @@
 
     groups.forEach(group => {
       if (!group.length) return;
-      let minTop = Infinity, minLeft = Infinity, maxBottom = -Infinity, maxRight = -Infinity;
-      group.forEach(({ td }) => {
-        if (!td) return;
-        const r = td.getBoundingClientRect();
-        const top   = r.top    - wrapRect.top  + scrollTop;
-        const left  = r.left   - wrapRect.left + scrollLeft;
-        const bot   = r.bottom - wrapRect.top  + scrollTop;
-        const right = r.right  - wrapRect.left + scrollLeft;
-        minTop    = Math.min(minTop, top);
-        minLeft   = Math.min(minLeft, left);
-        maxBottom = Math.max(maxBottom, bot);
-        maxRight  = Math.max(maxRight, right);
+      // Bucket the group's cells by table row, then draw one rectangle per
+      // contiguous column-run within each row. A group that isn't a filled
+      // rectangle (e.g. an L) will render as multiple stacked boxes instead
+      // of one box that overstates the selection.
+      const byRow = new Map();
+      group.forEach(cell => {
+        if (!cell.td) return;
+        if (!byRow.has(cell.ri)) byRow.set(cell.ri, []);
+        byRow.get(cell.ri).push(cell);
       });
-      const box = document.createElement('div');
-      box.className  = 'selection-box';
-      box.style.top  = (minTop  - 1) + 'px';
-      box.style.left = (minLeft - 1) + 'px';
-      box.style.width  = (maxRight  - minLeft + 2) + 'px';
-      box.style.height = (maxBottom - minTop  + 2) + 'px';
-      ov.appendChild(box);
+
+      byRow.forEach(cells => {
+        cells.sort((a, b) => a.ci - b.ci);
+        let run = [cells[0]];
+        const flushRun = () => {
+          let minTop = Infinity, minLeft = Infinity, maxBottom = -Infinity, maxRight = -Infinity;
+          run.forEach(({ td }) => {
+            const r = td.getBoundingClientRect();
+            minTop    = Math.min(minTop, r.top    - wrapRect.top  + scrollTop);
+            minLeft   = Math.min(minLeft, r.left  - wrapRect.left + scrollLeft);
+            maxBottom = Math.max(maxBottom, r.bottom - wrapRect.top  + scrollTop);
+            maxRight  = Math.max(maxRight, r.right  - wrapRect.left + scrollLeft);
+          });
+          const box = document.createElement('div');
+          box.className  = 'selection-box';
+          box.style.top  = (minTop  - 1) + 'px';
+          box.style.left = (minLeft - 1) + 'px';
+          box.style.width  = (maxRight  - minLeft + 2) + 'px';
+          box.style.height = (maxBottom - minTop  + 2) + 'px';
+          ov.appendChild(box);
+        };
+        for (let i = 1; i < cells.length; i++) {
+          if (cells[i].ci === cells[i-1].ci + 1) {
+            run.push(cells[i]);
+          } else {
+            flushRun();
+            run = [cells[i]];
+          }
+        }
+        flushRun();
+      });
     });
   }
 
@@ -2389,7 +2410,7 @@
     rows.forEach((tr, ri) => {
       Array.from(tr.querySelectorAll('td[data-person]')).forEach((td, ci) => {
         const k = _cellKey(td.dataset.person, td.dataset.date);
-        if (selSet.has(k)) coordMap.set(`${ri},${ci}`, { td, person: td.dataset.person, date: td.dataset.date });
+        if (selSet.has(k)) coordMap.set(`${ri},${ci}`, { td, person: td.dataset.person, date: td.dataset.date, ri, ci });
       });
     });
     const visited = new Set();
