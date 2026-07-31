@@ -441,7 +441,7 @@ def _job_info(job: dict) -> dict:
 @srt_bp.route("/")
 def srt_tool():
     """Serve the SRT ingest HTML tool."""
-    return render_template("srt_tool.html")
+    return render_template("srt-ingest.html")
 
 
 @srt_bp.route("/ingest/single", methods=["POST"])
@@ -792,7 +792,7 @@ PUSH_LOG_FILE = "/var/log/srt-push.log"
 PUSH_SERVICE_NAME = "srt-push"
 
 PUSH_DEFAULT_CONFIG = {
-    "html_url": "https://127.0.0.1/id3as-DC-Monitor.html?view=nodes&dc=ix&inuse=1&sort=nW&dir=-1",
+    "html_url": "https://127.0.0.1/id3as-dc-monitor.html?view=nodes&dc=ix&inuse=1&sort=nW&dir=-1",
     "srt_host": "10.11.203.1",
     "srt_port": 3292,
     "srt_mode": "caller",

@@ -30,7 +30,7 @@ LOG_MAX_BYTES = 100 * 1024 * 1024  # rotate once the log crosses this size
 LOG_RETENTION_DAYS = 7  # rotated backups older than this are deleted
 
 DEFAULT_CONFIG = {
-    "html_url": "https://127.0.0.1/id3as-DC-Monitor.html?view=nodes&dc=ix&inuse=1&sort=nW&dir=-1",
+    "html_url": "https://127.0.0.1/id3as-dc-monitor.html?view=nodes&dc=ix&inuse=1&sort=nW&dir=-1",
     "srt_host": "10.11.203.1",
     "srt_port": 3292,
     "srt_mode": "caller",
