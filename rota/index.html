@@ -2224,11 +2224,6 @@
       state.draft.dragging = false;
     } else if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
-      // Start an additive drag — preserve existing selection and build a new
-      // rectangle on top of it as the mouse moves.
-      const popEl = document.getElementById('shift-popover');
-      } else if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
       const popEl = document.getElementById('shift-popover');
       if (popEl && popEl.classList.contains('open')) closeShiftPopover();
 
@@ -2255,7 +2250,16 @@
       state.draft.lastCell  = td;
       state.draft._preCtrlSelection = state.draft.selection.map(c => ({ ...c }));
       _selectCell(person, dateS, td);
-    } 
+    } else {
+      const popEl = document.getElementById('shift-popover');
+      if (popEl && popEl.classList.contains('open')) closeShiftPopover();
+      state.draft.dragging  = true;
+      state.draft.ctrlDrag  = false;
+      state.draft.dragStart = td;
+      _clearSelection();
+      _selectCell(person, dateS, td);
+      state.draft.lastCell = td;
+    }
     _renderSelectionOverlay();
   }
 
