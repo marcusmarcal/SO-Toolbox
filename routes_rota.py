@@ -303,6 +303,7 @@ HR_CONFIG_FILE           = os.path.join(ROTA_DIR, 'hr_config.json')
 DEFAULT_CONFIG = {
     'next_year_open_from': '11-01',
     'custom_shift_colors': [],
+    'custom_shift_color_map': {},
 }
 
 def _load_config() -> dict:
@@ -693,6 +694,17 @@ def rota_config_put():
         colors = data['custom_shift_colors']
         if isinstance(colors, list):
             cfg['custom_shift_colors'] = colors[-5:]  # keep last 5
+    if 'custom_shift_color_map' in data:
+        color_map = data['custom_shift_color_map']
+        if isinstance(color_map, dict):
+            existing = cfg.get('custom_shift_color_map', {})
+            if not isinstance(existing, dict):
+                existing = {}
+            existing.update({
+                str(k): str(v) for k, v in color_map.items()
+                if isinstance(k, str) and isinstance(v, str)
+            })
+            cfg['custom_shift_color_map'] = existing
     _save_json(CONFIG_FILE, cfg)
     return jsonify({'ok': True, 'config': cfg})
 

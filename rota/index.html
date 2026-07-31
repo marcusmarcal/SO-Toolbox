@@ -1033,6 +1033,8 @@
         });
       }
 
+      await _loadShiftColorMap();
+
       renderTopbar();
       setupTabs();
       setupToolbar();
@@ -1475,6 +1477,20 @@
     }
 
     document.getElementById('btn-submit-leave').addEventListener('click', () => submitLeave(false));
+  }
+
+  async function _loadShiftColorMap() {
+    try {
+      const r = await fetch(`${PROXY}/rota/config`, { credentials: 'same-origin' });
+      const d = await r.json();
+      if (d.ok) {
+        state.config = d.config;
+        const map = d.config.custom_shift_color_map || {};
+        Object.entries(map).forEach(([code, color]) => {
+          SHIFT_COLORS[code] = { bg: color, fg: '#000' };
+        });
+      }
+    } catch(e) { /* non-fatal — falls back to default gray for unknown codes */ }
   }
 
   async function loadConfig() {
@@ -2801,6 +2817,38 @@
     if (noShiftOrAlChange && !customBad) btn.disabled = false;
   }
 
+  async function _persistShiftColors(colorMap) {
+    // colorMap: { shiftCode: hexColor, ... } — supports single or batch updates
+    const cfg          = state.config || {};
+    const recentColors = [...(cfg.custom_shift_colors || [])];
+    const newMap       = { ...(cfg.custom_shift_color_map || {}) };
+
+    Object.entries(colorMap).forEach(([code, color]) => {
+      newMap[code] = color;
+      const idx = recentColors.indexOf(color);
+      if (idx !== -1) recentColors.splice(idx, 1);
+      recentColors.push(color);
+    });
+    const trimmedRecent = recentColors.slice(-5);
+
+    await fetch(`${PROXY}/rota/config`, {
+      method: 'PUT', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        custom_shift_colors: trimmedRecent,
+        custom_shift_color_map: newMap,
+      }),
+    });
+
+    if (state.config) {
+      state.config.custom_shift_colors    = trimmedRecent;
+      state.config.custom_shift_color_map = newMap;
+    }
+    Object.entries(colorMap).forEach(([code, color]) => {
+      SHIFT_COLORS[code] = { bg: color, fg: '#000' };
+    });
+  }
+
   function _buildRecentColors() {
     const cfg    = state.config || {};
     const recent = cfg.custom_shift_colors || [];
@@ -2883,27 +2931,22 @@
     if (colorOnlyUpdate) {
       // Batch recolor: each cell keeps its own (possibly different) custom
       // code — only the color mapping changes, no override PUT needed.
-      const codes = [...new Set(sel.map(c => _stripAlPrefix(_currentShiftOf(c))))];
-      codes.forEach(code => { SHIFT_COLORS[code] = { bg: customColor, fg: '#000' }; });
+      const codes    = [...new Set(sel.map(c => _stripAlPrefix(_currentShiftOf(c))))];
+      const colorMap = {};
+      codes.forEach(code => { colorMap[code] = customColor; });
+      await _persistShiftColors(colorMap);
 
-      const cfg    = state.config || {};
-      const colors = [...(cfg.custom_shift_colors || [])].filter(c => c !== customColor);
-      const newColors = colors.concat(customColor).slice(-5);
-      await fetch(`${PROXY}/rota/config`, {
-        method: 'PUT', credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ custom_shift_colors: newColors }),
-      });
-      if (state.config) state.config.custom_shift_colors = newColors;
-
-      for (const cell of sel) {
-        await fetch(`${PROXY}/rota/note`, {
-          method: 'PUT', credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ person: cell.person, date: cell.date, note }),
-        });
-        const day = state.rotaData && state.rotaData.find(d => d.date === cell.date);
-        if (day && day.shifts[cell.person]) day.shifts[cell.person].note = note;
+      // Notes stay untouched unless the user actually typed one in.
+      if (note) {
+        for (const cell of sel) {
+          await fetch(`${PROXY}/rota/note`, {
+            method: 'PUT', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ person: cell.person, date: cell.date, note }),
+          });
+          const day = state.rotaData && state.rotaData.find(d => d.date === cell.date);
+          if (day && day.shifts[cell.person]) day.shifts[cell.person].note = note;
+        }
       }
       closeShiftPopover();
       _patchRotaCells(sel.map(c => ({ person: c.person, date: c.date })));
@@ -2929,17 +2972,7 @@
     }
 
     if (customVal && /^\d{4}-\d{4}$/.test(customVal) && customColor) {
-      const cfg    = state.config || {};
-      const colors = [...(cfg.custom_shift_colors || [])].filter(c => c !== customColor);
-      colors.push(customColor);
-      const newColors = colors.slice(-5);
-      await fetch(`${PROXY}/rota/config`, {
-        method: 'PUT', credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ custom_shift_colors: newColors }),
-      });
-      if (state.config) state.config.custom_shift_colors = newColors;
-      SHIFT_COLORS[customVal] = { bg: customColor, fg: '#000' };
+      await _persistShiftColors({ [customVal]: customColor });
     }
 
     for (const cell of sel) {
