@@ -1602,12 +1602,12 @@ def _compute_hours(date_from: date, date_to: date,
                     results[name]['ph_night_min'] += spillover_night
                     results[name]['ph_dates'].add(next_d)
 
-            # ── Regular NH (non-PH days) ──────────────────────────────────
-            if in_range and not is_ph:
-                # Deduct any spillover that will count as PH NH on next day
-                _, _, _, nh_spillover = _shift_minutes_lookup(nh_shift)
-                regular_nh   = max(0, night_min_nh - (nh_spillover if next_is_ph else 0))
-                results[name]['night_min'] += regular_nh
+            # ── Regular NH — independent of PH status ───────────────────────
+            # NH and PH-NH are separate, additive entitlements: a night hour
+            # worked on (or spilling into) a public holiday still counts as
+            # a regular NH AND as a PH-NH. No exclusion, no deduction.
+            if in_range:
+                results[name]['night_min'] += night_min_nh
 
         d += timedelta(days=1)
 
