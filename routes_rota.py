@@ -862,17 +862,20 @@ def rota_draft_override_put():
     data    = request.get_json(silent=True) or {}
     person  = data.get('person', '').strip()
     date_s  = data.get('date', '').strip()
-    shift   = data.get('shift', '').strip()
+    shift   = data.get('shift', '').strip() if data.get('shift') else None
     note    = data.get('note', '').strip() if data.get('note') else None
     ov_type = data.get('type', 'shift_change').strip()
 
-    if not person or not date_s or not shift:
+    if not person or not date_s or (not shift and ov_type != 'revert_to_original'):
         return jsonify({'ok': False,
                         'error': 'person, date and shift are required'}), 400
     try:
         d = date.fromisoformat(date_s)
     except ValueError:
         return jsonify({'ok': False, 'error': 'Invalid date format'}), 400
+    
+    if ov_type == 'revert_to_original':
+        shift = _base_shift(person, d)
 
     overrides = _load_draft_overrides()
     leave_list = _load_json(LEAVE_FILE)

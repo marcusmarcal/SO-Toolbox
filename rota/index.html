@@ -2827,11 +2827,7 @@ function _removeCellFromBoxes(ri, ci) {
       }
 
       for (const cell of cellsToRevert) {
-        const ov = state.draft.overrides.find(o => o.person === cell.person && o.date === cell.date);
-        if (ov) {
-          await fetch(`${PROXY}/rota/draft/override/${ov.id}`,
-            { method: 'DELETE', credentials: 'same-origin' });
-        }
+        await _saveOverride(cell.person, cell.date, null, null, 'revert_to_original');
         await fetch(`${PROXY}/rota/note`, {
           method: 'DELETE', credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
