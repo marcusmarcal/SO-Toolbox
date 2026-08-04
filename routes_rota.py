@@ -1363,9 +1363,10 @@ LUNCH_BREAK_THRESHOLD_MINUTES = 360  # 6h
 
 def _net_minutes(shift_code: str) -> tuple[int, int]:
     """Return (net_daytime_minutes, net_night_minutes) after lunch break.
-    Break is deducted from daytime first. Returns (0,0) for OFF/unknown."""
-    total = SHIFT_TOTAL_MINUTES.get(shift_code, 0)
-    night = SHIFT_NIGHT_MINUTES.get(shift_code, 0)
+    Break is deducted from daytime first. Returns (0,0) for OFF/unknown.
+    Named shifts use the fixed tables; other HHMM-HHMM codes (e.g. ad-hoc
+    Engineering overrides) fall back to generic time parsing."""
+    total, night, _, _ = _shift_minutes_lookup(shift_code)
     if total == 0:
         return (0, 0)
     day = total - night
@@ -1409,6 +1410,59 @@ SHIFT_SPILLOVER_NIGHT_MINUTES: dict[str, int] = {
 }
 
 
+# ── Generic fallback for shift codes NOT in the fixed tables above ─────────
+# Named rotation shifts (Management/Engineering-base/Specialist) are always
+# resolved from the dicts above — this is only reached for arbitrary
+# HHMM-HHMM override codes (e.g. ad-hoc Engineering shift changes) that
+# don't match any known named shift. Night window: 22:00-07:00.
+def _parse_raw_shift_minutes(code: str):
+    """Return (total_min, night_min, same_day_night_min, spillover_night_min)
+    for an arbitrary 'HHMM-HHMM' code, or None if unparseable."""
+    if not code or code == 'OFF':
+        return (0, 0, 0, 0)
+    try:
+        s_str, e_str = code.split('-')
+        sh, sm = int(s_str[:2]), int(s_str[2:])
+        eh, em = int(e_str[:2]), int(e_str[2:])
+    except (ValueError, IndexError):
+        return None
+
+    base = datetime.datetime(2000, 1, 1)
+    start = base.replace(hour=sh, minute=sm)
+    end   = base.replace(hour=eh, minute=em)
+    if end <= start:
+        end += datetime.timedelta(days=1)
+    total = int((end - start).total_seconds() // 60)
+
+    night_start = base.replace(hour=22, minute=0)
+    night_end   = base + datetime.timedelta(days=1, hours=7)
+    ov_s, ov_e  = max(start, night_start), min(end, night_end)
+    night = max(0, int((ov_e - ov_s).total_seconds() // 60)) if ov_s < ov_e else 0
+
+    same_day_start = base.replace(hour=22, minute=0)
+    same_day_end   = base + datetime.timedelta(days=1)
+    sd_s, sd_e     = max(start, same_day_start), min(end, same_day_end)
+    same_day = max(0, int((sd_e - sd_s).total_seconds() // 60)) if sd_s < sd_e else 0
+
+    spill_start = base + datetime.timedelta(days=1)
+    spill = max(0, int((end - spill_start).total_seconds() // 60)) if end > spill_start else 0
+
+    return (total, night, same_day, spill)
+
+
+def _shift_minutes_lookup(code: str):
+    """Return (total, night, same_day_night, spillover_night) for any shift
+    code: named shifts use the fixed tables (unchanged behaviour); anything
+    else falls back to generic HHMM-HHMM parsing."""
+    if code in SHIFT_TOTAL_MINUTES:
+        return (SHIFT_TOTAL_MINUTES[code],
+                SHIFT_NIGHT_MINUTES.get(code, 0),
+                SHIFT_SAME_DAY_NIGHT_MINUTES.get(code, 0),
+                SHIFT_SPILLOVER_NIGHT_MINUTES.get(code, 0))
+    parsed = _parse_raw_shift_minutes(code)
+    return parsed if parsed is not None else (0, 0, 0, 0)
+
+
 def _effective_shift_for_hours(name: str, d: date,
                                 leave_map: dict, override_map: dict) -> str:
     """Return the shift code to use for NH accounting.
@@ -1426,7 +1480,12 @@ def _effective_shift_for_hours(name: str, d: date,
     if override_map:
         ov = override_map.get((name, d))
         if ov is not None:
-            new_clean  = _clean(ov.get('shift', 'OFF'))
+            raw = ov.get('shift', 'OFF')
+            # Absence/leave overrides never generate NH entitlement,
+            # regardless of what was originally rostered.
+            if raw.startswith('ABSENT') or raw.startswith('AL_'):
+                return 'OFF'
+            new_clean  = _clean(raw)
             orig_clean = _clean(_base_shift(name, d))
             _, new_nh  = _net_minutes(new_clean)
             _, orig_nh = _net_minutes(orig_clean)
@@ -1527,8 +1586,7 @@ def _compute_hours(date_from: date, date_to: date,
 
             _, night_min_nh   = _net_minutes(nh_shift)
             day_min_actual, _ = _net_minutes(actual_shift)
-            same_day_night    = SHIFT_SAME_DAY_NIGHT_MINUTES.get(actual_shift, 0)
-            spillover_night   = SHIFT_SPILLOVER_NIGHT_MINUTES.get(actual_shift, 0)
+            _, _, same_day_night, spillover_night = _shift_minutes_lookup(actual_shift)
 
             # ── PH: same-day contribution ─────────────────────────────────
             if is_ph and in_range and actual_shift != 'OFF':
@@ -1547,7 +1605,7 @@ def _compute_hours(date_from: date, date_to: date,
             # ── Regular NH (non-PH days) ──────────────────────────────────
             if in_range and not is_ph:
                 # Deduct any spillover that will count as PH NH on next day
-                nh_spillover = SHIFT_SPILLOVER_NIGHT_MINUTES.get(nh_shift, 0)
+                _, _, _, nh_spillover = _shift_minutes_lookup(nh_shift)
                 regular_nh   = max(0, night_min_nh - (nh_spillover if next_is_ph else 0))
                 results[name]['night_min'] += regular_nh
 
