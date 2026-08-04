@@ -2081,7 +2081,7 @@
       const fmt = v => v === 0
         ? '<span style="color:var(--muted)">0.00</span>'
         : `<strong>${v.toFixed(2)}</strong>`;
-      const totalNight = +(h.night_h + h.ph_night_h).toFixed(2);
+      const totalNight = +h.night_h.toFixed(2);
       return `<tr>
         <td style="font-weight:700;">${name}</td>
         <td style="text-align:center;">${fmt(totalNight)}</td>

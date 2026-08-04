@@ -1793,11 +1793,10 @@ def rota_hours_export():
         full_name   = display_names.get(name, name)
         ph_str      = ', '.join(h['ph_dates']) if h['ph_dates'] else ''
 
-        total_night = round(h['night_h'] + h['ph_night_h'], 2)
         row_data = [
             mcr if mcr is not None else '',
             full_name,
-            total_night,
+            round(h['night_h'], 2),
             round(h['ph_day_h'], 2),
             round(h['ph_night_h'], 2),
             ph_str,
