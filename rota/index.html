@@ -2188,7 +2188,7 @@
             ph_day_h_computed:   round2(h.ph_day_h),
             ph_night_h_computed: round2(h.ph_night_h),
             ph_dates:            h.ph_dates,
-            mcr:                 h.mcr,
+            sos:                 h.sos,
             night_h_final:    round2(h.night_h),
             ph_day_h_final:   round2(h.ph_day_h),
             ph_night_h_final: round2(h.ph_night_h),
@@ -2236,12 +2236,12 @@
         <td style="text-align:center;">${fmt(round2(h.ph_day_h))}</td>
         <td style="text-align:center;">${fmt(round2(h.ph_night_h))}</td>
         <td style="color:var(--muted);font-size:0.6rem;">${phDates}</td>
-        ${h.mcr !== undefined ? `<td style="text-align:center;color:var(--muted);font-size:0.6rem;">${h.mcr ?? '—'}</td>` : ''}
+        ${h.sos !== undefined ? `<td style="text-align:center;color:var(--muted);font-size:0.6rem;">${h.sos ?? '—'}</td>` : ''}
       </tr>`;
     }).join('');
 
-    const mcrCol = hoursMap[names[0]]?.mcr !== undefined
-      ? '<th>MCR</th>' : '';
+    const sosCol = hoursMap[names[0]]?.sos !== undefined
+      ? '<th>Employee ID</th>' : '';
 
     return `
       <table class="data-table" style="margin-top:8px;">
@@ -2252,7 +2252,7 @@
             <th style="text-align:center;">PH Daytime</th>
             <th style="text-align:center;">PH Night</th>
             <th>PH Dates</th>
-            ${mcrCol}
+            ${sosCol}
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -2287,7 +2287,7 @@
         const comp = draftData.computed[name] || {};
         return {
           name,
-          mcr:                 comp.mcr,
+          sos:                 comp.sos,
           ph_dates:            comp.ph_dates || [],
           night_h_computed:    round2(comp.night_h    || 0),
           ph_day_h_computed:   round2(comp.ph_day_h   || 0),
@@ -2672,7 +2672,7 @@
         ph_day_h:   e.ph_day_h_final,
         ph_night_h: e.ph_night_h_final,
         ph_dates:   e.ph_dates,
-        mcr:        e.mcr,
+        sos:        e.sos,
       };
     });
 

@@ -1525,22 +1525,22 @@ def _load_hr_config() -> dict:
     cfg = _load_json(HR_CONFIG_FILE)
     if not isinstance(cfg, dict):
         cfg = {}
-    cfg.setdefault('mcr', {})
+    cfg.setdefault('sos', {})
     cfg.setdefault('hr_teams', {
         'SOE': ['Marcus', 'Hugo', 'Goncalo', 'Nuno'],
         'SOS': ['Joao L', 'Tiago C', 'Sabina', 'Sergio', 'Tiago O',
                 'Vitor', 'Fernando', 'Marc', 'Gabriel', 'Mario', 'Isaac'],
     })
     raw_teams = cfg.get('hr_teams', {})
-    raw_mcr   = cfg.get('mcr', {})
+    raw_sos   = cfg.get('sos', {})
     display_names = {}
     for members in raw_teams.values():
         for full_name in members:
             short = _normalise_to_rota_name(full_name)
             display_names[short] = full_name
     cfg['display_names'] = display_names
-    cfg['mcr'] = {
-        _normalise_to_rota_name(k): v for k, v in raw_mcr.items()
+    cfg['sos'] = {
+        _normalise_to_rota_name(k): v for k, v in raw_sos.items()
     }
     cfg['hr_teams'] = {
         team: [_normalise_to_rota_name(n) for n in members]
@@ -1741,7 +1741,7 @@ def rota_hours_get():
 
     # Annotate with team and MCR
     hr_teams = hr_cfg.get('hr_teams', {})
-    mcr_map  = hr_cfg.get('mcr', {})
+    sos_map  = hr_cfg.get('sos', {})
     name_to_team = {}
     for team, members in hr_teams.items():
         for m in members:
@@ -1761,7 +1761,7 @@ def rota_hours_get():
             **h,
             'rota_team': rota_team_map.get(name, 'Unknown'),
             'hr_team':   name_to_team.get(name),
-            'mcr':       mcr_map.get(name),
+            'sos':       sos_map.get(name),
         }
 
     return jsonify({'ok': True, 'from': date_from.isoformat(),
@@ -1823,8 +1823,8 @@ def rota_hours_export():
         }
         for e in pot['entries']
     }
-    # MCR comes from POT snapshot (captured at commit time)
-    mcr_map = {e['name']: e.get('mcr') for e in pot['entries']}
+    # SOS comes from POT snapshot (captured at commit time)
+    sos_map = {e['name']: e.get('sos') for e in pot['entries']}
 
     try:
         from openpyxl import Workbook
@@ -1877,12 +1877,12 @@ def rota_hours_export():
     for row_idx, name in enumerate(members, start=2):
         h      = hours.get(name, {'night_h': 0, 'ph_day_h': 0,
                                    'ph_night_h': 0, 'ph_dates': []})
-        mcr         = mcr_map.get(name)
+        sos         = sos_map.get(name)
         full_name   = display_names.get(name, name)
         ph_str      = ', '.join(h['ph_dates']) if h['ph_dates'] else ''
 
         row_data = [
-            mcr if mcr is not None else '',
+            sos if sos is not None else '',
             full_name,
             round(h['night_h'], 2),
             round(h['ph_day_h'], 2),
@@ -1971,7 +1971,7 @@ def rota_hours_pot_draft():
     override_map = _build_override_map(published_overrides)
     hr_cfg       = _load_hr_config()
     members      = hr_cfg.get('hr_teams', {}).get(team, [])
-    mcr_map      = hr_cfg.get('mcr', {})
+    sos_map      = hr_cfg.get('sos', {})
 
     if not members:
         return jsonify({'ok': False, 'error': f'No members configured for {team}'}), 400
@@ -1983,7 +1983,7 @@ def rota_hours_pot_draft():
     computed_out = {}
     for name in members:
         h = computed.get(name, {'night_h': 0, 'ph_day_h': 0, 'ph_night_h': 0, 'ph_dates': []})
-        computed_out[name] = {**h, 'mcr': mcr_map.get(name)}
+        computed_out[name] = {**h, 'sos': sos_map.get(name)}
 
     # Diff against existing active POT if one exists
     existing_pot = _active_pot_for(team, month)
@@ -2063,7 +2063,7 @@ def rota_hours_pot_commit():
     override_map = _build_override_map(published_overrides)
     hr_cfg       = _load_hr_config()
     members      = hr_cfg.get('hr_teams', {}).get(team, [])
-    mcr_map      = hr_cfg.get('mcr', {})
+    sos_map      = hr_cfg.get('sos', {})
     display_names = hr_cfg.get('display_names', {})
 
     if not members:
@@ -2100,7 +2100,7 @@ def rota_hours_pot_commit():
         entry = {
             'name':             name,
             'full_name':        display_names.get(name, name),
-            'mcr':              mcr_map.get(name),
+            'sos':              sos_map.get(name),
             'ph_dates':         comp['ph_dates'],
             'night_h_computed':    round(comp['night_h'], 2),
             'ph_day_h_computed':   round(comp['ph_day_h'], 2),
@@ -2258,7 +2258,7 @@ def rota_hours_debug():
                 }
 
     return jsonify({
-        'raw_hr_config_keys_mcr':      list(raw_cfg.get('mcr', {}).keys())[:5],
+        'raw_hr_config_keys_sos':      list(raw_cfg.get('sos', {}).keys())[:5],
         'raw_hr_config_keys_sos':      raw_cfg.get('hr_teams', {}).get('SOS', [])[:3],
         'normalised_sos_members':      sos_members,
         'normalised_soe_members':      soe_members,
@@ -2267,7 +2267,7 @@ def rota_hours_debug():
         'hours_fernando':              hours.get('Fernando'),
         'hours_first_sos':             hours.get(sos_members[0]) if sos_members else None,
         'spot_checks':                 spot,
-        'mcr_normalised':              hr_cfg.get('mcr'),
+        'sos_normalised':              hr_cfg.get('sos'),
     })
 
 
