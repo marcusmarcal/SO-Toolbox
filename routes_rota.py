@@ -1823,8 +1823,8 @@ def rota_hours_export():
         }
         for e in pot['entries']
     }
-    # SOS comes from POT snapshot (captured at commit time)
-    sos_map = {e['name']: e.get('employeeID') for e in pot['entries']}
+    # Employee IDs come from POT snapshot (captured at commit time)
+    emp_id_map = {e['name']: e.get('employeeID') for e in pot['entries']}
 
     try:
         from openpyxl import Workbook
@@ -1979,11 +1979,11 @@ def rota_hours_pot_draft():
     computed = _compute_hours(date_from, date_to, members, leave_map, override_map)
     warnings = _check_hr_config_consistency(hr_cfg)
 
-    # Attach SOS to computed results
+    # Attach Employee IDs to computed results
     computed_out = {}
     for name in members:
         h = computed.get(name, {'night_h': 0, 'ph_day_h': 0, 'ph_night_h': 0, 'ph_dates': []})
-        computed_out[name] = {**h, 'sos': sos_map.get(name)}
+        computed_out[name] = {**h, 'employeeID': emp_id_map.get(name)}
 
     # Diff against existing active POT if one exists
     existing_pot = _active_pot_for(team, month)

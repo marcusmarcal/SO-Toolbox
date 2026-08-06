@@ -2236,11 +2236,11 @@
         <td style="text-align:center;">${fmt(round2(h.ph_day_h))}</td>
         <td style="text-align:center;">${fmt(round2(h.ph_night_h))}</td>
         <td style="color:var(--muted);font-size:0.6rem;">${phDates}</td>
-        ${h.sos !== undefined ? `<td style="text-align:center;color:var(--muted);font-size:0.6rem;">${h.sos ?? '—'}</td>` : ''}
+        ${h.employeeID !== undefined ? `<td style="text-align:center;color:var(--muted);font-size:0.6rem;">${h.employeeID ?? '—'}</td>` : ''}
       </tr>`;
     }).join('');
 
-    const sosCol = hoursMap[names[0]]?.sos !== undefined
+    const employeeIDCol = hoursMap[names[0]]?.employeeID !== undefined
       ? '<th>Employee ID</th>' : '';
 
     return `
