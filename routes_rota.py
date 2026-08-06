@@ -1739,7 +1739,7 @@ def rota_hours_get():
 
     hours = _compute_hours(date_from, date_to, names, leave_map, override_map)
 
-    # Annotate with team and MCR
+    # Annotate with team and SOS
     hr_teams = hr_cfg.get('hr_teams', {})
     sos_map  = hr_cfg.get('sos', {})
     name_to_team = {}
@@ -1824,7 +1824,7 @@ def rota_hours_export():
         for e in pot['entries']
     }
     # SOS comes from POT snapshot (captured at commit time)
-    sos_map = {e['name']: e.get('sos') for e in pot['entries']}
+    sos_map = {e['name']: e.get('employeeID') for e in pot['entries']}
 
     try:
         from openpyxl import Workbook
@@ -1877,12 +1877,12 @@ def rota_hours_export():
     for row_idx, name in enumerate(members, start=2):
         h      = hours.get(name, {'night_h': 0, 'ph_day_h': 0,
                                    'ph_night_h': 0, 'ph_dates': []})
-        sos         = sos_map.get(name)
+        emp_id      = emp_id_map.get(name)
         full_name   = display_names.get(name, name)
         ph_str      = ', '.join(h['ph_dates']) if h['ph_dates'] else ''
 
         row_data = [
-            sos if sos is not None else '',
+            emp_id if emp_id is not None else '',
             full_name,
             round(h['night_h'], 2),
             round(h['ph_day_h'], 2),
@@ -1979,7 +1979,7 @@ def rota_hours_pot_draft():
     computed = _compute_hours(date_from, date_to, members, leave_map, override_map)
     warnings = _check_hr_config_consistency(hr_cfg)
 
-    # Attach MCR to computed results
+    # Attach SOS to computed results
     computed_out = {}
     for name in members:
         h = computed.get(name, {'night_h': 0, 'ph_day_h': 0, 'ph_night_h': 0, 'ph_dates': []})
