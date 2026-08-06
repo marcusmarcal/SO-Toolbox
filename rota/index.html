@@ -494,6 +494,97 @@
       margin-bottom: 16px; flex-wrap: wrap;
     }
 
+    /* ── POT ── */
+    .pot-section-header {
+      font-family: var(--mono); font-size: 0.72rem; font-weight: 700;
+      color: var(--accent); letter-spacing: 0.12em; text-transform: uppercase;
+      margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .pot-meta {
+      font-family: var(--mono); font-size: 0.65rem; color: var(--muted);
+      margin-bottom: 14px; line-height: 1.6;
+    }
+    .pot-warning-banner {
+      font-family: var(--mono); font-size: 0.68rem;
+      background: rgba(230,168,80,0.08); border: 1px solid rgba(230,168,80,0.35);
+      border-radius: 6px; padding: 10px 14px; margin-bottom: 14px; color: #e6a850;
+    }
+    .pot-warning-banner ul { margin: 6px 0 0 16px; }
+    .pot-warning-banner li { margin-bottom: 3px; }
+    .pot-superseded-banner {
+      font-family: var(--mono); font-size: 0.68rem;
+      background: rgba(255,78,106,0.06); border: 1px solid rgba(255,78,106,0.3);
+      border-radius: 6px; padding: 10px 14px; margin-bottom: 14px; color: #ffb3be;
+    }
+    table.pot-table {
+      width: auto; min-width: 560px; border-collapse: collapse;
+      font-family: var(--mono); font-size: 0.75rem;
+    }
+    table.pot-table th {
+      font-size: 0.62rem; color: var(--muted); text-transform: uppercase;
+      letter-spacing: 0.1em; padding: 6px 14px 6px 10px; text-align: left;
+      border-bottom: 1px solid var(--border); font-weight: 700; white-space: nowrap;
+    }
+    table.pot-table td {
+      padding: 7px 14px 7px 10px; border-bottom: 1px solid #252525;
+      vertical-align: middle; white-space: nowrap;
+    }
+    table.pot-table tr:last-child td { border-bottom: none; }
+    table.pot-table td.num { text-align: center; }
+    table.pot-table td.overridden { color: #e6a850; font-weight: 700; }
+    table.pot-table td.diff-changed { color: #e6a850; }
+    table.pot-table td.diff-new { color: #9ee6a6; }
+    table.pot-table input.pot-override-input {
+      width: 72px; background: var(--card); border: 1px solid var(--border);
+      color: var(--text); font-family: var(--mono); font-size: 0.75rem;
+      padding: 3px 6px; border-radius: 4px; outline: none; text-align: center;
+      transition: border-color 0.2s;
+    }
+    table.pot-table input.pot-override-input:focus { border-color: var(--accent); }
+    table.pot-table input.pot-override-input.changed {
+      border-color: rgba(230,168,80,0.7); color: #e6a850;
+    }
+    .pot-comment-row td {
+      padding: 2px 14px 8px 10px; border-bottom: none;
+    }
+    .pot-comment-row textarea {
+      width: 100%; background: var(--card); border: 1px solid rgba(230,168,80,0.4);
+      color: var(--text); font-family: var(--mono); font-size: 0.65rem;
+      padding: 4px 8px; border-radius: 4px; outline: none; resize: none;
+      transition: border-color 0.2s;
+    }
+    .pot-comment-row textarea:focus { border-color: var(--accent); }
+    .pot-override-tag {
+      font-family: var(--mono); font-size: 0.5rem; font-weight: 700;
+      padding: 1px 5px; border-radius: 3px; letter-spacing: 0.04em;
+      background: rgba(230,168,80,0.15); color: #e6a850;
+      border: 1px solid rgba(230,168,80,0.3); margin-left: 5px; cursor: help;
+    }
+    .pot-history-entry {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 14px 16px; margin-bottom: 12px;
+    }
+    .pot-history-entry.active-record {
+      border-color: rgba(63,185,80,0.4);
+      background: rgba(63,185,80,0.03);
+    }
+    .pot-history-entry.superseded-record {
+      border-color: rgba(255,78,106,0.25);
+      background: rgba(255,78,106,0.02); opacity: 0.8;
+    }
+    .pot-record-label {
+      font-family: var(--mono); font-size: 0.62rem; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      margin-bottom: 8px; display: flex; align-items: center; gap: 8px;
+    }
+    .pot-record-label.active   { color: #9ee6a6; }
+    .pot-record-label.superseded { color: #ffb3be; }
+    .pot-consult-toolbar {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      padding: 14px 0; border-top: 1px solid var(--border); margin-top: 24px;
+    }
+
     /* ── LOADING / EMPTY ── */
     .loading-row {
       display: flex; align-items: center; justify-content: center;
@@ -739,6 +830,8 @@
 
   <!-- ══ TAB: NIGHT & PH HOURS ══ -->
   <div class="tab-panel" id="panel-hours">
+
+    <!-- Compute section (management + staff) -->
     <div id="hours-toolbar" style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;">
       <div class="toolbar-group">
         <span class="toolbar-label">Period</span>
@@ -756,15 +849,37 @@
         <input type="date" class="toolbar-select" id="hours-to" />
       </div>
       <button class="btn primary" id="btn-hours-compute" style="margin-left:4px;">▶ Compute</button>
+      <!-- Management-only: commit + export -->
       <div class="sep"></div>
-      <div id="hours-export-btns" style="display:none;gap:8px;display:none;">
-        <button class="btn" id="btn-export-soe">⬇ SOE Sheet</button>
-        <button class="btn" id="btn-export-sos">⬇ SOS Sheet</button>
+      <div id="hours-mgmt-actions" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;">
+        <button class="btn draft-enter" id="btn-commit-soe" disabled title="Compute first">⬆ Commit SOE to POT</button>
+        <button class="btn draft-enter" id="btn-commit-sos" disabled title="Compute first">⬆ Commit SOS to POT</button>
+        <button class="btn" id="btn-export-soe" title="Export requires a committed POT record">⬇ SOE Sheet</button>
+        <button class="btn" id="btn-export-sos" title="Export requires a committed POT record">⬇ SOS Sheet</button>
       </div>
     </div>
     <div id="hours-result">
       <div class="empty-state">Select a period and click Compute.</div>
     </div>
+
+    <!-- POT consultation section (all users) -->
+    <div class="pot-consult-toolbar">
+      <span class="toolbar-label">POT Consultation</span>
+      <div class="toolbar-group">
+        <span class="toolbar-label">Team</span>
+        <select class="toolbar-select" id="pot-team-select">
+          <option value="">— team —</option>
+          <option value="SOE">SOE</option>
+          <option value="SOS">SOS</option>
+        </select>
+      </div>
+      <div class="toolbar-group">
+        <span class="toolbar-label">Month</span>
+        <input type="month" class="toolbar-select" id="pot-month-select" />
+      </div>
+      <button class="btn" id="btn-pot-view">🔍 View POT</button>
+    </div>
+    <div id="pot-result"></div>
   </div>
 
   <!-- ── NOTE TOOLTIP (hover, read-only) ── -->
@@ -1963,7 +2078,9 @@
   // ════════════════════════════════════════════════════════════════
   //  NIGHT & PH HOURS TAB
   // ════════════════════════════════════════════════════════════════
-  let _hoursTabReady = false;
+  // ── Hours tab state ───────────────────────────────────────────────────────
+  let _hoursTabReady  = false;
+  let _lastComputedDraft = {};   // team → { month, entries } from most recent compute
 
   function setupHoursTab() {
     if (_hoursTabReady) return;
@@ -1972,7 +2089,9 @@
     // Default month = current month
     const now = new Date();
     const mm  = String(now.getMonth() + 1).padStart(2, '0');
-    document.getElementById('hours-month').value = `${now.getFullYear()}-${mm}`;
+    const currentMonth = `${now.getFullYear()}-${mm}`;
+    document.getElementById('hours-month').value    = currentMonth;
+    document.getElementById('pot-month-select').value = currentMonth;
 
     const periodSel   = document.getElementById('hours-period');
     const monthGroup  = document.getElementById('hours-month-group');
@@ -1988,22 +2107,20 @@
 
     // Export buttons — management only
     if (state.me && state.me.rota_role === 'management') {
-      const exportDiv = document.getElementById('hours-export-btns');
-      exportDiv.style.display = 'flex';
-
-      document.getElementById('btn-export-soe').addEventListener('click', () => {
-        exportHrSheet('SOE');
-      });
-      document.getElementById('btn-export-sos').addEventListener('click', () => {
-        exportHrSheet('SOS');
-      });
+      document.getElementById('hours-mgmt-actions').style.display = 'flex';
+      document.getElementById('btn-commit-soe').addEventListener('click', () => initiateCommit('SOE'));
+      document.getElementById('btn-commit-sos').addEventListener('click', () => initiateCommit('SOS'));
+      document.getElementById('btn-export-soe').addEventListener('click', () => exportHrSheet('SOE'));
+      document.getElementById('btn-export-sos').addEventListener('click', () => exportHrSheet('SOS'));
     }
+
+    document.getElementById('btn-pot-view').addEventListener('click', loadPotView);
   }
 
   function _hoursDateRange() {
     const period = document.getElementById('hours-period').value;
     if (period === 'month') {
-      const val = document.getElementById('hours-month').value; // YYYY-MM
+      const val = document.getElementById('hours-month').value;
       if (!val) return null;
       const [y, m] = val.split('-').map(Number);
       const from   = `${y}-${String(m).padStart(2,'0')}-01`;
@@ -2025,49 +2142,85 @@
     const el = document.getElementById('hours-result');
     el.innerHTML = '<div class="loading-row"><div class="spinner"></div> Computing hours…</div>';
 
+    // Disable commit buttons while computing
+    ['btn-commit-soe','btn-commit-sos'].forEach(id => {
+      const b = document.getElementById(id);
+      if (b) { b.disabled = true; b.title = 'Computing…'; }
+    });
+
     const r = await fetch(`${PROXY}/rota/hours?from=${range.from}&to=${range.to}`,
                           { credentials: 'same-origin' });
     const d = await r.json();
 
     if (!d.ok) { el.innerHTML = `<div class="empty-state">Error: ${d.error}</div>`; return; }
 
-    const hours = d.hours;
+    const hours        = d.hours;
     const isManagement = state.me && state.me.rota_role === 'management';
+    const isMonthView  = document.getElementById('hours-period').value === 'month';
 
     if (!isManagement) {
       // Staff: single-row own view
       const myName = state.me ? state.me.name : '';
       const h = hours[myName];
       if (!h) { el.innerHTML = '<div class="empty-state">No data for your account.</div>'; return; }
-      el.innerHTML = _renderHoursTable({ [myName]: h }, `${range.from} → ${range.to}`);
+      el.innerHTML = _renderHoursTable({ [myName]: h });
       return;
     }
 
-    // Management: grouped by rota team
-    const groups = { Management: {}, Engineering: {}, Specialists: {} };
+    // Management: group by HR team (SOE/SOS) and rota team
+    const hrGroups = { SOE: {}, SOS: {} };
+    const rotaGroups = { Management: {}, Engineering: {}, Specialists: {} };
     Object.entries(hours).forEach(([name, h]) => {
+      if (h.hr_team) hrGroups[h.hr_team] = hrGroups[h.hr_team] || {};
+      if (h.hr_team) hrGroups[h.hr_team][name] = h;
       const t = h.rota_team || 'Specialists';
-      groups[t][name] = h;
+      rotaGroups[t][name] = h;
     });
 
-    const periodLabel = document.getElementById('hours-period').value === 'month'
-      ? new Date(range.from + 'T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
-      : `${range.from} → ${range.to}`;
+    // Store for commit use — keyed by HR team
+    if (isMonthView) {
+      ['SOE','SOS'].forEach(team => {
+        _lastComputedDraft[team] = {
+          month:   range.month,
+          entries: Object.entries(hrGroups[team] || {}).map(([name, h]) => ({
+            name,
+            night_h_computed:    round2(h.night_h),
+            ph_day_h_computed:   round2(h.ph_day_h),
+            ph_night_h_computed: round2(h.ph_night_h),
+            ph_dates:            h.ph_dates,
+            mcr:                 h.mcr,
+            night_h_final:    round2(h.night_h),
+            ph_day_h_final:   round2(h.ph_day_h),
+            ph_night_h_final: round2(h.ph_night_h),
+            override_comments: {},
+          })),
+        };
+      });
+      // Enable commit buttons
+      ['btn-commit-soe','btn-commit-sos'].forEach(id => {
+        const b = document.getElementById(id);
+        if (b) { b.disabled = false; b.title = 'Commit these values to the POT'; }
+      });
+    }
 
     el.innerHTML = ['Management','Engineering','Specialists']
-      .filter(t => Object.keys(groups[t]).length)
+      .filter(t => Object.keys(rotaGroups[t]).length)
       .map(t => `
         <div style="margin-bottom:28px;">
           <div class="approvals-group-header">${t}</div>
-          ${_renderHoursTable(groups[t], periodLabel)}
+          ${_renderHoursTable(rotaGroups[t])}
         </div>`)
       .join('');
   }
 
-  function _renderHoursTable(hoursMap, periodLabel) {
+  function round2(v) { return Math.round((v || 0) * 100) / 100; }
+
+  function _renderHoursTable(hoursMap) {
     const names = Object.keys(hoursMap);
     if (!names.length) return '<div class="empty-state">No data.</div>';
-
+    const fmt = v => v === 0
+      ? '<span style="color:var(--muted)">0.00</span>'
+      : `<strong>${v.toFixed(2)}</strong>`;
     const rows = names.map(name => {
       const h = hoursMap[name];
       const phDates = h.ph_dates && h.ph_dates.length
@@ -2079,9 +2232,9 @@
       const totalNight = +h.night_h.toFixed(2);
       return `<tr>
         <td style="font-weight:700;">${name}</td>
-        <td style="text-align:center;">${fmt(totalNight)}</td>
-        <td style="text-align:center;">${fmt(h.ph_day_h)}</td>
-        <td style="text-align:center;">${fmt(h.ph_night_h)}</td>
+        <td style="text-align:center;">${fmt(round2(h.night_h))}</td>
+        <td style="text-align:center;">${fmt(round2(h.ph_day_h))}</td>
+        <td style="text-align:center;">${fmt(round2(h.ph_night_h))}</td>
         <td style="color:var(--muted);font-size:0.6rem;">${phDates}</td>
         ${h.mcr !== undefined ? `<td style="text-align:center;color:var(--muted);font-size:0.6rem;">${h.mcr ?? '—'}</td>` : ''}
       </tr>`;
@@ -2106,12 +2259,442 @@
       </table>`;
   }
 
-  function exportHrSheet(team) {
+  // ── Commit flow ───────────────────────────────────────────────────────────
+  async function initiateCommit(team) {
+    const draft = _lastComputedDraft[team];
+    if (!draft) {
+      await uiAlert(`Compute ${team} hours first before committing.`); return;
+    }
+
+    // Fetch draft to check for existing POT and get diff
+    const r = await fetch(
+      `${PROXY}/rota/hours/pot/draft?team=${team}&month=${draft.month}`,
+      { credentials: 'same-origin' });
+    const d = await r.json();
+    if (!d.ok) { await uiAlert(d.error || 'Failed to load draft'); return; }
+
+    // Show commit modal with editable table
+    _openCommitModal(team, draft.month, d);
+  }
+
+  // Working state for the commit modal
+  let _commitState = { team: '', month: '', entries: [], supersede: false };
+
+  function _openCommitModal(team, month, draftData) {
+    _commitState = {
+      team, month,
+      entries: draftData.member_order.map(name => {
+        const comp = draftData.computed[name] || {};
+        return {
+          name,
+          mcr:                 comp.mcr,
+          ph_dates:            comp.ph_dates || [],
+          night_h_computed:    round2(comp.night_h    || 0),
+          ph_day_h_computed:   round2(comp.ph_day_h   || 0),
+          ph_night_h_computed: round2(comp.ph_night_h || 0),
+          night_h_final:    round2(comp.night_h    || 0),
+          ph_day_h_final:   round2(comp.ph_day_h   || 0),
+          ph_night_h_final: round2(comp.ph_night_h || 0),
+          override_comments: {},
+        };
+      }),
+      existing:  draftData.existing_pot,
+      diff:      draftData.diff,
+      warnings:  draftData.warnings,
+      supersede: false,
+    };
+
+    const modal = document.getElementById('confirm-modal');
+    const title = document.getElementById('confirm-title');
+    const msg   = document.getElementById('confirm-msg');
+    const okBtn = document.getElementById('confirm-ok-btn');
+    const cancelBtn = document.getElementById('confirm-cancel-btn');
+
+    title.textContent = `Commit ${team} — ${_fmtMonthLabel(month)}`;
+
+    // Build modal body HTML (injected into confirm-msg as innerHTML)
+    msg.innerHTML = _buildCommitModalHtml(team, month, draftData);
+    msg.style.maxHeight = '60vh';
+    msg.style.overflowY = 'auto';
+
+    okBtn.textContent = _commitState.existing ? '⬆ Supersede POT' : '⬆ Commit to POT';
+    okBtn.className   = 'btn approve';
+    cancelBtn.style.display = '';
+
+    modal.classList.add('open');
+
+    // Wire up input events inside the modal
+    msg.querySelectorAll('input.pot-override-input').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const name  = inp.dataset.name;
+        const field = inp.dataset.field;
+        const val   = parseFloat(inp.value);
+        const entry = _commitState.entries.find(e => e.name === name);
+        if (!entry) return;
+        const computed = entry[`${field}_computed`];
+        const changed  = !isNaN(val) && Math.abs(val - computed) > 0.001;
+        inp.classList.toggle('changed', changed);
+        if (!isNaN(val)) entry[`${field}_final`] = round2(val);
+        // Show/hide comment row for this entry
+        const commentRow = msg.querySelector(`.pot-comment-row[data-name="${name}"]`);
+        if (commentRow) {
+          const anyChanged = ['night_h','ph_day_h','ph_night_h'].some(f => {
+            const i = msg.querySelector(`input.pot-override-input[data-name="${name}"][data-field="${f}"]`);
+            if (!i) return false;
+            const c = entry[`${f}_computed`];
+            return Math.abs(parseFloat(i.value || c) - c) > 0.001;
+          });
+          commentRow.style.display = anyChanged ? '' : 'none';
+        }
+        _updateCommitOkButton(okBtn);
+      });
+    });
+
+    msg.querySelectorAll('textarea.pot-comment-ta').forEach(ta => {
+      ta.addEventListener('input', () => {
+        const name  = ta.dataset.name;
+        const entry = _commitState.entries.find(e => e.name === name);
+        if (entry) entry.override_comments = entry.override_comments || {};
+        // Comments are per-field — store under the field that changed
+        // We store one comment per row (applies to all changed fields in that row)
+        if (entry) {
+          ['night_h','ph_day_h','ph_night_h'].forEach(f => {
+            if (entry.override_comments) entry.override_comments[f] = ta.value.trim();
+          });
+        }
+        _updateCommitOkButton(okBtn);
+      });
+    });
+
+    // Supersede reason field
+    const supReasonEl = msg.querySelector('#commit-supersede-reason');
+    if (supReasonEl) {
+      supReasonEl.addEventListener('input', () => {
+        _commitState.supersede_reason = supReasonEl.value.trim();
+        _updateCommitOkButton(okBtn);
+      });
+    }
+
+    const cleanup = async (confirmed) => {
+      modal.classList.remove('open');
+      msg.innerHTML = '';
+      msg.style.maxHeight = '';
+      msg.style.overflowY = '';
+      okBtn.replaceWith(okBtn.cloneNode(true));
+      cancelBtn.replaceWith(cancelBtn.cloneNode(true));
+      if (confirmed) await _doCommit();
+    };
+
+    document.getElementById('confirm-ok-btn').addEventListener('click',     () => cleanup(true),  { once: true });
+    document.getElementById('confirm-cancel-btn').addEventListener('click', () => cleanup(false), { once: true });
+    modal.addEventListener('click', e => { if (e.target === modal) cleanup(false); }, { once: true });
+  }
+
+  function _updateCommitOkButton(okBtn) {
+    // Disable if any changed row is missing a comment, or if superseding
+    // without a reason
+    let ok = true;
+    for (const entry of _commitState.entries) {
+      const anyChanged = ['night_h','ph_day_h','ph_night_h'].some(f =>
+        Math.abs((entry[`${f}_final`] || 0) - (entry[`${f}_computed`] || 0)) > 0.001
+      );
+      if (anyChanged) {
+        const cmt = Object.values(entry.override_comments || {}).find(c => c && c.trim());
+        if (!cmt) { ok = false; break; }
+      }
+    }
+    if (_commitState.existing && !(_commitState.supersede_reason || '').trim()) ok = false;
+    okBtn.disabled = !ok;
+  }
+
+  function _buildCommitModalHtml(team, month, draftData) {
+    const { existing, diff, warnings, member_order, computed } = draftData;
+    let html = '';
+
+    // Consistency warnings
+    if (warnings && warnings.length) {
+      html += `<div class="pot-warning-banner">
+        ⚠ Consistency warnings — review before committing:
+        <ul>${warnings.map(w => `<li>${w}</li>`).join('')}</ul>
+      </div>`;
+    }
+
+    // Existing POT notice + diff
+    if (existing) {
+      html += `<div class="pot-superseded-banner">
+        A POT record already exists for ${team} ${_fmtMonthLabel(month)},
+        committed by ${_userName(existing.committed_by)} on ${_fmtDate(existing.committed_at)}.
+        Committing will supersede it.
+      </div>`;
+      if (diff && diff.length) {
+        const changed = diff.filter(d => d.status === 'changed');
+        if (changed.length) {
+          html += `<div style="font-family:var(--mono);font-size:0.65rem;color:var(--muted);margin-bottom:10px;">
+            ${changed.length} member(s) have different computed values vs the existing POT:
+            ${changed.map(d => `<span style="color:#e6a850;margin-left:8px;">${d.name}</span>`).join('')}
+          </div>`;
+        }
+      }
+      html += `<div style="margin-bottom:12px;">
+        <span style="font-family:var(--mono);font-size:0.65rem;color:var(--muted);">Reason for superseding *</span>
+        <textarea id="commit-supersede-reason" rows="2"
+          style="width:100%;background:var(--card);border:1px solid rgba(230,168,80,0.4);
+                 color:var(--text);font-family:var(--mono);font-size:0.7rem;
+                 padding:5px 8px;border-radius:5px;outline:none;resize:none;margin-top:4px;"
+          placeholder="Explain why this record is being superseded…"></textarea>
+      </div>`;
+    }
+
+    // Editable table
+    html += `<p style="font-family:var(--mono);font-size:0.62rem;color:var(--muted);margin-bottom:8px;">
+      Edit values if needed. Changed fields require a comment per row.
+    </p>
+    <table class="pot-table" style="width:100%;">
+      <thead><tr>
+        <th>Name</th>
+        <th style="text-align:center;">Night H</th>
+        <th style="text-align:center;">PH Day H</th>
+        <th style="text-align:center;">PH Night H</th>
+        <th>PH Dates</th>
+      </tr></thead>
+      <tbody>`;
+
+    for (const name of member_order) {
+      const comp  = computed[name] || {};
+      const nh    = round2(comp.night_h    || 0);
+      const phdh  = round2(comp.ph_day_h   || 0);
+      const phnh  = round2(comp.ph_night_h || 0);
+      const dates = (comp.ph_dates || []).join(', ') || '—';
+      html += `
+        <tr>
+          <td style="font-weight:700;">${name}</td>
+          <td class="num"><input class="pot-override-input" type="number" step="0.01" min="0"
+            data-name="${name}" data-field="night_h" value="${nh}"></td>
+          <td class="num"><input class="pot-override-input" type="number" step="0.01" min="0"
+            data-name="${name}" data-field="ph_day_h" value="${phdh}"></td>
+          <td class="num"><input class="pot-override-input" type="number" step="0.01" min="0"
+            data-name="${name}" data-field="ph_night_h" value="${phnh}"></td>
+          <td style="color:var(--muted);font-size:0.6rem;">${dates}</td>
+        </tr>
+        <tr class="pot-comment-row" data-name="${name}" style="display:none;">
+          <td colspan="5">
+            <textarea class="pot-comment-ta" data-name="${name}" rows="2"
+              placeholder="Comment required — explain what changed and why…"></textarea>
+          </td>
+        </tr>`;
+    }
+
+    html += '</tbody></table>';
+    return html;
+  }
+
+  async function _doCommit() {
+    const { team, month, entries, existing } = _commitState;
+    const supersede_reason = (_commitState.supersede_reason || '').trim();
+
+    const payload = {
+      team, month,
+      supersede_reason: supersede_reason || undefined,
+      entries: entries.map(e => ({
+        name:              e.name,
+        night_h_final:    e.night_h_final,
+        ph_day_h_final:   e.ph_day_h_final,
+        ph_night_h_final: e.ph_night_h_final,
+        override_comments: e.override_comments || {},
+      })),
+    };
+
+    const r = await fetch(`${PROXY}/rota/hours/pot/commit`, {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const d = await r.json();
+
+    if (d.ok) {
+      let msg = `${team} ${_fmtMonthLabel(month)} committed to POT`;
+      if (d.superseded) msg += ' (superseded previous record)';
+      if (d.warnings && d.warnings.length) {
+        await uiAlert(`${msg}\n\n⚠ Warnings:\n${d.warnings.join('\n')}`,
+                      'Committed with warnings');
+      } else {
+        toast(msg, 'ok');
+      }
+      // Refresh POT view if it's showing this team+month
+      const potTeam  = document.getElementById('pot-team-select').value;
+      const potMonth = document.getElementById('pot-month-select').value;
+      if (potTeam === team && potMonth === month) loadPotView();
+    } else {
+      await uiAlert(d.error || 'Commit failed', 'Commit Failed');
+    }
+  }
+
+  async function exportHrSheet(team) {
     const range = _hoursDateRange();
     if (!range) { toast('Select a valid period first', 'err'); return; }
     // Use YYYY-MM from the range
     const month = range.month;
+    // Check POT exists before opening the download
+    const r = await fetch(`${PROXY}/rota/hours/pot?team=${team}&month=${month}`,
+                          { credentials: 'same-origin' });
+    const d = await r.json();
+    const active = d.ok && d.records && d.records.find(rec => rec.status === 'active');
+    if (!active) {
+      await uiAlert(
+        `No committed POT record exists for ${team} ${_fmtMonthLabel(month)}.\n\nCompute and commit the hours first.`,
+        'Export blocked'
+      );
+      return;
+    }
     window.open(`${PROXY}/rota/hours/export?team=${team}&month=${month}`, '_blank');
+  }
+
+  // ── POT consultation (all users) ──────────────────────────────────────────
+  async function loadPotView() {
+    const team  = document.getElementById('pot-team-select').value;
+    const month = document.getElementById('pot-month-select').value;
+    const el    = document.getElementById('pot-result');
+
+    if (!team || !month) {
+      el.innerHTML = '<div class="empty-state">Select a team and month.</div>'; return;
+    }
+
+    el.innerHTML = '<div class="loading-row"><div class="spinner"></div> Loading POT…</div>';
+
+    const r = await fetch(`${PROXY}/rota/hours/pot?team=${team}&month=${month}`,
+                          { credentials: 'same-origin' });
+    const d = await r.json();
+
+    if (!d.ok) { el.innerHTML = `<div class="empty-state">Error: ${d.error}</div>`; return; }
+    if (!d.records || !d.records.length) {
+      el.innerHTML = `<div class="empty-state">No POT record exists for ${team} ${_fmtMonthLabel(month)}.</div>`;
+      return;
+    }
+
+    const isManagement = state.me && state.me.rota_role === 'management';
+    let html = '';
+
+    d.records.forEach((record, idx) => {
+      const isActive     = record.status === 'active';
+      const entryClass   = isActive ? 'active-record' : 'superseded-record';
+      const labelClass   = isActive ? 'active' : 'superseded';
+      const labelText    = isActive ? '● Active record' : '○ Superseded';
+      html += `<div class="pot-history-entry ${entryClass}">
+        <div class="pot-record-label ${labelClass}">
+          ${labelText}
+          <span style="font-weight:400;color:var(--muted);">
+            Committed by ${_userName(record.committed_by)} · ${_fmtDate(record.committed_at)}
+          </span>
+          ${record.supersede_reason ? `<span style="color:#ffb3be;font-weight:400;font-size:0.6rem;">Reason: ${record.supersede_reason}</span>` : ''}
+        </div>`;
+
+      // Consistency warnings stored at commit time
+      if (record.consistency_warnings && record.consistency_warnings.length) {
+        html += `<div class="pot-warning-banner" style="margin-bottom:10px;">
+          ⚠ Warnings at commit time:
+          <ul>${record.consistency_warnings.map(w => `<li>${w}</li>`).join('')}</ul>
+        </div>`;
+      }
+
+      // Values table
+      html += `<table class="pot-table">
+        <thead><tr>
+          <th>Name</th><th style="text-align:center;">Night H</th>
+          <th style="text-align:center;">PH Day H</th><th style="text-align:center;">PH Night H</th>
+          <th>PH Dates</th>
+        </tr></thead><tbody>`;
+
+      record.entries.forEach(e => {
+        const fmtVal = (final, computed) => {
+          const overridden = Math.abs(final - (computed || final)) > 0.001;
+          const cls = overridden ? ' overridden' : '';
+          const tag = overridden ? `<span class="pot-override-tag" title="Overridden from ${computed}">OVR</span>` : '';
+          return `<td class="num${cls}">${final.toFixed(2)}${tag}</td>`;
+        };
+        const dates = (e.ph_dates || []).join(', ') || '—';
+        html += `<tr>
+          <td style="font-weight:700;">${e.name}</td>
+          ${fmtVal(e.night_h_final,    e.night_h_computed)}
+          ${fmtVal(e.ph_day_h_final,   e.ph_day_h_computed)}
+          ${fmtVal(e.ph_night_h_final, e.ph_night_h_computed)}
+          <td style="color:var(--muted);font-size:0.6rem;">${dates}</td>
+        </tr>`;
+        // Override comments
+        if (e.overrides && e.overrides.length) {
+          e.overrides.forEach(ov => {
+            html += `<tr>
+              <td colspan="5" style="font-family:var(--mono);font-size:0.6rem;
+                color:#e6a850;padding:2px 10px 6px 24px;">
+                ↳ ${ov.field}: ${ov.from} → ${ov.to} — "${ov.comment}"
+                <span style="color:var(--muted);margin-left:6px;">by ${_userName(ov.by)} · ${_fmtDate(ov.at)}</span>
+              </td>
+            </tr>`;
+          });
+        }
+      });
+
+      html += '</tbody></table>';
+
+      // Management: edit & supersede button on active record
+      if (isManagement && isActive) {
+        html += `<div style="margin-top:12px;display:flex;gap:8px;">
+          <button class="btn warn" onclick="initiateManualSupersede('${team}','${month}')">
+            ✎ Edit & Supersede
+          </button>
+          <button class="btn" onclick="exportHrSheet('${team}')">
+            ⬇ Export to HR
+          </button>
+        </div>`;
+      }
+
+      html += '</div>';
+    });
+
+    el.innerHTML = html;
+  }
+
+  async function initiateManualSupersede(team, month) {
+    // Load the active POT record and open the commit modal pre-populated
+    // with the stored final values (not a fresh recompute)
+    const r = await fetch(`${PROXY}/rota/hours/pot?team=${team}&month=${month}`,
+                          { credentials: 'same-origin' });
+    const d = await r.json();
+    const active = d.ok && d.records && d.records.find(rec => rec.status === 'active');
+    if (!active) { await uiAlert('No active record found.'); return; }
+
+    // Build a draftData-shaped object from the existing POT record
+    const member_order = active.entries.map(e => e.name);
+    const computed = {};
+    active.entries.forEach(e => {
+      // Pre-populate inputs with current final values (not recomputed)
+      computed[e.name] = {
+        night_h:    e.night_h_final,
+        ph_day_h:   e.ph_day_h_final,
+        ph_night_h: e.ph_night_h_final,
+        ph_dates:   e.ph_dates,
+        mcr:        e.mcr,
+      };
+    });
+
+    const draftData = {
+      team, month, member_order, computed,
+      existing: {
+        id:           active.id,
+        committed_by: active.committed_by,
+        committed_at: active.committed_at,
+      },
+      diff:     null,
+      warnings: active.consistency_warnings || [],
+    };
+
+    _openCommitModal(team, month, draftData);
+  }
+
+  function _fmtMonthLabel(ym) {
+    if (!ym) return '';
+    try {
+      return new Date(ym + '-01T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+    } catch { return ym; }
   }
 
   // ════════════════════════════════════════════════════════════════

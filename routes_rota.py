@@ -298,6 +298,7 @@ DRAFT_LOCK_FILE          = os.path.join(ROTA_DIR, 'draft_lock.json')
 PUBLISHED_OVERRIDES_FILE = os.path.join(ROTA_DIR, 'published_overrides.json')
 CELL_NOTES_FILE          = os.path.join(ROTA_DIR, 'cell_notes.json')
 HR_CONFIG_FILE           = os.path.join(ROTA_DIR, 'hr_config.json')
+HOURS_POT_FILE           = os.path.join(ROTA_DIR, 'hours_pot.json')
 
 # ── Config ────────────────────────────────────────────────────────────────
 DEFAULT_CONFIG = {
@@ -1547,6 +1548,75 @@ def _load_hr_config() -> dict:
     }
     return cfg
 
+# ── POT helpers ───────────────────────────────────────────────────────────
+
+def _load_pot() -> list:
+    data = _load_json(HOURS_POT_FILE)
+    return data if isinstance(data, list) else []
+
+def _save_pot(records: list) -> None:
+    _save_json(HOURS_POT_FILE, records)
+
+def _active_pot_for(team: str, month: str) -> dict | None:
+    """Return the active POT record for team+month, or None."""
+    return next((r for r in _load_pot()
+                 if r['team'] == team and r['month'] == month
+                 and r['status'] == 'active'), None)
+
+def _check_hr_config_consistency(hr_cfg: dict) -> list:
+    """Compare hr_config HR team members against users.json.
+    Returns a list of warning strings — empty if everything is consistent."""
+    users = _load_json(USERS_FILE)
+    if not isinstance(users, dict):
+        users = {}
+
+    # Build reverse map: rota_name → email
+    rota_name_to_email = _rota_name_to_email_map()
+    # Build set of emails with valid staff/management roles in users.json
+    valid_roles = STAFF_ROLES | {'admin'}
+    active_emails = {email for email, info in users.items()
+                     if isinstance(info, dict) and info.get('role') in valid_roles}
+    # Build set of all rota names that appear in any hr_config team
+    hr_teams = hr_cfg.get('hr_teams', {})
+    all_hr_names = {name for members in hr_teams.values() for name in members}
+
+    warnings = []
+
+    # Type A: in hr_config but not resolvable to an active users.json entry
+    for name in sorted(all_hr_names):
+        email = rota_name_to_email.get(name)
+        if not email:
+            warnings.append(
+                f"Type A — '{name}' is in hr_config but has no email mapping "
+                f"in EMAIL_TO_ROTA_NAME. Hours will be computed but not linked "
+                f"to any login account."
+            )
+        elif email not in active_emails:
+            warnings.append(
+                f"Type A — '{name}' ({email}) is in hr_config but has no active "
+                f"entry in users.json. They may have left — check both files."
+            )
+
+    # Type B: active engineer/specialist in users.json not in any hr_config team
+    for email, info in users.items():
+        if not isinstance(info, dict):
+            continue
+        if info.get('role') not in STAFF_ROLES:
+            continue
+        rota_name = EMAIL_TO_ROTA_NAME.get(email)
+        if not rota_name:
+            continue  # user exists but has no rota name — separate issue
+        if rota_name not in all_hr_names:
+            warnings.append(
+                f"Type B — '{rota_name}' ({email}) has role "
+                f"'{info.get('role')}' in users.json but does not appear in "
+                f"any hr_config team. Their hours will never be computed or "
+                f"exported to HR."
+            )
+
+    return warnings
+
+
 def _compute_hours(date_from: date, date_to: date,
                    names: list[str],
                    leave_map: dict, override_map: dict) -> dict:
@@ -1728,18 +1798,33 @@ def rota_hours_export():
     if not isinstance(published_overrides, list):
         published_overrides = []
 
-    leave_map     = _build_leave_map(leave_list)
-    override_map  = _build_override_map(published_overrides)
+    # ── Serve from POT — never recompute for export ───────────────────────
+    pot = _active_pot_for(team_param, month_param)
+    if not pot:
+        return jsonify({
+            'ok':    False,
+            'error': (f'No committed Point of Truth exists for {team_param} '
+                      f'{month_param}. Compute, review, and commit via the '
+                      f'Night & PH Hours tab before exporting.'),
+            'needs_commit': True,
+        }), 400
+
     hr_cfg        = _load_hr_config()
-    hr_teams      = hr_cfg.get('hr_teams', {})
-    mcr_map       = hr_cfg.get('mcr', {})
     display_names = hr_cfg.get('display_names', {})
 
-    members = hr_teams.get(team_param, [])
-    if not members:
-        return jsonify({'ok': False, 'error': f'No members configured for {team_param}'}), 400
-
-    hours = _compute_hours(date_from, date_to, members, leave_map, override_map)
+    # Reconstruct hours dict and member order from POT entries
+    members = [e['name'] for e in pot['entries']]
+    hours   = {
+        e['name']: {
+            'night_h':    e['night_h_final'],
+            'ph_day_h':   e['ph_day_h_final'],
+            'ph_night_h': e['ph_night_h_final'],
+            'ph_dates':   e['ph_dates'],
+        }
+        for e in pot['entries']
+    }
+    # MCR comes from POT snapshot (captured at commit time)
+    mcr_map = {e['name']: e.get('mcr') for e in pot['entries']}
 
     try:
         from openpyxl import Workbook
@@ -1851,6 +1936,286 @@ def rota_hours_export():
         download_name=filename,
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
+
+
+# ── POT routes ────────────────────────────────────────────────────────────
+
+@rota_bp.route('/rota/hours/pot/draft', methods=['GET'])
+@require_auth
+def rota_hours_pot_draft():
+    """Return live-computed hours for a team+month alongside any existing
+    active POT record, consistency warnings, and a diff if POT exists.
+    Management only."""
+    if _get_rota_role(request.session) != 'management':
+        return jsonify({'ok': False, 'error': 'Not authorised'}), 403
+
+    team  = request.args.get('team', '').upper()
+    month = request.args.get('month', '')   # YYYY-MM
+
+    if team not in ('SOE', 'SOS'):
+        return jsonify({'ok': False, 'error': 'team must be SOE or SOS'}), 400
+    try:
+        year, mo  = [int(x) for x in month.split('-')]
+        date_from = date(year, mo, 1)
+        date_to   = (date(year, mo + 1, 1) - timedelta(days=1)) if mo < 12 \
+                    else date(year, 12, 31)
+    except (ValueError, AttributeError):
+        return jsonify({'ok': False, 'error': 'month must be YYYY-MM'}), 400
+
+    leave_list = _load_json(LEAVE_FILE)
+    if not isinstance(leave_list, list): leave_list = []
+    published_overrides = _load_json(PUBLISHED_OVERRIDES_FILE)
+    if not isinstance(published_overrides, list): published_overrides = []
+
+    leave_map    = _build_leave_map(leave_list)
+    override_map = _build_override_map(published_overrides)
+    hr_cfg       = _load_hr_config()
+    members      = hr_cfg.get('hr_teams', {}).get(team, [])
+    mcr_map      = hr_cfg.get('mcr', {})
+
+    if not members:
+        return jsonify({'ok': False, 'error': f'No members configured for {team}'}), 400
+
+    computed = _compute_hours(date_from, date_to, members, leave_map, override_map)
+    warnings = _check_hr_config_consistency(hr_cfg)
+
+    # Attach MCR to computed results
+    computed_out = {}
+    for name in members:
+        h = computed.get(name, {'night_h': 0, 'ph_day_h': 0, 'ph_night_h': 0, 'ph_dates': []})
+        computed_out[name] = {**h, 'mcr': mcr_map.get(name)}
+
+    # Diff against existing active POT if one exists
+    existing_pot = _active_pot_for(team, month)
+    diff = None
+    if existing_pot:
+        diff = []
+        pot_map = {e['name']: e for e in existing_pot['entries']}
+        for name in members:
+            comp = computed_out[name]
+            pot_entry = pot_map.get(name)
+            if not pot_entry:
+                diff.append({'name': name, 'status': 'new_member'})
+                continue
+            fields_changed = {}
+            for field in ('night_h', 'ph_day_h', 'ph_night_h'):
+                comp_val = round(comp[field], 2)
+                pot_val  = round(pot_entry[f'{field}_final'], 2)
+                if abs(comp_val - pot_val) > 0.001:
+                    fields_changed[field] = {'computed': comp_val, 'pot_final': pot_val}
+            if fields_changed:
+                diff.append({'name': name, 'status': 'changed', 'fields': fields_changed})
+        # Members in POT but not in current hr_config
+        for name in pot_map:
+            if name not in members:
+                diff.append({'name': name, 'status': 'removed_from_team'})
+
+    return jsonify({
+        'ok':          True,
+        'team':        team,
+        'month':       month,
+        'computed':    computed_out,
+        'member_order': members,
+        'warnings':    warnings,
+        'existing_pot': {
+            'id':           existing_pot['id'],
+            'committed_by': existing_pot['committed_by'],
+            'committed_at': existing_pot['committed_at'],
+            'supersedes':   existing_pot.get('supersedes'),
+        } if existing_pot else None,
+        'diff':        diff,
+    })
+
+
+@rota_bp.route('/rota/hours/pot/commit', methods=['POST'])
+@require_auth
+def rota_hours_pot_commit():
+    """Commit a final set of hours values for a team+month to the POT.
+    Accepts manually overridden final values alongside computed ones.
+    Each overridden field requires a comment. Management only."""
+    if _get_rota_role(request.session) != 'management':
+        return jsonify({'ok': False, 'error': 'Not authorised'}), 403
+
+    session    = request.session
+    data       = request.get_json(silent=True) or {}
+    team       = data.get('team', '').upper()
+    month      = data.get('month', '')
+    entries_in = data.get('entries', [])
+    supersede_reason = data.get('supersede_reason', '').strip()
+
+    if team not in ('SOE', 'SOS'):
+        return jsonify({'ok': False, 'error': 'team must be SOE or SOS'}), 400
+    try:
+        year, mo  = [int(x) for x in month.split('-')]
+        date_from = date(year, mo, 1)
+        date_to   = (date(year, mo + 1, 1) - timedelta(days=1)) if mo < 12 \
+                    else date(year, 12, 31)
+    except (ValueError, AttributeError):
+        return jsonify({'ok': False, 'error': 'month must be YYYY-MM'}), 400
+
+    # Server-side recompute — never trust client-supplied "computed" values
+    leave_list = _load_json(LEAVE_FILE)
+    if not isinstance(leave_list, list): leave_list = []
+    published_overrides = _load_json(PUBLISHED_OVERRIDES_FILE)
+    if not isinstance(published_overrides, list): published_overrides = []
+
+    leave_map    = _build_leave_map(leave_list)
+    override_map = _build_override_map(published_overrides)
+    hr_cfg       = _load_hr_config()
+    members      = hr_cfg.get('hr_teams', {}).get(team, [])
+    mcr_map      = hr_cfg.get('mcr', {})
+    display_names = hr_cfg.get('display_names', {})
+
+    if not members:
+        return jsonify({'ok': False, 'error': f'No members configured for {team}'}), 400
+
+    computed = _compute_hours(date_from, date_to, members, leave_map, override_map)
+    now      = _now_iso()
+
+    # Check if a POT already exists — require supersede_reason if so
+    records     = _load_pot()
+    existing    = next((r for r in records
+                        if r['team'] == team and r['month'] == month
+                        and r['status'] == 'active'), None)
+    if existing and not supersede_reason:
+        return jsonify({
+            'ok':    False,
+            'error': 'A committed record already exists for this team and month. '
+                     'Provide supersede_reason to replace it.',
+            'existing_id': existing['id'],
+            'needs_supersede_reason': True,
+        }), 409
+
+    # Validate and build final entries
+    entries_by_name = {e.get('name'): e for e in entries_in}
+    final_entries   = []
+    warnings        = _check_hr_config_consistency(hr_cfg)
+
+    for name in members:
+        comp     = computed.get(name, {'night_h': 0, 'ph_day_h': 0,
+                                       'ph_night_h': 0, 'ph_dates': []})
+        e_in     = entries_by_name.get(name, {})
+        overrides_out = []
+
+        entry = {
+            'name':             name,
+            'full_name':        display_names.get(name, name),
+            'mcr':              mcr_map.get(name),
+            'ph_dates':         comp['ph_dates'],
+            'night_h_computed':    round(comp['night_h'], 2),
+            'ph_day_h_computed':   round(comp['ph_day_h'], 2),
+            'ph_night_h_computed': round(comp['ph_night_h'], 2),
+            'overrides':        [],
+        }
+
+        for field in ('night_h', 'ph_day_h', 'ph_night_h'):
+            computed_val = round(comp[field], 2)
+            # Client sends final value; fall back to computed if absent
+            try:
+                final_val = round(float(e_in.get(f'{field}_final', computed_val)), 2)
+            except (TypeError, ValueError):
+                final_val = computed_val
+
+            entry[f'{field}_final'] = final_val
+
+            if abs(final_val - computed_val) > 0.001:
+                comment = (e_in.get('override_comments') or {}).get(field, '').strip()
+                if not comment:
+                    return jsonify({
+                        'ok':    False,
+                        'error': f'{name}: a comment is required for the '
+                                 f'{field} override ({computed_val} → {final_val}).',
+                    }), 400
+                overrides_out.append({
+                    'field':   field,
+                    'from':    computed_val,
+                    'to':      final_val,
+                    'comment': comment,
+                    'by':      session['username'],
+                    'at':      now,
+                })
+
+        entry['overrides'] = overrides_out
+        final_entries.append(entry)
+
+    # Check that a superseding commit actually differs from the existing one
+    if existing:
+        existing_map = {e['name']: e for e in existing['entries']}
+        any_diff = False
+        for fe in final_entries:
+            ex = existing_map.get(fe['name'])
+            if not ex:
+                any_diff = True
+                break
+            for field in ('night_h', 'ph_day_h', 'ph_night_h'):
+                if abs(fe[f'{field}_final'] - ex.get(f'{field}_final', 0)) > 0.001:
+                    any_diff = True
+                    break
+            if any_diff:
+                break
+        if not any_diff:
+            return jsonify({
+                'ok':    False,
+                'error': 'The new values are identical to the existing committed '
+                         'record. No superseding record was created.',
+            }), 400
+
+    # Supersede existing active record
+    new_id = str(uuid.uuid4())[:8]
+    if existing:
+        existing['status']       = 'superseded'
+        existing['superseded_by'] = new_id
+
+    records.append({
+        'id':              new_id,
+        'team':            team,
+        'month':           month,
+        'status':          'active',
+        'superseded_by':   None,
+        'supersedes':      existing['id'] if existing else None,
+        'supersede_reason': supersede_reason if existing else None,
+        'computed_by':     session['username'],
+        'committed_by':    session['username'],
+        'committed_at':    now,
+        'consistency_warnings': warnings,
+        'entries':         final_entries,
+    })
+    _save_pot(records)
+
+    return jsonify({
+        'ok':          True,
+        'id':          new_id,
+        'superseded':  existing['id'] if existing else None,
+        'warnings':    warnings,
+    })
+
+
+@rota_bp.route('/rota/hours/pot', methods=['GET'])
+@require_auth
+def rota_hours_pot_get():
+    """Return POT records for a team+month. Active record first, then
+    superseded chain in reverse chronological order.
+    Accessible to all authenticated users (read-only)."""
+    team  = request.args.get('team', '').upper()
+    month = request.args.get('month', '')
+    if not team or not month:
+        return jsonify({'ok': False, 'error': 'team and month required'}), 400
+    if team not in ('SOE', 'SOS'):
+        return jsonify({'ok': False, 'error': 'team must be SOE or SOS'}), 400
+
+    all_records = [r for r in _load_pot()
+                   if r['team'] == team and r['month'] == month]
+    # Active first, then superseded newest-first
+    active     = [r for r in all_records if r['status'] == 'active']
+    superseded = sorted([r for r in all_records if r['status'] == 'superseded'],
+                        key=lambda r: r['committed_at'], reverse=True)
+
+    return jsonify({
+        'ok':      True,
+        'team':    team,
+        'month':   month,
+        'records': active + superseded,
+    })
 
 
 @rota_bp.route('/rota/hours/debug', methods=['GET'])
