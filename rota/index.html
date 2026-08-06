@@ -1158,12 +1158,7 @@
     const fmt        = d => d.toISOString().split('T')[0];
     const rota_start = '2026-01-01';
 
-    if (state.draft.active) {
-      const endYear = new Date(today.getFullYear(), 11, 31);
-      const plus3m  = new Date(today);
-      plus3m.setMonth(plus3m.getMonth() + 3);
-      return { from: rota_start, to: fmt(endYear > plus3m ? endYear : plus3m) };
-    }
+    
     if (state.viewMode === 'published') {
       const end = new Date(monday);
       end.setDate(monday.getDate() + 34);
@@ -3232,10 +3227,15 @@ function _removeCellFromBoxes(ri, ci) {
     if (d.ok) {
       state.draft.lock = d.lock;
       renderDraftBanner();
-      document.getElementById('view-select').value = 'full';
-      state.viewMode = 'full';
-      state.rotaData = null;
-      loadDraftRota();
+      if (state.viewMode === 'published') {
+        document.getElementById('view-select').value = 'full';
+        state.viewMode = 'full';
+      }
+      if (state.rotaData) {
+        await _reloadDraftPreservingScroll();
+      } else {
+        await loadDraftRota();
+      }
       toast('Draft mode active', 'ok');
     } else {
       await uiAlert(d.error || 'Could not enter draft mode', 'Draft Locked');
