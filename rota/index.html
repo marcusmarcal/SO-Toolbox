@@ -1413,7 +1413,7 @@
         const team = MGMT_NAMES.includes(person) ? 'Management'
                    : ENG_NAMES.includes(person)  ? 'SOE' : 'SOS';
         const base = i * 1440;
-        intervals.push({ start: base + parsed.start, end: base + parsed.end, dayIdx: i, team });
+        intervals.push({ start: base + parsed.start, end: base + parsed.end, dayIdx: i, team, person });
       });
     });
     return intervals;
@@ -1458,18 +1458,7 @@
       }
     }
 
-    // 2) Soft: solo >5h stretches (raw shift-code based, no lunch deduction)
-    let soloStart = null;
-    for (let t = 0; t <= totalMin; t++) {
-      const solo = t < totalMin && concurrency[t] === 1;
-      if (solo && soloStart === null) soloStart = t;
-      if (!solo && soloStart !== null) {
-        if (t - soloStart > 300) {
-          addFlag(dateOfAbsMin(soloStart), 'soft', `Single person on shift ${fmtHM(soloStart)}–${fmtHM(t)} (>5h)`);
-        }
-        soloStart = null;
-      }
-    }
+    // 2) Soft: solo >5h stretch
 
     // 3) Hard: night-shift break relief 01:00–02:00 — only if not already a full gap there
     days.forEach((day, i) => {
