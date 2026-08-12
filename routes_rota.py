@@ -1012,6 +1012,10 @@ def rota_draft_publish():
                             and l.get('status')     in {'Confirmed', 'Pending'}
                             ), None)
                 if dup:
+                    warnings.append(
+                        f"{person}: AL {ds.strftime('%d-%m-%Y')}–{de.strftime('%d-%m-%Y')} "
+                        f"already exists as {dup.get('status')} — no new entry created."
+                    )
                     continue
 
                 leave_list.append({
