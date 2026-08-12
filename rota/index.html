@@ -185,6 +185,14 @@
     table.rota tbody td.date-col.is-weekend  { color: var(--muted); background: #242424; }
     table.rota tbody td.date-col.is-ph       { background: #7f1d0a; color: #ffb39e; }
     table.rota tbody td.date-col.is-today    { background: #7a4f00; color: #ffd580; }
+    table.rota tbody td.date-col.has-gap {
+      background: #5c0f0f !important; color: #ffb3be !important;
+      cursor: help;
+    }
+    table.rota tbody td.date-col.has-soft-gap {
+      box-shadow: inset 0 0 0 2px rgba(230,168,80,0.55);
+      cursor: help;
+    }
     table.rota tbody tr.today-row td {
       background-color: rgba(255,213,128,0.12) !important;
       box-shadow: inset 0 1px 0 rgba(255,213,128,0.6), inset 0 -1px 0 rgba(255,213,128,0.6);
@@ -1367,9 +1375,129 @@
     return { bg, fg, text, extra };
   }
 
+  // ════════════════════════════════════════════════════════════════
+  //  24/7 COVERAGE GAP DETECTION (management view only)
+  // ════════════════════════════════════════════════════════════════
+  function _isWorkingShift(shift) {
+    if (!shift || shift === 'OFF' || shift === 'PARENTAL' || shift === 'MARITAL') return false;
+    if (shift.startsWith('AL_') || shift.startsWith('ABSENT')) return false;
+    return true;
+  }
+  function _cleanShiftCode(shift) {
+    if (shift.includes('|')) {
+      const pfx = shift.split('|')[0];
+      if (['AL_APPROVED','AL_PENDING','ABSENT'].includes(pfx)) return null;
+      return shift.split('|')[1];
+    }
+    return shift;
+  }
+  function _parseShiftMinutes(code) {
+    const m = /^(\d{2})(\d{2})-(\d{2})(\d{2})$/.exec(code);
+    if (!m) return null;
+    const sh = +m[1], sm = +m[2], eh = +m[3], em = +m[4];
+    let start = sh * 60 + sm, end = eh * 60 + em;
+    if (end <= start) end += 1440; // overnight wrap
+    return { start, end };
+  }
+
+  function _buildCoverageIntervals(days) {
+    const intervals = [];
+    days.forEach((day, i) => {
+      Object.entries(day.shifts).forEach(([person, info]) => {
+        const raw = info.shift || 'OFF';
+        if (!_isWorkingShift(raw)) return;
+        const code = _cleanShiftCode(raw);
+        if (!code) return;
+        const parsed = _parseShiftMinutes(code);
+        if (!parsed) return;
+        const team = MGMT_NAMES.includes(person) ? 'Management'
+                   : ENG_NAMES.includes(person)  ? 'SOE' : 'SOS';
+        const base = i * 1440;
+        intervals.push({ start: base + parsed.start, end: base + parsed.end, dayIdx: i, team });
+      });
+    });
+    return intervals;
+  }
+
+  // Returns { 'YYYY-MM-DD': { hard: [msg,...], soft: [msg,...] } }
+  function _computeCoverageFlags(days) {
+    if (!days || !days.length) return {};
+    const totalMin    = days.length * 1440;
+    const concurrency = new Int16Array(totalMin);
+    const soeCov       = new Uint8Array(days.length);
+    const mgmtCov       = new Uint8Array(days.length);
+
+    _buildCoverageIntervals(days).forEach(iv => {
+      const s = Math.max(0, iv.start), e = Math.min(totalMin, iv.end);
+      for (let t = s; t < e; t++) concurrency[t]++;
+      const nextDay = iv.dayIdx + 1;
+      const spillsOver = iv.end > (iv.dayIdx + 1) * 1440 && nextDay < days.length;
+      if (iv.team === 'SOE') { soeCov[iv.dayIdx] = 1; if (spillsOver) soeCov[nextDay] = 1; }
+      if (iv.team === 'Management') { mgmtCov[iv.dayIdx] = 1; if (spillsOver) mgmtCov[nextDay] = 1; }
+    });
+
+    const flags = {};
+    const addFlag = (dateStr, kind, msg) => {
+      if (!flags[dateStr]) flags[dateStr] = { hard: [], soft: [] };
+      if (!flags[dateStr][kind].includes(msg)) flags[dateStr][kind].push(msg);
+    };
+    const fmtHM = min => {
+      const m = ((min % 1440) + 1440) % 1440;
+      return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+    };
+    const dateOfAbsMin = min => days[Math.min(days.length - 1, Math.floor(min / 1440))].date;
+
+    // 1) Hard: any minute with zero coverage, cross-team
+    let gapStart = null;
+    for (let t = 0; t <= totalMin; t++) {
+      const covered = t < totalMin && concurrency[t] > 0;
+      if (!covered && gapStart === null) gapStart = t;
+      if (covered && gapStart !== null) {
+        addFlag(dateOfAbsMin(gapStart), 'hard', `No coverage ${fmtHM(gapStart)}–${fmtHM(t)}`);
+        gapStart = null;
+      }
+    }
+
+    // 2) Soft: solo >5h stretches (raw shift-code based, no lunch deduction)
+    let soloStart = null;
+    for (let t = 0; t <= totalMin; t++) {
+      const solo = t < totalMin && concurrency[t] === 1;
+      if (solo && soloStart === null) soloStart = t;
+      if (!solo && soloStart !== null) {
+        if (t - soloStart > 300) {
+          addFlag(dateOfAbsMin(soloStart), 'soft', `Single person on shift ${fmtHM(soloStart)}–${fmtHM(t)} (>5h)`);
+        }
+        soloStart = null;
+      }
+    }
+
+    // 3) Hard: night-shift break relief 01:00–02:00 — only if not already a full gap there
+    days.forEach((day, i) => {
+      const from = i * 1440 + 60, to = i * 1440 + 120;
+      let minConc = Infinity;
+      for (let t = from; t < to; t++) minConc = Math.min(minConc, concurrency[t]);
+      if (minConc === 1) addFlag(day.date, 'hard', 'No relief for night-shift break 01:00–02:00');
+    });
+
+    // 4) Soft: SOE presence every day
+    days.forEach((day, i) => {
+      if (!soeCov[i]) addFlag(day.date, 'soft', 'No SOE (Engineering) on shift');
+    });
+
+    // 5) Soft: Management presence, weekdays only
+    days.forEach((day, i) => {
+      const dow = new Date(day.date + 'T00:00:00').getDay();
+      if (dow >= 1 && dow <= 5 && !mgmtCov[i]) addFlag(day.date, 'soft', 'No Management on shift');
+    });
+
+    return flags;
+  }
+
   function renderRota() {
     if (!state.rotaData) return;
     const wrap  = document.getElementById('rota-wrap');
+    const coverageFlags = (state.me && state.me.rota_role === 'management')
+      ? _computeCoverageFlags(state.rotaData) : {};
     const teams = [
       { name: 'Management',  members: ['Joao R','Marcus','Joao L','Tiago C'] },
       { name: 'Engineering', members: ['Hugo','Goncalo','Nuno'] },
@@ -1388,10 +1516,13 @@
 
     let tbody = '';
     state.rotaData.forEach(day => {
-      const dateCls = day.is_today          ? 'date-col is-today'
-                    : day.is_public_holiday ? 'date-col is-ph'
-                    : day.is_weekend        ? 'date-col is-weekend'
-                    : 'date-col';
+      const flag = coverageFlags[day.date];
+      const dateCls = [
+        'date-col',
+        day.is_today ? 'is-today' : day.is_public_holiday ? 'is-ph' : day.is_weekend ? 'is-weekend' : '',
+        flag?.hard.length ? 'has-gap' : (flag?.soft.length ? 'has-soft-gap' : ''),
+      ].filter(Boolean).join(' ');
+      const flagTitle = flag ? [...(flag.hard||[]), ...(flag.soft||[])].join(' | ') : '';
       const d    = new Date(day.date + 'T00:00:00');
       const wday = d.toLocaleDateString('en-GB', { weekday: 'long' });
       const dstr = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -1400,8 +1531,8 @@
                   + `<span style="display:inline-block;width:96px;text-align:center;">${wday}${icon}</span>`;
 
       const weekStartCls = day.weekday === 'Monday' ? ' week-start' : '';
-      tbody += `<tr class="${day.is_today ? 'today-row' : ''}${weekStartCls}"><td class="${dateCls}">${label}</td>`;
-      teams.forEach(team => {
+        tbody += `<tr class="${day.is_today ? 'today-row' : ''}${weekStartCls}"><td class="${dateCls}"${flagTitle ? ` title="${flagTitle.replace(/"/g,'&quot;')}"` : ''}>${label}</td>`;
+        teams.forEach(team => {
         team.members.forEach((name, mi) => {
           const shift = (day.shifts[name] || {}).shift || 'OFF';
           const note  = (day.shifts[name] || {}).note  || '';
