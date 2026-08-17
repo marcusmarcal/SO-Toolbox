@@ -6,6 +6,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [Unreleased]
+### Added
+
+- Added `rota_status` field to user profiles (`active`, `inactive`, `observer`), with `observer` as the default value for users without this flag.
+- Added `team` field to user profiles (`soe`, `sos`, `na`), displayed in uppercase in the UI and stored in lowercase in JSON; `na` is the default value.
+- Added `display_name` field, a free-text value limited to 14 characters.
+- Added `employee_id` field, numeric and limited to 6 digits.
+- Added `team` and `rota_status` badges to the user listing in the administration interface.
+
 
 ## [2.40.2] - 2026-07-31
 

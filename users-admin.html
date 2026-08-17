@@ -271,6 +271,39 @@
         border: 1px solid rgba(250, 204, 21, 0.28);
       }
 
+      .user-meta {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .user-team,
+      .user-rota-status {
+        font-family: var(--mono);
+        font-size: 0.5rem;
+        font-weight: 700;
+        padding: 2px 6px;
+        border-radius: 4px;
+        letter-spacing: 0.06em;
+        border: 1px solid var(--border);
+        color: var(--muted);
+      }
+      .user-team.soe {
+        color: #7dd3fc;
+        border-color: rgba(56, 189, 248, 0.28);
+      }
+      .user-team.sos {
+        color: #fcc97a;
+        border-color: rgba(250, 165, 26, 0.28);
+      }
+      .user-rota-status.active {
+        color: #9ee6a6;
+        border-color: rgba(63, 185, 80, 0.28);
+      }
+      .user-rota-status.inactive {
+        color: #ffb3be;
+        border-color: rgba(255, 78, 106, 0.28);
+      }
+
       .user-created {
         font-family: var(--mono);
         font-size: 0.6rem;
@@ -522,6 +555,47 @@
               </select>
             </div>
             <div class="form-group">
+              <label for="f-rota-status">Rota Status</label>
+              <select id="f-rota-status">
+                <option value="observer">observer</option>
+                <option value="active">active</option>
+                <option value="inactive">inactive</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="f-team">Team</label>
+              <select id="f-team">
+                <option value="na">NA</option>
+                <option value="soe">SOE</option>
+                <option value="sos">SOS</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="f-display-name">Display Name</label>
+              <input
+                type="text"
+                id="f-display-name"
+                placeholder="Display name"
+                maxlength="14"
+                autocomplete="off"
+              />
+              <span class="form-hint">Max. 14 caracteres</span>
+            </div>
+            <div class="form-group">
+              <label for="f-employee-id">Employee ID</label>
+              <input
+                type="text"
+                id="f-employee-id"
+                placeholder="15892"
+                maxlength="6"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                autocomplete="off"
+                oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6)"
+              />
+              <span class="form-hint">Somente números, máx. 6 dígitos</span>
+            </div>
+            <div class="form-group">
               <label for="f-password">Password</label>
               <input
                 type="password"
@@ -694,7 +768,14 @@
                   ${escHtml(u.username)}
                   <span class="user-role ${u.role}">${escHtml(u.role)}</span>
                 </div>
-                <div></div>
+                <div class="user-meta">
+                  <span class="user-team ${escHtml(
+                    u.team || "na"
+                  )}">${escHtml((u.team || "na").toUpperCase())}</span>
+                  <span class="user-rota-status ${escHtml(
+                    u.rota_status || "observer"
+                  )}">${escHtml(u.rota_status || "observer")}</span>
+                </div>
                 <div class="user-created">${
                   u.created_at ? u.created_at.split("T")[0] : "—"
                 }</div>
@@ -713,6 +794,10 @@
         document.getElementById("f-password").value = "";
         document.getElementById("f-password2").value = "";
         document.getElementById("f-role").value = "user";
+        document.getElementById("f-rota-status").value = "observer";
+        document.getElementById("f-team").value = "na";
+        document.getElementById("f-display-name").value = "";
+        document.getElementById("f-employee-id").value = "";
         document.getElementById("f-username").disabled = false;
         document.getElementById("f-pass-hint").textContent =
           "Required for new users";
@@ -734,6 +819,13 @@
         document.getElementById("f-username").value = u.username;
         document.getElementById("f-username").disabled = true; // username is immutable
         document.getElementById("f-role").value = u.role || "user";
+        document.getElementById("f-rota-status").value =
+          u.rota_status || "observer";
+        document.getElementById("f-team").value = u.team || "na";
+        document.getElementById("f-display-name").value =
+          u.display_name || "";
+        document.getElementById("f-employee-id").value =
+          u.employee_id || "";
         document.getElementById("f-password").value = "";
         document.getElementById("f-password2").value = "";
         document.getElementById("f-pass-hint").textContent =
@@ -761,6 +853,14 @@
         const password = document.getElementById("f-password").value;
         const password2 = document.getElementById("f-password2").value;
         const role = document.getElementById("f-role").value;
+        const rotaStatus = document.getElementById("f-rota-status").value;
+        const team = document.getElementById("f-team").value;
+        const displayName = document
+          .getElementById("f-display-name")
+          .value.trim();
+        const employeeId = document
+          .getElementById("f-employee-id")
+          .value.trim();
 
         if (!editingUser && !username) {
           shakeInput("f-username");
@@ -777,8 +877,24 @@
           toast("Passwords do not match", "err");
           return;
         }
+        if (employeeId && !/^\d{1,6}$/.test(employeeId)) {
+          shakeInput("f-employee-id");
+          toast("Employee ID deve ser numérico, máx. 6 dígitos", "err");
+          return;
+        }
+        if (displayName.length > 14) {
+          shakeInput("f-display-name");
+          toast("Display Name deve ter no máx. 14 caracteres", "err");
+          return;
+        }
 
-        const body = { role };
+        const body = {
+          role,
+          rota_status: rotaStatus,
+          team,
+          display_name: displayName,
+          employee_id: employeeId,
+        };
         if (!editingUser) body.username = username;
         if (password) body.password = password;
 
