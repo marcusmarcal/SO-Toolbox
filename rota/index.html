@@ -1445,7 +1445,11 @@
       const m = ((min % 1440) + 1440) % 1440;
       return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
     };
-    const dateOfAbsMin = min => days[Math.min(days.length - 1, Math.floor(min / 1440))].date;
+    const dateOfAbsMin = min => {
+      const shifted = min - 360; // 06:00 cutoff: pre-6am minutes belong to previous operational day
+      const idx = Math.max(0, Math.min(days.length - 1, Math.floor(shifted / 1440)));
+      return days[idx].date;
+    };
 
     // 1) Hard: any minute with zero coverage, cross-team
     let gapStart = null;
@@ -1465,7 +1469,10 @@
       const from = i * 1440 + 60, to = i * 1440 + 120;
       let minConc = Infinity;
       for (let t = from; t < to; t++) minConc = Math.min(minConc, concurrency[t]);
-      if (minConc === 1) addFlag(day.date, 'hard', 'No relief for night-shift break 01:00–02:00');
+      if (minConc === 1) {
+        const respDate = days[Math.max(0, i - 1)].date;
+        addFlag(respDate, 'hard', 'No relief for night-shift break 01:00–02:00 (following night)');
+      }
     });
 
     // 4) Soft: SOE presence every day
