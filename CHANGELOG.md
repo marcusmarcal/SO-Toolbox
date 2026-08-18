@@ -7,6 +7,73 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.42.0] - 2026-08-18
+
+### Added
+- SRT Push Control API: per-service preview and log lookup via
+  `?id=<service_id>` on `GET /push/preview.jpg` and `GET /push/log`.
+- SRT Push Control API: input validation on `POST /push/config` for
+  the new services list (unique ids, valid `source_type`, required
+  `html_url`/`image_path` depending on source type).
+
+### Changed
+- SRT Push Control API: `GET/POST /push/config` and the `config` field
+  of `GET /push/status` now use `{"services": [...]}` instead of a
+  single flat configuration object.
+
+### Fixed
+- SRT Push Control API: service ids passed via query string are now
+  sanitized before being used to build a file path, closing a
+  potential path-traversal vector introduced by the new per-service
+  preview/log lookup.
+
+### Note
+- Legacy flat `srt-push-config.json` / `srt-push-stats.json` files
+  (pre-multi-service) are still read correctly and normalized into a
+  single service, so no manual migration is required.
+
+### Added
+- Support for multiple concurrent services, each with its own source
+  (HTML page capture or static image) and its own SRT destination.
+- New `source_type: "image"` option to loop a static JPEG/PNG file
+  without needing Xvfb or Chromium.
+- Per-service log files under `/var/log/srt-push/<service-id>.log`.
+- Per-service preview files (`srt-push-preview-<service-id>.jpg`).
+- Clear, non-fatal error reporting when a service's required binaries
+  or source file are missing, instead of crashing the whole process.
+
+### Changed
+- Config file format: `srt-push-config.json` now expects a `services`
+  array; the old flat single-service format is still accepted and
+  auto-converted.
+- Stats file format: `srt-push-stats.json` now exposes a `services` map
+  keyed by service id, with a `legacy` field mirroring the first
+  service in the previous flat shape.
+- systemd unit: removed the hardcoded `DISPLAY=:99` environment
+  variable, since each HTML-source service now allocates its own
+  display automatically.
+
+
+### Added
+- Monitor dashboard: per-service tabs with independent preview,
+  telemetry, and log viewing.
+- Monitor dashboard: dynamic service list in Configuration (add/remove
+  services, enable toggle, HTML-page vs static-image source switch).
+
+### Changed
+- Monitor dashboard: config save now posts `{"services": [...]}`
+  instead of a single flat config object.
+- Monitor dashboard: preview and log requests now take a `id` query
+  parameter identifying which service to fetch.
+- Monitor dashboard: the header status indicator aggregates the state
+  of all services instead of reflecting a single one.
+
+### Note
+- Requires the so-proxy backend's `status`, `config`, `preview.jpg`,
+  and `log` endpoints to be updated to the multi-service contract; the
+  page falls back to treating the response as one service if the
+  backend hasn't been migrated yet.
+
 ## [2.41.1] - 2026-08-18
 
 ### Fixed

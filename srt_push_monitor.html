@@ -55,6 +55,8 @@
         justify-content: space-between;
         border-bottom: 1px solid var(--border);
         padding-bottom: 16px;
+        flex-wrap: wrap;
+        gap: 12px;
       }
       .brand .eyebrow {
         font-size: 11px;
@@ -88,12 +90,15 @@
         border-radius: 50%;
         background: var(--idle-gray);
         box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+        flex: none;
       }
       .tally[data-state="running"] .tally-dot {
         background: var(--tally-green);
         animation: pulse 1.6s ease-in-out infinite;
       }
-      .tally[data-state="restarting"] .tally-dot {
+      .tally[data-state="restarting"] .tally-dot,
+      .tally[data-state="starting"] .tally-dot,
+      .tally[data-state="partial"] .tally-dot {
         background: var(--warn-amber);
       }
       .tally[data-state="error"] .tally-dot,
@@ -104,7 +109,9 @@
         border-color: var(--tally-green-dim);
         color: #8ff0b0;
       }
-      .tally[data-state="restarting"] {
+      .tally[data-state="restarting"],
+      .tally[data-state="starting"],
+      .tally[data-state="partial"] {
         color: var(--warn-amber);
       }
       .tally[data-state="error"],
@@ -125,6 +132,66 @@
         .tally-dot {
           animation: none !important;
         }
+      }
+
+      /* ---------- Service tabs ---------- */
+      .tabs {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .tab {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: var(--mono);
+        font-size: 12px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--panel-alt);
+        color: var(--text-dim);
+        cursor: pointer;
+      }
+      .tab:hover {
+        color: var(--text);
+      }
+      .tab.active {
+        color: var(--text);
+        border-color: var(--info-blue);
+        background: #142131;
+      }
+      .tab .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--idle-gray);
+        flex: none;
+      }
+      .tab[data-state="running"] .dot {
+        background: var(--tally-green);
+      }
+      .tab[data-state="starting"] .dot,
+      .tab[data-state="restarting"] .dot {
+        background: var(--warn-amber);
+      }
+      .tab[data-state="error"] .dot,
+      .tab[data-state="failed"] .dot {
+        background: var(--tally-red);
+      }
+      .tab .src-badge {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-faint);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 1px 5px;
+      }
+      .empty-note {
+        font-family: var(--mono);
+        font-size: 13px;
+        color: var(--text-faint);
       }
 
       /* ---------- Layout ---------- */
@@ -152,6 +219,12 @@
         letter-spacing: 0.08em;
         color: var(--text-dim);
         font-weight: 600;
+      }
+      .panel h2 .sub {
+        text-transform: none;
+        letter-spacing: normal;
+        color: var(--text-faint);
+        font-weight: 400;
       }
 
       /* ---------- Preview ---------- */
@@ -232,6 +305,10 @@
         display: flex;
         gap: 10px;
         flex-wrap: wrap;
+        align-items: center;
+      }
+      .controls .form-note {
+        margin-left: 2px;
       }
       button {
         font-family: var(--sans);
@@ -263,6 +340,10 @@
       button.danger:hover {
         background: #241014;
       }
+      button.small {
+        padding: 5px 10px;
+        font-size: 12px;
+      }
 
       /* ---------- Config form ---------- */
       details {
@@ -291,11 +372,65 @@
         content: "▾ ";
       }
 
+      .service-list {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        margin-top: 16px;
+      }
+      .service-row {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 14px;
+        background: var(--panel-alt);
+      }
+      .service-row-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+      .service-row-header .id-name {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        flex: 1;
+      }
+      .service-row-header label {
+        min-width: 140px;
+      }
+      .enabled-toggle {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--text-dim);
+        flex-direction: row !important;
+      }
+      .enabled-toggle input {
+        width: auto;
+      }
+      .source-toggle {
+        display: flex;
+        gap: 14px;
+        margin-bottom: 12px;
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+      .source-toggle label {
+        flex-direction: row !important;
+        align-items: center;
+        gap: 6px;
+      }
+      .source-toggle input {
+        width: auto;
+      }
+
       .form-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 14px;
-        margin-top: 16px;
       }
       .form-grid .full {
         grid-column: 1 / -1;
@@ -313,16 +448,18 @@
         font-size: 12px;
         color: var(--text-dim);
       }
-      input {
+      input,
+      select {
         font-family: var(--mono);
         font-size: 13px;
         color: var(--text);
-        background: var(--panel-alt);
+        background: var(--panel);
         border: 1px solid var(--border);
         border-radius: 6px;
         padding: 8px 10px;
       }
-      input:focus {
+      input:focus,
+      select:focus {
         outline: 2px solid var(--info-blue);
         outline-offset: 1px;
       }
@@ -332,6 +469,7 @@
         display: flex;
         align-items: center;
         gap: 12px;
+        flex-wrap: wrap;
       }
       .form-note {
         font-size: 12px;
@@ -339,6 +477,12 @@
       }
 
       /* ---------- Log viewer ---------- */
+      .log-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
       pre.log {
         background: #000;
         border: 1px solid var(--border);
@@ -394,9 +538,13 @@
         </div>
       </header>
 
+      <div class="tabs" id="serviceTabs">
+        <span class="empty-note">Loading services…</span>
+      </div>
+
       <div class="grid">
         <section class="panel">
-          <h2>Screen preview</h2>
+          <h2>Screen preview <span class="sub" id="previewServiceName"></span></h2>
           <div class="preview-frame" id="previewFrame">
             <div class="preview-empty" id="previewEmpty">
               No preview captured yet.<br />Waiting for srt-push to write a
@@ -404,7 +552,7 @@
             </div>
             <img
               id="previewImg"
-              alt="Chromium screen preview"
+              alt="Service screen preview"
               style="display: none"
             />
           </div>
@@ -415,7 +563,7 @@
         </section>
 
         <section class="panel">
-          <h2>Telemetry</h2>
+          <h2>Telemetry <span class="sub" id="telemetryServiceName"></span></h2>
           <div class="sparkline" id="sparkline"></div>
           <div class="telemetry-row">
             <span class="label">Bitrate</span
@@ -442,18 +590,18 @@
             ><span class="value" id="stPid">—</span>
           </div>
           <div class="telemetry-row">
-            <span class="label">Restarts</span
-            ><span class="value" id="stRestarts">—</span>
+            <span class="label">Last error</span
+            ><span class="value" id="stLastError">—</span>
           </div>
           <div class="telemetry-row">
-            <span class="label">Service state</span
+            <span class="label">Service state (systemd)</span
             ><span class="value" id="stService">—</span>
           </div>
         </section>
       </div>
 
       <section class="panel">
-        <h2>Service control</h2>
+        <h2>srt-push service control (systemd unit — affects all services at once)</h2>
         <div class="controls">
           <button class="primary" id="btnStart">Start</button>
           <button id="btnRestart">Restart</button>
@@ -463,91 +611,32 @@
 
       <details>
         <summary>Configuration</summary>
-        <div class="form-grid">
-          <label class="full"
-            >Dashboard URL (what Chromium loads)
-            <input
-              type="text"
-              id="cfgHtmlUrl"
-              placeholder="https://127.0.0.1/id3as-DC-Monitor.html?view=nodes&dc=ix&inuse=1&sort=nW&dir=-1"
-              spellcheck="false"
-            />
-          </label>
-
-          <label
-            class="full"
-            style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px"
-          >
-            <span>SRT Destination Host</span>
-            <span style="grid-column: 2">Port</span>
-            <input
-              type="text"
-              id="cfgSrtHost"
-              placeholder="e.g. 10.11.203.1"
-              spellcheck="false"
-            />
-            <input type="number" id="cfgSrtPort" placeholder="3292" />
-          </label>
-
-          <label class="full"
-            >SRT Passphrase
-            <input
-              type="text"
-              id="cfgSrtPassphrase"
-              placeholder="Encryption key (min 10 chars)"
-              spellcheck="false"
-            />
-          </label>
-
-          <label
-            >Width
-            <input
-              type="number"
-              id="cfgWidth"
-              min="320"
-              max="3840"
-              placeholder="1920"
-            />
-          </label>
-          <label
-            >Height
-            <input
-              type="number"
-              id="cfgHeight"
-              min="240"
-              max="2160"
-              placeholder="1080"
-            />
-          </label>
-          <label
-            >FPS
-            <input type="number" id="cfgFps" min="1" max="30" placeholder="5" />
-          </label>
-          <label
-            >Video bitrate (e.g. 500k)
-            <input
-              type="text"
-              id="cfgBitrate"
-              placeholder="500"
-              spellcheck="false"
-            />
-          </label>
-        </div>
+        <p class="form-note" style="margin-top: 12px">
+          Each block below is one independent source → SRT destination
+          pipeline. Saving restarts srt-push so every service picks up the
+          new configuration.
+        </p>
+        <div class="service-list" id="serviceList"></div>
         <div class="form-actions">
+          <button id="btnAddService">+ Add service</button>
           <button class="primary" id="btnSaveConfig">
             Save & restart service
           </button>
-          <span class="form-note"
-            >Saving restarts srt-push to apply the new configuration.</span
-          >
+          <span class="form-note">Saving restarts srt-push to apply the new configuration.</span>
         </div>
       </details>
 
       <details>
         <summary>Log</summary>
         <div class="form-actions" style="margin-top: 0">
-          <button id="btnRefreshLog">Refresh</button>
-          <span class="form-note">Last 200 lines of /var/log/srt-push.log</span>
+          <div class="log-controls">
+            <label style="flex-direction: row; align-items: center; gap: 8px">
+              <span>Service</span>
+              <select id="logServiceSelect"></select>
+            </label>
+            <button id="btnRefreshLog">Refresh</button>
+          </div>
+          <span class="form-note">Last 200 lines of /var/log/srt-push/&lt;service-id&gt;.log</span>
         </div>
         <pre class="log" id="logOutput">—</pre>
       </details>
@@ -559,19 +648,39 @@
       (function () {
         "use strict";
 
-        // Prefixo padrão para todas as rotas da API
+        // Default prefix for every API route.
         const API_BASE = "/so-proxy/srt/push/";
 
         const tally = document.getElementById("tally");
         const tallyLabel = document.getElementById("tallyLabel");
+        const serviceTabs = document.getElementById("serviceTabs");
         const sparkline = document.getElementById("sparkline");
         const previewImg = document.getElementById("previewImg");
         const previewEmpty = document.getElementById("previewEmpty");
         const previewUpdated = document.getElementById("previewUpdated");
+        const previewServiceName = document.getElementById("previewServiceName");
+        const telemetryServiceName = document.getElementById("telemetryServiceName");
+        const serviceList = document.getElementById("serviceList");
+        const logServiceSelect = document.getElementById("logServiceSelect");
         const toast = document.getElementById("toast");
 
-        const bitrateHistory = [];
         const MAX_BARS = 40;
+        const STATE_RANK = {
+          error: 4,
+          failed: 4,
+          starting: 3,
+          restarting: 3,
+          partial: 2,
+          running: 1,
+          stopped: 0,
+          unknown: 0,
+        };
+
+        // Per-service UI state.
+        let currentServiceId = null; // selected tab, drives preview + telemetry
+        let knownServiceIds = []; // order of tabs as currently rendered
+        const bitrateHistories = {}; // id -> array of recent kbps samples
+        const latestStats = {}; // id -> last stats object seen
 
         function showToast(message, isError) {
           toast.textContent = message;
@@ -590,11 +699,11 @@
           return value;
         }
 
-        // Renderiza o gráfico de barras da telemetria
         function renderSparkline() {
+          const history = bitrateHistories[currentServiceId] || [];
           sparkline.innerHTML = "";
-          const max = Math.max(1, ...bitrateHistory);
-          bitrateHistory.forEach((v) => {
+          const max = Math.max(1, ...history);
+          history.forEach((v) => {
             const bar = document.createElement("div");
             bar.className = "bar";
             const pct = Math.max(4, Math.round((v / max) * 100));
@@ -603,17 +712,136 @@
           });
         }
 
-        function setTallyState(state) {
-          tally.dataset.state = state;
+        function stateLabel(state) {
           const labels = {
             running: "ON AIR",
+            starting: "STARTING",
             restarting: "RESTARTING",
             stopped: "OFF AIR",
             error: "ERROR",
             failed: "FAILED",
+            partial: "PARTIAL",
             unknown: "UNKNOWN",
           };
-          tallyLabel.textContent = labels[state] || state.toUpperCase();
+          return labels[state] || String(state || "unknown").toUpperCase();
+        }
+
+        function setTallyState(state) {
+          tally.dataset.state = state;
+          tallyLabel.textContent = stateLabel(state);
+        }
+
+        // ---------------- Service normalization ----------------
+        // Accepts either the new multi-service stats shape
+        // ({services: {id: {...}}, legacy: {...}}) or an older flat
+        // single-service stats object, so the dashboard keeps working
+        // against a backend that hasn't been updated yet.
+        function extractServicesMap(stats) {
+          if (stats && stats.services && typeof stats.services === "object") {
+            return stats.services;
+          }
+          if (stats && (stats.service_status || stats.status)) {
+            // Old flat format: treat it as a single unnamed service.
+            return { srv1: Object.assign({ id: "srv1", name: "Service" }, stats) };
+          }
+          return {};
+        }
+
+        function aggregateState(servicesMap) {
+          const states = Object.values(servicesMap).map(
+            (s) => (s.service_status || s.status || "unknown").toLowerCase()
+          );
+          if (states.length === 0) return "unknown";
+          const worst = states.reduce((a, b) =>
+            (STATE_RANK[b] || 0) > (STATE_RANK[a] || 0) ? b : a
+          );
+          const runningCount = states.filter((s) => s === "running").length;
+          if (runningCount > 0 && runningCount < states.length) return "partial";
+          return worst;
+        }
+
+        // ---------------- Tabs ----------------
+        function renderServiceTabs(servicesMap) {
+          const ids = Object.keys(servicesMap);
+          serviceTabs.innerHTML = "";
+
+          if (ids.length === 0) {
+            serviceTabs.innerHTML = '<span class="empty-note">No services reported yet.</span>';
+            return;
+          }
+
+          if (!currentServiceId || !ids.includes(currentServiceId)) {
+            currentServiceId = ids[0];
+          }
+          knownServiceIds = ids;
+
+          ids.forEach((id) => {
+            const svc = servicesMap[id];
+            const state = (svc.service_status || svc.status || "unknown").toLowerCase();
+            const tab = document.createElement("div");
+            tab.className = "tab" + (id === currentServiceId ? " active" : "");
+            tab.dataset.state = state;
+            tab.dataset.id = id;
+            tab.innerHTML =
+              '<span class="dot"></span><span>' +
+              (svc.name || id) +
+              "</span>" +
+              (svc.source_type ? '<span class="src-badge">' + svc.source_type + "</span>" : "");
+            tab.addEventListener("click", () => selectService(id));
+            serviceTabs.appendChild(tab);
+          });
+
+          syncLogServiceOptions(ids, servicesMap);
+        }
+
+        function selectService(id) {
+          currentServiceId = id;
+          document.querySelectorAll(".tab").forEach((tab) => {
+            tab.classList.toggle("active", tab.dataset.id === id);
+          });
+          logServiceSelect.value = id;
+          renderTelemetryFor(id);
+          refreshPreview();
+          refreshLog();
+        }
+
+        function syncLogServiceOptions(ids, servicesMap) {
+          const previous = logServiceSelect.value;
+          logServiceSelect.innerHTML = "";
+          ids.forEach((id) => {
+            const opt = document.createElement("option");
+            opt.value = id;
+            opt.textContent = (servicesMap[id] && servicesMap[id].name) || id;
+            logServiceSelect.appendChild(opt);
+          });
+          logServiceSelect.value = ids.includes(previous) ? previous : currentServiceId;
+        }
+
+        // ---------------- Telemetry ----------------
+        function renderTelemetryFor(id) {
+          const svc = latestStats[id];
+          const svcMeta = svc || {};
+          previewServiceName.textContent = svcMeta.name ? "— " + svcMeta.name : "";
+          telemetryServiceName.textContent = svcMeta.name ? "— " + svcMeta.name : "";
+
+          document.getElementById("stPid").textContent = svcMeta.ffmpeg_pid ?? "—";
+          document.getElementById("stLastError").textContent = svcMeta.last_error || "—";
+
+          if (svc && svc.bitrate) {
+            document.getElementById("stBitrate").textContent = svc.bitrate || "—";
+            document.getElementById("stFps").textContent = svc.fps ?? "—";
+            document.getElementById("stFrame").textContent = svc.frame ?? "—";
+            document.getElementById("stSpeed").textContent = svc.speed ? `${svc.speed}x` : "—";
+            document.getElementById("stTime").textContent = svc.time || "—";
+          } else {
+            document.getElementById("stBitrate").textContent = "—";
+            document.getElementById("stFps").textContent = "—";
+            document.getElementById("stFrame").textContent = "—";
+            document.getElementById("stSpeed").textContent = "—";
+            document.getElementById("stTime").textContent = "—";
+          }
+
+          renderSparkline();
         }
 
         async function refreshStatus() {
@@ -623,84 +851,216 @@
             const stats = data.stats || {};
             const service = data.service || {};
 
+            const servicesMap = extractServicesMap(stats);
+
+            // Track bitrate history + latest snapshot per service id.
+            Object.keys(servicesMap).forEach((id) => {
+              const svc = servicesMap[id];
+              latestStats[id] = svc;
+              if (!bitrateHistories[id]) bitrateHistories[id] = [];
+              if (svc.bitrate) {
+                bitrateHistories[id].push(parseBitrateKbps(svc.bitrate));
+                while (bitrateHistories[id].length > MAX_BARS) bitrateHistories[id].shift();
+              } else {
+                bitrateHistories[id].length = 0;
+              }
+            });
+
+            renderServiceTabs(servicesMap);
+
             const activeState = (service.active_state || "").toLowerCase();
             const subState = (service.sub_state || "").toLowerCase();
 
-            // O Python ou o srt-push usa 'service_status' ou 'status'
-            let state = stats.service_status || stats.status || "unknown";
-
+            let overall = aggregateState(servicesMap);
             if (
-              state === "unknown" &&
+              overall === "unknown" &&
               activeState === "active" &&
               subState === "running"
             ) {
-              state = "running";
+              overall = "running";
             }
+            if (activeState === "failed") overall = "failed";
+            if (activeState === "inactive" && overall !== "restarting") overall = "stopped";
 
-            if (activeState === "failed") state = "failed";
-            if (activeState === "inactive" && state !== "restarting")
-              state = "stopped";
-
-            setTallyState(state);
+            setTallyState(overall);
 
             document.getElementById("stService").textContent = `${
               service.active_state || "?"
             } / ${service.sub_state || "?"}`;
 
-            document.getElementById("stPid").textContent =
-              service.main_pid || "—";
-
-            // Caso o srt-push guarde restarts na raiz do stats
-            document.getElementById("stRestarts").textContent =
-              stats.restarts ?? "—";
-
-            // CORREÇÃO: Lê direto do objeto 'stats' e não de 'stats.last_stat'
-            if (stats && stats.bitrate) {
-              document.getElementById("stBitrate").textContent =
-                stats.bitrate || "—";
-              document.getElementById("stFps").textContent = stats.fps ?? "—";
-              document.getElementById("stFrame").textContent =
-                stats.frame ?? "—";
-              document.getElementById("stSpeed").textContent = stats.speed
-                ? `${stats.speed}x`
-                : "—";
-              document.getElementById("stTime").textContent = stats.time || "—";
-
-              bitrateHistory.push(parseBitrateKbps(stats.bitrate));
-              while (bitrateHistory.length > MAX_BARS) bitrateHistory.shift();
-              renderSparkline();
-            } else {
-              document.getElementById("stBitrate").textContent = "—";
-              document.getElementById("stFps").textContent = "—";
-              document.getElementById("stFrame").textContent = "—";
-              document.getElementById("stSpeed").textContent = "—";
-              document.getElementById("stTime").textContent = "—";
-
-              // Sem telemetria ativa (serviço parado): limpa o histórico do
-              // sparkline para as barras não continuarem exibindo o último
-              // valor antes da parada.
-              bitrateHistory.length = 0;
-              renderSparkline();
-            }
+            if (currentServiceId) renderTelemetryFor(currentServiceId);
           } catch (err) {
             setTallyState("unknown");
           }
         }
 
         function refreshPreview() {
+          if (!currentServiceId) return;
           const img = new Image();
           img.onload = () => {
             previewImg.src = img.src;
             previewImg.style.display = "block";
             previewEmpty.style.display = "none";
-            previewUpdated.textContent =
-              "Updated " + new Date().toLocaleTimeString();
+            previewUpdated.textContent = "Updated " + new Date().toLocaleTimeString();
           };
           img.onerror = () => {
             previewImg.style.display = "none";
             previewEmpty.style.display = "block";
           };
-          img.src = API_BASE + "preview.jpg?t=" + Date.now();
+          img.src =
+            API_BASE + "preview.jpg?id=" + encodeURIComponent(currentServiceId) + "&t=" + Date.now();
+        }
+
+        // ---------------- Configuration ----------------
+
+        function defaultServiceConfig(index) {
+          return {
+            id: "srv" + (index + 1),
+            name: "Service " + (index + 1),
+            enabled: true,
+            source_type: "html",
+            html_url: "",
+            image_path: "",
+            srt_host: "",
+            srt_port: 3292,
+            srt_mode: "caller",
+            srt_latency: 1000,
+            srt_passphrase: "",
+            width: 1920,
+            height: 1080,
+            fps: 5,
+            video_bitrate_kbps: 500,
+          };
+        }
+
+        function buildServiceRow(cfg) {
+          const row = document.createElement("div");
+          row.className = "service-row";
+          row.dataset.rowId = cfg.id || "";
+
+          row.innerHTML = `
+            <div class="service-row-header">
+              <div class="id-name">
+                <label>Service ID
+                  <input type="text" class="f-id" value="${escapeAttr(cfg.id || "")}" spellcheck="false" />
+                </label>
+                <label>Name
+                  <input type="text" class="f-name" value="${escapeAttr(cfg.name || "")}" spellcheck="false" />
+                </label>
+                <label class="enabled-toggle">
+                  <input type="checkbox" class="f-enabled" ${cfg.enabled === false ? "" : "checked"} />
+                  Enabled
+                </label>
+              </div>
+              <button class="danger small btn-remove-service" type="button">Remove</button>
+            </div>
+
+            <div class="source-toggle">
+              <label><input type="radio" class="f-source" name="source-${row.dataset.rowId || Math.random()}" value="html" ${
+                cfg.source_type !== "image" ? "checked" : ""
+              } /> HTML page (Xvfb + Chromium)</label>
+              <label><input type="radio" class="f-source" name="source-${row.dataset.rowId || Math.random()}" value="image" ${
+                cfg.source_type === "image" ? "checked" : ""
+              } /> Static image</label>
+            </div>
+
+            <div class="form-grid">
+              <label class="full f-html-field">Dashboard URL (what Chromium loads)
+                <input type="text" class="f-html-url" value="${escapeAttr(cfg.html_url || "")}"
+                  placeholder="https://127.0.0.1/id3as-DC-Monitor.html?..." spellcheck="false" />
+              </label>
+              <label class="full f-image-field">Image path (JPEG/PNG on disk)
+                <input type="text" class="f-image-path" value="${escapeAttr(cfg.image_path || "")}"
+                  placeholder="/opt/web/store/standby-slate.jpg" spellcheck="false" />
+              </label>
+
+              <label class="full" style="display:grid; grid-template-columns: 2fr 1fr; gap:12px">
+                <span>SRT Destination Host</span>
+                <span style="grid-column:2">Port</span>
+                <input type="text" class="f-srt-host" value="${escapeAttr(cfg.srt_host || "")}"
+                  placeholder="e.g. 10.11.203.1" spellcheck="false" />
+                <input type="number" class="f-srt-port" value="${escapeAttr(cfg.srt_port ?? "")}" placeholder="3292" />
+              </label>
+
+              <label>SRT mode
+                <select class="f-srt-mode">
+                  <option value="caller" ${cfg.srt_mode === "caller" ? "selected" : ""}>caller</option>
+                  <option value="listener" ${cfg.srt_mode === "listener" ? "selected" : ""}>listener</option>
+                  <option value="rendezvous" ${cfg.srt_mode === "rendezvous" ? "selected" : ""}>rendezvous</option>
+                </select>
+              </label>
+              <label>SRT latency (ms)
+                <input type="number" class="f-srt-latency" value="${escapeAttr(cfg.srt_latency ?? 1000)}" placeholder="1000" />
+              </label>
+
+              <label class="full">SRT Passphrase
+                <input type="text" class="f-srt-passphrase" value="${escapeAttr(cfg.srt_passphrase || "")}"
+                  placeholder="Encryption key (min 10 chars)" spellcheck="false" />
+              </label>
+
+              <label>Width
+                <input type="number" class="f-width" min="320" max="3840" value="${escapeAttr(cfg.width ?? 1920)}" />
+              </label>
+              <label>Height
+                <input type="number" class="f-height" min="240" max="2160" value="${escapeAttr(cfg.height ?? 1080)}" />
+              </label>
+              <label>FPS
+                <input type="number" class="f-fps" min="1" max="30" value="${escapeAttr(cfg.fps ?? 5)}" />
+              </label>
+              <label>Video bitrate (kbps)
+                <input type="text" class="f-bitrate" value="${escapeAttr(cfg.video_bitrate_kbps ?? 500)}" spellcheck="false" />
+              </label>
+            </div>
+          `;
+
+          row.querySelector(".btn-remove-service").addEventListener("click", () => {
+            row.remove();
+          });
+
+          const sourceRadios = row.querySelectorAll(".f-source");
+          const htmlField = row.querySelector(".f-html-field");
+          const imageField = row.querySelector(".f-image-field");
+          function syncSourceFields() {
+            const checked = row.querySelector(".f-source:checked");
+            const isImage = checked && checked.value === "image";
+            htmlField.style.display = isImage ? "none" : "";
+            imageField.style.display = isImage ? "" : "none";
+          }
+          sourceRadios.forEach((r) => r.addEventListener("change", syncSourceFields));
+          syncSourceFields();
+
+          return row;
+        }
+
+        function escapeAttr(value) {
+          return String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+        }
+
+        function readServiceRow(row) {
+          const sourceType =
+            (row.querySelector(".f-source:checked") || {}).value || "html";
+          return {
+            id: row.querySelector(".f-id").value.trim(),
+            name: row.querySelector(".f-name").value.trim(),
+            enabled: row.querySelector(".f-enabled").checked,
+            source_type: sourceType,
+            html_url: row.querySelector(".f-html-url").value.trim(),
+            image_path: row.querySelector(".f-image-path").value.trim(),
+            srt_host: row.querySelector(".f-srt-host").value.trim(),
+            srt_port: parseInt(row.querySelector(".f-srt-port").value, 10) || 3292,
+            srt_mode: row.querySelector(".f-srt-mode").value,
+            srt_latency: parseInt(row.querySelector(".f-srt-latency").value, 10) || 1000,
+            srt_passphrase: row.querySelector(".f-srt-passphrase").value,
+            width: parseInt(row.querySelector(".f-width").value, 10) || 1920,
+            height: parseInt(row.querySelector(".f-height").value, 10) || 1080,
+            fps: parseInt(row.querySelector(".f-fps").value, 10) || 5,
+            video_bitrate_kbps: parseInt(row.querySelector(".f-bitrate").value, 10) || 500,
+          };
+        }
+
+        function addServiceRow(cfg) {
+          const row = buildServiceRow(cfg || defaultServiceConfig(serviceList.children.length));
+          serviceList.appendChild(row);
         }
 
         async function loadConfig() {
@@ -709,21 +1069,23 @@
             const data = await res.json();
             const cfg = data.config || data || {};
 
-            document.getElementById("cfgHtmlUrl").value = cfg.html_url || "";
+            let services = [];
+            if (Array.isArray(cfg.services)) {
+              services = cfg.services;
+            } else if (cfg.html_url || cfg.srt_host) {
+              // Legacy flat single-service config from an older backend.
+              services = [Object.assign({ id: "srv1", name: "Service 1" }, cfg)];
+            }
 
-            // Popula os novos campos do SRT Destination
-            document.getElementById("cfgSrtHost").value = cfg.srt_host || "";
-            document.getElementById("cfgSrtPort").value = cfg.srt_port || "";
-            document.getElementById("cfgSrtPassphrase").value =
-              cfg.srt_passphrase || "";
-
-            document.getElementById("cfgWidth").value = cfg.width || "";
-            document.getElementById("cfgHeight").value = cfg.height || "";
-            document.getElementById("cfgFps").value = cfg.fps || "";
-            document.getElementById("cfgBitrate").value =
-              cfg.video_bitrate_kbps || "";
+            serviceList.innerHTML = "";
+            if (services.length === 0) {
+              addServiceRow(defaultServiceConfig(0));
+            } else {
+              services.forEach((svc) => addServiceRow(svc));
+            }
           } catch (err) {
             showToast("Could not load configuration", true);
+            if (serviceList.children.length === 0) addServiceRow(defaultServiceConfig(0));
           }
         }
 
@@ -731,29 +1093,18 @@
           const btn = document.getElementById("btnSaveConfig");
           btn.disabled = true;
           try {
-            const body = {
-              html_url: document.getElementById("cfgHtmlUrl").value,
+            const rows = Array.from(serviceList.querySelectorAll(".service-row"));
+            if (rows.length === 0) throw new Error("Add at least one service before saving");
 
-              // Coleta os valores individuais inseridos no form
-              srt_host: document.getElementById("cfgSrtHost").value,
-              srt_port:
-                parseInt(document.getElementById("cfgSrtPort").value, 10) ||
-                3292,
-              srt_passphrase: document.getElementById("cfgSrtPassphrase").value,
-
-              width: parseInt(document.getElementById("cfgWidth").value, 10),
-              height: parseInt(document.getElementById("cfgHeight").value, 10),
-              fps: parseInt(document.getElementById("cfgFps").value, 10),
-              video_bitrate_kbps: parseInt(
-                document.getElementById("cfgBitrate").value,
-                10
-              ),
-            };
+            const services = rows.map(readServiceRow);
+            const ids = services.map((s) => s.id);
+            if (ids.some((id) => !id)) throw new Error("Every service needs an ID");
+            if (new Set(ids).size !== ids.length) throw new Error("Service IDs must be unique");
 
             const res = await fetch(API_BASE + "config", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(body),
+              body: JSON.stringify({ services }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "Save failed");
@@ -767,6 +1118,8 @@
           }
         }
 
+        // ---------------- Service (systemd) control ----------------
+
         async function serviceAction(action) {
           const buttons = [
             document.getElementById("btnStart"),
@@ -775,13 +1128,9 @@
           ];
           buttons.forEach((b) => (b.disabled = true));
           try {
-            const res = await fetch(API_BASE + "service/" + action, {
-              method: "POST",
-            });
+            const res = await fetch(API_BASE + "service/" + action, { method: "POST" });
             const data = await res.json();
-            if (!res.ok) {
-              throw new Error(data.error || "Action failed");
-            }
+            if (!res.ok) throw new Error(data.error || "Action failed");
             showToast(data.message || `Service ${action} sent`);
             setTimeout(refreshStatus, 1500);
           } catch (err) {
@@ -791,11 +1140,20 @@
           }
         }
 
+        // ---------------- Log ----------------
+
         async function refreshLog() {
           const out = document.getElementById("logOutput");
+          const id = logServiceSelect.value || currentServiceId;
+          if (!id) {
+            out.textContent = "(no service selected)";
+            return;
+          }
           out.textContent = "Loading…";
           try {
-            const res = await fetch(API_BASE + "log?lines=200");
+            const res = await fetch(
+              API_BASE + "log?id=" + encodeURIComponent(id) + "&lines=200"
+            );
             const data = await res.json();
             out.textContent = (data.lines || []).join("\n") || "(empty)";
             out.scrollTop = out.scrollHeight;
@@ -804,30 +1162,24 @@
           }
         }
 
-        document
-          .getElementById("btnStart")
-          .addEventListener("click", () => serviceAction("start"));
-        document
-          .getElementById("btnRestart")
-          .addEventListener("click", () => serviceAction("restart"));
+        document.getElementById("btnStart").addEventListener("click", () => serviceAction("start"));
+        document.getElementById("btnRestart").addEventListener("click", () => serviceAction("restart"));
         document.getElementById("btnStop").addEventListener("click", () => {
-          if (
-            confirm("Stop the srt-push service now? The SRT feed will go down.")
-          ) {
+          if (confirm("Stop the srt-push service now? Every SRT feed will go down.")) {
             serviceAction("stop");
           }
         });
-        document
-          .getElementById("btnSaveConfig")
-          .addEventListener("click", saveConfig);
-        document
-          .getElementById("btnRefreshLog")
-          .addEventListener("click", refreshLog);
+        document.getElementById("btnSaveConfig").addEventListener("click", saveConfig);
+        document.getElementById("btnAddService").addEventListener("click", () => addServiceRow());
+        document.getElementById("btnRefreshLog").addEventListener("click", refreshLog);
+        logServiceSelect.addEventListener("change", () => {
+          currentServiceId = logServiceSelect.value;
+          selectService(currentServiceId);
+        });
 
-        // Inicialização
+        // Init
         loadConfig();
         refreshStatus();
-        refreshPreview();
         setInterval(refreshStatus, 2000);
         setInterval(refreshPreview, 5000);
       })();

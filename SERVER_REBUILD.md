@@ -328,6 +328,8 @@ LimitNOFILE=65535
 WantedBy=multi-user.target
 -----------
 
+sudo dnf install -y xorg-x11-server-Xvfb chromium ffmpeg liberation-fonts google-noto-sans-fonts procps-ng
+
 sudo systemctl daemon-reload
 sudo systemctl enable srt-push
 sudo systemctl start srt-push

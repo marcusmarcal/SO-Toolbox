@@ -1,0 +1,38 @@
+{
+  "services": [
+    {
+      "id": "srv1",
+      "name": "DC Monitor - IX",
+      "enabled": true,
+      "source_type": "html",
+      "html_url": "https://127.0.0.1/id3as-DC-Monitor.html?view=nodes&dc=ix&inuse=1&sort=nW&dir=-1",
+      "image_path": "",
+      "srt_host": "10.11.203.1",
+      "srt_port": 3292,
+      "srt_mode": "caller",
+      "srt_latency": 1000,
+      "srt_passphrase": "rQ6zgFnfz1WgmJ0AgzI4Zs7Own54K0dU",
+      "width": 1920,
+      "height": 1080,
+      "fps": 5,
+      "video_bitrate_kbps": 500
+    },
+    {
+      "id": "srv2",
+      "name": "Standby Slate",
+      "enabled": true,
+      "source_type": "image",
+      "html_url": "",
+      "image_path": "/opt/web/store/standby-slate.jpg",
+      "srt_host": "10.11.203.1",
+      "srt_port": 3293,
+      "srt_mode": "caller",
+      "srt_latency": 1000,
+      "srt_passphrase": "rQ6zgFnfz1WgmJ0AgzI4Zs7Own54K0dU",
+      "width": 1920,
+      "height": 1080,
+      "fps": 5,
+      "video_bitrate_kbps": 300
+    }
+  ]
+}
