@@ -2275,9 +2275,19 @@
       if (b) { b.disabled = true; b.title = 'Computing…'; }
     });
 
-    const r = await fetch(`${PROXY}/rota/hours?from=${range.from}&to=${range.to}`,
-                          { credentials: 'same-origin' });
-    const d = await r.json();
+    let d;
+    try {
+      const r = await fetch(`${PROXY}/rota/hours?from=${range.from}&to=${range.to}`,
+                            { credentials: 'same-origin' });
+      d = await r.json();
+    } catch (e) {
+      el.innerHTML = `<div class="empty-state">Failed to compute hours: ${e.message}</div>`;
+      ['btn-commit-soe','btn-commit-sos'].forEach(id => {
+        const b = document.getElementById(id);
+        if (b) { b.disabled = true; b.title = 'Compute first'; }
+      });
+      return;
+    }
 
     if (!d.ok) { el.innerHTML = `<div class="empty-state">Error: ${d.error}</div>`; return; }
 
@@ -2379,7 +2389,7 @@
             <th style="text-align:center;">PH Daytime</th>
             <th style="text-align:center;">PH Night</th>
             <th>PH Dates</th>
-            ${sosCol}
+            ${employeeIDCol}
           </tr>
         </thead>
         <tbody>${rows}</tbody>
