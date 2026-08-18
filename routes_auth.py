@@ -239,6 +239,10 @@ def me():
     return jsonify({
         'ok': True,
         'username': request.session['username'],
+        'rota_status':  request.session['rota_status'],
+        'team': request.session['team'],
+        'display_name': request.session['display_name'],
+        'employee_id': request.session['employee_id'],
         'role': request.session['role']
     })
 
