@@ -6,6 +6,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+
+## [2.41.1] - 2026-08-18
+
+### Fixed
+- `GET /me` raised a `KeyError` because `rota_status`, `team`, `display_name`
+  and `employee_id` were never stored in the session created at login.
+  Sessions now carry these fields, and `/me` reads them defensively.
+
 ## [2.41.0] - 2026-08-17
 
 ### Added

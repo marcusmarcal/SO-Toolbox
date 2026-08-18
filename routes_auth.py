@@ -120,11 +120,16 @@ def _verify_password(password, hashed):
 # SESSION
 # ══════════════════════════════════════════════════════════
 
-def _create_session(username, role):
+def _create_session(username, role, rota_status='observer', team='na',
+                     display_name='', employee_id=''):
     token = secrets.token_hex(32)
     _sessions[token] = {
         'username': username,
         'role': role,
+        'rota_status': rota_status,
+        'team': team,
+        'display_name': display_name,
+        'employee_id': employee_id,
         'expires': time.time() + SESSION_TTL
     }
     return token
@@ -203,7 +208,14 @@ def login():
         return jsonify({'ok': False, 'error': 'Invalid username or password'}), 401
 
     role = user.get('role', 'user')
-    token = _create_session(username, role)
+    token = _create_session(
+        username,
+        role,
+        rota_status=user.get('rota_status', DEFAULT_ROTA_STATUS),
+        team=user.get('team', DEFAULT_TEAM),
+        display_name=user.get('display_name', ''),
+        employee_id=user.get('employee_id', ''),
+    )
 
     resp = jsonify({
         'ok': True,
@@ -239,10 +251,10 @@ def me():
     return jsonify({
         'ok': True,
         'username': request.session['username'],
-        'rota_status':  request.session['rota_status'],
-        'team': request.session['team'],
-        'display_name': request.session['display_name'],
-        'employee_id': request.session['employee_id'],
+        'rota_status': request.session.get('rota_status', DEFAULT_ROTA_STATUS),
+        'team': request.session.get('team', DEFAULT_TEAM),
+        'display_name': request.session.get('display_name', ''),
+        'employee_id': request.session.get('employee_id', ''),
         'role': request.session['role']
     })
 
