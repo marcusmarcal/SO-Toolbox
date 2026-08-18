@@ -1980,10 +1980,12 @@ def rota_hours_pot_draft():
     if not members:
         return jsonify({'ok': False, 'error': f'No members configured for {team}'}), 400
 
-    computed = _compute_hours(date_from, date_to, members, leave_map, override_map)
+        computed = _compute_hours(date_from, date_to, members, leave_map, override_map)
     warnings = _check_hr_config_consistency(hr_cfg)
 
-    # Attach Employee IDs to computed results
+    # Attach Employee IDs to computed results — sourced from hr_config,
+    # since no POT commit exists yet at draft-preview time.
+    emp_id_map = hr_cfg.get('employee_ids', {})
     computed_out = {}
     for name in members:
         h = computed.get(name, {'night_h': 0, 'ph_day_h': 0, 'ph_night_h': 0, 'ph_dates': []})
