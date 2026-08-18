@@ -775,24 +775,44 @@ def job_stats_sse(job_id: int):
 # Monitoring and control for the srt-push systemd service (Xvfb + Chromium +
 # ffmpeg screen-to-SRT pipeline running srt-push.py on this same host).
 #
-# The service is not managed as a subprocess of Flask: it runs under systemd.
-# Communication happens through three files that srt-push.py itself writes:
-#   - srt-push-config.json  : desired runtime configuration (read by srt-push.py at start)
-#   - srt-push-stats.json   : live ffmpeg progress stats (written by srt-push.py)
-#   - srt-push-preview.jpg  : latest single-frame screenshot of the Xvfb display
+# srt-push.py now runs any number of independent services in a single
+# process — each one either an HTML page captured through Xvfb + Chromium,
+# or a static image looped directly into ffmpeg — every one pushing to its
+# own SRT destination. The systemd unit itself is still a single process, so
+# start/stop/restart below act on all services at once; only config, status,
+# preview and log are per-service.
 #
-# NOTE: PUSH_DEFAULT_CONFIG below must be kept in sync with DEFAULT_CONFIG in
-# srt-push.py — it is only used here as a fallback when no config file exists yet.
+# The service is not managed as a subprocess of Flask: it runs under systemd.
+# Communication happens through files that srt-push.py itself writes:
+#   - srt-push-config.json          : desired services list (read by srt-push.py at start)
+#   - srt-push-stats.json           : live stats for every service, written by srt-push.py
+#                                      as {"updated_at", "services": {id: {...}}, "legacy": {...}}
+#   - srt-push-preview-<id>.jpg     : latest captured frame for service <id>
+#   - /var/log/srt-push/<id>.log    : raw Xvfb/Chromium/ffmpeg log for service <id>
+#
+# Legacy fallback constants (PUSH_PREVIEW_FILE_LEGACY / PUSH_LOG_FILE_LEGACY)
+# are only used when no service id is supplied, e.g. against a stats file
+# still in the pre-multi-service flat shape.
+#
+# NOTE: PUSH_DEFAULT_SERVICE below must be kept in sync with DEFAULT_SERVICE
+# in srt-push.py — it is only used here as a fallback when no config file
+# exists yet, or to fill in fields missing from a saved service.
 
 PUSH_STORE_DIR = "/opt/web/store"
 PUSH_CONFIG_FILE = os.path.join(PUSH_STORE_DIR, "srt-push-config.json")
 PUSH_STATS_FILE = os.path.join(PUSH_STORE_DIR, "srt-push-stats.json")
-PUSH_PREVIEW_FILE = os.path.join(PUSH_STORE_DIR, "srt-push-preview.jpg")
-PUSH_LOG_FILE = "/var/log/srt-push.log"
+PUSH_PREVIEW_FILE_LEGACY = os.path.join(PUSH_STORE_DIR, "srt-push-preview.jpg")
+PUSH_LOG_DIR = "/var/log/srt-push"
+PUSH_LOG_FILE_LEGACY = "/var/log/srt-push.log"
 PUSH_SERVICE_NAME = "srt-push"
 
-PUSH_DEFAULT_CONFIG = {
+PUSH_DEFAULT_SERVICE = {
+    "id": "srv1",
+    "name": "Service 1",
+    "enabled": True,
+    "source_type": "html",  # "html" (Xvfb + Chromium capture) or "image" (looped static file)
     "html_url": "https://127.0.0.1/id3as-DC-Monitor.html?view=nodes&dc=ix&inuse=1&sort=nW&dir=-1",
+    "image_path": "",
     "srt_host": "10.11.203.1",
     "srt_port": 3292,
     "srt_mode": "caller",
@@ -804,9 +824,25 @@ PUSH_DEFAULT_CONFIG = {
     "video_bitrate_kbps": 500,
 }
 
-# Type casters used to validate incoming config values per field.
-PUSH_CONFIG_FIELDS = {
+
+def _cast_bool(value) -> bool:
+    """Cast a JSON value to bool. Handles real booleans and common string forms,
+    since bool("false") would otherwise incorrectly evaluate to True."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in ("1", "true", "yes", "on")
+    return bool(value)
+
+
+# Type casters used to validate incoming per-service config values.
+PUSH_SERVICE_FIELDS = {
+    "id": str,
+    "name": str,
+    "enabled": _cast_bool,
+    "source_type": str,
     "html_url": str,
+    "image_path": str,
     "srt_host": str,
     "srt_port": int,
     "srt_mode": str,
@@ -818,21 +854,69 @@ PUSH_CONFIG_FIELDS = {
     "video_bitrate_kbps": int,
 }
 
+# Service ids come back to us as a request.args value and are used to build a
+# filesystem path (preview/log file names) — restrict them to a safe charset
+# up front so a crafted id can't be used for path traversal.
+_SAFE_ID_RE = re.compile(r"[^A-Za-z0-9_-]")
+
+
+def _sanitize_id(raw_id: str) -> str:
+    return _SAFE_ID_RE.sub("", raw_id or "")[:128]
+
+
+def _preview_path_for(service_id: str) -> str:
+    return os.path.join(PUSH_STORE_DIR, f"srt-push-preview-{service_id}.jpg")
+
+
+def _log_path_for(service_id: str) -> str:
+    return os.path.join(PUSH_LOG_DIR, f"{service_id}.log")
+
+
+def _normalize_push_service(raw: dict, index: int) -> dict:
+    """Merge a raw service dict over PUSH_DEFAULT_SERVICE, filling in an id if missing."""
+    svc = dict(PUSH_DEFAULT_SERVICE)
+    for key in PUSH_SERVICE_FIELDS:
+        if key in raw:
+            svc[key] = raw[key]
+    if not svc.get("id"):
+        svc["id"] = f"srv{index + 1}"
+    return svc
+
 
 def _load_push_config() -> dict:
-    """Read the current srt-push config, falling back to defaults for missing keys."""
-    cfg = dict(PUSH_DEFAULT_CONFIG)
+    """Read the current srt-push config as {"services": [...]}, falling back to a
+    single default service.
+
+    Accepts the legacy flat single-service file (no "services" key) for
+    backward compatibility with configs written before the multi-service
+    change; it's normalized into a one-item services list.
+    """
     try:
         with open(PUSH_CONFIG_FILE, "r") as f:
-            saved = json.load(f)
-        cfg.update({k: v for k, v in saved.items() if k in PUSH_DEFAULT_CONFIG})
+            raw = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError, OSError):
-        pass
-    return cfg
+        return {"services": [dict(PUSH_DEFAULT_SERVICE)]}
+
+    if isinstance(raw, dict) and isinstance(raw.get("services"), list):
+        services_raw = raw["services"]
+    elif isinstance(raw, dict):
+        services_raw = [raw]  # legacy flat config
+    elif isinstance(raw, list):
+        services_raw = raw
+    else:
+        services_raw = []
+
+    services = [
+        _normalize_push_service(s, i) for i, s in enumerate(services_raw) if isinstance(s, dict)
+    ]
+    if not services:
+        services = [dict(PUSH_DEFAULT_SERVICE)]
+
+    return {"services": services}
 
 
 def _save_push_config(cfg: dict) -> None:
-    """Atomically persist the srt-push config file."""
+    """Atomically persist the srt-push config file. cfg must be {"services": [...]}."""
     os.makedirs(PUSH_STORE_DIR, exist_ok=True)
     tmp_path = PUSH_CONFIG_FILE + ".tmp"
     with open(tmp_path, "w") as f:
@@ -841,7 +925,7 @@ def _save_push_config(cfg: dict) -> None:
 
 
 def _load_push_stats() -> dict:
-    """Read the live stats file written by srt-push.py."""
+    """Read the live stats file written by srt-push.py: {"services": {id: {...}}, "legacy": {...}}."""
     try:
         with open(PUSH_STATS_FILE, "r") as f:
             return json.load(f)
@@ -877,7 +961,7 @@ def _systemctl(action: str, timeout: int = 15) -> dict:
 
 
 def _push_service_state() -> dict:
-    """Query systemd for the current state of the srt-push unit."""
+    """Query systemd for the current state of the srt-push unit (covers all services at once)."""
     try:
         result = subprocess.run(
             ["sudo", "/usr/bin/systemctl", "show", PUSH_SERVICE_NAME,
@@ -911,7 +995,8 @@ def srt_push_tool():
 
 @srt_bp.route("/push/status", methods=["GET"])
 def push_status():
-    """Combined status: systemd state, live ffmpeg stats, current config."""
+    """Combined status: systemd state (whole unit), live stats for every service,
+    and the current multi-service config."""
     return jsonify({
         "service": _push_service_state(),
         "stats": _load_push_stats(),
@@ -921,33 +1006,58 @@ def push_status():
 
 @srt_bp.route("/push/config", methods=["GET"])
 def push_get_config():
-    """Return the current srt-push configuration."""
+    """Return the current srt-push configuration as {"services": [...]}."""
     return jsonify(_load_push_config())
 
 
 @srt_bp.route("/push/config", methods=["POST"])
 def push_set_config():
     """
-    Save a new srt-push configuration and restart the service in background to apply it.
+    Save a new srt-push configuration (a list of services) and restart the
+    service in background to apply it.
     """
     data = request.get_json(force=True) or {}
-    cfg = _load_push_config()
+    services_in = data.get("services")
 
-    for key, caster in PUSH_CONFIG_FIELDS.items():
-        if key in data:
-            try:
-                cfg[key] = caster(data[key])
-            except (TypeError, ValueError):
-                return jsonify({"error": f"Invalid value for '{key}'"}), 400
+    if not isinstance(services_in, list) or not services_in:
+        return jsonify({"error": "Body must contain a non-empty 'services' array"}), 400
 
-    _save_push_config(cfg)
+    validated = []
+    seen_ids = set()
+    for i, raw in enumerate(services_in):
+        if not isinstance(raw, dict):
+            return jsonify({"error": f"services[{i}] must be an object"}), 400
 
-    # Em vez de esperar o systemctl síncrono, joga para o background
+        svc = dict(PUSH_DEFAULT_SERVICE)
+        for key, caster in PUSH_SERVICE_FIELDS.items():
+            if key in raw:
+                try:
+                    svc[key] = caster(raw[key])
+                except (TypeError, ValueError):
+                    return jsonify({"error": f"Invalid value for services[{i}].{key}"}), 400
+
+        svc["id"] = _sanitize_id(svc["id"]) or f"srv{i + 1}"
+        if svc["id"] in seen_ids:
+            return jsonify({"error": f"Duplicate service id '{svc['id']}'"}), 400
+        seen_ids.add(svc["id"])
+
+        if svc["source_type"] not in ("html", "image"):
+            return jsonify({"error": f"services[{i}].source_type must be 'html' or 'image'"}), 400
+        if svc["source_type"] == "html" and not svc["html_url"]:
+            return jsonify({"error": f"services[{i}].html_url is required for source_type 'html'"}), 400
+        if svc["source_type"] == "image" and not svc["image_path"]:
+            return jsonify({"error": f"services[{i}].image_path is required for source_type 'image'"}), 400
+
+        validated.append(svc)
+
+    _save_push_config({"services": validated})
+
+    # Instead of waiting on a synchronous systemctl call, hand it to background.
     try:
         subprocess.Popen(["bash", "-c", f"sleep 1 && systemctl restart {PUSH_SERVICE_NAME}"])
         return jsonify({
             "message": "Config saved and service restart scheduled.",
-            "config": cfg
+            "config": {"services": validated},
         }), 200
     except Exception as e:
         return jsonify({"error": f"Config saved but failed to schedule restart: {str(e)}"}), 500
@@ -955,12 +1065,13 @@ def push_set_config():
 
 @srt_bp.route("/push/service/<action>", methods=["POST"])
 def push_service_action(action: str):
-    """Control the srt-push systemd service in background. action: start | stop | restart."""
+    """Control the srt-push systemd service in background. action: start | stop | restart.
+    Affects every configured service at once, since they all run in one process."""
     if action not in ("start", "stop", "restart"):
         return jsonify({"error": "Invalid action, use start/stop/restart"}), 400
 
     try:
-        # Dispara a ação do systemctl em background para o Flask responder na hora
+        # Fire the systemctl action in background so Flask can respond right away.
         subprocess.Popen(["bash", "-c", f"sleep 0.5 && systemctl {action} {PUSH_SERVICE_NAME}"])
         return jsonify({
             "ok": True,
@@ -975,28 +1086,41 @@ def push_service_action(action: str):
 
 @srt_bp.route("/push/preview.jpg", methods=["GET"])
 def push_preview():
-    """Serve the latest Xvfb screenshot captured by srt-push (single overwritten file)."""
-    if not os.path.isfile(PUSH_PREVIEW_FILE):
+    """Serve the latest captured frame for one service (?id=<service_id>).
+
+    Falls back to the pre-multi-service flat preview file if no id is given,
+    for callers that haven't been updated yet.
+    """
+    service_id = _sanitize_id(request.args.get("id", ""))
+    preview_path = _preview_path_for(service_id) if service_id else PUSH_PREVIEW_FILE_LEGACY
+
+    if not os.path.isfile(preview_path):
         return jsonify({"error": "Preview not available yet"}), 404
-    response = send_file(PUSH_PREVIEW_FILE, mimetype="image/jpeg")
+    response = send_file(preview_path, mimetype="image/jpeg")
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
     return response
 
 
 @srt_bp.route("/push/log", methods=["GET"])
 def push_log():
-    """Return the last N lines of the srt-push log file (default 200)."""
+    """Return the last N lines of one service's log file (?id=<service_id>, default 200 lines).
+
+    Falls back to the pre-multi-service flat log file if no id is given.
+    """
     try:
         lines_count = int(request.args.get("lines", 200))
     except ValueError:
         lines_count = 200
     lines_count = max(1, min(lines_count, 2000))
 
-    if not os.path.isfile(PUSH_LOG_FILE):
+    service_id = _sanitize_id(request.args.get("id", ""))
+    log_path = _log_path_for(service_id) if service_id else PUSH_LOG_FILE_LEGACY
+
+    if not os.path.isfile(log_path):
         return jsonify({"lines": []})
 
     try:
-        with open(PUSH_LOG_FILE, "r", errors="replace") as f:
+        with open(log_path, "r", errors="replace") as f:
             lines = deque(f, maxlen=lines_count)
         return jsonify({"lines": [line.rstrip("\n") for line in lines]})
     except OSError as e:
