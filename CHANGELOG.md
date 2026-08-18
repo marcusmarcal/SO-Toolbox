@@ -7,11 +7,615 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-## [4.0.0] - 2026-05-29
+## [2.42.0] - 2026-08-18
+
+### Added
+- SRT Push Control API: per-service preview and log lookup via
+  `?id=<service_id>` on `GET /push/preview.jpg` and `GET /push/log`.
+- SRT Push Control API: input validation on `POST /push/config` for
+  the new services list (unique ids, valid `source_type`, required
+  `html_url`/`image_path` depending on source type).
+
+### Changed
+- SRT Push Control API: `GET/POST /push/config` and the `config` field
+  of `GET /push/status` now use `{"services": [...]}` instead of a
+  single flat configuration object.
+
+### Fixed
+- SRT Push Control API: service ids passed via query string are now
+  sanitized before being used to build a file path, closing a
+  potential path-traversal vector introduced by the new per-service
+  preview/log lookup.
+
+### Note
+- Legacy flat `srt-push-config.json` / `srt-push-stats.json` files
+  (pre-multi-service) are still read correctly and normalized into a
+  single service, so no manual migration is required.
+
+### Added
+- Support for multiple concurrent services, each with its own source
+  (HTML page capture or static image) and its own SRT destination.
+- New `source_type: "image"` option to loop a static JPEG/PNG file
+  without needing Xvfb or Chromium.
+- Per-service log files under `/var/log/srt-push/<service-id>.log`.
+- Per-service preview files (`srt-push-preview-<service-id>.jpg`).
+- Clear, non-fatal error reporting when a service's required binaries
+  or source file are missing, instead of crashing the whole process.
+
+### Changed
+- Config file format: `srt-push-config.json` now expects a `services`
+  array; the old flat single-service format is still accepted and
+  auto-converted.
+- Stats file format: `srt-push-stats.json` now exposes a `services` map
+  keyed by service id, with a `legacy` field mirroring the first
+  service in the previous flat shape.
+- systemd unit: removed the hardcoded `DISPLAY=:99` environment
+  variable, since each HTML-source service now allocates its own
+  display automatically.
+
+
+### Added
+- Monitor dashboard: per-service tabs with independent preview,
+  telemetry, and log viewing.
+- Monitor dashboard: dynamic service list in Configuration (add/remove
+  services, enable toggle, HTML-page vs static-image source switch).
+
+### Changed
+- Monitor dashboard: config save now posts `{"services": [...]}`
+  instead of a single flat config object.
+- Monitor dashboard: preview and log requests now take a `id` query
+  parameter identifying which service to fetch.
+- Monitor dashboard: the header status indicator aggregates the state
+  of all services instead of reflecting a single one.
+
+### Note
+- Requires the so-proxy backend's `status`, `config`, `preview.jpg`,
+  and `log` endpoints to be updated to the multi-service contract; the
+  page falls back to treating the response as one service if the
+  backend hasn't been migrated yet.
+
+## [2.41.1] - 2026-08-18
+
+### Fixed
+- `GET /me` raised a `KeyError` because `rota_status`, `team`, `display_name`
+  and `employee_id` were never stored in the session created at login.
+  Sessions now carry these fields, and `/me` reads them defensively.
+
+## [2.41.0] - 2026-08-17
+
+### Added
+- `rota_status` field on user profile (`active`, `inactive`, `observer`), defaulting to `observer` for users without the flag.
+- `team` field on user profile (`soe`, `sos`, `na`), shown uppercase in the UI and stored lowercase in JSON; defaults to `na`.
+- `display_name` field, free text with a 14-character limit.
+- `employee_id` field, numeric with a 6-digit limit.
+- Team and rota_status badges in the user management list.
+
+### Fixed
+- Remaining Portuguese-language strings and comments in `users-admin.html` translated to English.
+
+
+## [2.40.2] - 2026-07-31
+
+### Changed
+
+- B&T burned-in UTC clock overlay now shows millisecond precision (HH:MM:SS.mmm) for finer-grained latency estimation.
+- Single-destination Command Preview now renders the complete, real ffmpeg command for B&T, consistent with file-based sources, instead of a summary line.
+
+## [2.40.1] - 2026-07-30
+
+### Fixed
+
+- Source select desync on page load: listing B&T Colour Bars first (2.31.0) left the dropdown defaulting to B&T while the input field and preview still showed test.mp4, causing Start Ingest to launch the wrong source. loadSources() now re-syncs select value and dependent UI (input, passthrough/bitrate rows, preview) after populating options.
+
+## [2.40.0] - 2026-07-30
 
 ### Added
 
-- Rota started
+- Single-destination ingest now supports B&T (Colour Bars + 1 kHz Tone) source mode, previously available only on multi-destination.
+- B&T signal now burns in a live UTC clock overlay (top of frame), enabling latency measurement by comparing it against wall-clock time at the receiving end.
+
+### Changed
+
+- Source selects (single and multi destination) now list B&T Colour Bars first, followed by test.mp4 and other available sources.
+
+## [2.39.3] - 2026-07-28
+
+### Changed
+
+- Live Probe terminology renamed throughout the UI and API payload to
+  describe exactly what is measured: "PCR interval avg/max" (was IAT)
+  and "TS CC loss" (was MLR), both computed on the MPEG-TS as
+  delivered by SRT (post-ARQ). Added an explanatory note in the modal
+  that this is not the same measurement point as a raw-multicast
+  probe such as Bridge Technologies, since SRT recovers most network
+  loss before this point.
+
+### Fixed
+
+- A feed that stopped delivering data while srt-live-transmit stayed
+  running previously hung on a blocking read with no indication
+  anything was wrong — the UI just froze on the last good values.
+  Reads are now polled with select() so a stall is detected: after
+  5s the chart/readouts show a real "stalled" state with bitrate
+  explicitly at 0 (populated every second, not frozen); after 15s
+  the subprocess is killed and a fresh connection is attempted.
+
+## [2.39.2] - 2026-07-28
+
+### Fixed
+
+- Live Probe MLR was never reaching 0 even on loss-free tunnels: a
+  partial TS packet left at the end of each stdout read was being
+  discarded instead of carried to the next read, desyncing 188-byte
+  packet alignment on nearly every read and feeding the continuity-
+  counter tracker garbage. Fixed by carrying the remainder forward
+  and resyncing on the next TS sync byte if alignment is ever lost.
+- Live Probe IAT was measuring our own pipe-read timing (a few ms),
+  not the transport-level pacing broadcast probes report. IAT is now
+  computed from PCR (Program Clock Reference) inter-arrival time via
+  PAT -> PMT -> PCR_PID parsing, matching the ETSI TR 101 290 "PCR
+  repetition" convention (~100ms nominal on a healthy feed).
+
+### Added
+
+- IAT warning (130ms, orange) and critical (150ms, red) thresholds,
+  applied to the live chart bars, IAT avg/max readout color, and two
+  dashed reference lines on the chart. MLR readout turns red when
+  nonzero.
+- Unit test (test_ts_analyzer.py) for the TS analyzer: PAT/PMT
+  parsing, PCR-based IAT, continuity-counter loss detection, and
+  chunk-boundary carry-over.
+
+## [2.39.1] - 2026-07-28
+
+### Fixed
+
+- Live Probe: suppress the first 2 seconds of samples after each
+  connect/reconnect. SRT handshake and prebuffer catch-up produced an
+  expected IAT spike on start that was being drawn on the chart as if
+  it were a real network event.
+
+### Added
+
+- Standalone "Live Probe" button in the GOP Analyser SRT run form
+  (between Schedule and Clear), letting the IAT/MLR monitor run
+  directly from the Host/Port/Passphrase fields without running a
+  GOP test first. Hidden in Upload mode.
+
+## [2.39.0] - 2026-07-28
+
+### Added
+
+- New Live Probe: real-time IAT (Inter-Arrival Time) and MLR (Media Loss
+  Rate) monitor for SRT-source GOP Analyser tests, built independently
+  in-house (no external probe dependency). MLR is computed from MPEG-TS
+  continuity-counter discontinuities; IAT from inter-packet read timing.
+  Capture uses srt-live-transmit (not ffmpeg) so continuity counters
+  reflect exactly what was received off the wire. New blueprint
+  routes_live_probe.py exposes /live-probe/start, /live-probe/stream/<id>
+  (SSE), and /live-probe/stop/<id>, with idle/TTL session reaping.
+- "Live Probe" button in the GOP test detail panel, shown only for
+  SRT-source tests (never for uploaded-file tests), opening a modal with
+  a live area chart plus IAT avg/max, MLR, and bitrate readouts.
+
+### Requires
+
+- `srt-live-transmit` (Haivision srt-tools) installed and on PATH on the
+  server. Not available via default Oracle Linux 9.8 repos — build from
+  https://github.com/Haivision/srt.
+
+## [2.38.0] - 2026-07-24
+
+### Added
+
+- Added support for assigning ownership of anonymous GOP Analyzer test results.
+- Added `POST /gop/assign-user/<filename>` endpoint for admins and engineers.
+- Added searchable floating user selector for anonymous test ownership assignment.
+- Added ownership assignment support from both the test detail view and history table.
+- Added assignment audit metadata (`assigned.by`, `assigned.at`) to result files.
+
+### Changed
+
+- Improved history user badge behaviour for anonymous results.
+- Improved specifications editor labels by clearly distinguishing:
+  - **Accept range** (hard validation limits)
+  - **Compliant within** (preferred compliance range)
+
+### Fixed
+
+- Fixed CODEC Level compliance evaluation incorrectly rejecting values that fell inside the configured preferred range but outside the hard range.
+- Updated `comply_range()` and `_reeval_compliance()` to automatically expand hard limits when preferred bounds exceed configured acceptance limits.
+- Prevented configuration mismatches where `pref_lo`/`pref_hi` could allow values that were still rejected by `lo`/`hi`.
+- Validated fix using the reported scenario (`lo=3`, `hi=4.2`, `pref_lo=4.1`, `pref_hi=5.1`, `measured=5.1`), which now evaluates as **COMPLIANT**.
+
+## [2.37.0] - 2026-07-22
+
+### Fixed
+
+- Chroma Subsampling falsely REJECTED high-bit-depth / non-8-bit
+  formats (e.g. yuv422p10le showed as an unrecognised raw pix_fmt
+  string instead of "4:2:2") because the chroma lookup table only
+  covered plain 8-bit yuv420p/yuv422p/yuv444p variants. Now derived
+  via regex, robust to bit-depth/endianness suffixes and NV/semi-planar
+  layouts (nv12, nv16, p010le, etc).
+- Colour Range showed the raw pix_fmt string as its measured value
+  instead of "limited"/"full". Now reports the actual colour range,
+  preferring ffprobe's color_range tag over the deprecated yuvj\*
+  pix_fmt heuristic.
+
+### Added
+
+- New informational-only "Pixel Format" field (spec key
+  pixel_format), showing the raw pix_fmt value (e.g. yuv422p10le) on
+  its own row across the compliance table, HTML report, text/Jira
+  report and specs editor — separate from Chroma Subsampling and
+  Colour Range. Never affects overall_status.
+- Result JSON: new v_full_range field, so reeval/workflow-change
+  compliance reuses the accurate colour-range value instead of
+  re-deriving it from pix_fmt alone.
+
+## [2.36.0] - 2026-07-21
+
+### Added
+
+- Every GOP test now automatically runs the Ingest Analyser on the
+  recorded .ts file (same script and same store/ingest-results output
+  used by the standalone Ingest Analyser tool), right after the
+  mediainfo delay check. Faster than a live re-capture and uses the
+  same source file.
+- GOP result JSON: new ingest_dir / ingest_zip fields, null if the
+  Ingest Analyser is unavailable or fails (never blocks or fails the
+  GOP result itself).
+- Frontend: new "Ingest Analyser Report" button (left of Generate
+  Report, right of Re-run), shown only for tests that have an Ingest
+  Analyser report, opening it in a new tab.
+
+## [2.35.4] - 2026-07-20
+
+### Fixed
+
+- Audio Bits per Sample falsely REJECTED aac_latm streams ("?" instead
+  of "fltp") because the codec whitelist used to infer floating-point
+  sample format didn't include aac_latm. Now derived primarily from
+  ffprobe's sample_fmt field, with the codec whitelist (now including
+  aac_latm) kept only as a fallback.
+
+## [2.35.3] - 2026-07-20
+
+### Fixed
+
+- Audio Coding compliance falsely REJECTED AAC-LATM streams because
+  ffprobe reports codec_name as "aac_latm" (underscore), which bypassed
+  the AAC profile-detection branch and produced "AAC_LATM" instead of
+  the spec's "AAC-LATM". \_audio_display_name now recognizes codec_name
+  "aac_latm" directly and normalizes it to "AAC-LATM".
+
+## [2.35.2] - 2026-07-20
+
+### Changed
+
+- mediainfo_delay spec now uses two adjustable thresholds instead of a
+  single hard limit: |delay| <= warn (default 350ms) is COMPLIANT,
+  <= hard (default 1000ms) is ACCEPTED, above hard is REJECTED. Both
+  thresholds are adjustable per workflow in the specs editor.
+- Specs editor, results panel, and HTML/text reports updated to reflect
+  the three-tier compliant/accepted/rejected status.
+
+### Removed
+
+- Obsolete "Inform only (never reject)" toggle for mediainfo_delay
+  (leftover from the old AV sync spec pattern; no longer applicable).
+
+## [2.35.1] - 2026-07-20
+
+### Added
+
+- GOP Analyzer: AV sync now measured via mediainfo's "Delay relative to
+  video" metric, read directly from the recorded .ts file after capture
+  or upload, before compliance evaluation.
+- New spec "mediainfo_delay" with an adjustable hard limit (default
+  1000ms / 1s), applied to all workflows. Exceeding the limit rejects
+  the result. Editable in the specs editor under the new "TIMING"
+  section.
+
+### Removed
+
+- The unreliable ffprobe PTS-offset based AV sync analysis and its
+  "AV SYNC & TIMING" spec block (av_sync_warn, av_sync_max,
+  v_pts_jitter, a_pts_jitter), along with all related fields and UI
+  sections.
+
+### Changed
+
+- Result JSON: av_sync_min_ms, av_sync_max_ms, av_sync_avg_ms,
+  av_sync_median_ms, v_pts_jitter_ms and a_pts_jitter_ms replaced by a
+  single mediainfo_delay_ms field.
+
+### Requires
+
+- mediainfo installed on the server (apt-get install mediainfo).
+  Analysis falls back to UNKNOWN status if mediainfo is missing or the
+  delay metric cannot be measured.
+
+## [2.35.0] - 2026-07-20
+
+### Added
+
+- MediaInfo to SERVER_REBUILD
+
+## [2.34.0] - 2026-07-17
+
+### Fixed
+
+- Extraction returned zero fields and empty raw text on some machines/
+  sessions where the ServiceNow RITM ticket loads through the "Unified
+  Navigation App" shell (now/nav/ui), because pageExtractor read the page
+  before any async-mounted content existed.
+
+### Changed
+
+- pageExtractor now waits (up to 12s, polling every 400ms) inside the
+  page for real content or form fields to appear before reading them.
+- Extraction retries up to 3 times across all frames as a fallback for
+  frames created after the initial call.
+- Loading state shows attempt/progress feedback during longer waits.
+
+## [2.33.0] - 2026-07-17
+
+### Added
+
+- B&T to SRT Ingest
+
+## [2.32.0] - 2026-07-17
+
+### Added
+
+- New standalone API documentation page (SO-Toolbox-API-Docs.html) covering all Flask Blueprints: auth, GOP compliance, SRT ingest, SRT push monitor, TXCore manager, RTS monitor, id3as DC monitor, WC2026 rota, and proxy.py utility routes. Includes searchable sidebar, collapsible endpoint cards, auth requirements, request/response examples, and known-issue notes carried over from current backlog items.
+
+## [2.30.1] - 2026-07-16
+
+### Fixed
+
+- Restart Proxy was still rejecting requests with "Invalid admin
+  password" after the 2.30.0 frontend change, because proxy.py's
+  /restart-proxy endpoint still validated the X-Admin-Password header
+  that the frontend no longer sends. /git-pull and /restart-proxy now
+  use the existing require_admin_role decorator from routes_auth.py
+  (admin/engineer only) instead of the ADMIN_PASSWORD check. The
+  password check is unchanged for /mtr/kill and /mtr/delete.
+
+---
+
+## [2.30.0] - 2026-07-16
+
+### Fixed
+
+- Changelog modal: bullet items that wrap onto multiple lines in
+  CHANGELOG.md were silently truncated at the first line, since the
+  parser only matched lines starting with "- " and dropped indented
+  continuation lines. Wrapped continuation lines are now appended to
+  the previous bullet instead of being discarded.
+
+### Changed
+
+- Update and Restart Proxy actions are now restricted to users with
+  the admin or engineer role, read from /so-proxy/me. The buttons are
+  hidden for other roles and the actions no-op client-side if called
+  directly. The admin password prompt on Restart Proxy has been
+  removed.
+
+---
+
+## [2.29.0] - 2026-07-16
+
+### Fixed
+
+- GOP analysis: incomplete leading GOP (frames captured before the
+  first I frame) is now excluded from GOP statistics, matching the
+  existing exclusion of the incomplete trailing GOP. GOP size,
+  min/max/avg, and open/closed detection now only consider complete
+  GOPs between the first and last I frame.
+
+## [2.28.1] - 2026-07-15
+
+### Added
+
+- Multi-destination ingest can now run as a single shared ffmpeg process
+  (passthrough / -c copy) instead of one process per destination, to avoid
+  CPU spikes when fanning out to many SRT targets at once.
+- New endpoint POST /srt/ingest/multi-shared for the shared-process mode.
+- "Shared single process" option in the Multi Destination form.
+
+### Notes
+
+- Shared mode only supports passthrough (-c copy). A shared-encode option
+  for CBR transcode fan-out (via ffmpeg's tee muxer) is not implemented yet.
+
+## [2.28.0] - 2026-07-15
+
+### Added
+
+- SRT ingest jobs now automatically retry connecting until the user explicitly
+  stops them, instead of ending on the first ffmpeg failure.
+- Per-job restart endpoint and button, independent from other jobs.
+- Last error message per job is captured and shown live in the Bitrate
+  Monitor when a job is reconnecting or has failed.
+- "Clear Finished Jobs" button to remove stopped/error jobs from the list.
+
+### Changed
+
+- Job status model extended: starting, running, reconnecting, stopping,
+  stopped, error (finished status removed, replaced by stopped).
+- SSE stream for job stats now also emits a status event with status,
+  last_error and retry_count whenever the job state changes.
+
+### Fixed
+
+- Job dict now stores full launch configuration (input file, host, port,
+  passphrase, bitrate, mode), required to support relaunching a job.
+
+## [2.27.0] - 2026-07-15
+
+### Added
+
+- Server-side filtering and pagination for the GOP results history,
+  so search/tag/user/date filters cover the entire history instead
+  of only the 500 most recently created results
+- In-memory results index with mtime-based cache invalidation to
+  avoid re-parsing every JSON result file on each request
+- Numbered pagination controls in the History panel
+
+### Changed
+
+- GET /gop/results now returns a paginated object
+  (items, total, page, page_size, total_pages, tags) instead of a
+  flat array; filtering moved from client-side to query parameters
+  (search, date, tag, server, user, page, page_size)
+
+## [2.26.5] - 2026-07-13
+
+### Added
+
+- GET /api/txcore/categories endpoint to list existing TXCore
+  categories.
+- Category picker dropdown in TXCore Manager, populated from the new
+  endpoint, to select an existing category instead of typing its ID.
+
+### Changed
+
+- Failed channel creation attempts now show the HTTP status and the
+  API's response body directly in the job log, instead of just a
+  generic "error" status.
+
+### Fixed
+
+- Channel creation failures with a non-JSON error body no longer
+  crash response handling; the raw response text is now captured.
+
+## [2.26.4] - 2026-07-13
+
+### Fixed
+
+- Stream addresses could be generated incomplete (e.g. ".35:21216")
+  due to a stale empty value persisted in localStorage from an earlier
+  form version. Storage key bumped to invalidate old state.
+
+### Changed
+
+- Reworked IP octet configuration: first two octets are now fixed per
+  site (display-only), third octet is a shared field applied to all
+  sites (still editable per site), last octet continues to follow
+  First CH#. Ports are now read-only per site.
+- Added a live address preview per site (AVE/LMK/YER) so the final
+  multicast address is visible before submitting.
+
+## [2.26.3] - 2026-07-13
+
+### Changed
+
+- TXCore Manager: "Provider name" relabeled to "Provider Acronym".
+- TXCore Manager: First CH# now defaults to 01, channel count to 10.
+- TXCore Manager: Channel number start and the three last-octet-start
+  fields now auto-fill from First CH#, remaining editable; manual
+  edits stop further auto-sync for that field.
+- TXCore Manager: AVE/LMK/YER 3-octet IP prefixes are now prefilled
+  as real default values instead of placeholder text.
+
+## [2.26.2] - 2026-07-13
+
+### Fixed
+
+- TXCore status endpoint reported all env vars as missing even when
+  set in .env, due to import-order dependency on proxy.py's
+  load_dotenv() call. routes_txcore.py now loads .env explicitly.
+
+## [2.26.1] - 2026-07-13
+
+### Fixed
+
+- routes_txcore.py failed to import on startup due to a nonexistent
+  auth module reference. Now uses routes_auth (\_get_session,
+  \_token_from_request), consistent with the other blueprints.
+
+## [2.26.0] - 2026-07-13
+
+### Added
+
+- TXCore Manager frontend (TXCore-Manager.html) for the TXCore
+  provisioning blueprint: category creation, bulk channel form,
+  request preview, and async job monitoring with live progress log.
+
+## [3.25.0] - 2026-07-13
+
+### Fixed
+
+- Id34as logs on showing reverse sort, new on top.
+
+## [3.24.1] - 2026-07-10
+
+### Added
+
+- Automatic log rotation for /var/log/srt-push.log: rotates via copytruncate
+  once the file exceeds 100 MB, keeps rotated backups for 7 days.
+- Strict transport-level CBR via ffmpeg -muxrate, padding the MPEG-TS with
+  null PID (0x1FFF) packets.
+- Default value placeholders on the SRT Push configuration form (dashboard
+  URL, width, height, FPS, bitrate).
+
+### Fixed
+
+- Bitrate/fps/frame telemetry and sparkline bars no longer keep showing
+  stale values after the service is stopped.
+
+### Changed
+
+- Tally light and sparkline bars now use green for the running/on-air state;
+  red is reserved for error/failed states.
+
+## [3.24.0] - 2026-07-01
+
+### Added
+
+- Supplier filter dropdown in Channels tab, auto-populated from channel names matching the "XXX_CHXX" pattern.
+- Dedicated "RMG" filter option for channels containing "RMG" in their name.
+- "Show Stream ID" checkbox to toggle visibility of the Stream Key column (hidden by default).
+- Channel name now links to the corresponding Phenix portal stream page, built from App ID, Channel ID and Stream Key.
+
+### Changed
+
+- Filter logic in the Channels tab now combines search, active-only, and supplier filters.
+- Disconnect flow resets supplier filter and Stream ID toggle.
+
+## [3.23.0] - 2026-07-01
+
+### Fixed
+
+- WC2026 Rota: openfootball sync lookup used a single-entry map keyed by date+BST time; simultaneous kickoffs (all group-stage matchdays have two games at the same time) caused the second entry to overwrite the first, making every other match silently lose its sync result; lookup now stores arrays of candidates per key and disambiguates by fuzzy team-name match with diacritic normalization~
+
+## [3.22.0] - 2026-06-30
+
+### Added
+
+- RTS Monitor: added StreamID and StreamKey to the table. Created removed.
+
+## [3.21.0] - 2026-06-30
+
+### Fixed
+
+- WC2026 Rota: openfootball sync lookup used a date+1 alias that caused key collisions between unrelated matches sharing the same BST time, silently overwriting one match with another's data and making it disappear from the view; lookup now matches each fixture primarily on its own date and falls back to date-1 only for early-morning BST kickoffs, computed per fixture instead of pre-indexed
+- WC2026 Rota: team name updates from openfootball sync were only applied in memory and never persisted, reverting to placeholder names on every reload; added teamNames state, a new POST /wc2026/teamnames endpoint, and restoration of saved overrides on load
+- WC2026 Rota: Turkiye vs Paraguay and Brazil vs Haiti (both 19 June) had stale hardcoded kickoff times that no longer matched the openfootball feed, so results never matched during sync; corrected kickoff times for both fixtures
+
+## [3.20.0] - 2026-06-29
+
+### Fixed
+
+- WC2026 Rota: scores were silently discarded by save_assignments endpoint (only saved via the separate scores endpoint on Sync); assignments POST now merges and persists scores alongside assignments, so results survive page reloads for all users
+- WC2026 Rota: openfootball sync failed to match late-night kickoffs (e.g. Brazil vs Haiti, Turkiye vs Paraguay) due to two issues: UTC offset regex did not accept two-digit formats (UTC-04:00), and games with local date differing from BST date were not found in the date-keyed lookup; lookup now also indexes under date+1 to cover BST crossings
+
+### Added
+
+- WC2026 Rota: fourth engineer slot Marcus (code M, purple) added across frontend and backend; filter button, name input, legend badge, row colouring, EPG colour, summary card, auto-assign, CSV import resolver and server persistence all updated
 
 ## [3.19.1] - 2026-06-26
 

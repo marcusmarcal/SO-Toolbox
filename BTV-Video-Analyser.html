@@ -732,6 +732,55 @@
         flex: 1;
         overflow-y: auto;
       }
+      .hist-pagination {
+        display: flex;
+        gap: 0.25rem;
+        padding: 0.35rem 0.55rem;
+        background: var(--bg3);
+        border-top: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .hist-page-info {
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        color: var(--muted);
+        margin-right: 0.4rem;
+      }
+      .hist-page-btn {
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        padding: 2px 7px;
+        cursor: pointer;
+        min-width: 22px;
+      }
+      .hist-page-btn:hover:not(:disabled) {
+        border-color: var(--purple);
+        color: var(--purple);
+      }
+      .hist-page-btn:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+      .hist-page-btn.active {
+        background: var(--purple);
+        border-color: var(--purple);
+        color: #fff;
+        cursor: default;
+      }
+      .hist-page-ellipsis {
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        color: var(--muted);
+        padding: 0 2px;
+      }
       .history-list::-webkit-scrollbar {
         width: 4px;
       }
@@ -941,6 +990,58 @@
         gap: 0.5rem;
         align-items: center;
         flex-wrap: wrap;
+      }
+      .modal-card.wide {
+        width: 780px;
+      }
+      .live-probe-dot {
+        display: inline-block;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--muted);
+        margin-right: 0.5rem;
+        vertical-align: middle;
+      }
+      .live-probe-dot.connecting {
+        background: var(--yellow);
+      }
+      .live-probe-dot.running {
+        background: var(--green);
+        box-shadow: 0 0 6px var(--green);
+      }
+      .live-probe-dot.stalled,
+      .live-probe-dot.unreachable {
+        background: var(--red);
+        box-shadow: 0 0 6px var(--red);
+      }
+      .live-probe-readouts {
+        display: flex;
+        gap: 1.4rem;
+        font-family: var(--mono);
+        margin-top: 0.6rem;
+      }
+      .live-probe-readouts div {
+        text-align: center;
+      }
+      .live-probe-readouts .lbl {
+        font-size: 0.6rem;
+        color: var(--muted);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .live-probe-readouts .val {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #fff;
+      }
+      #live-probe-canvas {
+        width: 100%;
+        height: 160px;
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        display: block;
       }
       .modal-pw {
         background: var(--bg3);
@@ -1171,6 +1272,30 @@
           onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'"
         >
           🕐 Schedule
+        </button>
+        <button
+          id="btn-live-probe-standalone"
+          onclick="openLiveProbeModalStandalone()"
+          style="
+            background: transparent;
+            border: 1px solid var(--green);
+            border-radius: 5px;
+            color: var(--green);
+            font-family: var(--mono);
+            font-size: 0.76rem;
+            font-weight: 700;
+            padding: 0 0.9rem;
+            height: 36px;
+            cursor: pointer;
+            white-space: nowrap;
+            align-self: flex-end;
+            transition: background 0.15s;
+          "
+          onmouseover="this.style.background='var(--green-d)'"
+          onmouseout="this.style.background='transparent'"
+          title="Open a real-time post-SRT PCR-interval & TS-loss monitor using the Host/Port/Passphrase above, without running a GOP test"
+        >
+          📡 Live Probe
         </button>
         <button
           onclick="clearForm()"
@@ -1429,6 +1554,44 @@
                     ↺ Re-run
                   </button>
                   <button
+                    id="btn-ingest-report"
+                    onclick="openIngestReport()"
+                    style="
+                      display: none;
+                      background: transparent;
+                      border: 1px solid var(--cyan);
+                      border-radius: 5px;
+                      color: var(--cyan);
+                      font-family: var(--mono);
+                      font-size: 0.7rem;
+                      font-weight: 700;
+                      padding: 4px 12px;
+                      cursor: pointer;
+                    "
+                    title="Open the Ingest Analyser report for this test"
+                  >
+                    🔎 Ingest Analyser Report
+                  </button>
+                  <button
+                    id="btn-live-probe"
+                    onclick="openLiveProbeModalForTest()"
+                    style="
+                      display: none;
+                      background: transparent;
+                      border: 1px solid var(--green);
+                      border-radius: 5px;
+                      color: var(--green);
+                      font-family: var(--mono);
+                      font-size: 0.7rem;
+                      font-weight: 700;
+                      padding: 4px 12px;
+                      cursor: pointer;
+                    "
+                    title="Open a real-time post-SRT PCR-interval & TS-loss monitor for this SRT source"
+                  >
+                    📡 Live Probe
+                  </button>
+                  <button
                     id="btn-report"
                     onclick="generateReport()"
                     style="
@@ -1593,7 +1756,7 @@
               id="hist-search"
               type="text"
               placeholder="search…"
-              oninput="loadHistory()"
+              oninput="loadHistoryDebounced(true)"
               title="Search by host, port, test ID, tag"
             />
             <button
@@ -1613,7 +1776,7 @@
               class="f-date"
               id="hist-date"
               type="date"
-              oninput="loadHistory()"
+              oninput="loadHistoryDebounced(true)"
               title="Filter by date"
             />
             <input
@@ -1622,10 +1785,10 @@
               type="text"
               placeholder="tag…"
               list="hist-tag-list"
-              oninput="loadHistory()"
+              oninput="loadHistoryDebounced(true)"
             />
             <datalist id="hist-tag-list"></datalist>
-            <select class="f-server" id="hist-server" onchange="loadHistory()">
+            <select class="f-server" id="hist-server" onchange="loadHistory(true)">
               <option value="">All servers</option>
             </select>
             <input
@@ -1633,7 +1796,7 @@
               id="hist-user"
               type="text"
               placeholder="user…"
-              oninput="loadHistory();document.getElementById('btn-my-checks').classList.remove('active')"
+              oninput="loadHistoryDebounced(true);document.getElementById('btn-my-checks').classList.remove('active')"
               title="Filter by username"
             />
             <button
@@ -1648,6 +1811,7 @@
           <div class="history-list" id="history-list">
             <div class="hist-empty">No analyses yet</div>
           </div>
+          <div class="hist-pagination" id="hist-pagination"></div>
           <div class="hist-bulk-bar" id="bulk-bar">
             <span class="hist-bulk-txt" id="bulk-count">0 selected</span>
             <button class="btn-bulk-del" onclick="openBulkDeleteModal()">
@@ -2009,6 +2173,102 @@
       </div>
     </div>
 
+    <!-- Live Probe modal -->
+    <div class="modal-overlay" id="live-probe-modal">
+      <div class="modal-card wide">
+        <div class="modal-title" style="color: var(--green)">
+          📡 Live SRT Transport Probe
+        </div>
+        <div
+          style="
+            font-size: 0.68rem;
+            color: var(--muted);
+            margin-bottom: 0.6rem;
+            line-height: 1.4;
+          "
+        >
+          Measured on the MPEG-TS after SRT delivery (post-ARQ) — not the
+          same measurement point as a raw-multicast probe such as Bridge
+          Technologies, since SRT already recovers most network loss before
+          this point.
+        </div>
+        <div class="modal-body" style="margin-bottom: 0.6rem">
+          <span
+            class="live-probe-dot"
+            id="live-probe-dot"
+          ></span
+          ><span id="live-probe-host" style="color: #fff"></span>
+          <span
+            id="live-probe-state"
+            style="color: var(--muted); margin-left: 0.5rem"
+            >idle</span
+          >
+        </div>
+
+        <canvas id="live-probe-canvas" width="1400" height="160"></canvas>
+
+        <div class="live-probe-readouts">
+          <div>
+            <div class="lbl">PCR interval avg</div>
+            <div class="val" id="live-probe-iat-avg">—</div>
+          </div>
+          <div>
+            <div class="lbl">PCR interval max</div>
+            <div class="val" id="live-probe-iat-max">—</div>
+          </div>
+          <div>
+            <div class="lbl">TS CC loss</div>
+            <div class="val" id="live-probe-mlr">—</div>
+          </div>
+          <div>
+            <div class="lbl">Bitrate</div>
+            <div class="val" id="live-probe-bitrate">—</div>
+          </div>
+        </div>
+
+        <div
+          id="live-probe-start-row"
+          style="margin-top: 1rem; display: flex; gap: 0.5rem; align-items: center"
+        >
+          <input
+            class="modal-pw"
+            id="live-probe-pass"
+            type="text"
+            placeholder="passphrase (optional)"
+            style="flex: 1"
+          />
+          <button
+            class="btn-cancel"
+            id="live-probe-start-btn"
+            onclick="startLiveProbe()"
+            style="border-color: var(--green); color: var(--green)"
+          >
+            ▶ Start
+          </button>
+        </div>
+
+        <div id="live-probe-err" class="modal-err"></div>
+
+        <div class="modal-actions" style="margin-top: 1rem">
+          <button
+            class="btn-cancel"
+            id="live-probe-stop-btn"
+            onclick="stopLiveProbe()"
+            style="display: none; border-color: var(--red); color: var(--red)"
+          >
+            ■ Stop
+          </button>
+          <button
+            class="btn-cancel"
+            onclick="closeLiveProbeModal()"
+            style="margin-left: auto"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Report modal -->
     <div class="modal-overlay" id="report-modal">
       <div
@@ -2363,6 +2623,50 @@
       </div>
     </div>
 
+    <!-- Assign anonymous test to user — floating dropdown (shared, repositioned per click) -->
+    <div
+      id="assign-user-dropdown"
+      style="
+        display: none;
+        position: fixed;
+        z-index: 500;
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        width: 260px;
+        max-height: 320px;
+        overflow: hidden;
+        flex-direction: column;
+        font-family: var(--mono);
+      "
+    >
+      <div style="padding: 8px; border-bottom: 1px solid var(--border)">
+        <input
+          id="assign-user-filter"
+          type="text"
+          placeholder="Filter users…"
+          oninput="_filterAssignUserList()"
+          style="
+            width: 100%;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: #fff;
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            padding: 5px 7px;
+            outline: none;
+            box-sizing: border-box;
+          "
+        />
+      </div>
+      <div
+        id="assign-user-list"
+        style="overflow-y: auto; max-height: 260px"
+      ></div>
+    </div>
+
     <script>
       const PROXY = "/so-proxy";
       const HIST_BTN_SIZE = "0.9rem";
@@ -2424,6 +2728,7 @@
           const d = await res.json();
           const env = d.config || {};
           _hasAdminPw = env.HAS_ADMIN_PASSWORD === "true";
+          _lastEnvConfig = env;
 
           const dl = document.getElementById("srt-host-presets");
           dl.innerHTML = "";
@@ -2571,6 +2876,18 @@
         _currentResult = r;
         _currentResultFile = r.res_file || _currentResultFile; // keep track of file
         _overrideReason = r.override ? r.override.reason : null;
+
+        // Show "Ingest Analyser Report" only when this test has one saved
+        const ingestBtn = document.getElementById("btn-ingest-report");
+        ingestBtn.style.display = r.ingest_dir ? "" : "none";
+
+        // Show "Live Probe" only for SRT-source tests — never for uploaded files
+        const liveProbeBtn = document.getElementById("btn-live-probe");
+        if (liveProbeBtn) {
+          liveProbeBtn.style.display =
+            r.url_host && r.url_host !== "upload" ? "" : "none";
+        }
+
         // Reset override UI
         document.getElementById("override-notice").style.display = "none";
         document.getElementById("btn-override").textContent = "⚡ Override";
@@ -2624,7 +2941,9 @@
         document.getElementById("meta-tags").textContent = tags
           ? "🏷 " + tags
           : "";
-        document.getElementById("meta-user").textContent = "👨‍🔬 " + r.username;
+        const metaUserEl = document.getElementById("meta-user");
+        metaUserEl.textContent = "👨‍🔬 " + r.username;
+        _wireAssignUserTrigger(metaUserEl, r.username, r.res_file);
         const wfLabel = r.reeval_label
           ? `⇄ ${r.reeval_label}`
           : (WORKFLOW_LABELS[r.workflow] || r.workflow || "—");
@@ -2779,43 +3098,14 @@
           ["B-frame count", r.b_frame_count],
           ["Total frames", r.total_frames],
           [
-            "AV Sync Avg",
-            r.av_sync_avg_ms != null ? r.av_sync_avg_ms + " ms" : "—",
-            r.av_sync_avg_ms != null
-              ? r.av_sync_avg_ms < 15
+            "Delay rel. to video (mediainfo)",
+            r.mediainfo_delay_ms != null ? r.mediainfo_delay_ms + " ms" : "—",
+            r.mediainfo_delay_ms != null
+              ? Math.abs(r.mediainfo_delay_ms) <= 350
                 ? "green"
-                : r.av_sync_avg_ms < 175
+                : Math.abs(r.mediainfo_delay_ms) <= 1000
                 ? "yellow"
                 : "red"
-              : "",
-          ],
-          [
-            "AV Sync Max",
-            r.av_sync_max_ms != null ? r.av_sync_max_ms + " ms" : "—",
-            r.av_sync_max_ms != null
-              ? r.av_sync_max_ms < 175
-                ? "green"
-                : r.av_sync_max_ms < 230
-                ? "yellow"
-                : "red"
-              : "",
-          ],
-          [
-            "Video PTS Jitter",
-            r.v_pts_jitter_ms != null ? r.v_pts_jitter_ms + " ms" : "—",
-            r.v_pts_jitter_ms != null
-              ? r.v_pts_jitter_ms < 5
-                ? "green"
-                : "yellow"
-              : "",
-          ],
-          [
-            "Audio PTS Jitter",
-            r.a_pts_jitter_ms != null ? r.a_pts_jitter_ms + " ms" : "—",
-            r.a_pts_jitter_ms != null
-              ? r.a_pts_jitter_ms < 5
-                ? "green"
-                : "yellow"
               : "",
           ],
         ]);
@@ -2861,9 +3151,10 @@
 
       function formatSpecText(s) {
         if (!s) return "—";
+        if (s.info) return "Informational only";
         if ("warn" in s) {
           const mode = s.mode === "inform" ? " (inform only)" : "";
-          return `< ${s.warn}ms preferred, < ${s.hard}ms limit${mode}`;
+          return `≤ ${s.warn}ms compliant, ≤ ${s.hard}ms accepted${mode}`;
         }
         if (s.values) {
           const vals = s.values.join(", ");
@@ -2902,6 +3193,7 @@
             "frame_size",
             "aspect_ratio",
             "chroma",
+            "pixel_format",
             "colour_range",
             "scan_type",
             "bit_depth",
@@ -2924,26 +3216,14 @@
             "a_bits",
             "a_br_kbps",
           ],
-          "AV SYNC & TIMING": [
-            "av_sync_warn",
-            "av_sync_max",
-            "v_pts_jitter",
-            "a_pts_jitter",
-          ],
-        };
-
-        const avSyncSpec = {
-          av_sync_warn: ["AV Sync Avg Offset", "< 15 ms (preferred)"],
-          av_sync_max: ["AV Sync Max Offset", "< 175 ms (hard limit 230ms)"],
-          v_pts_jitter: ["Video PTS Jitter", "< 5.0 ms"],
-          a_pts_jitter: ["Audio PTS Jitter", "< 5.0 ms"],
+          "TIMING": ["mediainfo_delay"],
         };
 
         let html = "";
         for (const [section, keys] of Object.entries(sections)) {
           html += `<tr class="section-hdr"><td colspan="4">${section}</td></tr>`;
           for (const key of keys) {
-            const info = avSyncSpec[key] || spec[key] || [key, "—"];
+            const info = spec[key] || [key, "—"];
             const [status, measured, note] = c[key] || ["UNKNOWN", "—", ""];
             html += `<tr>
         <td>${info[0]}</td>
@@ -3022,75 +3302,59 @@
       }
 
       // ── History ───────────────────────────────────────────────────────
-      async function loadHistory() {
+      let _histPage = 1;
+      let _histDebounceTimer = null;
+      const HIST_PAGE_SIZE = 50;
+
+      // Text filters call this on every keystroke — debounce so we don't
+      // hit the backend on every character while typing.
+      function loadHistoryDebounced(resetPage) {
+        clearTimeout(_histDebounceTimer);
+        _histDebounceTimer = setTimeout(() => loadHistory(resetPage), 300);
+      }
+
+      async function loadHistory(resetPage) {
+        if (resetPage) _histPage = 1;
         try {
-          const res = await fetch(`${PROXY}/gop/results`);
-          const items = await res.json();
-          const list = document.getElementById("history-list");
           const search = (
             document.getElementById("hist-search").value || ""
-          ).toLowerCase();
+          ).trim();
           const date = (
             document.getElementById("hist-date").value || ""
           ).trim();
           const tag = (
             document.getElementById("hist-tag").value || ""
-          ).toLowerCase();
+          ).trim();
           const server = (
             document.getElementById("hist-server").value || ""
           ).trim();
-          const userFilter = (document.getElementById("hist-user").value || "")
-            .toLowerCase()
-            .trim();
+          const userFilter = (
+            document.getElementById("hist-user").value || ""
+          ).trim();
 
-          // Remember which files are currently checked before rebuilding
-          const checkedFiles = new Set(
-            [...document.querySelectorAll(".hist-item-cb:checked")].map(
-              (cb) => cb.dataset.file
-            )
-          );
+          const params = new URLSearchParams({
+            page: _histPage,
+            page_size: HIST_PAGE_SIZE,
+          });
+          if (search) params.set("search", search);
+          if (date) params.set("date", date);
+          if (tag) params.set("tag", tag);
+          if (server) params.set("server", server);
+          if (userFilter) params.set("user", userFilter);
 
-          // Populate tag datalist
-          const allTags = [
-            ...new Set(
-              items.flatMap((i) =>
-                (i.tag || "")
-                  .split(",")
-                  .map((t) => t.trim())
-                  .filter(Boolean)
-              )
-            ),
-          ];
-          document.getElementById("hist-tag-list").innerHTML = allTags
+          const res = await fetch(`${PROXY}/gop/results?${params}`);
+          const data = await res.json();
+          const filtered = data.items || [];
+          _histPage = data.page || 1;
+          const list = document.getElementById("history-list");
+
+          // Populate tag datalist from the full history (backend-provided),
+          // not just the current page
+          document.getElementById("hist-tag-list").innerHTML = (data.tags || [])
             .map((t) => `<option value="${t}">`)
             .join("");
 
-          const filtered = items.filter((item) => {
-            const searchable = [
-              resolveHost(item.url_host),
-              item.url_host,
-              item.url_port,
-              item.tag,
-              item.test_id,
-              item.v_codec,
-              item.url,
-            ]
-              .map((v) => (v || "").toLowerCase())
-              .join(" ");
-            const tagParts = (item.tag || "")
-              .split(",")
-              .map((t) => t.trim().toLowerCase());
-            if (search && !searchable.includes(search)) return false;
-            if (date && !(item.started_at || "").startsWith(date)) return false;
-            if (tag && !tagParts.some((t) => t.includes(tag))) return false;
-            if (server && item.url_host !== server) return false;
-            if (
-              userFilter &&
-              !(item.username || "anonymous").toLowerCase().includes(userFilter)
-            )
-              return false;
-            return true;
-          });
+          renderHistPagination(data.page || 1, data.total_pages || 1, data.total || 0);
 
           if (!filtered.length) {
             list.innerHTML = '<div class="hist-empty">No analyses found</div>';
@@ -3223,7 +3487,12 @@
             ${logBadge}
             ${tagBadges}
             ${tsLink}
-            <span style="font-family:var(--mono);font-size:${HIST_BTN_SIZE};color:var(--muted);opacity:.7" title="Tested by ${
+            <span ${
+                (item.username || "anonymous").toLowerCase() === "anonymous" &&
+                ["admin", "engineer"].includes(_currentUserRole)
+                  ? `onclick="event.stopPropagation();openAssignUserDropdown(event,'${item.file}')" style="font-family:var(--mono);font-size:${HIST_BTN_SIZE};color:var(--muted);opacity:.7;cursor:pointer;text-decoration:underline dotted"`
+                  : `style="font-family:var(--mono);font-size:${HIST_BTN_SIZE};color:var(--muted);opacity:.7"`
+              } title="Tested by ${
                 item.username || "anonymous"
               }">👤 ${(item.username || "anonymous").split("@")[0]}</span>
             ${rerunBtn}
@@ -3245,6 +3514,47 @@
         } catch (e) {
           console.error(e);
         }
+      }
+
+      // Renders numbered pagination controls for the history list. Search
+      // filters always run against the full backend history — pagination
+      // only affects how many of the matching results are shown at once.
+      function renderHistPagination(page, totalPages, total) {
+        const bar = document.getElementById("hist-pagination");
+        if (!bar) return;
+        if (totalPages <= 1) {
+          bar.innerHTML = total
+            ? `<span class="hist-page-info">${total} result${
+                total === 1 ? "" : "s"
+              }</span>`
+            : "";
+          return;
+        }
+
+        const btn = (label, target, opts = {}) => {
+          const disabled = opts.disabled ? "disabled" : "";
+          const active = opts.active ? "active" : "";
+          return `<button class="hist-page-btn ${active}" ${disabled} ${
+            opts.active ? "" : `onclick="_histPage=${target};loadHistory()"`
+          }>${label}</button>`;
+        };
+
+        // Windowed page list: first, last, current ±1, with ellipses
+        const pages = new Set([1, totalPages, page - 1, page, page + 1]);
+        const sorted = [...pages].filter((p) => p >= 1 && p <= totalPages).sort((a, b) => a - b);
+
+        let html = `<span class="hist-page-info">${total} result${
+          total === 1 ? "" : "s"
+        }</span>`;
+        html += btn("‹", page - 1, { disabled: page <= 1 });
+        let prev = 0;
+        for (const p of sorted) {
+          if (prev && p - prev > 1) html += `<span class="hist-page-ellipsis">…</span>`;
+          html += btn(String(p), p, { active: p === page });
+          prev = p;
+        }
+        html += btn("›", page + 1, { disabled: page >= totalPages });
+        bar.innerHTML = html;
       }
 
       function resolveHost(ip) {
@@ -3381,6 +3691,7 @@
 
       // ── Override ──────────────────────────────────────────────────────
       let _currentResult = null;
+      let _lastEnvConfig = {};
       let _overrideReason = null;
 
       function openOverrideModal() {
@@ -3485,6 +3796,434 @@
           ).innerHTML = `<span class="status-pill ${os}" style="font-size:.72rem;padding:3px 12px">${os}</span>`;
         }
         loadHistory();
+      }
+
+      // ── Ingest Analyser report ──────────────────────────────────────────
+      function openIngestReport() {
+        if (!_currentResult || !_currentResult.ingest_dir) return;
+        window.open(
+          `${PROXY}/ingest/report/${encodeURIComponent(_currentResult.ingest_dir)}`,
+          "_blank"
+        );
+      }
+
+      // ── Live SRT Transport Probe (post-SRT PCR interval / TS CC loss) ─────
+      let _liveProbeEventSource = null;
+      let _liveProbeSessionId = null;
+      let _liveProbeSamples = []; // rolling buffer of {t, pcr_interval_avg_ms, pcr_interval_max_ms, ts_cc_loss, bitrate_kbps, state}
+      const LIVE_PROBE_MAX_SAMPLES = 300; // 5 min @ 1 sample/sec
+      const LIVE_PROBE_PCR_WARN_MS = 130; // orange warning threshold
+      const LIVE_PROBE_PCR_CRIT_MS = 150; // red critical threshold
+
+      // Host/port/tag currently loaded into the modal — set by whichever
+      // entry point opened it (a saved test result, or the SRT form fields).
+      let _liveProbeHost = null;
+      let _liveProbePort = null;
+      let _liveProbeTag = "";
+
+      // Entry point: "Live Probe" button on a saved GOP test result
+      function openLiveProbeModalForTest() {
+        if (!_currentResult || !_currentResult.url_host) return;
+        _openLiveProbeModal(
+          _currentResult.url_host,
+          _currentResult.url_port,
+          (_lastEnvConfig && _lastEnvConfig.SRT_PASSPHRASE) || "",
+          _currentResult.tag || ""
+        );
+      }
+
+      // Entry point: standalone "Live Probe" button in the SRT run form —
+      // uses whatever is currently typed into Host/Port/Passphrase, without
+      // running a GOP test at all.
+      function openLiveProbeModalStandalone() {
+        const host = document.getElementById("inp-host").value.trim();
+        const port = document.getElementById("inp-port").value.trim();
+        const pass = document.getElementById("inp-pass").value.trim();
+        const tag = (document.getElementById("inp-tag").value || "").trim();
+        if (!host || !port) {
+          alert("Enter a Host/IP and Port above first.");
+          return;
+        }
+        _openLiveProbeModal(host, port, pass, tag);
+      }
+
+      function _openLiveProbeModal(host, port, passphrase, tag) {
+        _liveProbeHost = host;
+        _liveProbePort = port;
+        _liveProbeTag = tag || "";
+
+        document.getElementById("live-probe-host").textContent =
+          `${host}:${port || ""}`;
+        document.getElementById("live-probe-err").textContent = "";
+        document.getElementById("live-probe-start-row").style.display = "flex";
+        document.getElementById("live-probe-stop-btn").style.display = "none";
+        _setLiveProbeState("idle");
+        _liveProbeSamples = [];
+        _drawLiveProbeChart();
+
+        document.getElementById("live-probe-pass").value = passphrase || "";
+        ["live-probe-iat-avg", "live-probe-iat-max", "live-probe-mlr"].forEach(
+          (id) => {
+            const el = document.getElementById(id);
+            el.textContent = "—";
+            el.style.color = "";
+          }
+        );
+
+        document.getElementById("live-probe-modal").classList.add("open");
+      }
+
+      function closeLiveProbeModal() {
+        stopLiveProbe();
+        document.getElementById("live-probe-modal").classList.remove("open");
+      }
+
+      function _setLiveProbeState(state) {
+        const dot = document.getElementById("live-probe-dot");
+        const label = document.getElementById("live-probe-state");
+        dot.className = "live-probe-dot " + state;
+        const labels = {
+          idle: "idle",
+          connecting: "connecting…",
+          running: "running",
+          stalled: "stalled — no signal",
+          unreachable: "unreachable — retrying…",
+          stopped: "stopped",
+        };
+        label.textContent = labels[state] || state;
+      }
+
+      async function startLiveProbe() {
+        if (!_liveProbeHost || !_liveProbePort) return;
+        const errEl = document.getElementById("live-probe-err");
+        errEl.textContent = "";
+
+        const passphrase = document.getElementById("live-probe-pass").value.trim();
+
+        try {
+          const res = await fetch(`${PROXY}/live-probe/start`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              host: _liveProbeHost,
+              port: _liveProbePort,
+              passphrase,
+              tag: _liveProbeTag,
+            }),
+          });
+          const data = await res.json();
+          if (!data.session_id) throw new Error(data.error || "No session_id");
+
+          _liveProbeSessionId = data.session_id;
+          _liveProbeSamples = [];
+          document.getElementById("live-probe-start-row").style.display = "none";
+          document.getElementById("live-probe-stop-btn").style.display = "";
+          _setLiveProbeState("connecting");
+
+          _liveProbeEventSource = new EventSource(
+            `${PROXY}/live-probe/stream/${data.session_id}`
+          );
+          _liveProbeEventSource.onmessage = (evt) => {
+            let msg;
+            try {
+              msg = JSON.parse(evt.data);
+            } catch (e) {
+              return;
+            }
+            if (msg.type === "status") {
+              _setLiveProbeState(msg.state);
+            } else if (msg.type === "error") {
+              errEl.textContent = msg.message || "Live probe error";
+              _setLiveProbeState("unreachable");
+            } else if (msg.type === "sample") {
+              _setLiveProbeState(msg.state || "running");
+
+              const iatAvgEl = document.getElementById("live-probe-iat-avg");
+              const iatMaxEl = document.getElementById("live-probe-iat-max");
+              const mlrEl = document.getElementById("live-probe-mlr");
+
+              if (msg.pcr_interval_avg_ms == null) {
+                iatAvgEl.textContent = "…";
+                iatMaxEl.textContent = "…";
+                iatAvgEl.style.color = "";
+                iatMaxEl.style.color = "";
+              } else {
+                iatAvgEl.textContent = `${msg.pcr_interval_avg_ms} ms`;
+                iatMaxEl.textContent = `${msg.pcr_interval_max_ms} ms`;
+                iatAvgEl.style.color = _liveProbePcrColor(msg.pcr_interval_avg_ms);
+                iatMaxEl.style.color = _liveProbePcrColor(msg.pcr_interval_max_ms);
+              }
+
+              mlrEl.textContent = msg.ts_cc_loss;
+              mlrEl.style.color = msg.ts_cc_loss > 0 ? "var(--red)" : "var(--green)";
+
+              // Always show the real bitrate, including 0 during a stall —
+              // freezing on the last good value looks identical to "fine".
+              document.getElementById("live-probe-bitrate").textContent =
+                `${msg.bitrate_kbps} kbps`;
+
+              _liveProbeSamples.push(msg);
+              if (_liveProbeSamples.length > LIVE_PROBE_MAX_SAMPLES)
+                _liveProbeSamples.shift();
+              _drawLiveProbeChart();
+            }
+          };
+          _liveProbeEventSource.onerror = () => {
+            // EventSource auto-reconnects; just reflect it visually
+            _setLiveProbeState("connecting");
+          };
+        } catch (e) {
+          errEl.textContent = `Error: ${e.message}`;
+        }
+      }
+
+      async function stopLiveProbe() {
+        if (_liveProbeEventSource) {
+          _liveProbeEventSource.close();
+          _liveProbeEventSource = null;
+        }
+        if (_liveProbeSessionId) {
+          const sid = _liveProbeSessionId;
+          _liveProbeSessionId = null;
+          try {
+            await fetch(`${PROXY}/live-probe/stop/${sid}`, { method: "POST" });
+          } catch (e) {
+            /* best-effort */
+          }
+        }
+        document.getElementById("live-probe-start-row").style.display = "flex";
+        document.getElementById("live-probe-stop-btn").style.display = "none";
+        _setLiveProbeState("stopped");
+      }
+
+      // Stop the capture even if the tab is closed/refreshed without clicking Stop
+      window.addEventListener("beforeunload", () => {
+        if (_liveProbeSessionId) {
+          try {
+            navigator.sendBeacon(
+              `${PROXY}/live-probe/stop/${_liveProbeSessionId}`
+            );
+          } catch (e) {
+            /* best-effort */
+          }
+        }
+      });
+
+      function _liveProbePcrColor(ms) {
+        if (ms >= LIVE_PROBE_PCR_CRIT_MS) return "var(--red)";
+        if (ms >= LIVE_PROBE_PCR_WARN_MS) return "#fff";
+        return "var(--green)";
+      }
+
+      function _drawLiveProbeChart() {
+        const canvas = document.getElementById("live-probe-canvas");
+        if (!canvas) return;
+        const ctx = canvas.getContext("2d");
+        const w = canvas.width;
+        const h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+
+        if (_liveProbeSamples.length < 2) return;
+
+        // Fixed-ish scale: always show some headroom above the critical
+        // line so 130/150 stay meaningful references, but stretch further
+        // if a real spike exceeds it.
+        const highestSeen = Math.max(
+          0,
+          ...(_liveProbeSamples
+            .map((s) => s.pcr_interval_max_ms)
+            .filter((v) => v != null))
+        );
+        const maxIat = Math.max(LIVE_PROBE_PCR_CRIT_MS * 1.2, highestSeen * 1.1);
+        const barW = w / LIVE_PROBE_MAX_SAMPLES;
+
+        _liveProbeSamples.forEach((s, i) => {
+          const x = i * barW;
+
+          if (s.state === "stalled") {
+            // No signal this second — draw a flat marker so the outage is
+            // visible on the timeline instead of leaving a silent gap.
+            ctx.fillStyle = "rgba(248,81,73,0.9)";
+            ctx.fillRect(x, h - Math.max(4, h * 0.04), Math.max(1, barW - 1), Math.max(4, h * 0.04));
+            return;
+          }
+          if (s.pcr_interval_max_ms == null) return; // still connecting / PCR_PID not found yet
+
+          const spikeH = Math.min(h, (s.pcr_interval_max_ms / maxIat) * h);
+
+          let color;
+          if (s.ts_cc_loss > 0 || s.pcr_interval_max_ms >= LIVE_PROBE_PCR_CRIT_MS) {
+            color = "rgba(248,81,73,0.85)"; // red — loss or critical PCR interval
+          } else if (s.pcr_interval_max_ms >= LIVE_PROBE_PCR_WARN_MS) {
+            color = "rgba(250,165,26,0.85)"; // orange — warning PCR interval
+          } else {
+            color = "rgba(63,185,80,0.75)"; // green — healthy
+          }
+
+          ctx.fillStyle = color;
+          ctx.fillRect(x, h - spikeH, Math.max(1, barW - 1), spikeH);
+        });
+
+        // Reference lines at warning (130ms) and critical (150ms)
+        const drawRefLine = (ms, color) => {
+          const y = h - (ms / maxIat) * h;
+          if (y < 0 || y > h) return;
+          ctx.strokeStyle = color;
+          ctx.setLineDash([4, 3]);
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(w, y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        };
+        drawRefLine(LIVE_PROBE_PCR_WARN_MS, "rgba(250,165,26,0.6)");
+        drawRefLine(LIVE_PROBE_PCR_CRIT_MS, "rgba(248,81,73,0.6)");
+
+        // Baseline
+        ctx.strokeStyle = "rgba(255,255,255,0.15)";
+        ctx.beginPath();
+        ctx.moveTo(0, h - 1);
+        ctx.lineTo(w, h - 1);
+        ctx.stroke();
+      }
+
+      // ── Assign anonymous test to a user (admin/engineer only, one-time) ──
+      let _usersListCache = null; // cached array of {username, role, created_at}
+      let _assignTargetFile = null;
+      let _assignTargetIsMeta = false;
+
+      function _wireAssignUserTrigger(el, username, resFile) {
+        const isAnon = (username || "anonymous").toLowerCase() === "anonymous";
+        const canAssign =
+          isAnon && ["admin", "engineer"].includes(_currentUserRole) && !!resFile;
+        el.style.cursor = canAssign ? "pointer" : "";
+        el.style.textDecoration = canAssign ? "underline dotted" : "";
+        el.onclick = canAssign
+          ? (e) => openAssignUserDropdown(e, resFile, true)
+          : null;
+      }
+
+      async function openAssignUserDropdown(evt, filename, isMeta) {
+        evt.stopPropagation();
+        _assignTargetFile = filename;
+        _assignTargetIsMeta = !!isMeta;
+
+        const dd = document.getElementById("assign-user-dropdown");
+        const rect = evt.target.getBoundingClientRect();
+        dd.style.display = "flex";
+        dd.style.top = `${rect.bottom + 4}px`;
+        let left = rect.left;
+        const maxLeft = window.innerWidth - 270;
+        if (left > maxLeft) left = Math.max(8, maxLeft);
+        dd.style.left = `${left}px`;
+
+        const filterEl = document.getElementById("assign-user-filter");
+        filterEl.value = "";
+        const listEl = document.getElementById("assign-user-list");
+        listEl.innerHTML = `<div style="padding:10px;color:var(--muted);font-size:.72rem">Loading…</div>`;
+
+        if (!_usersListCache) {
+          try {
+            const res = await fetch(`${PROXY}/users`);
+            const data = await res.json();
+            _usersListCache = (data.users || [])
+              .slice()
+              .sort((a, b) => a.username.localeCompare(b.username));
+          } catch (e) {
+            listEl.innerHTML = `<div style="padding:10px;color:var(--red);font-size:.72rem">Failed to load users</div>`;
+            return;
+          }
+        }
+        _renderAssignUserList(_usersListCache);
+        filterEl.focus();
+
+        document.addEventListener(
+          "click",
+          _closeAssignUserDropdownOnOutsideClick,
+          { capture: true }
+        );
+      }
+
+      function _closeAssignUserDropdownOnOutsideClick(e) {
+        const dd = document.getElementById("assign-user-dropdown");
+        if (dd.style.display === "none") return;
+        if (!dd.contains(e.target)) {
+          dd.style.display = "none";
+          document.removeEventListener(
+            "click",
+            _closeAssignUserDropdownOnOutsideClick,
+            { capture: true }
+          );
+        }
+      }
+
+      function _renderAssignUserList(users) {
+        const listEl = document.getElementById("assign-user-list");
+        if (!users.length) {
+          listEl.innerHTML = `<div style="padding:10px;color:var(--muted);font-size:.72rem">No users found</div>`;
+          return;
+        }
+        listEl.innerHTML = users
+          .map(
+            (u) => `<div
+              onclick="_assignUserToTest('${u.username.replace(/'/g, "\\'")}')"
+              style="padding:6px 10px;cursor:pointer;font-size:.75rem;color:#fff;border-bottom:1px solid var(--border)"
+              onmouseover="this.style.background='var(--bg3)'"
+              onmouseout="this.style.background='transparent'"
+            >${u.username}<span style="color:var(--muted);font-size:.65rem;margin-left:6px">${
+              u.role || ""
+            }</span></div>`
+          )
+          .join("");
+      }
+
+      function _filterAssignUserList() {
+        if (!_usersListCache) return;
+        const q = document
+          .getElementById("assign-user-filter")
+          .value.toLowerCase();
+        const filtered = _usersListCache.filter((u) =>
+          u.username.toLowerCase().includes(q)
+        );
+        _renderAssignUserList(filtered);
+      }
+
+      async function _assignUserToTest(username) {
+        if (!_assignTargetFile) return;
+        const dd = document.getElementById("assign-user-dropdown");
+        const listEl = document.getElementById("assign-user-list");
+        listEl.innerHTML = `<div style="padding:10px;color:var(--muted);font-size:.72rem">Assigning…</div>`;
+        try {
+          const res = await fetch(
+            `${PROXY}/gop/assign-user/${encodeURIComponent(_assignTargetFile)}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ username }),
+            }
+          );
+          const data = await res.json();
+          if (!res.ok || !data.success) {
+            listEl.innerHTML = `<div style="padding:10px;color:var(--red);font-size:.72rem">${
+              data.error || "Failed to assign"
+            }</div>`;
+            return;
+          }
+          dd.style.display = "none";
+          if (
+            _assignTargetIsMeta &&
+            _currentResult &&
+            _currentResult.res_file === _assignTargetFile
+          ) {
+            _currentResult.username = username;
+            const metaUserEl = document.getElementById("meta-user");
+            metaUserEl.textContent = "👨‍🔬 " + username;
+            _wireAssignUserTrigger(metaUserEl, username, _assignTargetFile);
+          }
+          loadHistory(); // refresh archive list so the badge updates everywhere
+        } catch (e) {
+          listEl.innerHTML = `<div style="padding:10px;color:var(--red);font-size:.72rem">Network error</div>`;
+        }
       }
 
       // ── Generate Report ───────────────────────────────────────────────
@@ -3654,7 +4393,13 @@
         )}
         ${vrow("Aspect Ratio", "16:9", r.v_dar || "—", "aspect_ratio")}
         ${vrow("Chroma", "4:2:0", r.v_chroma || "—", "chroma")}
-        ${vrow("Colour Range", "limited", r.v_pix_fmt || "—", "colour_range")}
+        ${vrow("Pixel Format", "informational", r.v_pix_fmt || "—", "pixel_format")}
+        ${vrow(
+          "Colour Range",
+          "limited",
+          r.v_full_range ? "full" : "limited",
+          "colour_range"
+        )}
         ${vrow(
           "Scan Type",
           "progressive / interlaced",
@@ -3719,30 +4464,12 @@
           r.a_br_kbps ? r.a_br_kbps + " Kbps" : "—",
           "a_br_kbps"
         )}
-        ${vsec("AV SYNC & TIMING")}
+        ${vsec("TIMING")}
         ${vrow(
-          "AV Sync Avg Offset",
-          "< 15 ms preferred",
-          r.av_sync_avg_ms != null ? r.av_sync_avg_ms + " ms" : "—",
-          "av_sync_warn"
-        )}
-        ${vrow(
-          "AV Sync Max Offset",
-          "< 175 ms hard limit",
-          r.av_sync_max_ms != null ? r.av_sync_max_ms + " ms" : "—",
-          "av_sync_max"
-        )}
-        ${vrow(
-          "Video PTS Jitter",
-          "< 5.0 ms",
-          r.v_pts_jitter_ms != null ? r.v_pts_jitter_ms + " ms" : "—",
-          "v_pts_jitter"
-        )}
-        ${vrow(
-          "Audio PTS Jitter",
-          "< 5.0 ms",
-          r.a_pts_jitter_ms != null ? r.a_pts_jitter_ms + " ms" : "—",
-          "a_pts_jitter"
+          "Delay relative to video (mediainfo)",
+          "≤ 350 ms compliant, ≤ 1000 ms accepted",
+          r.mediainfo_delay_ms != null ? r.mediainfo_delay_ms + " ms" : "—",
+          "mediainfo_delay"
         )}
       </tbody>
     </table>
@@ -3887,7 +4614,8 @@
           ),
           tr("Aspect Ratio", "16:9", r.v_dar || "—", "aspect_ratio"),
           tr("Chroma", "4:2:0", r.v_chroma || "—", "chroma"),
-          tr("Colour Range", "limited", r.v_pix_fmt || "—", "colour_range"),
+          tr("Pixel Format", "informational", r.v_pix_fmt || "—", "pixel_format"),
+          tr("Colour Range", "limited", r.v_full_range ? "full" : "limited", "colour_range"),
           tr("Scan Type", "prog/interlaced", r.v_scan || "—", "scan_type"),
           tr("Bit Depth", "8", String(r.v_bits || "—"), "bit_depth"),
           tr("Colour Gamut", "bt709", r.v_color_sp || "—", "colour_gamut"),
@@ -3944,30 +4672,12 @@
             "a_br_kbps"
           ),
           ``,
-          `AV SYNC & TIMING`,
+          `TIMING`,
           tr(
-            "AV Sync Avg Offset",
-            "< 15 ms preferred",
-            r.av_sync_avg_ms != null ? r.av_sync_avg_ms + " ms" : "—",
-            "av_sync_warn"
-          ),
-          tr(
-            "AV Sync Max Offset",
-            "< 175 ms hard limit",
-            r.av_sync_max_ms != null ? r.av_sync_max_ms + " ms" : "—",
-            "av_sync_max"
-          ),
-          tr(
-            "Video PTS Jitter",
-            "< 5.0 ms",
-            r.v_pts_jitter_ms != null ? r.v_pts_jitter_ms + " ms" : "—",
-            "v_pts_jitter"
-          ),
-          tr(
-            "Audio PTS Jitter",
-            "< 5.0 ms",
-            r.a_pts_jitter_ms != null ? r.a_pts_jitter_ms + " ms" : "—",
-            "a_pts_jitter"
+            "Delay relative to video (mediainfo)",
+            "≤ 350 ms compliant, ≤ 1000 ms accepted",
+            r.mediainfo_delay_ms != null ? r.mediainfo_delay_ms + " ms" : "—",
+            "mediainfo_delay"
           ),
           sep,
           `GOP STRUCTURE`,
@@ -4147,6 +4857,12 @@
           ? "transparent"
           : "var(--purple)";
         tabUpload.style.color = isSrt ? "var(--muted)" : "#fff";
+
+        const liveProbeStandaloneBtn = document.getElementById(
+          "btn-live-probe-standalone"
+        );
+        if (liveProbeStandaloneBtn)
+          liveProbeStandaloneBtn.style.display = isSrt ? "" : "none";
       }
 
       function clearHistFilters() {
@@ -4158,7 +4874,7 @@
         if (sv) sv.value = "";
         const mc = document.getElementById("btn-my-checks");
         if (mc) mc.classList.remove("active");
-        loadHistory();
+        loadHistory(true);
       }
 
       // ── TS Upload ─────────────────────────────────────────────────────
@@ -4468,6 +5184,11 @@
             if (e.target === this) this.classList.remove("open");
           });
       });
+      document
+        .getElementById("live-probe-modal")
+        .addEventListener("click", function (e) {
+          if (e.target === this) closeLiveProbeModal();
+        });
 
       // ── Specs Editor ─────────────────────────────────────────────────
       let _currentSpecs = null;
@@ -4596,6 +5317,7 @@
             "frame_size",
             "aspect_ratio",
             "chroma",
+            "pixel_format",
             "colour_range",
             "scan_type",
             "bit_depth",
@@ -4618,12 +5340,7 @@
             "a_bits",
             "a_br_kbps",
           ],
-          "AV SYNC & TIMING": [
-            "av_sync_warn",
-            "av_sync_max",
-            "v_pts_jitter",
-            "a_pts_jitter",
-          ],
+          "TIMING": ["mediainfo_delay"],
         };
 
         let html = `<table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.72rem">
@@ -4645,19 +5362,18 @@
               prefEl = "",
               specialEl = "";
 
-            if ("warn" in s) {
-              // AV Sync threshold spec
-              allowedEl = `Warn: <input data-key="${key}" data-field="warn" type="number" value="${s.warn}" step="0.5" style="${inStyle};width:60px" title="Warn threshold (ms)" /> ms &nbsp; Limit: <input data-key="${key}" data-field="hard" type="number" value="${s.hard}" step="0.5" style="${inStyle};width:60px" title="Hard limit (ms)" /> ms`;
+            if ("info" in s) {
+              // Informational-only field — not adjustable, always displayed as INFO
+              allowedEl = `<span style="color:var(--muted)">Informational only — not enforced</span>`;
+            } else if ("warn" in s) {
+              // Delay threshold spec: warn = max |ms| still COMPLIANT, hard = max |ms| still ACCEPTED (above = REJECTED)
+              allowedEl = `Compliant up to: <input data-key="${key}" data-field="warn" type="number" value="${s.warn}" step="10" style="${inStyle};width:70px" title="Compliant threshold (ms)" /> ms &nbsp; Accepted up to: <input data-key="${key}" data-field="hard" type="number" value="${s.hard}" step="10" style="${inStyle};width:70px" title="Reject above this (ms)" /> ms`;
               prefEl = ``;
-              const modeInform = (s.mode || "inform") === "inform";
-              specialEl = `<label style="cursor:pointer"><input type="checkbox" data-key="${key}" data-field="mode_inform" ${
-                modeInform ? "checked" : ""
-              } /> Inform only (never reject)</label>`;
             } else if ("lo" in s) {
-              // Range spec
-              allowedEl = `<input data-key="${key}" data-field="lo" type="number" value="${s.lo}" step="0.1" style="${inStyle}" title="Min" /> – <input data-key="${key}" data-field="hi" type="number" value="${s.hi}" step="0.1" style="${inStyle}" title="Max" />`;
+              // Range spec: lo/hi = hard accept/reject bound, pref_lo/pref_hi = compliant sub-range
+              allowedEl = `<span style="color:var(--muted);font-size:.6rem">Accept range:</span> <input data-key="${key}" data-field="lo" type="number" value="${s.lo}" step="0.1" style="${inStyle}" title="Reject below this" /> – <input data-key="${key}" data-field="hi" type="number" value="${s.hi}" step="0.1" style="${inStyle}" title="Reject above this" />`;
               if ("pref_lo" in s) {
-                prefEl = `<input data-key="${key}" data-field="pref_lo" type="number" value="${s.pref_lo}" step="0.1" style="${inStyle}" title="Preferred min" /> – <input data-key="${key}" data-field="pref_hi" type="number" value="${s.pref_hi}" step="0.1" style="${inStyle}" title="Preferred max" />`;
+                prefEl = `<span style="color:var(--muted);font-size:.6rem">Compliant within:</span> <input data-key="${key}" data-field="pref_lo" type="number" value="${s.pref_lo}" step="0.1" style="${inStyle}" title="Preferred min — must stay inside the accept range above" /> – <input data-key="${key}" data-field="pref_hi" type="number" value="${s.pref_hi}" step="0.1" style="${inStyle}" title="Preferred max — must stay inside the accept range above" />`;
               }
             } else if ("values" in s) {
               // Enum spec — values can contain numbers or strings
@@ -5250,7 +5966,7 @@
         if (!_currentUser) {
           userEl.value = "anonymous";
           btn.classList.add("active");
-          loadHistory();
+          loadHistory(true);
           return;
         }
         const isActive = btn.classList.contains("active");
@@ -5261,7 +5977,7 @@
           btn.classList.add("active");
           userEl.value = _currentUser;
         }
-        loadHistory();
+        loadHistory(true);
       }
 
       loadConfig();

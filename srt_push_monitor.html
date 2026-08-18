@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SRT Push Monitor</title>
+    <style>
+      :root {
+        --bg: #0a0d10;
+        --panel: #12171c;
+        --panel-alt: #171d23;
+        --border: #232b32;
+        --text: #e6edf3;
+        --text-dim: #7c8894;
+        --text-faint: #4b5560;
+        --tally-red: #ff2f3d;
+        --tally-red-dim: #5a1319;
+        --tally-green: #2ecc71;
+        --tally-green-dim: #14361f;
+        --warn-amber: #ffb020;
+        --idle-gray: #4b5560;
+        --info-blue: #4c9eff;
+        --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Consolas", monospace;
+        --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        padding: 24px;
+        min-height: 100vh;
+      }
+
+      .wrap {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      /* ---------- Header ---------- */
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 16px;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      .brand .eyebrow {
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+        margin: 0 0 4px;
+      }
+      .brand h1 {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 650;
+        letter-spacing: -0.01em;
+      }
+
+      .tally {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 14px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: var(--panel-alt);
+        font-family: var(--mono);
+        font-size: 13px;
+        letter-spacing: 0.04em;
+      }
+      .tally-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--idle-gray);
+        box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+        flex: none;
+      }
+      .tally[data-state="running"] .tally-dot {
+        background: var(--tally-green);
+        animation: pulse 1.6s ease-in-out infinite;
+      }
+      .tally[data-state="restarting"] .tally-dot,
+      .tally[data-state="starting"] .tally-dot,
+      .tally[data-state="partial"] .tally-dot {
+        background: var(--warn-amber);
+      }
+      .tally[data-state="error"] .tally-dot,
+      .tally[data-state="failed"] .tally-dot {
+        background: var(--tally-red);
+      }
+      .tally[data-state="running"] {
+        border-color: var(--tally-green-dim);
+        color: #8ff0b0;
+      }
+      .tally[data-state="restarting"],
+      .tally[data-state="starting"],
+      .tally[data-state="partial"] {
+        color: var(--warn-amber);
+      }
+      .tally[data-state="error"],
+      .tally[data-state="failed"] {
+        color: var(--tally-red);
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.55);
+        }
+        50% {
+          box-shadow: 0 0 0 6px rgba(46, 204, 113, 0);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .tally-dot {
+          animation: none !important;
+        }
+      }
+
+      /* ---------- Service tabs ---------- */
+      .tabs {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .tab {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: var(--mono);
+        font-size: 12px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--panel-alt);
+        color: var(--text-dim);
+        cursor: pointer;
+      }
+      .tab:hover {
+        color: var(--text);
+      }
+      .tab.active {
+        color: var(--text);
+        border-color: var(--info-blue);
+        background: #142131;
+      }
+      .tab .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--idle-gray);
+        flex: none;
+      }
+      .tab[data-state="running"] .dot {
+        background: var(--tally-green);
+      }
+      .tab[data-state="starting"] .dot,
+      .tab[data-state="restarting"] .dot {
+        background: var(--warn-amber);
+      }
+      .tab[data-state="error"] .dot,
+      .tab[data-state="failed"] .dot {
+        background: var(--tally-red);
+      }
+      .tab .src-badge {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-faint);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 1px 5px;
+      }
+      .empty-note {
+        font-family: var(--mono);
+        font-size: 13px;
+        color: var(--text-faint);
+      }
+
+      /* ---------- Layout ---------- */
+      .grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 20px;
+      }
+      @media (max-width: 900px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 16px;
+      }
+      .panel h2 {
+        margin: 0 0 12px;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-dim);
+        font-weight: 600;
+      }
+      .panel h2 .sub {
+        text-transform: none;
+        letter-spacing: normal;
+        color: var(--text-faint);
+        font-weight: 400;
+      }
+
+      /* ---------- Preview ---------- */
+      .preview-frame {
+        position: relative;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #000;
+        aspect-ratio: 16/9;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--border);
+      }
+      .preview-frame img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+      }
+      .preview-empty {
+        color: var(--text-faint);
+        font-family: var(--mono);
+        font-size: 13px;
+        text-align: center;
+        padding: 20px;
+      }
+      .preview-meta {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 8px;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+
+      /* ---------- Telemetry ---------- */
+      .telemetry-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        padding: 7px 0;
+        border-bottom: 1px dashed var(--border);
+        font-family: var(--mono);
+        font-size: 13px;
+      }
+      .telemetry-row:last-child {
+        border-bottom: none;
+      }
+      .telemetry-row .label {
+        color: var(--text-dim);
+      }
+      .telemetry-row .value {
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      .sparkline {
+        display: flex;
+        align-items: flex-end;
+        gap: 2px;
+        height: 36px;
+        margin: 12px 0 4px;
+        padding: 4px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .sparkline .bar {
+        flex: 1;
+        min-width: 2px;
+        background: var(--tally-green);
+        opacity: 0.75;
+        border-radius: 1px 1px 0 0;
+        transition: height 0.3s ease;
+      }
+
+      /* ---------- Controls ---------- */
+      .controls {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .controls .form-note {
+        margin-left: 2px;
+      }
+      button {
+        font-family: var(--sans);
+        font-size: 13px;
+        font-weight: 600;
+        padding: 9px 16px;
+        border-radius: 7px;
+        border: 1px solid var(--border);
+        background: var(--panel-alt);
+        color: var(--text);
+        cursor: pointer;
+        transition: background 0.15s ease, border-color 0.15s ease;
+      }
+      button:hover {
+        background: #1c2329;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      button.primary {
+        border-color: var(--info-blue);
+        color: var(--info-blue);
+      }
+      button.danger {
+        border-color: var(--tally-red-dim);
+        color: #ff8f97;
+      }
+      button.danger:hover {
+        background: #241014;
+      }
+      button.small {
+        padding: 5px 10px;
+        font-size: 12px;
+      }
+
+      /* ---------- Config form ---------- */
+      details {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 16px;
+      }
+      details > summary {
+        cursor: pointer;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-dim);
+        font-weight: 600;
+        list-style: none;
+      }
+      details > summary::-webkit-details-marker {
+        display: none;
+      }
+      details > summary::before {
+        content: "▸ ";
+        color: var(--text-faint);
+      }
+      details[open] > summary::before {
+        content: "▾ ";
+      }
+
+      .service-list {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        margin-top: 16px;
+      }
+      .service-row {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 14px;
+        background: var(--panel-alt);
+      }
+      .service-row-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+      .service-row-header .id-name {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        flex: 1;
+      }
+      .service-row-header label {
+        min-width: 140px;
+      }
+      .enabled-toggle {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--text-dim);
+        flex-direction: row !important;
+      }
+      .enabled-toggle input {
+        width: auto;
+      }
+      .source-toggle {
+        display: flex;
+        gap: 14px;
+        margin-bottom: 12px;
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+      .source-toggle label {
+        flex-direction: row !important;
+        align-items: center;
+        gap: 6px;
+      }
+      .source-toggle input {
+        width: auto;
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      .form-grid .full {
+        grid-column: 1 / -1;
+      }
+      @media (max-width: 640px) {
+        .form-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      label {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+      input,
+      select {
+        font-family: var(--mono);
+        font-size: 13px;
+        color: var(--text);
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 8px 10px;
+      }
+      input:focus,
+      select:focus {
+        outline: 2px solid var(--info-blue);
+        outline-offset: 1px;
+      }
+
+      .form-actions {
+        margin-top: 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .form-note {
+        font-size: 12px;
+        color: var(--text-faint);
+      }
+
+      /* ---------- Log viewer ---------- */
+      .log-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      pre.log {
+        background: #000;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px;
+        max-height: 320px;
+        overflow: auto;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: #9fd3a0;
+        margin: 12px 0 0;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+
+      .toast {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 50;
+        background: var(--panel-alt);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 10px 16px;
+        border-radius: 8px;
+        font-size: 13px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+        opacity: 0;
+        transform: translateY(8px);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        pointer-events: none;
+      }
+      .toast.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .toast.error {
+        border-color: var(--tally-red-dim);
+        color: #ff8f97;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="brand">
+          <p class="eyebrow">Xvfb → Chromium → ffmpeg → SRT</p>
+          <h1>SRT Push Monitor</h1>
+        </div>
+        <div class="tally" id="tally" data-state="stopped">
+          <span class="tally-dot"></span>
+          <span id="tallyLabel">CHECKING…</span>
+        </div>
+      </header>
+
+      <div class="tabs" id="serviceTabs">
+        <span class="empty-note">Loading services…</span>
+      </div>
+
+      <div class="grid">
+        <section class="panel">
+          <h2>Screen preview <span class="sub" id="previewServiceName"></span></h2>
+          <div class="preview-frame" id="previewFrame">
+            <div class="preview-empty" id="previewEmpty">
+              No preview captured yet.<br />Waiting for srt-push to write a
+              frame.
+            </div>
+            <img
+              id="previewImg"
+              alt="Service screen preview"
+              style="display: none"
+            />
+          </div>
+          <div class="preview-meta">
+            <span id="previewUpdated">—</span>
+            <span>refreshes every 5s</span>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Telemetry <span class="sub" id="telemetryServiceName"></span></h2>
+          <div class="sparkline" id="sparkline"></div>
+          <div class="telemetry-row">
+            <span class="label">Bitrate</span
+            ><span class="value" id="stBitrate">—</span>
+          </div>
+          <div class="telemetry-row">
+            <span class="label">FPS</span
+            ><span class="value" id="stFps">—</span>
+          </div>
+          <div class="telemetry-row">
+            <span class="label">Frame</span
+            ><span class="value" id="stFrame">—</span>
+          </div>
+          <div class="telemetry-row">
+            <span class="label">Speed</span
+            ><span class="value" id="stSpeed">—</span>
+          </div>
+          <div class="telemetry-row">
+            <span class="label">Encoded time</span
+            ><span class="value" id="stTime">—</span>
+          </div>
+          <div class="telemetry-row">
+            <span class="label">PID</span
+            ><span class="value" id="stPid">—</span>
+          </div>
+          <div class="telemetry-row">
+            <span class="label">Last error</span
+            ><span class="value" id="stLastError">—</span>
+          </div>
+          <div class="telemetry-row">
+            <span class="label">Service state (systemd)</span
+            ><span class="value" id="stService">—</span>
+          </div>
+        </section>
+      </div>
+
+      <section class="panel">
+        <h2>srt-push service control (systemd unit — affects all services at once)</h2>
+        <div class="controls">
+          <button class="primary" id="btnStart">Start</button>
+          <button id="btnRestart">Restart</button>
+          <button class="danger" id="btnStop">Stop</button>
+        </div>
+      </section>
+
+      <details>
+        <summary>Configuration</summary>
+        <p class="form-note" style="margin-top: 12px">
+          Each block below is one independent source → SRT destination
+          pipeline. Saving restarts srt-push so every service picks up the
+          new configuration.
+        </p>
+        <div class="service-list" id="serviceList"></div>
+        <div class="form-actions">
+          <button id="btnAddService">+ Add service</button>
+          <button class="primary" id="btnSaveConfig">
+            Save & restart service
+          </button>
+          <span class="form-note">Saving restarts srt-push to apply the new configuration.</span>
+        </div>
+      </details>
+
+      <details>
+        <summary>Log</summary>
+        <div class="form-actions" style="margin-top: 0">
+          <div class="log-controls">
+            <label style="flex-direction: row; align-items: center; gap: 8px">
+              <span>Service</span>
+              <select id="logServiceSelect"></select>
+            </label>
+            <button id="btnRefreshLog">Refresh</button>
+          </div>
+          <span class="form-note">Last 200 lines of /var/log/srt-push/&lt;service-id&gt;.log</span>
+        </div>
+        <pre class="log" id="logOutput">—</pre>
+      </details>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+      (function () {
+        "use strict";
+
+        // Default prefix for every API route.
+        const API_BASE = "/so-proxy/srt/push/";
+
+        const tally = document.getElementById("tally");
+        const tallyLabel = document.getElementById("tallyLabel");
+        const serviceTabs = document.getElementById("serviceTabs");
+        const sparkline = document.getElementById("sparkline");
+        const previewImg = document.getElementById("previewImg");
+        const previewEmpty = document.getElementById("previewEmpty");
+        const previewUpdated = document.getElementById("previewUpdated");
+        const previewServiceName = document.getElementById("previewServiceName");
+        const telemetryServiceName = document.getElementById("telemetryServiceName");
+        const serviceList = document.getElementById("serviceList");
+        const logServiceSelect = document.getElementById("logServiceSelect");
+        const toast = document.getElementById("toast");
+
+        const MAX_BARS = 40;
+        const STATE_RANK = {
+          error: 4,
+          failed: 4,
+          starting: 3,
+          restarting: 3,
+          partial: 2,
+          running: 1,
+          stopped: 0,
+          unknown: 0,
+        };
+
+        // Per-service UI state.
+        let currentServiceId = null; // selected tab, drives preview + telemetry
+        let knownServiceIds = []; // order of tabs as currently rendered
+        const bitrateHistories = {}; // id -> array of recent kbps samples
+        const latestStats = {}; // id -> last stats object seen
+
+        function showToast(message, isError) {
+          toast.textContent = message;
+          toast.className = "toast show" + (isError ? " error" : "");
+          setTimeout(() => {
+            toast.className = "toast";
+          }, 3200);
+        }
+
+        function parseBitrateKbps(bitrateStr) {
+          if (!bitrateStr) return 0;
+          const m = /([\d.]+)\s*k?bits\/s/i.exec(bitrateStr);
+          if (!m) return 0;
+          let value = parseFloat(m[1]);
+          if (/mbits/i.test(bitrateStr)) value *= 1000;
+          return value;
+        }
+
+        function renderSparkline() {
+          const history = bitrateHistories[currentServiceId] || [];
+          sparkline.innerHTML = "";
+          const max = Math.max(1, ...history);
+          history.forEach((v) => {
+            const bar = document.createElement("div");
+            bar.className = "bar";
+            const pct = Math.max(4, Math.round((v / max) * 100));
+            bar.style.height = pct + "%";
+            sparkline.appendChild(bar);
+          });
+        }
+
+        function stateLabel(state) {
+          const labels = {
+            running: "ON AIR",
+            starting: "STARTING",
+            restarting: "RESTARTING",
+            stopped: "OFF AIR",
+            error: "ERROR",
+            failed: "FAILED",
+            partial: "PARTIAL",
+            unknown: "UNKNOWN",
+          };
+          return labels[state] || String(state || "unknown").toUpperCase();
+        }
+
+        function setTallyState(state) {
+          tally.dataset.state = state;
+          tallyLabel.textContent = stateLabel(state);
+        }
+
+        // ---------------- Service normalization ----------------
+        // Accepts either the new multi-service stats shape
+        // ({services: {id: {...}}, legacy: {...}}) or an older flat
+        // single-service stats object, so the dashboard keeps working
+        // against a backend that hasn't been updated yet.
+        function extractServicesMap(stats) {
+          if (stats && stats.services && typeof stats.services === "object") {
+            return stats.services;
+          }
+          if (stats && (stats.service_status || stats.status)) {
+            // Old flat format: treat it as a single unnamed service.
+            return { srv1: Object.assign({ id: "srv1", name: "Service" }, stats) };
+          }
+          return {};
+        }
+
+        function aggregateState(servicesMap) {
+          const states = Object.values(servicesMap).map(
+            (s) => (s.service_status || s.status || "unknown").toLowerCase()
+          );
+          if (states.length === 0) return "unknown";
+          const worst = states.reduce((a, b) =>
+            (STATE_RANK[b] || 0) > (STATE_RANK[a] || 0) ? b : a
+          );
+          const runningCount = states.filter((s) => s === "running").length;
+          if (runningCount > 0 && runningCount < states.length) return "partial";
+          return worst;
+        }
+
+        // ---------------- Tabs ----------------
+        function renderServiceTabs(servicesMap) {
+          const ids = Object.keys(servicesMap);
+          serviceTabs.innerHTML = "";
+
+          if (ids.length === 0) {
+            serviceTabs.innerHTML = '<span class="empty-note">No services reported yet.</span>';
+            return;
+          }
+
+          if (!currentServiceId || !ids.includes(currentServiceId)) {
+            currentServiceId = ids[0];
+          }
+          knownServiceIds = ids;
+
+          ids.forEach((id) => {
+            const svc = servicesMap[id];
+            const state = (svc.service_status || svc.status || "unknown").toLowerCase();
+            const tab = document.createElement("div");
+            tab.className = "tab" + (id === currentServiceId ? " active" : "");
+            tab.dataset.state = state;
+            tab.dataset.id = id;
+            tab.innerHTML =
+              '<span class="dot"></span><span>' +
+              (svc.name || id) +
+              "</span>" +
+              (svc.source_type ? '<span class="src-badge">' + svc.source_type + "</span>" : "");
+            tab.addEventListener("click", () => selectService(id));
+            serviceTabs.appendChild(tab);
+          });
+
+          syncLogServiceOptions(ids, servicesMap);
+        }
+
+        function selectService(id) {
+          currentServiceId = id;
+          document.querySelectorAll(".tab").forEach((tab) => {
+            tab.classList.toggle("active", tab.dataset.id === id);
+          });
+          logServiceSelect.value = id;
+          renderTelemetryFor(id);
+          refreshPreview();
+          refreshLog();
+        }
+
+        function syncLogServiceOptions(ids, servicesMap) {
+          const previous = logServiceSelect.value;
+          logServiceSelect.innerHTML = "";
+          ids.forEach((id) => {
+            const opt = document.createElement("option");
+            opt.value = id;
+            opt.textContent = (servicesMap[id] && servicesMap[id].name) || id;
+            logServiceSelect.appendChild(opt);
+          });
+          logServiceSelect.value = ids.includes(previous) ? previous : currentServiceId;
+        }
+
+        // ---------------- Telemetry ----------------
+        function renderTelemetryFor(id) {
+          const svc = latestStats[id];
+          const svcMeta = svc || {};
+          previewServiceName.textContent = svcMeta.name ? "— " + svcMeta.name : "";
+          telemetryServiceName.textContent = svcMeta.name ? "— " + svcMeta.name : "";
+
+          document.getElementById("stPid").textContent = svcMeta.ffmpeg_pid ?? "—";
+          document.getElementById("stLastError").textContent = svcMeta.last_error || "—";
+
+          if (svc && svc.bitrate) {
+            document.getElementById("stBitrate").textContent = svc.bitrate || "—";
+            document.getElementById("stFps").textContent = svc.fps ?? "—";
+            document.getElementById("stFrame").textContent = svc.frame ?? "—";
+            document.getElementById("stSpeed").textContent = svc.speed ? `${svc.speed}x` : "—";
+            document.getElementById("stTime").textContent = svc.time || "—";
+          } else {
+            document.getElementById("stBitrate").textContent = "—";
+            document.getElementById("stFps").textContent = "—";
+            document.getElementById("stFrame").textContent = "—";
+            document.getElementById("stSpeed").textContent = "—";
+            document.getElementById("stTime").textContent = "—";
+          }
+
+          renderSparkline();
+        }
+
+        async function refreshStatus() {
+          try {
+            const res = await fetch(API_BASE + "status");
+            const data = await res.json();
+            const stats = data.stats || {};
+            const service = data.service || {};
+
+            const servicesMap = extractServicesMap(stats);
+
+            // Track bitrate history + latest snapshot per service id.
+            Object.keys(servicesMap).forEach((id) => {
+              const svc = servicesMap[id];
+              latestStats[id] = svc;
+              if (!bitrateHistories[id]) bitrateHistories[id] = [];
+              if (svc.bitrate) {
+                bitrateHistories[id].push(parseBitrateKbps(svc.bitrate));
+                while (bitrateHistories[id].length > MAX_BARS) bitrateHistories[id].shift();
+              } else {
+                bitrateHistories[id].length = 0;
+              }
+            });
+
+            renderServiceTabs(servicesMap);
+
+            const activeState = (service.active_state || "").toLowerCase();
+            const subState = (service.sub_state || "").toLowerCase();
+
+            let overall = aggregateState(servicesMap);
+            if (
+              overall === "unknown" &&
+              activeState === "active" &&
+              subState === "running"
+            ) {
+              overall = "running";
+            }
+            if (activeState === "failed") overall = "failed";
+            if (activeState === "inactive" && overall !== "restarting") overall = "stopped";
+
+            setTallyState(overall);
+
+            document.getElementById("stService").textContent = `${
+              service.active_state || "?"
+            } / ${service.sub_state || "?"}`;
+
+            if (currentServiceId) renderTelemetryFor(currentServiceId);
+          } catch (err) {
+            setTallyState("unknown");
+          }
+        }
+
+        function refreshPreview() {
+          if (!currentServiceId) return;
+          const img = new Image();
+          img.onload = () => {
+            previewImg.src = img.src;
+            previewImg.style.display = "block";
+            previewEmpty.style.display = "none";
+            previewUpdated.textContent = "Updated " + new Date().toLocaleTimeString();
+          };
+          img.onerror = () => {
+            previewImg.style.display = "none";
+            previewEmpty.style.display = "block";
+          };
+          img.src =
+            API_BASE + "preview.jpg?id=" + encodeURIComponent(currentServiceId) + "&t=" + Date.now();
+        }
+
+        // ---------------- Configuration ----------------
+
+        function defaultServiceConfig(index) {
+          return {
+            id: "srv" + (index + 1),
+            name: "Service " + (index + 1),
+            enabled: true,
+            source_type: "html",
+            html_url: "",
+            image_path: "",
+            srt_host: "",
+            srt_port: 3292,
+            srt_mode: "caller",
+            srt_latency: 1000,
+            srt_passphrase: "",
+            width: 1920,
+            height: 1080,
+            fps: 5,
+            video_bitrate_kbps: 500,
+          };
+        }
+
+        function buildServiceRow(cfg) {
+          const row = document.createElement("div");
+          row.className = "service-row";
+          row.dataset.rowId = cfg.id || "";
+
+          row.innerHTML = `
+            <div class="service-row-header">
+              <div class="id-name">
+                <label>Service ID
+                  <input type="text" class="f-id" value="${escapeAttr(cfg.id || "")}" spellcheck="false" />
+                </label>
+                <label>Name
+                  <input type="text" class="f-name" value="${escapeAttr(cfg.name || "")}" spellcheck="false" />
+                </label>
+                <label class="enabled-toggle">
+                  <input type="checkbox" class="f-enabled" ${cfg.enabled === false ? "" : "checked"} />
+                  Enabled
+                </label>
+              </div>
+              <button class="danger small btn-remove-service" type="button">Remove</button>
+            </div>
+
+            <div class="source-toggle">
+              <label><input type="radio" class="f-source" name="source-${row.dataset.rowId || Math.random()}" value="html" ${
+                cfg.source_type !== "image" ? "checked" : ""
+              } /> HTML page (Xvfb + Chromium)</label>
+              <label><input type="radio" class="f-source" name="source-${row.dataset.rowId || Math.random()}" value="image" ${
+                cfg.source_type === "image" ? "checked" : ""
+              } /> Static image</label>
+            </div>
+
+            <div class="form-grid">
+              <label class="full f-html-field">Dashboard URL (what Chromium loads)
+                <input type="text" class="f-html-url" value="${escapeAttr(cfg.html_url || "")}"
+                  placeholder="https://127.0.0.1/id3as-DC-Monitor.html?..." spellcheck="false" />
+              </label>
+              <label class="full f-image-field">Image path (JPEG/PNG on disk)
+                <input type="text" class="f-image-path" value="${escapeAttr(cfg.image_path || "")}"
+                  placeholder="/opt/web/store/standby-slate.jpg" spellcheck="false" />
+              </label>
+
+              <label class="full" style="display:grid; grid-template-columns: 2fr 1fr; gap:12px">
+                <span>SRT Destination Host</span>
+                <span style="grid-column:2">Port</span>
+                <input type="text" class="f-srt-host" value="${escapeAttr(cfg.srt_host || "")}"
+                  placeholder="e.g. 10.11.203.1" spellcheck="false" />
+                <input type="number" class="f-srt-port" value="${escapeAttr(cfg.srt_port ?? "")}" placeholder="3292" />
+              </label>
+
+              <label>SRT mode
+                <select class="f-srt-mode">
+                  <option value="caller" ${cfg.srt_mode === "caller" ? "selected" : ""}>caller</option>
+                  <option value="listener" ${cfg.srt_mode === "listener" ? "selected" : ""}>listener</option>
+                  <option value="rendezvous" ${cfg.srt_mode === "rendezvous" ? "selected" : ""}>rendezvous</option>
+                </select>
+              </label>
+              <label>SRT latency (ms)
+                <input type="number" class="f-srt-latency" value="${escapeAttr(cfg.srt_latency ?? 1000)}" placeholder="1000" />
+              </label>
+
+              <label class="full">SRT Passphrase
+                <input type="text" class="f-srt-passphrase" value="${escapeAttr(cfg.srt_passphrase || "")}"
+                  placeholder="Encryption key (min 10 chars)" spellcheck="false" />
+              </label>
+
+              <label>Width
+                <input type="number" class="f-width" min="320" max="3840" value="${escapeAttr(cfg.width ?? 1920)}" />
+              </label>
+              <label>Height
+                <input type="number" class="f-height" min="240" max="2160" value="${escapeAttr(cfg.height ?? 1080)}" />
+              </label>
+              <label>FPS
+                <input type="number" class="f-fps" min="1" max="30" value="${escapeAttr(cfg.fps ?? 5)}" />
+              </label>
+              <label>Video bitrate (kbps)
+                <input type="text" class="f-bitrate" value="${escapeAttr(cfg.video_bitrate_kbps ?? 500)}" spellcheck="false" />
+              </label>
+            </div>
+          `;
+
+          row.querySelector(".btn-remove-service").addEventListener("click", () => {
+            row.remove();
+          });
+
+          const sourceRadios = row.querySelectorAll(".f-source");
+          const htmlField = row.querySelector(".f-html-field");
+          const imageField = row.querySelector(".f-image-field");
+          function syncSourceFields() {
+            const checked = row.querySelector(".f-source:checked");
+            const isImage = checked && checked.value === "image";
+            htmlField.style.display = isImage ? "none" : "";
+            imageField.style.display = isImage ? "" : "none";
+          }
+          sourceRadios.forEach((r) => r.addEventListener("change", syncSourceFields));
+          syncSourceFields();
+
+          return row;
+        }
+
+        function escapeAttr(value) {
+          return String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+        }
+
+        function readServiceRow(row) {
+          const sourceType =
+            (row.querySelector(".f-source:checked") || {}).value || "html";
+          return {
+            id: row.querySelector(".f-id").value.trim(),
+            name: row.querySelector(".f-name").value.trim(),
+            enabled: row.querySelector(".f-enabled").checked,
+            source_type: sourceType,
+            html_url: row.querySelector(".f-html-url").value.trim(),
+            image_path: row.querySelector(".f-image-path").value.trim(),
+            srt_host: row.querySelector(".f-srt-host").value.trim(),
+            srt_port: parseInt(row.querySelector(".f-srt-port").value, 10) || 3292,
+            srt_mode: row.querySelector(".f-srt-mode").value,
+            srt_latency: parseInt(row.querySelector(".f-srt-latency").value, 10) || 1000,
+            srt_passphrase: row.querySelector(".f-srt-passphrase").value,
+            width: parseInt(row.querySelector(".f-width").value, 10) || 1920,
+            height: parseInt(row.querySelector(".f-height").value, 10) || 1080,
+            fps: parseInt(row.querySelector(".f-fps").value, 10) || 5,
+            video_bitrate_kbps: parseInt(row.querySelector(".f-bitrate").value, 10) || 500,
+          };
+        }
+
+        function addServiceRow(cfg) {
+          const row = buildServiceRow(cfg || defaultServiceConfig(serviceList.children.length));
+          serviceList.appendChild(row);
+        }
+
+        async function loadConfig() {
+          try {
+            const res = await fetch(API_BASE + "config");
+            const data = await res.json();
+            const cfg = data.config || data || {};
+
+            let services = [];
+            if (Array.isArray(cfg.services)) {
+              services = cfg.services;
+            } else if (cfg.html_url || cfg.srt_host) {
+              // Legacy flat single-service config from an older backend.
+              services = [Object.assign({ id: "srv1", name: "Service 1" }, cfg)];
+            }
+
+            serviceList.innerHTML = "";
+            if (services.length === 0) {
+              addServiceRow(defaultServiceConfig(0));
+            } else {
+              services.forEach((svc) => addServiceRow(svc));
+            }
+          } catch (err) {
+            showToast("Could not load configuration", true);
+            if (serviceList.children.length === 0) addServiceRow(defaultServiceConfig(0));
+          }
+        }
+
+        async function saveConfig() {
+          const btn = document.getElementById("btnSaveConfig");
+          btn.disabled = true;
+          try {
+            const rows = Array.from(serviceList.querySelectorAll(".service-row"));
+            if (rows.length === 0) throw new Error("Add at least one service before saving");
+
+            const services = rows.map(readServiceRow);
+            const ids = services.map((s) => s.id);
+            if (ids.some((id) => !id)) throw new Error("Every service needs an ID");
+            if (new Set(ids).size !== ids.length) throw new Error("Service IDs must be unique");
+
+            const res = await fetch(API_BASE + "config", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ services }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Save failed");
+
+            showToast(data.message || "Configuration saved");
+            setTimeout(refreshStatus, 1500);
+          } catch (err) {
+            showToast(err.message, true);
+          } finally {
+            btn.disabled = false;
+          }
+        }
+
+        // ---------------- Service (systemd) control ----------------
+
+        async function serviceAction(action) {
+          const buttons = [
+            document.getElementById("btnStart"),
+            document.getElementById("btnRestart"),
+            document.getElementById("btnStop"),
+          ];
+          buttons.forEach((b) => (b.disabled = true));
+          try {
+            const res = await fetch(API_BASE + "service/" + action, { method: "POST" });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Action failed");
+            showToast(data.message || `Service ${action} sent`);
+            setTimeout(refreshStatus, 1500);
+          } catch (err) {
+            showToast(err.message, true);
+          } finally {
+            buttons.forEach((b) => (b.disabled = false));
+          }
+        }
+
+        // ---------------- Log ----------------
+
+        async function refreshLog() {
+          const out = document.getElementById("logOutput");
+          const id = logServiceSelect.value || currentServiceId;
+          if (!id) {
+            out.textContent = "(no service selected)";
+            return;
+          }
+          out.textContent = "Loading…";
+          try {
+            const res = await fetch(
+              API_BASE + "log?id=" + encodeURIComponent(id) + "&lines=200"
+            );
+            const data = await res.json();
+            out.textContent = (data.lines || []).join("\n") || "(empty)";
+            out.scrollTop = out.scrollHeight;
+          } catch (err) {
+            out.textContent = "Could not load log.";
+          }
+        }
+
+        document.getElementById("btnStart").addEventListener("click", () => serviceAction("start"));
+        document.getElementById("btnRestart").addEventListener("click", () => serviceAction("restart"));
+        document.getElementById("btnStop").addEventListener("click", () => {
+          if (confirm("Stop the srt-push service now? Every SRT feed will go down.")) {
+            serviceAction("stop");
+          }
+        });
+        document.getElementById("btnSaveConfig").addEventListener("click", saveConfig);
+        document.getElementById("btnAddService").addEventListener("click", () => addServiceRow());
+        document.getElementById("btnRefreshLog").addEventListener("click", refreshLog);
+        logServiceSelect.addEventListener("change", () => {
+          currentServiceId = logServiceSelect.value;
+          selectService(currentServiceId);
+        });
+
+        // Init
+        loadConfig();
+        refreshStatus();
+        setInterval(refreshStatus, 2000);
+        setInterval(refreshPreview, 5000);
+      })();
+    </script>
+  </body>
+</html>

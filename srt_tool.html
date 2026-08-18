@@ -131,17 +131,36 @@
     .job-status {
       font-size: 10px; padding: 3px 8px; border-radius: 20px; letter-spacing: .08em;
     }
-    .status-running  { background:rgba(0,255,136,.12); color:var(--green);  border:1px solid rgba(0,255,136,.3); }
-    .status-stopping { background:rgba(255,209,102,.12);color:var(--yellow); border:1px solid rgba(255,209,102,.3); }
-    .status-error    { background:rgba(255,59,92,.12);  color:var(--red);   border:1px solid rgba(255,59,92,.3); }
-    .status-finished { background:rgba(74,90,110,.2);   color:var(--muted); border:1px solid var(--border); }
-    .btn-stop-job {
+    .status-running      { background:rgba(0,255,136,.12); color:var(--green);  border:1px solid rgba(0,255,136,.3); }
+    .status-starting     { background:rgba(0,212,255,.12); color:var(--accent); border:1px solid rgba(0,212,255,.3); }
+    .status-reconnecting { background:rgba(255,209,102,.12);color:var(--yellow); border:1px solid rgba(255,209,102,.3); animation:blink-status 1.2s ease-in-out infinite; }
+    .status-stopping     { background:rgba(255,209,102,.12);color:var(--yellow); border:1px solid rgba(255,209,102,.3); }
+    .status-error        { background:rgba(255,59,92,.12);  color:var(--red);   border:1px solid rgba(255,59,92,.3); }
+    .status-stopped      { background:rgba(74,90,110,.2);   color:var(--muted); border:1px solid var(--border); }
+    .status-finished     { background:rgba(74,90,110,.2);   color:var(--muted); border:1px solid var(--border); }
+    @keyframes blink-status { 0%,100% { opacity:1; } 50% { opacity:.5; } }
+    .job-actions { display:flex; gap:6px; }
+    .btn-stop-job, .btn-restart-job {
       width:auto; margin:0; padding:4px 10px; font-size:10px;
-      background:transparent; border:1px solid var(--red); color:var(--red);
-      border-radius:3px; cursor:pointer; font-family:var(--mono); letter-spacing:.08em;
+      background:transparent; border-radius:3px; cursor:pointer; font-family:var(--mono); letter-spacing:.08em;
       transition:background .15s;
     }
+    .btn-stop-job { border:1px solid var(--red); color:var(--red); }
     .btn-stop-job:hover { background:rgba(255,59,92,.15); }
+    .btn-restart-job { border:1px solid var(--accent); color:var(--accent); }
+    .btn-restart-job:hover { background:rgba(0,212,255,.15); }
+    .btn-clear-jobs { background:transparent; border:1px solid var(--muted); color:var(--muted); }
+    .btn-clear-jobs:hover { background:rgba(74,90,110,.15); color:var(--text); }
+    .job-error-line {
+      grid-column: 1 / -1; font-size:10px; color:var(--red); opacity:.85;
+      margin-top:4px; word-break:break-all;
+    }
+    .monitor-error-box {
+      display:none; margin-top:14px; padding:10px 12px; border-radius:3px;
+      background:rgba(255,59,92,.08); border:1px solid rgba(255,59,92,.3);
+      font-family:var(--mono); font-size:11px; color:var(--red); word-break:break-all;
+    }
+    .monitor-error-box.show { display:block; }
 
     .host-combo { display: flex; gap: 8px; }
     .host-combo select {
@@ -230,6 +249,7 @@
       <label>Source File</label>
       <div class="host-combo">
         <select id="s-source-select" onchange="applySourceSelect('s')">
+          <option value="__bars_tone__" data-type="bars-tone">B&amp;T — Colour Bars + 1 kHz Tone (port + UTC clock overlay)</option>
           <option value="test.mp4" data-type="mp4">test.mp4</option>
         </select>
         <input type="text" id="s-input" value="test.mp4" placeholder="or type path" />
@@ -267,6 +287,7 @@
       <label>Source File</label>
       <div class="host-combo">
         <select id="m-source-select" onchange="applySourceSelect('m')">
+          <option value="__bars_tone__" data-type="bars-tone">B&amp;T — Colour Bars + 1 kHz Tone (port + UTC clock overlay)</option>
           <option value="test.mp4" data-type="mp4">test.mp4</option>
         </select>
         <input type="text" id="m-input" value="test.mp4" placeholder="or type path" />
@@ -276,6 +297,12 @@
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
         <input type="checkbox" id="m-passthrough" onchange="onPassthroughChange('m')" style="width:auto;accent-color:var(--accent2)" />
         <span>Passthrough <span style="color:var(--muted);font-size:10px">(copy streams, no re-encode)</span></span>
+      </label>
+    </div>
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+        <input type="checkbox" id="m-shared" onchange="onSharedChange()" style="width:auto;accent-color:var(--accent2)" />
+        <span>Shared single process <span style="color:var(--muted);font-size:10px">(1 ffmpeg, -c copy, no re-encode — use this for many destinations to avoid CPU spikes)</span></span>
       </label>
     </div>
     <div class="field">
@@ -335,6 +362,8 @@
         <div class="cstat-val" id="cs-time">—</div>
       </div>
     </div>
+
+    <div class="monitor-error-box" id="monitor-error-box"></div>
   </div>
 
   <!-- Jobs monitor — full width -->
@@ -343,7 +372,7 @@
     <div class="stats-bar">
       <div><span class="stat-val" id="stat-total">0</span>Total</div>
       <div><span class="stat-val" id="stat-running" style="color:var(--green)">0</span>Running</div>
-      <div><span class="stat-val" id="stat-done" style="color:var(--muted)">0</span>Finished</div>
+      <div><span class="stat-val" id="stat-done" style="color:var(--muted)">0</span>Stopped</div>
       <div><span class="stat-val" id="stat-err" style="color:var(--red)">0</span>Errors</div>
     </div>
     <div class="jobs-list" id="jobs-list">
@@ -351,6 +380,7 @@
     </div>
     <button class="btn-refresh" onclick="refreshJobs()" style="margin-top:14px;">↻ Refresh</button>
     <button class="btn-stop-all" onclick="stopAll()">■ Stop All Jobs</button>
+    <button class="btn-clear-jobs" onclick="clearJobs()">🗑 Clear Finished Jobs</button>
   </div>
 
 </div><!-- /layout -->
@@ -519,7 +549,22 @@ function switchJob() {
   chartData.length = 0;
   // Update target stat box
   document.getElementById('cs-target').textContent = watchedPassthrough ? 'passthrough' : `${targetMbps} Mbps`;
+  hideMonitorError();
   connectSSE(jid);
+}
+
+function showMonitorError(status, lastError, retryCount) {
+  const box = document.getElementById('monitor-error-box');
+  if (!lastError) { hideMonitorError(); return; }
+  const label = status === 'reconnecting' ? `Reconnect attempt #${retryCount} failed` : 'Last error';
+  box.innerHTML = `<b>${label}:</b> ${esc(lastError)}`;
+  box.classList.add('show');
+}
+
+function hideMonitorError() {
+  const box = document.getElementById('monitor-error-box');
+  box.classList.remove('show');
+  box.innerHTML = '';
 }
 
 function connectSSE(jobId) {
@@ -562,21 +607,47 @@ function connectSSE(jobId) {
     drawChart();
   };
 
-  activeSSE.addEventListener('done', () => {
-    disconnectSSE(true);
+  activeSSE.addEventListener('status', (e) => {
+    const s = JSON.parse(e.data);
+    const badge = document.getElementById('live-badge');
+    badge.style.color = '';
+    if (s.status === 'running') {
+      badge.textContent = '● LIVE';
+      badge.classList.remove('off');
+      hideMonitorError();
+    } else if (s.status === 'reconnecting') {
+      badge.textContent = '● RECONNECTING';
+      badge.classList.add('off');
+      badge.style.color = 'var(--yellow)';
+      showMonitorError(s.status, s.last_error, s.retry_count);
+    } else if (s.status === 'error') {
+      badge.textContent = '● ERROR';
+      badge.classList.add('off');
+      badge.style.color = 'var(--red)';
+      showMonitorError(s.status, s.last_error, s.retry_count);
+    } else if (s.status === 'stopping' || s.status === 'starting') {
+      badge.textContent = `● ${s.status.toUpperCase()}`;
+      badge.classList.add('off');
+    }
+  });
+
+  activeSSE.addEventListener('done', (e) => {
+    const d = e.data ? JSON.parse(e.data) : {};
+    disconnectSSE(d.status === 'stopped' ? 'stopped' : 'error');
   });
 
   activeSSE.onerror = () => {
-    badge.textContent = '● ERROR';
+    badge.textContent = '● CONNECTION LOST';
     badge.style.color = 'var(--red)';
   };
 }
 
-function disconnectSSE(finished = false) {
+function disconnectSSE(endStatus = null) {
   if (activeSSE) { activeSSE.close(); activeSSE = null; }
   watchedJobId = null;
   const badge = document.getElementById('live-badge');
-  badge.textContent = finished ? '● DONE' : '● IDLE';
+  badge.style.color = '';
+  badge.textContent = endStatus === 'stopped' ? '● STOPPED' : endStatus === 'error' ? '● ERROR' : '● IDLE';
   badge.classList.add('off');
 }
 
@@ -605,6 +676,29 @@ function buildCmd(input, host, port, pass, bitrate, passthrough) {
     + `<span class="hl2">${srtUrl}</span>`;
 }
 
+function buildBarsToneCmd(host, port, pass) {
+  if (!host || !port) return null;
+  const srtUrl = `srt://${esc(host)}:${port}${pass ? "?passphrase=***" : ""}`;
+  const filter =
+    `drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:` +
+    `text='PORT ${port}':fontcolor=white:fontsize=72:` +
+    `box=1:boxcolor=black@0.70:boxborderw=20:x=(w-text_w)/2:y=h-140,` +
+    `drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:` +
+    `text='UTC %{gmtime\\:%X}.%{eif\\:mod(n\\,25)*40\\:d\\:3}':fontcolor=#00ff88:fontsize=56:` +
+    `box=1:boxcolor=black@0.70:boxborderw=16:x=(w-text_w)/2:y=40`;
+  return `ffmpeg -re -f lavfi -i smptebars=size=1920x1080:rate=25 \\\n`
+    + `  -f lavfi -i sine=frequency=1000:sample_rate=48000\n`
+    + `-filter:v <span class="hl">"${esc(filter)}"</span>\n`
+    + `-map 0:v:0 -map 1:a:0\n`
+    + `-c:v libx264 -profile:v high -pix_fmt yuv420p\n`
+    + `-x264-params "force-cfr=1:pic-struct=1:scenecut=0" -bf 0 -flags +cgop\n`
+    + `-r 25 -g 25 -keyint_min 25 -sc_threshold 0\n`
+    + `<span class="hlg">-b:v 1M -minrate 1M -maxrate 1M -bufsize 2M</span>\n`
+    + `-c:a aac -b:a 128k -ar 48000 -ac 2\n`
+    + `-f mpegts -muxdelay 0 -muxpreload 0\n`
+    + `<span class="hl2">${srtUrl}</span>`;
+}
+
 function updateSinglePreview() {
   const input   = document.getElementById('s-input').value.trim();
   const host    = document.getElementById('s-host').value.trim();
@@ -612,7 +706,13 @@ function updateSinglePreview() {
   const pass    = document.getElementById('s-pass').value.trim();
   const bitrate    = parseFloat(document.getElementById('s-bitrate').value) || 8;
   const passthrough = document.getElementById('s-passthrough').checked;
+  const isBarsTone = document.getElementById('s-source-select').value === '__bars_tone__';
   const el      = document.getElementById('s-preview');
+  if (isBarsTone) {
+    const cmd = buildBarsToneCmd(host, port, pass);
+    el.innerHTML = cmd || '<span style="color:var(--muted)">Fill the fields above to preview the command.</span>';
+    return;
+  }
   const cmd     = buildCmd(input, host, port, pass, bitrate, passthrough);
   el.innerHTML  = cmd || '<span style="color:var(--muted)">Fill the fields above to preview the command.</span>';
 }
@@ -629,12 +729,19 @@ function updateMultiPreview() {
   const count = pe - ps + 1;
   const br    = parseFloat(document.getElementById('m-bitrate').value) || 8;
   const mPt   = document.getElementById('m-passthrough').checked;
-  const modeLabel = mPt ? '<span class="hl2">passthrough</span>' : `<span class="hlg">${br} Mbps CBR</span>`;
+  const shared = document.getElementById('m-shared').checked;
+  const isBarsTone = document.getElementById('m-source-select').value === '__bars_tone__';
+  const modeLabel = isBarsTone
+    ? '<span class="hlg">B&T · 1080p25 · AVC · 1 Mbps · GOP 1 s · no B-frames</span>'
+    : shared
+    ? '<span class="hl2">passthrough · 1 shared ffmpeg process</span>'
+    : mPt ? '<span class="hl2">passthrough</span>' : `<span class="hlg">${br} Mbps CBR</span>`;
   let html = `<span class="hl">${count} destination${count>1?'s':''}</span> @ ${modeLabel} → <span class="hl2">${esc(host)}</span>:\n`;
   for (let p = ps; p <= Math.min(pe, ps + 4); p++) {
     html += `  srt://${esc(host)}:<span class="hl2">${p}</span>\n`;
   }
   if (count > 5) html += `  <span style="color:var(--muted)">… and ${count - 5} more</span>`;
+  if (shared) html += `\n<span style="color:var(--muted)">All destinations share a single decode — no per-destination re-encode.</span>`;
   el.innerHTML = html;
 }
 
@@ -645,13 +752,15 @@ function updateMultiPreview() {
 
 // ── API calls ────────────────────────────────────────────────────────────────
 async function startSingle() {
+  const isBarsTone = document.getElementById('s-source-select').value === '__bars_tone__';
   const body = {
-    input_file:  document.getElementById('s-input').value.trim(),
-    host:        document.getElementById('s-host').value.trim(),
-    port:        parseInt(document.getElementById('s-port').value),
+    input_file:   document.getElementById('s-input').value.trim(),
+    host:         document.getElementById('s-host').value.trim(),
+    port:         parseInt(document.getElementById('s-port').value),
     passphrase:   document.getElementById('s-pass').value.trim(),
-    bitrate_mbps: parseFloat(document.getElementById('s-bitrate').value) || 8,
-    passthrough:  document.getElementById('s-passthrough').checked,
+    source_mode:  isBarsTone ? 'bars_tone' : 'file',
+    bitrate_mbps: isBarsTone ? 1 : (parseFloat(document.getElementById('s-bitrate').value) || 8),
+    passthrough:  isBarsTone ? false : document.getElementById('s-passthrough').checked,
   };
   if (!body.host || !body.port) { toast('Host and port are required.','err'); return; }
   try {
@@ -667,25 +776,40 @@ async function startSingle() {
 }
 
 async function startMulti() {
-  const body = {
+  const shared = document.getElementById('m-shared').checked;
+  const isBarsTone = document.getElementById('m-source-select').value === '__bars_tone__';
+  const base = {
     input_file:   document.getElementById('m-input').value.trim(),
     host:         document.getElementById('m-host').value.trim(),
     port_start:   parseInt(document.getElementById('m-port-start').value),
     port_end:     parseInt(document.getElementById('m-port-end').value),
     passphrase:   document.getElementById('m-pass').value.trim(),
-    bitrate_mbps: parseFloat(document.getElementById('m-bitrate').value) || 8,
-    passthrough:  document.getElementById('m-passthrough').checked,
+    source_mode:  document.getElementById('m-source-select').value === '__bars_tone__' ? 'bars_tone' : 'file',
   };
-  if (!body.host || !body.port_start || !body.port_end) { toast('Host and port range are required.','err'); return; }
+  if (!base.host || !base.port_start || !base.port_end) { toast('Host and port range are required.','err'); return; }
+
+  const endpoint = shared ? '/ingest/multi-shared' : '/ingest/multi';
+  const body = shared ? base : {
+    ...base,
+    bitrate_mbps: isBarsTone ? 1 : (parseFloat(document.getElementById('m-bitrate').value) || 8),
+    passthrough:  isBarsTone ? false : document.getElementById('m-passthrough').checked,
+  };
   try {
-    const r = await fetch(`${BASE}/ingest/multi`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+    const r = await fetch(`${BASE}${endpoint}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
     const d = await r.json();
     if (!r.ok) { toast(d.error || 'Error','err'); return; }
-    toast(`${d.jobs.length} jobs started`,'ok');
-    await refreshJobs();
-    if (d.jobs.length) {
-      document.getElementById('job-select').value = d.jobs[0].id;
+    if (shared) {
+      toast(`Shared job #${d.job.id} started (1 process → ${d.job.destinations.length} destinations)`,'ok');
+      await refreshJobs();
+      document.getElementById('job-select').value = d.job.id;
       switchJob();
+    } else {
+      toast(`${d.jobs.length} jobs started`,'ok');
+      await refreshJobs();
+      if (d.jobs.length) {
+        document.getElementById('job-select').value = d.jobs[0].id;
+        switchJob();
+      }
     }
   } catch(e) { toast('Network error','err'); }
 }
@@ -696,6 +820,26 @@ async function stopJob(id) {
     const d = await r.json();
     if (!r.ok) { toast(d.error || 'Error','err'); return; }
     toast(`Job #${id} stopping…`,'info');
+    refreshJobs();
+  } catch(e) { toast('Network error','err'); }
+}
+
+async function restartJob(id) {
+  try {
+    const r = await fetch(`${BASE}/jobs/${id}/restart`, { method:'POST' });
+    const d = await r.json();
+    if (!r.ok) { toast(d.error || 'Error','err'); return; }
+    toast(`Job #${id} restarting…`,'info');
+    refreshJobs();
+  } catch(e) { toast('Network error','err'); }
+}
+
+async function clearJobs() {
+  try {
+    const r = await fetch(`${BASE}/jobs/clear`, { method:'POST' });
+    const d = await r.json();
+    if (!r.ok) { toast(d.error || 'Error','err'); return; }
+    toast(d.message,'info');
     refreshJobs();
   } catch(e) { toast('Network error','err'); }
 }
@@ -721,8 +865,8 @@ function renderJobs(jobs) {
   const list  = document.getElementById('jobs-list');
   const sel   = document.getElementById('job-select');
   const total   = jobs.length;
-  const running = jobs.filter(j => j.status === 'running').length;
-  const done    = jobs.filter(j => j.status === 'finished').length;
+  const running = jobs.filter(j => ['running','starting','reconnecting'].includes(j.status)).length;
+  const done    = jobs.filter(j => j.status === 'stopped' || j.status === 'finished').length;
   const errs    = jobs.filter(j => j.status === 'error').length;
 
   document.getElementById('stat-total').textContent   = total;
@@ -738,7 +882,10 @@ function renderJobs(jobs) {
     o.value = j.id;
     o.dataset.target = j.bitrate_mbps;
     o.dataset.passthrough = j.passthrough ? 'true' : 'false';
-    o.textContent = `#${j.id} ${j.host}:${j.port} [${j.mode||j.status}]`;
+    const destLabel = j.type === 'shared'
+      ? `${j.destinations[0].host}:${j.destinations[0].port}-${j.destinations[j.destinations.length-1].port} (${j.destinations.length} dests, shared)`
+      : `${j.host}:${j.port}`;
+    o.textContent = `#${j.id} ${destLabel} [${j.mode||j.status}]`;
     if (j.status !== 'running') o.style.color = 'var(--muted)';
     sel.appendChild(o);
   });
@@ -749,15 +896,31 @@ function renderJobs(jobs) {
     return;
   }
 
+  const activeStatuses = ['running','starting','reconnecting','stopping'];
+
   list.innerHTML = jobs.slice().reverse().map(j => {
     const last = j.last_stat;
     const br   = last ? `<span style="color:var(--accent);margin-left:8px">${last.bitrate}</span>` : '';
+    const statusLabel = j.status === 'reconnecting' ? `reconnecting${j.retry_count ? ' #'+j.retry_count : ''}` : j.status;
+    const isActive = activeStatuses.includes(j.status);
+    const actions = isActive
+      ? `<button class="btn-stop-job" onclick="stopJob(${j.id})">STOP</button>`
+      : `<button class="btn-restart-job" onclick="restartJob(${j.id})">↻ RESTART</button>`;
+    const errorLine = (j.last_error && (j.status === 'error' || j.status === 'reconnecting'))
+      ? `<div class="job-error-line">⚠ ${esc(j.last_error)}</div>` : '';
+    const modeTag = j.type === 'shared'
+      ? `<span style="font-size:9px;padding:2px 5px;border-radius:2px;background:rgba(255,107,53,.15);color:var(--accent2)">shared·1proc</span>`
+      : `<span style="font-size:9px;padding:2px 5px;border-radius:2px;background:${j.mode==="passthrough"?"rgba(255,107,53,.15)":"rgba(0,212,255,.1)"};color:${j.mode==="passthrough"?"var(--accent2)":"var(--accent)"}">${j.mode||"transcode"}</span>`;
+    const destText = j.type === 'shared'
+      ? `${esc(j.destinations[0].host)}:<b>${j.destinations[0].port}-${j.destinations[j.destinations.length-1].port}</b> <span style="color:var(--muted);font-size:10px">(${j.destinations.length} dests) pid:${j.pid ?? '—'}</span>`
+      : `${esc(j.host)}:<b>${j.port}</b> <span style="color:var(--muted);font-size:10px">pid:${j.pid ?? '—'}</span>`;
     return `
       <div class="job-item">
         <span class="job-id">#${j.id}</span>
-        <span class="job-dest">${j.host}:<b>${j.port}</b> <span style="color:var(--muted);font-size:10px">pid:${j.pid}</span> <span style="font-size:9px;padding:2px 5px;border-radius:2px;background:${j.mode==="passthrough"?"rgba(255,107,53,.15)":"rgba(0,212,255,.1)"};color:${j.mode==="passthrough"?"var(--accent2)":"var(--accent)"}">${j.mode||"transcode"}</span>${br}</span>
-        <span class="job-status status-${j.status}">${j.status}</span>
-        ${j.status === 'running' ? `<button class="btn-stop-job" onclick="stopJob(${j.id})">STOP</button>` : '<span></span>'}
+        <span class="job-dest">${destText} ${modeTag}${br}</span>
+        <span class="job-status status-${j.status}">${statusLabel}</span>
+        <div class="job-actions">${actions}</div>
+        ${errorLine}
       </div>`;
   }).join('');
 }
@@ -783,6 +946,12 @@ async function loadSources() {
     ['s-source-select','m-source-select'].forEach(selId => {
       const sel = document.getElementById(selId);
       while (sel.options.length) sel.remove(0);
+      // B&T colour bars is the standard reference source: always list it first.
+      const bt = document.createElement('option');
+      bt.value = '__bars_tone__';
+      bt.dataset.type = 'bars-tone';
+      bt.textContent = 'B&T — Colour Bars + 1 kHz Tone (port + UTC clock overlay)';
+      sel.appendChild(bt);
       d.sources.forEach(s => {
         const o = document.createElement('option');
         o.value = s.file;
@@ -791,11 +960,16 @@ async function loadSources() {
         sel.appendChild(o);
       });
     });
-    // Set initial input value to first source
+    // Default selection stays on the first real source (e.g. test.mp4), not
+    // B&T — listing B&T first is a UX convenience, not a change of default.
+    // Explicitly sync select value + dependent UI so the visible input field,
+    // passthrough/bitrate rows and preview never desync from what's selected.
     const first = d.sources[0];
     if (first) {
-      document.getElementById('s-input').value = first.file;
-      document.getElementById('m-input').value = first.file;
+      document.getElementById('s-source-select').value = first.file;
+      document.getElementById('m-source-select').value = first.file;
+      applySourceSelect('s');
+      applySourceSelect('m');
     }
   } catch(e) {
     console.warn('Could not load sources:', e);
@@ -810,17 +984,49 @@ function onPassthroughChange(prefix) {
   else updateMultiPreview();
 }
 
+function onSharedChange() {
+  const shared = document.getElementById('m-shared').checked;
+  const brRow  = document.getElementById('m-bitrate-row');
+  const ptRow  = document.getElementById('m-passthrough-row');
+  const ptBox  = document.getElementById('m-passthrough');
+  // Shared mode is always passthrough (-c copy): hide/lock the bitrate and
+  // passthrough-toggle fields so the choice is unambiguous.
+  if (shared) {
+    ptBox.checked = true;
+    if (brRow) brRow.style.display = 'none';
+    if (ptRow) ptRow.style.display = 'none';
+  } else {
+    ptBox.checked = false;
+    const sel  = document.getElementById('m-source-select');
+    const type = sel.options[sel.selectedIndex]?.dataset.type;
+    if (ptRow) ptRow.style.display = type === 'ts' ? '' : 'none';
+    if (brRow) brRow.style.display = '';
+  }
+  updateMultiPreview();
+}
+
 function applySourceSelect(prefix) {
   const sel  = document.getElementById(`${prefix}-source-select`);
   const file = sel.value;
   const type = sel.options[sel.selectedIndex]?.dataset.type;
-  document.getElementById(`${prefix}-input`).value = file;
-  // Show passthrough option only for .ts files
+  const isBarsTone = type === 'bars-tone';
+  document.getElementById(`${prefix}-input`).value = isBarsTone ? '' : file;
+
   const ptRow = document.getElementById(`${prefix}-passthrough-row`);
-  ptRow.style.display = type === 'ts' ? '' : 'none';
-  if (type !== 'ts') {
+  const brRow = document.getElementById(`${prefix}-bitrate-row`);
+  if (isBarsTone) {
+    // B&T is generated per destination, so shared/copy mode is unavailable.
+    if (prefix === 'm') {
+      document.getElementById('m-shared').checked = false;
+      document.getElementById('m-shared').disabled = true;
+    }
     document.getElementById(`${prefix}-passthrough`).checked = false;
-    const brRow = document.getElementById(`${prefix}-bitrate-row`);
+    ptRow.style.display = 'none';
+    brRow.style.display = 'none';
+  } else {
+    if (prefix === 'm') document.getElementById('m-shared').disabled = false;
+    ptRow.style.display = type === 'ts' ? '' : 'none';
+    if (type !== 'ts') document.getElementById(`${prefix}-passthrough`).checked = false;
     if (brRow) brRow.style.display = '';
   }
   if (prefix === 's') updateSinglePreview();

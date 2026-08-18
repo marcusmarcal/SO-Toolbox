@@ -1,12 +1,51 @@
 """
 routes_gop.py — GOP Analyzer Blueprint
-SO-Toolbox v2.28.0
+SO-Toolbox v2.31.0
 
 All /gop/* routes (run, upload, status, results, schedule, specs, overrides, delete).
 GOP results JSON now includes a `username` field (from /me session) for every test —
 "anonymous" when the request has no valid session.
 Each result also includes a `workflow` field; specs are now stored per workflow
 (dc_aminos_tp / rts / wb), each with its own specs JSON file on disk.
+
+New: /gop/assign-user/<filename> — one-time assignment of an "anonymous" test
+result to a real user, gated to admin/engineer roles. Reads the user list from
+the existing /so-proxy/users endpoint (not implemented here). Fails with 409 if
+the result is already assigned to a non-anonymous user.
+
+Fixed: comply_range() (used for codec_level, overall_br, v_br, a_streams,
+a_channels, a_sample_rate, a_br_kbps) now auto-widens the hard lo/hi bound to
+include the preferred (pref_lo/pref_hi) sub-range if a spec edit only widened
+the preferred range. Previously, widening only pref_hi (e.g. adding codec
+level 5.1 as "acceptable") without also widening the hard hi bound left the
+hard bound narrower than the preferred range, silently REJECTing values that
+were supposed to be ACCEPTED/COMPLIANT.
+
+AV sync is now measured by running mediainfo on the recorded .ts file and reading
+the "Delay relative to video" metric (mediainfo JSON field `Video_Delay` on the
+Audio track), replacing the old unreliable ffprobe PTS-offset heuristic. The
+"AV SYNC & TIMING" spec block (av_sync_warn / av_sync_max / v_pts_jitter /
+a_pts_jitter) has been removed and replaced by a single "mediainfo_delay" spec
+with two adjustable thresholds per workflow: |delay| <= warn (default 350ms) is
+COMPLIANT, <= hard (default 1000ms) is ACCEPTED, above hard is REJECTED.
+
+Every test run now also runs the Ingest Analyser (run-ingest-analysis.sh, the
+same script used by the standalone /ingest/* tool in routes_ingest.py) on the
+already-recorded .ts file — faster than a live re-capture, and it's the same
+source. The report is saved into the same store/ingest-results directory so it
+is served by the existing /ingest/report/<dir>, /ingest/report-txt/<dir> and
+/ingest/download/<zip> routes unchanged. The result JSON gets `ingest_dir` /
+`ingest_zip` fields (null if the Ingest Analyser failed or isn't installed —
+this never blocks or fails the GOP result itself).
+
+Chroma subsampling is now derived from the pix_fmt name via regex (covers
+bit-depth/endianness suffixes like yuv422p10le and NV/semi-planar layouts),
+instead of a fixed lookup table that only recognised plain 8-bit yuv420p/
+yuv422p/yuv444p variants. Colour Range now reports the actual "limited"/"full"
+value (preferring ffprobe's color_range tag over the deprecated yuvj* pix_fmt
+heuristic) instead of leaking the raw pix_fmt string into that field. A new
+informational-only "pixel_format" spec/result field shows the raw pix_fmt
+value (e.g. yuv422p10le) separately, never affecting overall_status.
 
 Registers all /gop/* routes (nginx strips /so-proxy prefix).
 """
@@ -33,6 +72,11 @@ _BASE_DIR  = os.path.dirname(os.path.abspath(__file__))
 GOP_DIR    = os.path.join(_BASE_DIR, "store/gop-results")
 SPECS_FILE = os.path.join(_BASE_DIR, "specs.json")
 os.makedirs(GOP_DIR, exist_ok=True)
+
+# Same directory used by routes_ingest.py — reports saved here are served
+# directly by the existing /ingest/report/<dir>, /ingest/download/<zip> etc.
+INGEST_RESULTS_DIR = os.path.join(_BASE_DIR, "store/ingest-results")
+os.makedirs(INGEST_RESULTS_DIR, exist_ok=True)
 
 # ── Workflows ─────────────────────────────────────────────────────────────
 # Each workflow has its own specs file. "dc_aminos_tp" keeps using the
@@ -122,6 +166,7 @@ DEFAULT_SPECS = {
     "frame_size":   {"values": ["1280x720","1920x1080"], "preferred": "1920x1080", "label": "Frame Size"},
     "aspect_ratio": {"values": ["16:9"], "label": "Aspect Ratio"},
     "chroma":       {"values": ["4:2:0"], "label": "Chroma Subsampling"},
+    "pixel_format": {"info": True, "label": "Pixel Format"},
     "colour_range": {"values": ["limited", "full"], "preferred": "limited", "label": "Colour Range"},
     "scan_type":    {"values": ["progressive","interlaced","mbaff"], "preferred": "interlaced", "label": "Scan Type"},
     "bit_depth":    {"values": ["8"], "label": "Bit Depth"},
@@ -142,11 +187,10 @@ DEFAULT_SPECS = {
     "a_sample_rate":{"lo": 44.1, "hi": 48.0, "pref_lo": 48.0, "pref_hi": 48.0, "label": "Sample Rate (kHz)"},
     "a_bits":       {"values": ["fltp","16","s16"], "preferred": "16", "label": "Audio Bits per Sample"},
     "a_br_kbps":    {"lo": 118, "hi": 512, "pref_lo": 256, "pref_hi": 256, "label": "Audio Bitrate (Kbps)"},
-    # AV Sync & Timing — mode "inform" means never REJECT; "enforce" enables REJECTED status.
-    "av_sync_warn": {"warn": 15.0,  "hard": 230.0, "mode": "inform", "label": "AV Sync Avg Offset (ms)"},
-    "av_sync_max":  {"warn": 175.0, "hard": 230.0, "mode": "inform", "label": "AV Sync Max Offset (ms)"},
-    "v_pts_jitter": {"warn": 5.0,   "hard": 10.0,  "mode": "inform", "label": "Video PTS Jitter (ms)"},
-    "a_pts_jitter": {"warn": 5.0,   "hard": 10.0,  "mode": "inform", "label": "Audio PTS Jitter (ms)"},
+    # Delay relative to video — measured via mediainfo on the recorded .ts file.
+    # "warn" = max |offset| in ms still COMPLIANT; between "warn" and "hard" is ACCEPTED;
+    # above "hard" is REJECTED. Both thresholds are adjustable per workflow.
+    "mediainfo_delay": {"warn": 350.0, "hard": 1000.0, "label": "Delay relative to video (ms)"},
 }
 
 
@@ -230,6 +274,118 @@ def _run_gop_on_file(job_id, ts_path, tag, url_display, started_at, workflow=DEF
                 "status": "error", "log": log_lines,
                 "ended_at": datetime.datetime.utcnow().isoformat() + "Z"
             })
+
+
+def _run_ingest_analysis(ts_path, tag, log):
+    """Run the Ingest Analyser (same run-ingest-analysis.sh script and same
+    store/ingest-results output dir used by routes_ingest.py) on the .ts file
+    the GOP analyzer just recorded/received. This is run synchronously, on
+    the file rather than the live source, since it's faster and avoids a
+    second capture.
+
+    Saves the report into INGEST_RESULTS_DIR so the existing /ingest/report/<dir>,
+    /ingest/report-txt/<dir> and /ingest/download/<zip> routes serve it as-is.
+
+    Returns {"ingest_dir": <saved dir name>|None, "ingest_zip": <saved zip name>|None}.
+    Never raises — logs a warning and returns Nones on any failure, since the
+    GOP result must not be blocked by an Ingest Analyser failure.
+    """
+    result = {"ingest_dir": None, "ingest_zip": None}
+    try:
+        log("Running Ingest Analyser on the recorded file…")
+        started_at = datetime.datetime.utcnow().isoformat() + "Z"
+        r = subprocess.run(
+            ["run-ingest-analysis.sh", ts_path],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=300
+        )
+        stdout = r.stdout.decode(errors="replace")
+        exit_code = r.returncode
+        log(f"Ingest Analyser exited with code {exit_code}")
+
+        actual_dir = None
+        actual_zip = None
+        for line in stdout.splitlines():
+            if "Report location:" in line:
+                actual_dir = os.path.dirname(line.split("Report location:")[-1].strip())
+            if "Archive location:" in line:
+                actual_zip = line.split("Archive location:")[-1].strip()
+
+        if actual_zip and os.path.isfile(actual_zip):
+            dest = os.path.join(INGEST_RESULTS_DIR, os.path.basename(actual_zip))
+            shutil.copy2(actual_zip, dest)
+            result["ingest_zip"] = os.path.basename(actual_zip)
+
+        if actual_dir and os.path.isdir(actual_dir):
+            dest_dir = os.path.join(INGEST_RESULTS_DIR, os.path.basename(actual_dir))
+            if os.path.isdir(dest_dir):
+                shutil.rmtree(dest_dir)
+            shutil.copytree(actual_dir, dest_dir)
+            result["ingest_dir"] = os.path.basename(actual_dir)
+
+            meta = {
+                "url":        tag or os.path.basename(ts_path),
+                "tag":        tag,
+                "started_at": started_at,
+                "ended_at":   datetime.datetime.utcnow().isoformat() + "Z",
+                "exit_code":  exit_code,
+                "status":     "done" if exit_code in (0, 45) else "failed",
+                "source":     "gop",
+            }
+            try:
+                with open(os.path.join(dest_dir, "meta.json"), "w") as f:
+                    json.dump(meta, f, indent=2)
+            except Exception as e:
+                log(f"WARNING: Could not save Ingest Analyser meta.json: {e}")
+
+            log(f"Ingest Analyser report saved: {result['ingest_dir']}")
+        else:
+            log("WARNING: Ingest Analyser output directory not found — check script output above.")
+    except FileNotFoundError:
+        log("WARNING: run-ingest-analysis.sh not found on this server")
+    except subprocess.TimeoutExpired:
+        log("WARNING: Ingest Analyser timed out")
+    except Exception as e:
+        log(f"WARNING: Ingest Analyser failed: {e}")
+    return result
+
+
+def _run_mediainfo_delay(ts_path, log):
+    """Run mediainfo on the recorded/uploaded .ts file and extract the audio
+    'Delay relative to video' metric (mediainfo JSON field `Video_Delay`, in
+    seconds, on the Audio track — reported by mediainfo's text output as
+    "Delay relative to video"). Returns {"mediainfo_delay_ms": float|None}.
+
+    If a file has multiple audio tracks, the worst-case (largest absolute)
+    offset across tracks is used. Returns None if mediainfo is not installed
+    or the metric could not be measured (e.g. missing timing info)."""
+    result = {"mediainfo_delay_ms": None}
+    try:
+        cmd = ["mediainfo", "--Output=JSON", ts_path]
+        r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+        data = json.loads(r.stdout.decode())
+        tracks = data.get("media", {}).get("track", [])
+        delays_ms = []
+        for t in tracks:
+            if t.get("@type") != "Audio":
+                continue
+            raw = t.get("Video_Delay")
+            if raw in (None, ""):
+                continue
+            try:
+                delays_ms.append(float(raw) * 1000.0)
+            except (ValueError, TypeError):
+                continue
+        if delays_ms:
+            worst = max(delays_ms, key=abs)
+            result["mediainfo_delay_ms"] = round(worst, 1)
+            log(f"mediainfo: Delay relative to video = {result['mediainfo_delay_ms']} ms")
+        else:
+            log("mediainfo: 'Delay relative to video' not reported for this file")
+    except FileNotFoundError:
+        log("WARNING: mediainfo is not installed on this server")
+    except Exception as e:
+        log(f"WARNING: mediainfo analysis failed: {e}")
+    return result
 
 
 def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, _original_name=None, workflow=DEFAULT_WORKFLOW):
@@ -376,78 +532,12 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
 
         log(f"Analysed {len(frames_data)} video frames")
 
-        # ── AV sync ───────────────────────────────────────────────────
-        log("Running ffprobe for AV sync analysis…")
-        av_sync = {"av_sync_min_ms": None, "av_sync_max_ms": None,
-                   "av_sync_avg_ms": None, "av_sync_median_ms": None,
-                   "v_pts_jitter_ms": None, "a_pts_jitter_ms": None}
-        try:
-            def _get_pts(f):
-                for key in ("pts_time", "pkt_dts_time"):
-                    val = f.get(key)
-                    if val not in (None, "N/A"):
-                        try:
-                            return float(val)
-                        except (ValueError, TypeError):
-                            pass
-                return None
+        # ── mediainfo: Delay relative to video ──────────────────────────
+        log("Running mediainfo on the recorded file…")
+        mediainfo_result = _run_mediainfo_delay(ts_path, log)
 
-            def _probe_pts(stream_spec):
-                cmd = [
-                    "ffprobe", "-v", "error", "-print_format", "json",
-                    "-select_streams", stream_spec,
-                    "-show_frames",
-                    "-show_entries", "frame=pts_time,pkt_dts_time",
-                    ts_path
-                ]
-                r = subprocess.run(cmd, stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE, timeout=60)
-                stderr_out = r.stderr.decode(errors="replace").strip()
-                if stderr_out:
-                    log(f"ffprobe [{stream_spec}] stderr: {stderr_out[:200]}")
-                frames = json.loads(r.stdout.decode()).get("frames", [])
-                pts = sorted([t for f in frames for t in [_get_pts(f)] if t is not None])
-                log(f"ffprobe [{stream_spec}]: {len(frames)} frames, {len(pts)} valid PTS")
-                return pts
-
-            v_pts = _probe_pts("v:0")
-            a_pts = _probe_pts("a:0")
-
-            if v_pts and a_pts:
-                offsets = []
-                a_idx = 0
-                for vt in v_pts:
-                    while a_idx + 1 < len(a_pts) and abs(a_pts[a_idx+1] - vt) < abs(a_pts[a_idx] - vt):
-                        a_idx += 1
-                    offsets.append(abs(vt - a_pts[a_idx]) * 1000)
-
-                if offsets:
-                    av_sync["av_sync_min_ms"]    = round(min(offsets), 2)
-                    av_sync["av_sync_max_ms"]    = round(max(offsets), 2)
-                    av_sync["av_sync_avg_ms"]    = round(sum(offsets)/len(offsets), 2)
-                    s_off = sorted(offsets)
-                    mid = len(s_off) // 2
-                    av_sync["av_sync_median_ms"] = round(
-                        s_off[mid] if len(s_off) % 2 else (s_off[mid-1]+s_off[mid])/2, 2)
-
-            def _jitter(pts_list):
-                if len(pts_list) < 2:
-                    return 0.0
-                diffs = [abs(pts_list[i+1] - pts_list[i]) for i in range(len(pts_list)-1)]
-                avg = sum(diffs) / len(diffs)
-                variations = [abs(d - avg) * 1000 for d in diffs]
-                return round(sum(variations)/len(variations), 2)
-
-            if len(v_pts) > 2:
-                av_sync["v_pts_jitter_ms"] = _jitter(v_pts)
-            if len(a_pts) > 2:
-                av_sync["a_pts_jitter_ms"] = _jitter(a_pts)
-
-            log(f"AV sync: min={av_sync['av_sync_min_ms']}ms max={av_sync['av_sync_max_ms']}ms "
-                f"avg={av_sync['av_sync_avg_ms']}ms jitter V={av_sync['v_pts_jitter_ms']}ms "
-                f"A={av_sync['a_pts_jitter_ms']}ms")
-        except Exception as e:
-            log(f"WARNING: AV sync analysis failed: {e}")
+        # ── Ingest Analyser (same .ts file — faster than a live re-capture) ──
+        ingest_result = _run_ingest_analysis(ts_path, tag, log)
 
         # ── GOP parsing ───────────────────────────────────────────────
         gops = []
@@ -476,6 +566,14 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
         if current_gop:
             gops.append(current_gop)
 
+        # Drop incomplete leading GOP: frames captured before the first I frame
+        # (current_gop starts accumulating even before any key frame is seen).
+        if gops and not gops[0][0]["key"]:
+            gops = gops[1:]
+
+        # Drop incomplete trailing GOP: frames after the last I frame, cut off
+        # by the end of capture. GOP stats must only reflect complete GOPs,
+        # i.e. from the first I frame up to the frame before the last I frame.
         complete_gops = gops[:-1] if len(gops) > 1 else gops
 
         def _is_open_gop(gop_list):
@@ -559,13 +657,40 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
         if not dar and v_width and v_height:
             from math import gcd; g = gcd(v_width, v_height); dar = f"{v_width//g}:{v_height//g}"
 
-        chroma_map  = {
-            "yuv420p":  "4:2:0", "yuvj420p":  "4:2:0",
-            "yuv422p":  "4:2:2", "yuvj422p":  "4:2:2",
-            "yuv444p":  "4:4:4", "yuvj444p":  "4:4:4",
+        # Chroma subsampling: derive from the pix_fmt name itself, robust to
+        # bit-depth/endianness suffixes (e.g. yuv422p10le -> 4:2:2, not the
+        # raw pix_fmt string) and to semi-planar / NV-style layouts.
+        _NV_CHROMA_MAP = {
+            "nv12": "4:2:0", "nv21": "4:2:0", "p010le": "4:2:0", "p010be": "4:2:0",
+            "p016le": "4:2:0", "p016be": "4:2:0",
+            "nv16": "4:2:2", "nv20le": "4:2:2", "nv20be": "4:2:2",
+            "nv24": "4:4:4", "nv42": "4:4:4",
         }
-        v_chroma       = chroma_map.get(v_pix_fmt, v_pix_fmt)
-        v_full_range   = v_pix_fmt.startswith("yuvj")
+
+        def _chroma_from_pix_fmt(pix_fmt):
+            pf = (pix_fmt or "").lower()
+            m = re.match(r"^yuv[aj]?(410|411|420|422|440|444)p?", pf)
+            if m:
+                d = m.group(1)
+                return f"{d[0]}:{d[1]}:{d[2]}"
+            if pf in _NV_CHROMA_MAP:
+                return _NV_CHROMA_MAP[pf]
+            if pf.startswith("gray") or pf.startswith("y8") or pf == "y400a":
+                return "4:0:0"
+            return pf  # unrecognised format — show raw pix_fmt rather than guess
+
+        v_chroma = _chroma_from_pix_fmt(v_pix_fmt)
+
+        # Colour range: prefer ffprobe's explicit color_range tag ("tv"/"pc")
+        # over the deprecated yuvj*/yuv* pix_fmt naming convention, falling
+        # back to the pix_fmt heuristic only when the tag is absent/unknown.
+        v_color_range_raw = (vid.get("color_range") or "").lower()
+        if v_color_range_raw in ("tv", "limited"):
+            v_full_range = False
+        elif v_color_range_raw in ("pc", "full"):
+            v_full_range = True
+        else:
+            v_full_range = v_pix_fmt.startswith("yuvj")
         v_entropy   = "CABAC" if v_profile in ("High","Main","High 10","High 422","High 444") else "CAVLC"
 
         hdr_transfers = ("smpte2084", "smpte428")
@@ -579,8 +704,8 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
         def _audio_display_name(codec, profile):
             c = (codec or "").lower()
             p = (profile or "").upper()
-            if c == "aac":
-                if "LATM" in p:     return "AAC-LATM"
+            if c in ("aac", "aac_latm"):
+                if c == "aac_latm" or "LATM" in p: return "AAC-LATM"
                 if "HE" in p:       return "AAC-HE"
                 if "LD" in p:       return "AAC-LD"
                 if "ELD" in p:      return "AAC-ELD"
@@ -596,10 +721,13 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
         a_rate     = aud.get("sample_rate", "?")
         a_lang     = aud.get("tags", {}).get("language", "?")
 
+        a_sample_fmt = (aud.get("sample_fmt") or "").lower()
         a_bps_raw  = aud.get("bits_per_raw_sample") or aud.get("bits_per_coded_sample")
         if a_bps_raw and int(a_bps_raw) > 0:
             a_bps  = str(int(a_bps_raw))
-        elif a_codec in ("aac", "mp3", "mp2", "mp1", "opus", "vorbis"):
+        elif a_sample_fmt.startswith("flt") or a_sample_fmt.startswith("dbl"):
+            a_bps  = "FLTP"
+        elif a_codec in ("aac", "aac_latm", "mp3", "mp2", "mp1", "opus", "vorbis"):
             a_bps  = "FLTP"
         else:
             a_bps  = "?"
@@ -619,22 +747,18 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
 
         v_rate_ctrl = "CBR" if file_br and v_br and abs(file_br - v_br) < file_br * 0.1 else "VBR"
 
-        def _av_check(measured_ms, sp):
-            warn  = float(sp.get("warn", 15.0))
-            hard  = float(sp.get("hard", 230.0))
-            mode  = sp.get("mode", "inform")  # "inform" = informational only, never affects overall
+        def _mediainfo_check(measured_ms, sp):
+            warn = float(sp.get("warn", 350.0))
+            hard = float(sp.get("hard", 1000.0))
             if measured_ms is None:
-                return ("UNKNOWN", "—", "Could not measure")
-            m = round(measured_ms, 2)
-            if mode == "inform":
-                note = f"< {warn}ms preferred" if m < warn else (
-                       f"< {hard}ms limit" if m < hard else f"Exceeds {hard}ms")
-                return ("INFO", f"{m} ms", f"{note} (inform only)")
-            if m < warn:
-                return ("COMPLIANT", f"{m} ms", f"< {warn}ms preferred")
-            if m < hard:
-                return ("ACCEPTED", f"{m} ms", f"< {hard}ms limit; prefer < {warn}ms")
-            return ("REJECTED", f"{m} ms", f"Exceeds hard limit of {hard}ms")
+                return ("UNKNOWN", "—", "Could not measure (mediainfo unavailable or no delay reported)")
+            m = round(measured_ms, 1)
+            am = abs(m)
+            if am <= warn:
+                return ("COMPLIANT", f"{m} ms", f"Within {warn}ms")
+            if am <= hard:
+                return ("ACCEPTED", f"{m} ms", f"Within {hard}ms limit; prefer within {warn}ms")
+            return ("REJECTED", f"{m} ms", f"Exceeds {hard}ms limit")
 
         # ── Compliance ────────────────────────────────────────────────
         specs = _load_specs(workflow)
@@ -647,6 +771,12 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             lo, hi = sp.get("lo", 0), sp.get("hi", float("inf"))
             plo = sp.get("pref_lo")
             phi = sp.get("pref_hi")
+            # A preferred/compliant sub-range must always be reachable — if it
+            # was widened past the hard lo/hi (e.g. only pref_hi was edited),
+            # auto-widen the hard bound to match rather than reject values
+            # that are supposed to be ACCEPTED.
+            if plo is not None and plo < lo: lo = plo
+            if phi is not None and phi > hi: hi = phi
             if measured is None:
                 return "UNKNOWN", "—", ""
             in_range = lo <= measured <= hi
@@ -657,6 +787,10 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
                     return "COMPLIANT", str(measured), ""
                 return "ACCEPTED", str(measured), f"Preferred {plo}–{phi}"
             return "COMPLIANT", str(measured), ""
+
+        def _info_check(measured):
+            """Informational-only field — always displayed, never affects overall_status."""
+            return ("INFO", str(measured) if measured not in (None, "") else "—", "Informational only")
 
         def comply_enum_multi(measured, key):
             sp = _s(key)
@@ -743,8 +877,8 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             "frame_size":   comply_enum_multi(f"{v_width}x{v_height}", "frame_size"),
             "aspect_ratio": comply_enum_multi(dar, "aspect_ratio"),
             "chroma":       comply_enum_multi(v_chroma, "chroma"),
-            "colour_range": (lambda res: (res[0], v_pix_fmt, res[2]))(
-                                comply_enum_multi("full" if v_full_range else "limited", "colour_range")),
+            "pixel_format": _info_check(v_pix_fmt),
+            "colour_range": comply_enum_multi("full" if v_full_range else "limited", "colour_range"),
             "scan_type":    comply_enum_multi(v_scan, "scan_type"),
             "bit_depth":    comply_enum_multi(str(v_bits), "bit_depth"),
             "colour_gamut": comply_enum_multi(v_color_sp, "colour_gamut"),
@@ -763,10 +897,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             "a_sample_rate":comply_range(a_rate_khz, "a_sample_rate"),
             "a_bits":       comply_enum_multi(a_bps.lower(), "a_bits"),
             "a_br_kbps":    comply_range(a_br_kbps_f, "a_br_kbps"),
-            "av_sync_warn": _av_check(av_sync.get("av_sync_avg_ms"),  _s("av_sync_warn")),
-            "av_sync_max":  _av_check(av_sync.get("av_sync_max_ms"),  _s("av_sync_max")),
-            "v_pts_jitter": _av_check(av_sync.get("v_pts_jitter_ms"), _s("v_pts_jitter")),
-            "a_pts_jitter": _av_check(av_sync.get("a_pts_jitter_ms"), _s("a_pts_jitter")),
+            "mediainfo_delay": _mediainfo_check(mediainfo_result.get("mediainfo_delay_ms"), _s("mediainfo_delay")),
         }
 
         statuses = [v[0] for v in compliance.values() if v[0] != "INFO"]
@@ -793,7 +924,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             "v_color_sp": v_color_sp, "v_color_tr": v_color_tr,
             "v_color_combined": f"{v_color_sp} | {v_color_tr}",
             "v_field": v_field, "v_scan": v_scan,
-            "v_bits": str(v_bits), "v_chroma": v_chroma, "v_dar": dar,
+            "v_bits": str(v_bits), "v_chroma": v_chroma, "v_full_range": v_full_range, "v_dar": dar,
             "v_entropy": v_entropy, "v_hdr": v_hdr, "v_rate_ctrl": v_rate_ctrl,
             "a_codec": a_codec, "a_codec_display": a_codec_display,
             "a_profile": a_profile, "a_channels": a_ch,
@@ -813,12 +944,9 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             "specs": specs,
             "overall_status": overall_status,
             "test_id": str(uuid.uuid4()),
-            "av_sync_min_ms":    av_sync.get("av_sync_min_ms"),
-            "av_sync_max_ms":    av_sync.get("av_sync_max_ms"),
-            "av_sync_avg_ms":    av_sync.get("av_sync_avg_ms"),
-            "av_sync_median_ms": av_sync.get("av_sync_median_ms"),
-            "v_pts_jitter_ms":   av_sync.get("v_pts_jitter_ms"),
-            "a_pts_jitter_ms":   av_sync.get("a_pts_jitter_ms"),
+            "mediainfo_delay_ms": mediainfo_result.get("mediainfo_delay_ms"),
+            "ingest_dir": ingest_result.get("ingest_dir"),
+            "ingest_zip": ingest_result.get("ingest_zip"),
         }
 
         ts_str   = datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S")
@@ -1015,58 +1143,174 @@ def gop_jobs_running():
     return jsonify(running)
 
 
+# ── Results index cache ──────────────────────────────────────────────────
+# GOP_DIR can hold thousands of result JSON files. Re-parsing every file on
+# every /gop/results request doesn't scale, so we keep an in-memory index
+# keyed by filename, invalidated per-file via mtime. Only new/changed files
+# are (re)parsed; deleted files are dropped from the cache automatically.
+_results_cache = {}          # filename -> {"mtime": float, "item": dict}
+_results_cache_lock = threading.Lock()
+
+
+def _parse_result_item(f, path):
+    with open(path) as fh:
+        d = json.load(fh)
+    override      = d.get("override")
+    raw_status    = d.get("status", "done")
+    raw_ov_status = d.get("overall_status", "UNKNOWN")
+    if override:
+        eff_status = "ACCEPTED (Override)"
+    elif raw_status in ("failed", "error"):
+        eff_status = raw_status.upper()
+    else:
+        eff_status = raw_ov_status
+
+    v_fps_val        = d.get("v_fps_val", 0)
+    v_fps_compliance = d.get("v_fps_compliance", v_fps_val)
+    v_scan           = d.get("v_scan", "progressive")
+    return {
+        "file":             f,
+        "url":              d.get("url", ""),
+        "url_host":         d.get("url_host", ""),
+        "url_port":         d.get("url_port", ""),
+        "tag":              d.get("tag", ""),
+        "username":         d.get("username", "anonymous"),
+        "started_at":       d.get("started_at", ""),
+        "ended_at":         d.get("ended_at", ""),
+        "has_idr":          d.get("has_idr", False),
+        "has_b_frames":     d.get("has_b_frames", False),
+        "gop_type":         d.get("gop_type", ""),
+        "gop_avg":          d.get("gop_avg", 0),
+        "v_codec":          d.get("v_codec", ""),
+        "v_width":          d.get("v_width", 0),
+        "v_height":         d.get("v_height", 0),
+        "v_fps_val":        v_fps_val,
+        "v_fps_compliance": v_fps_compliance,
+        "v_scan":           v_scan,
+        "run_status":       raw_status,
+        "overall_status":   eff_status,
+        "override":         override,
+        "error":            d.get("error", ""),
+        "ts_file":          d.get("ts_file"),
+        "is_scheduled":     d.get("is_scheduled", False),
+        "log_count":        len(d.get("log", [])),
+        "test_id":          d.get("test_id", ""),
+    }
+
+
+def _get_results_index():
+    """Return all result items (list of dicts), sorted by filename desc,
+    using the mtime-invalidated in-memory cache to avoid re-reading every
+    JSON file from disk on every request."""
+    with _results_cache_lock:
+        try:
+            files = [f for f in os.listdir(GOP_DIR) if f.endswith(".json")]
+        except FileNotFoundError:
+            files = []
+
+        seen = set(files)
+        for stale in set(_results_cache) - seen:
+            del _results_cache[stale]
+
+        for f in files:
+            path = os.path.join(GOP_DIR, f)
+            try:
+                mtime = os.path.getmtime(path)
+            except OSError:
+                continue
+            cached = _results_cache.get(f)
+            if cached is not None and cached["mtime"] == mtime:
+                continue
+            try:
+                item = _parse_result_item(f, path)
+            except Exception:
+                continue
+            _results_cache[f] = {"mtime": mtime, "item": item}
+
+        items = [v["item"] for v in _results_cache.values()]
+        items.sort(key=lambda it: it["file"], reverse=True)
+        return items
+
+
+def _host_labels():
+    """Build IP -> friendly label map from SRT_LOCAL_* env presets, so the
+    server-side text search matches the same labels the frontend shows via
+    resolveHost() instead of only raw IPs."""
+    labels = {}
+    for k, v in os.environ.items():
+        if re.match(r"^SRT_LOCAL_\d+$", k):
+            ip, _, label = (v or "").partition("|")
+            ip = ip.strip()
+            if ip:
+                labels[ip] = (label or ip).strip()
+    return labels
+
+
 @gop_bp.route("/gop/results", methods=["GET"])
 def gop_results():
-    files = sorted([f for f in os.listdir(GOP_DIR) if f.endswith(".json")], reverse=True)
-    items = []
-    for f in files[:500]:
-        try:
-            with open(os.path.join(GOP_DIR, f)) as fh:
-                d = json.load(fh)
-            override      = d.get("override")
-            raw_status    = d.get("status", "done")
-            raw_ov_status = d.get("overall_status", "UNKNOWN")
-            if override:
-                eff_status = "ACCEPTED (Override)"
-            elif raw_status in ("failed", "error"):
-                eff_status = raw_status.upper()
-            else:
-                eff_status = raw_ov_status
+    search = (request.args.get("search") or "").strip().lower()
+    date   = (request.args.get("date") or "").strip()
+    tag    = (request.args.get("tag") or "").strip().lower()
+    server = (request.args.get("server") or "").strip()
+    user   = (request.args.get("user") or "").strip().lower()
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except ValueError:
+        page = 1
+    try:
+        page_size = int(request.args.get("page_size", 50))
+    except ValueError:
+        page_size = 50
+    page_size = max(1, min(page_size, 200))
 
-            v_fps_val        = d.get("v_fps_val", 0)
-            v_fps_compliance = d.get("v_fps_compliance", v_fps_val)
-            v_scan           = d.get("v_scan", "progressive")
-            items.append({
-                "file":             f,
-                "url":              d.get("url", ""),
-                "url_host":         d.get("url_host", ""),
-                "url_port":         d.get("url_port", ""),
-                "tag":              d.get("tag", ""),
-                "username":         d.get("username", "anonymous"),
-                "started_at":       d.get("started_at", ""),
-                "ended_at":         d.get("ended_at", ""),
-                "has_idr":          d.get("has_idr", False),
-                "has_b_frames":     d.get("has_b_frames", False),
-                "gop_type":         d.get("gop_type", ""),
-                "gop_avg":          d.get("gop_avg", 0),
-                "v_codec":          d.get("v_codec", ""),
-                "v_width":          d.get("v_width", 0),
-                "v_height":         d.get("v_height", 0),
-                "v_fps_val":        v_fps_val,
-                "v_fps_compliance": v_fps_compliance,
-                "v_scan":           v_scan,
-                "run_status":       raw_status,
-                "overall_status":   eff_status,
-                "override":         override,
-                "error":            d.get("error", ""),
-                "ts_file":          d.get("ts_file"),
-                "is_scheduled":     d.get("is_scheduled", False),
-                "log_count":        len(d.get("log", [])),
-                "test_id":          d.get("test_id", ""),
-            })
-        except Exception:
-            pass
-    return jsonify(items)
+    all_items = _get_results_index()
+    labels = _host_labels() if search else {}
+
+    def matches(item):
+        if search:
+            haystack = " ".join(str(x or "").lower() for x in (
+                item.get("url_host"), labels.get(item.get("url_host"), ""),
+                item.get("url_port"), item.get("tag"), item.get("test_id"),
+                item.get("v_codec"), item.get("url"),
+            ))
+            if search not in haystack:
+                return False
+        if date and not (item.get("started_at") or "").startswith(date):
+            return False
+        if tag:
+            tag_parts = [t.strip().lower() for t in (item.get("tag") or "").split(",")]
+            if not any(tag in t for t in tag_parts):
+                return False
+        if server and item.get("url_host") != server:
+            return False
+        if user and user not in (item.get("username") or "anonymous").lower():
+            return False
+        return True
+
+    # Filters run against the FULL index (not just the current page), so
+    # search always covers the entire history, however many tests exist.
+    filtered = [it for it in all_items if matches(it)] if (search or date or tag or server or user) else all_items
+
+    total = len(filtered)
+    total_pages = max(1, (total + page_size - 1) // page_size)
+    page = min(page, total_pages)
+    start = (page - 1) * page_size
+    page_items = filtered[start:start + page_size]
+
+    # Tag suggestions are built from the full index so the datalist/autocomplete
+    # always reflects the entire history, not just the current filtered page.
+    all_tags = sorted({
+        t.strip() for it in all_items for t in (it.get("tag") or "").split(",") if t.strip()
+    })
+
+    return jsonify({
+        "items":       page_items,
+        "total":       total,
+        "page":        page,
+        "page_size":   page_size,
+        "total_pages": total_pages,
+        "tags":        all_tags,
+    })
 
 
 @gop_bp.route("/gop/result/<path:filename>", methods=["GET"])
@@ -1135,6 +1379,52 @@ def gop_override_remove(filename):
         with open(filepath, "w") as f:
             json.dump(d, f, indent=2)
         return jsonify({"success": True, "overall_status": d["overall_status"]})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@gop_bp.route("/gop/assign-user/<path:filename>", methods=["POST"])
+def gop_assign_user(filename):
+    """Assign an 'anonymous' test result to a real user.
+
+    Auth: requires admin or engineer role (checked via session).
+    One-time only: fails if the result is already assigned to a non-anonymous
+    user, so a completed assignment can't be silently overwritten.
+    """
+    actor_username, role = _get_user_and_role()
+    if role not in ("admin", "engineer"):
+        return jsonify({"success": False, "error": "Permission denied — admin or engineer role required"}), 403
+
+    data = request.get_json(silent=True) or {}
+    new_username = (data.get("username") or "").strip()
+    if not new_username:
+        return jsonify({"success": False, "error": "username is required"}), 400
+    if new_username.lower() == "anonymous":
+        return jsonify({"success": False, "error": "Cannot assign to 'anonymous'"}), 400
+
+    filepath = os.path.join(GOP_DIR, filename)
+    if not os.path.isfile(filepath):
+        return jsonify({"success": False, "error": "File not found"}), 404
+
+    try:
+        with open(filepath) as f:
+            d = json.load(f)
+
+        current = (d.get("username") or "anonymous")
+        if current.lower() != "anonymous":
+            return jsonify({
+                "success": False,
+                "error": f"Already assigned to {current} — cannot reassign"
+            }), 409
+
+        d["username"] = new_username
+        d["assigned"] = {
+            "by":       actor_username,
+            "at":       datetime.datetime.utcnow().isoformat() + "Z",
+        }
+        with open(filepath, "w") as f:
+            json.dump(d, f, indent=2)
+        return jsonify({"success": True, "username": new_username})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -1439,6 +1729,8 @@ def _reeval_compliance(stored: dict, specs: dict) -> tuple:
         lo, hi = sp.get("lo", 0), sp.get("hi", float("inf"))
         plo = sp.get("pref_lo")
         phi = sp.get("pref_hi")
+        if plo is not None and plo < lo: lo = plo
+        if phi is not None and phi > hi: hi = phi
         if measured is None:
             return "UNKNOWN", "—", ""
         in_range = lo <= measured <= hi
@@ -1449,6 +1741,10 @@ def _reeval_compliance(stored: dict, specs: dict) -> tuple:
                 return "COMPLIANT", str(measured), ""
             return "ACCEPTED", str(measured), f"Preferred {plo}–{phi}"
         return "COMPLIANT", str(measured), ""
+
+    def _info_check(measured):
+        """Informational-only field — always displayed, never affects overall_status."""
+        return ("INFO", str(measured) if measured not in (None, "") else "—", "Informational only")
 
     def comply_enum_multi(measured, key):
         sp = _s(key)
@@ -1469,22 +1765,18 @@ def _reeval_compliance(stored: dict, specs: dict) -> tuple:
             return "ACCEPTED", measured, f"Preferred {pref_raw}"
         return "COMPLIANT", measured, ""
 
-    def _av_check(measured_ms, sp):
-        warn = float(sp.get("warn", 15.0))
-        hard = float(sp.get("hard", 230.0))
-        mode = sp.get("mode", "inform")
+    def _mediainfo_check(measured_ms, sp):
+        warn = float(sp.get("warn", 350.0))
+        hard = float(sp.get("hard", 1000.0))
         if measured_ms is None:
-            return ("UNKNOWN", "—", "Could not measure")
-        m = round(measured_ms, 2)
-        if mode == "inform":
-            note = (f"< {warn}ms preferred" if m < warn else
-                    f"< {hard}ms limit" if m < hard else f"Exceeds {hard}ms")
-            return ("INFO", f"{m} ms", f"{note} (inform only)")
-        if m < warn:
-            return ("COMPLIANT", f"{m} ms", f"< {warn}ms preferred")
-        if m < hard:
-            return ("ACCEPTED", f"{m} ms", f"< {hard}ms limit; prefer < {warn}ms")
-        return ("REJECTED", f"{m} ms", f"Exceeds hard limit of {hard}ms")
+            return ("UNKNOWN", "—", "Could not measure (mediainfo unavailable or no delay reported)")
+        m = round(measured_ms, 1)
+        am = abs(m)
+        if am <= warn:
+            return ("COMPLIANT", f"{m} ms", f"Within {warn}ms")
+        if am <= hard:
+            return ("ACCEPTED", f"{m} ms", f"Within {hard}ms limit; prefer within {warn}ms")
+        return ("REJECTED", f"{m} ms", f"Exceeds {hard}ms limit")
 
     r = stored
 
@@ -1502,7 +1794,8 @@ def _reeval_compliance(stored: dict, specs: dict) -> tuple:
     dar          = r.get("v_dar", "")
     v_chroma     = r.get("v_chroma", "")
     v_pix_fmt    = r.get("v_pix_fmt", "")
-    v_full_range = v_pix_fmt.startswith("yuvj") if v_pix_fmt else False
+    v_full_range = r["v_full_range"] if "v_full_range" in r else (
+        v_pix_fmt.startswith("yuvj") if v_pix_fmt else False)
     v_scan       = r.get("v_scan", "progressive")
     v_bits       = str(r.get("v_bits", ""))
     v_color_sp   = r.get("v_color_sp", "unknown")
@@ -1571,8 +1864,8 @@ def _reeval_compliance(stored: dict, specs: dict) -> tuple:
         "frame_size":   comply_enum_multi(f"{v_width}x{v_height}", "frame_size"),
         "aspect_ratio": comply_enum_multi(dar, "aspect_ratio"),
         "chroma":       comply_enum_multi(v_chroma, "chroma"),
-        "colour_range": (lambda res: (res[0], v_pix_fmt, res[2]))(
-                            comply_enum_multi("full" if v_full_range else "limited", "colour_range")),
+        "pixel_format": _info_check(v_pix_fmt),
+        "colour_range": comply_enum_multi("full" if v_full_range else "limited", "colour_range"),
         "scan_type":    comply_enum_multi(v_scan, "scan_type"),
         "bit_depth":    comply_enum_multi(v_bits, "bit_depth"),
         "colour_gamut": comply_enum_multi(v_color_sp, "colour_gamut"),
@@ -1591,10 +1884,7 @@ def _reeval_compliance(stored: dict, specs: dict) -> tuple:
         "a_sample_rate":comply_range(a_rate_khz, "a_sample_rate"),
         "a_bits":       comply_enum_multi(a_bps.lower(), "a_bits"),
         "a_br_kbps":    comply_range(a_br_kbps_f, "a_br_kbps"),
-        "av_sync_warn": _av_check(r.get("av_sync_avg_ms"),  _s("av_sync_warn")),
-        "av_sync_max":  _av_check(r.get("av_sync_max_ms"),  _s("av_sync_max")),
-        "v_pts_jitter": _av_check(r.get("v_pts_jitter_ms"), _s("v_pts_jitter")),
-        "a_pts_jitter": _av_check(r.get("a_pts_jitter_ms"), _s("a_pts_jitter")),
+        "mediainfo_delay": _mediainfo_check(r.get("mediainfo_delay_ms"), _s("mediainfo_delay")),
     }
 
     statuses = [v[0] for v in compliance.values() if v[0] != "INFO"]

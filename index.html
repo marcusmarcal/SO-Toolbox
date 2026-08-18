@@ -99,7 +99,7 @@
         inset: 0;
         background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
         pointer-events: none;
-        z-index: 9999;
+        z-index: 0;
         opacity: 0.35;
       }
 
@@ -111,9 +111,11 @@
       #app {
         display: grid;
         grid-template-columns: var(--sidebar-w) 1fr;
-        grid-template-rows: 60px 1fr;
+        /* Adicionado 22px para a linha do statusbar */
+        grid-template-rows: 60px 1fr 22px;
         height: 100vh;
         transition: grid-template-columns 0.25s ease;
+        /* Removido o padding-bottom antigo */
       }
 
       #app.sidebar-collapsed {
@@ -241,12 +243,14 @@
 
       #app.sidebar-collapsed #sidebar {
         width: var(--sidebar-collapsed-w);
-        overflow: visible; /* allow tooltip to escape */
+        /* overflow: visible; <--- REMOVA OU COMENTE SE O TOOLTIP FOR FIXED */
+        overflow: hidden; /* Evita que itens textuais escondidos vazem para fora da barra de 52px */
       }
 
       /* need tools-list itself to also be visible so tooltip exits */
+      /* Remova ou altere este bloco: */
       #app.sidebar-collapsed .tools-list {
-        overflow: visible;
+        overflow-y: auto; /* Garante que o scroll vertical continue funcionando */
       }
 
       /* hide text/search/footer when collapsed */
@@ -768,31 +772,30 @@
 
       /* ── STATUS BAR ── */
       #statusbar {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        height: 22px;
-        background: #3f1568;
-        display: flex;
-        align-items: center;
-        padding: 0 16px;
-        gap: 20px;
-        z-index: 100;
-      }
-      #statusbar span {
-        font-family: var(--mono);
-        font-size: 0.58rem;
-        color: #f2f2f2;
-        font-weight: 700;
-      }
-      #statusbar .sep {
-        opacity: 0.4;
-      }
+  grid-column: 1 / -1; /* Ocupa toda a largura (sidebar + conteúdo) */
+  grid-row: 3;        /* Garante que fica estritamente na 3ª linha da Grid */
+  height: 22px;
+  background-color: #3f1568 !important; /* Força o fundo roxo */
+  color: #ffffff;      /* Força o texto em branco */
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+  z-index: 100000;
+  font-size: 11px;     /* Tamanho ideal para uma barra de 22px */
+  font-family: sans-serif;
+  box-sizing: border-box;
+}
 
-      #app {
-        padding-bottom: 22px;
-      }
+#statusbar span {
+  color: #ffffff !important; /* Garante que nenhum outro estilo mude a cor do texto */
+}
+
+#statusbar .sep {
+  color: rgba(255, 255, 255, 0.4) !important; /* Separadores ligeiramente transparentes */
+  margin: 0 4px;
+}
+
       /* GIT branch display in topbar, populated from backend on load */
 
       .git-branch {
@@ -1269,6 +1272,7 @@
           ⟳ Update
         </button>
         <button
+          id="btn-restart-proxy"
           class="git-pull-btn"
           data-tip="Restart proxy service"
           onclick="openRestartConfirm()"
@@ -1361,7 +1365,30 @@
           </div>
         </div>
       </main>
-    </div>
+
+      <!-- BARRA DE STATUS CORRIGIDA -->
+      <div id="statusbar">
+        <span>● SP SO WEB TOOLBOX by MM</span>
+        <span class="sep">|</span>
+        <span id="status-msg">Loading…</span>
+        <span class="sep">|</span>
+        <span id="status-count-bar">0 tools</span>
+        <span class="sep" style="margin-left: auto">|</span>
+        <span
+          id="clock-utc"
+          title="UTC time"
+          style="font-variant-numeric: tabular-nums"
+          >…</span
+        >
+        <span class="sep">|</span>
+        <span
+          id="clock-local"
+          title="Local time"
+          style="font-variant-numeric: tabular-nums"
+          >…</span
+        >
+      </div>
+    </div> <!-- fecha #app APÓS a statusbar, para que ela fique na 3ª linha do grid -->
 
     <!-- ── Sidebar collapsed tooltip ── -->
     <div id="sidebar-tooltip"></div>
@@ -1457,23 +1484,6 @@
           <button onclick="closeRestartConfirm()" class="git-close-btn">
             Cancel
           </button>
-          <input
-            id="restart-pw"
-            type="password"
-            placeholder="admin password…"
-            style="
-              display: none;
-              background: var(--card);
-              border: 1px solid var(--border);
-              border-radius: 5px;
-              color: #fff;
-              font-family: var(--mono);
-              font-size: 0.7rem;
-              padding: 4px 10px;
-              outline: none;
-              width: 160px;
-            "
-          />
         </div>
         <div
           id="restart-pw-err"
@@ -1540,28 +1550,6 @@
       </div>
     </div>
 
-    <div id="statusbar">
-      <span>● SP SO WEB TOOLBOX by MM</span>
-      <span class="sep">|</span>
-      <span id="status-msg">Loading…</span>
-      <span class="sep">|</span>
-      <span id="status-count-bar">0 tools</span>
-      <span class="sep" style="margin-left: auto">|</span>
-      <span
-        id="clock-utc"
-        title="UTC time"
-        style="font-variant-numeric: tabular-nums"
-        >…</span
-      >
-      <span class="sep">|</span>
-      <span
-        id="clock-local"
-        title="Local time"
-        style="font-variant-numeric: tabular-nums"
-        >…</span
-      >
-    </div>
-
     <script>
       // ── Changelog: load from CHANGELOG.md ─────────────────────────
       let _changelogLoaded = false;
@@ -1606,7 +1594,16 @@
             continue;
           }
           const im = line.match(itemRe);
-          if (im && curSection) cur.sections[curSection].push(im[1]);
+          if (im && curSection) {
+            cur.sections[curSection].push(im[1]);
+            continue;
+          }
+          // Wrapped continuation line of the previous bullet (indented,
+          // no leading "- "): append it instead of silently dropping it.
+          if (curSection && line.trim() && cur.sections[curSection].length) {
+            const items = cur.sections[curSection];
+            items[items.length - 1] += " " + line.trim();
+          }
         }
         if (cur) entries.push(cur);
 
@@ -1711,7 +1708,8 @@
       })();
 
       const PROXY_URL = "/so-proxy";
-      let _hasAdminPw = false;
+      let _userRole = sessionStorage.getItem("sotb-role") || null;
+      const _CAN_ADMIN = (role) => role === "admin" || role === "engineer";
 
       // ── Server Resources Monitor ──────────────────────────────────
       const _RES_T = {
@@ -1782,17 +1780,8 @@
       updateClocks();
       setInterval(updateClocks, 1000);
 
-      // Load config to check admin password
-      fetch(`${PROXY_URL}/config`)
-        .then((r) => r.json())
-        .then((d) => {
-          _hasAdminPw = (d.config || {}).HAS_ADMIN_PASSWORD === "true";
-          const pwEl = document.getElementById("restart-pw");
-          if (pwEl) pwEl.style.display = _hasAdminPw ? "" : "none";
-        })
-        .catch(() => {});
-
       async function gitPull() {
+        if (!_CAN_ADMIN(_userRole)) return;
         const btn = document.getElementById("btn-git-pull");
         const modal = document.getElementById("git-modal");
         const output = document.getElementById("git-output");
@@ -1822,11 +1811,9 @@
       }
 
       function openRestartConfirm() {
+        if (!_CAN_ADMIN(_userRole)) return;
         document.getElementById("restart-output").style.display = "none";
         document.getElementById("restart-pw-err").textContent = "";
-        const pwEl = document.getElementById("restart-pw");
-        pwEl.value = "";
-        pwEl.style.display = _hasAdminPw ? "" : "none";
         document.getElementById("restart-modal").style.display = "flex";
       }
       function closeRestartConfirm() {
@@ -1834,24 +1821,23 @@
       }
 
       async function confirmRestart() {
+        if (!_CAN_ADMIN(_userRole)) return;
         const out = document.getElementById("restart-output");
-        const pw = document.getElementById("restart-pw").value;
         const errEl = document.getElementById("restart-pw-err");
         errEl.textContent = "";
         out.style.display = "block";
         out.className = "git-output";
         out.textContent = "Restarting proxy...";
-        const headers = { "Content-Type": "application/json" };
-        if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
         try {
           const res = await fetch(`${PROXY_URL}/restart-proxy`, {
             method: "POST",
-            headers,
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
           });
           const data = await res.json();
           if (res.status === 403) {
             out.style.display = "none";
-            errEl.textContent = "❌ Invalid admin password";
+            errEl.textContent = "❌ You don't have permission to restart the proxy";
             return;
           }
           out.textContent = data.output || "(no output)";
@@ -2538,6 +2524,15 @@
       }
 
       // ── Session: show username + logout ─────────────────────────────
+      function applyRolePermissions() {
+        const canAdmin = _CAN_ADMIN(_userRole);
+        const btnUpdate = document.getElementById("btn-git-pull");
+        const btnRestart = document.getElementById("btn-restart-proxy");
+        if (btnUpdate) btnUpdate.style.display = canAdmin ? "" : "none";
+        if (btnRestart) btnRestart.style.display = canAdmin ? "" : "none";
+      }
+      applyRolePermissions(); // apply cached role immediately to avoid flash
+
       (function initSession() {
         const stored = sessionStorage.getItem("sotb-user");
         if (stored) {
@@ -2549,6 +2544,9 @@
             document.getElementById("session-username").textContent =
               d.username;
             sessionStorage.setItem("sotb-user", d.username);
+            _userRole = d.role || null;
+            sessionStorage.setItem("sotb-role", _userRole || "");
+            applyRolePermissions();
           })
           .catch(() => {
             // Session expired — redirect to login

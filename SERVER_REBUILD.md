@@ -7,23 +7,41 @@ The application code lives in Git — this document covers everything that does 
 
 ## 1. System packages
 
-### CentOS / RHEL
+### CentOS / RHEL / Oracle Linux
 
-```bash
-yum install nginx git python3 python3-pip ffmpeg curl mtr -y
+````bash
+# Enable EPEL repository (required for ffmpeg / mediainfo on RHEL/Oracle Linux)
+sudo dnf install -y epel-release
+
+# RPM Fusion repository
+sudo dnf install -y \
+https://download1.rpmfusion.org/free/el/rpmfusion-free-release-9.noarch.rpm \
+https://download1.rpmfusion.org/nonfree/el/rpmfusion-nonfree-release-9.noarch.rpm
+
+# System packages
+sudo dnf install -y nginx git python3 python3-pip ffmpeg curl mtr mediainfo
+
+# Compile srt-live-transmit (required for Oracle Linux 9 / RHEL 9)
+sudo dnf groupinstall -y "Development Tools"
+sudo dnf install -y cmake gcc-c++ openssl-devel tcl pkgconfig
+cd /tmp && git clone --depth 1 https://github.com/Haivision/srt.git && cd srt
+mkdir build && cd build && cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local && make -j$(nproc) && sudo make install && sudo ldconfig
+
+# Python packages
 pip3 install flask flask-cors requests
 pip3 install bcrypt --break-system-packages
-```
-
-### Debian / Ubuntu (incl. WSL)
+pip3 install phenix-edge-auth --break-system-packages
+pip3 install dotenv
 
 ```bash
 apt update
-apt install nginx git python3 python3-flask python3-requests ffmpeg curl mtr -y
+apt install nginx git python3 python3-flask python3-requests ffmpeg curl mtr mediainfo srt-tools  -y
 apt install python3-pip -y
 pip3 install flask-cors --break-system-packages
 pip3 install bcrypt --break-system-packages
-```
+pip3 install phenix-edge-auth --break-system-packages
+
+````
 
 > On newer Debian/Ubuntu, `flask` and `requests` are available via `apt` as
 > `python3-flask` and `python3-requests`. Use `apt` first to avoid pip conflicts.
@@ -62,6 +80,7 @@ nginx uses `conf.d/` and a single `nginx.conf`. Replace it with the clean versio
 ```bash
 cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
 cp /opt/web/nginx.conf /etc/nginx/nginx.conf
+cp /opt/web/nginx_http_defaults.conf /etc/nginx/
 rm -f /etc/nginx/conf.d/default.conf
 nginx -t && systemctl enable nginx && systemctl restart nginx
 ```
@@ -308,6 +327,8 @@ LimitNOFILE=65535
 [Install]
 WantedBy=multi-user.target
 -----------
+
+sudo dnf install -y xorg-x11-server-Xvfb chromium ffmpeg liberation-fonts google-noto-sans-fonts procps-ng
 
 sudo systemctl daemon-reload
 sudo systemctl enable srt-push

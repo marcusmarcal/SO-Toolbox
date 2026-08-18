@@ -18,7 +18,8 @@ ASSIGNMENTS_FILE = os.path.join(os.path.dirname(__file__), 'wc2026_assignments.j
 
 _EMPTY = {
     'assignments': {},
-    'engNames': {'N': 'Nuno', 'G': 'Goncalo', 'H': 'Hugo'},
+    'engNames': {'N': 'Nuno', 'G': 'Goncalo', 'H': 'Hugo', 'M': 'Marcus'},
+    'teamNames': {},
     'updatedBy': None,
     'updatedAt': None,
 }
@@ -52,32 +53,76 @@ def get_assignments():
 @wc2026_bp.route('/assignments', methods=['POST'])
 @require_admin_role
 def save_assignments():
-    """Persist assignments. Admin only."""
+    """Persist assignments, engineer names and scores. Admin only."""
     body = request.get_json(silent=True)
     if not body or 'assignments' not in body:
         return jsonify({'ok': False, 'error': 'Invalid payload'}), 400
 
-    assignments = body.get('assignments', {})
-    eng_names   = body.get('engNames', {})
+    assignments       = body.get('assignments', {})
+    eng_names         = body.get('engNames', {})
+    incoming_scores   = body.get('scores', {})
+    incoming_teamnames = body.get('teamNames', {})
 
     clean_a = {}
     for k, v in assignments.items():
-        if str(k).isdigit() and v in ('N', 'G', 'H', ''):
+        if str(k).isdigit() and v in ('N', 'G', 'H', 'M', ''):
             clean_a[k] = v
 
     clean_n = {}
-    for code in ('N', 'G', 'H'):
+    for code in ('N', 'G', 'H', 'M'):
         raw = str(eng_names.get(code, code))[:40].strip()
         clean_n[code] = raw or code
 
+    # Merge incoming scores and team names onto existing ones
+    # (never discard previously synced results from a concurrent save)
+    existing = _load()
+    merged_scores = existing.get('scores', {})
+    if isinstance(incoming_scores, dict):
+        merged_scores.update({str(k): v for k, v in incoming_scores.items()})
+
+    merged_teamnames = existing.get('teamNames', {})
+    if isinstance(incoming_teamnames, dict):
+        for k, v in incoming_teamnames.items():
+            if isinstance(v, dict):
+                entry = merged_teamnames.get(str(k), {})
+                entry.update({kk: str(vv)[:60] for kk, vv in v.items() if kk in ('t1', 't2')})
+                merged_teamnames[str(k)] = entry
+
     data = {
-        'assignments': clean_a,
-        'engNames':    clean_n,
-        'updatedBy':   request.session.get('username', '?'),
-        'updatedAt':   datetime.now(timezone.utc).isoformat(),
+        'assignments':     clean_a,
+        'engNames':        clean_n,
+        'scores':          merged_scores,
+        'teamNames':       merged_teamnames,
+        'updatedBy':       request.session.get('username', '?'),
+        'updatedAt':       datetime.now(timezone.utc).isoformat(),
+        'scoresUpdatedAt': existing.get('scoresUpdatedAt'),
+        'scoresUpdatedBy': existing.get('scoresUpdatedBy'),
     }
     _save(data)
     return jsonify({'ok': True, 'updatedBy': data['updatedBy'], 'updatedAt': data['updatedAt']})
+
+
+@wc2026_bp.route('/teamnames', methods=['POST'])
+@require_auth
+def save_team_names():
+    """Persist team name overrides from openfootball sync. Any authenticated user."""
+    payload = request.get_json(silent=True) or {}
+    incoming = payload.get('teamNames', {})
+    if not isinstance(incoming, dict):
+        return jsonify({'ok': False, 'error': 'invalid payload'}), 400
+
+    data = _load()
+    merged = data.get('teamNames', {})
+    for k, v in incoming.items():
+        if isinstance(v, dict):
+            entry = merged.get(str(k), {})
+            entry.update({kk: str(vv)[:60] for kk, vv in v.items() if kk in ('t1', 't2')})
+            merged[str(k)] = entry
+    data['teamNames'] = merged
+    data['teamNamesUpdatedAt'] = datetime.now(timezone.utc).isoformat()
+    data['teamNamesUpdatedBy'] = request.session.get('username', '?')
+    _save(data)
+    return jsonify({'ok': True})
 
 # Adicionar a wc2026_routes.py
 # Endpoint separado para scores — sem require_admin_role,

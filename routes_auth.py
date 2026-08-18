@@ -36,6 +36,18 @@ SESSION_TTL = 8 * 3600  # 8 hours
 ALLOWED_ROLES = ('admin', 'engineer', 'analyst', 'specialist', 'user')
 ADMIN_ROLES   = ('admin', 'engineer')
 
+# ✅ Rota status
+ALLOWED_ROTA_STATUS  = ('active', 'inactive', 'observer')
+DEFAULT_ROTA_STATUS  = 'observer'
+
+# ✅ Team
+ALLOWED_TEAMS = ('soe', 'sos', 'na')
+DEFAULT_TEAM  = 'na'
+
+# ✅ Profile field limits
+DISPLAY_NAME_MAX_LEN = 14
+EMPLOYEE_ID_MAX_LEN  = 6
+
 # ── Session store ─────────────────────────────────────────
 _sessions = {}  # token → { username, role, expires }
 
@@ -60,6 +72,39 @@ def _save_users(users):
     os.chmod(USERS_FILE, 0o600)
 
 
+def _validate_profile_fields(data):
+    """Validates rota_status, team, display_name and employee_id.
+    Returns (fields_dict, error_message). fields_dict only contains
+    keys that were present in `data`."""
+    fields = {}
+
+    if 'rota_status' in data:
+        rota_status = str(data.get('rota_status', '')).strip().lower()
+        if rota_status not in ALLOWED_ROTA_STATUS:
+            return None, 'invalid rota_status'
+        fields['rota_status'] = rota_status
+
+    if 'team' in data:
+        team = str(data.get('team', '')).strip().lower()
+        if team not in ALLOWED_TEAMS:
+            return None, 'invalid team'
+        fields['team'] = team
+
+    if 'display_name' in data:
+        display_name = str(data.get('display_name', '')).strip()
+        if len(display_name) > DISPLAY_NAME_MAX_LEN:
+            return None, f'display_name max {DISPLAY_NAME_MAX_LEN} characters'
+        fields['display_name'] = display_name
+
+    if 'employee_id' in data:
+        employee_id = str(data.get('employee_id', '')).strip()
+        if employee_id and (not employee_id.isdigit() or len(employee_id) > EMPLOYEE_ID_MAX_LEN):
+            return None, f'employee_id must be numeric, max {EMPLOYEE_ID_MAX_LEN} digits'
+        fields['employee_id'] = employee_id
+
+    return fields, None
+
+
 def _hash_password(password):
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=12)).decode()
 
@@ -75,11 +120,16 @@ def _verify_password(password, hashed):
 # SESSION
 # ══════════════════════════════════════════════════════════
 
-def _create_session(username, role):
+def _create_session(username, role, rota_status='observer', team='na',
+                     display_name='', employee_id=''):
     token = secrets.token_hex(32)
     _sessions[token] = {
         'username': username,
         'role': role,
+        'rota_status': rota_status,
+        'team': team,
+        'display_name': display_name,
+        'employee_id': employee_id,
         'expires': time.time() + SESSION_TTL
     }
     return token
@@ -158,7 +208,14 @@ def login():
         return jsonify({'ok': False, 'error': 'Invalid username or password'}), 401
 
     role = user.get('role', 'user')
-    token = _create_session(username, role)
+    token = _create_session(
+        username,
+        role,
+        rota_status=user.get('rota_status', DEFAULT_ROTA_STATUS),
+        team=user.get('team', DEFAULT_TEAM),
+        display_name=user.get('display_name', ''),
+        employee_id=user.get('employee_id', ''),
+    )
 
     resp = jsonify({
         'ok': True,
@@ -194,6 +251,10 @@ def me():
     return jsonify({
         'ok': True,
         'username': request.session['username'],
+        'rota_status': request.session.get('rota_status', DEFAULT_ROTA_STATUS),
+        'team': request.session.get('team', DEFAULT_TEAM),
+        'display_name': request.session.get('display_name', ''),
+        'employee_id': request.session.get('employee_id', ''),
         'role': request.session['role']
     })
 
@@ -211,6 +272,10 @@ def list_users():
         {
             'username': u,
             'role': d.get('role', 'user'),
+            'rota_status': d.get('rota_status', DEFAULT_ROTA_STATUS),
+            'team': d.get('team', DEFAULT_TEAM),
+            'display_name': d.get('display_name', ''),
+            'employee_id': d.get('employee_id', ''),
             'created_at': d.get('created_at', '')
         }
         for u, d in users.items()
@@ -234,6 +299,10 @@ def create_user():
     if role not in ALLOWED_ROLES:
         return jsonify({'ok': False, 'error': 'invalid role'}), 400
 
+    profile_fields, err = _validate_profile_fields(data)
+    if err:
+        return jsonify({'ok': False, 'error': err}), 400
+
     users = _load_users()
 
     if username in users:
@@ -242,6 +311,10 @@ def create_user():
     users[username] = {
         'password_hash': _hash_password(password),
         'role': role,
+        'rota_status': profile_fields.get('rota_status', DEFAULT_ROTA_STATUS),
+        'team': profile_fields.get('team', DEFAULT_TEAM),
+        'display_name': profile_fields.get('display_name', ''),
+        'employee_id': profile_fields.get('employee_id', ''),
         'created_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
     }
 
@@ -269,8 +342,15 @@ def update_user(username):
     if role and role not in ALLOWED_ROLES:
         return jsonify({'ok': False, 'error': 'invalid role'}), 400
 
+    profile_fields, err = _validate_profile_fields(data)
+    if err:
+        return jsonify({'ok': False, 'error': err}), 400
+
     if role:
         users[username]['role'] = role
+
+    for key, value in profile_fields.items():
+        users[username][key] = value
 
     if password:
         users[username]['password_hash'] = _hash_password(password)
