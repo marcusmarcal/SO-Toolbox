@@ -1979,8 +1979,7 @@ def rota_hours_pot_draft():
 
     if not members:
         return jsonify({'ok': False, 'error': f'No members configured for {team}'}), 400
-
-        computed = _compute_hours(date_from, date_to, members, leave_map, override_map)
+    computed = _compute_hours(date_from, date_to, members, leave_map, override_map)
     warnings = _check_hr_config_consistency(hr_cfg)
 
     # Attach Employee IDs to computed results — sourced from hr_config,
