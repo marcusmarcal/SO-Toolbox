@@ -13,6 +13,11 @@ The application code lives in Git — this document covers everything that does 
 # Enable EPEL repository (required for ffmpeg / mediainfo on RHEL/Oracle Linux)
 sudo dnf install -y epel-release
 
+# RPM Fusion repository
+sudo dnf install -y \
+https://download1.rpmfusion.org/free/el/rpmfusion-free-release-9.noarch.rpm \
+https://download1.rpmfusion.org/nonfree/el/rpmfusion-nonfree-release-9.noarch.rpm
+
 # System packages
 sudo dnf install -y nginx git python3 python3-pip ffmpeg curl mtr mediainfo
 
@@ -26,6 +31,7 @@ mkdir build && cd build && cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local && make -j
 pip3 install flask flask-cors requests
 pip3 install bcrypt --break-system-packages
 pip3 install phenix-edge-auth --break-system-packages
+pip3 install dotenv
 
 ```bash
 apt update
@@ -74,6 +80,7 @@ nginx uses `conf.d/` and a single `nginx.conf`. Replace it with the clean versio
 ```bash
 cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
 cp /opt/web/nginx.conf /etc/nginx/nginx.conf
+cp /opt/web/nginx_http_defaults.conf /etc/nginx/
 rm -f /etc/nginx/conf.d/default.conf
 nginx -t && systemctl enable nginx && systemctl restart nginx
 ```
