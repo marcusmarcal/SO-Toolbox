@@ -236,28 +236,28 @@
         border-radius: 4px;
         letter-spacing: 0.06em;
       }
-      /* USER (já tinhas) */
+      /* USER (base role) */
       .user-role.user {
         background: rgba(250, 165, 26, 0.12);
         color: #fcc97a;
         border: 1px solid rgba(250, 165, 26, 0.25);
       }
 
-      /* ADMIN (já tinhas - ligeiramente reforçado) */
+      /* ADMIN (highlighted) */
       .user-role.admin {
         background: rgba(161, 139, 245, 0.15);
         color: var(--accent);
         border: 1px solid rgba(161, 139, 245, 0.35);
       }
 
-      /* ENGINEER → verde (infra / ops vibe) */
+      /* ENGINEER → green (infra / ops vibe) */
       .user-role.engineer {
         background: rgba(63, 185, 80, 0.12);
         color: #9ee6a6;
         border: 1px solid rgba(63, 185, 80, 0.28);
       }
 
-      /* ANALYST → azul (data / analytics) */
+      /* ANALYST → blue (data / analytics) */
       .user-role.analyst {
         background: rgba(56, 189, 248, 0.12);
         color: #7dd3fc;
@@ -579,7 +579,7 @@
                 maxlength="14"
                 autocomplete="off"
               />
-              <span class="form-hint">Max. 14 caracteres</span>
+              <span class="form-hint">Max. 14 characters</span>
             </div>
             <div class="form-group">
               <label for="f-employee-id">Employee ID</label>
@@ -593,7 +593,7 @@
                 autocomplete="off"
                 oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6)"
               />
-              <span class="form-hint">Somente números, máx. 6 dígitos</span>
+              <span class="form-hint">Numbers only, max. 6 digits</span>
             </div>
             <div class="form-group">
               <label for="f-password">Password</label>
@@ -879,12 +879,12 @@
         }
         if (employeeId && !/^\d{1,6}$/.test(employeeId)) {
           shakeInput("f-employee-id");
-          toast("Employee ID deve ser numérico, máx. 6 dígitos", "err");
+          toast("Employee ID must be numeric, max. 6 digits", "err");
           return;
         }
         if (displayName.length > 14) {
           shakeInput("f-display-name");
-          toast("Display Name deve ter no máx. 14 caracteres", "err");
+          toast("Display Name must be max. 14 characters", "err");
           return;
         }
 
