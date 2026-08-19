@@ -593,6 +593,63 @@
       padding: 14px 0; border-top: 1px solid var(--border); margin-top: 24px;
     }
 
+    /* ── AL ALLOWANCE ── */
+    .al-card {
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 18px 20px; margin-bottom: 16px; background: var(--surface);
+    }
+    .al-card-header {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+      padding-bottom: 10px; border-bottom: 1px solid var(--border);
+    }
+    .al-card-name {
+      font-family: var(--mono); font-size: 0.85rem; font-weight: 700; color: var(--text);
+    }
+    .al-headline {
+      display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 16px;
+    }
+    .al-stat { display: flex; flex-direction: column; gap: 2px; }
+    .al-stat-label {
+      font-family: var(--mono); font-size: 0.6rem; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.1em;
+    }
+    .al-stat-value { font-family: var(--mono); font-size: 1.3rem; font-weight: 700; color: var(--text); }
+    .al-stat-value.ok   { color: #9ee6a6; }
+    .al-stat-value.warn { color: #e6a850; }
+    .al-stat-value.bad  { color: #ffb3be; }
+    .al-stat-sub { font-family: var(--mono); font-size: 0.62rem; color: var(--muted); }
+    .al-breakdown {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px; font-family: var(--mono); font-size: 0.7rem;
+    }
+    .al-breakdown-item {
+      background: var(--card); border: 1px solid var(--border); border-radius: 6px;
+      padding: 8px 10px;
+    }
+    .al-breakdown-item .lbl { color: var(--muted); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em; display:block; margin-bottom:3px; }
+    .al-breakdown-item .val { color: var(--text); font-weight: 700; font-size: 0.8rem; }
+    .al-breakdown-item.manual .val { color: #e6a850; }
+    .al-breakdown-item.flagged { border-color: rgba(255,78,106,0.4); background: rgba(255,78,106,0.05); }
+    .al-edit-row { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+    .al-edit-row input {
+      width: 60px; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+      font-family: var(--mono); font-size: 0.68rem; padding: 3px 6px; border-radius: 4px; outline: none;
+    }
+    .al-misc-list { margin-top: 14px; }
+    .al-misc-row {
+      display: flex; align-items: center; gap: 10px; padding: 6px 0;
+      border-bottom: 1px solid #252525; font-family: var(--mono); font-size: 0.68rem;
+    }
+    .al-misc-row:last-child { border-bottom: none; }
+    .al-misc-reason { flex: 1; color: var(--muted); }
+    .al-add-misc {
+      display: flex; gap: 6px; align-items: center; margin-top: 10px; flex-wrap: wrap;
+    }
+    .al-add-misc input {
+      background: var(--card); border: 1px solid var(--border); color: var(--text);
+      font-family: var(--mono); font-size: 0.68rem; padding: 5px 8px; border-radius: 5px; outline: none;
+    }
+
     /* ── LOADING / EMPTY ── */
     .loading-row {
       display: flex; align-items: center; justify-content: center;
@@ -695,6 +752,7 @@
     <button class="tab-btn" data-tab="leave" id="tab-leave">📝 Request Leave</button>
     <button class="tab-btn" data-tab="approvals" id="tab-approvals" style="display:none;">✅ Leave Approvals</button>
     <button class="tab-btn" data-tab="hours" id="tab-hours" style="display:none;">🌙 Night & PH Hours</button>
+    <button class="tab-btn" data-tab="overview" id="tab-overview" style="display:none;">👤 My Overview</button>
   </nav>
 
   <!-- ── DRAFT BANNER ── -->
@@ -888,6 +946,24 @@
       <button class="btn" id="btn-pot-view">🔍 View POT</button>
     </div>
     <div id="pot-result"></div>
+  </div>
+
+  <!-- ══ TAB: MY OVERVIEW ══ -->
+  <div class="tab-panel" id="panel-overview">
+    <div id="overview-toolbar" style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;">
+      <div class="toolbar-group">
+        <span class="toolbar-label">Year</span>
+        <select class="toolbar-select" id="overview-year"></select>
+      </div>
+      <button class="btn primary" id="btn-overview-refresh">⟳ Refresh</button>
+      <div class="sep"></div>
+      <div id="overview-mgmt-toggle" style="display:none;">
+        <button class="toggle-btn" id="overview-all-toggle">All Members</button>
+      </div>
+    </div>
+    <div id="overview-result">
+      <div class="loading-row"><div class="spinner"></div> Loading…</div>
+    </div>
   </div>
 
   <!-- ── NOTE TOOLTIP (hover, read-only) ── -->
@@ -1202,6 +1278,12 @@
     if (m.rota_role === 'guest') {
       document.getElementById('tab-leave').style.display = 'none';
     }
+    if (m.rota_role === 'management' || m.rota_role === 'staff') {
+      document.getElementById('tab-overview').style.display = '';
+    }
+    if (m.rota_role === 'management') {
+      document.getElementById('overview-mgmt-toggle').style.display = '';
+    }
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -1217,6 +1299,7 @@
         if (btn.dataset.tab === 'approvals') loadApprovals();
         if (btn.dataset.tab === 'hours')     setupHoursTab();
         if (btn.dataset.tab === 'leave')     loadMyLeave();
+        if (btn.dataset.tab === 'overview')  setupOverviewTab();
       });
     });
     document.getElementById('btn-signout').addEventListener('click', async () => {
@@ -4119,6 +4202,288 @@ function _removeCellFromBoxes(ri, ci) {
     el.className = 'show ' + type;
     clearTimeout(_tt);
     _tt = setTimeout(() => el.className = '', 3000);
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  MY OVERVIEW — AL ALLOWANCE
+  // ════════════════════════════════════════════════════════════════
+  let _overviewReady   = false;
+  let _overviewShowAll = false;
+  let _overviewData    = null;   // last fetched { year, mhd_default_days, balances }
+
+  function setupOverviewTab() {
+    if (_overviewReady) { loadOverview(); return; }
+    _overviewReady = true;
+
+    const yearSel  = document.getElementById('overview-year');
+    const thisYear = new Date().getFullYear();
+    for (let y = thisYear + 1; y >= thisYear - 2; y--) {
+      const opt = document.createElement('option');
+      opt.value = y; opt.textContent = y;
+      if (y === thisYear) opt.selected = true;
+      yearSel.appendChild(opt);
+    }
+    yearSel.addEventListener('change', loadOverview);
+    document.getElementById('btn-overview-refresh').addEventListener('click', loadOverview);
+
+    if (state.me && state.me.rota_role === 'management') {
+      document.getElementById('overview-all-toggle').addEventListener('click', () => {
+        _overviewShowAll = !_overviewShowAll;
+        document.getElementById('overview-all-toggle').classList.toggle('active', _overviewShowAll);
+        renderOverview();
+      });
+    }
+
+    loadOverview();
+  }
+
+  async function loadOverview() {
+    const el   = document.getElementById('overview-result');
+    const year = document.getElementById('overview-year').value;
+    el.innerHTML = '<div class="loading-row"><div class="spinner"></div> Loading…</div>';
+
+    try {
+      const r = await fetch(`${PROXY}/rota/al-allowance?year=${year}`, { credentials: 'same-origin' });
+      const d = await r.json();
+      if (!d.ok) { el.innerHTML = `<div class="empty-state">Error: ${d.error}</div>`; return; }
+      _overviewData = d;
+      renderOverview();
+    } catch(e) {
+      el.innerHTML = `<div class="empty-state">Failed to load: ${e.message}</div>`;
+    }
+  }
+
+  function renderOverview() {
+    const el = document.getElementById('overview-result');
+    if (!_overviewData) return;
+
+    const isManagement = state.me && state.me.rota_role === 'management';
+    const myName        = state.me ? state.me.name : null;
+    const balances       = _overviewData.balances || {};
+
+    const names = (isManagement && _overviewShowAll)
+      ? Object.keys(balances).sort()
+      : (myName && balances[myName] ? [myName] : []);
+
+    if (!names.length) {
+      el.innerHTML = '<div class="empty-state">No allowance data for this year yet. If you\'re new, ask management to set your join date.</div>';
+      return;
+    }
+
+    el.innerHTML = names.map(name => _renderAlCard(name, balances[name], isManagement)).join('');
+
+    // Wire up edit buttons (management only)
+    if (isManagement) {
+      el.querySelectorAll('[data-al-edit]').forEach(btn => {
+        btn.addEventListener('click', () => _openAlEditRow(btn));
+      });
+      el.querySelectorAll('[data-al-add-misc]').forEach(btn => {
+        btn.addEventListener('click', () => _submitMiscEntry(btn));
+      });
+      el.querySelectorAll('[data-al-del-misc]').forEach(btn => {
+        btn.addEventListener('click', () => _deleteMiscEntry(btn));
+      });
+    }
+  }
+
+  function _fmtH(v) {
+    const n = +v || 0;
+    return `${n.toFixed(2)}h`;
+  }
+  function _fmtDaysH(days, label) {
+    if (days === null || days === undefined) return '<span style="color:var(--muted)">— not set</span>';
+    return `${days}d (${(days * 8).toFixed(2)}h)`;
+  }
+
+  function _renderAlCard(name, b, isManagement) {
+    if (!b) return '';
+    const year = _overviewData.year;
+
+    const remainingClass = b.remaining_with_pending_hours < 0 ? 'bad'
+                          : b.remaining_with_pending_hours < 16 ? 'warn' : 'ok';
+
+    const fields = [
+      { key: 'base_allowance', label: 'Base Allowance', f: b.base_allowance },
+      { key: 'mhd',            label: 'MHD',            f: b.mhd },
+      { key: 'absence',        label: 'Absence Reward',  f: b.absence, readonly: true },
+    ];
+
+    const breakdownHtml = fields.map(({ key, label, f, readonly }) => {
+      const isManual  = f.auto_or_manual === 'manual';
+      const flagged   = f.flagged_for_review;
+      const cls = 'al-breakdown-item' + (isManual ? ' manual' : '') + (flagged ? ' flagged' : '');
+      const editBtn = (isManagement && !readonly)
+        ? `<button class="btn" data-al-edit data-name="${name}" data-year="${year}" data-field="${key}"
+             data-computed="${f.computed_days ?? ''}" data-final="${f.final_days ?? ''}"
+             style="font-size:0.55rem;padding:2px 6px;margin-top:5px;">✎ Edit</button>`
+        : '';
+      const reasonHtml = isManual && f.override_reason
+        ? `<div style="color:var(--muted);font-size:0.58rem;margin-top:3px;" title="${f.override_reason.replace(/"/g,'&quot;')}">↳ ${f.override_reason.length > 40 ? f.override_reason.slice(0,40)+'…' : f.override_reason}</div>`
+        : '';
+      const flagHtml = flagged
+        ? `<div style="color:#ffb3be;font-size:0.58rem;margin-top:3px;">⚠ Needs manual review (ABSENT days found last year)</div>`
+        : '';
+      return `<div class="${cls}">
+        <span class="lbl">${label}${isManual ? ' · manual' : ''}</span>
+        <span class="val">${_fmtDaysH(f.final_days)}</span>
+        ${flagHtml}${reasonHtml}${editBtn}
+      </div>`;
+    }).join('');
+
+    const miscHtml = (b.misc_entries || []).map(e => `
+      <div class="al-misc-row">
+        <span>${_fmtDateShort(e.date)}</span>
+        <span class="al-misc-reason">${e.reason}</span>
+        <span style="color:var(--text);font-weight:700;">${_fmtH(e.hours)}</span>
+        ${isManagement ? `<button class="btn danger" data-al-del-misc data-name="${name}" data-year="${year}" data-id="${e.id}"
+             style="font-size:0.55rem;padding:2px 6px;">🗑</button>` : ''}
+      </div>`).join('') || '<div style="color:var(--muted);font-size:0.65rem;">No misc entries.</div>';
+
+    const addMiscHtml = isManagement ? `
+      <div class="al-add-misc">
+        <input type="date" data-misc-date placeholder="Date" style="width:120px;" />
+        <input type="number" step="0.5" data-misc-hours placeholder="Hours" style="width:70px;" />
+        <input type="text" data-misc-reason placeholder="Reason…" style="flex:1;min-width:160px;" />
+        <button class="btn primary" data-al-add-misc data-name="${name}" data-year="${year}"
+          style="font-size:0.62rem;">+ Add</button>
+      </div>` : '';
+
+    return `
+      <div class="al-card" data-al-card="${name}">
+        <div class="al-card-header">
+          <span class="al-card-name">${name}</span>
+          ${b.carry_over_locked ? '<span class="status-badge Confirmed">Carry-over locked</span>' : ''}
+        </div>
+        <div class="al-headline">
+          <div class="al-stat">
+            <span class="al-stat-label">Total Allowance</span>
+            <span class="al-stat-value">${_fmtH(b.total_allowance_hours)}</span>
+          </div>
+          <div class="al-stat">
+            <span class="al-stat-label">Confirmed Used</span>
+            <span class="al-stat-value">${_fmtH(b.confirmed_used_hours)}</span>
+          </div>
+          <div class="al-stat">
+            <span class="al-stat-label">Remaining (Confirmed)</span>
+            <span class="al-stat-value">${_fmtH(b.remaining_confirmed_hours)}</span>
+          </div>
+          <div class="al-stat">
+            <span class="al-stat-label">Remaining incl. Pending *</span>
+            <span class="al-stat-value ${remainingClass}">${_fmtH(b.remaining_with_pending_hours)}</span>
+            <span class="al-stat-sub">* pending requests not yet confirmed</span>
+          </div>
+        </div>
+        <div class="al-breakdown">
+          ${breakdownHtml}
+          <div class="al-breakdown-item">
+            <span class="lbl">Misc Hours</span>
+            <span class="val">${_fmtH(b.misc_hours)}</span>
+          </div>
+          <div class="al-breakdown-item">
+            <span class="lbl">Carry-over</span>
+            <span class="val">${_fmtH(b.carry_over_hours)}</span>
+          </div>
+          <div class="al-breakdown-item">
+            <span class="lbl">PH-on-AL Giveback</span>
+            <span class="val">${_fmtH(b.ph_al_giveback_hours)}</span>
+            ${b.ph_al_giveback_dates && b.ph_al_giveback_dates.length
+              ? `<div style="color:var(--muted);font-size:0.58rem;margin-top:3px;">${b.ph_al_giveback_dates.map(_fmtDateShort).join(', ')}</div>` : ''}
+          </div>
+        </div>
+        ${isManagement ? `
+          <div class="al-misc-list">
+            <span class="popover-section-label">Misc Entries</span>
+            ${miscHtml}
+            ${addMiscHtml}
+          </div>` : ''}
+      </div>`;
+  }
+
+  function _openAlEditRow(btn) {
+    const name     = btn.dataset.name;
+    const year     = btn.dataset.year;
+    const field    = btn.dataset.field;
+    const computed = btn.dataset.computed;
+    const card     = btn.closest('.al-breakdown-item');
+    if (card.querySelector('.al-edit-row')) return; // already open
+
+    const row = document.createElement('div');
+    row.className = 'al-edit-row';
+    row.innerHTML = `
+      <input type="number" step="0.5" class="al-edit-days" value="${btn.dataset.final || ''}" placeholder="days" />
+      <input type="text" class="al-edit-reason" placeholder="Reason (required)…" style="width:140px;" />
+      <button class="btn primary al-edit-save" style="font-size:0.6rem;padding:3px 8px;">Save</button>
+      <button class="btn al-edit-cancel" style="font-size:0.6rem;padding:3px 8px;">✕</button>
+    `;
+    card.appendChild(row);
+    btn.style.display = 'none';
+
+    row.querySelector('.al-edit-cancel').addEventListener('click', () => {
+      row.remove(); btn.style.display = '';
+    });
+    row.querySelector('.al-edit-save').addEventListener('click', async () => {
+      const finalDays = row.querySelector('.al-edit-days').value.trim();
+      const reason    = row.querySelector('.al-edit-reason').value.trim();
+      if (!finalDays) { toast('Enter a number of days', 'err'); return; }
+      if (!reason)    { toast('Reason is required', 'err'); return; }
+      const r = await fetch(`${PROXY}/rota/al-allowance`, {
+        method: 'PUT', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, year: +year, field, final_days: +finalDays, override_reason: reason }),
+      });
+      const d = await r.json();
+      if (d.ok) {
+        toast('Saved', 'ok');
+        loadOverview();
+      } else {
+        await uiAlert(d.error || 'Failed to save');
+      }
+    });
+  }
+
+  async function _submitMiscEntry(btn) {
+    const name = btn.dataset.name;
+    const year = btn.dataset.year;
+    const card = btn.closest('.al-add-misc');
+    const dateVal   = card.querySelector('[data-misc-date]').value;
+    const hoursVal  = card.querySelector('[data-misc-hours]').value.trim();
+    const reasonVal = card.querySelector('[data-misc-reason]').value.trim();
+
+    if (!dateVal || !hoursVal || !reasonVal) {
+      toast('Date, hours, and reason are all required', 'err'); return;
+    }
+    const r = await fetch(`${PROXY}/rota/al-allowance/misc`, {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, year: +year, date: dateVal, hours: +hoursVal, reason: reasonVal }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast('Misc entry added', 'ok');
+      loadOverview();
+    } else {
+      await uiAlert(d.error || 'Failed to add entry');
+    }
+  }
+
+  async function _deleteMiscEntry(btn) {
+    const name = btn.dataset.name;
+    const year = btn.dataset.year;
+    const id   = btn.dataset.id;
+    const confirmed = await uiConfirm('Delete Misc Entry', 'Remove this misc hours entry?', 'Delete', 'reject');
+    if (!confirmed) return;
+    const r = await fetch(`${PROXY}/rota/al-allowance/misc/${id}`, {
+      method: 'DELETE', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, year: +year }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast('Entry removed', 'ok');
+      loadOverview();
+    } else {
+      await uiAlert(d.error || 'Failed to remove entry');
+    }
   }
   </script>
 </body>
