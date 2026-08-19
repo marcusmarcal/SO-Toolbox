@@ -299,6 +299,7 @@ PUBLISHED_OVERRIDES_FILE = os.path.join(ROTA_DIR, 'published_overrides.json')
 CELL_NOTES_FILE          = os.path.join(ROTA_DIR, 'cell_notes.json')
 HR_CONFIG_FILE           = os.path.join(ROTA_DIR, 'hr_config.json')
 HOURS_POT_FILE           = os.path.join(ROTA_DIR, 'hours_pot.json')
+AL_ALLOWANCE_FILE        = os.path.join(ROTA_DIR, 'al_allowance.json')
 
 # ── Config ────────────────────────────────────────────────────────────────
 DEFAULT_CONFIG = {
@@ -1554,6 +1555,219 @@ def _load_hr_config() -> dict:
 
 # ── POT helpers ───────────────────────────────────────────────────────────
 
+# ── AL Allowance helpers ────────────────────────────────────────────────
+
+ABSENCE_ZERO_DAYS = 3   # awarded when zero ABSENT records exist in N-1
+
+def _load_al_file() -> dict:
+    data = _load_json(AL_ALLOWANCE_FILE)
+    if not isinstance(data, dict):
+        data = {}
+    data.setdefault('members', {})
+    data.setdefault('yearly', {})
+    return data
+
+def _save_al_file(data: dict) -> None:
+    _save_json(AL_ALLOWANCE_FILE, data)
+
+def _al_member_join_date(al: dict, name: str):
+    m = al['members'].get(name)
+    if not m or not m.get('join_date'):
+        return None
+    try:
+        return date.fromisoformat(m['join_date'])
+    except ValueError:
+        return None
+
+def _scan_absent_days(person: str, year: int) -> int:
+    """Count ABSENT-status shift_change overrides for a person across the
+    given calendar year, scanned from published_overrides.json."""
+    published = _load_json(PUBLISHED_OVERRIDES_FILE)
+    if not isinstance(published, list):
+        published = []
+    count = 0
+    for o in published:
+        if o.get('person') != person:
+            continue
+        if o.get('type') != 'shift_change':
+            continue
+        shift = o.get('shift') or ''
+        if not shift.startswith('ABSENT'):
+            continue
+        try:
+            d = date.fromisoformat(o['date'])
+        except (KeyError, ValueError):
+            continue
+        if d.year == year:
+            count += 1
+    return count
+
+def _blank_field():
+    return {'computed_days': None, 'final_days': None,
+            'auto_or_manual': 'auto', 'override_reason': None}
+
+def _evaluate_member_year(al: dict, name: str, year: int) -> dict:
+    """Compute default values for base_allowance, mhd, absence for one
+    member/year. Does NOT overwrite fields already set to 'manual' by a
+    prior save — only fills computed_days and, for fields still 'auto',
+    final_days too."""
+    join = _al_member_join_date(al, name)
+    yr_block  = al['yearly'].setdefault(str(year), {})
+    yr_block.setdefault('mhd_default_days', None)
+    yr_members = yr_block.setdefault('members', {})
+    existing = yr_members.get(name, {})
+
+    base_f    = existing.get('base_allowance', _blank_field())
+    mhd_f     = existing.get('mhd', _blank_field())
+    abs_f     = existing.get('absence', {**_blank_field(),
+                                          'flagged_for_review': False})
+
+    joined_before_or_during_prev_year = join is not None and join.year <= year - 1
+    joined_this_year                  = join is not None and join.year >= year
+
+    # ── base_allowance ──────────────────────────────────────────────────
+    if base_f['auto_or_manual'] == 'auto':
+        if joined_before_or_during_prev_year:
+            base_f['computed_days'] = 22
+            base_f['final_days']    = 22
+        else:
+            base_f['computed_days'] = None
+            base_f['final_days']    = base_f.get('final_days')  # leave for manual entry
+
+    # ── mhd ─────────────────────────────────────────────────────────────
+    mhd_default = yr_block.get('mhd_default_days')
+    if mhd_f['auto_or_manual'] == 'auto':
+        if joined_before_or_during_prev_year and mhd_default is not None:
+            mhd_f['computed_days'] = mhd_default
+            mhd_f['final_days']    = mhd_default
+        else:
+            mhd_f['computed_days'] = None
+            mhd_f['final_days']    = mhd_f.get('final_days')
+
+    # ── absence ─────────────────────────────────────────────────────────
+    if abs_f['auto_or_manual'] == 'auto':
+        if joined_this_year:
+            abs_f['computed_days']      = 0
+            abs_f['final_days']         = 0
+            abs_f['flagged_for_review'] = False
+        elif joined_before_or_during_prev_year:
+            absent_count = _scan_absent_days(name, year - 1)
+            if absent_count == 0:
+                abs_f['computed_days']      = ABSENCE_ZERO_DAYS
+                abs_f['final_days']         = ABSENCE_ZERO_DAYS
+                abs_f['flagged_for_review'] = False
+            else:
+                abs_f['computed_days']      = None
+                abs_f['final_days']         = abs_f.get('final_days')
+                abs_f['flagged_for_review'] = True
+        else:
+            # no join_date on file at all — can't evaluate
+            abs_f['computed_days']      = None
+            abs_f['final_days']         = abs_f.get('final_days')
+            abs_f['flagged_for_review'] = False
+
+    result = {
+        'evaluated':        True,
+        'base_allowance':   base_f,
+        'mhd':              mhd_f,
+        'absence':          abs_f,
+        'misc_entries':     existing.get('misc_entries', []),
+        'carry_over_hours': existing.get('carry_over_hours', 0),
+        'carry_over_locked': existing.get('carry_over_locked', False),
+    }
+    yr_members[name] = result
+    return result
+
+def _ph_al_giveback_hours(name: str, year: int,
+                          leave_map: dict) -> tuple[float, list]:
+    """Live-computed PH-on-AL hours given back for a calendar year.
+    Returns (total_hours, list_of_dates_str). Never persisted."""
+    total_min = 0
+    dates = []
+    for ph_date in PUBLIC_HOLIDAYS:
+        if ph_date.year != year:
+            continue
+        leave = leave_map.get((name, ph_date))
+        if not leave or leave['status'] not in AL_APPROVED_STATUSES | AL_PENDING_STATUSES:
+            continue
+        base = _base_shift(name, ph_date)
+        if base == 'OFF':
+            continue  # wasn't expected to work anyway — nothing to give back
+        total_min_shift, _ = _net_minutes(base)
+        _, night_min       = _net_minutes(base)
+        shift_total_min     = total_min_shift + night_min  # net day + net night
+        total_min += shift_total_min
+        dates.append(ph_date.isoformat())
+    return round(total_min / 60, 2), sorted(dates)
+
+def _compute_al_used_hours(name: str, year: int,
+                           leave_list: list) -> tuple[float, float]:
+    """Return (confirmed_used_hours, pending_used_hours) for AL leave
+    entries in the given year, using actual scheduled shift duration
+    per day (not flat 8h)."""
+    confirmed_min = 0
+    pending_min   = 0
+    for r in leave_list:
+        if r.get('name') != name or r.get('leave_type') != 'Annual Leave':
+            continue
+        status = r.get('status')
+        if status not in (AL_APPROVED_STATUSES | AL_PENDING_STATUSES):
+            continue
+        try:
+            ds = date.fromisoformat(r['date_start'])
+            de = date.fromisoformat(r['date_end'])
+        except (KeyError, ValueError):
+            continue
+        d = ds
+        while d <= de:
+            if d.year == year:
+                base = _base_shift(name, d)
+                if base != 'OFF':
+                    day_min, night_min = _net_minutes(base)
+                    mins = day_min + night_min
+                    if status in AL_APPROVED_STATUSES:
+                        confirmed_min += mins
+                    else:
+                        pending_min += mins
+            d += timedelta(days=1)
+    return round(confirmed_min / 60, 2), round(pending_min / 60, 2)
+
+def _compute_al_balance(al: dict, name: str, year: int,
+                        leave_list: list, leave_map: dict) -> dict:
+    yr_members = al['yearly'].get(str(year), {}).get('members', {})
+    entry = yr_members.get(name)
+    if not entry or not entry.get('evaluated'):
+        entry = _evaluate_member_year(al, name, year)
+
+    base_h  = (entry['base_allowance']['final_days'] or 0) * 8
+    mhd_h   = (entry['mhd']['final_days'] or 0) * 8
+    abs_h   = (entry['absence']['final_days'] or 0) * 8
+    misc_h  = sum(e.get('hours', 0) for e in entry.get('misc_entries', []))
+    carry_h = entry.get('carry_over_hours', 0)
+    ph_h, ph_dates = _ph_al_giveback_hours(name, year, leave_map)
+
+    total_allowance = base_h + mhd_h + abs_h + misc_h + carry_h + ph_h
+    confirmed_used, pending_used = _compute_al_used_hours(name, year, leave_list)
+
+    return {
+        'name':               name,
+        'year':               year,
+        'base_allowance':     entry['base_allowance'],
+        'mhd':                entry['mhd'],
+        'absence':            entry['absence'],
+        'misc_entries':       entry.get('misc_entries', []),
+        'misc_hours':         misc_h,
+        'carry_over_hours':   carry_h,
+        'carry_over_locked':  entry.get('carry_over_locked', False),
+        'ph_al_giveback_hours': ph_h,
+        'ph_al_giveback_dates': ph_dates,
+        'total_allowance_hours':      total_allowance,
+        'confirmed_used_hours':       confirmed_used,
+        'pending_used_hours':         pending_used,
+        'remaining_confirmed_hours':  round(total_allowance - confirmed_used, 2),
+        'remaining_with_pending_hours': round(total_allowance - confirmed_used - pending_used, 2),
+    }
+
 def _load_pot() -> list:
     data = _load_json(HOURS_POT_FILE)
     return data if isinstance(data, list) else []
@@ -2275,6 +2489,206 @@ def rota_hours_debug():
         'sos_normalised':              hr_cfg.get('sos'),
     })
 
+# ════════════════════════════════════════════════════════════════════════════
+#  AL ALLOWANCE
+# ════════════════════════════════════════════════════════════════════════════
+
+@rota_bp.route('/rota/al-allowance', methods=['GET'])
+@require_auth
+def rota_al_allowance_get():
+    session   = request.session
+    rota_role = _get_rota_role(session)
+    try:
+        year = int(request.args.get('year', date.today().year))
+    except ValueError:
+        return jsonify({'ok': False, 'error': 'year must be an integer'}), 400
+
+    al = _load_al_file()
+    leave_list = _load_json(LEAVE_FILE)
+    if not isinstance(leave_list, list):
+        leave_list = []
+    leave_map = _build_leave_map(leave_list)
+
+    all_names = (list(MANAGEMENT_SHIFTS) +
+                 list(ENGINEERING_OFFSETS) +
+                 list(SPECIALIST_OFFSETS))
+
+    if rota_role == 'management':
+        names = all_names
+    elif rota_role == 'staff':
+        my_name = _rota_display_name(session['username'])
+        names = [my_name] if my_name in all_names else []
+    else:
+        return jsonify({'ok': False, 'error': 'Not authorised'}), 403
+
+    balances = {n: _compute_al_balance(al, n, year, leave_list, leave_map) for n in names}
+    _save_al_file(al)  # persist any evaluation defaults just computed
+
+    return jsonify({
+        'ok': True, 'year': year,
+        'mhd_default_days': al['yearly'].get(str(year), {}).get('mhd_default_days'),
+        'balances': balances,
+    })
+
+
+@rota_bp.route('/rota/al-allowance', methods=['PUT'])
+@require_auth
+def rota_al_allowance_put():
+    err = _require_management()
+    if err: return err
+
+    session = request.session
+    data    = request.get_json(silent=True) or {}
+    name    = data.get('name', '').strip()
+    year    = data.get('year')
+    field   = data.get('field', '').strip()   # 'base_allowance' | 'mhd' | 'absence'
+    final_days = data.get('final_days')
+    reason  = (data.get('override_reason') or '').strip()
+
+    if field not in ('base_allowance', 'mhd', 'absence'):
+        return jsonify({'ok': False, 'error': 'Invalid field'}), 400
+    if field == 'absence':
+        return jsonify({'ok': False,
+                        'error': 'absence is auto-computed and not directly editable via this field'}), 400
+    if not name or year is None:
+        return jsonify({'ok': False, 'error': 'name and year required'}), 400
+    try:
+        year = int(year)
+        final_days = float(final_days)
+    except (TypeError, ValueError):
+        return jsonify({'ok': False, 'error': 'year and final_days must be numeric'}), 400
+    if not reason:
+        return jsonify({'ok': False, 'error': 'override_reason is required for manual entries'}), 400
+
+    al = _load_al_file()
+    if name not in al['members']:
+        return jsonify({'ok': False, 'error': f'{name} has no join_date on file — set that first'}), 400
+
+    entry = _evaluate_member_year(al, name, year)
+    entry[field]['auto_or_manual']  = 'manual'
+    entry[field]['final_days']      = final_days
+    entry[field]['override_reason'] = reason
+
+    al['yearly'][str(year)]['members'][name] = entry
+    _save_al_file(al)
+    return jsonify({'ok': True, 'entry': entry})
+
+
+@rota_bp.route('/rota/al-allowance/join-date', methods=['PUT'])
+@require_auth
+def rota_al_join_date_put():
+    err = _require_management()
+    if err: return err
+    data = request.get_json(silent=True) or {}
+    name = data.get('name', '').strip()
+    jd   = data.get('join_date', '').strip()
+    if not name or not jd:
+        return jsonify({'ok': False, 'error': 'name and join_date required'}), 400
+    try:
+        date.fromisoformat(jd)
+    except ValueError:
+        return jsonify({'ok': False, 'error': 'Invalid date format'}), 400
+
+    al = _load_al_file()
+    al['members'].setdefault(name, {})['join_date'] = jd
+    _save_al_file(al)
+    return jsonify({'ok': True})
+
+
+@rota_bp.route('/rota/al-allowance/config', methods=['PUT'])
+@require_auth
+def rota_al_config_put():
+    """Set the company-wide MHD default for a year and re-evaluate MHD
+    across all eligible (join_date <= N-1) members."""
+    err = _require_management()
+    if err: return err
+    data = request.get_json(silent=True) or {}
+    year = data.get('year')
+    mhd  = data.get('mhd_default_days')
+    try:
+        year = int(year)
+        mhd  = float(mhd)
+    except (TypeError, ValueError):
+        return jsonify({'ok': False, 'error': 'year and mhd_default_days must be numeric'}), 400
+
+    al = _load_al_file()
+    yr_block = al['yearly'].setdefault(str(year), {})
+    yr_block['mhd_default_days'] = mhd
+
+    all_names = (list(MANAGEMENT_SHIFTS) +
+                 list(ENGINEERING_OFFSETS) +
+                 list(SPECIALIST_OFFSETS))
+    for n in all_names:
+        if n in al['members']:
+            _evaluate_member_year(al, n, year)
+
+    _save_al_file(al)
+    return jsonify({'ok': True, 'mhd_default_days': mhd})
+
+
+@rota_bp.route('/rota/al-allowance/misc', methods=['POST'])
+@require_auth
+def rota_al_misc_post():
+    err = _require_management()
+    if err: return err
+    session = request.session
+    data    = request.get_json(silent=True) or {}
+    name    = data.get('name', '').strip()
+    year    = data.get('year')
+    hours   = data.get('hours')
+    reason  = (data.get('reason') or '').strip()
+    date_s  = data.get('date', '').strip()
+
+    if not name or year is None or not reason or not date_s:
+        return jsonify({'ok': False, 'error': 'name, year, hours, date, reason required'}), 400
+    try:
+        year  = int(year)
+        hours = float(hours)
+        date.fromisoformat(date_s)
+    except (TypeError, ValueError):
+        return jsonify({'ok': False, 'error': 'Invalid year, hours, or date'}), 400
+
+    al    = _load_al_file()
+    entry = _evaluate_member_year(al, name, year)
+    entry.setdefault('misc_entries', []).append({
+        'id':         str(uuid.uuid4())[:8],
+        'hours':      hours,
+        'reason':     reason,
+        'date':       date_s,
+        'created_by': session['username'],
+        'created_at': _now_iso(),
+    })
+    al['yearly'][str(year)]['members'][name] = entry
+    _save_al_file(al)
+    return jsonify({'ok': True, 'entry': entry})
+
+
+@rota_bp.route('/rota/al-allowance/misc/<entry_id>', methods=['DELETE'])
+@require_auth
+def rota_al_misc_delete(entry_id):
+    err = _require_management()
+    if err: return err
+    data = request.get_json(silent=True) or {}
+    name = data.get('name', '').strip()
+    year = data.get('year')
+    if not name or year is None:
+        return jsonify({'ok': False, 'error': 'name and year required'}), 400
+    try:
+        year = int(year)
+    except ValueError:
+        return jsonify({'ok': False, 'error': 'Invalid year'}), 400
+
+    al    = _load_al_file()
+    entry = al.get('yearly', {}).get(str(year), {}).get('members', {}).get(name)
+    if not entry:
+        return jsonify({'ok': False, 'error': 'No entry found'}), 404
+    before = len(entry.get('misc_entries', []))
+    entry['misc_entries'] = [e for e in entry.get('misc_entries', []) if e['id'] != entry_id]
+    if len(entry['misc_entries']) == before:
+        return jsonify({'ok': False, 'error': 'Misc entry not found'}), 404
+
+    _save_al_file(al)
+    return jsonify({'ok': True, 'entry': entry})
 
 def register_routes(app) -> None:
     app.register_blueprint(rota_bp)
