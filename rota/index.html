@@ -957,6 +957,13 @@
       </div>
       <button class="btn primary" id="btn-overview-refresh">⟳ Refresh</button>
       <div class="sep"></div>
+      <div id="overview-mhd-group" style="display:none;align-items:center;gap:8px;">
+        <span class="toolbar-label">MHD Default (days)</span>
+        <input type="number" step="0.5" min="0" id="overview-mhd-input" style="width:60px;
+          background:var(--card);border:1px solid var(--border);color:var(--text);
+          font-family:var(--mono);font-size:0.75rem;padding:6px 8px;border-radius:6px;outline:none;" />
+        <button class="btn primary" id="btn-overview-mhd-save" style="font-size:0.65rem;padding:6px 12px;">Save MHD</button>
+      </div>
       <div id="overview-mgmt-toggle" style="display:none;">
         <button class="toggle-btn" id="overview-all-toggle">All Members</button>
       </div>
@@ -4227,14 +4234,34 @@ function _removeCellFromBoxes(ri, ci) {
     document.getElementById('btn-overview-refresh').addEventListener('click', loadOverview);
 
     if (state.me && state.me.rota_role === 'management') {
+      document.getElementById('overview-mhd-group').style.display = 'flex';
       document.getElementById('overview-all-toggle').addEventListener('click', () => {
         _overviewShowAll = !_overviewShowAll;
         document.getElementById('overview-all-toggle').classList.toggle('active', _overviewShowAll);
         renderOverview();
       });
+      document.getElementById('btn-overview-mhd-save').addEventListener('click', saveMhdDefault);
     }
 
     loadOverview();
+  }
+
+  async function saveMhdDefault() {
+    const year = document.getElementById('overview-year').value;
+    const val  = document.getElementById('overview-mhd-input').value.trim();
+    if (!val || isNaN(+val)) { toast('Enter a valid number of days', 'err'); return; }
+    const r = await fetch(`${PROXY}/rota/al-allowance/config`, {
+      method: 'PUT', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ year: +year, mhd_default_days: +val }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast(`MHD default set to ${d.mhd_default_days} day(s) for ${year}`, 'ok');
+      loadOverview();
+    } else {
+      await uiAlert(d.error || 'Failed to save MHD default');
+    }
   }
 
   async function loadOverview() {
@@ -4247,6 +4274,8 @@ function _removeCellFromBoxes(ri, ci) {
       const d = await r.json();
       if (!d.ok) { el.innerHTML = `<div class="empty-state">Error: ${d.error}</div>`; return; }
       _overviewData = d;
+      const mhdInput = document.getElementById('overview-mhd-input');
+      if (mhdInput) mhdInput.value = d.mhd_default_days ?? '';
       renderOverview();
     } catch(e) {
       el.innerHTML = `<div class="empty-state">Failed to load: ${e.message}</div>`;
