@@ -1734,10 +1734,7 @@ def _compute_al_used_hours(name: str, year: int,
 
 def _compute_al_balance(al: dict, name: str, year: int,
                         leave_list: list, leave_map: dict) -> dict:
-    yr_members = al['yearly'].get(str(year), {}).get('members', {})
-    entry = yr_members.get(name)
-    if not entry or not entry.get('evaluated'):
-        entry = _evaluate_member_year(al, name, year)
+    entry = _evaluate_member_year(al, name, year)
 
     base_h  = (entry['base_allowance']['final_days'] or 0) * 8
     mhd_h   = (entry['mhd']['final_days'] or 0) * 8
