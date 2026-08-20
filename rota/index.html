@@ -967,6 +967,11 @@
       <div id="overview-mgmt-toggle" style="display:none;">
         <button class="toggle-btn" id="overview-all-toggle">All Members</button>
       </div>
+      <div id="overview-team-toggles" style="display:none;gap:8px;">
+        <button class="team-toggle Management" data-team="Management">Management</button>
+        <button class="team-toggle Engineering" data-team="Engineering">Engineering</button>
+        <button class="team-toggle Specialists" data-team="Specialists">Specialists</button>
+      </div>
     </div>
     <div id="overview-result">
       <div class="loading-row"><div class="spinner"></div> Loading…</div>
@@ -4217,6 +4222,7 @@ function _removeCellFromBoxes(ri, ci) {
   let _overviewReady   = false;
   let _overviewShowAll = false;
   let _overviewData    = null;   // last fetched { year, mhd_default_days, balances }
+  let _overviewTeamFilters = { Management: true, Engineering: true, Specialists: true };
 
   function setupOverviewTab() {
     if (_overviewReady) { loadOverview(); return; }
@@ -4238,9 +4244,19 @@ function _removeCellFromBoxes(ri, ci) {
       document.getElementById('overview-all-toggle').addEventListener('click', () => {
         _overviewShowAll = !_overviewShowAll;
         document.getElementById('overview-all-toggle').classList.toggle('active', _overviewShowAll);
+        document.getElementById('overview-team-toggles').style.display = _overviewShowAll ? 'flex' : 'none';
         renderOverview();
       });
       document.getElementById('btn-overview-mhd-save').addEventListener('click', saveMhdDefault);
+
+      document.querySelectorAll('#overview-team-toggles .team-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const t = btn.dataset.team;
+          _overviewTeamFilters[t] = !_overviewTeamFilters[t];
+          btn.classList.toggle('off', !_overviewTeamFilters[t]);
+          renderOverview();
+        });
+      });
     }
 
     loadOverview();
@@ -4290,19 +4306,45 @@ function _removeCellFromBoxes(ri, ci) {
     const myName        = state.me ? state.me.name : null;
     const balances       = _overviewData.balances || {};
 
-    const names = (isManagement && _overviewShowAll)
-      ? Object.keys(balances).sort()
-      : (myName && balances[myName] ? [myName] : []);
-
+    if (!(isManagement && _overviewShowAll)) {
+      // Own-card view — no team grouping needed
+      const names = (myName && balances[myName]) ? [myName] : [];
     if (!names.length) {
       el.innerHTML = '<div class="empty-state">No allowance data for this year yet. If you\'re new, ask management to set your join date.</div>';
       return;
     }
-
     el.innerHTML = names.map(name => _renderAlCard(name, balances[name], isManagement)).join('');
+      _wireOverviewCardHandlers(el, isManagement);
+      return;
+    }
 
-    // Wire up edit buttons (management only)
-    if (isManagement) {
+    // Management "All Members" view — grouped by team, rota order, filterable
+    const teamOf = name => MGMT_NAMES.includes(name) ? 'Management'
+                          : ENG_NAMES.includes(name)  ? 'Engineering' : 'Specialists';
+
+    const groups = { Management: [], Engineering: [], Specialists: [] };
+    Object.keys(balances).forEach(name => { groups[teamOf(name)].push(name); });
+    Object.values(groups).forEach(list => list.sort());
+
+    const teams = ['Management', 'Engineering', 'Specialists']
+      .filter(t => _overviewTeamFilters[t] && groups[t].length);
+
+    if (!teams.length) {
+      el.innerHTML = '<div class="empty-state">No teams selected, or no allowance data for this year yet.</div>';
+      return;
+    }
+
+    el.innerHTML = teams.map(t => `
+      <div style="margin-bottom:28px;">
+        <div class="approvals-group-header">${t}</div>
+        ${groups[t].map(name => _renderAlCard(name, balances[name], isManagement)).join('')}
+      </div>`).join('');
+
+    _wireOverviewCardHandlers(el, isManagement);
+  }
+
+  function _wireOverviewCardHandlers(el, isManagement) {
+    if (!isManagement) return;
       el.querySelectorAll('[data-al-edit]').forEach(btn => {
         btn.addEventListener('click', () => _openAlEditRow(btn));
       });
@@ -4312,7 +4354,6 @@ function _removeCellFromBoxes(ri, ci) {
       el.querySelectorAll('[data-al-del-misc]').forEach(btn => {
         btn.addEventListener('click', () => _deleteMiscEntry(btn));
       });
-    }
   }
 
   function _fmtH(v) {
