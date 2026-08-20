@@ -8,6 +8,7 @@
       href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@600;700;800&display=swap"
       rel="stylesheet"
     />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
       /* ── Reset & Base ───────────────────────────────────────────── */
       *,
@@ -664,6 +665,14 @@
             >
               <option value="">ALL SUPPLIERS</option>
             </select>
+            <button
+              id="btn-export-rtmp"
+              class="btn-sm"
+              style="display: none"
+              onclick="exportRtmpKeysXlsx()"
+            >
+              EXPORT RTMP KEYS
+            </button>
             <label
               style="
                 font-family: var(--font-mono);
@@ -990,6 +999,7 @@
           suppliers.map((s) => `<option value="${s}">${s}</option>`).join("");
 
         if (suppliers.includes(current)) sel.value = current;
+        updateExportButtonVisibility();
       }
 
       function matchesSupplierFilter(name, supplier) {
@@ -1017,7 +1027,58 @@
 
       function handleFilterChange() {
         currentPage = 1;
+        updateExportButtonVisibility();
         render();
+      }
+
+      // ── RTMP keys export (Excel) ──────────────────────────────────
+      function updateExportButtonVisibility() {
+        const supplierFilter = document.getElementById("supplier-filter").value;
+        document.getElementById("btn-export-rtmp").style.display = supplierFilter
+          ? "inline-block"
+          : "none";
+      }
+
+      function buildRtmpKey(streamKey, channelName, mode) {
+        const capabilities = [
+          "sd",
+          "multi-bitrate",
+          "monitor-tracks",
+          "origin-shield",
+          "kill-session-on-stream-failure",
+          "kill-session-on-stream-ended",
+          //`publish-redundancy-mode=${mode}`,
+        ].join(",");
+        const screenName = `${channelName}-${
+          mode === "primary" ? "Primary" : "Secondary"
+        }`;
+        return `${streamKey};capabilities=${capabilities};screenName=${screenName}`;
+      }
+
+      function exportRtmpKeysXlsx() {
+        const supplierFilter = document.getElementById("supplier-filter").value;
+        if (!supplierFilter) return;
+
+        const channels = globalChannels
+          .filter((ch) => matchesSupplierFilter(ch.name, supplierFilter))
+          .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+
+        const rows = channels.map((ch) => {
+          const streamKey = ch.streamKey || "";
+          return {
+            "Channel Name": ch.name || "",
+            "RTMP Stream Key with RTS Capabilities and options for Primary":
+              buildRtmpKey(streamKey, ch.name || "", "primary"),
+            "RTMP Stream Key with RTS Capabilities and options for Secondary":
+              buildRtmpKey(streamKey, ch.name || "", "secondary"),
+          };
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(rows);
+        worksheet["!cols"] = [{ wch: 20 }, { wch: 130 }, { wch: 130 }];
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "RTMP Keys");
+        XLSX.writeFile(workbook, `RTMP keys for ${supplierFilter}.xlsx`);
       }
 
       function changePage(step) {

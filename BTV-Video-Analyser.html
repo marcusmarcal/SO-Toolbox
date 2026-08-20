@@ -3802,7 +3802,7 @@
       function openIngestReport() {
         if (!_currentResult || !_currentResult.ingest_dir) return;
         window.open(
-          `${PROXY}/ingest/report/${encodeURIComponent(_currentResult.ingest_dir)}`,
+          `${PROXY}/ingest/report/${encodeURIComponent(_currentResult.ingest_dir)}/index.html`,
           "_blank"
         );
       }
