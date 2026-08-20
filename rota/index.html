@@ -4345,15 +4345,15 @@ function _removeCellFromBoxes(ri, ci) {
 
   function _wireOverviewCardHandlers(el, isManagement) {
     if (!isManagement) return;
-      el.querySelectorAll('[data-al-edit]').forEach(btn => {
-        btn.addEventListener('click', () => _openAlEditRow(btn));
-      });
-      el.querySelectorAll('[data-al-add-misc]').forEach(btn => {
-        btn.addEventListener('click', () => _submitMiscEntry(btn));
-      });
-      el.querySelectorAll('[data-al-del-misc]').forEach(btn => {
-        btn.addEventListener('click', () => _deleteMiscEntry(btn));
-      });
+    el.querySelectorAll('[data-al-edit]').forEach(btn => {
+      btn.addEventListener('click', () => _openAlEditRow(btn));
+    });
+    el.querySelectorAll('[data-al-add-misc]').forEach(btn => {
+      btn.addEventListener('click', () => _submitMiscEntry(btn));
+    });
+    el.querySelectorAll('[data-al-del-misc]').forEach(btn => {
+      btn.addEventListener('click', () => _deleteMiscEntry(btn));
+    });
   }
 
   function _fmtH(v) {
@@ -4403,8 +4403,8 @@ function _removeCellFromBoxes(ri, ci) {
     const miscHtml = (b.misc_entries || []).map(e => `
       <div class="al-misc-row">
         <span>${_fmtDateShort(e.date)}</span>
-        <span class="al-misc-reason">${e.reason}</span>
         <span style="color:var(--text);font-weight:700;">${_fmtH(e.hours)}</span>
+        <span class="al-misc-reason">Reason: ${e.reason}</span>
         ${isManagement ? `<button class="btn danger" data-al-del-misc data-name="${name}" data-year="${year}" data-id="${e.id}"
              style="font-size:0.55rem;padding:2px 6px;">🗑</button>` : ''}
       </div>`).join('') || '<div style="color:var(--muted);font-size:0.65rem;">No misc entries.</div>';
