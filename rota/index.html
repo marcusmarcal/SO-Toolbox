@@ -1350,7 +1350,7 @@
       document.getElementById('date-to').setAttribute('max', maxDate.toISOString().split('T')[0]);
     }
 
-    document.querySelectorAll('.team-toggle').forEach(btn => {
+    document.querySelectorAll('#team-toggles .team-toggle').forEach(btn => {
       btn.addEventListener('click', () => {
         const t = btn.dataset.team;
         state.teamFilters[t] = !state.teamFilters[t];
@@ -4309,11 +4309,11 @@ function _removeCellFromBoxes(ri, ci) {
     if (!(isManagement && _overviewShowAll)) {
       // Own-card view — no team grouping needed
       const names = (myName && balances[myName]) ? [myName] : [];
-    if (!names.length) {
-      el.innerHTML = '<div class="empty-state">No allowance data for this year yet. If you\'re new, ask management to set your join date.</div>';
-      return;
-    }
-    el.innerHTML = names.map(name => _renderAlCard(name, balances[name], isManagement)).join('');
+      if (!names.length) {
+        el.innerHTML = '<div class="empty-state">No allowance data for this year yet. If you\'re new, ask management to set your join date.</div>';
+        return;
+      }
+      el.innerHTML = names.map(name => _renderAlCard(name, balances[name], isManagement)).join('');
       _wireOverviewCardHandlers(el, isManagement);
       return;
     }
