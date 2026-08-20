@@ -1078,7 +1078,7 @@
         worksheet["!cols"] = [{ wch: 20 }, { wch: 130 }, { wch: 130 }];
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "RTMP Keys");
-        XLSX.writeFile(workbook, `rtmp-keys-${supplierFilter}.xlsx`);
+        XLSX.writeFile(workbook, `RTMP keys for ${supplierFilter}.xlsx`);
       }
 
       function changePage(step) {
