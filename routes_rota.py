@@ -503,8 +503,8 @@ def rota_schedule():
     override_map = _build_override_map(published_overrides)
     note_map     = _build_note_map(notes)
 
-        days = _build_schedule(date_from, date_to, leave_map, override_map, note_map)
-        return jsonify({'ok': True, 'days': days})
+    days = _build_schedule(date_from, date_to, leave_map, override_map, note_map)
+    return jsonify({'ok': True, 'days': days})
 
 
 def _print_month_allowed_for_staff(year: int, month: int) -> bool:
