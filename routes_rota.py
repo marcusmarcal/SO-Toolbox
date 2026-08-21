@@ -503,8 +503,63 @@ def rota_schedule():
     override_map = _build_override_map(published_overrides)
     note_map     = _build_note_map(notes)
 
-    days = _build_schedule(date_from, date_to, leave_map, override_map, note_map)
+        days = _build_schedule(date_from, date_to, leave_map, override_map, note_map)
     return jsonify({'ok': True, 'days': days})
+
+
+def _print_month_allowed_for_staff(year: int, month: int) -> bool:
+    """Staff/non-management may only export the current calendar month,
+    or next month once within the final 10 days of the current month."""
+    today = date.today()
+    if (year, month) == (today.year, today.month):
+        return True
+    if today.month == 12:
+        next_year, next_month = today.year + 1, 1
+        last_day_current = date(today.year, 12, 31)
+    else:
+        next_year, next_month = today.year, today.month + 1
+        last_day_current = date(next_year, next_month, 1) - timedelta(days=1)
+    if (year, month) == (next_year, next_month):
+        return (last_day_current - today).days <= 10
+    return False
+
+
+@rota_bp.route('/rota/print-export', methods=['GET'])
+@require_auth
+def rota_print_export():
+    """Full-month schedule for the print/PDF export. Management: any month.
+    Staff: current month, or next month within its final 10 days. Guests: none."""
+    rota_role = _get_rota_role(request.session)
+    if rota_role == 'guest':
+        return jsonify({'ok': False, 'error': 'Not authorised'}), 403
+
+    month_param = request.args.get('month', '')  # YYYY-MM
+    try:
+        year, month = [int(x) for x in month_param.split('-')]
+        date_from = date(year, month, 1)
+        date_to   = (date(year, month + 1, 1) - timedelta(days=1)) if month < 12 \
+                    else date(year, 12, 31)
+    except (ValueError, AttributeError):
+        return jsonify({'ok': False, 'error': 'month must be YYYY-MM'}), 400
+
+    if rota_role != 'management' and not _print_month_allowed_for_staff(year, month):
+        return jsonify({'ok': False,
+                        'error': 'This month is not yet available for export.'}), 403
+
+    leave_list = _load_json(LEAVE_FILE)
+    if not isinstance(leave_list, list):
+        leave_list = []
+    published_overrides = _load_json(PUBLISHED_OVERRIDES_FILE)
+    if not isinstance(published_overrides, list):
+        published_overrides = []
+    notes = _load_notes()
+
+    leave_map    = _build_leave_map(leave_list)
+    override_map = _build_override_map(published_overrides)
+    note_map     = _build_note_map(notes)
+
+    days = _build_schedule(date_from, date_to, leave_map, override_map, note_map)
+    return jsonify({'ok': True, 'days': days, 'month': month_param})
 
 
 @rota_bp.route('/rota/leave', methods=['GET'])

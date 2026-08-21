@@ -729,6 +729,60 @@
     }
     .modal-card textarea:focus { border-color: var(--accent); }
     .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+
+    /* ── PRINT MONTH EXPORT ── */
+    #print-rota-root { display: none; }
+    @media print {
+      body * { visibility: hidden !important; }
+      #print-rota-root, #print-rota-root * { visibility: visible !important; }
+      #print-rota-root {
+        display: block !important;
+        position: absolute; top: 0; left: 0; width: 100%;
+      }
+      @page { size: A4 landscape; margin: 8mm; }
+      body { background: #fff !important; }
+    }
+    .print-title {
+      font-family: Arial, sans-serif; font-size: 13pt; font-weight: 800;
+      text-align: center; margin-bottom: 5mm; color: #000;
+    }
+    table.print-rota {
+      border-collapse: collapse; width: 100%; table-layout: fixed;
+      font-family: Arial, sans-serif; font-size: 6.5pt; color: #000;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
+    table.print-rota th, table.print-rota td {
+      border: 0.5pt solid #444; padding: 1.5px 2px; text-align: center;
+      overflow: hidden; white-space: nowrap;
+    }
+    table.print-rota th {
+      background: #1a1a1a !important; color: #fff !important;
+      font-size: 6.5pt; font-weight: 700;
+    }
+    table.print-rota td.print-date-col, table.print-rota th.print-date-col {
+      text-align: left; font-weight: 700; width: 68px;
+    }
+    table.print-rota td.print-team-sep, table.print-rota th.print-team-sep {
+      border-left: 1.5pt solid #000;
+    }
+    table.print-rota td.print-note-flag { position: relative; }
+    table.print-rota td.print-note-flag::after {
+      content: ''; position: absolute; top: 0; right: 0;
+      width: 0; height: 0; border-style: solid; border-width: 0 5px 5px 0;
+      border-color: transparent #E2725B transparent transparent;
+    }
+    .print-footer-space {
+      height: 34mm; border-top: 0.5pt solid #ccc; margin-top: 4mm;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 2mm 4mm; gap: 6mm;
+    }
+    .print-footer-space img.print-logo {
+      max-height: 24mm; max-width: 55mm; object-fit: contain;
+    }
+    .print-footer-space .print-footer-text {
+      font-family: Arial, sans-serif; font-size: 7pt; color: #555;
+      text-align: center; flex: 1;
+    }
   </style>
 </head>
 <body>
@@ -794,6 +848,7 @@
       <button class="btn today" id="btn-today">⤵ Today</button>
       <button class="btn" id="btn-refresh">⟳ Refresh</button>
       <button class="btn draft-enter" id="btn-draft" style="display:none;">✎ Draft</button>
+      <button class="btn" id="btn-print-month" style="display:none;">🖨 Print Month</button>
     </div>
     <div id="rota-wrap">
       <div class="loading-row"><div class="spinner"></div> Loading rota…</div>
@@ -1113,6 +1168,24 @@
     </div>
   </div>
 
+  <!-- ── PRINT MONTH MODAL ── -->
+  <div id="print-month-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:500;align-items:center;justify-content:center;">
+    <div class="modal-card" style="width:340px;">
+      <div class="modal-title">Print / Export Month</div>
+      <div class="form-group" style="margin-bottom:16px;">
+        <label>Month</label>
+        <input type="month" id="print-month-input" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn" id="print-month-cancel">Cancel</button>
+        <button class="btn primary" id="print-month-generate">Generate PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PRINT-ONLY ROTA (populated on demand, only visible via print CSS) ── -->
+  <div id="print-rota-root"></div>
+
   <div id="toast"></div>
 
   <script>
@@ -1120,6 +1193,18 @@
   //  CONFIG
   // ════════════════════════════════════════════════════════════════
   const PROXY = '/so-proxy';
+
+  // ── PRINT FOOTER — edit these whenever the company updates branding.
+  // Push a new commit through your normal GitHub workflow; no runtime config
+  // screen exists for this on purpose (keeps it out of the JSON data files).
+  // logoLeftSrc / logoRightSrc accept either a URL path (e.g. '/assets/logo.png',
+  // served by whatever serves index.html) or a base64 data URI. Leave a src
+  // empty ('') to omit that logo entirely — layout adapts automatically.
+  const PRINT_FOOTER = {
+    logoLeftSrc:  '',   // e.g. '/assets/company-logo.png'
+    logoRightSrc: '',   // e.g. '/assets/partner-logo.png'
+    text: 'CONFIDENTIAL — Internal Use Only. Streaming Ops Team Rota.',
+  };
 
   const SHIFT_COLORS = {
     '0700-1800': { bg:'#49B1E8', fg:'#000' },
@@ -1259,6 +1344,7 @@
       setupApprovals();
       setupFeedback();
       setupDraft();
+      setupPrintExport();
       setupPopoverGlobalHandlers();
       setupNoteTooltip();
       loadRota();
@@ -4162,6 +4248,142 @@ function _removeCellFromBoxes(ri, ci) {
       loadRota();
     }
     return d.ok;
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  PRINT / EXPORT MONTH (management only)
+  // ════════════════════════════════════════════════════════════════
+  // Mirrors the backend's _print_month_allowed_for_staff() — used only to
+  // steer the UI (disable invalid picks, set min/max). The server is the
+  // actual authority; do not treat this as the security boundary.
+  function _staffAllowedMonths() {
+    const today = new Date();
+    const y = today.getFullYear(), m = today.getMonth() + 1;
+    const currentYm = `${y}-${String(m).padStart(2, '0')}`;
+    const lastDayCurrent = new Date(y, m, 0); // day 0 of next month = last day of this month
+    const daysToEnd = Math.round((lastDayCurrent - today) / 86400000);
+    let nextYm = null;
+    if (daysToEnd <= 10) {
+      const ny = m === 12 ? y + 1 : y;
+      const nm = m === 12 ? 1 : m + 1;
+      nextYm = `${ny}-${String(nm).padStart(2, '0')}`;
+    }
+    return { currentYm, nextYm };
+  }
+
+  function setupPrintExport() {
+    if (!state.me || state.me.rota_role === 'guest') return;
+    document.getElementById('btn-print-month').style.display = '';
+
+    const isManagement = state.me.rota_role === 'management';
+
+    document.getElementById('btn-print-month').addEventListener('click', () => {
+      const input = document.getElementById('print-month-input');
+      if (isManagement) {
+        input.removeAttribute('min');
+        input.removeAttribute('max');
+        const now = new Date();
+        input.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      } else {
+        const { currentYm, nextYm } = _staffAllowedMonths();
+        input.min = currentYm;
+        input.max = nextYm || currentYm;
+        input.value = currentYm;
+      }
+      document.getElementById('print-month-modal').style.display = 'flex';
+    });
+    document.getElementById('print-month-cancel').addEventListener('click', () => {
+      document.getElementById('print-month-modal').style.display = 'none';
+    });
+    document.getElementById('print-month-modal').addEventListener('click', e => {
+      if (e.target.id === 'print-month-modal') document.getElementById('print-month-modal').style.display = 'none';
+    });
+    document.getElementById('print-month-generate').addEventListener('click', generateMonthPrintout);
+  }
+
+  async function generateMonthPrintout() {
+    const val = document.getElementById('print-month-input').value; // YYYY-MM
+    if (!val) { toast('Select a month', 'err'); return; }
+    const [y, m] = val.split('-').map(Number);
+
+    if (state.me.rota_role !== 'management') {
+      const { currentYm, nextYm } = _staffAllowedMonths();
+      if (val !== currentYm && val !== nextYm) {
+        toast('That month is not available for export yet', 'err');
+        return;
+      }
+    }
+
+    const btn = document.getElementById('print-month-generate');
+    btn.disabled = true; btn.textContent = 'Loading…';
+    try {
+      const r = await fetch(`${PROXY}/rota/print-export?month=${val}`, { credentials: 'same-origin' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error);
+      _buildPrintTable(d.days, y, m);
+      document.getElementById('print-month-modal').style.display = 'none';
+      // Let the DOM paint before invoking the print dialog
+      setTimeout(() => window.print(), 100);
+    } catch(e) {
+      toast('Failed to load month: ' + e.message, 'err');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Generate PDF';
+    }
+  }
+
+  // Builds the print-only table from the same data + same _computeCellDisplay()
+  // color logic used on-screen, so print output can never visually drift from
+  // the live rota. Notes are shown as the corner flag only — no note text.
+  function _buildPrintTable(days, year, month) {
+    const teams = [
+      { name: 'Management',  members: ['Joao R','Marcus','Joao L','Tiago C'] },
+      { name: 'Engineering', members: ['Hugo','Goncalo','Nuno'] },
+      { name: 'Specialists', members: ['Sabina','Sergio','Tiago O','Vitor','Fernando','Marc','Gabriel','Mario','Isaac'] },
+    ];
+    const monthLabel = new Date(year, month - 1, 1)
+      .toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+
+    let thead = '<tr><th class="print-date-col">Date</th>';
+    teams.forEach(team => {
+      team.members.forEach((name, mi) => {
+        thead += `<th class="${mi === 0 ? 'print-team-sep' : ''}">${name}</th>`;
+      });
+    });
+    thead += '</tr>';
+
+    let tbody = '';
+    days.forEach(day => {
+      const d     = new Date(day.date + 'T00:00:00');
+      const wday  = d.toLocaleDateString('en-GB', { weekday: 'short' });
+      const dstr  = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      tbody += `<tr><td class="print-date-col">${wday} ${dstr}</td>`;
+      teams.forEach(team => {
+        team.members.forEach((name, mi) => {
+          const shift = (day.shifts[name] || {}).shift || 'OFF';
+          const note  = (day.shifts[name] || {}).note  || '';
+          const { bg, fg, text } = _computeCellDisplay(shift);
+          const sep     = mi === 0 ? ' print-team-sep' : '';
+          const noteCls = note ? ' print-note-flag' : '';
+          tbody += `<td class="${sep}${noteCls}" style="background:${bg};color:${fg};">${text}</td>`;
+        });
+      });
+      tbody += '</tr>';
+    });
+
+    const leftLogo  = PRINT_FOOTER.logoLeftSrc
+      ? `<img class="print-logo" src="${PRINT_FOOTER.logoLeftSrc}" alt="" />` : '<span></span>';
+    const rightLogo = PRINT_FOOTER.logoRightSrc
+      ? `<img class="print-logo" src="${PRINT_FOOTER.logoRightSrc}" alt="" />` : '<span></span>';
+
+    document.getElementById('print-rota-root').innerHTML = `
+      <div class="print-title">BROADCAST OPERATIONS | Streaming Ops Team — ${monthLabel} Schedule</div>
+      <table class="print-rota"><thead>${thead}</thead><tbody>${tbody}</tbody></table>
+      <div class="print-footer-space">
+        ${leftLogo}
+        <div class="print-footer-text">${PRINT_FOOTER.text}</div>
+        ${rightLogo}
+      </div>
+    `;
   }
 
   // ════════════════════════════════════════════════════════════════
