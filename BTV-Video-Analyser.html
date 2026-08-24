@@ -364,6 +364,11 @@
         border: 1px solid var(--red);
         color: var(--red);
       }
+      .idr-badge.warn {
+        background: var(--yellow-d);
+        border: 1px solid var(--yellow);
+        color: var(--yellow);
+      }
 
       /* GOP avg hero number */
       .gop-hero {
@@ -1476,18 +1481,7 @@
                   flex-wrap: wrap;
                 "
               >
-                <div class="idr-badge" id="idr-badge">…</div>
-                <div
-                  style="
-                    font-family: var(--mono);
-                    font-size: 0.72rem;
-                    color: var(--muted);
-                    line-height: 1.9;
-                  "
-                  id="idr-detail"
-                >
-                  …
-                </div>
+                <div class="idr-badge" id="overall-status-badge">…</div>
                 <div
                   style="
                     margin-left: auto;
@@ -1497,7 +1491,7 @@
                     flex-wrap: wrap;
                   "
                 >
-                  <div id="overall-badge"></div>
+                  <div id="gop-type-badge"></div>
                   <button
                     id="btn-override"
                     onclick="openOverrideModal()"
@@ -1516,24 +1510,6 @@
                     title="Manually accept this rejected result with justification"
                   >
                     ⚡ Override
-                  </button>
-                  <button
-                    onclick="clearResults()"
-                    style="
-                      background: transparent;
-                      border: 1px solid var(--border);
-                      border-radius: 5px;
-                      color: var(--muted);
-                      font-family: var(--mono);
-                      font-size: 0.7rem;
-                      padding: 4px 10px;
-                      cursor: pointer;
-                    "
-                    title="Clear and start fresh"
-                    onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'"
-                    onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'"
-                  >
-                    ✕ Clear
                   </button>
                   <button
                     id="btn-rerun"
@@ -1573,6 +1549,25 @@
                     🔎 Ingest Analyser Report
                   </button>
                   <button
+                    id="btn-mediainfo-report"
+                    onclick="openMediaInfoReportModal()"
+                    style="
+                      display: none;
+                      background: transparent;
+                      border: 1px solid var(--cyan);
+                      border-radius: 5px;
+                      color: var(--cyan);
+                      font-family: var(--mono);
+                      font-size: 0.7rem;
+                      font-weight: 700;
+                      padding: 4px 12px;
+                      cursor: pointer;
+                    "
+                    title="View the full MediaInfo analysis report for this test"
+                  >
+                    🔬 MediaInfo Report
+                  </button>
+                  <button
                     id="btn-live-probe"
                     onclick="openLiveProbeModalForTest()"
                     style="
@@ -1608,6 +1603,24 @@
                     title="Generate email report"
                   >
                     📋 Generate Report
+                  </button>
+                  <button
+                    onclick="clearResults()"
+                    style="
+                      background: transparent;
+                      border: 1px solid var(--border);
+                      border-radius: 5px;
+                      color: var(--muted);
+                      font-family: var(--mono);
+                      font-size: 0.7rem;
+                      padding: 4px 10px;
+                      cursor: pointer;
+                    "
+                    title="Clear and start fresh"
+                    onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'"
+                    onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'"
+                  >
+                    ✕
                   </button>
                 </div>
               </div>
@@ -2269,6 +2282,106 @@
       </div>
     </div>
 
+    <!-- MediaInfo Report modal -->
+    <div class="modal-overlay" id="mediainfo-report-modal">
+      <div
+        class="modal-card"
+        style="
+          width: 700px;
+          max-width: 96vw;
+          height: 80vh;
+          display: flex;
+          flex-direction: column;
+        "
+      >
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.6rem;
+            flex-shrink: 0;
+          "
+        >
+          <div class="modal-title" style="color: var(--cyan); margin: 0">
+            🔬 MediaInfo Report
+          </div>
+          <button class="btn-cancel" onclick="closeMediaInfoReportModal()">
+            ✕
+          </button>
+        </div>
+        <div
+          style="
+            font-family: var(--mono);
+            font-size: 0.68rem;
+            color: var(--muted);
+            flex-shrink: 0;
+            margin-bottom: 0.4rem;
+          "
+        >
+          Full output of <code>mediainfo</code> run on the recorded/uploaded
+          .ts file.
+        </div>
+        <textarea
+          id="mediainfo-report-text"
+          readonly
+          style="
+            width: 100%;
+            flex: 1;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            color: var(--text);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            padding: 0.6rem 0.8rem;
+            outline: none;
+            resize: none;
+            line-height: 1.6;
+          "
+          onclick="this.select()"
+        ></textarea>
+        <div
+          style="
+            margin-top: 0.6rem;
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            flex-shrink: 0;
+            padding-top: 0.5rem;
+            border-top: 1px solid var(--border);
+          "
+        >
+          <button
+            onclick="copyMediaInfoReport()"
+            style="
+              background: var(--cyan);
+              border: none;
+              border-radius: 5px;
+              color: #000;
+              font-family: var(--mono);
+              font-size: 0.7rem;
+              font-weight: 700;
+              padding: 5px 14px;
+              cursor: pointer;
+            "
+          >
+            📋 Copy
+          </button>
+          <span
+            id="mediainfo-copy-ok"
+            style="
+              font-family: var(--mono);
+              font-size: 0.68rem;
+              color: var(--green);
+              display: none;
+            "
+            >✓ Copied!</span
+          >
+        </div>
+      </div>
+    </div>
+
     <!-- Report modal -->
     <div class="modal-overlay" id="report-modal">
       <div
@@ -2881,6 +2994,12 @@
         const ingestBtn = document.getElementById("btn-ingest-report");
         ingestBtn.style.display = r.ingest_dir ? "" : "none";
 
+        // Show "MediaInfo Report" only when the full report text was captured
+        const mediainfoBtn = document.getElementById("btn-mediainfo-report");
+        if (mediainfoBtn) {
+          mediainfoBtn.style.display = r.mediainfo_report ? "" : "none";
+        }
+
         // Show "Live Probe" only for SRT-source tests — never for uploaded files
         const liveProbeBtn = document.getElementById("btn-live-probe");
         if (liveProbeBtn) {
@@ -2963,40 +3082,28 @@
         document.getElementById("log-card").style.display = "none";
         document.getElementById("placeholder").style.display = "none";
 
-        // IDR check
-        const idrBadge = document.getElementById("idr-badge");
-        if (r.has_idr) {
-          idrBadge.className = "idr-badge pass";
-          idrBadge.innerHTML = `✓ IDR Frames Present`;
-        } else {
-          idrBadge.className = "idr-badge fail";
-          idrBadge.innerHTML = `✗ No IDR Frames (NAL type 5)`;
+        // Overall status — shown in the big top-left badge (was IDR-only)
+        const os = r.overall_status || "UNKNOWN";
+        if (!hasOverride) {
+          const statusBadge = document.getElementById("overall-status-badge");
+          let statusCls = "idr-badge";
+          if (os.includes("REJECTED")) statusCls += " fail";
+          else if (os.includes("ACCEPTED")) statusCls += " warn";
+          else if (os.includes("COMPLIANT")) statusCls += " pass";
+          statusBadge.className = statusCls;
+          statusBadge.style.cursor = "";
+          statusBadge.onclick = null;
+          statusBadge.innerHTML = os;
         }
 
+        // GOP type — shown where the small overall-status pill used to be
         const gop_type_color =
           r.gop_type === "CLOSED" ? "var(--green)" : "var(--yellow)";
-        document.getElementById("idr-detail").innerHTML = [
-          `IDR count: <strong style="color:${
-            r.has_idr ? "var(--green)" : "var(--red)"
-          }">${r.idr_count}</strong>`,
-          `Non-IDR keyframes: <strong>${r.non_idr_keyframes || 0}</strong>`,
-          `GOP type: <strong style="color:${gop_type_color}">${
-            r.gop_type || "—"
-          }</strong>`,
-          `B-frames: <strong style="color:${
-            r.has_b_frames ? "var(--yellow)" : "var(--green)"
-          }">` +
-            `${
-              r.has_b_frames ? "YES (" + r.b_frame_count + ")" : "No"
-            }</strong>`,
-          `Total frames: <strong>${r.total_frames}</strong>`,
-        ].join("  ·  ");
-
-        // Overall badge
-        const os = r.overall_status || "UNKNOWN";
         document.getElementById(
-          "overall-badge"
-        ).innerHTML = `<span class="status-pill ${os}" style="font-size:.72rem;padding:3px 12px">${os}</span>`;
+          "gop-type-badge"
+        ).innerHTML = `<span class="status-pill" style="font-size:.72rem;padding:3px 12px;color:${gop_type_color};border-color:${gop_type_color};background:transparent">GOP ${
+          r.gop_type || "—"
+        }</span>`;
 
         // Compliance table
         renderComplianceTable(r);
@@ -3740,9 +3847,12 @@
         loadHistory();
       }
       function applyOverride(reason) {
-        document.getElementById(
-          "overall-badge"
-        ).innerHTML = `<span class="status-pill" style="background:rgba(227,179,65,.15);color:var(--yellow);border:1px solid var(--yellow);font-size:.72rem;padding:3px 12px;cursor:pointer" onclick="document.getElementById('override-detail-modal').classList.add('open')">⚡ ACCEPTED (Override) ℹ</span>`;
+        const statusBadge = document.getElementById("overall-status-badge");
+        statusBadge.className = "idr-badge warn";
+        statusBadge.style.cursor = "pointer";
+        statusBadge.innerHTML = `⚡ ACCEPTED (Override) ℹ`;
+        statusBadge.onclick = () =>
+          document.getElementById("override-detail-modal").classList.add("open");
         document.getElementById("override-reason-display").textContent = reason;
         document.getElementById("override-notice").style.display = "";
         document.getElementById("override-detail-reason").textContent = reason;
@@ -3791,9 +3901,15 @@
           overrideBtn.style.display = "none";
         }
         if (_currentResult) {
-          document.getElementById(
-            "overall-badge"
-          ).innerHTML = `<span class="status-pill ${os}" style="font-size:.72rem;padding:3px 12px">${os}</span>`;
+          const statusBadge = document.getElementById("overall-status-badge");
+          let statusCls = "idr-badge";
+          if (os.includes("REJECTED")) statusCls += " fail";
+          else if (os.includes("ACCEPTED")) statusCls += " warn";
+          else if (os.includes("COMPLIANT")) statusCls += " pass";
+          statusBadge.className = statusCls;
+          statusBadge.style.cursor = "";
+          statusBadge.onclick = null;
+          statusBadge.innerHTML = os;
         }
         loadHistory();
       }
@@ -3805,6 +3921,30 @@
           `${PROXY}/ingest/report/${encodeURIComponent(_currentResult.ingest_dir)}/index.html`,
           "_blank"
         );
+      }
+
+      // ── MediaInfo Report modal ──────────────────────────────────────────
+      function openMediaInfoReportModal() {
+        if (!_currentResult || !_currentResult.mediainfo_report) return;
+        document.getElementById("mediainfo-report-text").value =
+          _currentResult.mediainfo_report;
+        document.getElementById("mediainfo-report-modal").classList.add("open");
+      }
+      function closeMediaInfoReportModal() {
+        document.getElementById("mediainfo-report-modal").classList.remove("open");
+      }
+      async function copyMediaInfoReport() {
+        const text = document.getElementById("mediainfo-report-text").value;
+        if (!text) return;
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch {
+          document.getElementById("mediainfo-report-text").select();
+          document.execCommand("copy");
+        }
+        const ok = document.getElementById("mediainfo-copy-ok");
+        ok.style.display = "";
+        setTimeout(() => (ok.style.display = "none"), 2500);
       }
 
       // ── Live SRT Transport Probe (post-SRT PCR interval / TS CC loss) ─────
@@ -5177,6 +5317,7 @@
         "specs-modal",
         "reeval-modal",
         "change-wf-modal",
+        "mediainfo-report-modal",
       ].forEach((id) => {
         const el = document.getElementById(id);
         if (el)

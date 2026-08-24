@@ -6,6 +6,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.44.0] - 2026-08-24
+
+### Added
+- Full MediaInfo report viewer: a "MediaInfo Report" button next to
+  "Ingest Analyser Report" opens the complete, verbatim `mediainfo`
+  output for the test in a copyable text panel.
+
+### Changed
+- Stream Check header redesigned: the main status badge now shows
+  the overall compliance result instead of IDR presence; the
+  secondary badge now shows GOP type (OPEN/CLOSED) instead of the
+  overall result.
+- "Clear" button is now icon-only and moved to the end of the
+  action button row.
+
+### Removed
+- Redundant frame-detail summary line (IDR count, non-IDR keyframes,
+  GOP type, B-frames, total frames) from the Stream Check header —
+  this data remains available in the GOP Statistics panel.
+
 ## [2.43.0] - 2026-08-20
 
 ### Added
