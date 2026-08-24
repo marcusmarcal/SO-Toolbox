@@ -734,19 +734,21 @@
     #print-rota-root { display: none; }
     @media print {
       html, body { margin: 0 !important; padding: 0 !important; }
-      body * { visibility: hidden !important; }
-      #print-rota-root, #print-rota-root * { visibility: visible !important; }
+      /* Fully remove every other top-level element from layout — not just
+         hide it. visibility:hidden keeps the box (and its height) in flow,
+         which was silently pushing total document height past one page and
+         creating a blank second page. display:none removes the box entirely. */
+      body > *:not(#print-rota-root) { display: none !important; }
       #print-rota-root {
         display: flex !important; flex-direction: column;
-        position: absolute; top: 0; left: 0; width: 285mm; height: 198mm;
-        overflow: hidden;
+        width: 285mm; height: 198mm; overflow: hidden;
       }
       @page { size: A4 landscape; margin: 6mm; }
       body { background: #fff !important; }
     }
     .print-title {
       font-family: 'Roboto', Arial, sans-serif; font-weight: 700;
-      font-size: 12pt; text-align: center; margin-bottom: 2.5mm; color: #000;
+      font-size: 12pt; text-align: center; margin-bottom: 4.5mm; color: #000;
       flex-shrink: 0;
     }
     table.print-rota {
@@ -782,7 +784,7 @@
       border-color: transparent #E2725B transparent transparent;
     }
     .print-footer-space {
-      flex-shrink: 0; height: 30mm; border-top: 0.5pt solid #ccc; margin-top: 2mm;
+      flex-shrink: 0; height: 18mm; border-top: 0.5pt solid #ccc; margin-top: 2mm;
       display: flex; align-items: center; justify-content: space-between;
       padding: 1.5mm 4mm; gap: 6mm;
     }
