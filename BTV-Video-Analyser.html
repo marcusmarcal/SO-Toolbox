@@ -3096,12 +3096,12 @@
           statusBadge.innerHTML = os;
         }
 
-        // GOP type — shown where the small overall-status pill used to be
+                // GOP type — styled like the other action buttons alongside it
         const gop_type_color =
           r.gop_type === "CLOSED" ? "var(--green)" : "var(--yellow)";
         document.getElementById(
           "gop-type-badge"
-        ).innerHTML = `<span class="status-pill" style="font-size:.72rem;padding:3px 12px;color:${gop_type_color};border-color:${gop_type_color};background:transparent">GOP ${
+        ).innerHTML = `<span style="display:inline-block;background:transparent;border:1px solid ${gop_type_color};border-radius:5px;color:${gop_type_color};font-family:var(--mono);font-size:.7rem;font-weight:700;padding:4px 12px">GOP ${
           r.gop_type || "—"
         }</span>`;
 
