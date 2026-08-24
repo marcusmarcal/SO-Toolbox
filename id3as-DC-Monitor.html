@@ -2251,7 +2251,7 @@
               evWm,
               im,
               evs,
-              isRmg: id.toUpperCase().startsWith("RMG_"),
+              isRmg: /^RMG(EAL)?_/.test(id.toUpperCase()),
               encState,
               encWarn,
               srcState,
