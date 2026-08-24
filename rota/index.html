@@ -733,12 +733,12 @@
     /* ── PRINT MONTH EXPORT ── */
     #print-rota-root { display: none; }
     @media print {
-      html, body { height: auto !important; }
+      html, body { margin: 0 !important; padding: 0 !important; }
       body * { visibility: hidden !important; }
       #print-rota-root, #print-rota-root * { visibility: visible !important; }
       #print-rota-root {
         display: flex !important; flex-direction: column;
-        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        position: absolute; top: 0; left: 0; width: 285mm; height: 198mm;
         overflow: hidden;
       }
       @page { size: A4 landscape; margin: 6mm; }
@@ -757,7 +757,7 @@
     }
     table.print-rota th, table.print-rota td {
       border: 0.5pt solid #999; padding: 0.5px 2px; text-align: center;
-      overflow: hidden; white-space: nowrap; line-height: 1.35;
+      overflow: hidden; white-space: nowrap; line-height: 1.20;
     }
     table.print-rota th {
       background: #d9d9d9 !important; color: #333 !important;
@@ -782,7 +782,7 @@
       border-color: transparent #E2725B transparent transparent;
     }
     .print-footer-space {
-      flex-shrink: 0; height: 18mm; border-top: 0.5pt solid #ccc; margin-top: 2mm;
+      flex-shrink: 0; height: 30mm; border-top: 0.5pt solid #ccc; margin-top: 2mm;
       display: flex; align-items: center; justify-content: space-between;
       padding: 1.5mm 4mm; gap: 6mm;
     }
