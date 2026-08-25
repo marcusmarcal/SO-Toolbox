@@ -789,7 +789,7 @@
     }
     .print-footer-space {
       flex-shrink: 0; height: 22mm; border-top: 0.5pt solid #ccc; margin-top: 2mm;
-      display: grid; grid-template-columns: 1.5fr 0.1fr 1.4fr; align-items: center;
+      display: grid; grid-template-columns: 1.5fr 0.5fr 1fr; align-items: center;
       padding: 1.5mm 4mm;
     }
     .print-footer-text-col {
@@ -1227,7 +1227,7 @@
   // empty ('') to omit that logo entirely — layout adapts automatically.
   const PRINT_FOOTER = {
     logo30Src: '/rota/assets/RunningBall_Logo.png',   // narrower (30%) logo slot, e.g. '/assets/company-logo.png'
-    logo70Src: '/rota/assets/StatsPerform_Logo_Primary.png',   // wider (70%) logo slot, e.g. '/assets/partner-logo.png'
+    logo70Src: '/rota/assets/StatsPerform_Logo_Secondary.png',   // wider (70%) logo slot, e.g. '/assets/partner-logo.png'
     // Exactly 7 lines, left-aligned, in the leftmost third of the footer.
     // Edit freely — array length isn't enforced, but 7 is what fits the
     // reserved footer height (.print-footer-space, height: 22mm).
