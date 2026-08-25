@@ -4341,6 +4341,25 @@ function _removeCellFromBoxes(ri, ci) {
     document.getElementById('print-month-generate').addEventListener('click', generateMonthPrintout);
   }
 
+  // Waits for every <img> inside the print root to actually finish loading
+  // (or fail) before print() snapshots the page. A fixed setTimeout can't
+  // guarantee this — network-loaded logos can easily take longer than any
+  // reasonable fixed delay, and Chrome's print engine silently omits
+  // anything not yet loaded rather than erroring.
+  function _waitForPrintImages() {
+    const imgs = Array.from(document.querySelectorAll('#print-rota-root img'));
+    const loaded = Promise.all(imgs.map(img => {
+      if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+      return new Promise(resolve => {
+        img.addEventListener('load',  resolve, { once: true });
+        img.addEventListener('error', resolve, { once: true }); // don't hang on a bad path
+      });
+    }));
+    return loaded.then(() => new Promise(resolve =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve))
+    ));
+  }
+
   async function generateMonthPrintout() {
     const val = document.getElementById('print-month-input').value; // YYYY-MM
     if (!val) { toast('Select a month', 'err'); return; }
@@ -4362,8 +4381,8 @@ function _removeCellFromBoxes(ri, ci) {
       if (!d.ok) throw new Error(d.error);
       _buildPrintTable(d.days, y, m);
       document.getElementById('print-month-modal').style.display = 'none';
-      // Let the DOM paint before invoking the print dialog
-      setTimeout(() => window.print(), 100);
+      await _waitForPrintImages();
+      window.print();
     } catch(e) {
       toast('Failed to load month: ' + e.message, 'err');
     } finally {
