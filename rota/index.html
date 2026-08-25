@@ -759,7 +759,7 @@
       border-collapse: collapse; width: 100%; table-layout: fixed;
       font-family: 'Aptos Narrow', Arial, sans-serif; font-size: 6pt; color: #000;
       -webkit-print-color-adjust: exact; print-color-adjust: exact;
-      flex: 1 1 auto;
+      flex: 0 0 auto;   /* was: flex: 1 1 auto — stop force-stretching to fill the page */
     }
     table.print-rota th, table.print-rota td {
       border: 0.5pt solid #999; padding: 0.5px 2px; text-align: center;
