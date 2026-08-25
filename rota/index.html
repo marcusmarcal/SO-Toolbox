@@ -788,16 +788,25 @@
       border-color: transparent #E2725B transparent transparent;
     }
     .print-footer-space {
-      flex-shrink: 0; height: 30mm; border-top: 0.5pt solid #ccc; margin-top: 2mm;
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 1.5mm 4mm; gap: 6mm;
+      flex-shrink: 0; height: 22mm; border-top: 0.5pt solid #ccc; margin-top: 2mm;
+      display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center;
+      padding: 1.5mm 4mm;
     }
-    .print-footer-space img.print-logo {
-      max-height: 30mm; max-width: 45mm; object-fit: contain;
+    .print-footer-text-col {
+      display: flex; flex-direction: column; justify-content: center;
+      text-align: left; gap: 0.4mm;
     }
-    .print-footer-space .print-footer-text {
-      font-family: 'Aptos Narrow', Arial, sans-serif; font-size: 5pt; color: #666;
-      text-align: left; flex: 1;
+    .print-footer-text-col .print-footer-line {
+      font-family: 'Aptos Narrow', Arial, sans-serif; font-size: 6.5pt;
+      line-height: 1.15; color: #666;
+    }
+    .print-footer-logos-col {
+      display: flex; align-items: center; justify-content: flex-end; height: 100%;
+    }
+    .print-footer-logos-col .print-logo-30 { flex: 0 0 30%; text-align: center; }
+    .print-footer-logos-col .print-logo-70 { flex: 0 0 70%; text-align: center; }
+    .print-footer-logos-col img.print-logo {
+      max-height: 16mm; max-width: 100%; object-fit: contain;
     }
   </style>
 </head>
@@ -1213,19 +1222,24 @@
   // ── PRINT FOOTER — edit these whenever the company updates branding.
   // Push a new commit through your normal GitHub workflow; no runtime config
   // screen exists for this on purpose (keeps it out of the JSON data files).
-  // logoLeftSrc / logoRightSrc accept either a URL path (e.g. '/assets/logo.png',
+  // logo30Src / logo70Src accept either a URL path (e.g. '/assets/logo.png',
   // served by whatever serves index.html) or a base64 data URI. Leave a src
   // empty ('') to omit that logo entirely — layout adapts automatically.
   const PRINT_FOOTER = {
-    logoLeftSrc:  'assets/RunningBall_Logo.png',   // e.g. '/assets/company-logo.png'
-    logoRightSrc: 'assets/StatsPerform_Logo_Primary.png',   // e.g. '/assets/partner-logo.png'
-    text: `RunningBall Informação Desportiva Unipessoal Lda.
-  Nº pessoa coletiva: 508698472
-  Localização: R. das Cardadeiras, n 64 3800-125 Esgueira Aveiro
-  Período de funcionamento: conforme artº1 DL48/96 de 15 Maio
-  Actividade: Serviços de informação desportiva por televisão e internet; pesquisa, recolha e disponibilização de
-  informação sobre eventos desportivos; armazenagem e disponibilização de dados estatísticos na área do desporto;
-  Código CAE: 63920 — R4`,
+    logo30Src: '',   // narrower (30%) logo slot, e.g. '/assets/company-logo.png'
+    logo70Src: '',   // wider (70%) logo slot, e.g. '/assets/partner-logo.png'
+    // Exactly 7 lines, left-aligned, in the leftmost third of the footer.
+    // Edit freely — array length isn't enforced, but 7 is what fits the
+    // reserved footer height (.print-footer-space, height: 22mm).
+    textLines: [
+      'RunningBall Informação Desportiva Unipessoal Lda.',
+      'Nº pessoa coletiva: 508698472',
+      'Localização: R. das Cardadeiras, n 64 3800-125 Esgueira Aveiro',
+      'Período de funcionamento: conforme artº1 DL48/96 de 15 Maio',
+      'Actividade: Serviços de informação desportiva por televisão e internet; pesquisa, recolha e disponibilização de',
+      'informação sobre eventos desportivos; armazenagem e disponibilização de dados estatísticos na área do desporto;',
+      'Código CAE: 63920 — R4',
+    ],
   };
 
   const SHIFT_COLORS = {
@@ -4402,19 +4416,21 @@ function _removeCellFromBoxes(ri, ci) {
       tbody += '</tr>';
     });
 
-    const leftLogo  = PRINT_FOOTER.logoLeftSrc
-      ? `<img class="print-logo" src="${PRINT_FOOTER.logoLeftSrc}" alt="" />` : '<span></span>';
-    const rightLogo = PRINT_FOOTER.logoRightSrc
-      ? `<img class="print-logo" src="${PRINT_FOOTER.logoRightSrc}" alt="" />` : '<span></span>';
+    const textLinesHtml = (PRINT_FOOTER.textLines || [])
+      .map(line => `<div class="print-footer-line">${line}</div>`).join('');
+    const logo30 = PRINT_FOOTER.logo30Src
+      ? `<div class="print-logo-30"><img class="print-logo" src="${PRINT_FOOTER.logo30Src}" alt="" /></div>` : '<div class="print-logo-30"></div>';
+    const logo70 = PRINT_FOOTER.logo70Src
+      ? `<div class="print-logo-70"><img class="print-logo" src="${PRINT_FOOTER.logo70Src}" alt="" /></div>` : '<div class="print-logo-70"></div>';
 
     document.getElementById('print-rota-root').innerHTML = `
       <div class="print-page-inner">
       <div class="print-title">BROADCAST OPERATIONS | Streaming Ops Team — ${monthLabel} Schedule</div>
       <table class="print-rota"><thead>${thead}</thead><tbody>${tbody}</tbody></table>
       <div class="print-footer-space">
-        ${leftLogo}
-        <div class="print-footer-text">${PRINT_FOOTER.text}</div>
-        ${rightLogo}
+          <div class="print-footer-text-col">${textLinesHtml}</div>
+          <div></div>
+          <div class="print-footer-logos-col">${logo30}${logo70}</div>
         </div>
       </div>
     `;
