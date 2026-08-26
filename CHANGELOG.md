@@ -6,6 +6,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.45.0] - 2026-08-26
+
+### Added
+- New `/rts/fork-history` backend endpoint proxying Phenix's
+  `PUT /pcast/reporting/fork/history` reporting API.
+- New "Fork Origin" tab: query fork events by UTC period, filter by
+  channel name/ID, and resolve source/destination channel IDs to
+  their display names when known.
+- Channels table now shows a "FORK" badge (with source channel and
+  timestamp tooltip) for any channel identified as a fork
+  destination in the most recently fetched Fork Origin report.
+
 ## [2.44.1] - 2026-08-24
 
 ### Changed

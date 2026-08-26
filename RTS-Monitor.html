@@ -322,6 +322,12 @@
         background: var(--red-dim);
         color: var(--red);
       }
+      .badge.fork {
+        background: var(--cyan-dim);
+        color: var(--cyan);
+        margin-left: 6px;
+        cursor: help;
+      }
 
       .btn-sm.update:hover { border-color: var(--cyan); color: var(--cyan); }
 
@@ -628,6 +634,9 @@
         <button class="tab-btn" onclick="switchTab('viewing-report')">
           Viewing Report
         </button>
+        <button class="tab-btn" onclick="switchTab('fork-origin')">
+          Fork Origin
+        </button>
       </div>
 
       <!-- ── TAB: Channels ──────────────────────────────────────── -->
@@ -799,6 +808,55 @@
         </div>
       </div>
       <!-- /tab-viewing-report -->
+
+      <!-- ── TAB: Fork Origin ─────────────────────────────────── -->
+      <div id="tab-fork-origin" class="tab-panel">
+        <div class="vr-layout">
+          <div class="vr-form">
+            <div class="vr-field">
+              <label>Start (UTC)</label>
+              <input id="fo-start" type="datetime-local" step="1" />
+            </div>
+            <div class="vr-field">
+              <label>End (UTC)</label>
+              <input id="fo-end" type="datetime-local" step="1" />
+            </div>
+            <div class="vr-field">
+              <label>Filter (channel name or ID)</label>
+              <input id="fo-filter" type="text" placeholder="optional" oninput="renderForkHistory()" />
+            </div>
+            <button id="fo-run-btn" class="btn-run" onclick="runForkHistory()">
+              Run
+            </button>
+          </div>
+          <div id="fo-status" class="vr-status">
+            Fork history maps a destination channel back to its source
+            (base) channel. Pick a period and press Run. Channels currently
+            listed in the Channels tab will get a "FORK" badge automatically
+            once a report has been fetched.
+          </div>
+          <div class="vr-table-wrap">
+            <table id="fo-table">
+              <thead>
+                <tr>
+                  <th>TIMESTAMP</th>
+                  <th>SOURCE (BASE) CHANNEL</th>
+                  <th>DESTINATION CHANNEL</th>
+                  <th>STATUS</th>
+                </tr>
+              </thead>
+              <tbody id="fo-tbody"></tbody>
+            </table>
+            <button
+              id="fo-load-more"
+              class="btn-load-more"
+              onclick="loadMoreForkRows()"
+              style="display: none"
+            ></button>
+          </div>
+        </div>
+      </div>
+      <!-- /tab-fork-origin -->
     </div>
     <!-- /#dashboard -->
 
@@ -844,6 +902,8 @@
       let globalChannels = [];
       let globalState = {};
       let currentPage = 1;
+      // destinationChannelId -> { sourceId, timestamp }
+      let forkOriginMap = {};
       const itemsPerPage = 50;
 
       function headers() {
@@ -882,6 +942,13 @@
         globalChannels = [];
         globalState = {};
         currentPage = 1;
+        forkOriginMap = {};
+        _foParsed = null;
+        document.getElementById("fo-tbody").innerHTML = "";
+        document.getElementById("fo-status").className = "vr-status";
+        document.getElementById("fo-status").textContent =
+          'Fork history maps a destination channel back to its source (base) channel. Pick a period and press Run. Channels currently listed in the Channels tab will get a "FORK" badge automatically once a report has been fetched.';
+        document.getElementById("fo-load-more").style.display = "none";
 
         // Clear UI
         document.getElementById("table-body").innerHTML =
@@ -1154,6 +1221,12 @@
               })
             : "—";
           const phenixUrl = buildPhenixUrl(ch);
+          const forkInfo = ch.channelId ? forkOriginMap[ch.channelId] : null;
+          const forkBadge = forkInfo
+            ? `<span class="badge fork" title="Forked from: ${
+                forkInfo.sourceName || forkInfo.sourceId
+              } (${forkInfo.sourceId})&#10;At: ${forkInfo.timestamp}">FORK</span>`
+            : "";
           tr.innerHTML = `
   <td style="color:#fff; font-weight:600;"><a class="channel-link" href="${phenixUrl}" target="_blank" rel="noopener noreferrer">${
             ch.name
@@ -1164,7 +1237,7 @@
     ch.streamKey || "—"
   }</td>
   <td style="text-align:center"><div class="pub-icons-container">${icons}</div></td>
-  <td style="text-align:center">${badge}</td>
+  <td style="text-align:center">${badge}${forkBadge}</td>
 `;
           tbody.appendChild(tr);
         });
@@ -1396,6 +1469,195 @@
           if (count > 0)
             document.getElementById("vr-csv-btn").style.display =
               "inline-block";
+        } catch (e) {
+          statusEl.className = "vr-status err";
+          statusEl.textContent = `Request failed: ${e.message}`;
+        }
+
+        btn.disabled = false;
+      }
+
+      // ── Fork Origin ──────────────────────────────────────────────
+      const FO_COLS = ["Timestamp", "SourceId", "DestinationId", "Status"];
+      const FO_PAGE = 200;
+      let _foRawCsv = null;
+      let _foParsed = null; // { rows: [{timestamp, sourceId, destinationId, status}], filtered }
+      let _foLoaded = 0;
+
+      // Look up a friendly channel name for a given channelId, if it's
+      // currently in the loaded channel list.
+      function channelNameFor(channelId) {
+        const ch = globalChannels.find((c) => c.channelId === channelId);
+        return ch ? ch.name : null;
+      }
+
+      function _foRowsFromCsv(csv) {
+        const { headers, rows } = _parseCsv(csv);
+        const idx = {
+          timestamp: headers.indexOf("Timestamp"),
+          sourceId: headers.indexOf("SourceId"),
+          destinationId: headers.indexOf("DestinationId"),
+          status: headers.indexOf("Status"),
+        };
+        return rows
+          .map((r) => ({
+            timestamp: idx.timestamp >= 0 ? r[idx.timestamp] : "",
+            sourceId: idx.sourceId >= 0 ? r[idx.sourceId] : "",
+            destinationId: idx.destinationId >= 0 ? r[idx.destinationId] : "",
+            status: idx.status >= 0 ? r[idx.status] : "",
+          }))
+          .filter((r) => r.sourceId || r.destinationId);
+      }
+
+      // Build destinationChannelId -> { sourceId, sourceName, timestamp }
+      // using the most recent successful fork call per destination.
+      function _buildForkOriginMap(rows) {
+        const map = {};
+        rows.forEach((r) => {
+          if (!r.destinationId) return;
+          if (r.status && r.status.trim() !== "200") return;
+          const existing = map[r.destinationId];
+          if (!existing || r.timestamp > existing.timestamp) {
+            map[r.destinationId] = {
+              sourceId: r.sourceId,
+              sourceName: channelNameFor(r.sourceId),
+              timestamp: r.timestamp,
+            };
+          }
+        });
+        return map;
+      }
+
+      function _foRowToHtml(r) {
+        const sourceName = channelNameFor(r.sourceId);
+        const destName = channelNameFor(r.destinationId);
+        const sourceLabel = sourceName
+          ? `${sourceName} <span style="color:var(--text-dim)">(${r.sourceId})</span>`
+          : r.sourceId || "—";
+        const destLabel = destName
+          ? `${destName} <span style="color:var(--text-dim)">(${r.destinationId})</span>`
+          : r.destinationId || "—";
+        const statusOk = r.status && r.status.trim() === "200";
+        const statusLabel = `<span class="badge ${
+          statusOk ? "active" : "inactive"
+        }">${r.status || "—"}</span>`;
+        return `<tr><td>${_formatCell(
+          r.timestamp,
+          "Timestamp"
+        )}</td><td>${sourceLabel}</td><td>${destLabel}</td><td>${statusLabel}</td></tr>`;
+      }
+
+      function _currentForkFilter() {
+        return document.getElementById("fo-filter").value.trim().toLowerCase();
+      }
+
+      function _matchesForkFilter(r, filter) {
+        if (!filter) return true;
+        const sourceName = (channelNameFor(r.sourceId) || "").toLowerCase();
+        const destName = (channelNameFor(r.destinationId) || "").toLowerCase();
+        return (
+          r.sourceId.toLowerCase().includes(filter) ||
+          r.destinationId.toLowerCase().includes(filter) ||
+          sourceName.includes(filter) ||
+          destName.includes(filter)
+        );
+      }
+
+      function renderForkHistory() {
+        if (!_foParsed) return;
+        const filter = _currentForkFilter();
+        _foParsed.filtered = _foParsed.rows.filter((r) =>
+          _matchesForkFilter(r, filter)
+        );
+        _foLoaded = 0;
+        const tbody = document.getElementById("fo-tbody");
+        if (_foParsed.filtered.length === 0) {
+          tbody.innerHTML =
+            '<tr><td colspan="4" class="table-message">No fork events match this filter.</td></tr>';
+          document.getElementById("fo-load-more").style.display = "none";
+          return;
+        }
+        const slice = _foParsed.filtered.slice(0, FO_PAGE);
+        tbody.innerHTML = slice.map(_foRowToHtml).join("");
+        _foLoaded = slice.length;
+        _updateForkLoadMore();
+      }
+
+      function loadMoreForkRows() {
+        if (!_foParsed) return;
+        const slice = _foParsed.filtered.slice(_foLoaded, _foLoaded + FO_PAGE);
+        document
+          .getElementById("fo-tbody")
+          .insertAdjacentHTML("beforeend", slice.map(_foRowToHtml).join(""));
+        _foLoaded += slice.length;
+        _updateForkLoadMore();
+      }
+
+      function _updateForkLoadMore() {
+        const btn = document.getElementById("fo-load-more");
+        const remaining = _foParsed.filtered.length - _foLoaded;
+        if (remaining > 0) {
+          btn.style.display = "block";
+          btn.textContent = `Load more  (${_foLoaded} / ${_foParsed.filtered.length} — ${remaining} remaining)`;
+        } else {
+          btn.style.display = "none";
+        }
+      }
+
+      async function runForkHistory() {
+        const start = document.getElementById("fo-start").value;
+        const end = document.getElementById("fo-end").value;
+        const statusEl = document.getElementById("fo-status");
+        const btn = document.getElementById("fo-run-btn");
+
+        if (!start || !end) {
+          statusEl.className = "vr-status err";
+          statusEl.textContent = "Please fill in start and end.";
+          return;
+        }
+
+        btn.disabled = true;
+        document.getElementById("fo-load-more").style.display = "none";
+        statusEl.className = "vr-status";
+        statusEl.textContent = "Fetching fork history…";
+        document.getElementById("fo-tbody").innerHTML = "";
+        _foRawCsv = null;
+        _foParsed = null;
+
+        try {
+          const res = await fetch(`${PROXY}/rts/fork-history`, {
+            method: "POST",
+            headers: { ...headers(), "Content-Type": "application/json" },
+            body: JSON.stringify({
+              start: _toIso(start),
+              end: _toIso(end),
+            }),
+          });
+
+          const text = await res.text();
+
+          if (!res.ok) {
+            statusEl.className = "vr-status err";
+            statusEl.textContent = `Error ${res.status}: ${text.slice(0, 200)}`;
+            btn.disabled = false;
+            return;
+          }
+
+          _foRawCsv = text;
+          const rows = _foRowsFromCsv(text);
+          _foParsed = { rows, filtered: rows };
+          forkOriginMap = _buildForkOriginMap(rows);
+          renderForkHistory();
+          render(); // refresh Channels tab so FORK badges show up
+
+          const count = rows.length;
+          const forkedCount = Object.keys(forkOriginMap).length;
+          statusEl.className = "vr-status ok";
+          statusEl.textContent = `${count} fork event${
+            count !== 1 ? "s" : ""
+          } found  ·  ${forkedCount} channel${
+            forkedCount !== 1 ? "s" : ""
+          } currently marked as forks  ·  Period: ${start} → ${end} UTC`;
         } catch (e) {
           statusEl.className = "vr-status err";
           statusEl.textContent = `Request failed: ${e.message}`;
