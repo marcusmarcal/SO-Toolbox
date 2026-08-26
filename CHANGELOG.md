@@ -6,6 +6,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.45.1] - 2026-08-26
+
+### Changed
+- Channels table now has a dedicated "Forked From" column instead
+  of an inline FORK badge; it shows the base channel for fork
+  destinations (using only the most recent fork event) and a dash
+  for all other channels.
+
 ## [2.45.0] - 2026-08-26
 
 ### Added
