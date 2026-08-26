@@ -646,7 +646,7 @@
               type="text"
               id="search-box"
               class="search-input"
-              placeholder="Search by name..."
+              placeholder="Search name, ID, alias, forked from..."
               oninput="handleFilterChange()"
             />
             <label
@@ -1192,6 +1192,34 @@
         render();
       }
 
+      // Whether `ch` matches the free-text search term against every
+      // column shown in the Channels table: name, alias, channel ID,
+      // stream key, status label, and (if applicable) the "Forked From"
+      // base channel name/ID.
+      function matchesChannelSearch(ch, term) {
+        if (!term) return true;
+
+        const count = globalState[ch.channelId] || 0;
+        const statusLabel =
+          count >= 2 ? "healthy" : count === 1 ? "no backup" : "offline";
+
+        const forkInfo = ch.channelId ? forkOriginMap[ch.channelId] : null;
+        const forkedFromFields = forkInfo
+          ? [forkInfo.sourceName || "", forkInfo.sourceId || ""]
+          : [];
+
+        const fields = [
+          ch.name || "",
+          ch.alias || "",
+          ch.channelId || "",
+          ch.streamKey || "",
+          statusLabel,
+          ...forkedFromFields,
+        ];
+
+        return fields.some((f) => f.toLowerCase().includes(term));
+      }
+
       function render() {
         const tbody = document.getElementById("table-body");
         const searchTerm = document
@@ -1202,7 +1230,7 @@
 
         // 1. Filter
         let filtered = globalChannels.filter((ch) => {
-          const matchesSearch = ch.name.toLowerCase().includes(searchTerm);
+          const matchesSearch = matchesChannelSearch(ch, searchTerm);
           const count = globalState[ch.channelId] || 0;
           const matchesActive = onlyActive ? count > 0 : true;
           const matchesSupplier = matchesSupplierFilter(ch, supplierFilter);

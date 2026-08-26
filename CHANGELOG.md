@@ -6,6 +6,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.45.4] - 2026-08-26
+
+### Changed
+- Channels search box now searches every visible column (name,
+  alias, channel ID, stream key, status, and Forked From base
+  channel) instead of only the channel name.
+
 ## [2.45.3] - 2026-08-26
 
 ### Changed
