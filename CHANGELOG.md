@@ -6,6 +6,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.45.5] - 2026-08-26
+
+### Added
+- "Description" column in the Channels table (from Phenix's channel
+  description field), included in the channel search.
+
+### Changed
+- Replaced the Stream Key column/checkbox with a Channel ID
+  column/checkbox in the Channels view; stream key is no longer
+  shown on this screen (still used internally for RTMP key export).
+- Reduced the fork history auto-refresh lookback window from 24
+  hours to 1 hour for faster "Forked From" population.
+
 ## [2.45.4] - 2026-08-26
 
 ### Changed

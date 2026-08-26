@@ -199,11 +199,11 @@
         cursor: pointer;
       }
 
-      /* Stream ID column is hidden unless "show-streamid" is enabled */
-      .col-streamid {
+      /* Channel ID column is hidden unless "show-channelid" is enabled */
+      .col-channelid {
         display: none;
       }
-      #channels-table.show-streamid .col-streamid {
+      #channels-table.show-channelid .col-channelid {
         display: table-cell;
       }
 
@@ -646,7 +646,7 @@
               type="text"
               id="search-box"
               class="search-input"
-              placeholder="Search name, ID, alias, forked from..."
+              placeholder="Search name, ID, description, forked from..."
               oninput="handleFilterChange()"
             />
             <label
@@ -693,10 +693,10 @@
             >
               <input
                 type="checkbox"
-                id="show-streamid"
-                onchange="toggleStreamIdColumn()"
+                id="show-channelid"
+                onchange="toggleChannelIdColumn()"
               />
-              SHOW STREAM KEY
+              SHOW CHANNEL ID
             </label>
           </div>
           <div
@@ -728,8 +728,8 @@
               <tr>
                 <th>CHANNEL NAME</th>
                 <th>EVENT ID (ALIAS)</th>
-                <th>CHANNEL ID</th>
-                <th class="col-streamid">STREAM KEY</th>
+                <th>DESCRIPTION</th>
+                <th class="col-channelid">CHANNEL ID</th>
                 <th style="text-align: center">PUBLISHERS (PRI/BCK)</th>
                 <th style="text-align: center">STATUS</th>
                 <th>FORKED FROM</th>
@@ -831,7 +831,7 @@
           </div>
           <div id="fo-status" class="vr-status">
             The Channels tab auto-populates "Forked From" in the background
-            (last 24h, refreshed every few minutes). Use this tab to
+            (last 1h, refreshed every few minutes). Use this tab to
             browse the full fork history or check a custom period.
           </div>
           <div class="vr-table-wrap">
@@ -907,7 +907,7 @@
       // How far back to look for fork events when auto-populating the
       // "Forked From" column in the Channels tab. Kept short (24h) since
       // wider windows make the Phenix reporting API noticeably slower.
-      const FORK_LOOKBACK_HOURS = 24;
+      const FORK_LOOKBACK_HOURS = 1;
       // How often to re-check for new fork events in the background.
       const FORK_REFRESH_MS = 5 * 60 * 1000;
 
@@ -966,10 +966,10 @@
         document.getElementById("filter-active").checked = false;
         document.getElementById("supplier-filter").innerHTML =
           '<option value="">ALL SUPPLIERS</option>';
-        document.getElementById("show-streamid").checked = false;
+        document.getElementById("show-channelid").checked = false;
         document
           .getElementById("channels-table")
-          .classList.remove("show-streamid");
+          .classList.remove("show-channelid");
 
         document.getElementById("dashboard").style.display = "none";
         document.getElementById("login-screen").style.display = "flex";
@@ -1116,11 +1116,11 @@
       }
 
       // ── Stream ID column visibility ────────────────────────────────
-      function toggleStreamIdColumn() {
-        const show = document.getElementById("show-streamid").checked;
+      function toggleChannelIdColumn() {
+        const show = document.getElementById("show-channelid").checked;
         document
           .getElementById("channels-table")
-          .classList.toggle("show-streamid", show);
+          .classList.toggle("show-channelid", show);
       }
 
       // ── Phenix portal link ──────────────────────────────────────────
@@ -1195,6 +1195,9 @@
       // Whether `ch` matches the free-text search term against every
       // column shown in the Channels table: name, alias, channel ID,
       // stream key, status label, and (if applicable) the "Forked From"
+      // Whether `ch` matches the free-text search term against every
+      // column shown in the Channels table: name, alias, description,
+      // channel ID, status label, and (if applicable) the "Forked From"
       // base channel name/ID.
       function matchesChannelSearch(ch, term) {
         if (!term) return true;
@@ -1211,8 +1214,8 @@
         const fields = [
           ch.name || "",
           ch.alias || "",
+          ch.description || "",
           ch.channelId || "",
-          ch.streamKey || "",
           statusLabel,
           ...forkedFromFields,
         ];
@@ -1303,9 +1306,9 @@
             ch.name
           }</a></td>
   <td style="color:var(--text-dim);">${ch.alias || "—"}</td>
-  <td style="color:var(--text-dim);">${ch.channelId || "—"}</td>
-  <td class="col-streamid" style="color:var(--text-dim);">${
-    ch.streamKey || "—"
+  <td style="color:var(--text-dim);">${ch.description || "—"}</td>
+  <td class="col-channelid" style="color:var(--text-dim);">${
+    ch.channelId || "—"
   }</td>
   <td style="text-align:center"><div class="pub-icons-container">${icons}</div></td>
   <td style="text-align:center">${badge}</td>
