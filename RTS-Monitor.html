@@ -916,7 +916,7 @@
       // can trip this due to client/server clock skew or request
       // latency, so "end" is backed off by a few seconds as a safety
       // margin.
-      const FORK_END_SAFETY_BUFFER_MS = 10 * 1000;
+      const FORK_END_SAFETY_BUFFER_MS = 60 * 1000;
 
       function headers() {
         return { "X-App-Id": appId, "X-Password": password };
