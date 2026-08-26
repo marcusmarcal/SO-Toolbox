@@ -2207,6 +2207,277 @@ def rota_hours_export():
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
 
+# ── PicaPonto (attendance) export ─────────────────────────────────────────
+
+def _picaponto_infer_name(email: str, display_name: str = '') -> tuple[str, str | None]:
+    """Infer formatted full name from email + display_name.
+    Returns (name, warning_or_None). Email local part is the authority;
+    display_name is used only to recover word breaks inside concatenated segments."""
+    local     = email.split('@')[0].lower() if email else ''
+    dn        = (display_name or '').strip()
+    dot_parts = local.split('.')
+
+    if len(dot_parts) >= 2:
+        last_name_raw = dot_parts[-1]
+        prefix_parts  = dot_parts[:-1]
+
+        if dn:
+            dn_words = dn.split()
+            dn_last  = dn_words[-1].lower()
+            if dn_last != last_name_raw:
+                name = ' '.join(p.capitalize() for p in dot_parts)
+                return name, (
+                    f"Last name mismatch: email implies '{last_name_raw.capitalize()}' "
+                    f"but display_name ends with '{dn_words[-1]}' — verify manually.")
+
+            dn_first_words = [w.lower() for w in dn_words[:-1]]
+            resolved, warn = [], None
+            dn_pos = 0
+            for seg in prefix_parts:
+                matched = False
+                for end in range(dn_pos + 1, len(dn_first_words) + 1):
+                    if ''.join(dn_first_words[dn_pos:end]) == seg:
+                        resolved.extend(w.capitalize() for w in dn_first_words[dn_pos:end])
+                        dn_pos = end
+                        matched = True
+                        break
+                if not matched:
+                    resolved.append(seg.capitalize())
+                    warn = (f"Cannot expand '{seg}' using display_name '{dn}' "
+                            f"— verify manually.")
+            return ' '.join(resolved + [last_name_raw.capitalize()]), warn
+
+        return ' '.join(p.capitalize() for p in dot_parts), None
+
+    if not local:
+        return '', 'Empty email — cannot infer name.'
+    if not dn:
+        return local.capitalize(), (
+            f"Single-part email '{local}' with no display_name — cannot infer full name.")
+    dn_words  = dn.split()
+    dn_concat = ''.join(w.lower() for w in dn_words)
+    if local == dn_concat:
+        return ' '.join(w.capitalize() for w in dn_words), None
+    return local.capitalize(), (
+        f"Cannot parse name from single-part email '{local}' "
+        f"and display_name '{dn}' — verify manually.")
+
+
+_PICAPONTO_ROLE_ORDER = [
+    'Technical Operations Manager',
+    'Streaming Ops Engineering Lead',
+    'Streaming Ops Lead',
+    'Streaming Ops Engineer',
+    'Streaming Ops Specialist',
+]
+
+
+def _picaponto_job_role(email: str, info: dict) -> str:
+    """Derive export Job Role from users.json fields for one user."""
+    role        = info.get('role', '')
+    team        = info.get('team', '')
+    rota_status = info.get('rota_status', '')
+
+    if role == 'admin' and team == 'na' and rota_status == 'active':
+        return 'Technical Operations Manager'
+    if role == 'admin' and team == 'SOE':
+        return 'Streaming Ops Engineering Lead'
+    if role == 'admin' and team == 'SOS':
+        return 'Streaming Ops Lead'
+    if role == 'engineer':
+        return 'Streaming Ops Engineer'
+    return 'Streaming Ops Specialist'
+
+
+def _shift_to_times(shift: str):
+    """Return (clock_in_time, clock_out_time) or (None, None) for OFF/leave."""
+    import re as _re, datetime as _dt
+    if not shift or shift == 'OFF':
+        return None, None
+    if shift.startswith('AL_') or shift.startswith('ABSENT') or shift in ('PARENTAL', 'MARITAL'):
+        return None, None
+    if '|' in shift:
+        prefix, rest = shift.split('|', 1)
+        if prefix in ('AL_APPROVED', 'AL_PENDING', 'ABSENT'):
+            return None, None
+        shift = rest
+    m = _re.match(r'^(\d{2})(\d{2})-(\d{2})(\d{2})$', shift)
+    if not m:
+        return None, None
+    sh, sm, eh, em = int(m[1]), int(m[2]), int(m[3]), int(m[4])
+    return _dt.time(sh, sm), _dt.time(eh, em)
+
+
+@rota_bp.route('/rota/picaponto-export', methods=['GET'])
+@require_auth
+def rota_picaponto_export():
+    """Generate a PicaPonto-format attendance Excel for a month. Management only."""
+    if _get_rota_role(request.session) != 'management':
+        return jsonify({'ok': False, 'error': 'Not authorised'}), 403
+
+    month_param = request.args.get('month', '')  # YYYY-MM
+    try:
+        year, month = [int(x) for x in month_param.split('-')]
+        date_from = date(year, month, 1)
+        date_to   = (date(year, 12, 31) if month == 12
+                     else date(year, month + 1, 1) - timedelta(days=1))
+    except (ValueError, AttributeError):
+        return jsonify({'ok': False, 'error': 'month must be YYYY-MM'}), 400
+
+    days_in_month = (date_to - date_from).days + 1
+
+    leave_list = _load_json(LEAVE_FILE)
+    if not isinstance(leave_list, list):
+        leave_list = []
+    published_overrides = _load_json(PUBLISHED_OVERRIDES_FILE)
+    if not isinstance(published_overrides, list):
+        published_overrides = []
+
+    leave_map    = _build_leave_map(leave_list)
+    override_map = _build_override_map(published_overrides)
+
+    users_dict = _load_json(USERS_FILE)
+    if not isinstance(users_dict, dict):
+        users_dict = {}
+
+    all_rota_names = (list(MANAGEMENT_SHIFTS) +
+                      list(ENGINEERING_OFFSETS) +
+                      list(SPECIALIST_OFFSETS))
+
+    members       = []
+    name_warnings = []
+    for rota_name in all_rota_names:
+        email = _email_for_rota_name(rota_name)
+        u     = users_dict.get(email, {}) if email else {}
+        inferred_name, warn = _picaponto_infer_name(
+            email or '', u.get('display_name', ''))
+        if warn:
+            name_warnings.append(f'{rota_name}: {warn}')
+        members.append({
+            'rota_name':   rota_name,
+            'name':        inferred_name,
+            'employee_id': u.get('employee_id', ''),
+            'job_role':    _picaponto_job_role(email or '', u),
+        })
+
+    def _role_sort_key(m):
+        try:
+            return (_PICAPONTO_ROLE_ORDER.index(m['job_role']), m['name'])
+        except ValueError:
+            return (len(_PICAPONTO_ROLE_ORDER), m['name'])
+
+    members.sort(key=_role_sort_key)
+
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
+        import datetime as _dt
+    except ImportError:
+        return jsonify({'ok': False, 'error': 'openpyxl not available'}), 500
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Proposal'
+
+    FONT_NAME  = 'Aptos Narrow'
+    BLACK_FILL = PatternFill('solid', fgColor='000000')
+    WHITE_FONT = Font(name=FONT_NAME, size=11, color='FFFFFF')
+    BODY_FONT  = Font(name=FONT_NAME, size=11, color='000000')
+    TIME_FMT   = 'h:mm'
+    CENTER     = Alignment(horizontal='center', vertical='center')
+    MED_SIDE   = Side(style='medium', color='000000')
+    MED_LEFT   = Border(left=MED_SIDE)
+    MED_RIGHT  = Border(right=MED_SIDE)
+
+    for ci, w in enumerate([8.85, 20.28, 29.85, 12.85], start=1):
+        ws.column_dimensions[get_column_letter(ci)].width = w
+    day_sub_widths = [9.28, 13.0, 8.85, 9.28, 8.85]
+    for day_idx in range(days_in_month):
+        base_col = 5 + day_idx * 5
+        for sub, w in enumerate(day_sub_widths):
+            ws.column_dimensions[get_column_letter(base_col + sub)].width = w
+
+    # Row 1: date headers
+    for ci in range(1, 5):
+        cell = ws.cell(1, ci)
+        cell.fill = BLACK_FILL; cell.font = WHITE_FONT; cell.alignment = CENTER
+
+    for day_idx in range(days_in_month):
+        base_col = 5 + day_idx * 5
+        d        = date_from + timedelta(days=day_idx)
+        ws.merge_cells(start_row=1, start_column=base_col,
+                       end_row=1,   end_column=base_col + 4)
+        cell = ws.cell(1, base_col)
+        cell.value         = _dt.datetime(d.year, d.month, d.day)
+        cell.number_format = 'mm-dd-yy'
+        cell.font          = WHITE_FONT
+        cell.fill          = BLACK_FILL
+        cell.alignment     = CENTER
+        ws.cell(1, base_col).border     = MED_LEFT
+        ws.cell(1, base_col + 4).border = MED_RIGHT
+
+    # Row 2: sub-headers
+    for ci, lbl in enumerate(['ID', 'Name', 'Job role', 'Department'], start=1):
+        cell = ws.cell(2, ci)
+        cell.value = lbl; cell.fill = BLACK_FILL
+        cell.font  = WHITE_FONT; cell.alignment = CENTER
+    ws.row_dimensions[2].height = 15.75
+
+    for day_idx in range(days_in_month):
+        base_col = 5 + day_idx * 5
+        for sub in range(5):
+            cell = ws.cell(2, base_col + sub)
+            cell.fill = BLACK_FILL; cell.font = WHITE_FONT; cell.alignment = CENTER
+
+    # Data rows
+    for row_idx, m in enumerate(members, start=3):
+        rota_name = m['rota_name']
+        for ci, val in enumerate(
+            [m['employee_id'], m['name'], m['job_role'], 'Video Ops'], start=1
+        ):
+            cell = ws.cell(row_idx, ci)
+            cell.value = val; cell.font = BODY_FONT; cell.alignment = CENTER
+
+        for day_idx in range(days_in_month):
+            base_col = 5 + day_idx * 5
+            d        = date_from + timedelta(days=day_idx)
+            shift    = _resolve_shift(rota_name, d, leave_map, override_map)
+            cin, cout = _shift_to_times(shift)
+
+            cin_cell        = ws.cell(row_idx, base_col)
+            cin_cell.font   = BODY_FONT
+            cin_cell.alignment = CENTER
+            cin_cell.border = MED_LEFT
+            if cin is not None:
+                cin_cell.value         = cin
+                cin_cell.number_format = TIME_FMT
+
+            cout_cell           = ws.cell(row_idx, base_col + 1)
+            cout_cell.font      = BODY_FONT
+            cout_cell.alignment = CENTER
+            if cout is not None:
+                cout_cell.value         = cout
+                cout_cell.number_format = TIME_FMT
+
+            ws.cell(row_idx, base_col + 4).border = MED_RIGHT
+
+    ws.freeze_panes = 'E3'
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    filename = f'PicaPonto_{date_from.strftime("%b%Y")}.xlsx'
+    resp = send_file(
+        buf,
+        as_attachment=True,
+        download_name=filename,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    if name_warnings:
+        resp.headers['X-Name-Warnings'] = ' | '.join(name_warnings)
+    return resp
 
 # ── POT routes ────────────────────────────────────────────────────────────
 

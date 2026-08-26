@@ -883,6 +883,7 @@
       <button class="btn" id="btn-refresh">⟳ Refresh</button>
       <button class="btn draft-enter" id="btn-draft" style="display:none;">✎ Draft</button>
       <button class="btn" id="btn-print-month" style="display:none;">🖨 Print Month</button>
+      <button class="btn" id="btn-picaponto" style="display:none;">📋 PicaPonto</button>
     </div>
     <div id="rota-wrap">
       <div class="loading-row"><div class="spinner"></div> Loading rota…</div>
@@ -4319,6 +4320,9 @@ function _removeCellFromBoxes(ri, ci) {
   function setupPrintExport() {
     if (!state.me || state.me.rota_role === 'guest') return;
     document.getElementById('btn-print-month').style.display = '';
+    if (state.me.rota_role === 'management') {
+      document.getElementById('btn-picaponto').style.display = '';
+    }
 
     const isManagement = state.me.rota_role === 'management';
 
@@ -4348,6 +4352,16 @@ function _removeCellFromBoxes(ri, ci) {
       if (e.target.id === 'print-month-modal') document.getElementById('print-month-modal').style.display = 'none';
     });
     document.getElementById('print-month-generate').addEventListener('click', generateMonthPrintout);
+
+    document.getElementById('btn-picaponto').addEventListener('click', () => {
+      const now = new Date();
+      const nm  = String(now.getMonth() + 1).padStart(2, '0');
+      const defaultMonth = `${now.getFullYear()}-${nm}`;
+      const month = prompt('Export PicaPonto for month (YYYY-MM):', defaultMonth);
+      if (!month) return;
+      if (!/^\d{4}-\d{2}$/.test(month)) { toast('Format must be YYYY-MM', 'err'); return; }
+      window.open(`${PROXY}/rota/picaponto-export?month=${month}`, '_blank');
+    });
   }
 
   // Waits for every <img> inside the print root to actually finish loading
