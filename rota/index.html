@@ -4386,15 +4386,6 @@ function _removeCellFromBoxes(ri, ci) {
       document.getElementById('picaponto-month-modal').style.display = 'none';
       window.open(`${PROXY}/rota/picaponto-export?month=${month}`, '_blank');
     });
-
-      const now = new Date();
-      const nm  = String(now.getMonth() + 1).padStart(2, '0');
-      const defaultMonth = `${now.getFullYear()}-${nm}`;
-      const month = prompt('Export PicaPonto for month (YYYY-MM):', defaultMonth);
-      if (!month) return;
-      if (!/^\d{4}-\d{2}$/.test(month)) { toast('Format must be YYYY-MM', 'err'); return; }
-      window.open(`${PROXY}/rota/picaponto-export?month=${month}`, '_blank');
-    });
   }
 
   // Waits for every <img> inside the print root to actually finish loading
