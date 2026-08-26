@@ -2476,7 +2476,16 @@ def rota_picaponto_export():
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
     if name_warnings:
-        resp.headers['X-Name-Warnings'] = ' | '.join(name_warnings)
+        # HTTP header values must be Latin-1 encodable (RFC 7230). Warning
+        # text can contain non-Latin-1 chars (e.g. em-dash '—' in
+        # _picaponto_infer_name's f-strings) which crashes send_file's
+        # response at the WSGI layer with UnicodeEncodeError. Sanitize for
+        # the header; log the untruncated original for debugging.
+        raw = ' | '.join(name_warnings)
+        header_safe = raw.encode('ascii', 'replace').decode('ascii')
+        resp.headers['X-Name-Warnings'] = header_safe
+        if header_safe != raw:
+            print(f"[picaponto] non-ASCII stripped from X-Name-Warnings header: {raw}")
     return resp
 
 # ── POT routes ────────────────────────────────────────────────────────────

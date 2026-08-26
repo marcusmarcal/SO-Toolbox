@@ -1218,6 +1218,21 @@
     </div>
   </div>
 
+  <!-- ── PICAPONTO MONTH MODAL ── -->
+<div id="picaponto-month-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:500;align-items:center;justify-content:center;">
+  <div class="modal-card" style="width:340px;">
+    <div class="modal-title">Export PicaPonto</div>
+    <div class="form-group" style="margin-bottom:16px;">
+      <label>Month</label>
+      <input type="month" id="picaponto-month-input" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="picaponto-month-cancel">Cancel</button>
+      <button class="btn primary" id="picaponto-month-generate">Export</button>
+    </div>
+  </div>
+</div>
+
   <!-- ── PRINT-ONLY ROTA (populated on demand, only visible via print CSS) ── -->
   <div id="print-rota-root"></div>
 
@@ -4354,6 +4369,24 @@ function _removeCellFromBoxes(ri, ci) {
     document.getElementById('print-month-generate').addEventListener('click', generateMonthPrintout);
 
     document.getElementById('btn-picaponto').addEventListener('click', () => {
+      const now = new Date();
+      const nm  = String(now.getMonth() + 1).padStart(2, '0');
+      document.getElementById('picaponto-month-input').value = `${now.getFullYear()}-${nm}`;
+      document.getElementById('picaponto-month-modal').style.display = 'flex';
+    });
+    document.getElementById('picaponto-month-cancel').addEventListener('click', () => {
+      document.getElementById('picaponto-month-modal').style.display = 'none';
+    });
+    document.getElementById('picaponto-month-modal').addEventListener('click', e => {
+      if (e.target.id === 'picaponto-month-modal') document.getElementById('picaponto-month-modal').style.display = 'none';
+    });
+    document.getElementById('picaponto-month-generate').addEventListener('click', () => {
+      const month = document.getElementById('picaponto-month-input').value;
+      if (!month) { toast('Select a month', 'err'); return; }
+      document.getElementById('picaponto-month-modal').style.display = 'none';
+      window.open(`${PROXY}/rota/picaponto-export?month=${month}`, '_blank');
+    });
+
       const now = new Date();
       const nm  = String(now.getMonth() + 1).padStart(2, '0');
       const defaultMonth = `${now.getFullYear()}-${nm}`;
