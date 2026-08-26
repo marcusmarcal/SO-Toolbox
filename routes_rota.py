@@ -2462,6 +2462,16 @@ def rota_picaponto_export():
 
             ws.cell(row_idx, base_col + 4).border = MED_RIGHT
 
+        if row_idx == len(members) + 2:
+            for ci in range(1, 5 + days_in_month * 5):
+                cell = ws.cell(row_idx, ci)
+                cell.border = Border(
+                    left=cell.border.left,
+                    right=cell.border.right,
+                    top=cell.border.top,
+                    bottom=MED_SIDE,
+                )
+
     ws.freeze_panes = 'E3'
 
     buf = io.BytesIO()
