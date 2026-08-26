@@ -2280,9 +2280,9 @@ def _picaponto_job_role(email: str, info: dict) -> str:
 
     if role == 'admin' and team == 'na' and rota_status == 'active':
         return 'Technical Operations Manager'
-    if role == 'admin' and team == 'SOE':
+    if role == 'admin' and team == 'soe':
         return 'Streaming Ops Engineering Lead'
-    if role == 'admin' and team == 'SOS':
+    if role == 'admin' and team == 'sos':
         return 'Streaming Ops Lead'
     if role == 'engineer':
         return 'Streaming Ops Engineer'
