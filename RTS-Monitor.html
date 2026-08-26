@@ -831,7 +831,7 @@
           </div>
           <div id="fo-status" class="vr-status">
             The Channels tab auto-populates "Forked From" in the
-            background (last 1h, refreshed every few minutes). Use this
+            background (last 30min, refreshed every minute). Use this
             tab to browse the full fork history or check a custom period.
           </div>
           <div class="vr-table-wrap">
@@ -904,13 +904,13 @@
       // destinationChannelId -> { sourceId, timestamp }
       let forkOriginMap = {};
       const itemsPerPage = 50;
-      // Forks are created constantly, so a 1h lookback is always enough
-      // to find current relationships (well under Phenix's hard 1-day
-      // cap per fork-history request). Merged into the existing map so a
-      // quiet hour doesn't erase what was already found.
-      const FORK_LOOKBACK_HOURS = 1;
+      // Forks are created constantly, so a 30min lookback is always
+      // enough to find current relationships (well under Phenix's hard
+      // 1-day cap per fork-history request). Merged into the existing
+      // map so a quiet check doesn't erase what was already found.
+      const FORK_LOOKBACK_MINUTES = 30;
       // How often to re-check for fork events in the background.
-      const FORK_REFRESH_MS = 5 * 60 * 1000;
+      const FORK_REFRESH_MS = 60 * 1000;
       // Phenix rejects a report whose "end" isn't strictly in the past
       // ("period-end-must-be-in-past"). Using the exact current instant
       // can trip this due to client/server clock skew or request
@@ -960,7 +960,7 @@
         document.getElementById("fo-tbody").innerHTML = "";
         document.getElementById("fo-status").className = "vr-status";
         document.getElementById("fo-status").textContent =
-          `The Channels tab auto-populates "Forked From" in the background (last ${FORK_LOOKBACK_HOURS}h, refreshed every few minutes). Use this tab to browse the full fork history or check a custom period.`;
+          `The Channels tab auto-populates "Forked From" in the background (last ${FORK_LOOKBACK_MINUTES}min, refreshed every minute). Use this tab to browse the full fork history or check a custom period.`;
         document.getElementById("fo-load-more").style.display = "none";
 
         // Clear UI
@@ -1697,7 +1697,7 @@
         return date.toISOString().replace(/\.\d{3}Z$/, "Z");
       }
 
-      // Silently checks the last FORK_LOOKBACK_HOURS for fork events and
+      // Silently checks the last FORK_LOOKBACK_MINUTES for fork events and
       // merges any found into forkOriginMap, refreshing the Channels
       // table's "Forked From" column. Runs in the background (on connect
       // and on a timer) so it populates without visiting the Fork Origin
@@ -1708,7 +1708,7 @@
       // user checks there.
       async function refreshForkOriginMap() {
         const end = new Date(Date.now() - FORK_END_SAFETY_BUFFER_MS);
-        const start = new Date(end.getTime() - FORK_LOOKBACK_HOURS * 3600000);
+        const start = new Date(end.getTime() - FORK_LOOKBACK_MINUTES * 60000);
 
         try {
           const res = await fetch(`${PROXY}/rts/fork-history`, {
