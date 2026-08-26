@@ -6,6 +6,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.45.3] - 2026-08-26
+
+### Changed
+- Fork history auto-refresh window reduced from 30 days to 24 hours
+  for faster "Forked From" column population.
+- "RMG" supplier filter split into "RMG HA" and "RMG EBC" based on
+  channel naming convention.
+- Supplier filter/export now include channels forked from a base
+  channel of the selected supplier, not just channels named after
+  that supplier directly.
+
 ## [2.45.2] - 2026-08-26
 
 ### Fixed

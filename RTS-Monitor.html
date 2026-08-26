@@ -831,7 +831,7 @@
           </div>
           <div id="fo-status" class="vr-status">
             The Channels tab auto-populates "Forked From" in the background
-            (last 30 days, refreshed every few minutes). Use this tab to
+            (last 24h, refreshed every few minutes). Use this tab to
             browse the full fork history or check a custom period.
           </div>
           <div class="vr-table-wrap">
@@ -905,9 +905,9 @@
       let forkOriginMap = {};
       const itemsPerPage = 50;
       // How far back to look for fork events when auto-populating the
-      // "Forked From" column in the Channels tab. Fork relationships are
-      // usually set up once and stay stable, so a wide window is used.
-      const FORK_LOOKBACK_DAYS = 1;
+      // "Forked From" column in the Channels tab. Kept short (24h) since
+      // wider windows make the Phenix reporting API noticeably slower.
+      const FORK_LOOKBACK_HOURS = 24;
       // How often to re-check for new fork events in the background.
       const FORK_REFRESH_MS = 5 * 60 * 1000;
 
@@ -953,7 +953,7 @@
         document.getElementById("fo-tbody").innerHTML = "";
         document.getElementById("fo-status").className = "vr-status";
         document.getElementById("fo-status").textContent =
-          `The Channels tab auto-populates "Forked From" in the background (last ${FORK_LOOKBACK_DAYS} days, refreshed every few minutes). Use this tab to browse the full fork history or check a custom period.`;
+          `The Channels tab auto-populates "Forked From" in the background (last ${FORK_LOOKBACK_HOURS}h, refreshed every few minutes). Use this tab to browse the full fork history or check a custom period.`;
         document.getElementById("fo-load-more").style.display = "none";
 
         // Clear UI
@@ -1046,10 +1046,18 @@
       // Matches names like "CRO_CH01" -> supplier "CRO". The trailing
       // "_CHxx" sequence number is not part of the supplier itself.
       const SUPPLIER_PATTERN = /^([A-Za-z0-9]+)_CH\d+$/i;
+      // RMG is split into two distinct supplier types based on naming:
+      //   RMG HA:  RMG_PHENIX_CH01_HA ... RMG_PHENIX_CH10_HA
+      //   RMG EBC: RMG-EBC_CH01_HA ... RMG-EBC_CH12_HA
+      // The EBC check must run first since "RMG-EBC..." would also
+      // loosely match a naive "starts with RMG_" check.
+      const RMG_HA_PATTERN = /^RMG_PHENIX_CH\d+_HA$/i;
+      const RMG_EBC_PATTERN = /^RMG-EBC_CH\d+_HA$/i;
 
       function getSupplierList() {
         const suppliers = new Set();
-        let hasRmg = false;
+        let hasRmgHa = false;
+        let hasRmgEbc = false;
 
         globalChannels.forEach((ch) => {
           const name = ch.name || "";
@@ -1057,13 +1065,16 @@
           if (match) {
             suppliers.add(match[1].toUpperCase());
           }
-          if (/RMG/i.test(name)) {
-            hasRmg = true;
+          if (RMG_EBC_PATTERN.test(name)) {
+            hasRmgEbc = true;
+          } else if (RMG_HA_PATTERN.test(name)) {
+            hasRmgHa = true;
           }
         });
 
         const list = Array.from(suppliers).sort();
-        if (hasRmg && !list.includes("RMG")) list.push("RMG");
+        if (hasRmgHa) list.push("RMG HA");
+        if (hasRmgEbc) list.push("RMG EBC");
         return list;
       }
 
@@ -1080,11 +1091,28 @@
         updateExportButtonVisibility();
       }
 
-      function matchesSupplierFilter(name, supplier) {
+      // Whether `name` itself (naming convention only, no fork lookup)
+      // belongs to `supplier`.
+      function nameMatchesSupplier(name, supplier) {
         if (!supplier) return true;
-        if (supplier === "RMG") return /RMG/i.test(name);
+        if (supplier === "RMG HA") return RMG_HA_PATTERN.test(name);
+        if (supplier === "RMG EBC") return RMG_EBC_PATTERN.test(name);
         const re = new RegExp(`^${supplier}_CH\\d+$`, "i");
         return re.test(name);
+      }
+
+      // Whether channel `ch` belongs to `supplier`, either by its own name
+      // or because it's a fork of a base channel that belongs to it. This
+      // lets e.g. a plain-named destination channel ("10") show up under
+      // "RMG HA" if it was forked from "RMG_PHENIX_CH10_HA".
+      function matchesSupplierFilter(ch, supplier) {
+        if (!supplier) return true;
+        if (nameMatchesSupplier(ch.name || "", supplier)) return true;
+        const forkInfo = ch.channelId ? forkOriginMap[ch.channelId] : null;
+        if (forkInfo && forkInfo.sourceName) {
+          return nameMatchesSupplier(forkInfo.sourceName, supplier);
+        }
+        return false;
       }
 
       // ── Stream ID column visibility ────────────────────────────────
@@ -1138,7 +1166,7 @@
         if (!supplierFilter) return;
 
         const channels = globalChannels
-          .filter((ch) => matchesSupplierFilter(ch.name, supplierFilter))
+          .filter((ch) => matchesSupplierFilter(ch, supplierFilter))
           .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 
         const rows = channels.map((ch) => {
@@ -1177,10 +1205,7 @@
           const matchesSearch = ch.name.toLowerCase().includes(searchTerm);
           const count = globalState[ch.channelId] || 0;
           const matchesActive = onlyActive ? count > 0 : true;
-          const matchesSupplier = matchesSupplierFilter(
-            ch.name,
-            supplierFilter
-          );
+          const matchesSupplier = matchesSupplierFilter(ch, supplierFilter);
           return matchesSearch && matchesActive && matchesSupplier;
         });
 
@@ -1628,7 +1653,7 @@
         return date.toISOString().replace(/\.\d{3}Z$/, "Z");
       }
 
-      // Silently fetches fork history for the last FORK_LOOKBACK_DAYS and
+      // Silently fetches fork history for the last FORK_LOOKBACK_HOURS and
       // refreshes forkOriginMap + the Channels table. Runs in the
       // background (on connect and on a timer) so "Forked From" populates
       // without the user needing to visit the Fork Origin tab. Failures
@@ -1637,7 +1662,7 @@
       // error message if the user checks there.
       async function refreshForkOriginMap() {
         const end = new Date();
-        const start = new Date(end.getTime() - FORK_LOOKBACK_DAYS * 86400000);
+        const start = new Date(end.getTime() - FORK_LOOKBACK_HOURS * 3600000);
 
         try {
           const res = await fetch(`${PROXY}/rts/fork-history`, {
