@@ -1726,10 +1726,10 @@
       if (!soeCov[i]) addFlag(day.date, 'soft', 'No SOE (Engineering) on shift');
     });
 
-    // 5) Soft: Management presence, weekdays only
+    // 5) Soft: Management presence, weekdays only, excluding public holidays
     days.forEach((day, i) => {
       const dow = new Date(day.date + 'T00:00:00').getDay();
-      if (dow >= 1 && dow <= 5 && !mgmtCov[i]) addFlag(day.date, 'soft', 'No Management on shift');
+      if (dow >= 1 && dow <= 5 && !day.is_public_holiday && !mgmtCov[i]) addFlag(day.date, 'soft', 'No Management on shift');
     });
 
     return flags;
