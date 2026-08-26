@@ -911,6 +911,12 @@
       const FORK_LOOKBACK_HOURS = 1;
       // How often to re-check for fork events in the background.
       const FORK_REFRESH_MS = 5 * 60 * 1000;
+      // Phenix rejects a report whose "end" isn't strictly in the past
+      // ("period-end-must-be-in-past"). Using the exact current instant
+      // can trip this due to client/server clock skew or request
+      // latency, so "end" is backed off by a few seconds as a safety
+      // margin.
+      const FORK_END_SAFETY_BUFFER_MS = 10 * 1000;
 
       function headers() {
         return { "X-App-Id": appId, "X-Password": password };
@@ -1701,7 +1707,7 @@
       // Origin tab's manual Run button will surface the real error if the
       // user checks there.
       async function refreshForkOriginMap() {
-        const end = new Date();
+        const end = new Date(Date.now() - FORK_END_SAFETY_BUFFER_MS);
         const start = new Date(end.getTime() - FORK_LOOKBACK_HOURS * 3600000);
 
         try {

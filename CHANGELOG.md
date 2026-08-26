@@ -6,6 +6,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.45.8] - 2026-08-26
+
+### Fixed
+- Background fork history refresh no longer fails with
+  "period-end-must-be-in-past"; the request's end time is now backed
+  off by a 10-second safety margin to tolerate clock skew/latency.
+
 ## [2.45.7] - 2026-08-26
 
 ### Changed
