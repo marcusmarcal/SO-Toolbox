@@ -6,6 +6,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.45.2] - 2026-08-26
+
+### Fixed
+- Channels tab "Forked From" column now populates automatically in
+  the background (fork history for the last 30 days, refreshed
+  every 5 minutes) instead of only after manually running a report
+  in the Fork Origin tab.
+
 ## [2.45.1] - 2026-08-26
 
 ### Changed

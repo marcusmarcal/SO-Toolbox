@@ -830,10 +830,9 @@
             </button>
           </div>
           <div id="fo-status" class="vr-status">
-            Fork history maps a destination channel back to its source
-            (base) channel. Pick a period and press Run. Channels currently
-            listed in the Channels tab will get a "FORK" badge automatically
-            once a report has been fetched.
+            The Channels tab auto-populates "Forked From" in the background
+            (last 30 days, refreshed every few minutes). Use this tab to
+            browse the full fork history or check a custom period.
           </div>
           <div class="vr-table-wrap">
             <table id="fo-table">
@@ -897,7 +896,7 @@
 
       const PROXY = "/so-proxy";
 
-      let appId, password, interval, timer, countdown;
+      let appId, password, interval, timer, countdown, forkOriginTimer;
       let secondsLeft = 0;
       let globalChannels = [];
       let globalState = {};
@@ -905,6 +904,12 @@
       // destinationChannelId -> { sourceId, timestamp }
       let forkOriginMap = {};
       const itemsPerPage = 50;
+      // How far back to look for fork events when auto-populating the
+      // "Forked From" column in the Channels tab. Fork relationships are
+      // usually set up once and stay stable, so a wide window is used.
+      const FORK_LOOKBACK_DAYS = 30;
+      // How often to re-check for new fork events in the background.
+      const FORK_REFRESH_MS = 5 * 60 * 1000;
 
       function headers() {
         return { "X-App-Id": appId, "X-Password": password };
@@ -937,6 +942,7 @@
       function disconnect() {
         clearInterval(timer);
         clearInterval(countdown);
+        clearInterval(forkOriginTimer);
 
         // Clear data
         globalChannels = [];
@@ -947,7 +953,7 @@
         document.getElementById("fo-tbody").innerHTML = "";
         document.getElementById("fo-status").className = "vr-status";
         document.getElementById("fo-status").textContent =
-          'Fork history maps a destination channel back to its source (base) channel. Pick a period and press Run. Channels currently listed in the Channels tab will get a "FORK" badge automatically once a report has been fetched.';
+          `The Channels tab auto-populates "Forked From" in the background (last ${FORK_LOOKBACK_DAYS} days, refreshed every few minutes). Use this tab to browse the full fork history or check a custom period.`;
         document.getElementById("fo-load-more").style.display = "none";
 
         // Clear UI
@@ -978,6 +984,11 @@
             "next-refresh"
           ).textContent = `Next update in ${secondsLeft}s`;
         }, 1000);
+
+        // Fork relationships change rarely, so this is refreshed on a much
+        // slower cadence than the channel/publisher poll above.
+        refreshForkOriginMap();
+        forkOriginTimer = setInterval(refreshForkOriginMap, FORK_REFRESH_MS);
       }
 
       async function fetchData() {
@@ -1609,6 +1620,42 @@
           btn.textContent = `Load more  (${_foLoaded} / ${_foParsed.filtered.length} — ${remaining} remaining)`;
         } else {
           btn.style.display = "none";
+        }
+      }
+
+      // Formats a Date as "YYYY-MM-DDTHH:MM:SSZ" for the Phenix reporting API.
+      function _isoNoMillis(date) {
+        return date.toISOString().replace(/\.\d{3}Z$/, "Z");
+      }
+
+      // Silently fetches fork history for the last FORK_LOOKBACK_DAYS and
+      // refreshes forkOriginMap + the Channels table. Runs in the
+      // background (on connect and on a timer) so "Forked From" populates
+      // without the user needing to visit the Fork Origin tab. Failures
+      // (e.g. reporting not provisioned for this account) are silent here;
+      // the Fork Origin tab's manual Run button will surface the real
+      // error message if the user checks there.
+      async function refreshForkOriginMap() {
+        const end = new Date();
+        const start = new Date(end.getTime() - FORK_LOOKBACK_DAYS * 86400000);
+
+        try {
+          const res = await fetch(`${PROXY}/rts/fork-history`, {
+            method: "POST",
+            headers: { ...headers(), "Content-Type": "application/json" },
+            body: JSON.stringify({
+              start: _isoNoMillis(start),
+              end: _isoNoMillis(end),
+            }),
+          });
+          if (!res.ok) return;
+
+          const text = await res.text();
+          const rows = _foRowsFromCsv(text);
+          forkOriginMap = _buildForkOriginMap(rows);
+          render();
+        } catch (e) {
+          console.warn("Background fork history refresh failed:", e.message);
         }
       }
 
