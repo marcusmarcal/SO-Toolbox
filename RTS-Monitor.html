@@ -831,9 +831,8 @@
           </div>
           <div id="fo-status" class="vr-status">
             The Channels tab auto-populates "Forked From" in the
-            background (one-time scan of the last 180 days on connect,
-            then fast checks every few minutes). Use this tab to browse
-            the full fork history or check a custom period.
+            background (last 1h, refreshed every few minutes). Use this
+            tab to browse the full fork history or check a custom period.
           </div>
           <div class="vr-table-wrap">
             <table id="fo-table">
@@ -905,17 +904,13 @@
       // destinationChannelId -> { sourceId, timestamp }
       let forkOriginMap = {};
       const itemsPerPage = 50;
-      // Fork relationships are usually set up once and can be old, so a
-      // short lookback alone would miss them (it only sees fork calls made
-      // recently). To stay both correct and fast: do ONE wide historical
-      // scan on connect to establish the baseline, then keep it updated
-      // with cheap short-window scans that are merged in (not replaced).
-      const FORK_INITIAL_LOOKBACK_DAYS = 180;
-      const FORK_INCREMENTAL_LOOKBACK_HOURS = 1;
-      // How often to run the fast incremental scan in the background.
+      // Forks are created constantly, so a 1h lookback is always enough
+      // to find current relationships (well under Phenix's hard 1-day
+      // cap per fork-history request). Merged into the existing map so a
+      // quiet hour doesn't erase what was already found.
+      const FORK_LOOKBACK_HOURS = 1;
+      // How often to re-check for fork events in the background.
       const FORK_REFRESH_MS = 5 * 60 * 1000;
-      // Set to true once the initial wide scan has completed successfully.
-      let forkOriginInitialized = false;
 
       function headers() {
         return { "X-App-Id": appId, "X-Password": password };
@@ -955,12 +950,11 @@
         globalState = {};
         currentPage = 1;
         forkOriginMap = {};
-        forkOriginInitialized = false;
         _foParsed = null;
         document.getElementById("fo-tbody").innerHTML = "";
         document.getElementById("fo-status").className = "vr-status";
         document.getElementById("fo-status").textContent =
-          `The Channels tab auto-populates "Forked From" in the background (one-time scan of the last ${FORK_INITIAL_LOOKBACK_DAYS} days on connect, then fast checks every few minutes). Use this tab to browse the full fork history or check a custom period.`;
+          `The Channels tab auto-populates "Forked From" in the background (last ${FORK_LOOKBACK_HOURS}h, refreshed every few minutes). Use this tab to browse the full fork history or check a custom period.`;
         document.getElementById("fo-load-more").style.display = "none";
 
         // Clear UI
@@ -992,8 +986,9 @@
           ).textContent = `Next update in ${secondsLeft}s`;
         }, 1000);
 
-        // Fork relationships change rarely, so this is refreshed on a much
-        // slower cadence than the channel/publisher poll above.
+        // Fork relationships are constantly created, so a 1h lookback is
+        // always enough; refreshed on a much slower cadence than the
+        // channel/publisher poll above.
         refreshForkOriginMap();
         forkOriginTimer = setInterval(refreshForkOriginMap, FORK_REFRESH_MS);
       }
@@ -1696,23 +1691,18 @@
         return date.toISOString().replace(/\.\d{3}Z$/, "Z");
       }
 
-      // Refreshes forkOriginMap + the Channels table in the background, so
-      // "Forked From" populates without visiting the Fork Origin tab.
-      // The FIRST call (right after connect) uses a wide window
-      // (FORK_INITIAL_LOOKBACK_DAYS) to reliably find fork relationships
-      // set up long ago. Every call after that uses a short window
-      // (FORK_INCREMENTAL_LOOKBACK_HOURS) and MERGES the results into the
-      // existing map, so it stays fast while still picking up new forks
-      // and never losing what the initial scan already found.
-      // Failures (e.g. reporting not provisioned for this account) are
-      // silent here; the Fork Origin tab's manual Run button will surface
-      // the real error message if the user checks there.
+      // Silently checks the last FORK_LOOKBACK_HOURS for fork events and
+      // merges any found into forkOriginMap, refreshing the Channels
+      // table's "Forked From" column. Runs in the background (on connect
+      // and on a timer) so it populates without visiting the Fork Origin
+      // tab. Merging (rather than replacing) means a quiet check never
+      // erases a fork found by an earlier one. Failures (e.g. reporting
+      // not provisioned for this account) are silent here; the Fork
+      // Origin tab's manual Run button will surface the real error if the
+      // user checks there.
       async function refreshForkOriginMap() {
         const end = new Date();
-        const lookbackMs = forkOriginInitialized
-          ? FORK_INCREMENTAL_LOOKBACK_HOURS * 3600000
-          : FORK_INITIAL_LOOKBACK_DAYS * 86400000;
-        const start = new Date(end.getTime() - lookbackMs);
+        const start = new Date(end.getTime() - FORK_LOOKBACK_HOURS * 3600000);
 
         try {
           const res = await fetch(`${PROXY}/rts/fork-history`, {
@@ -1728,7 +1718,6 @@
           const text = await res.text();
           const rows = _foRowsFromCsv(text);
           forkOriginMap = _buildForkOriginMap(rows, forkOriginMap);
-          forkOriginInitialized = true;
           render();
         } catch (e) {
           console.warn("Background fork history refresh failed:", e.message);
