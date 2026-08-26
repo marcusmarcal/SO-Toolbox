@@ -6,6 +6,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.45.6] - 2026-08-26
+
+### Fixed
+- Channels tab "Forked From" column now reliably auto-populates on
+  connect via a one-time 180-day historical scan, then stays current
+  through fast 1-hour incremental scans (merged, not replaced) every
+  few minutes — fixing cases where older fork relationships never
+  showed up automatically.
+
 ## [2.45.5] - 2026-08-26
 
 ### Added
