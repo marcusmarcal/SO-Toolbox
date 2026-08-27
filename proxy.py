@@ -923,7 +923,7 @@ def server_stats():
 routes_auth.register_routes(app)
 routes_gop.register_routes(app)
 
-routes_rota.register_routes(app)
+#routes_rota.register_routes(app)
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5050, threaded=True)
