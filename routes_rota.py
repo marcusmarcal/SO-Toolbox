@@ -1212,7 +1212,9 @@ WEEKEND_SWAP_PATTERNS = [
 COVERAGE_NOTE_INDICES = {2, 3, 4, 5}
 
 
-def _infer_absent_engineer(fri_date: date, leave_map: dict) -> str | None:
+from typing import Optional
+
+def _infer_absent_engineer(fri_date: date, leave_map: dict) -> Optional[str]:
     """Find which engineer has AL on Sat+Sun of the given weekend."""
     sat = fri_date + timedelta(days=1)
     sun = fri_date + timedelta(days=2)
