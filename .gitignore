@@ -10,5 +10,5 @@ users.json
 wc2026_assignments.json
 *.mp4
 projects/
-rota/*.json
+*.json
 store/
