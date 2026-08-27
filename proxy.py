@@ -2,7 +2,7 @@ import base64
 import requests
 import routes_auth
 import routes_gop
-import routes_rota
+#import routes_rota
 
 from routes_auth import require_admin_role
 
