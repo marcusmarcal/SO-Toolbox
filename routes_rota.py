@@ -2215,58 +2215,49 @@ def rota_hours_export():
 
 from typing import Optional
 
-def _picaponto_infer_name(email: str, display_name: str = '') -> tuple[str, Optional[str]]:
+def _picaponto_infer_name(email: str, display_name: str = '') -> tuple[str, str | None]:
     """Infer formatted full name from email + display_name.
-    Returns (name, warning_or_None). Email local part is the authority;
-    display_name is used only to recover word breaks inside concatenated segments."""
+    Returns (name, warning_or_None).
+
+    Priority:
+    1. Use display_name directly if its last word matches the email's last dot-segment
+       (last name anchor). This handles all middle-name cases cleanly.
+    2. If no display_name, derive purely from dot-splitting the email local part.
+    3. If display_name last word does not match email last segment, use the
+       email-derived name and warn — something is wrong in users.json.
+    """
     local     = email.split('@')[0].lower() if email else ''
     dn        = (display_name or '').strip()
     dot_parts = local.split('.')
 
-    if len(dot_parts) >= 2:
-        last_name_raw = dot_parts[-1]
-        prefix_parts  = dot_parts[:-1]
-
-        if dn:
-            dn_words = dn.split()
-            dn_last  = dn_words[-1].lower()
-            if dn_last != last_name_raw:
-                name = ' '.join(p.capitalize() for p in dot_parts)
-                return name, (
-                    f"Last name mismatch: email implies '{last_name_raw.capitalize()}' "
-                    f"but display_name ends with '{dn_words[-1]}' — verify manually.")
-
-            dn_first_words = [w.lower() for w in dn_words[:-1]]
-            resolved, warn = [], None
-            dn_pos = 0
-            for seg in prefix_parts:
-                matched = False
-                for end in range(dn_pos + 1, len(dn_first_words) + 1):
-                    if ''.join(dn_first_words[dn_pos:end]) == seg:
-                        resolved.extend(w.capitalize() for w in dn_first_words[dn_pos:end])
-                        dn_pos = end
-                        matched = True
-                        break
-                if not matched:
-                    resolved.append(seg.capitalize())
-                    warn = (f"Cannot expand '{seg}' using display_name '{dn}' "
-                            f"— verify manually.")
-            return ' '.join(resolved + [last_name_raw.capitalize()]), warn
-
-        return ' '.join(p.capitalize() for p in dot_parts), None
-
     if not local:
         return '', 'Empty email — cannot infer name.'
-    if not dn:
-        return local.capitalize(), (
-            f"Single-part email '{local}' with no display_name — cannot infer full name.")
-    dn_words  = dn.split()
-    dn_concat = ''.join(w.lower() for w in dn_words)
-    if local == dn_concat:
-        return ' '.join(w.capitalize() for w in dn_words), None
+
+    last_segment = dot_parts[-1] if dot_parts else local
+
+    if dn:
+        dn_words = dn.split()
+        dn_last  = dn_words[-1].lower()
+
+        if dn_last == last_segment:
+            # display_name is consistent — use it as the authoritative name.
+            # Title-case each word defensively in case display_name is stored
+            # in a non-standard case.
+            return ' '.join(w.capitalize() for w in dn_words), None
+
+        # Last name mismatch — fall back to email-derived name and warn.
+        email_name = ' '.join(p.capitalize() for p in dot_parts)
+        return email_name, (
+            f"Last name mismatch: email implies '{last_segment.capitalize()}' "
+            f"but display_name ends with '{dn_words[-1]}' — verify manually.")
+
+    # No display_name — derive purely from dot-splitting.
+    if len(dot_parts) >= 2:
+        return ' '.join(p.capitalize() for p in dot_parts), None
+
+    # Single-part email, no display_name — unresolvable.
     return local.capitalize(), (
-        f"Cannot parse name from single-part email '{local}' "
-        f"and display_name '{dn}' — verify manually.")
+        f"Single-part email '{local}' with no display_name — cannot infer full name.")
 
 
 _PICAPONTO_ROLE_ORDER = [
