@@ -3032,5 +3032,204 @@ def rota_al_misc_delete(entry_id):
     _save_al_file(al)
     return jsonify({'ok': True, 'entry': entry})
 
+# ════════════════════════════════════════════════════════════════════════════
+#  SOE WEEKEND COVERAGE
+# ════════════════════════════════════════════════════════════════════════════
+
+def _is_working_soe_shift(shift: str) -> bool:
+    """Return True if the shift counts as worked for SOE weekend coverage.
+    Any resolved shift that isn't OFF/leave/absent qualifies."""
+    if not shift or shift == 'OFF':
+        return False
+    if shift in ('PARENTAL', 'MARITAL'):
+        return False
+    if shift.startswith('AL_') or shift.startswith('ABSENT'):
+        return False
+    # AL_APPROVED|0900-1800 style
+    if '|' in shift:
+        prefix = shift.split('|', 1)[0]
+        if prefix in ('AL_APPROVED', 'AL_PENDING', 'ABSENT'):
+            return False
+        # e.g. ABSENT|0900-1800 — not working
+        return True
+    return True
+
+
+def _soe_weekend_counts(year: int,
+                        leave_map: dict,
+                        override_map: dict,
+                        soe_join_dates: dict) -> dict:
+    """
+    For each SOE member, count Saturday and Sunday days worked in `year`,
+    respecting join date. Also returns available weekend days (Sat+Sun from
+    join date to end of year) for ratio computation.
+
+    Returns dict: name -> {
+        'worked': int,
+        'available': int,
+        'ratio': float,          # worked / available, 0.0 if no available days
+        'join_date': str | None,
+    }
+    """
+    year_start = date(year, 1, 1)
+    year_end   = date(year, 12, 31)
+
+    results = {}
+    for name in ENGINEERING_OFFSETS:
+        jd_str = soe_join_dates.get(name)
+        try:
+            join = date.fromisoformat(jd_str) if jd_str else year_start
+        except ValueError:
+            join = year_start
+
+        # Clamp: don't count days before join date, don't go past year end
+        effective_start = max(join, year_start)
+
+        worked    = 0
+        available = 0
+
+        d = effective_start
+        while d <= year_end:
+            if d.weekday() in (5, 6):  # Saturday=5, Sunday=6
+                available += 1
+                shift = _resolve_shift(name, d, leave_map, override_map)
+                if _is_working_soe_shift(shift):
+                    worked += 1
+            d += timedelta(days=1)
+
+        results[name] = {
+            'worked':    worked,
+            'available': available,
+            'ratio':     round(worked / available, 4) if available else 0.0,
+            'join_date': jd_str,
+        }
+
+    return results
+
+
+def _soe_aggregate(years: list[int],
+                   leave_map: dict,
+                   override_map: dict,
+                   soe_join_dates: dict) -> dict:
+    """
+    Sum worked and available across all requested years per person.
+    Returns same shape as _soe_weekend_counts but totalled.
+    """
+    totals = {name: {'worked': 0, 'available': 0} for name in ENGINEERING_OFFSETS}
+
+    for year in years:
+        yearly = _soe_weekend_counts(year, leave_map, override_map, soe_join_dates)
+        for name, data in yearly.items():
+            totals[name]['worked']    += data['worked']
+            totals[name]['available'] += data['available']
+
+    results = {}
+    for name, t in totals.items():
+        results[name] = {
+            'worked':    t['worked'],
+            'available': t['available'],
+            'ratio':     round(t['worked'] / t['available'], 4) if t['available'] else 0.0,
+            'join_date': soe_join_dates.get(name),
+        }
+    return results
+
+
+def _soe_team_delta(counts: dict) -> dict:
+    """Add delta_from_mean (worked days vs team mean) to each entry."""
+    worked_values = [v['worked'] for v in counts.values()]
+    if not worked_values:
+        return counts
+    mean = sum(worked_values) / len(worked_values)
+    for name in counts:
+        counts[name]['delta'] = round(counts[name]['worked'] - mean, 2)
+    return counts
+
+
+@rota_bp.route('/rota/soe-weekends', methods=['GET'])
+@require_auth
+def rota_soe_weekends():
+    """
+    SOE weekend coverage counts.
+    Query params:
+      year=YYYY        — single year (defaults to current year)
+      aggregate=1      — return aggregate across all years from earliest join to now
+    Accessible to management and engineering roles only.
+    """
+    session   = request.session
+    rota_role = _get_rota_role(session)
+    user_role = session.get('role', '')
+
+    if rota_role != 'management' and user_role != 'engineer':
+        return jsonify({'ok': False, 'error': 'Not authorised'}), 403
+
+    today        = date.today()
+    current_year = today.year
+
+    # Load shared state once
+    leave_list = _load_json(LEAVE_FILE)
+    if not isinstance(leave_list, list):
+        leave_list = []
+    published_overrides = _load_json(PUBLISHED_OVERRIDES_FILE)
+    if not isinstance(published_overrides, list):
+        published_overrides = []
+
+    leave_map    = _build_leave_map(leave_list)
+    override_map = _build_override_map(published_overrides)
+
+    hr_cfg         = _load_hr_config()
+    soe_join_dates = hr_cfg.get('soe_join_dates', {})
+    # Normalise keys to rota names
+    soe_join_dates = {_normalise_to_rota_name(k): v for k, v in soe_join_dates.items()}
+
+    do_aggregate = request.args.get('aggregate', '0') == '1'
+
+    if do_aggregate:
+        # Determine earliest join year across all SOE members
+        join_years = []
+        for name in ENGINEERING_OFFSETS:
+            jd_str = soe_join_dates.get(name)
+            if jd_str:
+                try:
+                    join_years.append(date.fromisoformat(jd_str).year)
+                except ValueError:
+                    pass
+        earliest = min(join_years) if join_years else current_year
+        years    = list(range(earliest, current_year + 1))
+
+        aggregate = _soe_aggregate(years, leave_map, override_map, soe_join_dates)
+        aggregate = _soe_team_delta(aggregate)
+
+        # Also return per-year breakdown for the dropdown
+        yearly_breakdown = {}
+        for y in years:
+            yc = _soe_weekend_counts(y, leave_map, override_map, soe_join_dates)
+            yearly_breakdown[str(y)] = _soe_team_delta(yc)
+
+        return jsonify({
+            'ok':               True,
+            'mode':             'aggregate',
+            'years':            years,
+            'aggregate':        aggregate,
+            'yearly_breakdown': yearly_breakdown,
+            'members':          list(ENGINEERING_OFFSETS.keys()),
+        })
+
+    else:
+        try:
+            year = int(request.args.get('year', current_year))
+        except ValueError:
+            return jsonify({'ok': False, 'error': 'year must be an integer'}), 400
+
+        counts = _soe_weekend_counts(year, leave_map, override_map, soe_join_dates)
+        counts = _soe_team_delta(counts)
+
+        return jsonify({
+            'ok':     True,
+            'mode':   'year',
+            'year':   year,
+            'counts': counts,
+            'members': list(ENGINEERING_OFFSETS.keys()),
+        })
+
 def register_routes(app) -> None:
     app.register_blueprint(rota_bp)

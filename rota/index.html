@@ -1069,6 +1069,22 @@
     </div>
     <div id="overview-result">
       <div class="loading-row"><div class="spinner"></div> Loading…</div>
+        </div>
+
+    <!-- SOE Weekend Coverage -->
+    <div id="soe-weekends-section" style="display:none;margin-top:32px;">
+      <hr class="section-divider" />
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
+        <p class="section-title" style="margin:0;">SOE Weekend Coverage</p>
+        <select class="toolbar-select" id="soe-mode-select" style="font-size:0.68rem;">
+          <option value="aggregate">All Years (Aggregate)</option>
+          <option value="year">Single Year</option>
+        </select>
+        <select class="toolbar-select" id="soe-year-select" style="font-size:0.68rem;">
+          <option value="">— year —</option>
+        </select>
+      </div>
+      <div id="soe-weekends-result"></div>
     </div>
   </div>
 
@@ -4602,6 +4618,25 @@ function _removeCellFromBoxes(ri, ci) {
     }
 
     loadOverview();
+
+    // SOE weekend widget — only render for management or engineers
+    const role = state.me && state.me.rota_role;
+    const team = state.me && state.me.team;
+    if (role === 'management' || team === 'Engineering') {
+      loadSoeWeekends();
+          document.getElementById('soe-weekends-section').style.display = '';
+      const yearSel = document.getElementById('soe-year-select');
+      if (yearSel) {
+        yearSel.addEventListener('change', () => {
+          const mode = document.getElementById('soe-mode-select')?.value || 'aggregate';
+          renderSoeWeekends(mode);
+        });
+      }
+      const modeSel = document.getElementById('soe-mode-select');
+      if (modeSel) {
+        modeSel.addEventListener('change', () => renderSoeWeekends(modeSel.value));
+      }
+    }
   }
 
   async function saveMhdDefault() {
@@ -4620,6 +4655,109 @@ function _removeCellFromBoxes(ri, ci) {
     } else {
       await uiAlert(d.error || 'Failed to save MHD default');
     }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  SOE WEEKEND COVERAGE WIDGET
+  // ════════════════════════════════════════════════════════════════
+  let _soeWeekendData = null;
+
+  async function loadSoeWeekends() {
+    const el = document.getElementById('soe-weekends-result');
+    if (!el) return;
+    el.innerHTML = '<div class="loading-row"><div class="spinner"></div> Loading…</div>';
+
+    try {
+      const r = await fetch(`${PROXY}/rota/soe-weekends?aggregate=1`, { credentials: 'same-origin' });
+      const d = await r.json();
+      if (!d.ok) { el.innerHTML = `<div class="empty-state">Error: ${d.error}</div>`; return; }
+      _soeWeekendData = d;
+      renderSoeWeekends('aggregate');
+    } catch(e) {
+      el.innerHTML = `<div class="empty-state">Failed to load: ${e.message}</div>`;
+    }
+  }
+
+  function renderSoeWeekends(mode) {
+    const el = document.getElementById('soe-weekends-result');
+    if (!el || !_soeWeekendData) return;
+
+    const d       = _soeWeekendData;
+    const members = d.members; // ordered list
+    const yearSel = document.getElementById('soe-year-select');
+
+    // Populate year dropdown once
+    if (yearSel && yearSel.options.length <= 1) {
+      (d.years || []).slice().reverse().forEach(y => {
+        const opt = document.createElement('option');
+        opt.value = y; opt.textContent = y;
+        yearSel.appendChild(opt);
+      });
+    }
+
+    let counts, title, showRatio;
+
+    if (mode === 'aggregate') {
+      counts    = d.aggregate;
+      title     = 'All Years (Aggregate)';
+      showRatio = true;
+    } else {
+      const year = yearSel ? yearSel.value : new Date().getFullYear();
+      counts    = (d.yearly_breakdown || {})[String(year)] || {};
+      title     = `Year ${year}`;
+      showRatio = false;
+    }
+
+    const fmtDelta = v => {
+      if (v === undefined || v === null) return '—';
+      const sign = v > 0 ? '+' : '';
+      const cls  = v > 0 ? 'color:#ffb3be;' : v < 0 ? 'color:#9ee6a6;' : 'color:var(--muted);';
+      return `<span style="${cls}font-weight:700;">${sign}${v.toFixed(1)}</span>`;
+    };
+
+    const fmtPct = ratio => `${(ratio * 100).toFixed(1)}%`;
+
+    let headerCells = '<th>Metric</th>' + members.map(n => `<th style="text-align:center;">${n}</th>`).join('');
+    let rows = '';
+
+    // Row 1: Weekend days worked
+    rows += '<tr><td style="color:var(--muted);font-size:0.68rem;">Weekend days worked</td>'
+      + members.map(n => {
+          const v = (counts[n] || {}).worked ?? '—';
+          return `<td style="text-align:center;font-weight:700;">${v}</td>`;
+        }).join('') + '</tr>';
+
+    // Row 2: Available weekend days
+    rows += '<tr><td style="color:var(--muted);font-size:0.68rem;">Available weekend days</td>'
+      + members.map(n => {
+          const v = (counts[n] || {}).available ?? '—';
+          return `<td style="text-align:center;color:var(--muted);">${v}</td>`;
+        }).join('') + '</tr>';
+
+    // Row 3: Delta from mean
+    rows += '<tr><td style="color:var(--muted);font-size:0.68rem;">vs team mean</td>'
+      + members.map(n => {
+          return `<td style="text-align:center;">${fmtDelta((counts[n] || {}).delta)}</td>`;
+        }).join('') + '</tr>';
+
+    // Row 4: Ratio (aggregate only)
+    if (showRatio) {
+      rows += '<tr><td style="color:var(--muted);font-size:0.68rem;">Coverage ratio</td>'
+        + members.map(n => {
+            const ratio = (counts[n] || {}).ratio;
+            const pct   = ratio !== undefined ? fmtPct(ratio) : '—';
+            return `<td style="text-align:center;color:var(--muted);">${pct}</td>`;
+          }).join('') + '</tr>';
+    }
+
+    el.innerHTML = `
+      <div style="margin-bottom:8px;font-family:var(--mono);font-size:0.65rem;color:var(--muted);">
+        ${title}
+      </div>
+      <table class="data-table" style="min-width:0;">
+        <thead><tr>${headerCells}</tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
   }
 
   async function loadOverview() {

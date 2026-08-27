@@ -20,5 +20,10 @@
     "SOE": ["Marcus Marcal", "Hugo Carvalho", "Goncalo Paiva", "Nuno Carvalho"],
     "SOS": ["Joao Lopes", "Tiago Carvalho", "Sabina Barros", "Sergio Silva", "Tiago Oliveira",
             "Vitor Cassama", "Fernando Carvalho", "Marc Ribeiro", "Gabriel Ribeiro", "Mario Branco", "Isaac Santiago"]
+  },
+  "soe_join_dates": {
+  "Hugo": "2025-05-19",
+  "Goncalo": "2025-05-19",
+  "Nuno": "2025-05-19"
   }
 }
