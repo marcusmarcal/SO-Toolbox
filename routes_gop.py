@@ -29,6 +29,10 @@ a_pts_jitter) has been removed and replaced by a single "mediainfo_delay" spec
 with two adjustable thresholds per workflow: |delay| <= warn (default 350ms) is
 COMPLIANT, <= hard (default 1000ms) is ACCEPTED, above hard is REJECTED.
 
+The result JSON now also includes a `mediainfo_report` field — the full,
+verbatim text output of `mediainfo <file>` (not just the parsed delay value) —
+so the complete mediainfo analysis can be viewed/copied from the UI.
+
 Every test run now also runs the Ingest Analyser (run-ingest-analysis.sh, the
 same script used by the standalone /ingest/* tool in routes_ingest.py) on the
 already-recorded .ts file — faster than a live re-capture, and it's the same
@@ -353,12 +357,16 @@ def _run_mediainfo_delay(ts_path, log):
     """Run mediainfo on the recorded/uploaded .ts file and extract the audio
     'Delay relative to video' metric (mediainfo JSON field `Video_Delay`, in
     seconds, on the Audio track — reported by mediainfo's text output as
-    "Delay relative to video"). Returns {"mediainfo_delay_ms": float|None}.
+    "Delay relative to video"). Also captures the full human-readable
+    mediainfo report text (default `mediainfo <file>` output) so it can be
+    shown to the user verbatim in the "MediaInfo Report" panel.
+
+    Returns {"mediainfo_delay_ms": float|None, "mediainfo_report": str|None}.
 
     If a file has multiple audio tracks, the worst-case (largest absolute)
-    offset across tracks is used. Returns None if mediainfo is not installed
-    or the metric could not be measured (e.g. missing timing info)."""
-    result = {"mediainfo_delay_ms": None}
+    offset across tracks is used. Fields are None if mediainfo is not
+    installed or the respective data could not be produced."""
+    result = {"mediainfo_delay_ms": None, "mediainfo_report": None}
     try:
         cmd = ["mediainfo", "--Output=JSON", ts_path]
         r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
@@ -383,8 +391,18 @@ def _run_mediainfo_delay(ts_path, log):
             log("mediainfo: 'Delay relative to video' not reported for this file")
     except FileNotFoundError:
         log("WARNING: mediainfo is not installed on this server")
+        return result
     except Exception as e:
         log(f"WARNING: mediainfo analysis failed: {e}")
+
+    # Full human-readable report — separate call using mediainfo's default
+    # text output, stored verbatim for the "MediaInfo Report" viewer.
+    try:
+        r2 = subprocess.run(["mediainfo", ts_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+        text = r2.stdout.decode(errors="replace").strip()
+        result["mediainfo_report"] = text or None
+    except Exception as e:
+        log(f"WARNING: mediainfo full report failed: {e}")
     return result
 
 
@@ -945,6 +963,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             "overall_status": overall_status,
             "test_id": str(uuid.uuid4()),
             "mediainfo_delay_ms": mediainfo_result.get("mediainfo_delay_ms"),
+            "mediainfo_report": mediainfo_result.get("mediainfo_report"),
             "ingest_dir": ingest_result.get("ingest_dir"),
             "ingest_zip": ingest_result.get("ingest_zip"),
         }

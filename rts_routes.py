@@ -109,6 +109,54 @@ def rts_viewing_report():
     except Exception as e:
         return jsonify({"error": str(e)}), 502
 
+@rts_bp.route("/rts/fork-history", methods=["POST"])
+def rts_fork_history():
+    """Proxy for the Phenix Fork History reporting endpoint.
+    Expects JSON body: { start, end }
+    Returns the raw CSV from Phenix listing fork API calls, including
+    SourceId and DestinationId columns which map a fork destination
+    channel back to its source (base) channel.
+    """
+    app_id   = request.headers.get("X-App-Id")
+    password = request.headers.get("X-Password")
+    if not app_id or not password:
+        return jsonify({"error": "Missing credentials headers"}), 400
+
+    data  = request.get_json(silent=True) or {}
+    start = (data.get("start") or "").strip()
+    end   = (data.get("end") or "").strip()
+
+    if not start or not end:
+        return jsonify({"error": "start and end are required"}), 400
+
+    payload = {
+        "forkHistoryReport": {
+            "applicationIds": [app_id],
+            "start": start,
+            "end": end,
+        }
+    }
+
+    try:
+        resp = _get_session().put(
+            f"{PHENIX_BASE}/pcast/reporting/fork/history",
+            auth=(app_id, password),
+            headers={
+                "Accept": "text/csv",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=120,
+        )
+        return Response(
+            resp.content,
+            status=resp.status_code,
+            content_type=resp.headers.get("Content-Type", "text/csv"),
+        )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+
+
 @rts_bp.route("/edge-token", methods=["POST"])
 def rts_edge_token():
     """Generate a Phenix EdgeAuth digest token to view a channel's state.

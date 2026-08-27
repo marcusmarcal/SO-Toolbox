@@ -6,6 +6,114 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.45.8] - 2026-08-26
+
+### Fixed
+- Background fork history refresh no longer fails with
+  "period-end-must-be-in-past"; the request's end time is now backed
+  off by a 10-second safety margin to tolerate clock skew/latency.
+
+## [2.45.7] - 2026-08-26
+
+### Changed
+- Simplified "Forked From" auto-population to a single fork-history
+  request covering the last hour (merged into the existing map),
+  removing the unneeded multi-day chunked backfill.
+
+## [2.45.6] - 2026-08-26
+
+### Fixed
+- Channels tab "Forked From" column now reliably auto-populates on
+  connect via a one-time 180-day historical scan, then stays current
+  through fast 1-hour incremental scans (merged, not replaced) every
+  few minutes — fixing cases where older fork relationships never
+  showed up automatically.
+
+## [2.45.5] - 2026-08-26
+
+### Added
+- "Description" column in the Channels table (from Phenix's channel
+  description field), included in the channel search.
+
+### Changed
+- Replaced the Stream Key column/checkbox with a Channel ID
+  column/checkbox in the Channels view; stream key is no longer
+  shown on this screen (still used internally for RTMP key export).
+- Reduced the fork history auto-refresh lookback window from 24
+  hours to 1 hour for faster "Forked From" population.
+
+## [2.45.4] - 2026-08-26
+
+### Changed
+- Channels search box now searches every visible column (name,
+  alias, channel ID, stream key, status, and Forked From base
+  channel) instead of only the channel name.
+
+## [2.45.3] - 2026-08-26
+
+### Changed
+- Fork history auto-refresh window reduced from 30 days to 24 hours
+  for faster "Forked From" column population.
+- "RMG" supplier filter split into "RMG HA" and "RMG EBC" based on
+  channel naming convention.
+- Supplier filter/export now include channels forked from a base
+  channel of the selected supplier, not just channels named after
+  that supplier directly.
+
+## [2.45.2] - 2026-08-26
+
+### Fixed
+- Channels tab "Forked From" column now populates automatically in
+  the background (fork history for the last 30 days, refreshed
+  every 5 minutes) instead of only after manually running a report
+  in the Fork Origin tab.
+
+## [2.45.1] - 2026-08-26
+
+### Changed
+- Channels table now has a dedicated "Forked From" column instead
+  of an inline FORK badge; it shows the base channel for fork
+  destinations (using only the most recent fork event) and a dash
+  for all other channels.
+
+## [2.45.0] - 2026-08-26
+
+### Added
+- New `/rts/fork-history` backend endpoint proxying Phenix's
+  `PUT /pcast/reporting/fork/history` reporting API.
+- New "Fork Origin" tab: query fork events by UTC period, filter by
+  channel name/ID, and resolve source/destination channel IDs to
+  their display names when known.
+- Channels table now shows a "FORK" badge (with source channel and
+  timestamp tooltip) for any channel identified as a fork
+  destination in the most recently fetched Fork Origin report.
+
+## [2.44.1] - 2026-08-24
+
+### Changed
+- Added "RMGEAL_" to Id3as monitor
+
+
+## [2.44.0] - 2026-08-24
+
+### Added
+- Full MediaInfo report viewer: a "MediaInfo Report" button next to
+  "Ingest Analyser Report" opens the complete, verbatim `mediainfo`
+  output for the test in a copyable text panel.
+
+### Changed
+- Stream Check header redesigned: the main status badge now shows
+  the overall compliance result instead of IDR presence; the
+  secondary badge now shows GOP type (OPEN/CLOSED) instead of the
+  overall result.
+- "Clear" button is now icon-only and moved to the end of the
+  action button row.
+
+### Removed
+- Redundant frame-detail summary line (IDR count, non-IDR keyframes,
+  GOP type, B-frames, total frames) from the Stream Check header —
+  this data remains available in the GOP Statistics panel.
+
 ## [2.43.0] - 2026-08-20
 
 ### Added

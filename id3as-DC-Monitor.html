@@ -1734,14 +1734,15 @@
         )}" target="_blank" rel="noopener">${esc(id)}</a>`;
       }
       function chLink(id) {
-        if (!id) return "-";
-        const frag = id.toUpperCase().startsWith("RMG_")
-          ? `ruk_channels/${id}`
-          : `channels/${id}`;
-        return `<a class="ext-lnk" href="${dcBase()}#${esc(
-          frag
-        )}" target="_blank" rel="noopener">${esc(id)}</a>`;
-      }
+  if (!id) return "-";
+  
+  const idUpper = id.toUpperCase();
+  const frag = /^RMG(EAL)?_/.test(idUpper)
+    ? `ruk_channels/${id}`
+    : `channels/${id}`;
+    
+  return `<a class="ext-lnk" href="${dcBase()}#${esc(frag)}" target="_blank" rel="noopener">${esc(id)}</a>`;
+}
       function evLink(evId) {
         return `<a class="ext-lnk" href="${dcBase()}#events/${esc(
           evId
@@ -2250,7 +2251,7 @@
               evWm,
               im,
               evs,
-              isRmg: id.toUpperCase().startsWith("RMG_"),
+              isRmg: /^RMG(EAL)?_/.test(id.toUpperCase()),
               encState,
               encWarn,
               srcState,
