@@ -1829,7 +1829,9 @@ def _load_pot() -> list:
 def _save_pot(records: list) -> None:
     _save_json(HOURS_POT_FILE, records)
 
-def _active_pot_for(team: str, month: str) -> dict | None:
+from typing import Union
+
+def _active_pot_for(team: str, month: str) -> Union[dict, None]:
     """Return the active POT record for team+month, or None."""
     return next((r for r in _load_pot()
                  if r['team'] == team and r['month'] == month
@@ -2211,7 +2213,9 @@ def rota_hours_export():
 
 # ── PicaPonto (attendance) export ─────────────────────────────────────────
 
-def _picaponto_infer_name(email: str, display_name: str = '') -> tuple[str, str | None]:
+from typing import Optional
+
+def _picaponto_infer_name(email: str, display_name: str = '') -> tuple[str, Optional[str]]:
     """Infer formatted full name from email + display_name.
     Returns (name, warning_or_None). Email local part is the authority;
     display_name is used only to recover word breaks inside concatenated segments."""
