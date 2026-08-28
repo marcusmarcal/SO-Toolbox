@@ -6,6 +6,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.47.2] - 2026-08-28
+
+### Fixed
+- Video Analyser: the "MediaInfo Report" button never appeared for any
+  test because the backend never populated the mediainfo_report field
+  it depends on — only the numeric "Delay relative to video" value was
+  ever captured. mediainfo's full text report is now captured and
+  saved alongside the result, so the button and its modal work.
+
 ## [2.47.1] - 2026-08-28
 
 ### Fixed

@@ -350,15 +350,22 @@ def _run_ingest_analysis(ts_path, tag, log):
 
 
 def _run_mediainfo_delay(ts_path, log):
-    """Run mediainfo on the recorded/uploaded .ts file and extract the audio
+    """Run mediainfo on the recorded/uploaded .ts file: extract the audio
     'Delay relative to video' metric (mediainfo JSON field `Video_Delay`, in
     seconds, on the Audio track — reported by mediainfo's text output as
-    "Delay relative to video"). Returns {"mediainfo_delay_ms": float|None}.
+    "Delay relative to video"), and also capture the full human-readable
+    mediainfo report text for the "MediaInfo Report" button in the UI.
+
+    Returns {"mediainfo_delay_ms": float|None, "mediainfo_report": str|None}.
 
     If a file has multiple audio tracks, the worst-case (largest absolute)
-    offset across tracks is used. Returns None if mediainfo is not installed
-    or the metric could not be measured (e.g. missing timing info)."""
-    result = {"mediainfo_delay_ms": None}
+    offset across tracks is used. mediainfo_delay_ms is None if mediainfo is
+    not installed or the metric could not be measured (e.g. missing timing
+    info). mediainfo_report is None only if mediainfo could not be run at
+    all (not installed / timed out / crashed) — it is independent of
+    whether a delay value was found, so the report is still shown even when
+    "Delay relative to video" isn't reported."""
+    result = {"mediainfo_delay_ms": None, "mediainfo_report": None}
     try:
         cmd = ["mediainfo", "--Output=JSON", ts_path]
         r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
@@ -383,8 +390,22 @@ def _run_mediainfo_delay(ts_path, log):
             log("mediainfo: 'Delay relative to video' not reported for this file")
     except FileNotFoundError:
         log("WARNING: mediainfo is not installed on this server")
+        return result
     except Exception as e:
         log(f"WARNING: mediainfo analysis failed: {e}")
+
+    try:
+        r2 = subprocess.run(["mediainfo", ts_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+        text_report = r2.stdout.decode(errors="replace").strip()
+        if text_report:
+            result["mediainfo_report"] = text_report
+        else:
+            log("WARNING: mediainfo produced no text report output")
+    except FileNotFoundError:
+        pass  # already logged above
+    except Exception as e:
+        log(f"WARNING: mediainfo text report failed: {e}")
+
     return result
 
 
@@ -994,6 +1015,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             "overall_status": overall_status,
             "test_id": str(uuid.uuid4()),
             "mediainfo_delay_ms": mediainfo_result.get("mediainfo_delay_ms"),
+            "mediainfo_report": mediainfo_result.get("mediainfo_report"),
             "ingest_dir": ingest_result.get("ingest_dir"),
             "ingest_zip": ingest_result.get("ingest_zip"),
         }
