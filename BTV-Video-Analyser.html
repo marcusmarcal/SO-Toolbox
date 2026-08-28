@@ -5454,11 +5454,13 @@
       // ── Bulk tag edit ─────────────────────────────────────────────────
       let _bulkTagAddChips = [];
       let _bulkTagRemoveChips = [];
+      let _bulkTagSelectedTags = []; // tags present on the currently-selected results
 
       function openBulkTagModal() {
         if (!_checkedFiles.size) return;
         _bulkTagAddChips = [];
         _bulkTagRemoveChips = [];
+        _bulkTagSelectedTags = _computeSelectedTagsSet();
         document.getElementById("bulk-tag-count").textContent =
           _checkedFiles.size;
         document.getElementById("bulk-tag-add-input").value = "";
@@ -5468,6 +5470,22 @@
         _renderBulkTagChips();
         _renderBulkTagRemoveSuggestions();
         document.getElementById("bulk-tag-modal").classList.add("open");
+      }
+      // Union of tags actually present on the currently-selected results —
+      // avoids flooding the remove-tag suggestions with every tag that has
+      // ever existed in the system.
+      function _computeSelectedTagsSet() {
+        const set = new Set();
+        for (const file of _checkedFiles) {
+          const meta = _checkedItemsMeta.get(file);
+          if (!meta) continue;
+          (meta.tag || "")
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean)
+            .forEach((t) => set.add(t));
+        }
+        return [...set].sort((a, b) => a.localeCompare(b));
       }
       function closeBulkTagModal() {
         document.getElementById("bulk-tag-modal").classList.remove("open");
@@ -5488,17 +5506,17 @@
             )
             .join("");
       }
-      // Lists every tag known in the system (excluding ones already queued
-      // for removal) so the user can pick from existing tags instead of
-      // having to type them out exactly.
+      // Lists only the tags actually present on the selected results
+      // (excluding ones already queued for removal) so the suggestion list
+      // stays relevant instead of showing every tag ever used.
       function _renderBulkTagRemoveSuggestions() {
         const el = document.getElementById("bulk-tag-remove-suggest");
         if (!el) return;
-        const available = _allKnownTags.filter(
+        const available = _bulkTagSelectedTags.filter(
           (t) => !_bulkTagRemoveChips.includes(t)
         );
         el.innerHTML = available.length
-          ? "All tags: " +
+          ? "Present on selected: " +
             available
               .map(
                 (t) =>
