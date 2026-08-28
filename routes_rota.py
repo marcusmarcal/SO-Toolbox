@@ -297,6 +297,7 @@ DRAFT_FILE               = os.path.join(ROTA_DIR, 'draft_overrides.json')
 DRAFT_LOCK_FILE          = os.path.join(ROTA_DIR, 'draft_lock.json')
 PUBLISHED_OVERRIDES_FILE = os.path.join(ROTA_DIR, 'published_overrides.json')
 CELL_NOTES_FILE          = os.path.join(ROTA_DIR, 'cell_notes.json')
+FEEDBACK_FILE            = os.path.join(ROTA_DIR, 'feedback.json')
 HR_CONFIG_FILE           = os.path.join(ROTA_DIR, 'hr_config.json')
 HOURS_POT_FILE           = os.path.join(ROTA_DIR, 'hours_pot.json')
 AL_ALLOWANCE_FILE        = os.path.join(ROTA_DIR, 'al_allowance.json')
@@ -2217,56 +2218,47 @@ from typing import Optional
 
 def _picaponto_infer_name(email: str, display_name: str = '') -> tuple[str, Optional[str]]:
     """Infer formatted full name from email + display_name.
-    Returns (name, warning_or_None). Email local part is the authority;
-    display_name is used only to recover word breaks inside concatenated segments."""
+    Returns (name, warning_or_None).
+
+    Priority:
+    1. Use display_name directly if its last word matches the email's last dot-segment
+       (last name anchor). This handles all middle-name cases cleanly.
+    2. If no display_name, derive purely from dot-splitting the email local part.
+    3. If display_name last word does not match email last segment, use the
+       email-derived name and warn — something is wrong in users.json.
+    """
     local     = email.split('@')[0].lower() if email else ''
     dn        = (display_name or '').strip()
     dot_parts = local.split('.')
 
-    if len(dot_parts) >= 2:
-        last_name_raw = dot_parts[-1]
-        prefix_parts  = dot_parts[:-1]
-
-        if dn:
-            dn_words = dn.split()
-            dn_last  = dn_words[-1].lower()
-            if dn_last != last_name_raw:
-                name = ' '.join(p.capitalize() for p in dot_parts)
-                return name, (
-                    f"Last name mismatch: email implies '{last_name_raw.capitalize()}' "
-                    f"but display_name ends with '{dn_words[-1]}' — verify manually.")
-
-            dn_first_words = [w.lower() for w in dn_words[:-1]]
-            resolved, warn = [], None
-            dn_pos = 0
-            for seg in prefix_parts:
-                matched = False
-                for end in range(dn_pos + 1, len(dn_first_words) + 1):
-                    if ''.join(dn_first_words[dn_pos:end]) == seg:
-                        resolved.extend(w.capitalize() for w in dn_first_words[dn_pos:end])
-                        dn_pos = end
-                        matched = True
-                        break
-                if not matched:
-                    resolved.append(seg.capitalize())
-                    warn = (f"Cannot expand '{seg}' using display_name '{dn}' "
-                            f"— verify manually.")
-            return ' '.join(resolved + [last_name_raw.capitalize()]), warn
-
-        return ' '.join(p.capitalize() for p in dot_parts), None
-
     if not local:
         return '', 'Empty email — cannot infer name.'
-    if not dn:
-        return local.capitalize(), (
-            f"Single-part email '{local}' with no display_name — cannot infer full name.")
-    dn_words  = dn.split()
-    dn_concat = ''.join(w.lower() for w in dn_words)
-    if local == dn_concat:
-        return ' '.join(w.capitalize() for w in dn_words), None
+
+    last_segment = dot_parts[-1] if dot_parts else local
+
+    if dn:
+        dn_words = dn.split()
+        dn_last  = dn_words[-1].lower()
+
+        if dn_last == last_segment:
+            # display_name is consistent — use it as the authoritative name.
+            # Title-case each word defensively in case display_name is stored
+            # in a non-standard case.
+            return ' '.join(w.capitalize() for w in dn_words), None
+
+        # Last name mismatch — fall back to email-derived name and warn.
+        email_name = ' '.join(p.capitalize() for p in dot_parts)
+        return email_name, (
+            f"Last name mismatch: email implies '{last_segment.capitalize()}' "
+            f"but display_name ends with '{dn_words[-1]}' — verify manually.")
+
+    # No display_name — derive purely from dot-splitting.
+    if len(dot_parts) >= 2:
+        return ' '.join(p.capitalize() for p in dot_parts), None
+
+    # Single-part email, no display_name — unresolvable.
     return local.capitalize(), (
-        f"Cannot parse name from single-part email '{local}' "
-        f"and display_name '{dn}' — verify manually.")
+        f"Single-part email '{local}' with no display_name — cannot infer full name.")
 
 
 _PICAPONTO_ROLE_ORDER = [
@@ -3236,6 +3228,84 @@ def rota_soe_weekends():
             'counts': counts,
             'members': list(ENGINEERING_OFFSETS.keys()),
         })
+
+@rota_bp.route('/rota/feedback', methods=['POST'])
+@require_auth
+def rota_feedback_post():
+    session = request.session
+    data    = request.get_json(silent=True) or {}
+    fb_type = data.get('type', '').strip()
+    title   = data.get('title', '').strip()
+    body    = data.get('body', '').strip()
+
+    if fb_type not in ('bug', 'enhancement'):
+        return jsonify({'ok': False, 'error': 'Invalid feedback type'}), 400
+    if not title:
+        return jsonify({'ok': False, 'error': 'Title required'}), 400
+    if not body:
+        return jsonify({'ok': False, 'error': 'Description required'}), 400
+
+    feedback = _load_json(FEEDBACK_FILE)
+    if not isinstance(feedback, dict):
+        feedback = {}
+    feedback.setdefault('bug', [])
+    feedback.setdefault('enhancement', [])
+
+    feedback[fb_type].append({
+        'id':           str(uuid.uuid4())[:8],
+        'submitted_by': session['username'],
+        'submitted_at': _now_iso(),
+        'title':        title,
+        'body':         body,
+        'status':       'unreviewed',
+        'actioned_by':  None,
+        'actioned_at':  None,
+    })
+
+    _save_json(FEEDBACK_FILE, feedback)
+    return jsonify({'ok': True})
+
+
+@rota_bp.route('/rota/feedback', methods=['GET'])
+@require_auth
+def rota_feedback_get():
+    if _get_rota_role(request.session) != 'management':
+        return jsonify({'ok': False, 'error': 'Not authorised'}), 403
+    feedback = _load_json(FEEDBACK_FILE)
+    if not isinstance(feedback, dict):
+        feedback = {'bug': [], 'enhancement': []}
+    feedback.setdefault('bug', [])
+    feedback.setdefault('enhancement', [])
+    return jsonify({'ok': True, 'feedback': feedback})
+
+
+@rota_bp.route('/rota/feedback/<feedback_id>', methods=['PUT'])
+@require_auth
+def rota_feedback_put(feedback_id):
+    if _get_rota_role(request.session) != 'management':
+        return jsonify({'ok': False, 'error': 'Not authorised'}), 403
+
+    session    = request.session
+    data       = request.get_json(silent=True) or {}
+    new_status = data.get('status', '').strip()
+
+    if new_status not in ('resolved', 'dismissed'):
+        return jsonify({'ok': False, 'error': 'status must be resolved or dismissed'}), 400
+
+    feedback = _load_json(FEEDBACK_FILE)
+    if not isinstance(feedback, dict):
+        return jsonify({'ok': False, 'error': 'No feedback data'}), 500
+
+    for fb_type in ('bug', 'enhancement'):
+        for entry in feedback.get(fb_type, []):
+            if entry.get('id') == feedback_id:
+                entry['status']      = new_status
+                entry['actioned_by'] = session['username']
+                entry['actioned_at'] = _now_iso()
+                _save_json(FEEDBACK_FILE, feedback)
+                return jsonify({'ok': True})
+
+    return jsonify({'ok': False, 'error': 'Feedback entry not found'}), 404
 
 def register_routes(app) -> None:
     app.register_blueprint(rota_bp)

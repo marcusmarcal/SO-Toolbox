@@ -40,6 +40,7 @@ apt install python3-pip -y
 pip3 install flask-cors --break-system-packages
 pip3 install bcrypt --break-system-packages
 pip3 install phenix-edge-auth --break-system-packages
+pip3 install openpyxl
 
 ````
 
