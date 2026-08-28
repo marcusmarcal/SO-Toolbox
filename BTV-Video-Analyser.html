@@ -2884,6 +2884,10 @@
             "
             onkeydown="bulkTagRemoveKeydown(event)"
           />
+          <div
+            id="bulk-tag-remove-suggest"
+            style="margin-top: 0.4rem; font-size: 0.65rem; color: var(--muted)"
+          ></div>
         </div>
         <div class="modal-actions">
           <button
@@ -3707,6 +3711,7 @@
       const HIST_PAGE_SIZE = 50;
       let _pageItemsByFile = {}; // file -> item, for the currently rendered page
       let _histFilteredTotal = 0; // total results matching current filters (all pages)
+      let _allKnownTags = []; // every tag seen across the full history (from backend)
 
       // Text filters call this on every keystroke — debounce so we don't
       // hit the backend on every character while typing.
@@ -3757,7 +3762,8 @@
 
           // Populate tag datalist from the full history (backend-provided),
           // not just the current page
-          document.getElementById("hist-tag-list").innerHTML = (data.tags || [])
+          _allKnownTags = data.tags || [];
+          document.getElementById("hist-tag-list").innerHTML = _allKnownTags
             .map((t) => `<option value="${t}">`)
             .join("");
 
@@ -5460,6 +5466,7 @@
         document.getElementById("bulk-tag-err").textContent = "";
         document.getElementById("bulk-tag-ok").style.display = "none";
         _renderBulkTagChips();
+        _renderBulkTagRemoveSuggestions();
         document.getElementById("bulk-tag-modal").classList.add("open");
       }
       function closeBulkTagModal() {
@@ -5477,9 +5484,36 @@
           _bulkTagRemoveChips
             .map(
               (t, i) =>
-                `<span class="tag-chip" style="border-color:var(--red);color:var(--red)">${t}<span class="tag-chip-x" onclick="_bulkTagRemoveChips.splice(${i},1);_renderBulkTagChips()">×</span></span>`
+                `<span class="tag-chip" style="border-color:var(--red);color:var(--red)">${t}<span class="tag-chip-x" onclick="_bulkTagRemoveChips.splice(${i},1);_renderBulkTagChips();_renderBulkTagRemoveSuggestions()">×</span></span>`
             )
             .join("");
+      }
+      // Lists every tag known in the system (excluding ones already queued
+      // for removal) so the user can pick from existing tags instead of
+      // having to type them out exactly.
+      function _renderBulkTagRemoveSuggestions() {
+        const el = document.getElementById("bulk-tag-remove-suggest");
+        if (!el) return;
+        const available = _allKnownTags.filter(
+          (t) => !_bulkTagRemoveChips.includes(t)
+        );
+        el.innerHTML = available.length
+          ? "All tags: " +
+            available
+              .map(
+                (t) =>
+                  `<span style="cursor:pointer;color:var(--red);font-family:var(--mono);font-size:.68rem;text-decoration:underline;margin-right:.4rem" onclick="_addBulkRemoveTagChip('${t.replace(
+                    /'/g,
+                    "\\'"
+                  )}')">${t}</span>`
+              )
+              .join("")
+          : "";
+      }
+      function _addBulkRemoveTagChip(tag) {
+        if (!_bulkTagRemoveChips.includes(tag)) _bulkTagRemoveChips.push(tag);
+        _renderBulkTagChips();
+        _renderBulkTagRemoveSuggestions();
       }
       function bulkTagAddKeydown(e) {
         if (e.key === "Enter" || e.key === ",") {
@@ -5498,6 +5532,7 @@
             _bulkTagRemoveChips.push(v);
           e.target.value = "";
           _renderBulkTagChips();
+          _renderBulkTagRemoveSuggestions();
         }
       }
       async function applyBulkTags() {

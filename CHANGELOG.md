@@ -6,6 +6,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.46.1] - 2026-08-28
+
+### Added
+- Video Analyser: the bulk tag editor's "Remove tag(s)" field now lists every tag currently known in the system as clickable suggestions, so tags can be selected for removal instead of typed out exactly.
+
 ## [2.46.0] - 2026-08-28
 
 ### Added
