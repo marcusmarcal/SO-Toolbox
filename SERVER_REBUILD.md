@@ -5,49 +5,122 @@ The application code lives in Git — this document covers everything that does 
 
 ---
 
-## 1. System packages
+## 1. System Packages
+
+### Debian / Ubuntu
+
+```bash
+# Update package index
+sudo apt update
+
+# Install system dependencies
+sudo apt install -y \
+    nginx \
+    git \
+    python3 \
+    python3-pip \
+    python3-flask \
+    python3-requests \
+    ffmpeg \
+    curl \
+    mtr \
+    mediainfo \
+    srt-tools
+```
+
+#### Python Packages
+
+```bash
+# Additional Python packages
+pip3 install flask-cors openpyxl python-dotenv
+
+# Authentication packages
+pip3 install bcrypt
+pip3 install phenix-edge-auth
+```
+
+> **Note:**
+> On newer Debian/Ubuntu releases, `pip` may refuse to install packages globally due to the "externally managed environment" restriction.
+>
+> If that happens, retry the affected command with:
+>
+> ```bash
+> --break-system-packages
+> ```
+>
+> Example:
+>
+> ```bash
+> pip3 install bcrypt --break-system-packages
+> ```
+
+---
 
 ### CentOS / RHEL / Oracle Linux
 
-````bash
-# Enable EPEL repository (required for ffmpeg / mediainfo on RHEL/Oracle Linux)
+```bash
+# Enable EPEL repository (required for ffmpeg / mediainfo)
 sudo dnf install -y epel-release
 
-# RPM Fusion repository
+# Enable RPM Fusion repositories
 sudo dnf install -y \
-https://download1.rpmfusion.org/free/el/rpmfusion-free-release-9.noarch.rpm \
-https://download1.rpmfusion.org/nonfree/el/rpmfusion-nonfree-release-9.noarch.rpm
+    https://download1.rpmfusion.org/free/el/rpmfusion-free-release-9.noarch.rpm \
+    https://download1.rpmfusion.org/nonfree/el/rpmfusion-nonfree-release-9.noarch.rpm
 
-# System packages
-sudo dnf install -y nginx git python3 python3-pip ffmpeg curl mtr mediainfo
+# Install system packages
+sudo dnf install -y \
+    nginx \
+    git \
+    python3 \
+    python3-pip \
+    ffmpeg \
+    curl \
+    mtr \
+    mediainfo
+```
 
-# Compile srt-live-transmit (required for Oracle Linux 9 / RHEL 9)
-sudo dnf groupinstall -y "Development Tools"
-sudo dnf install -y cmake gcc-c++ openssl-devel tcl pkgconfig
-cd /tmp && git clone --depth 1 https://github.com/Haivision/srt.git && cd srt
-mkdir build && cd build && cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local && make -j$(nproc) && sudo make install && sudo ldconfig
+#### Install srt-live-transmit
 
-# Python packages
-pip3 install flask flask-cors requests
-pip3 install bcrypt --break-system-packages
-pip3 install phenix-edge-auth --break-system-packages
-pip3 install dotenv
+`srt-live-transmit` is not always available through the standard repositories on Oracle Linux 9 / RHEL 9. If required, build it from source:
 
 ```bash
-apt update
-apt install nginx git python3 python3-flask python3-requests ffmpeg curl mtr mediainfo srt-tools  -y
-apt install python3-pip -y
-pip3 install flask-cors --break-system-packages
-pip3 install bcrypt --break-system-packages
-pip3 install phenix-edge-auth --break-system-packages
-pip3 install openpyxl
+sudo dnf groupinstall -y "Development Tools"
+sudo dnf install -y \
+    cmake \
+    gcc-c++ \
+    openssl-devel \
+    tcl \
+    pkgconfig
 
-````
+cd /tmp
+git clone --depth 1 https://github.com/Haivision/srt.git
+cd srt
 
-> On newer Debian/Ubuntu, `flask` and `requests` are available via `apt` as
-> `python3-flask` and `python3-requests`. Use `apt` first to avoid pip conflicts.
+mkdir build
+cd build
 
----
+cmake .. -DCMAKE_INSTALL_PREFIX=/usr/local
+make -j$(nproc)
+
+sudo make install
+sudo ldconfig
+```
+
+#### Python Packages
+
+```bash
+pip3 install \
+    flask \
+    flask-cors \
+    requests \
+    bcrypt \
+    phenix-edge-auth \
+    openpyxl \
+    python-dotenv
+```
+
+> **Note:**
+> `--break-system-packages` is generally a Debian/Ubuntu-specific requirement and is normally not needed on RHEL-based distributions.
 
 ## 2. Clone the repository
 
