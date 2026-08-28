@@ -6,7 +6,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
-## [2.46.8] - 2026-08-28
+## [2.46.0] - 2026-08-28
 
 ### Added
 - Video Analyser: history panel selection now supports bulk actions beyond delete — assign selected anonymous results to a user, select every result matching the current filters across all pages, change workflow on selected results, and add/remove tags on selected results. The selection counter now also shows the total number of results matching the active filters.
