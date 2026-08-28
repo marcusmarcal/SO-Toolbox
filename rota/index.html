@@ -1303,22 +1303,25 @@
   // logo30Src / logo70Src accept either a URL path (e.g. '/assets/logo.png',
   // served by whatever serves index.html) or a base64 data URI. Leave a src
   // empty ('') to omit that logo entirely — layout adapts automatically.
-  const PRINT_FOOTER = {
-    logo30Src: '/rota/assets/RunningBall_Logo.png',   // narrower (30%) logo slot, e.g. '/assets/company-logo.png'
-    logo70Src: '/rota/assets/StatsPerform_Logo_Secondary.png',   // wider (70%) logo slot, e.g. '/assets/partner-logo.png'
-    // Exactly 7 lines, left-aligned, in the leftmost third of the footer.
-    // Edit freely — array length isn't enforced, but 7 is what fits the
-    // reserved footer height (.print-footer-space, height: 22mm).
-    textLines: [
-      'RunningBall Informação Desportiva Unipessoal Lda.',
-      'Nº pessoa coletiva: 508698472',
-      'Localização: R. das Cardadeiras, n 64 3800-125 Esgueira Aveiro',
-      'Período de funcionamento: conforme artº1 DL48/96 de 15 Maio',
-      'Actividade: Serviços de informação desportiva por televisão e internet; pesquisa, recolha e disponibilização de',
-      'informação sobre eventos desportivos; armazenagem e disponibilização de dados estatísticos na área do desporto;',
-      'Código CAE: 63920 — R4',
-    ],
+  let PRINT_FOOTER = {
+    logo30Src: '',
+    logo70Src: '',
+    textLines: []
   };
+
+  async function loadPrintFooterConfig() {
+    try {
+      const response = await fetch('/config/print-footer.json');
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      PRINT_FOOTER = await response.json();
+    } catch (err) {
+      console.error('Failed to load print footer config:', err);
+    }
+  }
 
   const SHIFT_COLORS = {
     '0700-1800': { bg:'#49B1E8', fg:'#000' },
@@ -1439,6 +1442,7 @@
   // ════════════════════════════════════════════════════════════════
   (async function init() {
     try {
+      await loadPrintFooterConfig();
       const rm = await fetch(`${PROXY}/rota/me`, { credentials: 'same-origin' });
       state.me = await rm.json();
 
