@@ -1363,6 +1363,7 @@
     dateFrom:    null,
     dateTo:      null,
     onBehalf:    false,
+    myLeaveYear: new Date().getFullYear(),
     draft: {
       active:    false,
       lock:      null,
@@ -2132,8 +2133,44 @@
       return;
     }
 
-    const sorted = [...entries].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+    // Build year list from entries, always include current year
+    const thisYear = new Date().getFullYear();
+    const yearsInData = [...new Set(entries.map(e =>
+      new Date(e.date_start).getFullYear()
+    ))].sort((a, b) => b - a);
+    if (!yearsInData.includes(thisYear)) yearsInData.unshift(thisYear);
 
+    // Render year filter toolbar
+    const selectedYear = state.myLeaveYear || thisYear;
+    state.myLeaveYear = selectedYear;
+
+    const toolbarHtml = `
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+        <span class="toolbar-label">Year</span>
+        <select class="toolbar-select" id="my-leave-year-select">
+          <option value="all">All years</option>
+          ${yearsInData.map(y =>
+            `<option value="${y}" ${y === selectedYear ? 'selected' : ''}>${y}</option>`
+          ).join('')}
+        </select>
+      </div>`;
+
+    const filtered = selectedYear === 'all'
+      ? entries
+      : entries.filter(e => new Date(e.date_start).getFullYear() === selectedYear);
+
+    const sorted = [...filtered].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+
+    if (!sorted.length) {
+      wrap.innerHTML = toolbarHtml + '<div class="empty-state">No leave requests for this year.</div>';
+      document.getElementById('my-leave-year-select')?.addEventListener('change', e => {
+        state.myLeaveYear = e.target.value === 'all' ? 'all' : parseInt(e.target.value);
+        loadMyLeave();
+      });
+      return;
+    }
+
+    // ... rest of table building unchanged from here ...
     const tableRows = sorted.map(e => {
       const statusClass = e.status.replace(/\s+/g, '-');
       const onBehalfTag = e.on_behalf
