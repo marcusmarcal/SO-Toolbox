@@ -2216,7 +2216,7 @@ def rota_hours_export():
 
 from typing import Optional
 
-def _picaponto_infer_name(email: str, display_name: str = '') -> tuple[str, str | None]:
+def _picaponto_infer_name(email: str, display_name: str = '') -> tuple[str, Optional[str]]:
     """Infer formatted full name from email + display_name.
     Returns (name, warning_or_None).
 
