@@ -845,6 +845,7 @@
     <button class="tab-btn" data-tab="approvals" id="tab-approvals" style="display:none;">✅ Leave Approvals</button>
     <button class="tab-btn" data-tab="hours" id="tab-hours" style="display:none;">🌙 Night & PH Hours</button>
     <button class="tab-btn" data-tab="overview" id="tab-overview" style="display:none;">👤 My Overview</button>
+    <button class="tab-btn" data-tab="admin" id="tab-admin" style="display:none;">⚙ Admin</button>
   </nav>
 
   <!-- ── DRAFT BANNER ── -->
@@ -1086,6 +1087,38 @@
       </div>
       <div id="soe-weekends-result"></div>
     </div>
+  </div>
+
+  <!-- ══ TAB: ADMIN ══ -->
+  <div class="tab-panel" id="panel-admin">
+
+    <p class="section-title">Feedback</p>
+
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;">
+      <div class="toolbar-group">
+        <span class="toolbar-label">Type</span>
+        <select class="toolbar-select" id="admin-fb-type-filter">
+          <option value="all">All</option>
+          <option value="bug">🐛 Bugs</option>
+          <option value="enhancement">✨ Features</option>
+        </select>
+      </div>
+      <div class="toolbar-group">
+        <span class="toolbar-label">Status</span>
+        <select class="toolbar-select" id="admin-fb-status-filter">
+          <option value="unreviewed">Unreviewed</option>
+          <option value="all">All</option>
+          <option value="resolved">Resolved</option>
+          <option value="dismissed">Dismissed</option>
+        </select>
+      </div>
+      <button class="btn" id="btn-admin-fb-refresh" style="margin-left:4px;">⟳ Refresh</button>
+    </div>
+
+    <div id="admin-feedback-wrap">
+      <div class="loading-row"><div class="spinner"></div> Loading…</div>
+    </div>
+
   </div>
 
   <!-- ── NOTE TOOLTIP (hover, read-only) ── -->
@@ -1450,6 +1483,7 @@
       document.getElementById('tab-approvals').style.display = '';
       document.getElementById('tab-hours').style.display     = '';
       document.getElementById('opt-full').style.display      = '';
+      document.getElementById('tab-admin').style.display = '';
     }
     if (m.rota_role === 'staff') {
       document.getElementById('tab-hours').style.display = '';
@@ -1479,6 +1513,7 @@
         if (btn.dataset.tab === 'hours')     setupHoursTab();
         if (btn.dataset.tab === 'leave')     loadMyLeave();
         if (btn.dataset.tab === 'overview')  setupOverviewTab();
+        if (btn.dataset.tab === 'admin')     setupAdminTab();
       });
     });
     document.getElementById('btn-signout').addEventListener('click', async () => {
@@ -4572,6 +4607,137 @@ function _removeCellFromBoxes(ri, ci) {
     el.className = 'show ' + type;
     clearTimeout(_tt);
     _tt = setTimeout(() => el.className = '', 3000);
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  ADMIN TAB
+  // ════════════════════════════════════════════════════════════════
+  let _adminTabReady = false;
+
+  function setupAdminTab() {
+    if (_adminTabReady) { loadAdminFeedback(); return; }
+    _adminTabReady = true;
+
+    document.getElementById('admin-fb-type-filter').addEventListener('change', loadAdminFeedback);
+    document.getElementById('admin-fb-status-filter').addEventListener('change', loadAdminFeedback);
+    document.getElementById('btn-admin-fb-refresh').addEventListener('click', loadAdminFeedback);
+
+    loadAdminFeedback();
+  }
+
+  async function loadAdminFeedback() {
+    const wrap = document.getElementById('admin-feedback-wrap');
+    wrap.innerHTML = '<div class="loading-row"><div class="spinner"></div> Loading…</div>';
+
+    const typeFilter   = document.getElementById('admin-fb-type-filter').value;
+    const statusFilter = document.getElementById('admin-fb-status-filter').value;
+
+    let d;
+    try {
+      const r = await fetch(`${PROXY}/rota/feedback`, { credentials: 'same-origin' });
+      d = await r.json();
+    } catch(e) {
+      wrap.innerHTML = '<div class="empty-state">Failed to load feedback.</div>';
+      return;
+    }
+    if (!d.ok) {
+      wrap.innerHTML = `<div class="empty-state">Error: ${d.error}</div>`;
+      return;
+    }
+
+    // Flatten and attach type label
+    let entries = [
+      ...(d.feedback.bug         || []).map(e => ({ ...e, fb_type: 'bug' })),
+      ...(d.feedback.enhancement || []).map(e => ({ ...e, fb_type: 'enhancement' })),
+    ];
+
+    // Filter
+    if (typeFilter !== 'all')
+      entries = entries.filter(e => e.fb_type === typeFilter);
+    if (statusFilter !== 'all')
+      entries = entries.filter(e => e.status === statusFilter);
+
+    // Sort: unreviewed first, then newest
+    entries.sort((a, b) => {
+      const order = { unreviewed: 0, resolved: 1, dismissed: 2 };
+      const od = (order[a.status] ?? 3) - (order[b.status] ?? 3);
+      if (od !== 0) return od;
+      return (b.submitted_at || '').localeCompare(a.submitted_at || '');
+    });
+
+    if (!entries.length) {
+      wrap.innerHTML = '<div class="empty-state">No feedback entries match the current filters.</div>';
+      return;
+    }
+
+    const TYPE_LABELS  = { bug: '🐛 Bug', enhancement: '✨ Feature' };
+    const STATUS_META  = {
+      unreviewed: { label: 'Unreviewed', cls: 'Pending' },
+      resolved:   { label: 'Resolved',   cls: 'Confirmed' },
+      dismissed:  { label: 'Dismissed',  cls: 'Withdrawn' },
+    };
+
+    const rows = entries.map(e => {
+      const sm      = STATUS_META[e.status] || { label: e.status, cls: '' };
+      const actions = e.status === 'unreviewed'
+        ? `<button class="btn approve" style="font-size:0.62rem;padding:3px 9px;"
+            onclick="actionFeedback('${e.id}','resolved')">✓ Resolve</button>
+          <button class="btn reject" style="font-size:0.62rem;padding:3px 9px;"
+            onclick="actionFeedback('${e.id}','dismissed')">✗ Dismiss</button>`
+        : `<span style="font-family:var(--mono);font-size:0.6rem;color:var(--muted);">
+            by ${_userName(e.actioned_by)} · ${_fmtDate(e.actioned_at)}
+          </span>`;
+
+      return `
+        <div class="pot-history-entry ${e.status === 'unreviewed' ? '' : 'superseded-record'}"
+            style="margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+            <span class="status-badge ${sm.cls}">${sm.label}</span>
+            <span class="status-badge Withdrawn" style="opacity:1;">
+              ${TYPE_LABELS[e.fb_type] || e.fb_type}
+            </span>
+            <span style="font-family:var(--mono);font-size:0.75rem;font-weight:700;flex:1;">
+              ${e.title}
+            </span>
+            <span style="font-family:var(--mono);font-size:0.6rem;color:var(--muted);">
+              ${_userName(e.submitted_by)} · ${_fmtDate(e.submitted_at)}
+            </span>
+          </div>
+          <div style="font-family:var(--mono);font-size:0.72rem;color:var(--muted);
+                      white-space:pre-wrap;margin-bottom:10px;line-height:1.5;">
+            ${e.body.replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;">
+            ${actions}
+          </div>
+        </div>`;
+    }).join('');
+
+    wrap.innerHTML = rows;
+  }
+
+  async function actionFeedback(feedbackId, status) {
+    const label = status === 'resolved' ? 'Resolve' : 'Dismiss';
+    const confirmed = await uiConfirm(
+      `${label} Feedback`,
+      `Mark this entry as ${status}?`,
+      label,
+      status === 'resolved' ? 'approve' : 'reject'
+    );
+    if (!confirmed) return;
+
+    const r = await fetch(`${PROXY}/rota/feedback/${feedbackId}`, {
+      method: 'PUT', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast(`Marked as ${status}`, 'ok');
+      loadAdminFeedback();
+    } else {
+      await uiAlert(d.error || 'Failed to update');
+    }
   }
 
   // ════════════════════════════════════════════════════════════════

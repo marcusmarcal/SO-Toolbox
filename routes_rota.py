@@ -297,6 +297,7 @@ DRAFT_FILE               = os.path.join(ROTA_DIR, 'draft_overrides.json')
 DRAFT_LOCK_FILE          = os.path.join(ROTA_DIR, 'draft_lock.json')
 PUBLISHED_OVERRIDES_FILE = os.path.join(ROTA_DIR, 'published_overrides.json')
 CELL_NOTES_FILE          = os.path.join(ROTA_DIR, 'cell_notes.json')
+FEEDBACK_FILE            = os.path.join(ROTA_DIR, 'feedback.json')
 HR_CONFIG_FILE           = os.path.join(ROTA_DIR, 'hr_config.json')
 HOURS_POT_FILE           = os.path.join(ROTA_DIR, 'hours_pot.json')
 AL_ALLOWANCE_FILE        = os.path.join(ROTA_DIR, 'al_allowance.json')
@@ -3227,6 +3228,84 @@ def rota_soe_weekends():
             'counts': counts,
             'members': list(ENGINEERING_OFFSETS.keys()),
         })
+
+@rota_bp.route('/rota/feedback', methods=['POST'])
+@require_auth
+def rota_feedback_post():
+    session = request.session
+    data    = request.get_json(silent=True) or {}
+    fb_type = data.get('type', '').strip()
+    title   = data.get('title', '').strip()
+    body    = data.get('body', '').strip()
+
+    if fb_type not in ('bug', 'enhancement'):
+        return jsonify({'ok': False, 'error': 'Invalid feedback type'}), 400
+    if not title:
+        return jsonify({'ok': False, 'error': 'Title required'}), 400
+    if not body:
+        return jsonify({'ok': False, 'error': 'Description required'}), 400
+
+    feedback = _load_json(FEEDBACK_FILE)
+    if not isinstance(feedback, dict):
+        feedback = {}
+    feedback.setdefault('bug', [])
+    feedback.setdefault('enhancement', [])
+
+    feedback[fb_type].append({
+        'id':           str(uuid.uuid4())[:8],
+        'submitted_by': session['username'],
+        'submitted_at': _now_iso(),
+        'title':        title,
+        'body':         body,
+        'status':       'unreviewed',
+        'actioned_by':  None,
+        'actioned_at':  None,
+    })
+
+    _save_json(FEEDBACK_FILE, feedback)
+    return jsonify({'ok': True})
+
+
+@rota_bp.route('/rota/feedback', methods=['GET'])
+@require_auth
+def rota_feedback_get():
+    if _get_rota_role(request.session) != 'management':
+        return jsonify({'ok': False, 'error': 'Not authorised'}), 403
+    feedback = _load_json(FEEDBACK_FILE)
+    if not isinstance(feedback, dict):
+        feedback = {'bug': [], 'enhancement': []}
+    feedback.setdefault('bug', [])
+    feedback.setdefault('enhancement', [])
+    return jsonify({'ok': True, 'feedback': feedback})
+
+
+@rota_bp.route('/rota/feedback/<feedback_id>', methods=['PUT'])
+@require_auth
+def rota_feedback_put(feedback_id):
+    if _get_rota_role(request.session) != 'management':
+        return jsonify({'ok': False, 'error': 'Not authorised'}), 403
+
+    session    = request.session
+    data       = request.get_json(silent=True) or {}
+    new_status = data.get('status', '').strip()
+
+    if new_status not in ('resolved', 'dismissed'):
+        return jsonify({'ok': False, 'error': 'status must be resolved or dismissed'}), 400
+
+    feedback = _load_json(FEEDBACK_FILE)
+    if not isinstance(feedback, dict):
+        return jsonify({'ok': False, 'error': 'No feedback data'}), 500
+
+    for fb_type in ('bug', 'enhancement'):
+        for entry in feedback.get(fb_type, []):
+            if entry.get('id') == feedback_id:
+                entry['status']      = new_status
+                entry['actioned_by'] = session['username']
+                entry['actioned_at'] = _now_iso()
+                _save_json(FEEDBACK_FILE, feedback)
+                return jsonify({'ok': True})
+
+    return jsonify({'ok': False, 'error': 'Feedback entry not found'}), 404
 
 def register_routes(app) -> None:
     app.register_blueprint(rota_bp)
