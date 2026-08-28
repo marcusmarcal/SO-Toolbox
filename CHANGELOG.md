@@ -6,6 +6,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.47.0] - 2026-08-28
+### Fixed
+- Video Analyser: video-related compliance checks (GOP Type, B-Frames,
+  Scan Type, Colour Range, HDR/SDR, Codec, FPS, etc.) no longer report
+  COMPLIANT/ACCEPTED/REJECTED verdicts derived from ffprobe's default
+  placeholder values when a file has no video stream/PID at all. These
+  fields now correctly report UNKNOWN, and the overall result is
+  forced to REJECTED when no video stream is found.
+
 ## [2.46.2] - 2026-08-28
 
 ### Changed

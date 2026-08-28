@@ -29,10 +29,6 @@ a_pts_jitter) has been removed and replaced by a single "mediainfo_delay" spec
 with two adjustable thresholds per workflow: |delay| <= warn (default 350ms) is
 COMPLIANT, <= hard (default 1000ms) is ACCEPTED, above hard is REJECTED.
 
-The result JSON now also includes a `mediainfo_report` field — the full,
-verbatim text output of `mediainfo <file>` (not just the parsed delay value) —
-so the complete mediainfo analysis can be viewed/copied from the UI.
-
 Every test run now also runs the Ingest Analyser (run-ingest-analysis.sh, the
 same script used by the standalone /ingest/* tool in routes_ingest.py) on the
 already-recorded .ts file — faster than a live re-capture, and it's the same
@@ -357,16 +353,12 @@ def _run_mediainfo_delay(ts_path, log):
     """Run mediainfo on the recorded/uploaded .ts file and extract the audio
     'Delay relative to video' metric (mediainfo JSON field `Video_Delay`, in
     seconds, on the Audio track — reported by mediainfo's text output as
-    "Delay relative to video"). Also captures the full human-readable
-    mediainfo report text (default `mediainfo <file>` output) so it can be
-    shown to the user verbatim in the "MediaInfo Report" panel.
-
-    Returns {"mediainfo_delay_ms": float|None, "mediainfo_report": str|None}.
+    "Delay relative to video"). Returns {"mediainfo_delay_ms": float|None}.
 
     If a file has multiple audio tracks, the worst-case (largest absolute)
-    offset across tracks is used. Fields are None if mediainfo is not
-    installed or the respective data could not be produced."""
-    result = {"mediainfo_delay_ms": None, "mediainfo_report": None}
+    offset across tracks is used. Returns None if mediainfo is not installed
+    or the metric could not be measured (e.g. missing timing info)."""
+    result = {"mediainfo_delay_ms": None}
     try:
         cmd = ["mediainfo", "--Output=JSON", ts_path]
         r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
@@ -391,18 +383,8 @@ def _run_mediainfo_delay(ts_path, log):
             log("mediainfo: 'Delay relative to video' not reported for this file")
     except FileNotFoundError:
         log("WARNING: mediainfo is not installed on this server")
-        return result
     except Exception as e:
         log(f"WARNING: mediainfo analysis failed: {e}")
-
-    # Full human-readable report — separate call using mediainfo's default
-    # text output, stored verbatim for the "MediaInfo Report" viewer.
-    try:
-        r2 = subprocess.run(["mediainfo", ts_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
-        text = r2.stdout.decode(errors="replace").strip()
-        result["mediainfo_report"] = text or None
-    except Exception as e:
-        log(f"WARNING: mediainfo full report failed: {e}")
     return result
 
 
@@ -623,6 +605,15 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
         aud_list   = [s for s in streams if s.get("codec_type") == "audio"]
         aud        = aud_list[0] if aud_list else {}
 
+        # No video PID/stream at all — every "v_*" field below is a hardcoded
+        # default (e.g. v_codec="unknown", v_width=0, v_field="progressive"),
+        # never an actual measurement. has_video gates the compliance checks
+        # further down so those defaults are reported as UNKNOWN instead of
+        # being silently evaluated against the specs as if they were real.
+        has_video = bool(vid)
+        if not has_video:
+            log("WARNING: No video stream/PID detected in this file — all video-related compliance checks will be reported as UNKNOWN")
+
         container   = fmt.get("format_long_name") or fmt.get("format_name", "unknown")
         file_dur    = float(fmt.get("duration", 0) or 0)
         file_br     = int(fmt.get("bit_rate", 0) or 0)
@@ -829,6 +820,17 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
                 return "ACCEPTED", measured, f"Preferred {pref_raw}"
             return "COMPLIANT", measured, ""
 
+        def _video_only(check_tuple):
+            """Wrap a video-related compliance check so it reports UNKNOWN
+            instead of a fabricated verdict when there is no video PID/stream
+            at all. Without this, an audio-only capture would silently pass
+            checks like GOP Type or B-Frames (empty GOP list trivially looks
+            "CLOSED"/"absent") and Scan Type/Colour Range/HDR would evaluate
+            hardcoded ffprobe defaults as if they were real measurements."""
+            if not has_video:
+                return ("UNKNOWN", "—", "No video stream detected")
+            return check_tuple
+
         file_br_mbps = round(file_br / 1e6, 5) if file_br else 0
         v_br_mbps    = round(v_br   / 1e6, 5) if v_br   else 0
         a_br_kbps_f  = round(a_br   / 1000, 1) if a_br  else 0
@@ -887,27 +889,27 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
 
         compliance = {
             "overall_br":   comply_range(file_br_mbps, "overall_br"),
-            "gop_size":     (gop_status, str(avg_gop), f"Expected {gop_expected_str}"),
-            "gop_type":     comply_enum_multi(gop_type, "gop_type"),
-            "b_frames":     comply_enum_multi("absent" if not has_b_frames else "present", "b_frames"),
-            "idr":          ("COMPLIANT" if has_idr else "REJECTED",
-                             "Present" if has_idr else "ABSENT", "IDR frames required"),
-            "frame_size":   comply_enum_multi(f"{v_width}x{v_height}", "frame_size"),
-            "aspect_ratio": comply_enum_multi(dar, "aspect_ratio"),
-            "chroma":       comply_enum_multi(v_chroma, "chroma"),
-            "pixel_format": _info_check(v_pix_fmt),
-            "colour_range": comply_enum_multi("full" if v_full_range else "limited", "colour_range"),
-            "scan_type":    comply_enum_multi(v_scan, "scan_type"),
-            "bit_depth":    comply_enum_multi(str(v_bits), "bit_depth"),
-            "colour_gamut": comply_enum_multi(v_color_sp, "colour_gamut"),
-            "codec":        comply_enum_multi(v_codec.lower() if v_codec else "", "codec"),
-            "codec_level":  comply_range(v_level_f, "codec_level"),
-            "codec_profile":comply_enum_multi(v_profile.lower() if v_profile else "", "codec_profile"),
-            "entropy":      comply_enum_multi(v_entropy, "entropy"),
-            "rate_ctrl_v":  comply_enum_multi(v_rate_ctrl, "rate_ctrl_v"),
-            "v_br":         comply_range(v_br_mbps, "v_br"),
-            "hdr_scheme":   comply_enum_multi(v_hdr, "hdr_scheme"),
-            "fps":          (fps_status, fps_measured_str, f"Expected {fps_values}"),
+            "gop_size":     _video_only((gop_status, str(avg_gop), f"Expected {gop_expected_str}")),
+            "gop_type":     _video_only(comply_enum_multi(gop_type, "gop_type")),
+            "b_frames":     _video_only(comply_enum_multi("absent" if not has_b_frames else "present", "b_frames")),
+            "idr":          _video_only(("COMPLIANT" if has_idr else "REJECTED",
+                             "Present" if has_idr else "ABSENT", "IDR frames required")),
+            "frame_size":   _video_only(comply_enum_multi(f"{v_width}x{v_height}", "frame_size")),
+            "aspect_ratio": _video_only(comply_enum_multi(dar, "aspect_ratio")),
+            "chroma":       _video_only(comply_enum_multi(v_chroma, "chroma")),
+            "pixel_format": _video_only(_info_check(v_pix_fmt)),
+            "colour_range": _video_only(comply_enum_multi("full" if v_full_range else "limited", "colour_range")),
+            "scan_type":    _video_only(comply_enum_multi(v_scan, "scan_type")),
+            "bit_depth":    _video_only(comply_enum_multi(str(v_bits), "bit_depth")),
+            "colour_gamut": _video_only(comply_enum_multi(v_color_sp, "colour_gamut")),
+            "codec":        _video_only(comply_enum_multi(v_codec.lower() if v_codec else "", "codec")),
+            "codec_level":  _video_only(comply_range(v_level_f, "codec_level")),
+            "codec_profile":_video_only(comply_enum_multi(v_profile.lower() if v_profile else "", "codec_profile")),
+            "entropy":      _video_only(comply_enum_multi(v_entropy, "entropy")),
+            "rate_ctrl_v":  _video_only(comply_enum_multi(v_rate_ctrl, "rate_ctrl_v")),
+            "v_br":         _video_only(comply_range(v_br_mbps, "v_br")),
+            "hdr_scheme":   _video_only(comply_enum_multi(v_hdr, "hdr_scheme")),
+            "fps":          _video_only((fps_status, fps_measured_str, f"Expected {fps_values}")),
             "a_codec":      comply_enum_multi(a_codec_display, "a_codec"),
             "a_streams":    comply_range(audio_track_count, "a_streams"),
             "a_channels":   comply_range(a_ch, "a_channels"),
@@ -919,7 +921,12 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
         }
 
         statuses = [v[0] for v in compliance.values() if v[0] != "INFO"]
-        if "REJECTED" in statuses:
+        if not has_video:
+            # A missing video PID/stream is an outright failure for a video
+            # compliance test, regardless of how the (all-UNKNOWN) video
+            # fields interact with the REJECTED/ACCEPTED/COMPLIANT logic below.
+            overall_status = "REJECTED"
+        elif "REJECTED" in statuses:
             overall_status = "REJECTED"
         elif "ACCEPTED" in statuses:
             overall_status = "ACCEPTED"
@@ -963,7 +970,6 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             "overall_status": overall_status,
             "test_id": str(uuid.uuid4()),
             "mediainfo_delay_ms": mediainfo_result.get("mediainfo_delay_ms"),
-            "mediainfo_report": mediainfo_result.get("mediainfo_report"),
             "ingest_dir": ingest_result.get("ingest_dir"),
             "ingest_zip": ingest_result.get("ingest_zip"),
         }
@@ -1784,6 +1790,17 @@ def _reeval_compliance(stored: dict, specs: dict) -> tuple:
             return "ACCEPTED", measured, f"Preferred {pref_raw}"
         return "COMPLIANT", measured, ""
 
+    # Same guard as in _run_gop_analysis: the stored "have_video" flag tells
+    # us whether the original probe actually found a video PID/stream, so a
+    # re-evaluation against a different workflow doesn't fabricate video
+    # verdicts out of the stored placeholder defaults either.
+    has_video = bool(stored.get("have_video"))
+
+    def _video_only(check_tuple):
+        if not has_video:
+            return ("UNKNOWN", "—", "No video stream detected")
+        return check_tuple
+
     def _mediainfo_check(measured_ms, sp):
         warn = float(sp.get("warn", 350.0))
         hard = float(sp.get("hard", 1000.0))
@@ -1875,27 +1892,27 @@ def _reeval_compliance(stored: dict, specs: dict) -> tuple:
 
     compliance = {
         "overall_br":   comply_range(file_br_mbps, "overall_br"),
-        "gop_size":     (gop_status, str(avg_gop), f"Expected {gop_expected_str}"),
-        "gop_type":     comply_enum_multi(gop_type, "gop_type"),
-        "b_frames":     comply_enum_multi("absent" if not has_b_frames else "present", "b_frames"),
-        "idr":          ("COMPLIANT" if has_idr else "REJECTED",
-                         "Present" if has_idr else "ABSENT", "IDR frames required"),
-        "frame_size":   comply_enum_multi(f"{v_width}x{v_height}", "frame_size"),
-        "aspect_ratio": comply_enum_multi(dar, "aspect_ratio"),
-        "chroma":       comply_enum_multi(v_chroma, "chroma"),
-        "pixel_format": _info_check(v_pix_fmt),
-        "colour_range": comply_enum_multi("full" if v_full_range else "limited", "colour_range"),
-        "scan_type":    comply_enum_multi(v_scan, "scan_type"),
-        "bit_depth":    comply_enum_multi(v_bits, "bit_depth"),
-        "colour_gamut": comply_enum_multi(v_color_sp, "colour_gamut"),
-        "codec":        comply_enum_multi(v_codec.lower() if v_codec else "", "codec"),
-        "codec_level":  comply_range(v_level_f, "codec_level"),
-        "codec_profile":comply_enum_multi(v_profile.lower() if v_profile else "", "codec_profile"),
-        "entropy":      comply_enum_multi(v_entropy, "entropy"),
-        "rate_ctrl_v":  comply_enum_multi(v_rate_ctrl, "rate_ctrl_v"),
-        "v_br":         comply_range(v_br_mbps, "v_br"),
-        "hdr_scheme":   comply_enum_multi(v_hdr, "hdr_scheme"),
-        "fps":          (fps_status, fps_measured_str, f"Expected {fps_values}"),
+        "gop_size":     _video_only((gop_status, str(avg_gop), f"Expected {gop_expected_str}")),
+        "gop_type":     _video_only(comply_enum_multi(gop_type, "gop_type")),
+        "b_frames":     _video_only(comply_enum_multi("absent" if not has_b_frames else "present", "b_frames")),
+        "idr":          _video_only(("COMPLIANT" if has_idr else "REJECTED",
+                         "Present" if has_idr else "ABSENT", "IDR frames required")),
+        "frame_size":   _video_only(comply_enum_multi(f"{v_width}x{v_height}", "frame_size")),
+        "aspect_ratio": _video_only(comply_enum_multi(dar, "aspect_ratio")),
+        "chroma":       _video_only(comply_enum_multi(v_chroma, "chroma")),
+        "pixel_format": _video_only(_info_check(v_pix_fmt)),
+        "colour_range": _video_only(comply_enum_multi("full" if v_full_range else "limited", "colour_range")),
+        "scan_type":    _video_only(comply_enum_multi(v_scan, "scan_type")),
+        "bit_depth":    _video_only(comply_enum_multi(v_bits, "bit_depth")),
+        "colour_gamut": _video_only(comply_enum_multi(v_color_sp, "colour_gamut")),
+        "codec":        _video_only(comply_enum_multi(v_codec.lower() if v_codec else "", "codec")),
+        "codec_level":  _video_only(comply_range(v_level_f, "codec_level")),
+        "codec_profile":_video_only(comply_enum_multi(v_profile.lower() if v_profile else "", "codec_profile")),
+        "entropy":      _video_only(comply_enum_multi(v_entropy, "entropy")),
+        "rate_ctrl_v":  _video_only(comply_enum_multi(v_rate_ctrl, "rate_ctrl_v")),
+        "v_br":         _video_only(comply_range(v_br_mbps, "v_br")),
+        "hdr_scheme":   _video_only(comply_enum_multi(v_hdr, "hdr_scheme")),
+        "fps":          _video_only((fps_status, fps_measured_str, f"Expected {fps_values}")),
         "a_codec":      comply_enum_multi(a_codec_display, "a_codec"),
         "a_streams":    comply_range(audio_tracks, "a_streams"),
         "a_channels":   comply_range(a_ch, "a_channels"),
@@ -1907,7 +1924,9 @@ def _reeval_compliance(stored: dict, specs: dict) -> tuple:
     }
 
     statuses = [v[0] for v in compliance.values() if v[0] != "INFO"]
-    if "REJECTED" in statuses:
+    if not has_video:
+        overall_status = "REJECTED"
+    elif "REJECTED" in statuses:
         overall_status = "REJECTED"
     elif "ACCEPTED" in statuses:
         overall_status = "ACCEPTED"
