@@ -901,6 +901,28 @@
         border-color: var(--red);
         color: var(--red);
       }
+      .btn-bulk-act {
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        padding: 2px 9px;
+        cursor: pointer;
+        transition: border-color 0.15s, color 0.15s;
+        white-space: nowrap;
+      }
+      .btn-bulk-act:hover {
+        border-color: var(--cyan);
+        color: var(--cyan);
+      }
+      .hist-bulk-actions {
+        display: flex;
+        gap: 0.35rem;
+        flex-wrap: wrap;
+        align-items: center;
+      }
 
       /* Tag editor */
       .tag-chip-list {
@@ -1780,6 +1802,15 @@
             >
               ✕
             </button>
+            <button
+              class="btn-sm"
+              id="btn-select-all-filtered"
+              onclick="selectAllFiltered()"
+              title="Select every result matching the current filters, across all pages"
+              style="color: var(--muted); font-size: 0.68rem; white-space: nowrap"
+            >
+              ☑ Select all
+            </button>
           </div>
           <div
             class="hist-filters"
@@ -1827,9 +1858,43 @@
           <div class="hist-pagination" id="hist-pagination"></div>
           <div class="hist-bulk-bar" id="bulk-bar">
             <span class="hist-bulk-txt" id="bulk-count">0 selected</span>
-            <button class="btn-bulk-del" onclick="openBulkDeleteModal()">
-              🗑 Delete selected
-            </button>
+            <div class="hist-bulk-actions">
+              <button
+                class="btn-bulk-act"
+                onclick="clearSelection()"
+                title="Clear selection"
+              >
+                ✕ Clear
+              </button>
+              <button
+                class="btn-bulk-act"
+                onclick="openBulkTagModal()"
+                title="Add or remove tags on selected results"
+              >
+                🏷 Tags
+              </button>
+              <button
+                class="btn-bulk-act"
+                id="btn-bulk-workflow"
+                onclick="openBulkWorkflowModal()"
+                title="Change workflow on selected results (admin/engineer only)"
+                style="display: none"
+              >
+                🔀 Workflow
+              </button>
+              <button
+                class="btn-bulk-act"
+                id="btn-bulk-assign"
+                onclick="openBulkAssignModal()"
+                title="Assign anonymous selected results to a user (admin/engineer only)"
+                style="display: none"
+              >
+                👤 Assign
+              </button>
+              <button class="btn-bulk-del" onclick="openBulkDeleteModal()">
+                🗑 Delete
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -2736,6 +2801,234 @@
       </div>
     </div>
 
+    <!-- Bulk tag edit modal -->
+    <div class="modal-overlay" id="bulk-tag-modal">
+      <div class="modal-card" style="width: 480px">
+        <div class="modal-title" style="color: var(--purple)">
+          🏷 Bulk Edit Tags
+        </div>
+        <div class="modal-body" style="margin-bottom: 0.6rem">
+          Applies to
+          <strong id="bulk-tag-count" style="color: var(--cyan)"></strong>
+          selected result(s). Tags to add/remove are applied on top of each
+          result's existing tags.
+        </div>
+        <div style="margin-bottom: 0.9rem">
+          <label
+            style="
+              font-family: var(--mono);
+              font-size: 0.65rem;
+              font-weight: 700;
+              letter-spacing: 0.08em;
+              text-transform: uppercase;
+              color: var(--muted);
+              display: block;
+              margin-bottom: 0.35rem;
+            "
+            >Add tag(s)</label
+          >
+          <div
+            class="tag-chip-list"
+            id="bulk-tag-add-list"
+            onclick="document.getElementById('bulk-tag-add-input').focus()"
+          ></div>
+          <input
+            id="bulk-tag-add-input"
+            class="tag-chip-input"
+            placeholder="add tag…"
+            style="
+              margin-top: 0.4rem;
+              width: 100%;
+              background: transparent;
+              border: none;
+              outline: none;
+              color: #fff;
+              font-family: var(--mono);
+              font-size: 0.78rem;
+            "
+            onkeydown="bulkTagAddKeydown(event)"
+          />
+        </div>
+        <div style="margin-bottom: 0.9rem">
+          <label
+            style="
+              font-family: var(--mono);
+              font-size: 0.65rem;
+              font-weight: 700;
+              letter-spacing: 0.08em;
+              text-transform: uppercase;
+              color: var(--muted);
+              display: block;
+              margin-bottom: 0.35rem;
+            "
+            >Remove tag(s)</label
+          >
+          <div
+            class="tag-chip-list"
+            id="bulk-tag-remove-list"
+            onclick="document.getElementById('bulk-tag-remove-input').focus()"
+          ></div>
+          <input
+            id="bulk-tag-remove-input"
+            class="tag-chip-input"
+            placeholder="remove tag…"
+            style="
+              margin-top: 0.4rem;
+              width: 100%;
+              background: transparent;
+              border: none;
+              outline: none;
+              color: #fff;
+              font-family: var(--mono);
+              font-size: 0.78rem;
+            "
+            onkeydown="bulkTagRemoveKeydown(event)"
+          />
+        </div>
+        <div class="modal-actions">
+          <button
+            class="btn-run"
+            style="background: var(--purple); height: 32px; padding: 0 1.1rem"
+            onclick="applyBulkTags()"
+          >
+            Apply
+          </button>
+          <button class="btn-cancel" onclick="closeBulkTagModal()">
+            Cancel
+          </button>
+          <span
+            id="bulk-tag-ok"
+            style="
+              font-family: var(--mono);
+              font-size: 0.68rem;
+              color: var(--green);
+              display: none;
+            "
+            >✓ Applied</span
+          >
+          <span
+            id="bulk-tag-err"
+            style="
+              font-family: var(--mono);
+              font-size: 0.68rem;
+              color: var(--red);
+            "
+          ></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bulk workflow change modal -->
+    <div class="modal-overlay" id="bulk-wf-modal">
+      <div class="modal-card" style="width: 480px">
+        <div class="modal-title" style="color: var(--yellow)">
+          🔀 Bulk Change Workflow
+        </div>
+        <div class="modal-body" style="margin-bottom: 0.6rem">
+          Permanently re-assigns the workflow and re-runs compliance checks
+          for
+          <strong id="bulk-wf-count" style="color: var(--cyan)"></strong>
+          selected result(s). Failed/error results are skipped. Each change
+          is logged.
+        </div>
+        <div style="margin-bottom: 0.8rem">
+          <label
+            style="
+              font-family: var(--mono);
+              font-size: 0.65rem;
+              font-weight: 700;
+              letter-spacing: 0.08em;
+              text-transform: uppercase;
+              color: var(--muted);
+              display: block;
+              margin-bottom: 0.35rem;
+            "
+            >New Workflow</label
+          >
+          <select
+            id="bulk-wf-select"
+            style="
+              width: 100%;
+              background: var(--bg3);
+              border: 1px solid var(--border);
+              border-radius: 5px;
+              color: #fff;
+              font-family: var(--mono);
+              font-size: 0.82rem;
+              padding: 0.45rem 0.65rem;
+              outline: none;
+            "
+          ></select>
+        </div>
+        <div class="modal-actions">
+          <button
+            class="btn-danger"
+            style="background: var(--yellow); color: #000"
+            onclick="applyBulkWorkflow()"
+          >
+            Change Workflow
+          </button>
+          <button class="btn-cancel" onclick="closeBulkWorkflowModal()">
+            Cancel
+          </button>
+          <div class="modal-err" id="bulk-wf-err" style="color: var(--red)"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bulk assign-to-user modal -->
+    <div class="modal-overlay" id="bulk-assign-modal">
+      <div class="modal-card" style="width: 420px">
+        <div class="modal-title" style="color: var(--green)">
+          👤 Bulk Assign to User
+        </div>
+        <div class="modal-body" style="margin-bottom: 0.6rem">
+          Assigns
+          <strong id="bulk-assign-count" style="color: var(--cyan)"></strong>
+          anonymous selected result(s) to a user. Results already assigned to
+          a real user are skipped.
+        </div>
+        <input
+          id="bulk-assign-filter"
+          type="text"
+          placeholder="Filter users…"
+          oninput="_filterBulkAssignList()"
+          style="
+            width: 100%;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: #fff;
+            font-family: var(--mono);
+            font-size: 0.78rem;
+            padding: 6px 9px;
+            outline: none;
+            box-sizing: border-box;
+            margin-bottom: 0.5rem;
+          "
+        />
+        <div
+          id="bulk-assign-list"
+          style="
+            max-height: 220px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+          "
+        ></div>
+        <div class="modal-actions" style="margin-top: 0.8rem">
+          <button class="btn-cancel" onclick="closeBulkAssignModal()">
+            Cancel
+          </button>
+          <div
+            class="modal-err"
+            id="bulk-assign-err"
+            style="color: var(--red)"
+          ></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Assign anonymous test to user — floating dropdown (shared, repositioned per click) -->
     <div
       id="assign-user-dropdown"
@@ -3412,6 +3705,8 @@
       let _histPage = 1;
       let _histDebounceTimer = null;
       const HIST_PAGE_SIZE = 50;
+      let _pageItemsByFile = {}; // file -> item, for the currently rendered page
+      let _histFilteredTotal = 0; // total results matching current filters (all pages)
 
       // Text filters call this on every keystroke — debounce so we don't
       // hit the backend on every character while typing.
@@ -3420,39 +3715,44 @@
         _histDebounceTimer = setTimeout(() => loadHistory(resetPage), 300);
       }
 
+      // Shared by loadHistory() and selectAllFiltered() so both always
+      // agree on which results the current filters match.
+      function _buildHistParams() {
+        const search = (
+          document.getElementById("hist-search").value || ""
+        ).trim();
+        const date = (document.getElementById("hist-date").value || "").trim();
+        const tag = (document.getElementById("hist-tag").value || "").trim();
+        const server = (
+          document.getElementById("hist-server").value || ""
+        ).trim();
+        const userFilter = (
+          document.getElementById("hist-user").value || ""
+        ).trim();
+
+        const params = new URLSearchParams();
+        if (search) params.set("search", search);
+        if (date) params.set("date", date);
+        if (tag) params.set("tag", tag);
+        if (server) params.set("server", server);
+        if (userFilter) params.set("user", userFilter);
+        return params;
+      }
+
       async function loadHistory(resetPage) {
         if (resetPage) _histPage = 1;
         try {
-          const search = (
-            document.getElementById("hist-search").value || ""
-          ).trim();
-          const date = (
-            document.getElementById("hist-date").value || ""
-          ).trim();
-          const tag = (
-            document.getElementById("hist-tag").value || ""
-          ).trim();
-          const server = (
-            document.getElementById("hist-server").value || ""
-          ).trim();
-          const userFilter = (
-            document.getElementById("hist-user").value || ""
-          ).trim();
-
-          const params = new URLSearchParams({
-            page: _histPage,
-            page_size: HIST_PAGE_SIZE,
-          });
-          if (search) params.set("search", search);
-          if (date) params.set("date", date);
-          if (tag) params.set("tag", tag);
-          if (server) params.set("server", server);
-          if (userFilter) params.set("user", userFilter);
+          const params = _buildHistParams();
+          params.set("page", _histPage);
+          params.set("page_size", HIST_PAGE_SIZE);
 
           const res = await fetch(`${PROXY}/gop/results?${params}`);
           const data = await res.json();
           const filtered = data.items || [];
           _histPage = data.page || 1;
+          _histFilteredTotal = data.total || 0;
+          _pageItemsByFile = {};
+          filtered.forEach((it) => (_pageItemsByFile[it.file] = it));
           const list = document.getElementById("history-list");
 
           // Populate tag datalist from the full history (backend-provided),
@@ -3688,15 +3988,6 @@
       }
 
       // ── Bulk delete ───────────────────────────────────────────────────
-      function updateBulkBar() {
-        const checked = [...document.querySelectorAll(".hist-item-cb:checked")];
-        const bar = document.getElementById("bulk-bar");
-        document.getElementById(
-          "bulk-count"
-        ).textContent = `${checked.length} selected`;
-        bar.classList.toggle("visible", checked.length > 0);
-      }
-
       function openBulkDeleteModal() {
         _pendingDeleteFiles = [..._checkedFiles];
         if (!_pendingDeleteFiles.length) return;
@@ -3744,6 +4035,7 @@
 
         closeDeleteModal();
         _checkedFiles.clear();
+        _checkedItemsMeta.clear();
         document.getElementById("bulk-bar").classList.remove("visible");
         loadHistory();
       }
@@ -5075,18 +5367,370 @@
 
       // ── History checkbox persistence ──────────────────────────────────
       let _checkedFiles = new Set();
+      // file -> item metadata (username, workflow, tag, run_status, …) for
+      // every currently-selected result, kept in sync alongside
+      // _checkedFiles so bulk actions (assign/workflow/tags) don't need to
+      // re-fetch each result just to know what it currently looks like.
+      let _checkedItemsMeta = new Map();
 
       function updateBulkBar() {
-        // Sync _checkedFiles with current checkboxes
+        // Sync _checkedFiles/_checkedItemsMeta with the checkboxes currently
+        // rendered on this page. Selections made on other pages (or via
+        // "Select all") are left untouched since their checkboxes aren't
+        // in the DOM right now.
         document.querySelectorAll(".hist-item-cb").forEach((cb) => {
-          if (cb.checked) _checkedFiles.add(cb.dataset.file);
-          else _checkedFiles.delete(cb.dataset.file);
+          const file = cb.dataset.file;
+          if (cb.checked) {
+            _checkedFiles.add(file);
+            const item = _pageItemsByFile[file];
+            if (item) _checkedItemsMeta.set(file, item);
+          } else {
+            _checkedFiles.delete(file);
+            _checkedItemsMeta.delete(file);
+          }
         });
+
         const bar = document.getElementById("bulk-bar");
-        document.getElementById(
-          "bulk-count"
-        ).textContent = `${_checkedFiles.size} selected`;
+        document.getElementById("bulk-count").textContent = _histFilteredTotal
+          ? `${_checkedFiles.size} selected (of ${_histFilteredTotal} filtered)`
+          : `${_checkedFiles.size} selected`;
         bar.classList.toggle("visible", _checkedFiles.size > 0);
+
+        const isPriv = ["admin", "engineer"].includes(_currentUserRole);
+        const wfBtn = document.getElementById("btn-bulk-workflow");
+        const assignBtn = document.getElementById("btn-bulk-assign");
+        if (wfBtn) wfBtn.style.display = isPriv ? "" : "none";
+        if (assignBtn) assignBtn.style.display = isPriv ? "" : "none";
+      }
+
+      function clearSelection() {
+        _checkedFiles.clear();
+        _checkedItemsMeta.clear();
+        loadHistory();
+      }
+
+      // Fetches every result matching the current filters (across all
+      // pages) and adds them to the selection — not just the page in view.
+      async function selectAllFiltered() {
+        const btn = document.getElementById("btn-select-all-filtered");
+        const prevLabel = btn ? btn.textContent : "";
+        if (btn) {
+          btn.textContent = "⏳ Selecting…";
+          btn.disabled = true;
+        }
+        try {
+          const params = _buildHistParams();
+          params.set("page_size", "200");
+          let page = 1;
+          let totalPages = 1;
+          do {
+            params.set("page", page);
+            const res = await fetch(`${PROXY}/gop/results?${params}`);
+            const data = await res.json();
+            (data.items || []).forEach((it) => {
+              _checkedFiles.add(it.file);
+              _checkedItemsMeta.set(it.file, it);
+            });
+            totalPages = data.total_pages || 1;
+            page++;
+          } while (page <= totalPages);
+        } catch (e) {
+          console.error("Select all filtered failed:", e);
+        } finally {
+          if (btn) {
+            btn.textContent = prevLabel;
+            btn.disabled = false;
+          }
+        }
+        loadHistory();
+      }
+
+      // ── Bulk tag edit ─────────────────────────────────────────────────
+      let _bulkTagAddChips = [];
+      let _bulkTagRemoveChips = [];
+
+      function openBulkTagModal() {
+        if (!_checkedFiles.size) return;
+        _bulkTagAddChips = [];
+        _bulkTagRemoveChips = [];
+        document.getElementById("bulk-tag-count").textContent =
+          _checkedFiles.size;
+        document.getElementById("bulk-tag-add-input").value = "";
+        document.getElementById("bulk-tag-remove-input").value = "";
+        document.getElementById("bulk-tag-err").textContent = "";
+        document.getElementById("bulk-tag-ok").style.display = "none";
+        _renderBulkTagChips();
+        document.getElementById("bulk-tag-modal").classList.add("open");
+      }
+      function closeBulkTagModal() {
+        document.getElementById("bulk-tag-modal").classList.remove("open");
+      }
+      function _renderBulkTagChips() {
+        document.getElementById("bulk-tag-add-list").innerHTML =
+          _bulkTagAddChips
+            .map(
+              (t, i) =>
+                `<span class="tag-chip">${t}<span class="tag-chip-x" onclick="_bulkTagAddChips.splice(${i},1);_renderBulkTagChips()">×</span></span>`
+            )
+            .join("");
+        document.getElementById("bulk-tag-remove-list").innerHTML =
+          _bulkTagRemoveChips
+            .map(
+              (t, i) =>
+                `<span class="tag-chip" style="border-color:var(--red);color:var(--red)">${t}<span class="tag-chip-x" onclick="_bulkTagRemoveChips.splice(${i},1);_renderBulkTagChips()">×</span></span>`
+            )
+            .join("");
+      }
+      function bulkTagAddKeydown(e) {
+        if (e.key === "Enter" || e.key === ",") {
+          e.preventDefault();
+          const v = e.target.value.trim().replace(/,/g, "");
+          if (v && !_bulkTagAddChips.includes(v)) _bulkTagAddChips.push(v);
+          e.target.value = "";
+          _renderBulkTagChips();
+        }
+      }
+      function bulkTagRemoveKeydown(e) {
+        if (e.key === "Enter" || e.key === ",") {
+          e.preventDefault();
+          const v = e.target.value.trim().replace(/,/g, "");
+          if (v && !_bulkTagRemoveChips.includes(v))
+            _bulkTagRemoveChips.push(v);
+          e.target.value = "";
+          _renderBulkTagChips();
+        }
+      }
+      async function applyBulkTags() {
+        const errEl = document.getElementById("bulk-tag-err");
+        errEl.textContent = "";
+        if (!_bulkTagAddChips.length && !_bulkTagRemoveChips.length) {
+          errEl.textContent = "Add at least one tag to add or remove.";
+          return;
+        }
+        const files = [..._checkedFiles];
+        let failed = 0;
+        for (const file of files) {
+          try {
+            let currentTag = (_checkedItemsMeta.get(file) || {}).tag;
+            if (currentTag === undefined) {
+              const r = await fetch(
+                `${PROXY}/gop/result/${encodeURIComponent(file)}`
+              );
+              const d = await r.json();
+              currentTag = d.tag || "";
+            }
+            let tags = (currentTag || "")
+              .split(",")
+              .map((t) => t.trim())
+              .filter(Boolean);
+            _bulkTagRemoveChips.forEach((rt) => {
+              tags = tags.filter((t) => t.toLowerCase() !== rt.toLowerCase());
+            });
+            _bulkTagAddChips.forEach((at) => {
+              if (!tags.some((t) => t.toLowerCase() === at.toLowerCase()))
+                tags.push(at);
+            });
+            const res = await fetch(
+              `${PROXY}/gop/result/${encodeURIComponent(file)}`,
+              {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ tag: tags.join(",") }),
+              }
+            );
+            if (!res.ok) failed++;
+          } catch (e) {
+            failed++;
+          }
+        }
+        if (failed) {
+          errEl.textContent = `Applied with ${failed} failure(s).`;
+        } else {
+          const ok = document.getElementById("bulk-tag-ok");
+          ok.style.display = "";
+          setTimeout(() => {
+            ok.style.display = "none";
+            closeBulkTagModal();
+          }, 1000);
+        }
+        loadHistory();
+      }
+
+      // ── Bulk workflow change ─────────────────────────────────────────
+      function openBulkWorkflowModal() {
+        if (!_checkedFiles.size) return;
+        if (!["admin", "engineer"].includes(_currentUserRole)) {
+          alert("Requires admin or engineer role.");
+          return;
+        }
+        document.getElementById("bulk-wf-count").textContent =
+          _checkedFiles.size;
+        document.getElementById("bulk-wf-err").textContent = "";
+        const sel = document.getElementById("bulk-wf-select");
+        sel.innerHTML = Object.entries(WORKFLOW_LABELS)
+          .map(([k, v]) => `<option value="${k}">${v}</option>`)
+          .join("");
+        document.getElementById("bulk-wf-modal").classList.add("open");
+      }
+      function closeBulkWorkflowModal() {
+        document.getElementById("bulk-wf-modal").classList.remove("open");
+      }
+      async function applyBulkWorkflow() {
+        const workflow = document.getElementById("bulk-wf-select").value;
+        const errEl = document.getElementById("bulk-wf-err");
+        errEl.textContent = "";
+
+        try {
+          const meRes = await fetch(`${PROXY}/me`);
+          if (meRes.ok) {
+            const me = await meRes.json();
+            _currentUserRole = me.role || null;
+            _currentUser = me.username || null;
+          }
+        } catch {}
+        if (!["admin", "engineer"].includes(_currentUserRole)) {
+          errEl.textContent = "❌ Requires admin or engineer role";
+          return;
+        }
+
+        const files = [..._checkedFiles];
+        let failed = 0,
+          skipped = 0;
+        for (const file of files) {
+          const meta = _checkedItemsMeta.get(file);
+          if (
+            meta &&
+            (meta.run_status === "failed" || meta.run_status === "error")
+          ) {
+            skipped++;
+            continue;
+          }
+          try {
+            const res = await fetch(
+              `${PROXY}/gop/result/${encodeURIComponent(file)}/workflow`,
+              {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ workflow }),
+              }
+            );
+            if (!res.ok) failed++;
+          } catch (e) {
+            failed++;
+          }
+        }
+        closeBulkWorkflowModal();
+        let msg = `Workflow changed to ${WORKFLOW_LABELS[workflow] || workflow}`;
+        if (skipped) msg += ` (${skipped} skipped — failed/error results)`;
+        if (failed) msg += ` — ${failed} failure(s)`;
+        setStatus(failed ? "err" : "ok", msg);
+        loadHistory();
+      }
+
+      // ── Bulk assign to user ───────────────────────────────────────────
+      let _bulkAssignAnonFiles = [];
+
+      async function openBulkAssignModal() {
+        if (!_checkedFiles.size) return;
+        if (!["admin", "engineer"].includes(_currentUserRole)) {
+          alert("Requires admin or engineer role.");
+          return;
+        }
+        const anonFiles = [..._checkedFiles].filter((f) => {
+          const meta = _checkedItemsMeta.get(f);
+          return (
+            meta && (meta.username || "anonymous").toLowerCase() === "anonymous"
+          );
+        });
+        _bulkAssignAnonFiles = anonFiles;
+        document.getElementById("bulk-assign-count").textContent =
+          anonFiles.length;
+        document.getElementById("bulk-assign-err").textContent = anonFiles.length
+          ? ""
+          : "None of the selected results are anonymous.";
+        document.getElementById("bulk-assign-filter").value = "";
+        const listEl = document.getElementById("bulk-assign-list");
+        listEl.innerHTML = `<div style="padding:10px;color:var(--muted);font-size:.72rem">Loading…</div>`;
+        document.getElementById("bulk-assign-modal").classList.add("open");
+
+        if (!_usersListCache) {
+          try {
+            const res = await fetch(`${PROXY}/users`);
+            const data = await res.json();
+            _usersListCache = (data.users || [])
+              .slice()
+              .sort((a, b) => a.username.localeCompare(b.username));
+          } catch (e) {
+            listEl.innerHTML = `<div style="padding:10px;color:var(--red);font-size:.72rem">Failed to load users</div>`;
+            return;
+          }
+        }
+        if (!anonFiles.length) {
+          listEl.innerHTML = "";
+          return;
+        }
+        _renderBulkAssignList(_usersListCache);
+      }
+      function closeBulkAssignModal() {
+        document.getElementById("bulk-assign-modal").classList.remove("open");
+      }
+      function _renderBulkAssignList(users) {
+        const listEl = document.getElementById("bulk-assign-list");
+        if (!users.length) {
+          listEl.innerHTML = `<div style="padding:10px;color:var(--muted);font-size:.72rem">No users found</div>`;
+          return;
+        }
+        listEl.innerHTML = users
+          .map(
+            (u) => `<div
+              onclick="_assignUsersToBulk('${u.username.replace(/'/g, "\\'")}')"
+              style="padding:6px 10px;cursor:pointer;font-size:.75rem;color:#fff;border-bottom:1px solid var(--border)"
+              onmouseover="this.style.background='var(--bg3)'"
+              onmouseout="this.style.background='transparent'"
+            >${u.username}<span style="color:var(--muted);font-size:.65rem;margin-left:6px">${
+              u.role || ""
+            }</span></div>`
+          )
+          .join("");
+      }
+      function _filterBulkAssignList() {
+        if (!_usersListCache) return;
+        const q = document
+          .getElementById("bulk-assign-filter")
+          .value.toLowerCase();
+        _renderBulkAssignList(
+          _usersListCache.filter((u) => u.username.toLowerCase().includes(q))
+        );
+      }
+      async function _assignUsersToBulk(username) {
+        if (!_bulkAssignAnonFiles.length) return;
+        const listEl = document.getElementById("bulk-assign-list");
+        listEl.innerHTML = `<div style="padding:10px;color:var(--muted);font-size:.72rem">Assigning…</div>`;
+        let failed = 0;
+        for (const file of _bulkAssignAnonFiles) {
+          try {
+            const res = await fetch(
+              `${PROXY}/gop/assign-user/${encodeURIComponent(file)}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username }),
+              }
+            );
+            const data = await res.json();
+            if (!res.ok || !data.success) failed++;
+          } catch (e) {
+            failed++;
+          }
+        }
+        closeBulkAssignModal();
+        setStatus(
+          failed ? "err" : "ok",
+          failed
+            ? `Assigned with ${failed} failure(s)`
+            : `Assigned ${_bulkAssignAnonFiles.length} result(s) to ${username}`
+        );
+        loadHistory();
       }
       let _pendingCancelSchedId = null;
 
@@ -5318,6 +5962,9 @@
         "reeval-modal",
         "change-wf-modal",
         "mediainfo-report-modal",
+        "bulk-tag-modal",
+        "bulk-wf-modal",
+        "bulk-assign-modal",
       ].forEach((id) => {
         const el = document.getElementById(id);
         if (el)
