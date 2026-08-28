@@ -6,6 +6,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.47.1] - 2026-08-28
+
+### Fixed
+- Video Analyser: files that are not actually MPEG-TS (e.g. an MP3 or
+  other media file renamed with a .ts extension) are now rejected
+  outright with a clear error, instead of being analysed as if they
+  were valid captures. Previously, an embedded ID3 cover-art image
+  inside such files could be misread by ffprobe as a "video" stream
+  and evaluated against video compliance specs, producing meaningless
+  results (e.g. Frame Size/Aspect Ratio taken from the album art,
+  CODEC Level -99, Frame Rate reported as the raw 90000Hz timebase).
+
 ## [2.47.0] - 2026-08-28
 ### Fixed
 - Video Analyser: video-related compliance checks (GOP Type, B-Frames,

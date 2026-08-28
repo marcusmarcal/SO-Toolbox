@@ -423,6 +423,43 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
     with _gop_lock:
         username = _gop_jobs.get(job_id, {}).get("username", "anonymous")
 
+    def _fail(error_msg):
+        """Save a FAILED result and mark the job as failed. Used for any
+        early-exit condition (unreachable stream, mislabeled/non-TS file,
+        etc.) so every failure path produces the same consistent result
+        shape instead of a half-populated compliance report."""
+        ended_at = datetime.datetime.utcnow().isoformat() + "Z"
+        err_result = {
+            "url": url_display, "url_host": url_host, "url_port": url_port,
+            "tag": tag, "username": username,
+            "started_at": _gop_jobs.get(job_id, {}).get("started_at", ""),
+            "ended_at": ended_at,
+            "status": "failed",
+            "error": error_msg,
+            "log": log_lines,
+            "has_idr": False, "idr_count": 0, "total_frames": 0,
+            "overall_status": "FAILED", "is_scheduled": False, "override": None,
+        }
+        ts_str   = datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        safe_url = re.sub(r"[^\w\-]", "_", url_display)[:40]
+        res_file = f"{ts_str}_{safe_url}_FAILED.json"
+        try:
+            with open(os.path.join(GOP_DIR, res_file), "w") as f:
+                json.dump(err_result, f, indent=2)
+            log(f"Failure log saved: {res_file}")
+        except Exception as ex:
+            log(f"WARNING: Could not save failure log: {ex}")
+        try:
+            if ts_path and os.path.isfile(ts_path): os.remove(ts_path)
+        except Exception: pass
+        with _gop_lock:
+            _gop_jobs[job_id].update({
+                "status": "failed", "log": log_lines,
+                "ended_at": ended_at,
+                "res_file": res_file,
+                "result": err_result,
+            })
+
     try:
         log(f"Starting GOP analysis for: {url_display}")
 
@@ -466,37 +503,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             log("ERROR: Capture produced no usable data. Is the stream reachable?")
             if not is_file_upload and 'cap_out' in dir():
                 log(cap_out[-800:])
-            ended_at = datetime.datetime.utcnow().isoformat() + "Z"
-            err_result = {
-                "url": url_display, "url_host": url_host, "url_port": url_port,
-                "tag": tag, "username": username,
-                "started_at": _gop_jobs.get(job_id, {}).get("started_at", ""),
-                "ended_at": ended_at,
-                "status": "failed",
-                "error": "Stream unreachable or produced no data",
-                "log": log_lines,
-                "has_idr": False, "idr_count": 0, "total_frames": 0,
-                "overall_status": "FAILED", "is_scheduled": False, "override": None,
-            }
-            ts_str   = datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-            safe_url = re.sub(r"[^\w\-]", "_", url_display)[:40]
-            res_file = f"{ts_str}_{safe_url}_FAILED.json"
-            try:
-                with open(os.path.join(GOP_DIR, res_file), "w") as f:
-                    json.dump(err_result, f, indent=2)
-                log(f"Failure log saved: {res_file}")
-            except Exception as ex:
-                log(f"WARNING: Could not save failure log: {ex}")
-            try:
-                if ts_path and os.path.isfile(ts_path): os.remove(ts_path)
-            except Exception: pass
-            with _gop_lock:
-                _gop_jobs[job_id].update({
-                    "status": "failed", "log": log_lines,
-                    "ended_at": ended_at,
-                    "res_file": res_file,
-                    "result": err_result,
-                })
+            _fail("Stream unreachable or produced no data")
             return
 
         # ── Stream info ───────────────────────────────────────────────
@@ -511,6 +518,19 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             probe_data = json.loads(r.stdout.decode())
         except Exception as e:
             log(f"WARNING: ffprobe stream info failed: {e}")
+
+        # Reject anything that isn't actually an MPEG-TS container outright,
+        # instead of letting ffprobe's best-effort parse of an unrelated
+        # format (e.g. an MP3 renamed to .ts) produce a nonsense compliance
+        # report. This also catches the case where ffprobe picks up an
+        # MP3/ID3 embedded cover-art image and misreports it as a "video"
+        # stream (codec mjpeg) — that file was never a transport stream to
+        # begin with.
+        _container_fmt = (probe_data.get("format", {}).get("format_name") or "").lower()
+        if _container_fmt and "mpegts" not in _container_fmt.split(","):
+            log(f"ERROR: File container is '{_container_fmt}', not MPEG-TS — refusing to analyse a mislabeled/renamed file")
+            _fail(f"Not a valid MPEG-TS file (detected container: {_container_fmt})")
+            return
 
         # ── Frame analysis ────────────────────────────────────────────
         log("Running ffprobe frame analysis (NAL/IDR detection)…")
@@ -601,7 +621,11 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
         # ── Stream metadata ───────────────────────────────────────────
         streams    = probe_data.get("streams", [])
         fmt        = probe_data.get("format", {})
-        vid        = next((s for s in streams if s.get("codec_type") == "video"), {})
+        vid        = next(
+            (s for s in streams
+             if s.get("codec_type") == "video" and not s.get("disposition", {}).get("attached_pic")),
+            {}
+        )
         aud_list   = [s for s in streams if s.get("codec_type") == "audio"]
         aud        = aud_list[0] if aud_list else {}
 
