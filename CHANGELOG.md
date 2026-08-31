@@ -6,6 +6,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.48.0] - 2026-08-31
+
+### Fixed
+- Video Analyser: fixed SRT capture only recording a single audio track
+  even when the source stream contained multiple audio PIDs. The ffmpeg
+  capture command now uses `-map 0` to copy every stream from the input
+  exactly as received, instead of ffmpeg's default single-stream-per-type
+  selection.
+
 ## [2.47.2] - 2026-08-28
 
 ### Fixed
