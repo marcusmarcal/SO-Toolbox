@@ -6,6 +6,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.49.0] - 2026-08-31
+
+### Added
+- SRT Ingest: Source File fields (Single and Multi Destination) now work as a
+  search-as-you-type input — typing or pasting a filename shows matching
+  suggestions instead of requiring the dropdown.
+
 ## [2.48.0] - 2026-08-31
 
 ### Fixed

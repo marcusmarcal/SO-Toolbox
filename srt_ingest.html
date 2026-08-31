@@ -252,7 +252,8 @@
           <option value="__bars_tone__" data-type="bars-tone">B&amp;T — Colour Bars + 1 kHz Tone (port + UTC clock overlay)</option>
           <option value="test.mp4" data-type="mp4">test.mp4</option>
         </select>
-        <input type="text" id="s-input" value="test.mp4" placeholder="or type path" />
+        <input type="text" id="s-input" value="test.mp4" placeholder="type or paste filename to search" list="s-source-datalist" autocomplete="off" />
+        <datalist id="s-source-datalist"></datalist>
       </div>
     </div>
     <div class="field" id="s-passthrough-row" style="display:none">
@@ -290,7 +291,8 @@
           <option value="__bars_tone__" data-type="bars-tone">B&amp;T — Colour Bars + 1 kHz Tone (port + UTC clock overlay)</option>
           <option value="test.mp4" data-type="mp4">test.mp4</option>
         </select>
-        <input type="text" id="m-input" value="test.mp4" placeholder="or type path" />
+        <input type="text" id="m-input" value="test.mp4" placeholder="type or paste filename to search" list="m-source-datalist" autocomplete="off" />
+        <datalist id="m-source-datalist"></datalist>
       </div>
     </div>
     <div class="field" id="m-passthrough-row" style="display:none">
@@ -699,7 +701,24 @@ function buildBarsToneCmd(host, port, pass) {
     + `<span class="hl2">${srtUrl}</span>`;
 }
 
+// Looks up the type of a typed/pasted/selected source file and updates the
+// passthrough/bitrate rows accordingly. Skipped when the input is empty,
+// since an empty value means B&T (Colour Bars) is active via the dropdown
+// and its rows are already managed by applySourceSelect().
+function syncSourceType(prefix) {
+  const value = document.getElementById(`${prefix}-input`).value.trim();
+  if (!value) return;
+  const type = sourceTypesByFile[value] || (value.toLowerCase().endsWith('.ts') ? 'ts' : 'mp4');
+  const ptRow = document.getElementById(`${prefix}-passthrough-row`);
+  const brRow = document.getElementById(`${prefix}-bitrate-row`);
+  if (prefix === 'm') document.getElementById('m-shared').disabled = false;
+  if (ptRow) ptRow.style.display = type === 'ts' ? '' : 'none';
+  if (type !== 'ts') document.getElementById(`${prefix}-passthrough`).checked = false;
+  if (brRow) brRow.style.display = '';
+}
+
 function updateSinglePreview() {
+  syncSourceType('s');
   const input   = document.getElementById('s-input').value.trim();
   const host    = document.getElementById('s-host').value.trim();
   const port    = document.getElementById('s-port').value.trim();
@@ -718,6 +737,7 @@ function updateSinglePreview() {
 }
 
 function updateMultiPreview() {
+  syncSourceType('m');
   const host = document.getElementById('m-host').value.trim();
   const ps   = parseInt(document.getElementById('m-port-start').value) || 0;
   const pe   = parseInt(document.getElementById('m-port-end').value)   || 0;
@@ -938,6 +958,11 @@ function toast(msg, type='info') {
 
 
 // ── Source file loader — /gop-results .ts files ──────────────────────────────
+// Maps a source file's exact value (e.g. full .ts path or "test.mp4") to its
+// type ("mp4" | "ts"), so the search input can look up the right type as the
+// user types or pastes a filename, without needing the dropdown.
+const sourceTypesByFile = {};
+
 async function loadSources() {
   try {
     const r = await fetch(`${BASE}/sources`);
@@ -960,6 +985,22 @@ async function loadSources() {
         sel.appendChild(o);
       });
     });
+
+    // Build the search index + datalists backing the Source File text inputs,
+    // so typing or pasting a filename finds the specific source directly.
+    Object.keys(sourceTypesByFile).forEach(k => delete sourceTypesByFile[k]);
+    d.sources.forEach(s => { sourceTypesByFile[s.file] = s.type; });
+    ['s-source-datalist', 'm-source-datalist'].forEach(listId => {
+      const dl = document.getElementById(listId);
+      dl.innerHTML = '';
+      d.sources.forEach(s => {
+        const o = document.createElement('option');
+        o.value = s.file;
+        if (s.type === 'ts') o.label = s.name;
+        dl.appendChild(o);
+      });
+    });
+
     // Default selection stays on the first real source (e.g. test.mp4), not
     // B&T — listing B&T first is a UX convenience, not a change of default.
     // Explicitly sync select value + dependent UI so the visible input field,
