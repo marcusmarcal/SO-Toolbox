@@ -6,6 +6,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.49.1] - 2026-08-31
+
+### Fixed
+- SRT Ingest: Removed the Source File dropdown that could show a stale
+  value alongside the search field, causing confusion. The search input
+  (with autocomplete suggestions) is now the only control for choosing a
+  source, including the B&T Colour Bars option. Also fixed the Multi
+  Destination source field not updating the UI/preview while typing.
+
 ## [2.49.0] - 2026-08-31
 
 ### Added
