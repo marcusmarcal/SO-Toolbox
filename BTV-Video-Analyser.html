@@ -8,6 +8,8 @@
       href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Barlow:wght@300;400;600;700&display=swap"
       rel="stylesheet"
     />
+    <!-- In-browser MPEG-TS playback (transmuxes .ts to fragmented MP4 via MSE, no download needed) -->
+    <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1.7.3/dist/mpegts.js"></script>
     <style>
       *,
       *::before,
@@ -2447,6 +2449,47 @@
       </div>
     </div>
 
+    <!-- TS Player modal — plays the recorded .ts in-browser without downloading it -->
+    <div class="modal-overlay" id="ts-player-modal">
+      <div class="modal-card wide">
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.6rem;
+          "
+        >
+          <div class="modal-title" style="color: var(--green); margin: 0">
+            ▶ TS Playback
+          </div>
+          <button class="btn-cancel" onclick="closeTsPlayerModal()">✕</button>
+        </div>
+        <div
+          id="ts-player-filename"
+          style="
+            font-family: var(--mono);
+            font-size: 0.68rem;
+            color: var(--muted);
+            margin-bottom: 0.5rem;
+            word-break: break-all;
+          "
+        ></div>
+        <video
+          id="ts-player-video"
+          controls
+          style="
+            width: 100%;
+            max-height: 60vh;
+            background: #000;
+            border-radius: 6px;
+            display: block;
+          "
+        ></video>
+        <div id="ts-player-err" class="modal-err"></div>
+      </div>
+    </div>
+
     <!-- Report modal -->
     <div class="modal-overlay" id="report-modal">
       <div
@@ -2884,6 +2927,10 @@
             "
             onkeydown="bulkTagRemoveKeydown(event)"
           />
+          <div
+            id="bulk-tag-remove-suggest"
+            style="margin-top: 0.4rem; font-size: 0.65rem; color: var(--muted)"
+          ></div>
         </div>
         <div class="modal-actions">
           <button
@@ -3366,7 +3413,8 @@
         const tsEl = document.getElementById("meta-ts-download");
         if (r.ts_file && r.res_file) {
           const tsFile = r.res_file.replace(".json", ".ts");
-          tsEl.innerHTML = `<a href="${PROXY}/gop/ts/${encodeURIComponent(
+          const tsFileEsc = tsFile.replace(/'/g, "\\'");
+          tsEl.innerHTML = `<button onclick="openTsPlayer('${tsFileEsc}')" style="font-family:var(--mono);font-size:.7rem;color:var(--green);background:transparent;border:1px solid var(--green);border-radius:3px;padding:2px 8px;cursor:pointer;margin-right:6px">▶ Play</button><a href="${PROXY}/gop/ts/${encodeURIComponent(
             tsFile
           )}" download style="font-family:var(--mono);font-size:.7rem;color:var(--cyan);text-decoration:none;border:1px solid var(--border);border-radius:3px;padding:2px 8px">⬇ Download .ts</a>`;
         } else {
@@ -3707,6 +3755,7 @@
       const HIST_PAGE_SIZE = 50;
       let _pageItemsByFile = {}; // file -> item, for the currently rendered page
       let _histFilteredTotal = 0; // total results matching current filters (all pages)
+      let _allKnownTags = []; // every tag seen across the full history (from backend)
 
       // Text filters call this on every keystroke — debounce so we don't
       // hit the backend on every character while typing.
@@ -3757,7 +3806,8 @@
 
           // Populate tag datalist from the full history (backend-provided),
           // not just the current page
-          document.getElementById("hist-tag-list").innerHTML = (data.tags || [])
+          _allKnownTags = data.tags || [];
+          document.getElementById("hist-tag-list").innerHTML = _allKnownTags
             .map((t) => `<option value="${t}">`)
             .join("");
 
@@ -3811,6 +3861,12 @@
                 .filter(Boolean)
                 .map((t) => `<span class="hi-badge">${t}</span>`)
                 .join("");
+              const tsPlayBadge = item.ts_file
+                ? `<span class="hi-badge" style="color:var(--green);cursor:pointer" onclick="event.stopPropagation();openTsPlayer('${item.ts_file.replace(
+                    /'/g,
+                    "\\'"
+                  )}')" title="Play .ts in-browser">▶ Play</span>`
+                : "";
               const tsLink = item.ts_file
                 ? `<a class="hi-badge" href="${PROXY}/gop/ts/${encodeURIComponent(
                     item.ts_file
@@ -3893,6 +3949,7 @@
             ${schedBadge}
             ${logBadge}
             ${tagBadges}
+            ${tsPlayBadge}
             ${tsLink}
             <span ${
                 (item.username || "anonymous").toLowerCase() === "anonymous" &&
@@ -4237,6 +4294,71 @@
         const ok = document.getElementById("mediainfo-copy-ok");
         ok.style.display = "";
         setTimeout(() => (ok.style.display = "none"), 2500);
+      }
+
+      // ── TS Playback (in-browser via MSE, no download) ────────────────────
+      // Raw MPEG-TS isn't natively playable by <video> in Chrome/Firefox, so
+      // mpegts.js transmuxes it to fragmented MP4 on the fly and feeds it to
+      // a MediaSource-backed <video> element. The file is streamed straight
+      // from ${PROXY}/gop/ts/<file> — nothing is saved to disk by the user.
+      let _tsPlayer = null;
+
+      function openTsPlayer(tsFile) {
+        const modal = document.getElementById("ts-player-modal");
+        const video = document.getElementById("ts-player-video");
+        const errEl = document.getElementById("ts-player-err");
+        const nameEl = document.getElementById("ts-player-filename");
+        errEl.textContent = "";
+        nameEl.textContent = tsFile;
+        modal.classList.add("open");
+
+        if (!window.mpegts || !mpegts.isSupported()) {
+          errEl.textContent =
+            "In-browser playback isn't supported in this browser. Use Download .ts instead.";
+          return;
+        }
+
+        _destroyTsPlayer();
+
+        try {
+          _tsPlayer = mpegts.createPlayer({
+            type: "mse",
+            isLive: false,
+            url: `${PROXY}/gop/ts/${encodeURIComponent(tsFile)}`,
+          });
+          _tsPlayer.attachMediaElement(video);
+          _tsPlayer.load();
+          _tsPlayer.on(mpegts.Events.ERROR, (type, detail) => {
+            errEl.textContent = `Playback error: ${type} — ${detail || ""}`;
+          });
+          const playPromise = _tsPlayer.play();
+          if (playPromise && playPromise.catch) playPromise.catch(() => {});
+        } catch (e) {
+          errEl.textContent = `Playback error: ${e.message}`;
+        }
+      }
+
+      function _destroyTsPlayer() {
+        if (_tsPlayer) {
+          try {
+            _tsPlayer.pause();
+            _tsPlayer.unload();
+            _tsPlayer.detachMediaElement();
+            _tsPlayer.destroy();
+          } catch (e) {}
+          _tsPlayer = null;
+        }
+        const video = document.getElementById("ts-player-video");
+        if (video) {
+          video.pause();
+          video.removeAttribute("src");
+          video.load();
+        }
+      }
+
+      function closeTsPlayerModal() {
+        document.getElementById("ts-player-modal").classList.remove("open");
+        _destroyTsPlayer();
       }
 
       // ── Live SRT Transport Probe (post-SRT PCR interval / TS CC loss) ─────
@@ -5448,11 +5570,13 @@
       // ── Bulk tag edit ─────────────────────────────────────────────────
       let _bulkTagAddChips = [];
       let _bulkTagRemoveChips = [];
+      let _bulkTagSelectedTags = []; // tags present on the currently-selected results
 
       function openBulkTagModal() {
         if (!_checkedFiles.size) return;
         _bulkTagAddChips = [];
         _bulkTagRemoveChips = [];
+        _bulkTagSelectedTags = _computeSelectedTagsSet();
         document.getElementById("bulk-tag-count").textContent =
           _checkedFiles.size;
         document.getElementById("bulk-tag-add-input").value = "";
@@ -5460,7 +5584,24 @@
         document.getElementById("bulk-tag-err").textContent = "";
         document.getElementById("bulk-tag-ok").style.display = "none";
         _renderBulkTagChips();
+        _renderBulkTagRemoveSuggestions();
         document.getElementById("bulk-tag-modal").classList.add("open");
+      }
+      // Union of tags actually present on the currently-selected results —
+      // avoids flooding the remove-tag suggestions with every tag that has
+      // ever existed in the system.
+      function _computeSelectedTagsSet() {
+        const set = new Set();
+        for (const file of _checkedFiles) {
+          const meta = _checkedItemsMeta.get(file);
+          if (!meta) continue;
+          (meta.tag || "")
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean)
+            .forEach((t) => set.add(t));
+        }
+        return [...set].sort((a, b) => a.localeCompare(b));
       }
       function closeBulkTagModal() {
         document.getElementById("bulk-tag-modal").classList.remove("open");
@@ -5477,9 +5618,36 @@
           _bulkTagRemoveChips
             .map(
               (t, i) =>
-                `<span class="tag-chip" style="border-color:var(--red);color:var(--red)">${t}<span class="tag-chip-x" onclick="_bulkTagRemoveChips.splice(${i},1);_renderBulkTagChips()">×</span></span>`
+                `<span class="tag-chip" style="border-color:var(--red);color:var(--red)">${t}<span class="tag-chip-x" onclick="_bulkTagRemoveChips.splice(${i},1);_renderBulkTagChips();_renderBulkTagRemoveSuggestions()">×</span></span>`
             )
             .join("");
+      }
+      // Lists only the tags actually present on the selected results
+      // (excluding ones already queued for removal) so the suggestion list
+      // stays relevant instead of showing every tag ever used.
+      function _renderBulkTagRemoveSuggestions() {
+        const el = document.getElementById("bulk-tag-remove-suggest");
+        if (!el) return;
+        const available = _bulkTagSelectedTags.filter(
+          (t) => !_bulkTagRemoveChips.includes(t)
+        );
+        el.innerHTML = available.length
+          ? "Present on selected: " +
+            available
+              .map(
+                (t) =>
+                  `<span style="cursor:pointer;color:var(--red);font-family:var(--mono);font-size:.68rem;text-decoration:underline;margin-right:.4rem" onclick="_addBulkRemoveTagChip('${t.replace(
+                    /'/g,
+                    "\\'"
+                  )}')">${t}</span>`
+              )
+              .join("")
+          : "";
+      }
+      function _addBulkRemoveTagChip(tag) {
+        if (!_bulkTagRemoveChips.includes(tag)) _bulkTagRemoveChips.push(tag);
+        _renderBulkTagChips();
+        _renderBulkTagRemoveSuggestions();
       }
       function bulkTagAddKeydown(e) {
         if (e.key === "Enter" || e.key === ",") {
@@ -5498,6 +5666,7 @@
             _bulkTagRemoveChips.push(v);
           e.target.value = "";
           _renderBulkTagChips();
+          _renderBulkTagRemoveSuggestions();
         }
       }
       async function applyBulkTags() {
@@ -5972,6 +6141,11 @@
             if (e.target === this) this.classList.remove("open");
           });
       });
+      document
+        .getElementById("ts-player-modal")
+        .addEventListener("click", function (e) {
+          if (e.target === this) closeTsPlayerModal();
+        });
       document
         .getElementById("live-probe-modal")
         .addEventListener("click", function (e) {

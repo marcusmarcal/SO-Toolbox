@@ -6,6 +6,79 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.49.2] - 2026-08-31
+
+### Added
+- Video Analyser: "▶ Play" button to preview a recorded .ts file directly
+  in the browser (in-browser MSE transmuxing via mpegts.js), without
+  downloading it first. Available on the test result view and in the
+  history list.
+
+## [2.49.1] - 2026-08-31
+
+### Fixed
+- SRT Ingest: Removed the Source File dropdown that could show a stale
+  value alongside the search field, causing confusion. The search input
+  (with autocomplete suggestions) is now the only control for choosing a
+  source, including the B&T Colour Bars option. Also fixed the Multi
+  Destination source field not updating the UI/preview while typing.
+
+## [2.49.0] - 2026-08-31
+
+### Added
+- SRT Ingest: Source File fields (Single and Multi Destination) now work as a
+  search-as-you-type input — typing or pasting a filename shows matching
+  suggestions instead of requiring the dropdown.
+
+## [2.48.0] - 2026-08-31
+
+### Fixed
+- Video Analyser: fixed SRT capture only recording a single audio track
+  even when the source stream contained multiple audio PIDs. The ffmpeg
+  capture command now uses `-map 0` to copy every stream from the input
+  exactly as received, instead of ffmpeg's default single-stream-per-type
+  selection.
+
+## [2.47.2] - 2026-08-28
+
+### Fixed
+- Video Analyser: the "MediaInfo Report" button never appeared for any
+  test because the backend never populated the mediainfo_report field
+  it depends on — only the numeric "Delay relative to video" value was
+  ever captured. mediainfo's full text report is now captured and
+  saved alongside the result, so the button and its modal work.
+
+## [2.47.1] - 2026-08-28
+
+### Fixed
+- Video Analyser: files that are not actually MPEG-TS (e.g. an MP3 or
+  other media file renamed with a .ts extension) are now rejected
+  outright with a clear error, instead of being analysed as if they
+  were valid captures. Previously, an embedded ID3 cover-art image
+  inside such files could be misread by ffprobe as a "video" stream
+  and evaluated against video compliance specs, producing meaningless
+  results (e.g. Frame Size/Aspect Ratio taken from the album art,
+  CODEC Level -99, Frame Rate reported as the raw 90000Hz timebase).
+
+## [2.47.0] - 2026-08-28
+### Fixed
+- Video Analyser: video-related compliance checks (GOP Type, B-Frames,
+  Scan Type, Colour Range, HDR/SDR, Codec, FPS, etc.) no longer report
+  COMPLIANT/ACCEPTED/REJECTED verdicts derived from ffprobe's default
+  placeholder values when a file has no video stream/PID at all. These
+  fields now correctly report UNKNOWN, and the overall result is
+  forced to REJECTED when no video stream is found.
+
+## [2.46.2] - 2026-08-28
+
+### Changed
+- Video Analyser: the bulk tag editor's "Remove tag(s)" suggestions now only list tags actually present on the currently-selected results, instead of every tag ever used in the system.
+
+## [2.46.1] - 2026-08-28
+
+### Added
+- Video Analyser: the bulk tag editor's "Remove tag(s)" field now lists every tag currently known in the system as clickable suggestions, so tags can be selected for removal instead of typed out exactly.
+
 ## [2.46.0] - 2026-08-28
 
 ### Added
