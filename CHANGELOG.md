@@ -6,6 +6,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.49.2] - 2026-08-31
+
+### Added
+- Video Analyser: "▶ Play" button to preview a recorded .ts file directly
+  in the browser (in-browser MSE transmuxing via mpegts.js), without
+  downloading it first. Available on the test result view and in the
+  history list.
+
 ## [2.49.1] - 2026-08-31
 
 ### Fixed
