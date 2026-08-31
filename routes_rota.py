@@ -99,47 +99,99 @@ ENGINEERING_ROTATION = [
     "1000-2000","OFF","1000-2000","1000-2000","OFF","OFF","OFF",
 ]
 
-SPECIALIST_OFFSETS = {
-    "Sabina": 35, "Sergio": 119, "Tiago O": 77,
-    "Vitor":  63, "Fernando": 21, "Marc":    7,
-    "Gabriel":49, "Mario":    91, "Isaac":   105,
-}
-ENGINEERING_OFFSETS = {"Hugo": 0, "Goncalo": 14, "Nuno": 7}
+# ── Person directory ──────────────────────────────────────────────────────
+# All identity data (names, rotation membership, HR team) lives in a single
+# gitignored JSON keyed by employee_id — the one mandatory, stable,
+# collision-free identifier every user has from day one. See
+# rota/person_directory.json. Nothing here is committed to source control.
+PERSON_DIRECTORY_FILE = os.path.join(ROTA_DIR, 'person_directory.json')
+DIRECTORY_AUDIT_FILE  = os.path.join(ROTA_DIR, 'directory_audit_log.json')
 
-MANAGEMENT_SHIFTS = {
-    "Joao R":  "0930-1800",
-    "Marcus":  "0900-1730",
-    "Joao L":  "0800-1630",
-    "Tiago C": "0900-1730",
-}
+VALID_ROTATION_GROUPS = {'management', 'engineering', 'specialist'}
 
-EMAIL_TO_ROTA_NAME = {
-    "joao.rato@statsperform.com":             "Joao R",
-    "marcus.marcal@statsperform.com":         "Marcus",
-    "joao.lopes@statsperform.com":            "Joao L",
-    "tiago.carvalho@statsperform.com":        "Tiago C",
-    "hugo.carvalho@statsperform.com":         "Hugo",
-    "goncalo.paiva@statsperform.com":         "Goncalo",
-    "nuno.carvalho@statsperform.com":         "Nuno",
-    "sabina.barros@statsperform.com":         "Sabina",
-    "sergio.silva@statsperform.com":          "Sergio",
-    "tiago.oliveira@statsperform.com":        "Tiago O",
-    "vitor.cassama@statsperform.com":         "Vitor",
-    "fernando.carvalho@statsperform.com":     "Fernando",
-    "marcmadeira.ribeiro@statsperform.com":   "Marc",
-    "gabriel.ribeiro@statsperform.com":       "Gabriel",
-    "mario.branco@statsperform.com":          "Mario",
-    "isaac.santiago@statsperform.com":        "Isaac",
-}
+def _load_person_directory() -> dict:
+    d = _load_json(PERSON_DIRECTORY_FILE)
+    if not isinstance(d, dict) or not d:
+        raise RuntimeError(
+            f'person_directory.json missing or empty at {PERSON_DIRECTORY_FILE} '
+            f'— refusing to start with an empty roster.'
+        )
+    return d
+
+# rota_label = short grid alias — used as the internal key throughout the
+# rota engine, exactly as the old hardcoded names were. Immutable once a
+# directory entry is created (see _validate_directory_entry) because every
+# transactional file (leave_requests.json, draft_overrides.json,
+# cell_notes.json, published_overrides.json) still keys on rota_label, not
+# employee_id — renaming it would silently orphan historical records.
+# full_name  = legal name for HR exports (PicaPonto, Night Hours) and topbar.
+#
+# 'active: false' entries are excluded from MANAGEMENT_SHIFTS/
+# ENGINEERING_OFFSETS/SPECIALIST_OFFSETS (so they drop out of the rota grid
+# and hour computation) but stay in the RID/label/name lookups so historical
+# records under their rota_label still resolve to a name instead of a blank.
+def _rebuild_person_directory_caches() -> None:
+    global _DIR, MANAGEMENT_SHIFTS, ENGINEERING_OFFSETS, SPECIALIST_OFFSETS
+    global _RID_TO_LABEL, _LABEL_TO_RID, _LABEL_TO_FULLNAME, _LABEL_TO_HRTEAM
+
+    _DIR = _load_person_directory()
+    active = {rid: v for rid, v in _DIR.items() if v.get('active', True)}
+
+    MANAGEMENT_SHIFTS   = {v['rota_label']: v['shift']
+                            for v in active.values() if v['rotation_group'] == 'management'}
+    ENGINEERING_OFFSETS = {v['rota_label']: v['offset']
+                            for v in active.values() if v['rotation_group'] == 'engineering'}
+    SPECIALIST_OFFSETS  = {v['rota_label']: v['offset']
+                            for v in active.values() if v['rotation_group'] == 'specialist'}
+
+    _RID_TO_LABEL      = {rid: v['rota_label']  for rid, v in _DIR.items()}
+    _LABEL_TO_RID      = {v['rota_label']: rid  for rid, v in _DIR.items()}
+    _LABEL_TO_FULLNAME = {v['rota_label']: v['full_name'] for v in _DIR.values()}
+    _LABEL_TO_HRTEAM   = {v['rota_label']: v.get('hr_team') for v in _DIR.values()}
+
+_rebuild_person_directory_caches()
+
+def _email_to_employee_id() -> dict:
+    """Live lookup from the users API payload — never cached/stored, since
+    users.json is not ours to manage."""
+    users = _load_json(USERS_FILE)
+    if not isinstance(users, dict):
+        return {}
+    return {email: str(info.get('employee_id'))
+            for email, info in users.items() if info.get('employee_id')}
 
 def _rota_display_name(email: str) -> str:
-    return EMAIL_TO_ROTA_NAME.get(email, _display_name_from_email(email))
+    """Short grid label, e.g. 'Joao L'. Falls back to email local-part for
+    any account not yet present in person_directory.json."""
+    rid = _email_to_employee_id().get(email)
+    return _RID_TO_LABEL.get(rid, email.split('@')[0])
 
-def _rota_name_to_email_map() -> dict:
-    return {v: k for k, v in EMAIL_TO_ROTA_NAME.items()}
+def _rota_full_name(email: str) -> str:
+    """Full legal name — HR exports and topbar. Same fallback as above."""
+    rid = _email_to_employee_id().get(email)
+    return _LABEL_TO_FULLNAME.get(_RID_TO_LABEL.get(rid), email.split('@')[0])
 
 def _email_for_rota_name(name: str):
-    return _rota_name_to_email_map().get(name)
+    rid = _LABEL_TO_RID.get(name)
+    if not rid:
+        return None
+    users = _load_json(USERS_FILE)
+    if not isinstance(users, dict):
+        return None
+    for email, info in users.items():
+        if str(info.get('employee_id')) == rid:
+            return email
+    return None
+
+def _hr_teams() -> dict:
+    out = {'SOE': [], 'SOS': []}
+    for label, team in _LABEL_TO_HRTEAM.items():
+        if team in out:
+            out[team].append(label)
+    return out
+
+def _display_names() -> dict:
+    return dict(_LABEL_TO_FULLNAME)
 
 PUBLIC_HOLIDAYS = {
     date(2026,1,1),  date(2026,2,17), date(2026,4,3),
@@ -444,12 +496,14 @@ def rota_me():
     rota_role = _get_rota_role(session)
     username  = session['username']
     name      = _rota_display_name(username)
+    full_name = _rota_full_name(username)
     role      = session.get('role', '')
     team      = ('Engineering' if role == 'engineer' else
                  'Specialists' if role == 'specialist' else
                  'Management'  if role == 'admin' else None)
     return jsonify({'ok': True, 'username': username,
-                    'rota_role': rota_role, 'name': name, 'team': team})
+                    'rota_role': rota_role, 'name': name,
+                    'full_name': full_name, 'team': team})
 
 
 @rota_bp.route('/rota/members', methods=['GET'])
@@ -458,18 +512,232 @@ def rota_members():
     users = _load_json(USERS_FILE)
     if not isinstance(users, dict):
         return jsonify({'ok': False, 'error': 'Could not load users'}), 500
+    email_to_rid = {email: str(info.get('employee_id'))
+                     for email, info in users.items() if info.get('employee_id')}
     result = {}
     for email, info in users.items():
-        role = info.get('role', '')
-        team = ('Engineering' if role == 'engineer' else
-                'Specialists' if role == 'specialist' else
-                'Management'  if role == 'admin' else 'Other')
+        role  = info.get('role', '')
+        team  = ('Engineering' if role == 'engineer' else
+                 'Specialists' if role == 'specialist' else
+                 'Management'  if role == 'admin' else 'Other')
+        label = _RID_TO_LABEL.get(email_to_rid.get(email), email.split('@')[0])
         result[email] = {
-            'name': _rota_display_name(email),
-            'team': team,
-            'role': role,
+            'name':      label,
+            'full_name': _LABEL_TO_FULLNAME.get(label, label),
+            'team':      team,
+            'role':      role,
         }
     return jsonify({'ok': True, 'members': result})
+
+
+@rota_bp.route('/rota/roster', methods=['GET'])
+@require_auth
+def rota_roster():
+    """Roster grouped by rotation team, in person_directory.json order —
+    replaces the MGMT_NAMES/ENG_NAMES literals that used to live in the
+    frontend."""
+    return jsonify({
+        'ok': True,
+        'management':  list(MANAGEMENT_SHIFTS.keys()),
+        'engineering': list(ENGINEERING_OFFSETS.keys()),
+        'specialists': list(SPECIALIST_OFFSETS.keys()),
+    })
+
+
+# ── Directory admin (add / edit / hide / remove people) ────────────────────
+# Management only. Every write is appended to a small audit log — this data
+# drives shift computation and payroll exports, so unlike leave requests
+# (which already carry full history) a bad edit here has a much larger
+# blast radius and deserves a paper trail even without full undo.
+
+def _load_directory_audit() -> list:
+    d = _load_json(DIRECTORY_AUDIT_FILE)
+    return d if isinstance(d, list) else []
+
+def _append_directory_audit(action: str, employee_id: str, by: str,
+                            before, after) -> None:
+    log = _load_directory_audit()
+    log.append({
+        'at':          _now_iso(),
+        'by':          by,
+        'action':      action,        # 'create' | 'update' | 'delete'
+        'employee_id': employee_id,
+        'before':      before,
+        'after':       after,
+    })
+    _save_json(DIRECTORY_AUDIT_FILE, log)
+
+def _validate_directory_entry(data: dict, existing_rid=None):
+    """Returns (cleaned_entry, error_message_or_None). existing_rid is set
+    when editing — used only to exclude the entry itself from the
+    rota_label collision check, never to allow changing its own label."""
+    full_name      = (data.get('full_name') or '').strip()
+    rota_label     = (data.get('rota_label') or '').strip()
+    rotation_group = (data.get('rotation_group') or '').strip()
+    hr_team        = data.get('hr_team') or None
+    soe_join_date  = data.get('soe_join_date') or None
+    active         = bool(data.get('active', True))
+
+    if not full_name:
+        return None, 'full_name is required'
+    if not rota_label:
+        return None, 'rota_label is required'
+    if rotation_group not in VALID_ROTATION_GROUPS:
+        return None, f'rotation_group must be one of {sorted(VALID_ROTATION_GROUPS)}'
+    if hr_team not in (None, 'SOE', 'SOS'):
+        return None, 'hr_team must be SOE, SOS, or null'
+    if soe_join_date:
+        try:
+            date.fromisoformat(soe_join_date)
+        except ValueError:
+            return None, 'soe_join_date must be YYYY-MM-DD'
+
+    for rid, v in _DIR.items():
+        if rid == existing_rid:
+            continue
+        if v['rota_label'].strip().lower() == rota_label.lower():
+            return None, (f"rota_label '{rota_label}' is already used by "
+                          f"employee_id {rid} ({v['full_name']})")
+
+    entry = {
+        'full_name':      full_name,
+        'rota_label':     rota_label,
+        'rotation_group': rotation_group,
+        'hr_team':        hr_team,
+        'soe_join_date':  soe_join_date,
+        'active':         active,
+    }
+    if rotation_group == 'management':
+        shift = (data.get('shift') or '').strip()
+        if not re.match(r'^\d{4}-\d{4}$', shift):
+            return None, 'shift must be HHMM-HHMM (e.g. 0900-1730) for management'
+        entry['shift'] = shift
+    else:
+        try:
+            offset = int(data.get('offset'))
+        except (TypeError, ValueError):
+            return None, 'offset must be an integer for engineering/specialist'
+        if offset < 0:
+            return None, 'offset must be 0 or greater'
+        entry['offset'] = offset
+
+    return entry, None
+
+
+@rota_bp.route('/rota/directory', methods=['GET'])
+@require_auth
+def rota_directory_get():
+    """Full directory, active and hidden alike, for the admin table.
+    Each entry is annotated with the resolved login email when one exists,
+    so the admin can see who's actually linked to a login account."""
+    err = _require_management()
+    if err: return err
+    users = _load_json(USERS_FILE)
+    if not isinstance(users, dict):
+        users = {}
+    rid_to_email = {}
+    for email, info in users.items():
+        rid = str(info.get('employee_id') or '')
+        if rid:
+            rid_to_email[rid] = email
+    out = {rid: {**v, 'email': rid_to_email.get(rid)} for rid, v in _DIR.items()}
+    return jsonify({'ok': True, 'directory': out})
+
+
+@rota_bp.route('/rota/directory', methods=['POST'])
+@require_auth
+def rota_directory_post():
+    err = _require_management()
+    if err: return err
+    session     = request.session
+    data        = request.get_json(silent=True) or {}
+    employee_id = str(data.get('employee_id') or '').strip()
+
+    if not employee_id.isdigit():
+        return jsonify({'ok': False, 'error': 'employee_id must be a positive integer'}), 400
+    if employee_id in _DIR:
+        return jsonify({'ok': False, 'error': f'employee_id {employee_id} already exists'}), 409
+
+    entry, err_msg = _validate_directory_entry(data)
+    if err_msg:
+        return jsonify({'ok': False, 'error': err_msg}), 400
+
+    directory = _load_json(PERSON_DIRECTORY_FILE)
+    if not isinstance(directory, dict):
+        directory = {}
+    directory[employee_id] = entry
+    _save_json(PERSON_DIRECTORY_FILE, directory)
+    _rebuild_person_directory_caches()
+    _append_directory_audit('create', employee_id, session['username'], None, entry)
+
+    return jsonify({'ok': True, 'employee_id': employee_id, 'entry': entry})
+
+
+@rota_bp.route('/rota/directory/<employee_id>', methods=['PUT'])
+@require_auth
+def rota_directory_put(employee_id):
+    """Edit an existing entry, or flip 'active' to hide/show them on the
+    rota. rota_label and employee_id cannot be changed here — see the
+    module comment above _rebuild_person_directory_caches for why."""
+    err = _require_management()
+    if err: return err
+    if employee_id not in _DIR:
+        return jsonify({'ok': False, 'error': 'employee_id not found'}), 404
+
+    session  = request.session
+    data     = dict(request.get_json(silent=True) or {})
+    before   = dict(_DIR[employee_id])
+
+    # rota_label is immutable post-creation — ignore any attempt to change
+    # it rather than erroring, so a naive "resubmit the whole form" edit
+    # from the UI doesn't fail just because the label field round-tripped.
+    data['rota_label'] = before['rota_label']
+
+    entry, err_msg = _validate_directory_entry(data, existing_rid=employee_id)
+    if err_msg:
+        return jsonify({'ok': False, 'error': err_msg}), 400
+
+    directory = _load_json(PERSON_DIRECTORY_FILE)
+    if not isinstance(directory, dict):
+        directory = {}
+    directory[employee_id] = entry
+    _save_json(PERSON_DIRECTORY_FILE, directory)
+    _rebuild_person_directory_caches()
+    _append_directory_audit('update', employee_id, session['username'], before, entry)
+
+    return jsonify({'ok': True, 'employee_id': employee_id, 'entry': entry})
+
+
+@rota_bp.route('/rota/directory/<employee_id>', methods=['DELETE'])
+@require_auth
+def rota_directory_delete(employee_id):
+    """Hard delete. Prefer hiding (PUT with active:false) — deleting removes
+    this rota_label from every name-resolution lookup, so historical leave
+    requests, overrides, and notes under that label will no longer show a
+    resolved name anywhere in the UI. The frontend warns about this before
+    calling here; the backend does not re-check usage across those files."""
+    err = _require_management()
+    if err: return err
+    directory = _load_json(PERSON_DIRECTORY_FILE)
+    if not isinstance(directory, dict) or employee_id not in directory:
+        return jsonify({'ok': False, 'error': 'employee_id not found'}), 404
+
+    session = request.session
+    before  = directory.pop(employee_id)
+    _save_json(PERSON_DIRECTORY_FILE, directory)
+    _rebuild_person_directory_caches()
+    _append_directory_audit('delete', employee_id, session['username'], before, None)
+
+    return jsonify({'ok': True})
+
+
+@rota_bp.route('/rota/directory/audit', methods=['GET'])
+@require_auth
+def rota_directory_audit_get():
+    err = _require_management()
+    if err: return err
+    log = _load_directory_audit()
+    return jsonify({'ok': True, 'log': list(reversed(log))[:200]})
 
 
 @rota_bp.route('/rota/schedule', methods=['GET'])
@@ -1561,56 +1829,6 @@ def _effective_shift_for_hours(name: str, d: date,
     resolved = _resolve_shift(name, d, leave_map, override_map)
     return _clean(resolved)
 
-def _normalise_to_rota_name(full_name: str) -> str:
-    """Convert a full name ('Antonio Silva') to the short rota-style name
-    ('Antonio S') used as keys in SPECIALIST_OFFSETS etc."""
-    known = (set(MANAGEMENT_SHIFTS) |
-             set(ENGINEERING_OFFSETS) |
-             set(SPECIALIST_OFFSETS))
-    parts = full_name.strip().split()
-    if not parts:
-        return full_name
-    first = parts[0].capitalize()
-    if len(parts) == 1:
-        if first in known:
-            return first
-        matches = [n for n in known if n.split()[0].lower() == first.lower()]
-        return matches[0] if len(matches) == 1 else first
-    short = f"{first} {parts[-1][0].upper()}"
-    if short in known:
-        return short
-    matches = [n for n in known if n.split()[0].lower() == first.lower()]
-    if len(matches) == 1:
-        return matches[0]
-    return short
-
-def _load_hr_config() -> dict:
-    cfg = _load_json(HR_CONFIG_FILE)
-    if not isinstance(cfg, dict):
-        cfg = {}
-    cfg.setdefault('sos', {})
-    cfg.setdefault('hr_teams', {
-        'SOE': ['Marcus', 'Hugo', 'Goncalo', 'Nuno'],
-        'SOS': ['Joao L', 'Tiago C', 'Sabina', 'Sergio', 'Tiago O',
-                'Vitor', 'Fernando', 'Marc', 'Gabriel', 'Mario', 'Isaac'],
-    })
-    raw_teams = cfg.get('hr_teams', {})
-    raw_sos   = cfg.get('sos', {})
-    display_names = {}
-    for members in raw_teams.values():
-        for full_name in members:
-            short = _normalise_to_rota_name(full_name)
-            display_names[short] = full_name
-    cfg['display_names'] = display_names
-    cfg['sos'] = {
-        _normalise_to_rota_name(k): v for k, v in raw_sos.items()
-    }
-    cfg['hr_teams'] = {
-        team: [_normalise_to_rota_name(n) for n in members]
-        for team, members in raw_teams.items()
-    }
-    return cfg
-
 # ── POT helpers ───────────────────────────────────────────────────────────
 
 # ── AL Allowance helpers ────────────────────────────────────────────────
@@ -1838,55 +2056,60 @@ def _active_pot_for(team: str, month: str) -> Union[dict, None]:
                  if r['team'] == team and r['month'] == month
                  and r['status'] == 'active'), None)
 
-def _check_hr_config_consistency(hr_cfg: dict) -> list:
-    """Compare hr_config HR team members against users.json.
-    Returns a list of warning strings — empty if everything is consistent."""
+def _check_hr_config_consistency() -> list:
+    """Compare person_directory.json HR team membership against the live
+    users API. Returns a list of warning strings — empty if consistent."""
     users = _load_json(USERS_FILE)
     if not isinstance(users, dict):
         users = {}
 
-    # Build reverse map: rota_name → email
-    rota_name_to_email = _rota_name_to_email_map()
-    # Build set of emails with valid staff/management roles in users.json
+    email_to_label = {
+        email: _RID_TO_LABEL[rid]
+        for email, rid in _email_to_employee_id().items()
+        if rid in _RID_TO_LABEL
+    }
+    label_to_email = {v: k for k, v in email_to_label.items()}
+
     valid_roles = STAFF_ROLES | {'admin'}
     active_emails = {email for email, info in users.items()
                      if isinstance(info, dict) and info.get('role') in valid_roles}
-    # Build set of all rota names that appear in any hr_config team
-    hr_teams = hr_cfg.get('hr_teams', {})
+
+    hr_teams = _hr_teams()
     all_hr_names = {name for members in hr_teams.values() for name in members}
 
     warnings = []
 
-    # Type A: in hr_config but not resolvable to an active users.json entry
+    # Type A: in an HR team but not resolvable to an active users.json entry
     for name in sorted(all_hr_names):
-        email = rota_name_to_email.get(name)
+        email = label_to_email.get(name)
         if not email:
             warnings.append(
-                f"Type A — '{name}' is in hr_config but has no email mapping "
-                f"in EMAIL_TO_ROTA_NAME. Hours will be computed but not linked "
-                f"to any login account."
+                f"Type A — '{name}' has an hr_team set in person_directory.json "
+                f"but no matching employee_id found via the users API. Hours "
+                f"will be computed but not linked to any login account."
             )
         elif email not in active_emails:
             warnings.append(
-                f"Type A — '{name}' ({email}) is in hr_config but has no active "
-                f"entry in users.json. They may have left — check both files."
+                f"Type A — '{name}' ({email}) is in an HR team but has no "
+                f"active entry in users.json. They may have left — check "
+                f"person_directory.json."
             )
 
-    # Type B: active engineer/specialist in users.json not in any hr_config team
+    # Type B: active engineer/specialist in users.json not in any HR team
     for email, info in users.items():
         if not isinstance(info, dict):
             continue
         if info.get('role') not in STAFF_ROLES:
             continue
-        rota_name = EMAIL_TO_ROTA_NAME.get(email)
+        rota_name = email_to_label.get(email)
         if not rota_name:
-            continue  # user exists but has no rota name — separate issue
+            continue  # user exists but has no directory entry — separate issue
         if rota_name not in all_hr_names:
             warnings.append(
                 f"Type B — '{rota_name}' ({email}) has role "
-                f"'{info.get('role')}' in users.json but does not appear in "
-                f"any hr_config team. Their hours will never be computed or "
-                f"exported to HR."
+                f"'{info.get('role')}' in users.json but has no hr_team set "
+                f"in person_directory.json. Their hours will never be "
+                f"computed or exported to HR."
             )
 
     return warnings
@@ -1999,7 +2222,6 @@ def rota_hours_get():
 
     leave_map    = _build_leave_map(leave_list)
     override_map = _build_override_map(published_overrides)
-    hr_cfg       = _load_hr_config()
 
     all_names = (list(MANAGEMENT_SHIFTS) +
                  list(ENGINEERING_OFFSETS) +
@@ -2014,9 +2236,8 @@ def rota_hours_get():
 
     hours = _compute_hours(date_from, date_to, names, leave_map, override_map)
 
-    # Annotate with team and SOS
-    hr_teams = hr_cfg.get('hr_teams', {})
-    sos_map  = hr_cfg.get('sos', {})
+    # Annotate with team
+    hr_teams = _hr_teams()
     name_to_team = {}
     for team, members in hr_teams.items():
         for m in members:
@@ -2036,7 +2257,6 @@ def rota_hours_get():
             **h,
             'rota_team': rota_team_map.get(name, 'Unknown'),
             'hr_team':   name_to_team.get(name),
-            'sos':       sos_map.get(name),
         }
 
     return jsonify({'ok': True, 'from': date_from.isoformat(),
@@ -2084,10 +2304,10 @@ def rota_hours_export():
             'needs_commit': True,
         }), 400
 
-    hr_cfg        = _load_hr_config()
-    display_names = hr_cfg.get('display_names', {})
-
-    # Reconstruct hours dict and member order from POT entries
+    # Names, hours, and employee IDs all come straight from the POT
+    # snapshot — captured at commit time, so export can never drift from
+    # what was actually committed even if person_directory.json changes later.
+    display_names = {e['name']: e.get('full_name', e['name']) for e in pot['entries']}
     members = [e['name'] for e in pot['entries']]
     hours   = {
         e['name']: {
@@ -2098,7 +2318,6 @@ def rota_hours_export():
         }
         for e in pot['entries']
     }
-    # Employee IDs come from POT snapshot (captured at commit time)
     emp_id_map = {e['name']: e.get('employeeID') for e in pot['entries']}
 
     try:
@@ -2216,51 +2435,6 @@ def rota_hours_export():
 
 from typing import Optional
 
-def _picaponto_infer_name(email: str, display_name: str = '') -> tuple[str, Optional[str]]:
-    """Infer formatted full name from email + display_name.
-    Returns (name, warning_or_None).
-
-    Priority:
-    1. Use display_name directly if its last word matches the email's last dot-segment
-       (last name anchor). This handles all middle-name cases cleanly.
-    2. If no display_name, derive purely from dot-splitting the email local part.
-    3. If display_name last word does not match email last segment, use the
-       email-derived name and warn — something is wrong in users.json.
-    """
-    local     = email.split('@')[0].lower() if email else ''
-    dn        = (display_name or '').strip()
-    dot_parts = local.split('.')
-
-    if not local:
-        return '', 'Empty email — cannot infer name.'
-
-    last_segment = dot_parts[-1] if dot_parts else local
-
-    if dn:
-        dn_words = dn.split()
-        dn_last  = dn_words[-1].lower()
-
-        if dn_last == last_segment:
-            # display_name is consistent — use it as the authoritative name.
-            # Title-case each word defensively in case display_name is stored
-            # in a non-standard case.
-            return ' '.join(w.capitalize() for w in dn_words), None
-
-        # Last name mismatch — fall back to email-derived name and warn.
-        email_name = ' '.join(p.capitalize() for p in dot_parts)
-        return email_name, (
-            f"Last name mismatch: email implies '{last_segment.capitalize()}' "
-            f"but display_name ends with '{dn_words[-1]}' — verify manually.")
-
-    # No display_name — derive purely from dot-splitting.
-    if len(dot_parts) >= 2:
-        return ' '.join(p.capitalize() for p in dot_parts), None
-
-    # Single-part email, no display_name — unresolvable.
-    return local.capitalize(), (
-        f"Single-part email '{local}' with no display_name — cannot infer full name.")
-
-
 _PICAPONTO_ROLE_ORDER = [
     'Technical Operations Manager',
     'Streaming Ops Engineering Lead',
@@ -2342,19 +2516,14 @@ def rota_picaponto_export():
                       list(ENGINEERING_OFFSETS) +
                       list(SPECIALIST_OFFSETS))
 
-    members       = []
-    name_warnings = []
+    members = []
     for rota_name in all_rota_names:
         email = _email_for_rota_name(rota_name)
         u     = users_dict.get(email, {}) if email else {}
-        inferred_name, warn = _picaponto_infer_name(
-            email or '', u.get('display_name', ''))
-        if warn:
-            name_warnings.append(f'{rota_name}: {warn}')
         members.append({
             'rota_name':   rota_name,
-            'name':        inferred_name,
-            'employee_id': u.get('employee_id', ''),
+            'name':        _LABEL_TO_FULLNAME.get(rota_name, rota_name),
+            'employee_id': _LABEL_TO_RID.get(rota_name, ''),
             'job_role':    _picaponto_job_role(email or '', u),
         })
 
@@ -2477,24 +2646,12 @@ def rota_picaponto_export():
     buf.seek(0)
 
     filename = f'PicaPonto_{date_from.strftime("%b%Y")}.xlsx'
-    resp = send_file(
+    return send_file(
         buf,
         as_attachment=True,
         download_name=filename,
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
-    if name_warnings:
-        # HTTP header values must be Latin-1 encodable (RFC 7230). Warning
-        # text can contain non-Latin-1 chars (e.g. em-dash '—' in
-        # _picaponto_infer_name's f-strings) which crashes send_file's
-        # response at the WSGI layer with UnicodeEncodeError. Sanitize for
-        # the header; log the untruncated original for debugging.
-        raw = ' | '.join(name_warnings)
-        header_safe = raw.encode('ascii', 'replace').decode('ascii')
-        resp.headers['X-Name-Warnings'] = header_safe
-        if header_safe != raw:
-            print(f"[picaponto] non-ASCII stripped from X-Name-Warnings header: {raw}")
-    return resp
 
 # ── POT routes ────────────────────────────────────────────────────────────
 
@@ -2527,18 +2684,16 @@ def rota_hours_pot_draft():
 
     leave_map    = _build_leave_map(leave_list)
     override_map = _build_override_map(published_overrides)
-    hr_cfg       = _load_hr_config()
-    members      = hr_cfg.get('hr_teams', {}).get(team, [])
-    sos_map      = hr_cfg.get('sos', {})
+    members      = _hr_teams().get(team, [])
 
     if not members:
         return jsonify({'ok': False, 'error': f'No members configured for {team}'}), 400
     computed = _compute_hours(date_from, date_to, members, leave_map, override_map)
-    warnings = _check_hr_config_consistency(hr_cfg)
+    warnings = _check_hr_config_consistency()
 
-    # Attach Employee IDs to computed results — sourced from hr_config,
+    # Attach Employee IDs to computed results — sourced from person_directory.json,
     # since no POT commit exists yet at draft-preview time.
-    emp_id_map = hr_cfg.get('employee_ids', {})
+    emp_id_map = _LABEL_TO_RID
     computed_out = {}
     for name in members:
         h = computed.get(name, {'night_h': 0, 'ph_day_h': 0, 'ph_night_h': 0, 'ph_dates': []})
@@ -2620,10 +2775,8 @@ def rota_hours_pot_commit():
 
     leave_map    = _build_leave_map(leave_list)
     override_map = _build_override_map(published_overrides)
-    hr_cfg       = _load_hr_config()
-    members      = hr_cfg.get('hr_teams', {}).get(team, [])
-    sos_map      = hr_cfg.get('sos', {})
-    display_names = hr_cfg.get('display_names', {})
+    members      = _hr_teams().get(team, [])
+    display_names = _display_names()
 
     if not members:
         return jsonify({'ok': False, 'error': f'No members configured for {team}'}), 400
@@ -2648,7 +2801,7 @@ def rota_hours_pot_commit():
     # Validate and build final entries
     entries_by_name = {e.get('name'): e for e in entries_in}
     final_entries   = []
-    warnings        = _check_hr_config_consistency(hr_cfg)
+    warnings        = _check_hr_config_consistency()
 
     for name in members:
         comp     = computed.get(name, {'night_h': 0, 'ph_day_h': 0,
@@ -2659,7 +2812,7 @@ def rota_hours_pot_commit():
         entry = {
             'name':             name,
             'full_name':        display_names.get(name, name),
-            'sos':              sos_map.get(name),
+            'employeeID':       _LABEL_TO_RID.get(name),
             'ph_dates':         comp['ph_dates'],
             'night_h_computed':    round(comp['night_h'], 2),
             'ph_day_h_computed':   round(comp['ph_day_h'], 2),
@@ -2783,10 +2936,9 @@ def rota_hours_debug():
     if _get_rota_role(request.session) != 'management':
         return jsonify({'ok': False, 'error': 'Not authorised'}), 403
 
-    hr_cfg       = _load_hr_config()
-    raw_cfg      = _load_json(HR_CONFIG_FILE)
-    sos_members  = hr_cfg.get('hr_teams', {}).get('SOS', [])
-    soe_members  = hr_cfg.get('hr_teams', {}).get('SOE', [])
+    hr_teams    = _hr_teams()
+    sos_members = hr_teams.get('SOS', [])
+    soe_members = hr_teams.get('SOE', [])
 
     known = list(set(MANAGEMENT_SHIFTS) | set(ENGINEERING_OFFSETS) | set(SPECIALIST_OFFSETS))
 
@@ -2804,29 +2956,26 @@ def rota_hours_debug():
     hours = _compute_hours(test_month_from, test_month_to,
                            all_members, leave_map, override_map)
 
-    # Spot-check Fernando on 3 days
+    # Spot-check the first SOS specialist on 3 days (no name hardcoded here —
+    # picked dynamically so this endpoint never needs a real name in source)
+    spot_name = next((n for n in sos_members if n in SPECIALIST_OFFSETS), None)
     spot = {}
     for d_str in ['2026-06-01', '2026-06-02', '2026-06-04']:
         d = date.fromisoformat(d_str)
-        for name in ['Fernando', sos_members[0] if sos_members else '']:
-            if name:
-                spot[f'{name}@{d_str}'] = {
-                    'effective': _effective_shift_for_hours(name, d, leave_map, override_map),
-                    'resolved':  _resolve_shift(name, d, leave_map, override_map),
-                    'base':      _base_shift(name, d),
-                }
+        if spot_name:
+            spot[f'{spot_name}@{d_str}'] = {
+                'effective': _effective_shift_for_hours(spot_name, d, leave_map, override_map),
+                'resolved':  _resolve_shift(spot_name, d, leave_map, override_map),
+                'base':      _base_shift(spot_name, d),
+            }
 
     return jsonify({
-        'raw_hr_config_keys_sos':      list(raw_cfg.get('sos', {}).keys())[:5],
-        'raw_hr_config_keys_sos':      raw_cfg.get('hr_teams', {}).get('SOS', [])[:3],
-        'normalised_sos_members':      sos_members,
-        'normalised_soe_members':      soe_members,
-        'known_rota_names':            sorted(known),
-        'hours_keys':                  list(hours.keys()),
-        'hours_fernando':              hours.get('Fernando'),
-        'hours_first_sos':             hours.get(sos_members[0]) if sos_members else None,
-        'spot_checks':                 spot,
-        'sos_normalised':              hr_cfg.get('sos'),
+        'sos_members':      sos_members,
+        'soe_members':      soe_members,
+        'known_rota_names': sorted(known),
+        'hours_keys':       list(hours.keys()),
+        'hours_first_sos':  hours.get(sos_members[0]) if sos_members else None,
+        'spot_checks':      spot,
     })
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -3174,10 +3323,8 @@ def rota_soe_weekends():
     leave_map    = _build_leave_map(leave_list)
     override_map = _build_override_map(published_overrides)
 
-    hr_cfg         = _load_hr_config()
-    soe_join_dates = hr_cfg.get('soe_join_dates', {})
-    # Normalise keys to rota names
-    soe_join_dates = {_normalise_to_rota_name(k): v for k, v in soe_join_dates.items()}
+    soe_join_dates = {v['rota_label']: v['soe_join_date']
+                       for v in _DIR.values() if v.get('soe_join_date')}
 
     do_aggregate = request.args.get('aggregate', '0') == '1'
 

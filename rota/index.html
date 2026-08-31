@@ -1089,36 +1089,73 @@
     </div>
   </div>
 
-  <!-- ══ TAB: ADMIN ══ -->
+  <!-- ══ TAB: ADMIN (person directory) ══ -->
   <div class="tab-panel" id="panel-admin">
-
-    <p class="section-title">Feedback</p>
-
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;">
-      <div class="toolbar-group">
-        <span class="toolbar-label">Type</span>
-        <select class="toolbar-select" id="admin-fb-type-filter">
-          <option value="all">All</option>
-          <option value="bug">🐛 Bugs</option>
-          <option value="enhancement">✨ Features</option>
+    <p class="section-title">Add Person</p>
+    <div class="form-grid" id="admin-add-grid">
+      <div class="form-group">
+        <label>Employee ID</label>
+        <input type="text" id="admin-new-employee-id" placeholder="e.g. 10234" inputmode="numeric" />
+      </div>
+      <div class="form-group">
+        <label>Full Name</label>
+        <input type="text" id="admin-new-full-name" placeholder="Legal name — used on HR exports" />
+      </div>
+      <div class="form-group">
+        <label>Rota Label</label>
+        <input type="text" id="admin-new-rota-label" placeholder="Short grid alias, e.g. &quot;Joao L&quot;" />
+      </div>
+      <div class="form-group">
+        <label>Rotation Group</label>
+        <select id="admin-new-rotation-group">
+          <option value="management">Management</option>
+          <option value="engineering">Engineering</option>
+          <option value="specialist">Specialist</option>
         </select>
       </div>
-      <div class="toolbar-group">
-        <span class="toolbar-label">Status</span>
-        <select class="toolbar-select" id="admin-fb-status-filter">
-          <option value="unreviewed">Unreviewed</option>
-          <option value="all">All</option>
-          <option value="resolved">Resolved</option>
-          <option value="dismissed">Dismissed</option>
+      <div class="form-group" id="admin-new-shift-group">
+        <label>Shift (management)</label>
+        <input type="text" id="admin-new-shift" placeholder="0900-1730" maxlength="9" />
+      </div>
+      <div class="form-group" id="admin-new-offset-group" style="display:none;">
+        <label>Rotation Offset (days)</label>
+        <input type="number" min="0" id="admin-new-offset" placeholder="e.g. 35" />
+      </div>
+      <div class="form-group">
+        <label>HR Team</label>
+        <select id="admin-new-hr-team">
+          <option value="">— none —</option>
+          <option value="SOE">SOE</option>
+          <option value="SOS">SOS</option>
         </select>
       </div>
-      <button class="btn" id="btn-admin-fb-refresh" style="margin-left:4px;">⟳ Refresh</button>
+      <div class="form-group">
+        <label>SOE Join Date <span style="opacity:0.6;">(optional)</span></label>
+        <input type="date" id="admin-new-soe-join-date" />
     </div>
+    </div>
+    <button class="btn primary" id="btn-admin-add">+ Add Person</button>
+    <div id="admin-add-err" style="display:none;margin-top:10px;font-family:var(--mono);font-size:0.72rem;color:var(--danger);"></div>
 
-    <div id="admin-feedback-wrap">
+    <hr class="section-divider" />
+    <p class="section-title">
+      Directory
+      <span style="opacity:0.6;text-transform:none;letter-spacing:normal;">
+        — rota label can't be changed after creation; hide instead of deleting where possible.
+      </span>
+    </p>
+    <div id="admin-directory-wrap">
       <div class="loading-row"><div class="spinner"></div> Loading…</div>
     </div>
 
+    <hr class="section-divider" />
+    <div class="history-controls">
+      <p class="section-title" style="margin:0;">Recent Changes</p>
+      <button class="btn" id="btn-admin-audit-refresh" style="font-size:0.65rem;padding:4px 10px;">⟳ Refresh</button>
+    </div>
+    <div id="admin-audit-wrap">
+      <div class="empty-state">No changes yet.</div>
+    </div>
   </div>
 
   <!-- ── NOTE TOOLTIP (hover, read-only) ── -->
@@ -1343,8 +1380,6 @@
   };
 
   const VALID_ROLES = new Set(['admin', 'engineer', 'specialist']);
-  const MGMT_NAMES = ['Joao R','Marcus','Joao L','Tiago C'];
-  const ENG_NAMES  = ['Hugo','Goncalo','Nuno'];
   const SHIFTS_BY_TEAM = {
     Management:  ['0800-1630','0900-1730','0930-1800'],
     Engineering: ['0900-1800','1000-2000'],
@@ -1361,6 +1396,9 @@
     rotaData:    null,
     allUsers:    {},
     config:      null,
+    // Populated from /rota/roster at init — replaces the old hardcoded
+    // MGMT_NAMES/ENG_NAMES/specialist arrays so no names live in source.
+    roster:      { management: [], engineering: [], specialists: [] },
     teamFilters: { Management: true, Engineering: true, Specialists: true },
     viewMode:    'published',
     dateFrom:    null,
@@ -1454,6 +1492,16 @@
         });
       }
 
+      const rr = await fetch(`${PROXY}/rota/roster`, { credentials: 'same-origin' });
+      const rd = await rr.json();
+      if (rd.ok) {
+        state.roster = {
+          management:  rd.management,
+          engineering: rd.engineering,
+          specialists: rd.specialists,
+        };
+      }
+
       await _loadShiftColorMap();
 
       renderTopbar();
@@ -1477,7 +1525,7 @@
   // ════════════════════════════════════════════════════════════════
   function renderTopbar() {
     const m = state.me;
-    document.getElementById('topbar-name').textContent = m.name || m.username;
+    document.getElementById('topbar-name').textContent = m.full_name || m.name || m.username;
     const badge = document.getElementById('topbar-badge');
     badge.textContent = m.rota_role === 'management' ? 'Management'
                       : m.rota_role === 'staff'      ? m.team
@@ -1488,7 +1536,7 @@
       document.getElementById('tab-approvals').style.display = '';
       document.getElementById('tab-hours').style.display     = '';
       document.getElementById('opt-full').style.display      = '';
-      document.getElementById('tab-admin').style.display = '';
+      document.getElementById('tab-admin').style.display     = '';
     }
     if (m.rota_role === 'staff') {
       document.getElementById('tab-hours').style.display = '';
@@ -1712,8 +1760,8 @@
         if (!code) return;
         const parsed = _parseShiftMinutes(code);
         if (!parsed) return;
-        const team = MGMT_NAMES.includes(person) ? 'Management'
-                   : ENG_NAMES.includes(person)  ? 'SOE' : 'SOS';
+        const team = state.roster.management.includes(person) ? 'Management'
+                   : state.roster.engineering.includes(person) ? 'SOE' : 'SOS';
         const base = i * 1440;
         intervals.push({ start: base + parsed.start, end: base + parsed.end, dayIdx: i, team, person });
       });
@@ -1797,9 +1845,9 @@
     const coverageFlags = (state.me && state.me.rota_role === 'management')
       ? _computeCoverageFlags(state.rotaData) : {};
     const teams = [
-      { name: 'Management',  members: ['Joao R','Marcus','Joao L','Tiago C'] },
-      { name: 'Engineering', members: ['Hugo','Goncalo','Nuno'] },
-      { name: 'Specialists', members: ['Sabina','Sergio','Tiago O','Vitor','Fernando','Marc','Gabriel','Mario','Isaac'] },
+      { name: 'Management',  members: state.roster.management },
+      { name: 'Engineering', members: state.roster.engineering },
+      { name: 'Specialists', members: state.roster.specialists },
     ].filter(t => state.teamFilters[t.name]);
 
     if (!teams.length) { wrap.innerHTML = '<div class="empty-state">Select at least one team.</div>'; return; }
@@ -3215,8 +3263,8 @@
   //  DRAFT CELL SELECTION
   // ════════════════════════════════════════════════════════════════
   function _personTeam(person) {
-    if (MGMT_NAMES.includes(person)) return 'Management';
-    if (ENG_NAMES.includes(person))  return 'Engineering';
+    if (state.roster.management.includes(person)) return 'Management';
+    if (state.roster.engineering.includes(person)) return 'Engineering';
     return 'Specialists';
   }
 
@@ -3759,7 +3807,7 @@ function _removeCellFromBoxes(ri, ci) {
       if (!state.draft.active) return false;
       if (sel.length !== 4) return false;
       const person = sel[0].person;
-      if (!ENG_NAMES.includes(person)) return false;
+      if (!state.roster.engineering.includes(person)) return false;
       if (!sel.every(c => c.person === person)) return false;
       const dates = sel.map(c => new Date(c.date + 'T00:00:00')).sort((a,b) => a-b);
       for (let i = 1; i < dates.length; i++) {
@@ -4538,9 +4586,9 @@ function _removeCellFromBoxes(ri, ci) {
   // the live rota. Notes are shown as the corner flag only — no note text.
   function _buildPrintTable(days, year, month) {
     const teams = [
-      { name: 'Management',  members: ['Joao R','Marcus','Joao L','Tiago C'] },
-      { name: 'Engineering', members: ['Hugo','Goncalo','Nuno'] },
-      { name: 'Specialists', members: ['Sabina','Sergio','Tiago O','Vitor','Fernando','Marc','Gabriel','Mario','Isaac'] },
+      { name: 'Management',  members: state.roster.management },
+      { name: 'Engineering', members: state.roster.engineering },
+      { name: 'Specialists', members: state.roster.specialists },
     ];
     const monthLabel = new Date(year, month - 1, 1)
       .toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
@@ -5006,8 +5054,7 @@ function _removeCellFromBoxes(ri, ci) {
     }
 
     // Management "All Members" view — grouped by team, rota order, filterable
-    const teamOf = name => MGMT_NAMES.includes(name) ? 'Management'
-                          : ENG_NAMES.includes(name)  ? 'Engineering' : 'Specialists';
+    const teamOf = _personTeam;
 
     const groups = { Management: [], Engineering: [], Specialists: [] };
     Object.keys(balances).forEach(name => { groups[teamOf(name)].push(name); });
@@ -5240,6 +5287,324 @@ function _removeCellFromBoxes(ri, ci) {
       loadOverview();
     } else {
       await uiAlert(d.error || 'Failed to remove entry');
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  ADMIN — PERSON DIRECTORY (add / edit / hide / delete)
+  // ════════════════════════════════════════════════════════════════
+  let _adminReady     = false;
+  let _adminDirectory = null;   // { employee_id: {...entry, email} }
+
+  function setupAdminTab() {
+    if (!_adminReady) {
+      _adminReady = true;
+      document.getElementById('admin-new-rotation-group').addEventListener('change', _adminSyncGroupFields);
+      document.getElementById('btn-admin-add').addEventListener('click', submitAddPerson);
+      document.getElementById('btn-admin-audit-refresh').addEventListener('click', loadAdminAudit);
+      _adminSyncGroupFields();
+    }
+    loadAdminDirectory();
+    loadAdminAudit();
+  }
+
+  function _adminSyncGroupFields() {
+    const grp = document.getElementById('admin-new-rotation-group').value;
+    document.getElementById('admin-new-shift-group').style.display  = grp === 'management' ? '' : 'none';
+    document.getElementById('admin-new-offset-group').style.display = grp === 'management' ? 'none' : '';
+  }
+
+  // Keep the admin's own open tabs in sync immediately after a directory
+  // write — otherwise the rota grid, overview dropdowns, etc. would keep
+  // showing the pre-edit roster until a full page reload.
+  async function _refreshRosterAfterAdminChange() {
+    try {
+      const rr = await fetch(`${PROXY}/rota/roster`, { credentials: 'same-origin' });
+      const rd = await rr.json();
+      if (rd.ok) {
+        state.roster = { management: rd.management, engineering: rd.engineering, specialists: rd.specialists };
+      }
+    } catch(e) { /* non-fatal — next full reload picks it up */ }
+  }
+
+  async function loadAdminDirectory() {
+    const wrap = document.getElementById('admin-directory-wrap');
+    wrap.innerHTML = '<div class="loading-row"><div class="spinner"></div> Loading…</div>';
+    try {
+      const r = await fetch(`${PROXY}/rota/directory`, { credentials: 'same-origin' });
+      const d = await r.json();
+      if (!d.ok) { wrap.innerHTML = `<div class="empty-state">Error: ${d.error}</div>`; return; }
+      _adminDirectory = d.directory;
+      renderAdminDirectory();
+    } catch(e) {
+      wrap.innerHTML = `<div class="empty-state">Failed to load: ${e.message}</div>`;
+    }
+  }
+
+  function renderAdminDirectory() {
+    const wrap = document.getElementById('admin-directory-wrap');
+    if (!_adminDirectory) return;
+    const entries = Object.entries(_adminDirectory)
+      .sort((a, b) => a[1].rota_label.localeCompare(b[1].rota_label));
+
+    if (!entries.length) { wrap.innerHTML = '<div class="empty-state">No one in the directory yet.</div>'; return; }
+
+    const rows = entries.map(([rid, v]) => {
+      const groupLabel = v.rotation_group === 'management'  ? 'Management'
+                        : v.rotation_group === 'engineering' ? 'Engineering' : 'Specialist';
+      const scheduleField = v.rotation_group === 'management'
+        ? `Shift: ${v.shift || '—'}` : `Offset: ${v.offset ?? '—'}`;
+      const hidden = v.active === false;
+      const statusBadge = hidden
+        ? '<span class="status-badge Withdrawn">Hidden</span>'
+        : '<span class="status-badge Confirmed">Active</span>';
+      const emailStr = v.email || '<span style="color:var(--muted);">no login linked</span>';
+
+      return `<tr data-rid="${rid}">
+        <td style="font-weight:700;">${v.rota_label}</td>
+        <td>${v.full_name}</td>
+        <td class="col-meta">${rid}</td>
+        <td class="col-meta">${groupLabel}</td>
+        <td class="col-meta">${scheduleField}</td>
+        <td class="col-meta">${v.hr_team || '—'}</td>
+        <td class="col-meta">${emailStr}</td>
+        <td>${statusBadge}</td>
+        <td style="white-space:nowrap;">
+          <button class="btn" data-admin-edit="${rid}" style="font-size:0.6rem;padding:3px 8px;">✎ Edit</button>
+          <button class="btn ${hidden ? 'approve' : 'warn'}" data-admin-toggle="${rid}" style="font-size:0.6rem;padding:3px 8px;">
+            ${hidden ? '👁 Show' : '🙈 Hide'}
+          </button>
+          <button class="btn danger" data-admin-delete="${rid}" style="font-size:0.6rem;padding:3px 8px;">🗑 Delete</button>
+        </td>
+      </tr>`;
+    }).join('');
+
+    wrap.innerHTML = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Rota Label</th><th>Full Name</th><th>Employee ID</th><th>Group</th>
+            <th>Schedule</th><th>HR Team</th><th>Login Email</th><th>Status</th><th></th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+
+    wrap.querySelectorAll('[data-admin-edit]').forEach(b =>
+      b.addEventListener('click', () => _openAdminEditRow(b.dataset.adminEdit)));
+    wrap.querySelectorAll('[data-admin-toggle]').forEach(b =>
+      b.addEventListener('click', () => _toggleAdminActive(b.dataset.adminToggle)));
+    wrap.querySelectorAll('[data-admin-delete]').forEach(b =>
+      b.addEventListener('click', () => _deleteAdminPerson(b.dataset.adminDelete)));
+  }
+
+  function _openAdminEditRow(rid) {
+    const tr = document.querySelector(`tr[data-rid="${rid}"]`);
+    if (!tr || (tr.nextElementSibling && tr.nextElementSibling.classList.contains('admin-edit-row'))) return;
+    const v = _adminDirectory[rid];
+
+    const editTr = document.createElement('tr');
+    editTr.className = 'admin-edit-row';
+    editTr.innerHTML = `
+      <td colspan="9" style="background:var(--card);padding:14px;">
+        <div class="form-grid" style="margin-bottom:10px;">
+          <div class="form-group">
+            <label>Full Name</label>
+            <input type="text" class="popover-input" data-f="full_name" value="${(v.full_name || '').replace(/"/g,'&quot;')}" />
+          </div>
+          <div class="form-group">
+            <label>Rotation Group</label>
+            <select class="popover-input" data-f="rotation_group">
+              <option value="management"  ${v.rotation_group === 'management'  ? 'selected' : ''}>Management</option>
+              <option value="engineering" ${v.rotation_group === 'engineering' ? 'selected' : ''}>Engineering</option>
+              <option value="specialist"  ${v.rotation_group === 'specialist'  ? 'selected' : ''}>Specialist</option>
+            </select>
+          </div>
+          <div class="form-group" data-shift-group style="display:${v.rotation_group === 'management' ? '' : 'none'};">
+            <label>Shift</label>
+            <input type="text" class="popover-input" data-f="shift" value="${v.shift || ''}" maxlength="9" placeholder="0900-1730" />
+          </div>
+          <div class="form-group" data-offset-group style="display:${v.rotation_group === 'management' ? 'none' : ''};">
+            <label>Rotation Offset (days)</label>
+            <input type="number" min="0" class="popover-input" data-f="offset" value="${v.offset ?? ''}" />
+          </div>
+          <div class="form-group">
+            <label>HR Team</label>
+            <select class="popover-input" data-f="hr_team">
+              <option value=""    ${!v.hr_team              ? 'selected' : ''}>— none —</option>
+              <option value="SOE" ${v.hr_team === 'SOE'      ? 'selected' : ''}>SOE</option>
+              <option value="SOS" ${v.hr_team === 'SOS'      ? 'selected' : ''}>SOS</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>SOE Join Date</label>
+            <input type="date" class="popover-input" data-f="soe_join_date" value="${v.soe_join_date || ''}" />
+          </div>
+        </div>
+        <div style="font-family:var(--mono);font-size:0.6rem;color:var(--muted);margin-bottom:10px;">
+          Rota label "${v.rota_label}" and employee ID ${rid} can't be changed here — hide and re-add if a relabel is truly needed.
+        </div>
+        <button class="btn primary" data-admin-save style="font-size:0.65rem;padding:5px 12px;">Save</button>
+        <button class="btn" data-admin-cancel style="font-size:0.65rem;padding:5px 12px;">Cancel</button>
+        <div data-admin-edit-err style="display:none;margin-top:8px;font-family:var(--mono);font-size:0.65rem;color:var(--danger);"></div>
+      </td>`;
+    tr.after(editTr);
+
+    editTr.querySelector('[data-f="rotation_group"]').addEventListener('change', e => {
+      const isM = e.target.value === 'management';
+      editTr.querySelector('[data-shift-group]').style.display  = isM ? '' : 'none';
+      editTr.querySelector('[data-offset-group]').style.display = isM ? 'none' : '';
+    });
+    editTr.querySelector('[data-admin-cancel]').addEventListener('click', () => editTr.remove());
+    editTr.querySelector('[data-admin-save]').addEventListener('click', () => _saveAdminEdit(rid, editTr));
+  }
+
+  async function _saveAdminEdit(rid, editTr) {
+    const get = f => editTr.querySelector(`[data-f="${f}"]`).value.trim();
+    const body = {
+      full_name:      get('full_name'),
+      rotation_group: get('rotation_group'),
+      hr_team:        get('hr_team') || null,
+      soe_join_date:  get('soe_join_date') || null,
+      active:         _adminDirectory[rid].active !== false,   // preserve — hide/show is a separate action
+    };
+    if (body.rotation_group === 'management') body.shift = get('shift');
+    else body.offset = get('offset');
+
+    const r = await fetch(`${PROXY}/rota/directory/${rid}`, {
+      method: 'PUT', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast('Saved', 'ok');
+      editTr.remove();
+      await loadAdminDirectory();
+      await _refreshRosterAfterAdminChange();
+    } else {
+      const errEl = editTr.querySelector('[data-admin-edit-err]');
+      errEl.textContent = d.error || 'Failed to save';
+      errEl.style.display = '';
+    }
+  }
+
+  async function _toggleAdminActive(rid) {
+    const v = _adminDirectory[rid];
+    const nextActive = v.active === false;
+    const body = {
+      full_name: v.full_name, rotation_group: v.rotation_group,
+      hr_team: v.hr_team || null, soe_join_date: v.soe_join_date || null,
+      active: nextActive,
+    };
+    if (v.rotation_group === 'management') body.shift = v.shift;
+    else body.offset = v.offset;
+
+    const r = await fetch(`${PROXY}/rota/directory/${rid}`, {
+      method: 'PUT', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast(nextActive ? 'Person shown on rota again' : 'Person hidden from rota', 'ok');
+      await loadAdminDirectory();
+      await _refreshRosterAfterAdminChange();
+    } else {
+      await uiAlert(d.error || 'Failed to update');
+    }
+  }
+
+  async function _deleteAdminPerson(rid) {
+    const v = _adminDirectory[rid];
+    const confirmed = await uiConfirm(
+      'Delete Person',
+      `Permanently delete ${v.full_name} (${v.rota_label})?\n\nThis is different from hiding — historical leave requests, overrides, and notes under "${v.rota_label}" will no longer resolve to a name anywhere in the app. This cannot be undone.\n\nConsider Hide instead unless you're sure.`,
+      'Delete Permanently', 'reject'
+    );
+    if (!confirmed) return;
+    const r = await fetch(`${PROXY}/rota/directory/${rid}`, {
+      method: 'DELETE', credentials: 'same-origin',
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast('Deleted', 'ok');
+      await loadAdminDirectory();
+      await _refreshRosterAfterAdminChange();
+    } else {
+      await uiAlert(d.error || 'Failed to delete');
+    }
+  }
+
+  async function submitAddPerson() {
+    const employee_id    = document.getElementById('admin-new-employee-id').value.trim();
+    const full_name       = document.getElementById('admin-new-full-name').value.trim();
+    const rota_label       = document.getElementById('admin-new-rota-label').value.trim();
+    const rotation_group    = document.getElementById('admin-new-rotation-group').value;
+    const hr_team          = document.getElementById('admin-new-hr-team').value || null;
+    const soe_join_date    = document.getElementById('admin-new-soe-join-date').value || null;
+    const errEl = document.getElementById('admin-add-err');
+    errEl.style.display = 'none';
+
+    if (!employee_id || !/^\d+$/.test(employee_id)) {
+      errEl.textContent = 'Employee ID must be a positive integer.'; errEl.style.display = ''; return;
+    }
+    if (!full_name)  { errEl.textContent = 'Full name is required.';  errEl.style.display = ''; return; }
+    if (!rota_label) { errEl.textContent = 'Rota label is required.'; errEl.style.display = ''; return; }
+
+    const body = { employee_id, full_name, rota_label, rotation_group, hr_team, soe_join_date, active: true };
+    if (rotation_group === 'management') {
+      body.shift = document.getElementById('admin-new-shift').value.trim();
+    } else {
+      body.offset = document.getElementById('admin-new-offset').value;
+    }
+
+    const r = await fetch(`${PROXY}/rota/directory`, {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast('Person added', 'ok');
+      ['admin-new-employee-id','admin-new-full-name','admin-new-rota-label',
+       'admin-new-shift','admin-new-offset','admin-new-soe-join-date'].forEach(id => {
+        document.getElementById(id).value = '';
+      });
+      document.getElementById('admin-new-hr-team').value = '';
+      document.getElementById('admin-new-rotation-group').value = 'management';
+      _adminSyncGroupFields();
+      await loadAdminDirectory();
+      await _refreshRosterAfterAdminChange();
+    } else {
+      errEl.textContent = d.error || 'Failed to add person';
+      errEl.style.display = '';
+    }
+  }
+
+  async function loadAdminAudit() {
+    const wrap = document.getElementById('admin-audit-wrap');
+    try {
+      const r = await fetch(`${PROXY}/rota/directory/audit`, { credentials: 'same-origin' });
+      const d = await r.json();
+      if (!d.ok || !d.log.length) { wrap.innerHTML = '<div class="empty-state">No changes yet.</div>'; return; }
+      const rows = d.log.map(e => {
+        const label = (e.after && e.after.rota_label) || (e.before && e.before.rota_label) || e.employee_id;
+        const cls = e.action === 'create' ? 'Confirmed' : e.action === 'delete' ? 'Rejected' : 'Pending';
+        return `<tr>
+          <td class="col-meta">${_fmtDate(e.at)}</td>
+          <td>${_userName(e.by)}</td>
+          <td><span class="status-badge ${cls}">${e.action}</span></td>
+          <td>${label} <span class="col-meta">(#${e.employee_id})</span></td>
+        </tr>`;
+      }).join('');
+      wrap.innerHTML = `
+        <table class="data-table">
+          <thead><tr><th>When</th><th>By</th><th>Action</th><th>Person</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    } catch(e) {
+      wrap.innerHTML = `<div class="empty-state">Failed to load: ${e.message}</div>`;
     }
   }
   </script>
