@@ -116,7 +116,7 @@ def _build_ffmpeg_cmd(
             srt_url,
         ]
 
-    if passthrough:
+    """ if passthrough:
         return [
             "ffmpeg", "-stream_loop", "-1",
             "-fflags", "+genpts+discardcorrupt",
@@ -131,7 +131,28 @@ def _build_ffmpeg_cmd(
             "-muxdelay", "0",
             "-muxpreload", "0",
             srt_url,
-        ]
+        ] """
+
+    if passthrough:
+        return [
+            "ffmpeg",
+            "-stream_loop", "-1",
+            "-fflags", "+genpts+discardcorrupt+igndts",
+            "-re",
+            "-i", input_file,
+            "-map", "0:v:0",
+            "-map", "0:a:0",
+            "-c:v", "copy",
+            "-c:a", "copy",
+            # Reescreve o PTS/DTS linearmente para o receiver não sentir a virada do loop
+            "-bsf:v", "setts=pts=N/FRAME_RATE/TB",
+            "-avoid_negative_ts", "make_zero",
+            "-f", "mpegts",
+            # Fixa a saída do container MPEG-TS em um valor constante (envia pacotes nulos no hiato do loop)
+            "-muxrate", "6000k", 
+            "-pcr_period", "20",
+            srt_url,
+        ]        
 
     vbr = f"{bitrate_mbps}M"
     bufsize = f"{bitrate_mbps * CBR_BUFSIZE_FACTOR}M"
