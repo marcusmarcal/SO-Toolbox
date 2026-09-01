@@ -350,7 +350,6 @@ DRAFT_LOCK_FILE          = os.path.join(ROTA_DIR, 'draft_lock.json')
 PUBLISHED_OVERRIDES_FILE = os.path.join(ROTA_DIR, 'published_overrides.json')
 CELL_NOTES_FILE          = os.path.join(ROTA_DIR, 'cell_notes.json')
 FEEDBACK_FILE            = os.path.join(ROTA_DIR, 'feedback.json')
-HR_CONFIG_FILE           = os.path.join(ROTA_DIR, 'hr_config.json')
 HOURS_POT_FILE           = os.path.join(ROTA_DIR, 'hours_pot.json')
 AL_ALLOWANCE_FILE        = os.path.join(ROTA_DIR, 'al_allowance.json')
 

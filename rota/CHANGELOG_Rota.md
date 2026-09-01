@@ -1,5 +1,16 @@
 # Changelog — Rota App
 
+## [Unreleased] 01-09-2026
+### Fixed
+- Admin tab: `setupAdminTab` was defined twice — second definition silently
+  overwrote the first, breaking feedback tab wiring entirely.
+- Admin tab: feedback filter controls (`admin-fb-type-filter`, etc.) were
+  referenced in JS but absent from the HTML; added the missing DOM section.
+- Leave history: year-filter `change` listener was only attached in the
+  empty-state branch, so the dropdown did nothing when entries existed.
+- routes_rota.py: removed dead `HR_CONFIG_FILE` constant left over from
+  the hr_config.json → person_directory.json migration.
+
 ## [Unreleased] — Admin tab: manage the person directory from the UI 31-08-2026
 
 ### Added

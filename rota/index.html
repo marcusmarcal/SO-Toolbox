@@ -1156,6 +1156,25 @@
     <div id="admin-audit-wrap">
       <div class="empty-state">No changes yet.</div>
     </div>
+    <hr class="section-divider" />
+    <div class="history-controls">
+      <p class="section-title" style="margin:0;">Feedback</p>
+      <select class="toolbar-select" id="admin-fb-type-filter" style="font-size:0.68rem;">
+        <option value="all">All types</option>
+        <option value="bug">🐛 Bugs</option>
+        <option value="enhancement">✨ Features</option>
+      </select>
+      <select class="toolbar-select" id="admin-fb-status-filter" style="font-size:0.68rem;">
+        <option value="all">All statuses</option>
+        <option value="unreviewed">Unreviewed</option>
+        <option value="resolved">Resolved</option>
+        <option value="dismissed">Dismissed</option>
+      </select>
+      <button class="btn" id="btn-admin-fb-refresh" style="font-size:0.65rem;padding:4px 10px;">⟳ Refresh</button>
+    </div>
+    <div id="admin-feedback-wrap">
+      <div class="empty-state">No feedback yet.</div>
+    </div>
   </div>
 
   <!-- ── NOTE TOOLTIP (hover, read-only) ── -->
@@ -2281,6 +2300,11 @@
         </thead>
         <tbody>${tableRows}</tbody>
       </table>`;
+
+      document.getElementById('my-leave-year-select')?.addEventListener('change', e => {
+        state.myLeaveYear = e.target.value === 'all' ? 'all' : parseInt(e.target.value);
+        loadMyLeave();
+      });
   }
 
   function toggleHistory(rowId) {
@@ -4703,17 +4727,6 @@ function _removeCellFromBoxes(ri, ci) {
   // ════════════════════════════════════════════════════════════════
   let _adminTabReady = false;
 
-  function setupAdminTab() {
-    if (_adminTabReady) { loadAdminFeedback(); return; }
-    _adminTabReady = true;
-
-    document.getElementById('admin-fb-type-filter').addEventListener('change', loadAdminFeedback);
-    document.getElementById('admin-fb-status-filter').addEventListener('change', loadAdminFeedback);
-    document.getElementById('btn-admin-fb-refresh').addEventListener('click', loadAdminFeedback);
-
-    loadAdminFeedback();
-  }
-
   async function loadAdminFeedback() {
     const wrap = document.getElementById('admin-feedback-wrap');
     wrap.innerHTML = '<div class="loading-row"><div class="spinner"></div> Loading…</div>';
@@ -5306,6 +5319,10 @@ function _removeCellFromBoxes(ri, ci) {
     }
     loadAdminDirectory();
     loadAdminAudit();
+      document.getElementById('admin-fb-type-filter').addEventListener('change', loadAdminFeedback);
+      document.getElementById('admin-fb-status-filter').addEventListener('change', loadAdminFeedback);
+      document.getElementById('btn-admin-fb-refresh').addEventListener('click', loadAdminFeedback);
+    loadAdminFeedback();
   }
 
   function _adminSyncGroupFields() {
