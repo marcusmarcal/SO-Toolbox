@@ -9,7 +9,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [2.49.3] - 2026-09-01
 
 ### Fixed
-- Video Analyser: Looped sources (-stream_loop) no longer cause a bitrate
+- SRT Ingest: Looped sources (-stream_loop) no longer cause a bitrate
   dip every time the source file reaches its end. Each loop now plays a
   cached, physically pre-trimmed copy of the file instead of the real file
   end, so the loop restart is seamless and the stream never stalls.
