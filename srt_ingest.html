@@ -161,6 +161,11 @@
       font-family:var(--mono); font-size:11px; color:var(--red); word-break:break-all;
     }
     .monitor-error-box.show { display:block; }
+    .monitor-error-detail {
+      margin-top:8px; padding-top:8px; border-top:1px solid rgba(255,59,92,.2);
+      font-family:var(--mono); font-size:10px; color:var(--muted);
+      white-space:pre-wrap; word-break:break-all; max-height:160px; overflow-y:auto;
+    }
 
     .host-combo { display: flex; gap: 8px; }
     .host-combo select {
@@ -570,11 +575,20 @@ function switchJob() {
   connectSSE(jid);
 }
 
-function showMonitorError(status, lastError, retryCount) {
+function showMonitorError(status, lastError, retryCount, errorDetail) {
   const box = document.getElementById('monitor-error-box');
   if (!lastError) { hideMonitorError(); return; }
   const label = status === 'reconnecting' ? `Reconnect attempt #${retryCount} failed` : 'Last error';
-  box.innerHTML = `<b>${label}:</b> ${esc(lastError)}`;
+  let html = `<b>${label}:</b> ${esc(lastError)}`;
+  // errorDetail is the tail of ffmpeg's raw stderr output (most recent last).
+  // It's shown in full underneath so the actual underlying reason (e.g.
+  // "Connection refused", "Input/output error", an SRT handshake timeout,
+  // etc.) is visible even when it isn't the very last line ffmpeg printed.
+  const lines = (errorDetail || []).filter(l => l && l !== lastError);
+  if (lines.length) {
+    html += `<div class="monitor-error-detail">${esc(lines.join('\n'))}</div>`;
+  }
+  box.innerHTML = html;
   box.classList.add('show');
 }
 
@@ -636,12 +650,12 @@ function connectSSE(jobId) {
       badge.textContent = '● RECONNECTING';
       badge.classList.add('off');
       badge.style.color = 'var(--yellow)';
-      showMonitorError(s.status, s.last_error, s.retry_count);
+      showMonitorError(s.status, s.last_error, s.retry_count, s.error_detail);
     } else if (s.status === 'error') {
       badge.textContent = '● ERROR';
       badge.classList.add('off');
       badge.style.color = 'var(--red)';
-      showMonitorError(s.status, s.last_error, s.retry_count);
+      showMonitorError(s.status, s.last_error, s.retry_count, s.error_detail);
     } else if (s.status === 'stopping' || s.status === 'starting') {
       badge.textContent = `● ${s.status.toUpperCase()}`;
       badge.classList.add('off');

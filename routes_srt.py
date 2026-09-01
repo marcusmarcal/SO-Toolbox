@@ -48,6 +48,28 @@ TS_SOURCE_DIR = "/opt/web/store/gop-results"
 # Delay before an unattended job auto-reconnects after ffmpeg exits.
 RETRY_DELAY_SECONDS = 3
 
+# ffmpeg's own logger collapses a repeated line into "Last message repeated
+# N times" instead of reprinting it — if that happens to be the very last
+# stderr line before the process exits, naively using it as last_error hides
+# the actual reason (e.g. "Connection refused") that came right before it.
+# Lines like this, and other non-diagnostic banner/prompt lines, are skipped
+# when picking a meaningful error to show the user.
+_NOISE_LINE_RE = re.compile(
+    r"^(last message repeated \d+ times?|press \[q\] to stop.*|stream mapping:|input #\d.*|output #\d.*)$",
+    re.IGNORECASE,
+)
+
+
+def _pick_last_error(error_log) -> Optional[str]:
+    """Return the most recent *meaningful* line from a job's error_log ring
+    buffer, skipping noise lines such as ffmpeg's own repeated-message
+    notice. Falls back to the raw last line if every line is noise."""
+    lines = list(error_log)
+    for line in reversed(lines):
+        if line and not _NOISE_LINE_RE.match(line.strip()):
+            return line
+    return lines[-1] if lines else None
+
 # -stream_loop reopens the input file from scratch on every iteration. Looping
 # all the way to the real end of file — and whatever low-complexity/fade-out
 # content that tail happens to contain, plus the container-EOF-then-seek-back
@@ -429,7 +451,7 @@ def _job_reader_thread(job_id: int) -> None:
                 job["process"] = None
                 return
             job["last_error"] = (
-                job["error_log"][-1] if job["error_log"]
+                _pick_last_error(job["error_log"]) if job["error_log"]
                 else f"ffmpeg exited with code {proc.returncode}"
             )
             job["status"] = "reconnecting"
@@ -547,6 +569,7 @@ def _job_info(job: dict) -> dict:
         "last_stat": job.get("last_stat"),
         "retry_count": job.get("retry_count", 0),
         "last_error": job.get("last_error"),
+        "error_detail": list(job.get("error_log", []))[-12:],
         "cmd": job.get("cmd", ""),
     }
     if job.get("type") == "shared":
@@ -862,6 +885,7 @@ def job_stats_sse(job_id: int):
                 yield "event: status\ndata: " + json.dumps({
                     "status": last_status,
                     "last_error": last_error,
+                    "error_detail": list(j.get("error_log", []))[-12:],
                     "retry_count": j.get("retry_count", 0),
                 }) + "\n\n"
 
