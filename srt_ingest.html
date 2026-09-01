@@ -332,6 +332,11 @@
       </select>
     </div>
 
+    <div class="field" id="watched-cmd-row" style="display:none;margin-top:10px">
+      <label>Running ffmpeg Command</label>
+      <div class="ffmpeg-preview" id="watched-cmd"></div>
+    </div>
+
     <canvas id="bitrate-canvas"></canvas>
 
     <div class="chart-stats">
@@ -524,16 +529,38 @@ let watchedJobId = null;
 let watchedJobTarget = 8;
 let watchedPassthrough = false;
 
+// Shows the exact ffmpeg command line currently running for the watched job
+// in the Bitrate Monitor card. Called on every job list refresh (so it stays
+// in sync if the job auto-reconnects) and immediately on job selection.
+function updateWatchedCmdDisplay(jobs) {
+  const row = document.getElementById('watched-cmd-row');
+  const el  = document.getElementById('watched-cmd');
+  if (!watchedJobId) { row.style.display = 'none'; return; }
+  const job = jobs.find(j => j.id === watchedJobId);
+  if (!job || !job.cmd) { row.style.display = 'none'; return; }
+  row.style.display = '';
+  el.textContent = job.cmd;
+}
+
 function switchJob() {
   const sel = document.getElementById('job-select');
   const jid = parseInt(sel.value);
   if (!jid) {
     disconnectSSE();
+    document.getElementById('watched-cmd-row').style.display = 'none';
     return;
   }
   const opt = sel.options[sel.selectedIndex];
   watchedJobTarget   = parseFloat(opt.dataset.target || 8);
   watchedPassthrough = opt.dataset.passthrough === 'true';
+  const cmdRow = document.getElementById('watched-cmd-row');
+  const cmdEl  = document.getElementById('watched-cmd');
+  if (opt.dataset.cmd) {
+    cmdRow.style.display = '';
+    cmdEl.textContent = opt.dataset.cmd;
+  } else {
+    cmdRow.style.display = 'none';
+  }
   // passthrough: no fixed target, Y axis auto-scales to real bitrate
   targetMbps = watchedPassthrough ? 0 : watchedJobTarget;
   chartData.length = 0;
@@ -909,6 +936,7 @@ function renderJobs(jobs) {
     o.value = j.id;
     o.dataset.target = j.bitrate_mbps;
     o.dataset.passthrough = j.passthrough ? 'true' : 'false';
+    o.dataset.cmd = j.cmd || '';
     const destLabel = j.type === 'shared'
       ? `${j.destinations[0].host}:${j.destinations[0].port}-${j.destinations[j.destinations.length-1].port} (${j.destinations.length} dests, shared)`
       : `${j.host}:${j.port}`;
@@ -917,6 +945,7 @@ function renderJobs(jobs) {
     sel.appendChild(o);
   });
   if (prev) sel.value = prev;
+  updateWatchedCmdDisplay(jobs);
 
   if (!total) {
     list.innerHTML = '<div class="no-jobs">No active jobs. Start an ingest above.</div>';

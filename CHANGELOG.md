@@ -6,6 +6,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.49.3] - 2026-09-01
+
+### Fixed
+- Video Analyser: Looped sources (-stream_loop) no longer cause a bitrate
+  dip every time the source file reaches its end. Each loop now plays a
+  cached, physically pre-trimmed copy of the file instead of the real file
+  end, so the loop restart is seamless and the stream never stalls.
+
+### Added
+- Video Analyser: The Bitrate Monitor now shows the exact ffmpeg command
+  line running for the selected "Watch Job", updated live.
+
 ## [2.49.2] - 2026-08-31
 
 ### Added
