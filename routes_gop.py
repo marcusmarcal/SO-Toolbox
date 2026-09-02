@@ -503,15 +503,23 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
                 ts_path = tmp.name
 
             log("Capturing stream with ffmpeg…")
-            cap_cmd = [
-                "ffmpeg", "-y",
-                "-timeout", str((duration + 10) * 1000000),
-            ]
-            
-            # Add RTMP-specific flags for stable stream pull (not push/listen)
+            cap_cmd = ["ffmpeg", "-y"]
+
             if url.startswith("rtmp://"):
-                cap_cmd.extend(["-rtmp_buffer", "3000", "-fflags", "nobuffer"])
-            
+                # IMPORTANT: do NOT use "-timeout" with ffmpeg's native RTMP
+                # protocol — for RTMP it means "wait for an INCOMING
+                # connection" and implicitly enables listen (server) mode,
+                # causing "Cannot assign requested address" when the host is
+                # remote. Use the generic "-rw_timeout" (I/O timeout) instead.
+                cap_cmd.extend([
+                    "-rw_timeout", str((duration + 10) * 1000000),
+                    "-rtmp_live", "live",
+                    "-rtmp_buffer", "3000",
+                    "-fflags", "nobuffer",
+                ])
+            else:
+                cap_cmd.extend(["-timeout", str((duration + 10) * 1000000)])
+                            
             cap_cmd.extend([
                 "-i", url,
                 "-map", "0",

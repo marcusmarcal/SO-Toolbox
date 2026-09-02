@@ -6,6 +6,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.50.3] - 2026-09-02
+
+### Fixed
+- Video Analyser: RTMP stream capture failed with "Cannot assign requested
+  address" because ffmpeg's "-timeout" option implies listen (server) mode
+  on the native RTMP protocol. RTMP inputs now use "-rw_timeout" and
+  "-rtmp_live live" for a proper client-side pull; SRT and other protocols
+  are unaffected.
 
 ## [2.50.2] - 2026-09-02
 
