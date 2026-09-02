@@ -9,6 +9,12 @@ exits (connection refused, network drop, etc). Each job can also be
 stopped/restarted individually, and error output from the last failed
 attempt is kept so it can be inspected from the Bitrate Monitor.
 
+Looped file sources (-stream_loop) are looped from a cached, physically
+pre-trimmed copy that stops a little short of the real end of file (see
+LOOP_TRIM_SECONDS / _looped_source_path), so each loop restart never touches
+the slow/low-complexity tail that otherwise causes a visible bitrate dip
+every time the source file "ends".
+
 Also handles SRT Push Control routes: monitoring and controlling the
 srt-push systemd service (Xvfb + Chromium + ffmpeg screen-to-SRT pipeline).
 """
@@ -20,6 +26,8 @@ import os
 import signal
 import time
 import json
+import math
+import hashlib
 from collections import deque
 from datetime import datetime, timezone
 from typing import Optional, Generator
@@ -39,6 +47,135 @@ TS_SOURCE_DIR = "/opt/web/store/gop-results"
 
 # Delay before an unattended job auto-reconnects after ffmpeg exits.
 RETRY_DELAY_SECONDS = 3
+
+# ffmpeg's own logger collapses a repeated line into "Last message repeated
+# N times" instead of reprinting it — if that happens to be the very last
+# stderr line before the process exits, naively using it as last_error hides
+# the actual reason (e.g. "Connection refused") that came right before it.
+# Lines like this, and other non-diagnostic banner/prompt lines, are skipped
+# when picking a meaningful error to show the user.
+_NOISE_LINE_RE = re.compile(
+    r"^(last message repeated \d+ times?|press \[q\] to stop.*|stream mapping:|input #\d.*|output #\d.*)$",
+    re.IGNORECASE,
+)
+
+
+def _pick_last_error(error_log) -> Optional[str]:
+    """Return the most recent *meaningful* line from a job's error_log ring
+    buffer, skipping noise lines such as ffmpeg's own repeated-message
+    notice. Falls back to the raw last line if every line is noise."""
+    lines = list(error_log)
+    for line in reversed(lines):
+        if line and not _NOISE_LINE_RE.match(line.strip()):
+            return line
+    return lines[-1] if lines else None
+
+# -stream_loop reopens the input file from scratch on every iteration. Looping
+# all the way to the real end of file — and whatever low-complexity/fade-out
+# content that tail happens to contain, plus the container-EOF-then-seek-back
+# cost of the reopen itself — is what makes the streamed bitrate visibly dip
+# every time the source "ends" and loops back to the start. We deliberately
+# loop a version of the file that stops this many seconds short of the real
+# end instead, so the restart never touches that tail.
+#
+# NOTE: an input-side "-t" combined with "-stream_loop" looks like the
+# obvious way to do this, but it does NOT re-apply on every loop — ffmpeg
+# treats hitting that limit as the end of the whole input and the process
+# exits after a single iteration (verified: this would have silently killed
+# the "never stop" requirement). A physically pre-trimmed copy of the file
+# does not have this problem, so that's what's used below.
+LOOP_TRIM_SECONDS = 1.0
+LOOP_CACHE_DIR = "/tmp/srt-ingest-loop-cache"
+
+# Guards concurrent generation of the same cached trimmed file across job
+# reader threads (keyed by the destination cache path).
+_loop_cache_locks: dict = {}
+_loop_cache_locks_guard = threading.Lock()
+
+
+def _loop_cache_lock_for(key: str) -> threading.Lock:
+    with _loop_cache_locks_guard:
+        lock = _loop_cache_locks.get(key)
+        if lock is None:
+            lock = threading.Lock()
+            _loop_cache_locks[key] = lock
+        return lock
+
+
+def _probe_duration_seconds(path: str) -> Optional[float]:
+    """Return a local media file's duration in seconds via ffprobe, or None
+    if it can't be determined (missing ffprobe, unreadable file, etc)."""
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "default=noprint_wrappers=1:nokey=1", path],
+            capture_output=True, text=True, timeout=10,
+        )
+        return float(result.stdout.strip())
+    except (subprocess.TimeoutExpired, OSError, ValueError):
+        return None
+
+
+def _looped_source_path(input_file: str) -> str:
+    """Return the path to feed into -stream_loop for this source.
+
+    Produces (and caches on disk) a stream-copied trim of input_file that
+    stops LOOP_TRIM_SECONDS short of its real end, so every loop restart
+    lands well before the slow/tail-content part of the file. Falls back to
+    the original input_file untouched if duration can't be probed, the file
+    is too short to safely trim, or the trim itself fails for any reason —
+    ffmpeg will then just loop the full file as before.
+
+    The cache key includes the file's mtime and size, so replacing the
+    source file at the same path automatically invalidates the cached trim.
+    """
+    try:
+        stat = os.stat(input_file)
+    except OSError:
+        return input_file
+
+    duration = _probe_duration_seconds(input_file)
+    if duration is None or duration <= LOOP_TRIM_SECONDS + 1:
+        return input_file
+    trimmed_duration = math.floor(duration - LOOP_TRIM_SECONDS)
+    if trimmed_duration <= 0:
+        return input_file
+
+    ext = os.path.splitext(input_file)[1] or ".mp4"
+    key = hashlib.sha1(
+        f"{input_file}:{stat.st_mtime}:{stat.st_size}:{trimmed_duration}".encode()
+    ).hexdigest()
+    cache_path = os.path.join(LOOP_CACHE_DIR, f"{key}{ext}")
+
+    if os.path.isfile(cache_path) and os.path.getsize(cache_path) > 0:
+        return cache_path
+
+    with _loop_cache_lock_for(cache_path):
+        # Re-check: another thread may have finished generating it while we
+        # were waiting for the lock.
+        if os.path.isfile(cache_path) and os.path.getsize(cache_path) > 0:
+            return cache_path
+
+        os.makedirs(LOOP_CACHE_DIR, exist_ok=True)
+        tmp_path = os.path.join(LOOP_CACHE_DIR, f"{key}.tmp{ext}")
+        try:
+            result = subprocess.run(
+                ["ffmpeg", "-y", "-i", input_file, "-t", str(trimmed_duration),
+                 "-c", "copy", "-avoid_negative_ts", "make_zero", tmp_path],
+                capture_output=True, text=True, timeout=60,
+            )
+            if result.returncode != 0 or not os.path.isfile(tmp_path) or os.path.getsize(tmp_path) == 0:
+                return input_file
+            os.replace(tmp_path, cache_path)
+            return cache_path
+        except (subprocess.TimeoutExpired, OSError):
+            return input_file
+        finally:
+            if os.path.isfile(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
 
 # Job statuses:
 #   starting     - initial launch in progress
@@ -117,11 +254,12 @@ def _build_ffmpeg_cmd(
         ]
 
     if passthrough:
+        loop_input = _looped_source_path(input_file)
         return [
             "ffmpeg", "-stream_loop", "-1",
             "-fflags", "+genpts+discardcorrupt",
             "-re",
-            "-i", input_file,
+            "-i", loop_input,
             "-map", "0:v:0",
             "-map", "0:a:0",
             "-c:v", "copy",
@@ -135,9 +273,11 @@ def _build_ffmpeg_cmd(
 
     vbr = f"{bitrate_mbps}M"
     bufsize = f"{bitrate_mbps * CBR_BUFSIZE_FACTOR}M"
+    loop_input = _looped_source_path(input_file)
     return [
         "ffmpeg", "-stream_loop", "-1", "-re",
-        "-i", input_file,
+        "-fflags", "+genpts",
+        "-i", loop_input,
         "-map", "0:v:0",
         "-map", "0:a:0",
         # Video — strict CBR
@@ -180,7 +320,8 @@ def _build_ffmpeg_cmd_shared(input_file: str, destinations: list, passphrase: st
     Passthrough/copy only — sharing a single re-encode across destinations
     would need the ffmpeg 'tee' muxer, which is not implemented here.
     """
-    cmd = ["ffmpeg", "-stream_loop", "-1", "-fflags", "+genpts+discardcorrupt", "-re", "-i", input_file]
+    loop_input = _looped_source_path(input_file)
+    cmd = ["ffmpeg", "-stream_loop", "-1", "-fflags", "+genpts+discardcorrupt", "-re", "-i", loop_input]
     for dest in destinations:
         srt_url = (
             f"srt://{dest['host']}:{dest['port']}?passphrase={passphrase}"
@@ -310,7 +451,7 @@ def _job_reader_thread(job_id: int) -> None:
                 job["process"] = None
                 return
             job["last_error"] = (
-                job["error_log"][-1] if job["error_log"]
+                _pick_last_error(job["error_log"]) if job["error_log"]
                 else f"ffmpeg exited with code {proc.returncode}"
             )
             job["status"] = "reconnecting"
@@ -428,6 +569,8 @@ def _job_info(job: dict) -> dict:
         "last_stat": job.get("last_stat"),
         "retry_count": job.get("retry_count", 0),
         "last_error": job.get("last_error"),
+        "error_detail": list(job.get("error_log", []))[-12:],
+        "cmd": job.get("cmd", ""),
     }
     if job.get("type") == "shared":
         info["destinations"] = job["destinations"]
@@ -742,6 +885,7 @@ def job_stats_sse(job_id: int):
                 yield "event: status\ndata: " + json.dumps({
                     "status": last_status,
                     "last_error": last_error,
+                    "error_detail": list(j.get("error_log", []))[-12:],
                     "retry_count": j.get("retry_count", 0),
                 }) + "\n\n"
 

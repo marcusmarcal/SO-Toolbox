@@ -6,6 +6,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.49.4] - 2026-09-01
+
+### Fixed
+- SRT Ingest: The Bitrate Monitor's reconnect/error message could show
+  ffmpeg's generic "Last message repeated N times" notice instead of the
+  actual connection failure reason.
+
+### Added
+- SRT Ingest: The Bitrate Monitor's error panel now shows the full
+  recent ffmpeg stderr output, not just a single summarized line, making
+  it possible to see exactly why a stream fails to connect.
+
+## [2.49.3] - 2026-09-01
+
+### Fixed
+- SRT Ingest: Looped sources (-stream_loop) no longer cause a bitrate
+  dip every time the source file reaches its end. Each loop now plays a
+  cached, physically pre-trimmed copy of the file instead of the real file
+  end, so the loop restart is seamless and the stream never stalls.
+
+### Added
+- SRT Ingest: The Bitrate Monitor now shows the exact ffmpeg command
+  line running for the selected "Watch Job", updated live.
+
 ## [2.49.2] - 2026-08-31
 
 ### Added
