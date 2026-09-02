@@ -410,7 +410,7 @@ def _run_mediainfo_delay(ts_path, log):
 
 
 def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, _original_name=None, workflow=DEFAULT_WORKFLOW):
-    """Background: capture SRT stream, run ffprobe frame analysis, parse GOP structure."""
+    """Background: capture SRT/RTMP stream, run ffprobe frame analysis, parse GOP structure."""
     log_lines = []
 
     def log(msg):
@@ -424,14 +424,23 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
     is_file_upload = url.startswith("file://")
     ts_path_from_upload = url[7:] if is_file_upload else None
 
-    m_host = re.search(r'srt://([^:/?]+):(\d+)', url_display)
+    # Support both SRT and RTMP URLs
+    m_srt = re.search(r'srt://([^:/?]+):(\d+)', url_display)
+    m_rtmp = re.search(r'rtmp://([^:/?]+):(\d+)', url_display)
+    
     if is_file_upload:
         url_host = "upload"
         url_port = ""
         url_display = "upload:" + (_original_name or os.path.basename(ts_path_from_upload or ""))
+    elif m_srt:
+        url_host = m_srt.group(1)
+        url_port = m_srt.group(2)
+    elif m_rtmp:
+        url_host = m_rtmp.group(1)
+        url_port = m_rtmp.group(2)
     else:
-        url_host = m_host.group(1) if m_host else url_display
-        url_port = m_host.group(2) if m_host else ""
+        url_host = url_display
+        url_port = ""
 
     ts_path = None
     cap_returncode = 0
@@ -497,13 +506,20 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             cap_cmd = [
                 "ffmpeg", "-y",
                 "-timeout", str((duration + 10) * 1000000),
+            ]
+            
+            # Add RTMP-specific flags if this is an RTMP stream
+            if url.startswith("rtmp://"):
+                cap_cmd.extend(["-rtmp_live", "live", "-rtmp_buffer", "3000"])
+            
+            cap_cmd.extend([
                 "-i", url,
                 "-map", "0",
                 "-t", str(duration),
                 "-c", "copy",
                 "-f", "mpegts",
                 ts_path
-            ]
+            ])
             try:
                 cap_result = subprocess.run(
                     cap_cmd,
