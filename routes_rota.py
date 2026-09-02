@@ -110,11 +110,16 @@ DIRECTORY_AUDIT_FILE  = os.path.join(ROTA_DIR, 'directory_audit_log.json')
 VALID_ROTATION_GROUPS = {'management', 'engineering', 'specialist'}
 
 def _load_person_directory() -> dict:
-    d = _load_json(PERSON_DIRECTORY_FILE)
-    if not isinstance(d, dict) or not d:
+    if not os.path.exists(PERSON_DIRECTORY_FILE):
         raise RuntimeError(
-            f'person_directory.json missing or empty at {PERSON_DIRECTORY_FILE} '
-            f'— refusing to start with an empty roster.'
+            f'person_directory.json missing at {PERSON_DIRECTORY_FILE} '
+            f'— create the file (can be an empty object {{}}) to start.'
+        )
+    d = _load_json(PERSON_DIRECTORY_FILE)
+    if not isinstance(d, dict):
+        raise RuntimeError(
+            f'person_directory.json is not a valid JSON object at '
+            f'{PERSON_DIRECTORY_FILE} — check for syntax errors.'
         )
     return d
 
@@ -250,20 +255,21 @@ def _resolve_shift(name: str, d: date, leave_map: dict,
     return base
 
 def _flanking_off_range(person: str, ds: date, de: date) -> tuple:
-    """Extend [ds, de] backwards/forwards over consecutive rota-OFF days
-    for this person, so a confirmed AL block visually swallows the
-    weekends/off-days it's adjacent to. Capped at 14 days each direction."""
+    MIN_DATE = date(2020, 1, 1)
+    MAX_DATE = date(2040, 1, 1)
+    original_ds = ds
     d = ds - timedelta(days=1)
-    while _base_shift(person, d) == 'OFF':
+    while d >= MIN_DATE and _base_shift(person, d) == 'OFF':
         ds = d
         d -= timedelta(days=1)
-        if (ds - d).days > 14:
+        if (original_ds - d).days > 14:
             break
+    original_de = de
     d = de + timedelta(days=1)
-    while _base_shift(person, d) == 'OFF':
+    while d <= MAX_DATE and _base_shift(person, d) == 'OFF':
         de = d
         d += timedelta(days=1)
-        if (d - de).days > 14:
+        if (d - original_de).days > 14:
             break
     return ds, de
 

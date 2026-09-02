@@ -1,5 +1,11 @@
 # Changelog — Rota App
 
+### Fixed 02-09-2026
+- `_flanking_off_range` caused an OverflowError when the person directory
+  was empty (all shifts resolve to OFF), because the 14-day cap was measured
+  from the moving boundary instead of the original date, so it never fired.
+  Fixed cap calculation and added hard date bounds as a safety net.
+
 ## [Unreleased] 01-09-2026
 ### Fixed
 - Admin tab: `setupAdminTab` was defined twice — second definition silently
