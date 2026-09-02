@@ -6,6 +6,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.50.4] - 2026-09-02
+
+### Changed
+- Video Analyser: RTMP mode now defaults to the "RTS" workflow. The RTS
+  option is pre-selected in the RTMP form and enforced after workflow
+  labels load from the API; SRT and Upload modes are unchanged and keep
+  the API default workflow.
+
 ## [2.50.3] - 2026-09-02
 
 ### Fixed

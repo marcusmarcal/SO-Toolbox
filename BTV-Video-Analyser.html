@@ -1408,7 +1408,7 @@
           <label>Workflow</label>
           <select id="inp-rtmp-workflow" onchange="onWorkflowChange()">
             <option value="dc_aminos_tp">DC - Aminos and TP ★</option>
-            <option value="rts">RTS</option>
+            <option value="rts" selected>RTS</option>
             <option value="wb">W&amp;B</option>
           </select>
         </div>
@@ -3262,7 +3262,7 @@
           const apiDefault = data.default || "dc_aminos_tp";
           _apiDefaultWorkflow = apiDefault;
           Object.assign(WORKFLOW_LABELS, labels);
-          const el = document.getElementById("inp-workflow");
+                    const el = document.getElementById("inp-workflow");
           if (el) {
             Array.from(el.options).forEach((opt) => {
               if (WORKFLOW_LABELS[opt.value]) {
@@ -3272,6 +3272,17 @@
             });
             // Always start on API default — never restore from cookie
             el.value = apiDefault;
+          }
+          // RTMP mode always defaults to the RTS workflow
+          const elRtmp = document.getElementById("inp-rtmp-workflow");
+          if (elRtmp) {
+            Array.from(elRtmp.options).forEach((opt) => {
+              if (WORKFLOW_LABELS[opt.value]) {
+                const suffix = opt.value === "rts" ? " ★" : "";
+                opt.textContent = WORKFLOW_LABELS[opt.value] + suffix;
+              }
+            });
+            elRtmp.value = "rts";
           }
         } catch (e) {}
       }
