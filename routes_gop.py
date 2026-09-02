@@ -508,9 +508,9 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
                 "-timeout", str((duration + 10) * 1000000),
             ]
             
-            # Add RTMP-specific flags if this is an RTMP stream
+            # Add RTMP-specific flags for stable stream pull (not push/listen)
             if url.startswith("rtmp://"):
-                cap_cmd.extend(["-rtmp_live", "live", "-rtmp_buffer", "3000"])
+                cap_cmd.extend(["-rtmp_buffer", "3000", "-fflags", "nobuffer"])
             
             cap_cmd.extend([
                 "-i", url,
