@@ -1079,7 +1079,7 @@
         <p class="section-title" style="margin:0;">SOE Weekend Coverage</p>
         <select class="toolbar-select" id="soe-mode-select" style="font-size:0.68rem;">
           <option value="aggregate">All Years (Aggregate)</option>
-          <option value="year">Single Year</option>
+          <option value="year" selected>Single Year</option>
         </select>
         <select class="toolbar-select" id="soe-year-select" style="font-size:0.68rem;">
           <option value="">— year —</option>
@@ -4902,8 +4902,29 @@ function _removeCellFromBoxes(ri, ci) {
       }
       const modeSel = document.getElementById('soe-mode-select');
       if (modeSel) {
-        modeSel.addEventListener('change', () => renderSoeWeekends(modeSel.value));
+        modeSel.addEventListener('change', () => {
+          const isAgg = modeSel.value === 'aggregate';
+          const yrSel = document.getElementById('soe-year-select');
+          if (yrSel) yrSel.disabled = isAgg;
+          renderSoeWeekends(modeSel.value);
+        });
       }
+      // Set current year as default once years are populated
+      const _setSoeYearDefault = () => {
+        const yrSel = document.getElementById('soe-year-select');
+        if (!yrSel) return;
+        const currentYear = String(new Date().getFullYear());
+        const opt = Array.from(yrSel.options).find(o => o.value === currentYear);
+        if (opt) yrSel.value = currentYear;
+      };
+      // Year dropdown populated after fetch resolves — hook into loadSoeWeekends result
+      const _origLoad = loadSoeWeekends;
+      loadSoeWeekends = async function() {
+        await _origLoad();
+        _setSoeYearDefault();
+        const yrSel = document.getElementById('soe-year-select');
+        if (yrSel) yrSel.disabled = false; // default is 'year' mode
+      };
     }
   }
 
@@ -4940,7 +4961,7 @@ function _removeCellFromBoxes(ri, ci) {
       const d = await r.json();
       if (!d.ok) { el.innerHTML = `<div class="empty-state">Error: ${d.error}</div>`; return; }
       _soeWeekendData = d;
-      renderSoeWeekends('aggregate');
+      renderSoeWeekends('year');
     } catch(e) {
       el.innerHTML = `<div class="empty-state">Failed to load: ${e.message}</div>`;
     }
