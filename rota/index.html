@@ -1367,7 +1367,7 @@
 
   async function loadPrintFooterConfig() {
     try {
-      const response = await fetch('/config/print-footer.json');
+      const response = await fetch('/rota/print-footer.json');
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
