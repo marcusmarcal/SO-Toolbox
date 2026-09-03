@@ -1184,6 +1184,25 @@
           📡 SRT Stream
         </button>
         <button
+          id="tab-rtmp"
+          onclick="setInputMode('rtmp')"
+          style="
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--muted);
+            font-family: var(--mono);
+            font-size: 0.78rem;
+            font-weight: 700;
+            padding: 0.35rem 0.9rem 0.35rem 0.9rem;
+            cursor: pointer;
+            margin-bottom: -1px;
+            transition: color 0.15s;
+          "
+        >
+          📹 RTMP Stream
+        </button>
+        <button
           id="tab-upload"
           onclick="setInputMode('upload')"
           style="
@@ -1325,6 +1344,98 @@
           title="Open a real-time post-SRT PCR-interval & TS-loss monitor using the Host/Port/Passphrase above, without running a GOP test"
         >
           📡 Live Probe
+        </button>
+        <button
+          onclick="clearForm()"
+          style="
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            color: var(--muted);
+            font-family: var(--mono);
+            font-size: 0.76rem;
+            font-weight: 700;
+            padding: 0 0.75rem;
+            height: 36px;
+            cursor: pointer;
+            white-space: nowrap;
+            align-self: flex-end;
+          "
+          title="Clear all form fields"
+        >
+          ✕ Clear
+        </button>
+      </div>
+
+      <!-- RTMP mode -->
+      <div id="form-rtmp" class="form-row" style="display: none">
+        <div class="field grow">
+          <label>RTMP URL</label>
+          <input
+            id="inp-rtmp-url"
+            type="text"
+            placeholder="rtmp://10.0.0.1:1935/live/stream"
+            autocomplete="off"
+            list="rtmp-url-presets"
+          />
+          <datalist id="rtmp-url-presets"></datalist>
+        </div>
+        <div class="field w120">
+          <label>Duration</label>
+          <select id="inp-rtmp-dur">
+            <option value="15">15 seconds</option>
+            <option value="30" selected>30 seconds</option>
+            <option value="60">60 seconds</option>
+          </select>
+        </div>
+        <div class="field w180">
+          <label
+            >Tag
+            <span style="color: var(--muted); font-weight: 400"
+              >(optional)</span
+            ></label
+          >
+          <input
+            id="inp-rtmp-tag"
+            type="text"
+            placeholder="e.g. test, JIRA-123"
+            autocomplete="off"
+            list="tag-presets-rtmp"
+          />
+          <datalist id="tag-presets-rtmp"></datalist>
+        </div>
+        <div class="field w180">
+          <label>Workflow</label>
+          <select id="inp-rtmp-workflow" onchange="onWorkflowChange()">
+            <option value="dc_aminos_tp">DC - Aminos and TP ★</option>
+            <option value="rts" selected>RTS</option>
+            <option value="wb">W&amp;B</option>
+          </select>
+        </div>
+        <button class="btn-run" id="btn-rtmp-run" onclick="runAnalysisRTMP()">
+          ▶ Analyse Now
+        </button>
+        <button
+          onclick="openScheduleModal()"
+          style="
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            color: var(--muted);
+            font-family: var(--mono);
+            font-size: 0.76rem;
+            font-weight: 700;
+            padding: 0 0.9rem;
+            height: 36px;
+            cursor: pointer;
+            white-space: nowrap;
+            align-self: flex-end;
+            transition: border-color 0.15s, color 0.15s;
+          "
+          onmouseover="this.style.borderColor='var(--cyan)';this.style.color='var(--cyan)'"
+          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'"
+        >
+          🕐 Schedule
         </button>
         <button
           onclick="clearForm()"
@@ -3151,7 +3262,7 @@
           const apiDefault = data.default || "dc_aminos_tp";
           _apiDefaultWorkflow = apiDefault;
           Object.assign(WORKFLOW_LABELS, labels);
-          const el = document.getElementById("inp-workflow");
+                    const el = document.getElementById("inp-workflow");
           if (el) {
             Array.from(el.options).forEach((opt) => {
               if (WORKFLOW_LABELS[opt.value]) {
@@ -3161,6 +3272,17 @@
             });
             // Always start on API default — never restore from cookie
             el.value = apiDefault;
+          }
+          // RTMP mode always defaults to the RTS workflow
+          const elRtmp = document.getElementById("inp-rtmp-workflow");
+          if (elRtmp) {
+            Array.from(elRtmp.options).forEach((opt) => {
+              if (WORKFLOW_LABELS[opt.value]) {
+                const suffix = opt.value === "rts" ? " ★" : "";
+                opt.textContent = WORKFLOW_LABELS[opt.value] + suffix;
+              }
+            });
+            elRtmp.value = "rts";
           }
         } catch (e) {}
       }
@@ -3278,6 +3400,47 @@
         }
       }
 
+      async function runAnalysisRTMP() {
+        const rtmpUrl = document.getElementById("inp-rtmp-url").value.trim();
+        const dur = parseInt(document.getElementById("inp-rtmp-dur").value) || 30;
+        const tag = document.getElementById("inp-rtmp-tag").value.trim();
+        const workflow = document.getElementById("inp-rtmp-workflow").value;
+
+        if (!rtmpUrl) {
+          setStatus("err", "RTMP URL is required.");
+          return;
+        }
+
+        const btnUp = document.getElementById("btn-upload");
+        if (btnUp) btnUp.disabled = true;
+        document.getElementById("placeholder").style.display = "none";
+        document.getElementById("results-content").style.display = "none";
+        document.getElementById("log-card").style.display = "";
+        document.getElementById("log-output").textContent = "";
+        startProgress(dur);
+        setStatus("running", `Capturing ${dur}s from RTMP stream…`);
+
+        try {
+          const res = await fetch(`${PROXY}/gop/run`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              url: rtmpUrl,
+              duration: dur,
+              tag,
+              workflow,
+            }),
+          });
+          const data = await res.json();
+          if (!data.job_id) throw new Error(data.error || "No job_id");
+          pollStatusRTMP(data.job_id, dur, rtmpUrl);
+        } catch (e) {
+          setStatus("err", `Error: ${e.message}`);
+          document.getElementById("btn-rtmp-run").disabled = false;
+          stopProgress(false);
+        }
+      }
+
       function pollStatus(job_id, dur, host, port) {
         clearInterval(pollTimer);
         // Reset _currentResultFile so we get the new one from this run
@@ -3306,6 +3469,52 @@
               if (job.res_file) job.result.res_file = job.res_file;
               renderResult(job.result);
               setStatus("ok", `Done — ${host}:${port}`);
+            } else {
+              // failed / error — show log, update status
+              const errMsg =
+                (job.result && job.result.error) || `Analysis ${job.status}`;
+              setStatus("err", errMsg);
+              if (job.result && job.result.error) {
+                document.getElementById("log-card").style.display = "";
+              }
+            }
+
+            // Always refresh history — failed/error runs also save a JSON now
+            loadHistory();
+          } catch (e) {
+            console.error(e);
+          }
+        }, 1500);
+      }
+
+      function pollStatusRTMP(job_id, dur, rtmpUrl) {
+        clearInterval(pollTimer);
+        // Reset _currentResultFile so we get the new one from this run
+        _currentResultFile = null;
+
+        pollTimer = setInterval(async () => {
+          try {
+            const res = await fetch(`${PROXY}/gop/status/${job_id}`);
+            const job = await res.json();
+            const logEl = document.getElementById("log-output");
+            logEl.textContent = (job.log || []).join("\n");
+            logEl.scrollTop = logEl.scrollHeight;
+
+            if (job.status === "running") return;
+
+            clearInterval(pollTimer);
+            pollTimer = null;
+            stopProgress(job.status === "done");
+            document.getElementById("btn-rtmp-run").disabled = false;
+
+            // Store res_file so override/re-run works on the new result
+            if (job.res_file) _currentResultFile = job.res_file;
+
+            if (job.status === "done" && job.result) {
+              // Inject res_file into result so renderResult can use it
+              if (job.res_file) job.result.res_file = job.res_file;
+              renderResult(job.result);
+              setStatus("ok", `Done — RTMP Stream`);
             } else {
               // failed / error — show log, update status
               const errMsg =
@@ -5397,20 +5606,26 @@
       // ── Input mode toggle (SRT / Upload) ──────────────────────────────
       function setInputMode(mode) {
         const isSrt = mode === "srt";
+        const isRtmp = mode === "rtmp";
+        const isUpload = mode === "upload";
+        
         document.getElementById("form-srt").style.display = isSrt ? "" : "none";
-        document.getElementById("form-upload").style.display = isSrt
-          ? "none"
-          : "";
+        document.getElementById("form-rtmp").style.display = isRtmp ? "" : "none";
+        document.getElementById("form-upload").style.display = isUpload ? "" : "none";
+        
         const tabSrt = document.getElementById("tab-srt");
+        const tabRtmp = document.getElementById("tab-rtmp");
         const tabUpload = document.getElementById("tab-upload");
-        tabSrt.style.borderBottomColor = isSrt
-          ? "var(--purple)"
-          : "transparent";
+        
+        // Update tab styling
+        tabSrt.style.borderBottomColor = isSrt ? "var(--purple)" : "transparent";
         tabSrt.style.color = isSrt ? "#fff" : "var(--muted)";
-        tabUpload.style.borderBottomColor = isSrt
-          ? "transparent"
-          : "var(--purple)";
-        tabUpload.style.color = isSrt ? "var(--muted)" : "#fff";
+        
+        tabRtmp.style.borderBottomColor = isRtmp ? "var(--purple)" : "transparent";
+        tabRtmp.style.color = isRtmp ? "#fff" : "var(--muted)";
+        
+        tabUpload.style.borderBottomColor = isUpload ? "var(--purple)" : "transparent";
+        tabUpload.style.color = isUpload ? "#fff" : "var(--muted)";
 
         const liveProbeStandaloneBtn = document.getElementById(
           "btn-live-probe-standalone"
