@@ -5258,14 +5258,13 @@ function _removeCellFromBoxes(ri, ci) {
   // ════════════════════════════════════════════════════════════════
   //  ADMIN — PERSON DIRECTORY (add / edit / hide / delete)
   // ════════════════════════════════════════════════════════════════
-  let _adminTabReady  = false;
   let _adminDirectory = null;
   let _adminAuditOpen = false;
   let _adminAddFormOpen = false;
 
   function setupAdminTab() {
     if (!_adminReady) {
-      _adminReady = true;
+      _adminTabReady = true;
 
       // ── People card ──────────────────────────────────────────────────
       document.getElementById('admin-new-rotation-group').addEventListener('change', _adminSyncGroupFields);
