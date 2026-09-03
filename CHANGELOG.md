@@ -6,6 +6,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.51.2] - 2026-09-03
+
+### Added
+- **General Tool Admin**: search box and filters (role, team, rota status) on the Users tab of User Management, with live result count, Clear button and `Ctrl/Cmd+K` / `/` shortcut to focus search.
+
 ## [2.51.1] - 2026-09-03
 
 ### Added

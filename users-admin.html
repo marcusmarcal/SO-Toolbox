@@ -486,6 +486,56 @@
         white-space: nowrap;
       }
 
+      /* ── FILTER BAR ── */
+      #filter-bar {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+      }
+      #filter-bar input,
+      #filter-bar select {
+        background: var(--card);
+        border: 1px solid var(--border);
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        padding: 7px 12px;
+        border-radius: 7px;
+        outline: none;
+        transition: border-color 0.2s;
+      }
+      #filter-bar input:focus,
+      #filter-bar select:focus {
+        border-color: var(--accent);
+      }
+      #filter-bar input {
+        flex: 1;
+        min-width: 180px;
+      }
+      #filter-bar input::placeholder {
+        color: var(--muted);
+      }
+      #filter-bar select option {
+        background: var(--card);
+      }
+      #filter-bar select.active {
+        border-color: rgba(161, 139, 245, 0.5);
+        color: var(--accent);
+      }
+      #filter-count {
+        font-family: var(--mono);
+        font-size: 0.55rem;
+        color: var(--muted);
+        white-space: nowrap;
+        margin-left: auto;
+      }
+      .btn.small {
+        font-size: 0.58rem;
+        padding: 7px 12px;
+      }
+
       /* ── TOAST ── */
       #toast {
         position: fixed;
@@ -612,6 +662,40 @@
           <button class="btn" onclick="loadUsers()" style="font-size: 0.6rem">
             ⟳ Refresh
           </button>
+        </div>
+
+        <div id="filter-bar">
+          <input
+            type="search"
+            id="flt-search"
+            placeholder="Search username, display name, employee ID…"
+            autocomplete="off"
+            oninput="applyFilters()"
+          />
+          <select id="flt-role" onchange="applyFilters()">
+            <option value="">All roles</option>
+            <option value="admin">admin</option>
+            <option value="engineer">engineer</option>
+            <option value="specialist">specialist</option>
+            <option value="analyst">analyst</option>
+            <option value="user">user</option>
+          </select>
+          <select id="flt-team" onchange="applyFilters()">
+            <option value="">All teams</option>
+            <option value="soe">SOE</option>
+            <option value="sos">SOS</option>
+            <option value="na">NA</option>
+          </select>
+          <select id="flt-rota" onchange="applyFilters()">
+            <option value="">All rota status</option>
+            <option value="active">active</option>
+            <option value="inactive">inactive</option>
+            <option value="observer">observer</option>
+          </select>
+          <button class="btn small" onclick="clearFilters()" id="btn-clear-filters" style="display: none">
+            ✕ Clear
+          </button>
+          <span id="filter-count"></span>
         </div>
 
         <div id="user-list">
@@ -836,12 +920,85 @@
       })();
 
       // ── Load users ──────────────────────────────────────────────────
+      let allUsers = []; // full list from server; filters applied client-side
+
       function loadUsers() {
         fetch(`${PROXY}/users`, { credentials: "same-origin" })
           .then((r) => r.json())
-          .then((data) => renderUsers(data.users || []))
+          .then((data) => {
+            allUsers = data.users || [];
+            applyFilters();
+          })
           .catch(() => toast("Failed to load users", "err"));
       }
+
+      // ── Search & filters ────────────────────────────────────────────
+      function getFilters() {
+        return {
+          q: document.getElementById("flt-search").value.trim().toLowerCase(),
+          role: document.getElementById("flt-role").value,
+          team: document.getElementById("flt-team").value,
+          rota: document.getElementById("flt-rota").value,
+        };
+      }
+
+      function applyFilters() {
+        const f = getFilters();
+        const filtered = allUsers.filter((u) => {
+          if (f.role && (u.role || "user") !== f.role) return false;
+          if (f.team && (u.team || "na") !== f.team) return false;
+          if (f.rota && (u.rota_status || "observer") !== f.rota) return false;
+          if (f.q) {
+            const hay = [
+              u.username,
+              u.display_name,
+              u.employee_id,
+              u.role,
+              u.team,
+            ]
+              .filter(Boolean)
+              .join(" ")
+              .toLowerCase();
+            if (!hay.includes(f.q)) return false;
+          }
+          return true;
+        });
+
+        // Visual state of the bar
+        const anyActive = !!(f.q || f.role || f.team || f.rota);
+        ["flt-role", "flt-team", "flt-rota"].forEach((id) => {
+          const el = document.getElementById(id);
+          el.classList.toggle("active", !!el.value);
+        });
+        document.getElementById("btn-clear-filters").style.display = anyActive
+          ? ""
+          : "none";
+        document.getElementById("filter-count").textContent = anyActive
+          ? `${filtered.length} of ${allUsers.length}`
+          : `${allUsers.length} user${allUsers.length !== 1 ? "s" : ""}`;
+
+        renderUsers(filtered, anyActive);
+      }
+
+      function clearFilters() {
+        document.getElementById("flt-search").value = "";
+        document.getElementById("flt-role").value = "";
+        document.getElementById("flt-team").value = "";
+        document.getElementById("flt-rota").value = "";
+        applyFilters();
+        document.getElementById("flt-search").focus();
+      }
+
+      // Ctrl/Cmd+K or "/" focuses the search box
+      document.addEventListener("keydown", (e) => {
+        const tag = (e.target.tagName || "").toLowerCase();
+        const typing = tag === "input" || tag === "select" || tag === "textarea";
+        if (((e.ctrlKey || e.metaKey) && e.key === "k") || (e.key === "/" && !typing)) {
+          e.preventDefault();
+          showTab("users");
+          document.getElementById("flt-search").focus();
+        }
+      });
 
       // Role display order and group labels
       const ROLE_ORDER = ["admin", "engineer", "specialist", "analyst", "user"];
@@ -853,11 +1010,12 @@
         user: "Users",
       };
 
-      function renderUsers(users) {
+      function renderUsers(users, filtered = false) {
         const el = document.getElementById("user-rows");
         if (!users.length) {
-          el.innerHTML =
-            '<div class="empty-state">No users yet — create one below</div>';
+          el.innerHTML = filtered
+            ? '<div class="empty-state">No users match the current filters</div>'
+            : '<div class="empty-state">No users yet — create one below</div>';
           return;
         }
 
