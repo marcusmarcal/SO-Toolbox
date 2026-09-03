@@ -734,6 +734,21 @@
     .modal-card textarea:focus { border-color: var(--accent); }
     .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
 
+    /* ── ADMIN CARDS ── */
+    .admin-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 20px 24px; margin-bottom: 20px;
+    }
+    .admin-card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px; padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .admin-card-title {
+      font-family: var(--mono); font-size: 0.78rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent);
+    }
+
     /* ── PRINT MONTH EXPORT ── */
     #print-rota-root { display: none; }
     @media print {
@@ -1052,14 +1067,11 @@
       </div>
       <button class="btn primary" id="btn-overview-refresh">⟳ Refresh</button>
       <div class="sep"></div>
-      <div id="overview-mhd-group" style="display:none;align-items:center;gap:8px;">
-        <span class="toolbar-label">MHD Default (days)</span>
-        <input type="number" step="0.5" min="0" id="overview-mhd-input" style="width:60px;
-          background:var(--card);border:1px solid var(--border);color:var(--text);
-          font-family:var(--mono);font-size:0.75rem;padding:6px 8px;border-radius:6px;outline:none;" />
-        <button class="btn primary" id="btn-overview-mhd-save" style="font-size:0.65rem;padding:6px 12px;">Save MHD</button>
-      </div>
-      <div id="overview-mgmt-toggle" style="display:none;">
+      <div id="overview-mgmt-toggle" style="display:none;align-items:center;gap:10px;">
+        <div id="overview-member-row" style="display:flex;align-items:center;gap:8px;">
+          <span class="toolbar-label">Member</span>
+          <select class="toolbar-select" id="overview-member-select" style="font-size:0.72rem;"></select>
+        </div>
         <button class="toggle-btn" id="overview-all-toggle">All Members</button>
       </div>
       <div id="overview-team-toggles" style="display:none;gap:8px;">
@@ -1089,92 +1101,160 @@
     </div>
   </div>
 
-  <!-- ══ TAB: ADMIN (person directory) ══ -->
+  <!-- ══ TAB: ADMIN ══ -->
   <div class="tab-panel" id="panel-admin">
-    <p class="section-title">Add Person</p>
-    <div class="form-grid" id="admin-add-grid">
-      <div class="form-group">
-        <label>Employee ID</label>
-        <input type="text" id="admin-new-employee-id" placeholder="e.g. 10234" inputmode="numeric" />
-      </div>
-      <div class="form-group">
-        <label>Full Name</label>
-        <input type="text" id="admin-new-full-name" placeholder="Legal name — used on HR exports" />
-      </div>
-      <div class="form-group">
-        <label>Rota Label</label>
-        <input type="text" id="admin-new-rota-label" placeholder="Short grid alias, e.g. &quot;James S&quot;" />
-      </div>
-      <div class="form-group">
-        <label>Rotation Group</label>
-        <select id="admin-new-rotation-group">
-          <option value="management">Management</option>
-          <option value="engineering">Engineering</option>
-          <option value="specialist">Specialist</option>
-        </select>
-      </div>
-      <div class="form-group" id="admin-new-shift-group">
-        <label>Shift (management)</label>
-        <input type="text" id="admin-new-shift" placeholder="0900-1730" maxlength="9" />
-      </div>
-      <div class="form-group" id="admin-new-offset-group" style="display:none;">
-        <label>Rotation Offset (days)</label>
-        <input type="number" min="0" id="admin-new-offset" placeholder="e.g. 35" />
-      </div>
-      <div class="form-group">
-        <label>HR Team</label>
-        <select id="admin-new-hr-team">
-          <option value="">— none —</option>
-          <option value="SOE">SOE</option>
-          <option value="SOS">SOS</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>SOE Join Date <span style="opacity:0.6;">(optional)</span></label>
-        <input type="date" id="admin-new-soe-join-date" />
-    </div>
-    </div>
-    <button class="btn primary" id="btn-admin-add">+ Add Person</button>
-    <div id="admin-add-err" style="display:none;margin-top:10px;font-family:var(--mono);font-size:0.72rem;color:var(--danger);"></div>
 
-    <hr class="section-divider" />
-    <p class="section-title">
-      Directory
-      <span style="opacity:0.6;text-transform:none;letter-spacing:normal;">
-        — rota label can't be changed after creation; hide instead of deleting where possible.
-      </span>
-    </p>
-    <div id="admin-directory-wrap">
-      <div class="loading-row"><div class="spinner"></div> Loading…</div>
+    <!-- CARD: People -->
+    <div class="admin-card" id="admin-card-people">
+      <div class="admin-card-header">
+        <span class="admin-card-title">👥 People</span>
+        <div style="display:flex;gap:8px;">
+          <button class="btn primary" id="btn-admin-add-toggle" style="font-size:0.68rem;padding:5px 12px;">+ Add Person</button>
+          <button class="btn" id="btn-admin-audit-refresh" style="font-size:0.65rem;padding:4px 10px;">⟳ Recent Changes</button>
+        </div>
+      </div>
+
+      <!-- Add Person form (hidden by default) -->
+      <div id="admin-add-form" style="display:none;margin-bottom:20px;padding:16px;background:var(--bg);border-radius:8px;border:1px solid var(--border);">
+        <div class="form-grid" id="admin-add-grid">
+          <div class="form-group">
+            <label>Employee ID</label>
+            <input type="text" id="admin-new-employee-id" placeholder="e.g. 10234" inputmode="numeric" />
+          </div>
+          <div class="form-group">
+            <label>Full Name</label>
+            <input type="text" id="admin-new-full-name" placeholder="Legal name — used on HR exports" />
+          </div>
+          <div class="form-group">
+            <label>Rota Label</label>
+            <input type="text" id="admin-new-rota-label" placeholder="Short grid alias, e.g. &quot;Joao L&quot;" />
+          </div>
+          <div class="form-group">
+            <label>Rotation Group</label>
+            <select id="admin-new-rotation-group">
+              <option value="management">Management</option>
+              <option value="engineering">Engineering</option>
+              <option value="specialist">Specialist</option>
+            </select>
+          </div>
+          <div class="form-group" id="admin-new-shift-group">
+            <label>Shift (management)</label>
+            <input type="text" id="admin-new-shift" placeholder="0900-1730" maxlength="9" />
+          </div>
+          <div class="form-group" id="admin-new-offset-group" style="display:none;">
+            <label>Rotation Offset (days)</label>
+            <input type="number" min="0" id="admin-new-offset" placeholder="e.g. 35" />
+          </div>
+          <div class="form-group">
+            <label>HR Team</label>
+            <select id="admin-new-hr-team">
+              <option value="">— none —</option>
+              <option value="SOE">SOE</option>
+              <option value="SOS">SOS</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>SOE Join Date <span style="opacity:0.6;">(optional)</span></label>
+            <input type="date" id="admin-new-soe-join-date" />
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn primary" id="btn-admin-add">+ Add Person</button>
+          <button class="btn" id="btn-admin-add-cancel">Cancel</button>
+        </div>
+        <div id="admin-add-err" style="display:none;margin-top:10px;font-family:var(--mono);font-size:0.72rem;color:var(--danger);"></div>
+      </div>
+
+      <!-- Directory -->
+      <div id="admin-directory-wrap">
+        <div class="loading-row"><div class="spinner"></div> Loading…</div>
+      </div>
+
+      <!-- Recent Changes (collapsible) -->
+      <div id="admin-audit-wrap" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+        <div class="loading-row"><div class="spinner"></div> Loading…</div>
+      </div>
     </div>
 
-    <hr class="section-divider" />
-    <div class="history-controls">
-      <p class="section-title" style="margin:0;">Recent Changes</p>
-      <button class="btn" id="btn-admin-audit-refresh" style="font-size:0.65rem;padding:4px 10px;">⟳ Refresh</button>
+    <!-- CARD: Annual Leave -->
+    <div class="admin-card" id="admin-card-al">
+      <div class="admin-card-header">
+        <span class="admin-card-title">📅 Annual Leave</span>
+      </div>
+
+      <!-- MHD Section -->
+      <div style="margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border);">
+        <div class="section-title" style="margin-bottom:12px;">MHD Default</div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div class="form-group" style="flex-direction:row;align-items:center;gap:10px;margin:0;">
+            <label style="white-space:nowrap;">Year</label>
+            <select class="toolbar-select" id="admin-al-year" style="width:100px;"></select>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;" id="admin-mhd-row">
+            <input type="number" step="0.5" min="0" id="admin-mhd-input"
+              style="width:80px;background:var(--card);border:1px solid var(--border);color:var(--text);
+                     font-family:var(--mono);font-size:0.75rem;padding:6px 8px;border-radius:6px;outline:none;" />
+            <button class="btn primary" id="btn-admin-mhd-save" style="font-size:0.65rem;padding:6px 12px;">Save MHD</button>
+            <button class="btn" id="btn-admin-mhd-unlock" style="display:none;font-size:0.65rem;padding:6px 12px;">🔓 Unlock</button>
+            <span id="admin-mhd-locked-display" style="display:none;font-family:var(--mono);font-size:0.75rem;color:var(--muted);">
+              <span id="admin-mhd-locked-value"></span>
+              <span style="margin-left:6px;font-size:0.6rem;">days 🔒</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Misc Entries Section -->
+      <div>
+        <div class="section-title" style="margin-bottom:12px;">Misc Entries</div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+          <div class="form-group" style="flex-direction:row;align-items:center;gap:10px;margin:0;">
+            <label style="white-space:nowrap;">Member</label>
+            <select class="toolbar-select" id="admin-misc-member">
+              <option value="">— select member —</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Misc form + list: shown after member selected -->
+        <div id="admin-misc-content" style="display:none;">
+          <div class="al-add-misc" style="margin-bottom:16px;">
+            <input type="date" id="admin-misc-date" />
+            <input type="number" step="0.5" id="admin-misc-hours" placeholder="Hours" style="width:80px;" />
+            <input type="text" id="admin-misc-reason" placeholder="Reason…" style="flex:1;min-width:160px;" />
+            <button class="btn primary" id="btn-admin-misc-add" style="font-size:0.62rem;">+ Add Entry</button>
+          </div>
+          <div id="admin-misc-list">
+            <div class="empty-state">No misc entries for this member.</div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div id="admin-audit-wrap">
-      <div class="empty-state">No changes yet.</div>
+
+    <!-- CARD: Feedback -->
+    <div class="admin-card" id="admin-card-feedback">
+      <div class="admin-card-header">
+        <span class="admin-card-title">💬 Feedback</span>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select class="toolbar-select" id="admin-fb-type-filter" style="font-size:0.68rem;">
+            <option value="all">All types</option>
+            <option value="bug">🐛 Bugs</option>
+            <option value="enhancement">✨ Features</option>
+          </select>
+          <select class="toolbar-select" id="admin-fb-status-filter" style="font-size:0.68rem;">
+            <option value="all">All statuses</option>
+            <option value="unreviewed">Unreviewed</option>
+            <option value="resolved">Resolved</option>
+            <option value="dismissed">Dismissed</option>
+          </select>
+          <button class="btn" id="btn-admin-fb-refresh" style="font-size:0.65rem;padding:4px 10px;">⟳ Refresh</button>
+        </div>
+      </div>
+      <div id="admin-feedback-wrap">
+        <div class="empty-state">No feedback yet.</div>
+      </div>
     </div>
-    <hr class="section-divider" />
-    <div class="history-controls">
-      <p class="section-title" style="margin:0;">Feedback</p>
-      <select class="toolbar-select" id="admin-fb-type-filter" style="font-size:0.68rem;">
-        <option value="all">All types</option>
-        <option value="bug">🐛 Bugs</option>
-        <option value="enhancement">✨ Features</option>
-      </select>
-      <select class="toolbar-select" id="admin-fb-status-filter" style="font-size:0.68rem;">
-        <option value="all">All statuses</option>
-        <option value="unreviewed">Unreviewed</option>
-        <option value="resolved">Resolved</option>
-        <option value="dismissed">Dismissed</option>
-      </select>
-      <button class="btn" id="btn-admin-fb-refresh" style="font-size:0.65rem;padding:4px 10px;">⟳ Refresh</button>
-    </div>
-    <div id="admin-feedback-wrap">
-      <div class="empty-state">No feedback yet.</div>
-    </div>
+
   </div>
 
   <!-- ── NOTE TOOLTIP (hover, read-only) ── -->
@@ -4866,14 +4946,33 @@ function _removeCellFromBoxes(ri, ci) {
     document.getElementById('btn-overview-refresh').addEventListener('click', loadOverview);
 
     if (state.me && state.me.rota_role === 'management') {
-      document.getElementById('overview-mhd-group').style.display = 'flex';
+      document.getElementById('overview-mgmt-toggle').style.display = '';
       document.getElementById('overview-all-toggle').addEventListener('click', () => {
         _overviewShowAll = !_overviewShowAll;
         document.getElementById('overview-all-toggle').classList.toggle('active', _overviewShowAll);
         document.getElementById('overview-team-toggles').style.display = _overviewShowAll ? 'flex' : 'none';
+        document.getElementById('overview-member-row').style.display   = _overviewShowAll ? 'none' : '';
         renderOverview();
       });
-      document.getElementById('btn-overview-mhd-save').addEventListener('click', saveMhdDefault);
+
+      // Individual member dropdown for management default view
+      const memberRow = document.getElementById('overview-member-row');
+      if (memberRow) {
+        const memberSel = document.getElementById('overview-member-select');
+        if (memberSel) {
+          const allNames = [
+            ...(state.roster.management  || []),
+            ...(state.roster.engineering || []),
+            ...(state.roster.specialists || []),
+          ].sort();
+          allNames.forEach(name => {
+            const opt = document.createElement('option');
+            opt.value = name; opt.textContent = name;
+            memberSel.appendChild(opt);
+          });
+          memberSel.addEventListener('change', renderOverview);
+        }
+      }
 
       document.querySelectorAll('#overview-team-toggles .team-toggle').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -4887,55 +4986,22 @@ function _removeCellFromBoxes(ri, ci) {
 
     loadOverview();
 
-    // SOE weekend widget — only render for management or engineers
     const role = state.me && state.me.rota_role;
     const team = state.me && state.me.team;
     if (role === 'management' || team === 'Engineering') {
       loadSoeWeekends();
-          document.getElementById('soe-weekends-section').style.display = '';
-      const yearSel = document.getElementById('soe-year-select');
-      if (yearSel) {
-        yearSel.addEventListener('change', () => {
+      document.getElementById('soe-weekends-section').style.display = '';
+      const soeYearSel = document.getElementById('soe-year-select');
+      if (soeYearSel) {
+        soeYearSel.addEventListener('change', () => {
           const mode = document.getElementById('soe-mode-select')?.value || 'aggregate';
           renderSoeWeekends(mode);
         });
       }
       const modeSel = document.getElementById('soe-mode-select');
       if (modeSel) {
-        modeSel.addEventListener('change', () => {
-          const isAgg = modeSel.value === 'aggregate';
-          const yrSel = document.getElementById('soe-year-select');
-          if (yrSel) yrSel.disabled = isAgg;
-          renderSoeWeekends(modeSel.value);
-        });
+        modeSel.addEventListener('change', () => renderSoeWeekends(modeSel.value));
       }
-
-      // Year dropdown populated after fetch resolves — hook into loadSoeWeekends result
-      const _origLoad = loadSoeWeekends;
-      loadSoeWeekends = async function() {
-        await _origLoad();
-        _setSoeYearDefault();
-        const yrSel = document.getElementById('soe-year-select');
-        if (yrSel) yrSel.disabled = false; // default is 'year' mode
-      };
-    }
-  }
-
-  async function saveMhdDefault() {
-    const year = document.getElementById('overview-year').value;
-    const val  = document.getElementById('overview-mhd-input').value.trim();
-    if (!val || isNaN(+val)) { toast('Enter a valid number of days', 'err'); return; }
-    const r = await fetch(`${PROXY}/rota/al-allowance/config`, {
-      method: 'PUT', credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ year: +year, mhd_default_days: +val }),
-    });
-    const d = await r.json();
-    if (d.ok) {
-      toast(`MHD default set to ${d.mhd_default_days} day(s) for ${year}`, 'ok');
-      loadOverview();
-    } else {
-      await uiAlert(d.error || 'Failed to save MHD default');
     }
   }
 
@@ -5069,56 +5135,53 @@ function _removeCellFromBoxes(ri, ci) {
     if (!_overviewData) return;
 
     const isManagement = state.me && state.me.rota_role === 'management';
-    const myName        = state.me ? state.me.name : null;
-    const balances       = _overviewData.balances || {};
+    const myName       = state.me ? state.me.name : null;
+    const balances     = _overviewData.balances || {};
 
-    if (!(isManagement && _overviewShowAll)) {
-      // Own-card view — no team grouping needed
-      const names = (myName && balances[myName]) ? [myName] : [];
-      if (!names.length) {
-        el.innerHTML = '<div class="empty-state">No allowance data for this year yet. If you\'re new, ask management to set your join date.</div>';
+    if (isManagement && _overviewShowAll) {
+      // All members view — grouped by team, filterable
+      const groups = { Management: [], Engineering: [], Specialists: [] };
+      Object.keys(balances).forEach(name => { groups[_personTeam(name)].push(name); });
+      Object.values(groups).forEach(list => list.sort());
+
+      const teams = ['Management', 'Engineering', 'Specialists']
+        .filter(t => _overviewTeamFilters[t] && groups[t].length);
+
+      if (!teams.length) {
+        el.innerHTML = '<div class="empty-state">No teams selected.</div>';
         return;
       }
-      el.innerHTML = names.map(name => _renderAlCard(name, balances[name], isManagement)).join('');
-      _wireOverviewCardHandlers(el, isManagement);
+
+      el.innerHTML = teams.map(t => `
+        <div style="margin-bottom:28px;">
+          <div class="approvals-group-header">${t}</div>
+          ${groups[t].map(name => _renderAlCard(name, balances[name], false)).join('')}
+        </div>`).join('');
       return;
     }
 
-    // Management "All Members" view — grouped by team, rota order, filterable
-    const teamOf = _personTeam;
-
-    const groups = { Management: [], Engineering: [], Specialists: [] };
-    Object.keys(balances).forEach(name => { groups[teamOf(name)].push(name); });
-    Object.values(groups).forEach(list => list.sort());
-
-    const teams = ['Management', 'Engineering', 'Specialists']
-      .filter(t => _overviewTeamFilters[t] && groups[t].length);
-
-    if (!teams.length) {
-      el.innerHTML = '<div class="empty-state">No teams selected, or no allowance data for this year yet.</div>';
+    if (isManagement) {
+      // Individual member view (management default)
+      const memberSel = document.getElementById('overview-member-select');
+      const selected  = memberSel ? memberSel.value : null;
+      const name      = selected || (myName && balances[myName] ? myName : Object.keys(balances)[0]);
+      if (!name || !balances[name]) {
+        el.innerHTML = '<div class="empty-state">Select a member above.</div>';
+        return;
+      }
+      // Sync dropdown to resolved name
+      if (memberSel && !memberSel.value) memberSel.value = name;
+      el.innerHTML = _renderAlCard(name, balances[name], false);
       return;
     }
 
-    el.innerHTML = teams.map(t => `
-      <div style="margin-bottom:28px;">
-        <div class="approvals-group-header">${t}</div>
-        ${groups[t].map(name => _renderAlCard(name, balances[name], isManagement)).join('')}
-      </div>`).join('');
-
-    _wireOverviewCardHandlers(el, isManagement);
-  }
-
-  function _wireOverviewCardHandlers(el, isManagement) {
-    if (!isManagement) return;
-    el.querySelectorAll('[data-al-edit]').forEach(btn => {
-      btn.addEventListener('click', () => _openAlEditRow(btn));
-    });
-    el.querySelectorAll('[data-al-add-misc]').forEach(btn => {
-      btn.addEventListener('click', () => _submitMiscEntry(btn));
-    });
-    el.querySelectorAll('[data-al-del-misc]').forEach(btn => {
-      btn.addEventListener('click', () => _deleteMiscEntry(btn));
-    });
+    // Staff: own card only
+    const name = myName;
+    if (!name || !balances[name]) {
+      el.innerHTML = '<div class="empty-state">No allowance data for this year yet.</div>';
+      return;
+    }
+    el.innerHTML = _renderAlCard(name, balances[name], false);
   }
 
   function _fmtH(v) {
@@ -5132,56 +5195,9 @@ function _removeCellFromBoxes(ri, ci) {
 
   function _renderAlCard(name, b, isManagement) {
     if (!b) return '';
-    const year = _overviewData.year;
 
     const remainingClass = b.remaining_with_pending_hours < 0 ? 'bad'
                           : b.remaining_with_pending_hours < 16 ? 'warn' : 'ok';
-
-    const fields = [
-      { key: 'base_allowance', label: 'Base Allowance', f: b.base_allowance },
-      { key: 'mhd',            label: 'MHD',            f: b.mhd },
-      { key: 'absence',        label: 'Absence Reward',  f: b.absence, readonly: true },
-    ];
-
-    const breakdownHtml = fields.map(({ key, label, f, readonly }) => {
-      const isManual  = f.auto_or_manual === 'manual';
-      const flagged   = f.flagged_for_review;
-      const cls = 'al-breakdown-item' + (isManual ? ' manual' : '') + (flagged ? ' flagged' : '');
-      const editBtn = (isManagement && !readonly)
-        ? `<button class="btn" data-al-edit data-name="${name}" data-year="${year}" data-field="${key}"
-             data-computed="${f.computed_days ?? ''}" data-final="${f.final_days ?? ''}"
-             style="font-size:0.55rem;padding:2px 6px;margin-top:5px;">✎ Edit</button>`
-        : '';
-      const reasonHtml = isManual && f.override_reason
-        ? `<div style="color:var(--muted);font-size:0.58rem;margin-top:3px;" title="${f.override_reason.replace(/"/g,'&quot;')}">↳ ${f.override_reason.length > 40 ? f.override_reason.slice(0,40)+'…' : f.override_reason}</div>`
-        : '';
-      const flagHtml = flagged
-        ? `<div style="color:#ffb3be;font-size:0.58rem;margin-top:3px;">⚠ Needs manual review (ABSENT days found last year)</div>`
-        : '';
-      return `<div class="${cls}">
-        <span class="lbl">${label}${isManual ? ' · manual' : ''}</span>
-        <span class="val">${_fmtDaysH(f.final_days)}</span>
-        ${flagHtml}${reasonHtml}${editBtn}
-      </div>`;
-    }).join('');
-
-    const miscHtml = (b.misc_entries || []).map(e => `
-      <div class="al-misc-row">
-        <span>${_fmtDateShort(e.date)}</span>
-        <span style="color:var(--text);font-weight:700;">${_fmtH(e.hours)}</span>
-        <span class="al-misc-reason">Reason: ${e.reason}</span>
-        ${isManagement ? `<button class="btn danger" data-al-del-misc data-name="${name}" data-year="${year}" data-id="${e.id}"
-             style="font-size:0.55rem;padding:2px 6px;">🗑</button>` : ''}
-      </div>`).join('') || '<div style="color:var(--muted);font-size:0.65rem;">No misc entries.</div>';
-
-    const addMiscHtml = isManagement ? `
-      <div class="al-add-misc">
-        <input type="date" data-misc-date placeholder="Date" style="width:120px;" />
-        <input type="number" step="0.5" data-misc-hours placeholder="Hours" style="width:70px;" />
-        <input type="text" data-misc-reason placeholder="Reason…" style="flex:1;min-width:160px;" />
-        <button class="btn primary" data-al-add-misc data-name="${name}" data-year="${year}"
-          style="font-size:0.62rem;">+ Add</button>
-      </div>` : '';
 
     return `
       <div class="al-card" data-al-card="${name}">
@@ -5209,7 +5225,18 @@ function _removeCellFromBoxes(ri, ci) {
           </div>
         </div>
         <div class="al-breakdown">
-          ${breakdownHtml}
+          <div class="al-breakdown-item">
+            <span class="lbl">Base Allowance</span>
+            <span class="val">${_fmtDaysH(b.base_allowance.final_days)}</span>
+          </div>
+          <div class="al-breakdown-item">
+            <span class="lbl">MHD</span>
+            <span class="val">${_fmtDaysH(b.mhd.final_days)}</span>
+          </div>
+          <div class="al-breakdown-item">
+            <span class="lbl">Absence Reward</span>
+            <span class="val">${_fmtDaysH(b.absence.final_days)}</span>
+          </div>
           <div class="al-breakdown-item">
             <span class="lbl">Misc Hours</span>
             <span class="val">${_fmtH(b.misc_hours)}</span>
@@ -5225,89 +5252,255 @@ function _removeCellFromBoxes(ri, ci) {
               ? `<div style="color:var(--muted);font-size:0.58rem;margin-top:3px;">${b.ph_al_giveback_dates.map(_fmtDateShort).join(', ')}</div>` : ''}
           </div>
         </div>
-        ${isManagement ? `
-          <div class="al-misc-list">
-            <span class="popover-section-label">Misc Entries</span>
-            ${miscHtml}
-            ${addMiscHtml}
-          </div>` : ''}
       </div>`;
   }
 
-  function _openAlEditRow(btn) {
-    const name     = btn.dataset.name;
-    const year     = btn.dataset.year;
-    const field    = btn.dataset.field;
-    const computed = btn.dataset.computed;
-    const card     = btn.closest('.al-breakdown-item');
-    if (card.querySelector('.al-edit-row')) return; // already open
+  // ════════════════════════════════════════════════════════════════
+  //  ADMIN — PERSON DIRECTORY (add / edit / hide / delete)
+  // ════════════════════════════════════════════════════════════════
+  let _adminTabReady  = false;
+  let _adminDirectory = null;
+  let _adminAuditOpen = false;
+  let _adminAddFormOpen = false;
 
-    const row = document.createElement('div');
-    row.className = 'al-edit-row';
-    row.innerHTML = `
-      <input type="number" step="0.5" class="al-edit-days" value="${btn.dataset.final || ''}" placeholder="days" />
-      <input type="text" class="al-edit-reason" placeholder="Reason (required)…" style="width:140px;" />
-      <button class="btn primary al-edit-save" style="font-size:0.6rem;padding:3px 8px;">Save</button>
-      <button class="btn al-edit-cancel" style="font-size:0.6rem;padding:3px 8px;">✕</button>
-    `;
-    card.appendChild(row);
-    btn.style.display = 'none';
+  function setupAdminTab() {
+    if (!_adminReady) {
+      _adminReady = true;
 
-    row.querySelector('.al-edit-cancel').addEventListener('click', () => {
-      row.remove(); btn.style.display = '';
-    });
-    row.querySelector('.al-edit-save').addEventListener('click', async () => {
-      const finalDays = row.querySelector('.al-edit-days').value.trim();
-      const reason    = row.querySelector('.al-edit-reason').value.trim();
-      if (!finalDays) { toast('Enter a number of days', 'err'); return; }
-      if (!reason)    { toast('Reason is required', 'err'); return; }
-      const r = await fetch(`${PROXY}/rota/al-allowance`, {
-        method: 'PUT', credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, year: +year, field, final_days: +finalDays, override_reason: reason }),
+      // ── People card ──────────────────────────────────────────────────
+      document.getElementById('admin-new-rotation-group').addEventListener('change', _adminSyncGroupFields);
+      _adminSyncGroupFields();
+
+      document.getElementById('btn-admin-add-toggle').addEventListener('click', () => {
+        _adminAddFormOpen = !_adminAddFormOpen;
+        document.getElementById('admin-add-form').style.display = _adminAddFormOpen ? '' : 'none';
+        document.getElementById('btn-admin-add-toggle').textContent = _adminAddFormOpen ? '✕ Cancel' : '+ Add Person';
       });
-      const d = await r.json();
-      if (d.ok) {
-        toast('Saved', 'ok');
-        loadOverview();
-      } else {
-        await uiAlert(d.error || 'Failed to save');
-      }
-    });
+      document.getElementById('btn-admin-add-cancel').addEventListener('click', () => {
+        _adminAddFormOpen = false;
+        document.getElementById('admin-add-form').style.display = 'none';
+        document.getElementById('btn-admin-add-toggle').textContent = '+ Add Person';
+      });
+      document.getElementById('btn-admin-add').addEventListener('click', submitAddPerson);
+
+      document.getElementById('btn-admin-audit-refresh').addEventListener('click', () => {
+        _adminAuditOpen = !_adminAuditOpen;
+        const wrap = document.getElementById('admin-audit-wrap');
+        wrap.style.display = _adminAuditOpen ? '' : 'none';
+        document.getElementById('btn-admin-audit-refresh').textContent =
+          _adminAuditOpen ? '✕ Hide Changes' : '⟳ Recent Changes';
+        if (_adminAuditOpen) loadAdminAudit();
+      });
+
+      // ── AL card ───────────────────────────────────────────────────────
+      _setupAdminAlCard();
+
+      // ── Feedback card ─────────────────────────────────────────────────
+      document.getElementById('admin-fb-type-filter').addEventListener('change', loadAdminFeedback);
+      document.getElementById('admin-fb-status-filter').addEventListener('change', loadAdminFeedback);
+      document.getElementById('btn-admin-fb-refresh').addEventListener('click', loadAdminFeedback);
+    }
+
+    loadAdminDirectory();
+    loadAdminFeedback();
   }
 
-  async function _submitMiscEntry(btn) {
-    const name = btn.dataset.name;
-    const year = btn.dataset.year;
-    const card = btn.closest('.al-add-misc');
-    const dateVal   = card.querySelector('[data-misc-date]').value;
-    const hoursVal  = card.querySelector('[data-misc-hours]').value.trim();
-    const reasonVal = card.querySelector('[data-misc-reason]').value.trim();
+  // ── Admin AL card state ───────────────────────────────────────────────
+  let _adminAlMhdLocked   = false;  // true once a value exists for current year
+  let _adminAlCurrentYear = new Date().getFullYear();
 
-    if (!dateVal || !hoursVal || !reasonVal) {
-      toast('Date, hours, and reason are all required', 'err'); return;
+  function _setupAdminAlCard() {
+    const yearSel = document.getElementById('admin-al-year');
+    const thisYear = new Date().getFullYear();
+    _adminAlCurrentYear = thisYear;
+
+    // Populate year selector: current year only (editable), past years greyed/disabled
+    for (let y = thisYear; y >= thisYear - 2; y--) {
+      const opt = document.createElement('option');
+      opt.value = y;
+      opt.textContent = y;
+      if (y < thisYear) {
+        opt.disabled = true;
+        opt.style.color = 'var(--muted)';
+        opt.textContent = y + ' 🔒';
+      }
+      yearSel.appendChild(opt);
+    }
+    yearSel.value = thisYear;
+
+    yearSel.addEventListener('change', () => {
+      _adminAlCurrentYear = parseInt(yearSel.value);
+      _loadAdminMhd();
+    });
+
+    document.getElementById('btn-admin-mhd-save').addEventListener('click', _saveAdminMhd);
+    document.getElementById('btn-admin-mhd-unlock').addEventListener('click', _unlockAdminMhd);
+
+    // Member dropdown for misc entries
+    const memberSel = document.getElementById('admin-misc-member');
+    const allNames = [
+      ...(state.roster.management  || []),
+      ...(state.roster.engineering || []),
+      ...(state.roster.specialists || []),
+    ].sort();
+    allNames.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name; opt.textContent = name;
+      memberSel.appendChild(opt);
+    });
+    memberSel.addEventListener('change', () => {
+      const name = memberSel.value;
+      document.getElementById('admin-misc-content').style.display = name ? '' : 'none';
+      if (name) _loadAdminMiscEntries(name);
+    });
+
+    document.getElementById('btn-admin-misc-add').addEventListener('click', _addAdminMiscEntry);
+
+    _loadAdminMhd();
+  }
+
+  async function _loadAdminMhd() {
+    const year = _adminAlCurrentYear;
+    try {
+      const r = await fetch(`${PROXY}/rota/al-allowance?year=${year}`, { credentials: 'same-origin' });
+      const d = await r.json();
+      if (!d.ok) return;
+      const mhd = d.mhd_default_days;
+      _renderAdminMhdState(mhd);
+    } catch(e) { /* non-fatal */ }
+  }
+
+  function _renderAdminMhdState(mhd) {
+    const inp         = document.getElementById('admin-mhd-input');
+    const saveBtn     = document.getElementById('btn-admin-mhd-save');
+    const unlockBtn   = document.getElementById('btn-admin-mhd-unlock');
+    const lockedDisp  = document.getElementById('admin-mhd-locked-display');
+    const lockedVal   = document.getElementById('admin-mhd-locked-value');
+    const isPastYear  = _adminAlCurrentYear < new Date().getFullYear();
+
+    if (isPastYear) {
+      // Past year: always fully read-only
+      inp.style.display      = 'none';
+      saveBtn.style.display  = 'none';
+      unlockBtn.style.display = 'none';
+      lockedDisp.style.display = '';
+      lockedVal.textContent  = mhd !== null && mhd !== undefined ? mhd : '—';
+      _adminAlMhdLocked = true;
+      return;
+    }
+
+    if (mhd !== null && mhd !== undefined) {
+      // Current year, value set → locked display
+      _adminAlMhdLocked = true;
+      inp.style.display      = 'none';
+      saveBtn.style.display  = 'none';
+      unlockBtn.style.display = '';
+      lockedDisp.style.display = '';
+      lockedVal.textContent  = mhd;
+    } else {
+      // Current year, no value yet → editable
+      _adminAlMhdLocked = false;
+      inp.style.display      = '';
+      inp.value              = '';
+      saveBtn.style.display  = '';
+      unlockBtn.style.display = 'none';
+      lockedDisp.style.display = 'none';
+    }
+  }
+
+  async function _saveAdminMhd() {
+    const year = _adminAlCurrentYear;
+    const val  = document.getElementById('admin-mhd-input').value.trim();
+    if (!val || isNaN(+val)) { toast('Enter a valid number of days', 'err'); return; }
+    const r = await fetch(`${PROXY}/rota/al-allowance/config`, {
+      method: 'PUT', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ year: +year, mhd_default_days: +val }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast(`MHD set to ${d.mhd_default_days} day(s) for ${year}`, 'ok');
+      _renderAdminMhdState(d.mhd_default_days);
+    } else {
+      await uiAlert(d.error || 'Failed to save MHD');
+    }
+  }
+
+  async function _unlockAdminMhd() {
+    const confirmed = await uiConfirm(
+      'Unlock MHD',
+      `You are about to change the MHD default for ${_adminAlCurrentYear}. This will affect all eligible members. Are you sure?`,
+      'Unlock & Edit', 'warn'
+    );
+    if (!confirmed) return;
+    _adminAlMhdLocked = false;
+    const inp = document.getElementById('admin-mhd-input');
+    const currentVal = document.getElementById('admin-mhd-locked-value').textContent;
+    inp.value = currentVal;
+    inp.style.display = '';
+    document.getElementById('btn-admin-mhd-save').style.display = '';
+    document.getElementById('btn-admin-mhd-unlock').style.display = 'none';
+    document.getElementById('admin-mhd-locked-display').style.display = 'none';
+  }
+
+  async function _loadAdminMiscEntries(name) {
+    const year = _adminAlCurrentYear;
+    const wrap = document.getElementById('admin-misc-list');
+    wrap.innerHTML = '<div class="loading-row"><div class="spinner"></div> Loading…</div>';
+    try {
+      const r = await fetch(`${PROXY}/rota/al-allowance?year=${year}`, { credentials: 'same-origin' });
+      const d = await r.json();
+      if (!d.ok) { wrap.innerHTML = '<div class="empty-state">Failed to load.</div>'; return; }
+      const balance = d.balances && d.balances[name];
+      const entries = (balance && balance.misc_entries) || [];
+      if (!entries.length) {
+        wrap.innerHTML = '<div class="empty-state">No misc entries for this member.</div>';
+        return;
+      }
+      wrap.innerHTML = entries.map(e => `
+        <div class="al-misc-row">
+          <span>${_fmtDateShort(e.date)}</span>
+          <span style="color:var(--text);font-weight:700;">${e.hours}h</span>
+          <span class="al-misc-reason">${e.reason}</span>
+          <button class="btn danger" style="font-size:0.55rem;padding:2px 6px;"
+            onclick="_deleteAdminMiscEntry('${e.id}','${name}')">🗑</button>
+        </div>`).join('');
+    } catch(e) {
+      wrap.innerHTML = '<div class="empty-state">Failed to load.</div>';
+    }
+  }
+
+  async function _addAdminMiscEntry() {
+    const name   = document.getElementById('admin-misc-member').value;
+    const year   = _adminAlCurrentYear;
+    const dateV  = document.getElementById('admin-misc-date').value;
+    const hours  = document.getElementById('admin-misc-hours').value.trim();
+    const reason = document.getElementById('admin-misc-reason').value.trim();
+    if (!name || !dateV || !hours || !reason) {
+      toast('Member, date, hours and reason are all required', 'err'); return;
     }
     const r = await fetch(`${PROXY}/rota/al-allowance/misc`, {
       method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, year: +year, date: dateVal, hours: +hoursVal, reason: reasonVal }),
+      body: JSON.stringify({ name, year: +year, date: dateV, hours: +hours, reason }),
     });
     const d = await r.json();
     if (d.ok) {
       toast('Misc entry added', 'ok');
-      loadOverview();
+      document.getElementById('admin-misc-date').value   = '';
+      document.getElementById('admin-misc-hours').value  = '';
+      document.getElementById('admin-misc-reason').value = '';
+      _loadAdminMiscEntries(name);
     } else {
       await uiAlert(d.error || 'Failed to add entry');
     }
   }
 
-  async function _deleteMiscEntry(btn) {
-    const name = btn.dataset.name;
-    const year = btn.dataset.year;
-    const id   = btn.dataset.id;
+  async function _deleteAdminMiscEntry(entryId, name) {
+    const year = _adminAlCurrentYear;
     const confirmed = await uiConfirm('Delete Misc Entry', 'Remove this misc hours entry?', 'Delete', 'reject');
     if (!confirmed) return;
-    const r = await fetch(`${PROXY}/rota/al-allowance/misc/${id}`, {
+    const r = await fetch(`${PROXY}/rota/al-allowance/misc/${entryId}`, {
       method: 'DELETE', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, year: +year }),
@@ -5315,32 +5508,10 @@ function _removeCellFromBoxes(ri, ci) {
     const d = await r.json();
     if (d.ok) {
       toast('Entry removed', 'ok');
-      loadOverview();
+      _loadAdminMiscEntries(name);
     } else {
       await uiAlert(d.error || 'Failed to remove entry');
     }
-  }
-
-  // ════════════════════════════════════════════════════════════════
-  //  ADMIN — PERSON DIRECTORY (add / edit / hide / delete)
-  // ════════════════════════════════════════════════════════════════
-  let _adminReady     = false;
-  let _adminDirectory = null;   // { employee_id: {...entry, email} }
-
-  function setupAdminTab() {
-    if (!_adminReady) {
-      _adminReady = true;
-      document.getElementById('admin-new-rotation-group').addEventListener('change', _adminSyncGroupFields);
-      document.getElementById('btn-admin-add').addEventListener('click', submitAddPerson);
-      document.getElementById('btn-admin-audit-refresh').addEventListener('click', loadAdminAudit);
-      _adminSyncGroupFields();
-    }
-    loadAdminDirectory();
-    loadAdminAudit();
-      document.getElementById('admin-fb-type-filter').addEventListener('change', loadAdminFeedback);
-      document.getElementById('admin-fb-status-filter').addEventListener('change', loadAdminFeedback);
-      document.getElementById('btn-admin-fb-refresh').addEventListener('click', loadAdminFeedback);
-    loadAdminFeedback();
   }
 
   function _adminSyncGroupFields() {

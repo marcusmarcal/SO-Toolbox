@@ -1,5 +1,18 @@
 # Changelog — Rota App
 
+## [Unreleased]
+
+### Changed 03-09-2026
+- **Admin tab** restructured into cards: People, Annual Leave, Feedback
+- **People card**: directory table now primary view; Add Person form expands on demand; Recent Changes collapsible via button
+- **Annual Leave card** (Admin, management only):
+  - MHD default field with lock/unlock flow — null → integer on first entry, locked after save; unlock requires confirmation modal; past years read-only
+  - Misc entries form with member dropdown; entry list shown contextually after member selection
+- **Overview tab** is now fully read-only:
+  - Staff: own balance card only
+  - Management: individual member dropdown (default) with All Members toggle restoring team-grouped view
+  - All edit controls (base allowance, MHD, misc entries) moved to Admin → Annual Leave card
+
 ### Fixed 03-09-2026
 - SOE Weekend Coverage year dropdown now correctly pre-selects the current year on load.
 
