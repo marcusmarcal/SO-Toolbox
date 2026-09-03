@@ -1,5 +1,10 @@
 # Changelog — Rota App
 
+## [Unreleased]
+### Changed 03-09-2026
+- SOE Weekend Coverage widget now defaults to Single Year view with the current year pre-selected, instead of Aggregate.
+- Year dropdown is disabled (greyed out) when "All Years (Aggregate)" mode is selected.
+
 ### Fixed 02-09-2026
 - `_flanking_off_range` caused an OverflowError when the person directory
   was empty (all shifts resolve to OFF), because the 14-day cap was measured
