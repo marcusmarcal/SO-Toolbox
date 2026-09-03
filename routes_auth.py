@@ -420,6 +420,80 @@ def delete_user(username):
 
 
 # ══════════════════════════════════════════════════════════
+# ONLINE SESSIONS (admin + engineer can view, admin can kick)
+# ══════════════════════════════════════════════════════════
+
+def _prune_expired_sessions():
+    """Drop expired sessions from the store. Returns True if anything changed."""
+    now = time.time()
+    expired = [t for t, s in _sessions.items() if s.get('expires', 0) <= now]
+    for t in expired:
+        del _sessions[t]
+    if expired:
+        _save_sessions()
+    return bool(expired)
+
+
+@auth_bp.route('/sessions', methods=['GET'])
+@require_admin_role
+def list_sessions():
+    """Return currently logged-in users, grouped by username.
+    Session tokens are never exposed — only aggregate metadata."""
+    _prune_expired_sessions()
+    my_token = _token_from_request()
+
+    by_user = {}
+    for token, s in _sessions.items():
+        u = s['username']
+        entry = by_user.setdefault(u, {
+            'username': u,
+            'role': s.get('role', 'user'),
+            'team': s.get('team', DEFAULT_TEAM),
+            'display_name': s.get('display_name', ''),
+            'sessions': 0,
+            'first_login': None,   # oldest active session start
+            'expires': 0,          # latest expiry across sessions
+            'is_me': False,
+        })
+        login_at = s['expires'] - SESSION_TTL
+        entry['sessions'] += 1
+        entry['first_login'] = login_at if entry['first_login'] is None else min(entry['first_login'], login_at)
+        entry['expires'] = max(entry['expires'], s['expires'])
+        if token == my_token:
+            entry['is_me'] = True
+
+    online = sorted(by_user.values(), key=lambda x: x['username'])
+    return jsonify({
+        'ok': True,
+        'online': online,
+        'total_sessions': len(_sessions),
+        'server_time': time.time(),
+        'can_kick': request.session.get('role') == 'admin',
+    })
+
+
+@auth_bp.route('/sessions/<username>', methods=['DELETE'])
+@require_admin_role
+def kick_user(username):
+    """Terminate every active session for a user. Admin only."""
+    if request.session.get('role') != 'admin':
+        return jsonify({'ok': False, 'error': 'Forbidden — admin role required to kick users'}), 403
+
+    if username == request.session.get('username'):
+        return jsonify({'ok': False, 'error': 'Use logout to end your own session'}), 400
+
+    tokens = [t for t, s in _sessions.items() if s['username'] == username]
+    if not tokens:
+        return jsonify({'ok': False, 'error': 'User has no active session'}), 404
+
+    for t in tokens:
+        del _sessions[t]
+    _save_sessions()
+
+    return jsonify({'ok': True, 'username': username, 'sessions_closed': len(tokens)})
+
+
+# ══════════════════════════════════════════════════════════
 # REGISTER
 # ══════════════════════════════════════════════════════════
 

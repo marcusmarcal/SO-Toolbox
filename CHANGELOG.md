@@ -6,6 +6,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.51.1] - 2026-09-03
+
+### Added
+- **General Tool Admin**: new **Online** tab in User Management listing currently logged-in users (role, team, active sessions, login time, expiry), auto-refreshing every 15s.
+- **General Tool Admin**: admins can now **kick** a user, terminating all their active sessions; the kicked browser is redirected to the login page within 15s.
+- **General Tool Admin**: `GET /so-proxy/sessions` (admin/engineer) and `DELETE /so-proxy/sessions/<username>` (admin) endpoints.
+
+### Changed
+- **General Tool Admin**: User Management now uses a tabbed layout (Users / Online); confirm modal reused for delete and kick actions.
+- **General Tool Admin**: session heartbeat added to `users-admin.html`, matching `index.html`.
+
 ## [2.51.0] - 2026-09-03
 
 ### Added

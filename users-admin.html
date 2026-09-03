@@ -399,6 +399,93 @@
         justify-content: flex-end;
       }
 
+      /* ── TABS ── */
+      #tabs {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 24px;
+        border-bottom: 1px solid var(--border);
+      }
+      .tab-btn {
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        padding: 10px 18px;
+        background: transparent;
+        border: 1px solid transparent;
+        border-bottom: none;
+        border-radius: 7px 7px 0 0;
+        color: var(--muted);
+        cursor: pointer;
+        position: relative;
+        top: 1px;
+        transition: color 0.15s, background 0.15s;
+      }
+      .tab-btn:hover {
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.02);
+      }
+      .tab-btn.active {
+        color: var(--accent);
+        background: var(--surface);
+        border-color: var(--border);
+        border-bottom-color: var(--surface);
+      }
+      .tab-btn .tab-count {
+        margin-left: 8px;
+        padding: 1px 7px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        font-size: 0.52rem;
+        color: var(--muted);
+      }
+      .tab-btn.active .tab-count {
+        color: #9ee6a6;
+        border-color: rgba(63, 185, 80, 0.35);
+      }
+      .tab-panel {
+        display: none;
+      }
+      .tab-panel.active {
+        display: block;
+      }
+
+      /* ── ONLINE LIST ── */
+      .online-row {
+        grid-template-columns: 1fr auto auto auto auto;
+      }
+      .online-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--ok);
+        box-shadow: 0 0 8px rgba(63, 185, 80, 0.6);
+        flex-shrink: 0;
+      }
+      .online-me {
+        font-family: var(--mono);
+        font-size: 0.5rem;
+        padding: 1px 6px;
+        border-radius: 4px;
+        border: 1px solid rgba(161, 139, 245, 0.35);
+        color: var(--accent);
+      }
+      .online-time {
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .online-sessions {
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+
       /* ── TOAST ── */
       #toast {
         position: fixed;
@@ -503,8 +590,19 @@
     </header>
 
     <div id="page">
-      <!-- ── User List ── -->
       <div id="main-content">
+        <!-- ── Tabs ── -->
+        <div id="tabs">
+          <button class="tab-btn active" id="tab-btn-users" onclick="showTab('users')">
+            👥 Users
+          </button>
+          <button class="tab-btn" id="tab-btn-online" onclick="showTab('online')">
+            ● Online<span class="tab-count" id="online-count">–</span>
+          </button>
+        </div>
+
+        <!-- ── Users tab ── -->
+        <div class="tab-panel active" id="tab-users">
         <div class="section-header">
           <div class="section-title">Users</div>
           <div class="section-line"></div>
@@ -522,7 +620,7 @@
             ><span>Actions</span>
           </div>
           <div id="user-rows">
-            <div class="empty-state">Unlock admin to load users</div>
+            <div class="empty-state">Loading users…</div>
           </div>
         </div>
 
@@ -631,6 +729,41 @@
             </button>
           </div>
         </div>
+        </div>
+        <!-- /tab-users -->
+
+        <!-- ── Online tab ── -->
+        <div class="tab-panel" id="tab-online">
+          <div class="section-header">
+            <div class="section-title">Logged-in Users</div>
+            <div class="section-line"></div>
+            <span
+              id="online-updated"
+              style="font-family: var(--mono); font-size: 0.55rem; color: var(--muted)"
+            ></span>
+            <button class="btn" onclick="loadOnline()" style="font-size: 0.6rem">
+              ⟳ Refresh
+            </button>
+          </div>
+
+          <div id="user-list">
+            <div class="user-row online-row header">
+              <span>User</span><span>Team</span><span>Logged in</span
+              ><span>Expires</span><span>Actions</span>
+            </div>
+            <div id="online-rows">
+              <div class="empty-state">Loading…</div>
+            </div>
+          </div>
+          <div
+            style="font-family: var(--mono); font-size: 0.55rem; color: var(--muted); margin-top: 10px"
+            id="online-hint"
+          >
+            Auto-refreshes every 15 seconds while this tab is open. Kicking a user
+            terminates all their active sessions immediately.
+          </div>
+        </div>
+        <!-- /tab-online -->
       </div>
       <!-- /main-content -->
     </div>
@@ -639,14 +772,14 @@
     <!-- ── Confirm Modal ── -->
     <div id="confirm-modal">
       <div class="confirm-card">
-        <div class="confirm-title">⚠ Confirm Delete</div>
+        <div class="confirm-title" id="confirm-title">⚠ Confirm Delete</div>
         <div class="confirm-msg" id="confirm-msg">Delete this user?</div>
         <div class="confirm-actions">
           <button class="btn" onclick="closeConfirm()">Cancel</button>
           <button
             class="btn danger"
             id="confirm-ok-btn"
-            onclick="confirmDelete()"
+            onclick="confirmAction()"
           >
             Delete
           </button>
@@ -695,6 +828,7 @@
             }
 
             loadUsers();
+            loadOnline(); // populate the Online tab counter
           })
           .catch(() => {
             window.location.href = "/login.html?next=/users-admin.html";
@@ -927,21 +1061,40 @@
           .catch(() => toast("Request failed", "err"));
       }
 
-      // ── Delete ──────────────────────────────────────────────────────
-      function askDelete(username) {
-        pendingDelete = username;
-        document.getElementById(
-          "confirm-msg"
-        ).textContent = `Permanently delete user "${username}"? This cannot be undone.`;
+      // ── Confirm modal (generic) ─────────────────────────────────────
+      let pendingAction = null; // function to run on confirm
+
+      function openConfirm({ title, message, button, onConfirm }) {
+        pendingAction = onConfirm;
+        document.getElementById("confirm-title").textContent = title;
+        document.getElementById("confirm-msg").textContent = message;
+        document.getElementById("confirm-ok-btn").textContent = button;
         document.getElementById("confirm-modal").classList.add("open");
       }
       function closeConfirm() {
         document.getElementById("confirm-modal").classList.remove("open");
+        pendingAction = null;
         pendingDelete = null;
+      }
+      function confirmAction() {
+        const fn = pendingAction;
+        if (typeof fn === "function") fn();
+      }
+
+      // ── Delete ──────────────────────────────────────────────────────
+      function askDelete(username) {
+        pendingDelete = username;
+        openConfirm({
+          title: "⚠ Confirm Delete",
+          message: `Permanently delete user "${username}"? This cannot be undone.`,
+          button: "Delete",
+          onConfirm: confirmDelete,
+        });
       }
       function confirmDelete() {
         if (!pendingDelete) return;
-        fetch(`${PROXY}/users/${encodeURIComponent(pendingDelete)}`, {
+        const target = pendingDelete;
+        fetch(`${PROXY}/users/${encodeURIComponent(target)}`, {
           method: "DELETE",
           credentials: "same-origin",
         })
@@ -949,7 +1102,7 @@
           .then((data) => {
             closeConfirm();
             if (data.ok) {
-              toast(`User "${pendingDelete}" deleted`, "ok");
+              toast(`User "${target}" deleted`, "ok");
               loadUsers();
             } else {
               toast(data.error || "Delete failed", "err");
@@ -960,6 +1113,161 @@
             toast("Request failed", "err");
           });
       }
+
+      // ── Tabs ────────────────────────────────────────────────────────
+      let activeTab = "users";
+      let _onlineTimer = null;
+
+      function showTab(name) {
+        activeTab = name;
+        document.querySelectorAll(".tab-btn").forEach((b) =>
+          b.classList.toggle("active", b.id === `tab-btn-${name}`)
+        );
+        document.querySelectorAll(".tab-panel").forEach((p) =>
+          p.classList.toggle("active", p.id === `tab-${name}`)
+        );
+        clearInterval(_onlineTimer);
+        if (name === "online") {
+          loadOnline();
+          _onlineTimer = setInterval(loadOnline, 15000);
+        }
+      }
+
+      // ── Online users ────────────────────────────────────────────────
+      function fmtAgo(seconds) {
+        seconds = Math.max(0, Math.round(seconds));
+        if (seconds < 60) return `${seconds}s ago`;
+        const m = Math.floor(seconds / 60);
+        if (m < 60) return `${m}m ago`;
+        const h = Math.floor(m / 60);
+        return `${h}h ${m % 60}m ago`;
+      }
+      function fmtIn(seconds) {
+        seconds = Math.max(0, Math.round(seconds));
+        const m = Math.floor(seconds / 60);
+        if (m < 60) return `in ${m}m`;
+        const h = Math.floor(m / 60);
+        return `in ${h}h ${m % 60}m`;
+      }
+
+      function loadOnline() {
+        fetch(`${PROXY}/sessions`, { credentials: "same-origin" })
+          .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+          .then((data) => {
+            renderOnline(data);
+            document.getElementById("online-count").textContent =
+              (data.online || []).length;
+            document.getElementById("online-updated").textContent =
+              "updated " + new Date().toLocaleTimeString([], { hour12: false });
+          })
+          .catch((st) => {
+            if (st === 401) {
+              window.location.href = "/login.html?next=/users-admin.html";
+              return;
+            }
+            toast("Failed to load online users", "err");
+          });
+      }
+
+      function renderOnline(data) {
+        const el = document.getElementById("online-rows");
+        const list = data.online || [];
+        const now = data.server_time || Date.now() / 1000;
+        const canKick = !!data.can_kick;
+
+        if (!list.length) {
+          el.innerHTML = '<div class="empty-state">No active sessions</div>';
+          return;
+        }
+
+        let html = "";
+        for (const u of list) {
+          const kickBtn = !canKick
+            ? ""
+            : u.is_me
+            ? `<button class="btn" style="font-size:0.58rem;padding:5px 10px;opacity:0.35;cursor:not-allowed" disabled title="Use logout to end your own session">⏏ Kick</button>`
+            : `<button class="btn danger" style="font-size:0.58rem;padding:5px 10px"
+                 onclick="askKick('${escHtml(u.username)}', ${u.sessions})">⏏ Kick</button>`;
+
+          html += `
+            <div class="user-row online-row">
+              <div class="user-name">
+                <span class="online-dot"></span>
+                ${escHtml(u.username)}
+                <span class="user-role ${escHtml(u.role)}">${escHtml(u.role)}</span>
+                ${u.is_me ? '<span class="online-me">you</span>' : ""}
+              </div>
+              <span class="user-team ${escHtml(u.team || "na")}">${escHtml(
+                (u.team || "na").toUpperCase()
+              )}</span>
+              <div class="online-time" title="Oldest active session">${fmtAgo(
+                now - (u.first_login || now)
+              )}<span class="online-sessions" style="margin-left:6px">· ${u.sessions} sess.</span></div>
+              <div class="online-time">${fmtIn(u.expires - now)}</div>
+              <div class="row-actions">${kickBtn || "—"}</div>
+            </div>`;
+        }
+        el.innerHTML = html;
+      }
+
+      function askKick(username, sessions) {
+        openConfirm({
+          title: "⏏ Confirm Kick",
+          message: `Terminate ${sessions} active session${
+            sessions !== 1 ? "s" : ""
+          } for "${username}"? They will be redirected to the login page.`,
+          button: "Kick",
+          onConfirm: () => doKick(username),
+        });
+      }
+
+      function doKick(username) {
+        fetch(`${PROXY}/sessions/${encodeURIComponent(username)}`, {
+          method: "DELETE",
+          credentials: "same-origin",
+        })
+          .then((r) => r.json())
+          .then((data) => {
+            closeConfirm();
+            if (data.ok) {
+              toast(
+                `Kicked "${username}" (${data.sessions_closed} session${
+                  data.sessions_closed !== 1 ? "s" : ""
+                })`,
+                "ok"
+              );
+              loadOnline();
+            } else {
+              toast(data.error || "Kick failed", "err");
+            }
+          })
+          .catch(() => {
+            closeConfirm();
+            toast("Request failed", "err");
+          });
+      }
+
+      // ── Session heartbeat ──────────────────────────────────────────
+      // Redirect to login as soon as this admin's own session is gone
+      // (expired, kicked, or invalidated). Network errors are ignored.
+      (function sessionHeartbeat() {
+        async function check() {
+          try {
+            const r = await fetch(`${PROXY}/me`, {
+              credentials: "same-origin",
+              cache: "no-cache",
+            });
+            if (r.status === 401)
+              window.location.href = "/login.html?next=/users-admin.html";
+          } catch {
+            /* proxy unreachable — retry on next tick */
+          }
+        }
+        setInterval(check, 15000);
+        document.addEventListener("visibilitychange", () => {
+          if (!document.hidden) check();
+        });
+      })();
 
       // ── Helpers ─────────────────────────────────────────────────────
       function escAttr(s) {
