@@ -2555,6 +2555,31 @@
           });
       })();
 
+      // ── Session heartbeat ──────────────────────────────────────────
+      // Polls /me so an expired or invalidated session redirects to login
+      // instead of leaving the UI looking authenticated.
+      // Network errors (e.g. proxy restarting) are ignored — we only act
+      // on an explicit 401 from the server.
+      (function sessionHeartbeat() {
+        const LOGIN_URL =
+          "/login.html?next=" + encodeURIComponent(location.pathname);
+        async function check() {
+          try {
+            const r = await fetch("/so-proxy/me", {
+              credentials: "same-origin",
+              cache: "no-cache",
+            });
+            if (r.status === 401) window.location.href = LOGIN_URL;
+          } catch {
+            /* proxy unreachable — retry on next tick */
+          }
+        }
+        setInterval(check, 15000);
+        document.addEventListener("visibilitychange", () => {
+          if (!document.hidden) check();
+        });
+      })();
+
       function doLogout() {
         fetch("/so-proxy/logout", {
           method: "POST",

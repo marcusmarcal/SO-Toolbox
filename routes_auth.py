@@ -49,7 +49,7 @@ DISPLAY_NAME_MAX_LEN = 14
 EMPLOYEE_ID_MAX_LEN  = 6
 
 # ── Session store ─────────────────────────────────────────
-_sessions = {}  # token → { username, role, expires }
+# Populated in the SESSION section below (loaded from sessions.json).
 
 
 # ══════════════════════════════════════════════════════════
@@ -120,6 +120,39 @@ def _verify_password(password, hashed):
 # SESSION
 # ══════════════════════════════════════════════════════════
 
+SESSIONS_FILE = os.path.join(_BASE_DIR, 'sessions.json')
+
+
+def _load_sessions():
+    """Load persisted sessions from disk, dropping any that have expired."""
+    if not os.path.exists(SESSIONS_FILE):
+        return {}
+    try:
+        with open(SESSIONS_FILE, 'r') as f:
+            data = json.load(f)
+        now = time.time()
+        return {t: s for t, s in data.items() if s.get('expires', 0) > now}
+    except Exception:
+        return {}
+
+
+def _save_sessions():
+    """Atomically persist the session store (0600 — contains live tokens)."""
+    try:
+        tmp = SESSIONS_FILE + '.tmp'
+        with open(tmp, 'w') as f:
+            json.dump(_sessions, f)
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, SESSIONS_FILE)
+    except Exception:
+        pass  # Persistence failure must never break authentication
+
+
+# token → { username, role, rota_status, team, display_name, employee_id, expires }
+# Persisted to disk so sessions survive a proxy restart.
+_sessions = _load_sessions()
+
+
 def _create_session(username, role, rota_status='observer', team='na',
                      display_name='', employee_id=''):
     token = secrets.token_hex(32)
@@ -132,6 +165,7 @@ def _create_session(username, role, rota_status='observer', team='na',
         'employee_id': employee_id,
         'expires': time.time() + SESSION_TTL
     }
+    _save_sessions()
     return token
 
 
@@ -141,12 +175,14 @@ def _get_session(token):
         return None
     if time.time() > s['expires']:
         del _sessions[token]
+        _save_sessions()
         return None
     return s
 
 
 def _invalidate_session(token):
-    _sessions.pop(token, None)
+    if _sessions.pop(token, None) is not None:
+        _save_sessions()
 
 
 def _token_from_request():
@@ -378,6 +414,7 @@ def delete_user(username):
     # Invalidate sessions
     for token in [t for t, s in _sessions.items() if s['username'] == username]:
         del _sessions[token]
+    _save_sessions()
 
     return jsonify({'ok': True, 'username': username})
 

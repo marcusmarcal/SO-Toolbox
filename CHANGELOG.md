@@ -6,6 +6,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.51.0] - 2026-09-03
+
+### Added
+- **General Tool Admin**: session heartbeat in `index.html` — the UI now polls `/me` every 15s (and on tab focus) and redirects to the login page as soon as the session is expired or invalidated, instead of appearing logged in.
+
+### Changed
+- **General Tool Admin**: user sessions are now persisted to `sessions.json` (mode 0600). Restarting the proxy no longer terminates active sessions; expired entries are pruned on startup.
+
+### Security
+- **General Tool Admin**: `sessions.json` added to the nginx deny list and `.gitignore`.
+
 ## [2.50.4] - 2026-09-02
 
 ### Changed
