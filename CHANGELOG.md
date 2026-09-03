@@ -6,6 +6,90 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.50.4] - 2026-09-02
+
+### Changed
+- Video Analyser: RTMP mode now defaults to the "RTS" workflow. The RTS
+  option is pre-selected in the RTMP form and enforced after workflow
+  labels load from the API; SRT and Upload modes are unchanged and keep
+  the API default workflow.
+
+## [2.50.3] - 2026-09-02
+
+### Fixed
+- Video Analyser: RTMP stream capture failed with "Cannot assign requested
+  address" because ffmpeg's "-timeout" option implies listen (server) mode
+  on the native RTMP protocol. RTMP inputs now use "-rw_timeout" and
+  "-rtmp_live live" for a proper client-side pull; SRT and other protocols
+  are unaffected.
+
+## [2.50.2] - 2026-09-02
+
+### Added
+
+#### Video Analyser
+
+- **RTMP Stream Ingestion Support**: Added comprehensive RTMP stream analysis capability
+  - **Frontend**: New RTMP tab interface (📹 RTMP Stream) positioned between SRT and Upload tabs
+    - RTMP URL input field with preset suggestions (datalist)
+    - Duration selector (15/30/60 seconds)
+    - Tag support for result identification
+    - Workflow selection (DC - Aminos and TP, RTS, W&B)
+    - Schedule button for deferred analysis runs
+    - Clear button to reset all form fields
+  - **Backend**: Enhanced stream capture pipeline to support RTMP protocol
+    - URL parsing regex now detects and extracts host/port from RTMP URLs
+    - Added RTMP-specific ffmpeg flags (`-rtmp_buffer 3000`, `-fflags nobuffer`) for stable stream pull
+    - Stream capture function extended to support both SRT and RTMP protocols in pull mode (client connecting to server)
+
+- **Asynchronous RTMP Job Processing**: Implemented dedicated `runAnalysisRTMP()` and `pollStatusRTMP()` functions for non-blocking stream capture
+
+- **Enhanced Mode Switching**: Updated `setInputMode()` function to support three distinct input modes (SRT, RTMP, Upload) with proper tab highlighting and form visibility
+
+- **RTMP Stream Presets**: Extended datalist infrastructure for storing and recalling frequently-used RTMP URLs
+
+## [2.50.1] - 2026-09-02
+
+### Added
+
+#### Video Analyser
+
+- **RTMP Stream Ingestion Support**: Added comprehensive RTMP stream analysis capability
+  - **Frontend**: New RTMP tab interface (📹 RTMP Stream) positioned between SRT and Upload tabs
+    - RTMP URL input field with preset suggestions (datalist)
+    - Duration selector (15/30/60 seconds)
+    - Tag support for result identification
+    - Workflow selection (DC - Aminos and TP, RTS, W&B)
+    - Schedule button for deferred analysis runs
+    - Clear button to reset all form fields
+  - **Backend**: Enhanced stream capture pipeline to support RTMP protocol
+    - URL parsing regex now detects and extracts host/port from RTMP URLs
+    - Added RTMP-specific ffmpeg flags (`-rtmp_live live`, `-rtmp_buffer 3000`) for stable stream capture
+    - Stream capture function extended to support both SRT and RTMP protocols
+
+- **Asynchronous RTMP Job Processing**: Implemented dedicated `runAnalysisRTMP()` and `pollStatusRTMP()` functions for non-blocking stream capture
+
+- **Enhanced Mode Switching**: Updated `setInputMode()` function to support three distinct input modes (SRT, RTMP, Upload) with proper tab highlighting and form visibility
+
+- **RTMP Stream Presets**: Extended datalist infrastructure for storing and recalling frequently-used RTMP URLs
+
+## [2.50.0] - 2026-09-02
+
+### Added
+
+#### Video Analyser
+
+- **RTMP Stream Ingestion Support**: Added new RTMP tab interface for direct RTMP stream analysis, positioned between SRT and Upload tabs
+  - RTMP URL input field with preset suggestions (datalist)
+  - Duration selector (15/30/60 seconds)
+  - Tag support for result identification
+  - Workflow selection (DC - Aminos and TP, RTS, W&B)
+  - Schedule button for deferred analysis runs
+  - Clear button to reset all form fields
+- **Asynchronous RTMP Job Processing**: Implemented dedicated `runAnalysisRTMP()` and `pollStatusRTMP()` functions for non-blocking stream capture
+- **Enhanced Mode Switching**: Updated `setInputMode()` function to support three distinct input modes (SRT, RTMP, Upload) with proper tab highlighting and form visibility
+- **RTMP Stream Presets**: Extended datalist infrastructure for storing and recalling frequently-used RTMP URLs
+
 ## [2.49.4] - 2026-09-01
 
 ### Fixed
