@@ -4909,14 +4909,7 @@ function _removeCellFromBoxes(ri, ci) {
           renderSoeWeekends(modeSel.value);
         });
       }
-      // Set current year as default once years are populated
-      const _setSoeYearDefault = () => {
-        const yrSel = document.getElementById('soe-year-select');
-        if (!yrSel) return;
-        const currentYear = String(new Date().getFullYear());
-        const opt = Array.from(yrSel.options).find(o => o.value === currentYear);
-        if (opt) yrSel.value = currentYear;
-      };
+
       // Year dropdown populated after fetch resolves — hook into loadSoeWeekends result
       const _origLoad = loadSoeWeekends;
       loadSoeWeekends = async function() {
@@ -4975,14 +4968,18 @@ function _removeCellFromBoxes(ri, ci) {
     const members = d.members; // ordered list
     const yearSel = document.getElementById('soe-year-select');
 
-    // Populate year dropdown once
-    if (yearSel && yearSel.options.length <= 1) {
-      (d.years || []).slice().reverse().forEach(y => {
-        const opt = document.createElement('option');
-        opt.value = y; opt.textContent = y;
-        yearSel.appendChild(opt);
-      });
-    }
+  // Populate year dropdown once
+  if (yearSel && yearSel.options.length <= 1) {
+    (d.years || []).slice().reverse().forEach(y => {
+      const opt = document.createElement('option');
+      opt.value = y; opt.textContent = y;
+      yearSel.appendChild(opt);
+    });
+    // Set current year as default after options exist
+    const currentYear = String(new Date().getFullYear());
+    const match = Array.from(yearSel.options).find(o => o.value === currentYear);
+    if (match) yearSel.value = currentYear;
+  }
 
     let counts, title, showRatio;
 

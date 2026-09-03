@@ -1,5 +1,8 @@
 # Changelog — Rota App
 
+### Fixed 03-09-2026
+- SOE Weekend Coverage year dropdown now correctly pre-selects the current year on load.
+
 ## [Unreleased]
 ### Changed 03-09-2026
 - SOE Weekend Coverage widget now defaults to Single Year view with the current year pre-selected, instead of Aggregate.
