@@ -104,7 +104,8 @@ ENGINEERING_ROTATION = [
 # gitignored JSON keyed by employee_id — the one mandatory, stable,
 # collision-free identifier every user has from day one. See
 # rota/person_directory.json. Nothing here is committed to source control.
-PERSON_DIRECTORY_FILE = os.path.join(ROTA_DIR, 'person_directory.json')
+PERSON_DIRECTORY_FILE = os.path.join(ROTA_DIR, 'person_directory.json')~
+PERSON_DIRECTORY_BACKUP_FILE = os.path.join(_BASE_DIR, 'person_directory.backup.json')
 DIRECTORY_AUDIT_FILE  = os.path.join(ROTA_DIR, 'directory_audit_log.json')
 
 VALID_ROTATION_GROUPS = {'management', 'engineering', 'specialist'}
