@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Fixed 04-09-2026
+- person_directory.json missing no longer crashes the whole app process.
+  Backup copy now stored at /opt/web/person_directory.backup.json
+  (outside the rota/ subdirectory) so it survives a rota-scoped file
+  wipe. Auto-restores from backup on boot if the primary is missing;
+  falls back to an empty directory only if no backup exists either.
+
 ### Changed 03-09-2026
 - **Admin tab** restructured into cards: People, Annual Leave, Feedback
 - **People card**: directory table now primary view; Add Person form expands on demand; Recent Changes collapsible via button
