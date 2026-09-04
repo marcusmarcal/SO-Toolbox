@@ -6,6 +6,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.53.0] - 2026-09-04
+
+### Added
+- Jira Ticket Formatter: support for ServiceNow Incidents (INC) alongside Requests (RITM), with automatic ticket-type detection and a manual type selector.
+- Jira Ticket Formatter: incident parser covering form fields, local/UTC start and end times, attachment list and a chronological activity log (work notes, additional comments, image uploads).
+- Jira Ticket Formatter: dedicated incident output view and Jira-ready HTML table.
+
+### Changed
+- Jira Ticket Formatter: generic field parser now shared by request and incident flows; ServiceNow UI noise (link helper prefixes, Spotlight Score, "-- None --") is filtered out.
+
 ## [2.52.5] - 2026-09-04
 
 ### Added

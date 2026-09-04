@@ -17,6 +17,7 @@
       --border:  #2a2a3a;
       --accent:  #00ffc8;
       --accent2: #7b5ea7;
+      --incident:#ff9f43;
       --text:    #e8e8f0;
       --muted:   #6a6a8a;
       --danger:  #ff4e6a;
@@ -110,6 +111,8 @@
       letter-spacing: 0.18em;
       text-transform: uppercase;
       color: var(--muted);
+      display: flex;
+      align-items: center;
     }
     .panel-title span { color: var(--accent); margin-right: 6px; }
 
@@ -139,7 +142,7 @@
     }
     #raw-input::placeholder { color: var(--muted); }
 
-    /* ── BUTTONS ── */
+    /* ── BUTTONS / CONTROLS ── */
     .btn {
       font-family: var(--mono);
       font-size: 0.62rem;
@@ -163,6 +166,46 @@
     .btn.copy-ok { border-color: rgba(0,255,200,0.8); color: var(--accent); }
     .btn-row { display: flex; gap: 8px; align-items: center; }
 
+    select.ctl {
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      padding: 5px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--muted);
+      cursor: pointer;
+      outline: none;
+    }
+    select.ctl:hover, select.ctl:focus { border-color: var(--accent); color: var(--accent); }
+
+    /* ── TYPE BADGE ── */
+    .type-badge {
+      display: none;
+      font-family: var(--mono);
+      font-size: 0.55rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      padding: 2px 8px;
+      margin-left: 10px;
+      border-radius: 20px;
+      border: 1px solid;
+    }
+    .type-badge.request {
+      display: inline-block;
+      color: var(--accent);
+      border-color: rgba(0,255,200,0.4);
+      background: rgba(0,255,200,0.08);
+    }
+    .type-badge.incident {
+      display: inline-block;
+      color: var(--incident);
+      border-color: rgba(255,159,67,0.4);
+      background: rgba(255,159,67,0.08);
+    }
+
     /* ── EMPTY STATE ── */
     #empty-state {
       display: flex;
@@ -179,11 +222,11 @@
       font-family: var(--mono);
       font-size: 0.65rem;
       line-height: 1.7;
-      max-width: 240px;
+      max-width: 260px;
     }
 
     /* ── FORMATTED OUTPUT ── */
-    #formatted-output { display: none; }
+    #formatted-output, #incident-output { display: none; }
 
     .ticket-header {
       display: flex;
@@ -200,6 +243,10 @@
       clip-path: polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
       flex-shrink: 0;
       filter: drop-shadow(0 0 8px rgba(0,255,200,0.3));
+    }
+    .ticket-icon.incident {
+      background: linear-gradient(135deg, var(--incident), var(--danger));
+      filter: drop-shadow(0 0 8px rgba(255,159,67,0.3));
     }
     .ticket-meta { flex: 1; }
     .ticket-meta .tm-label {
@@ -235,6 +282,10 @@
       border-color: rgba(0,255,200,0.2);
       background: rgba(0,255,200,0.03);
     }
+    .field-card.incident-border {
+      border-color: rgba(255,159,67,0.25);
+      background: rgba(255,159,67,0.03);
+    }
     .fc-label {
       font-family: var(--mono);
       font-size: 0.52rem;
@@ -249,16 +300,18 @@
       color: var(--text);
       line-height: 1.5;
       word-break: break-word;
+      white-space: pre-wrap;
     }
     .fc-value.mono {
       font-family: var(--mono);
       font-size: 0.68rem;
       font-weight: 400;
     }
-    .fc-value.empty {
+    .fc-value .empty, .fc-value.empty {
       color: var(--muted);
       font-style: italic;
       font-size: 0.7rem;
+      font-weight: 400;
     }
     .fc-value .email-line {
       display: flex;
@@ -283,6 +336,52 @@
       font-family: var(--mono);
       font-size: 0.72rem;
       color: var(--accent);
+    }
+    .date-badge.incident {
+      background: rgba(255,159,67,0.08);
+      border-color: rgba(255,159,67,0.25);
+      color: var(--incident);
+    }
+    .date-sub {
+      display: block;
+      font-family: var(--mono);
+      font-size: 0.58rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* ── ATTACHMENTS / ACTIVITY ── */
+    .attach-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 3px 0;
+      font-family: var(--mono);
+      font-size: 0.66rem;
+    }
+    .attach-line .attach-date { color: var(--muted); font-size: 0.58rem; }
+
+    .act-list { display: flex; flex-direction: column; gap: 8px; }
+    .act-item {
+      border-left: 2px solid var(--border);
+      padding: 4px 0 4px 10px;
+    }
+    .act-item.wn { border-left-color: var(--accent2); }
+    .act-item.ac { border-left-color: var(--incident); }
+    .act-item.img { border-left-color: var(--muted); }
+    .act-meta {
+      font-family: var(--mono);
+      font-size: 0.56rem;
+      color: var(--muted);
+      margin-bottom: 3px;
+    }
+    .act-meta strong { color: var(--text); font-weight: 700; }
+    .act-body {
+      font-size: 0.74rem;
+      font-weight: 500;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
 
     /* ── WORKFLOW CHECKBOXES ── */
@@ -316,9 +415,7 @@
       transition: all 0.15s;
       position: relative;
     }
-    .option-item input[type="radio"] {
-      border-radius: 50%;
-    }
+    .option-item input[type="radio"] { border-radius: 50%; }
     .option-item input[type="checkbox"]:checked,
     .option-item input[type="radio"]:checked {
       background: var(--accent);
@@ -353,9 +450,7 @@
       cursor: pointer;
       line-height: 1.4;
     }
-    .option-item input:checked + label {
-      color: var(--accent);
-    }
+    .option-item input:checked + label { color: var(--accent); }
 
     /* ── TOAST ── */
     #toast {
@@ -413,19 +508,24 @@
       <div class="panel-header">
         <div class="panel-title"><span>01</span> Paste Raw Ticket Text</div>
         <div class="btn-row">
+          <select class="ctl" id="type-select" onchange="formatTicket()" title="Ticket type">
+            <option value="auto">Auto-detect</option>
+            <option value="request">Request (RITM)</option>
+            <option value="incident">Incident (INC)</option>
+          </select>
           <button class="btn" onclick="clearAll()">✕ Clear</button>
           <button class="btn primary" onclick="formatTicket()">⚡ Format</button>
         </div>
       </div>
       <div class="panel-body">
-        <textarea id="raw-input" placeholder="Paste the raw ticket text here…" oninput="autoFormat()"></textarea>
+        <textarea id="raw-input" placeholder="Paste the raw ticket text here (Request or Incident)…" oninput="autoFormat()"></textarea>
       </div>
     </div>
 
     <!-- ── RIGHT: OUTPUT ── -->
     <div class="panel">
       <div class="panel-header">
-        <div class="panel-title"><span>02</span> Formatted Output</div>
+        <div class="panel-title"><span>02</span> Formatted Output <span class="type-badge" id="type-badge"></span></div>
         <div class="btn-row" id="output-btns" style="display:none">
           <button class="btn primary" id="btn-copy-html" onclick="copyJiraHtml()">📋 Copy for Jira</button>
         </div>
@@ -434,20 +534,19 @@
 
         <div id="empty-state">
           <div class="es-icon">📋</div>
-          <p>Paste your raw ticket text on the left and click <strong style="color:var(--accent)">Format</strong> — or just start typing.</p>
+          <p>Paste a Request (RITM) or Incident (INC) on the left and click <strong style="color:var(--accent)">Format</strong> — or just start typing. The ticket type is detected automatically.</p>
         </div>
 
+        <!-- ══════════ REQUEST OUTPUT ══════════ -->
         <div id="formatted-output">
-          <!-- ticket header -->
           <div class="ticket-header">
             <div class="ticket-icon"></div>
             <div class="ticket-meta">
-              <div class="tm-label">Ticket Overview</div>
+              <div class="tm-label">Request Overview</div>
               <div class="tm-title" id="out-sport">—</div>
             </div>
           </div>
 
-          <!-- fields -->
           <div class="fields-grid">
             <div class="field-card accent-border">
               <div class="fc-label">Request Number</div>
@@ -478,7 +577,6 @@
               <div class="fc-value" id="out-last-date">—</div>
             </div>
 
-            <!-- VIDEO WORKFLOWS — always shown as checkboxes -->
             <div class="field-card full-width">
               <div class="fc-label">Video Workflows Required for Testing</div>
               <div class="option-list" id="workflows-list">
@@ -492,7 +590,6 @@
               </div>
             </div>
 
-            <!-- CHANNELS ALLOCATION — always shown as radio buttons -->
             <div class="field-card full-width">
               <div class="fc-label">Channels Allocation</div>
               <div class="option-list" id="channels-list">
@@ -517,6 +614,18 @@
           </div>
         </div>
 
+        <!-- ══════════ INCIDENT OUTPUT ══════════ -->
+        <div id="incident-output">
+          <div class="ticket-header">
+            <div class="ticket-icon incident"></div>
+            <div class="ticket-meta">
+              <div class="tm-label">Incident Overview</div>
+              <div class="tm-title" id="inc-title">—</div>
+            </div>
+          </div>
+          <div class="fields-grid" id="inc-grid"></div>
+        </div>
+
       </div>
     </div>
 
@@ -532,7 +641,11 @@
 </div>
 
 <script>
-  const FIELD_DEFS = [
+  /* ═══════════════════════════════════════════════════════════════
+     FIELD DEFINITIONS
+     Labels mirror the ServiceNow form labels exactly (case-insensitive).
+     ═══════════════════════════════════════════════════════════════ */
+  const REQUEST_FIELD_DEFS = [
     { key: "ritm",       label: "Number" },
     { key: "openedDate", label: "Opened" },
     { key: "sport",      label: "Sport/Rights/League/Competition/Single Event details" },
@@ -548,66 +661,229 @@
     { key: "additional", label: "Additional Information" },
   ];
 
+  const INCIDENT_FIELD_DEFS = [
+    { key: "number",             label: "Number" },
+    { key: "caller",             label: "Caller" },
+    { key: "location",           label: "Location" },
+    { key: "service",            label: "Service" },
+    { key: "serviceOffering",    label: "Service offering" },
+    { key: "affectedCi",         label: "Affected CI" },
+    { key: "category",           label: "Category" },
+    { key: "caseId",             label: "CaseID" },
+    { key: "state",              label: "State" },
+    { key: "channel",            label: "Channel" },
+    { key: "supplier",           label: "Supplier" },
+    { key: "startDate",          label: "Incident start date" },
+    { key: "utcStart",           label: "UTC start" },
+    { key: "endDate",            label: "Incident End" },
+    { key: "utcEnd",             label: "UTC end" },
+    { key: "impact",             label: "Impact" },
+    { key: "urgency",            label: "Urgency" },
+    { key: "priority",           label: "Priority" },
+    { key: "assignmentGroup",    label: "Assignment group" },
+    { key: "assignedTo",         label: "Assigned to" },
+    { key: "actionStatus",       label: "Action status" },
+    { key: "needsAttention",     label: "Needs attention" },
+    { key: "majorIncidentState", label: "Major incident state" },
+    { key: "shortDescription",   label: "Short description" },
+    { key: "description",        label: "Description" },
+    { key: "steps",              label: "Steps to reproduce" },
+  ];
+
+  // Activity entry header, e.g. "Work notes (Not visible to the caller)•DD-MM-YYYY HH:MM:SS…"
+  const ACTIVITY_HEADER_RE = /^(Work notes(?: \(Not visible to the caller\))?|Additional comments(?: \(Customer visible\))?|Field changes|Email sent|Image uploaded|Comments)•(\d{2}-\d{2}-\d{4} \d{2}:\d{2}:\d{2})/i;
+  const ACTIVITY_TYPES_TO_KEEP = ["work notes", "additional comments", "comments", "image uploaded"];
+
+  /* ═══════════════════════════════════════════════════════════════
+     GENERIC HELPERS
+     ═══════════════════════════════════════════════════════════════ */
   function normalise(s) {
     return s.replace(/\s+/g, " ").trim().toLowerCase();
   }
 
-  function parseRaw(raw) {
-    const lines = raw.split(/\r?\n/).map(l => l.trimEnd());
-    const result = {};
-    FIELD_DEFS.forEach(fd => { result[fd.key] = []; });
-    let currentKey = null;
-
-    for (let i = 0; i < lines.length; i++) {
-      const trimmed = lines[i].trim();
-      if (!trimmed) continue;
-      const norm = normalise(trimmed);
-      const matched = FIELD_DEFS.find(fd => normalise(fd.label) === norm);
-      if (matched) {
-        // Reset on re-occurrence so the last (cleanest) section wins
-        currentKey = matched.key;
-        result[currentKey] = [];
-      } else if (trimmed.toLowerCase() === "variables") {
-        currentKey = null;
-      } else if (currentKey) {
-        result[currentKey].push(trimmed);
-      }
-    }
-
-    const out = {};
-    FIELD_DEFS.forEach(fd => {
-      out[fd.key] = result[fd.key].join("\n").trim();
-    });
-
-    // Post-process: extract only the RITM number (e.g. RITM0327117)
-    if (out.ritm) {
-      const m = out.ritm.match(/RITM\d+/i);
-      out.ritm = m ? m[0] : out.ritm.split(/\s/)[0];
-    }
-
-    // Post-process: extract only the datetime (DD-MM-YYYY HH:MM:SS)
-    if (out.openedDate) {
-      const m = out.openedDate.match(/\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2}/);
-      out.openedDate = m ? m[0] : out.openedDate.split("\n")[0];
-    }
-
-    // Post-process: strip everything from "Related Links" onwards in Additional Info
-    if (out.additional) {
-      const cutoff = out.additional.search(/related links/i);
-      if (cutoff !== -1) out.additional = out.additional.slice(0, cutoff).trim();
-    }
-
-    return out;
+  // ServiceNow prefixes some reference-field labels with link helper text
+  function cleanLabelLine(s) {
+    return s.replace(/^link opens in new tab/i, "").trim();
   }
 
   function escHtml(s) {
-    return s
+    return String(s)
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
   }
 
+  /**
+   * Generic "label on its own line, value on following lines" parser.
+   * opts.stopAt      — regex; stop parsing entirely when a line matches
+   * opts.skip        — regex; ignore matching lines (noise)
+   * opts.terminators — regex; matching lines close the current field
+   */
+  function parseFields(lines, defs, opts = {}) {
+    const result = {};
+    defs.forEach(fd => { result[fd.key] = []; });
+    let currentKey = null;
+
+    for (const rawLine of lines) {
+      const trimmed = cleanLabelLine(rawLine.trim());
+      if (!trimmed) continue;
+      if (opts.stopAt && opts.stopAt.test(trimmed)) break;
+      if (opts.skip && opts.skip.test(trimmed)) continue;
+
+      const norm = normalise(trimmed);
+      const matched = defs.find(fd => normalise(fd.label) === norm);
+      if (matched) {
+        // Reset on re-occurrence so the last (cleanest) section wins
+        currentKey = matched.key;
+        result[currentKey] = [];
+        continue;
+      }
+      if (opts.terminators && opts.terminators.test(trimmed)) {
+        currentKey = null;
+        continue;
+      }
+      if (currentKey) result[currentKey].push(trimmed);
+    }
+
+    const out = {};
+    defs.forEach(fd => { out[fd.key] = result[fd.key].join("\n").trim(); });
+    return out;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     TICKET TYPE DETECTION
+     ═══════════════════════════════════════════════════════════════ */
+  function detectType(raw) {
+    const lines = raw.split(/\r?\n/).map(l => normalise(cleanLabelLine(l)));
+    const countLabels = defs =>
+      defs.reduce((n, fd) => n + (lines.includes(normalise(fd.label)) ? 1 : 0), 0);
+
+    let incScore = countLabels(INCIDENT_FIELD_DEFS);
+    let reqScore = countLabels(REQUEST_FIELD_DEFS);
+
+    if (/^\s*incident\s*\[incident\]/im.test(raw)) incScore += 5;
+    if (/^\s*INC\d{5,}\s*$/m.test(raw))            incScore += 3;
+    if (/RITM\d+/i.test(raw))                      reqScore += 5;
+    if (/^\s*requested item/im.test(raw))          reqScore += 3;
+
+    return incScore > reqScore ? "incident" : "request";
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     REQUEST (RITM) PARSER
+     ═══════════════════════════════════════════════════════════════ */
+  function parseRequest(raw) {
+    const lines = raw.split(/\r?\n/);
+    const out = parseFields(lines, REQUEST_FIELD_DEFS, { terminators: /^variables$/i });
+
+    if (out.ritm) {
+      const m = out.ritm.match(/RITM\d+/i);
+      out.ritm = m ? m[0] : out.ritm.split(/\s/)[0];
+    }
+    if (out.openedDate) {
+      const m = out.openedDate.match(/\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2}/);
+      out.openedDate = m ? m[0] : out.openedDate.split("\n")[0];
+    }
+    if (out.additional) {
+      const cutoff = out.additional.search(/related links/i);
+      if (cutoff !== -1) out.additional = out.additional.slice(0, cutoff).trim();
+    }
+    return out;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     INCIDENT (INC) PARSER
+     ═══════════════════════════════════════════════════════════════ */
+  function parseIncident(raw) {
+    const lines = raw.split(/\r?\n/);
+
+    const out = parseFields(lines, INCIDENT_FIELD_DEFS, {
+      stopAt:      /^activities:/i,
+      skip:        /^spotlight score/i,
+      terminators: /^press alt\+0/i,
+    });
+
+    // Single-line fields: keep only the first line (drops stray trailing tokens)
+    const singleLine = [
+      "number", "caller", "location", "service", "serviceOffering", "affectedCi",
+      "category", "caseId", "state", "channel", "supplier", "startDate", "utcStart",
+      "endDate", "utcEnd", "impact", "urgency", "priority", "assignmentGroup",
+      "assignedTo", "actionStatus", "needsAttention", "majorIncidentState", "shortDescription",
+    ];
+    singleLine.forEach(k => { if (out[k]) out[k] = out[k].split("\n")[0].trim(); });
+
+    if (out.number) {
+      const m = out.number.match(/INC\d+/i);
+      if (m) out.number = m[0];
+    }
+
+    // Placeholder values are treated as empty
+    Object.keys(out).forEach(k => {
+      if (/^--\s*none\s*--$/i.test(out[k])) out[k] = "";
+    });
+
+    out.attachments = parseAttachments(lines);
+    out.activities  = parseActivities(lines);
+    return out;
+  }
+
+  // "Attached by <user> on <date>" followed by the file name on the next line
+  function parseAttachments(lines) {
+    const out = [];
+    for (let i = 0; i < lines.length; i++) {
+      const t = lines[i].trim();
+      if (/^activities:/i.test(t)) break;
+      const m = t.match(/^Attached by \S+ on (\d{2}-\d{2}-\d{4} \d{2}:\d{2}:\d{2})$/i);
+      if (!m) continue;
+      let j = i + 1;
+      while (j < lines.length && !lines[j].trim()) j++;
+      if (j < lines.length) out.push({ date: m[1], name: lines[j].trim() });
+    }
+    return out;
+  }
+
+  // Activity stream: only human-authored notes/comments and uploads are kept
+  function parseActivities(lines) {
+    const start = lines.findIndex(l => /^activities:/i.test(l.trim()));
+    if (start === -1) return [];
+    let end = lines.findIndex((l, i) => i > start && /^related links$/i.test(l.trim()));
+    if (end === -1) end = lines.length;
+
+    const block = lines.slice(start + 1, end).map(l => l.trim());
+    const headerIdx = [];
+    block.forEach((l, i) => { if (ACTIVITY_HEADER_RE.test(l)) headerIdx.push(i); });
+
+    const entries = [];
+    for (let h = 0; h < headerIdx.length; h++) {
+      const i = headerIdx[h];
+      const next = h + 1 < headerIdx.length ? headerIdx[h + 1] : block.length;
+      const m = block[i].match(ACTIVITY_HEADER_RE);
+      const type = m[1].replace(/\s*\(.*\)$/, "").trim();
+      const date = m[2];
+      const author = i > 0 && !ACTIVITY_HEADER_RE.test(block[i - 1]) ? block[i - 1] : "";
+
+      // Body = lines until the next header, minus the next entry's author lines
+      let body = block.slice(i + 1, next).filter(Boolean);
+      if (h + 1 < headerIdx.length) {
+        if (body.length && /^system$/i.test(body[body.length - 1])) {
+          body.pop();
+        } else if (body.length >= 2 && /^[A-Z]{1,3}$/.test(body[body.length - 2])) {
+          body.splice(-2, 2);
+        }
+      }
+
+      if (!ACTIVITY_TYPES_TO_KEEP.includes(type.toLowerCase())) continue;
+      entries.push({ type, date, author, text: body.join("\n").trim() });
+    }
+
+    // ServiceNow lists newest first — present chronologically
+    return entries.reverse();
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     REQUEST RENDERING
+     ═══════════════════════════════════════════════════════════════ */
   function setField(id, value, type = "text") {
     const el = document.getElementById(id);
     if (!value || value.trim() === "" || value.trim().toLowerCase() === "n/a") {
@@ -618,9 +894,7 @@
     }
     if (type === "email") {
       const lines = value.split("\n").filter(l => l.trim());
-      el.innerHTML = lines.map(l =>
-        `<div class="email-line">${escHtml(l.trim())}</div>`
-      ).join("");
+      el.innerHTML = lines.map(l => `<div class="email-line">${escHtml(l.trim())}</div>`).join("");
     } else if (type === "date") {
       el.innerHTML = `<span class="date-badge">📅 ${escHtml(value)}</span>`;
     } else {
@@ -628,16 +902,9 @@
     }
   }
 
-  // Pre-check workflow/channel checkboxes based on parsed text
   function applyParsedSelections(data) {
-    // Workflows: uncheck all first
-    document.querySelectorAll('input[name="wf"]').forEach(cb => {
-      cb.checked = false;
-    });
-    // Channels: uncheck all first
-    document.querySelectorAll('input[name="ch"]').forEach(rb => {
-      rb.checked = false;
-    });
+    document.querySelectorAll('input[name="wf"]').forEach(cb => { cb.checked = false; });
+    document.querySelectorAll('input[name="ch"]').forEach(rb => { rb.checked = false; });
 
     if (data.workflows && data.workflows.trim()) {
       const wfText = data.workflows.toLowerCase();
@@ -653,7 +920,7 @@
     }
   }
 
-  function renderFormatted(data) {
+  function renderRequest(data) {
     document.getElementById("out-sport").textContent = data.sport || "Unknown Event";
     setField("out-ritm",       data.ritm);
     setField("out-opened",     data.openedDate);
@@ -668,96 +935,178 @@
     applyParsedSelections(data);
   }
 
-  // Build a clean, readable HTML table for pasting into Jira
-  function buildJiraHtml(data) {
-    const orNA = v => (v && v.trim()) ? v.trim() : "N/A";
+  /* ═══════════════════════════════════════════════════════════════
+     INCIDENT RENDERING
+     ═══════════════════════════════════════════════════════════════ */
+  function incCard(label, value, opts = {}) {
+    const cls = ["field-card"];
+    if (opts.full)   cls.push("full-width");
+    if (opts.accent) cls.push("incident-border");
+    let inner;
+    if (!value || !String(value).trim()) {
+      inner = `<div class="fc-value"><span class="empty">Not specified</span></div>`;
+    } else if (opts.date) {
+      inner = `<div class="fc-value"><span class="date-badge incident">🕐 ${escHtml(value)}</span>`
+            + (opts.sub ? `<span class="date-sub">UTC ${escHtml(opts.sub)}</span>` : "")
+            + `</div>`;
+    } else {
+      inner = `<div class="fc-value${opts.mono ? " mono" : ""}">${escHtml(value)}</div>`;
+    }
+    return `<div class="${cls.join(" ")}"><div class="fc-label">${escHtml(label)}</div>${inner}</div>`;
+  }
 
-    // Contacts as <ul>
-    const contactLines = data.contacts
-      ? data.contacts.split("\n").filter(l => l.trim())
-          .map(l => `<li>${escHtml(l.trim())}</li>`).join("")
-      : "<li>N/A</li>";
+  function renderIncident(d) {
+    document.getElementById("inc-title").textContent = d.shortDescription || d.number || "Unknown Incident";
 
-    // Workflows: only include checked items
-    const selectedWf = [...document.querySelectorAll('input[name="wf"]:checked')]
-      .map(cb => cb.value);
-    const wfRows = selectedWf.length
-      ? selectedWf.map(label => `<li>✅ ${escHtml(label)}</li>`).join("")
-      : "<li><em>None selected</em></li>";
+    const attachHtml = d.attachments.length
+      ? d.attachments.map(a =>
+          `<div class="attach-line">📎 ${escHtml(a.name)}<span class="attach-date">${escHtml(a.date)}</span></div>`
+        ).join("")
+      : `<span class="empty">No attachments</span>`;
 
-    // Channels: only include the selected radio
-    const selectedCh = document.querySelector('input[name="ch"]:checked');
-    const chRows = selectedCh
-      ? `<li>🔵 ${escHtml(selectedCh.value)}</li>`
-      : "<li><em>None selected</em></li>";
+    const actHtml = d.activities.length
+      ? `<div class="act-list">` + d.activities.map(a => {
+          const t = a.type.toLowerCase();
+          const cls = t.startsWith("work") ? "wn" : t.startsWith("image") ? "img" : "ac";
+          return `<div class="act-item ${cls}">
+            <div class="act-meta"><strong>${escHtml(a.type)}</strong> · ${escHtml(a.date)}${a.author ? " · " + escHtml(a.author) : ""}</div>
+            <div class="act-body">${escHtml(a.text)}</div>
+          </div>`;
+        }).join("") + `</div>`
+      : `<span class="empty">No notes or comments</span>`;
 
+    document.getElementById("inc-grid").innerHTML = [
+      incCard("Incident Number",  d.number, { accent: true, mono: true }),
+      incCard("State",            d.state,  { accent: true }),
+      incCard("Priority",         d.priority),
+      incCard("Impact",           d.impact),
+      incCard("Urgency",          d.urgency),
+      incCard("Category",         d.category),
+      incCard("Caller",           d.caller),
+      incCard("Location",         d.location),
+      incCard("Service",          d.service),
+      incCard("Channel",          d.channel),
+      incCard("Assignment Group", d.assignmentGroup),
+      incCard("Assigned To",      d.assignedTo),
+      incCard("Incident Start",   d.startDate, { date: true, sub: d.utcStart }),
+      incCard("Incident End",     d.endDate,   { date: true, sub: d.utcEnd }),
+      incCard("Short Description", d.shortDescription, { full: true }),
+      incCard("Description",      d.description,      { full: true, accent: true }),
+      incCard("Steps to Reproduce", d.steps,          { full: true }),
+      `<div class="field-card full-width"><div class="fc-label">Attachments</div><div class="fc-value mono">${attachHtml}</div></div>`,
+      `<div class="field-card full-width incident-border"><div class="fc-label">Notes &amp; Comments</div><div class="fc-value">${actHtml}</div></div>`,
+    ].join("");
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     JIRA HTML BUILDERS
+     ═══════════════════════════════════════════════════════════════ */
+  const TD_LABEL = 'style="padding:8px 14px;font-weight:bold;color:#444;width:36%;vertical-align:top;border-bottom:1px solid #e0e0e0;"';
+  const TD_VALUE = 'style="padding:8px 14px;color:#111;border-bottom:1px solid #e0e0e0;"';
+
+  function jiraRow(label, valueHtml, i) {
+    const bg = i % 2 === 0 ? ' style="background:#f9f9f9;"' : "";
+    return `<tr${bg}><td ${TD_LABEL}>${escHtml(label)}</td><td ${TD_VALUE}>${valueHtml}</td></tr>`;
+  }
+
+  function jiraTable(titleHtml, rowsHtml, headerBg, headerColor) {
     return `<table style="border-collapse:collapse;width:100%;font-family:Arial,Helvetica,sans-serif;font-size:13px;">
   <thead>
-    <tr style="background:#0a3d2e;color:#00c896;">
-      <th colspan="2" style="padding:10px 14px;text-align:left;font-size:15px;letter-spacing:0.03em;">
-        🎟️ ${escHtml(data.sport || "Ticket Details")}
-      </th>
+    <tr style="background:${headerBg};color:${headerColor};">
+      <th colspan="2" style="padding:10px 14px;text-align:left;font-size:15px;letter-spacing:0.03em;">${titleHtml}</th>
     </tr>
   </thead>
   <tbody>
-    <tr style="background:#f9f9f9;">
-      <td style="padding:8px 14px;font-weight:bold;color:#444;width:36%;border-bottom:1px solid #e0e0e0;">Request Number</td>
-      <td style="padding:8px 14px;color:#111;border-bottom:1px solid #e0e0e0;font-family:monospace;">${escHtml(orNA(data.ritm))}</td>
-    </tr>
-    <tr>
-      <td style="padding:8px 14px;font-weight:bold;color:#444;border-bottom:1px solid #e0e0e0;">Request Date / Time</td>
-      <td style="padding:8px 14px;color:#111;border-bottom:1px solid #e0e0e0;">🕐 ${escHtml(orNA(data.openedDate))}</td>
-    </tr>
-    <tr style="background:#f9f9f9;">
-      <td style="padding:8px 14px;font-weight:bold;color:#444;width:36%;border-bottom:1px solid #e0e0e0;">Requested For</td>
-      <td style="padding:8px 14px;color:#111;border-bottom:1px solid #e0e0e0;">${escHtml(orNA(data.requested))}</td>
-    </tr>
-    <tr>
-      <td style="padding:8px 14px;font-weight:bold;color:#444;border-bottom:1px solid #e0e0e0;">Provider Name</td>
-      <td style="padding:8px 14px;color:#111;border-bottom:1px solid #e0e0e0;">${escHtml(orNA(data.provider))}</td>
-    </tr>
-    <tr style="background:#f9f9f9;">
-      <td style="padding:8px 14px;font-weight:bold;color:#444;vertical-align:top;border-bottom:1px solid #e0e0e0;">Provider Contact Details</td>
-      <td style="padding:8px 14px;color:#111;border-bottom:1px solid #e0e0e0;"><ul style="margin:0;padding-left:18px;">${contactLines}</ul></td>
-    </tr>
-    <tr>
-      <td style="padding:8px 14px;font-weight:bold;color:#444;border-bottom:1px solid #e0e0e0;">Sport / Rights / League</td>
-      <td style="padding:8px 14px;color:#111;border-bottom:1px solid #e0e0e0;">${escHtml(orNA(data.sport))}</td>
-    </tr>
-    <tr style="background:#f9f9f9;">
-      <td style="padding:8px 14px;font-weight:bold;color:#444;border-bottom:1px solid #e0e0e0;">First / Single Live Event Date</td>
-      <td style="padding:8px 14px;color:#111;border-bottom:1px solid #e0e0e0;">📅 ${escHtml(orNA(data.firstDate))}</td>
-    </tr>
-    <tr>
-      <td style="padding:8px 14px;font-weight:bold;color:#444;border-bottom:1px solid #e0e0e0;">Last Live Event Date</td>
-      <td style="padding:8px 14px;color:#111;border-bottom:1px solid #e0e0e0;">📅 ${escHtml(orNA(data.lastDate))}</td>
-    </tr>
-    <tr style="background:#f9f9f9;">
-      <td style="padding:8px 14px;font-weight:bold;color:#444;vertical-align:top;border-bottom:1px solid #e0e0e0;">Video Workflows Required</td>
-      <td style="padding:8px 14px;color:#111;border-bottom:1px solid #e0e0e0;"><ul style="margin:0;padding-left:18px;list-style:none;">${wfRows}</ul></td>
-    </tr>
-    <tr>
-      <td style="padding:8px 14px;font-weight:bold;color:#444;vertical-align:top;border-bottom:1px solid #e0e0e0;">Channels Allocation</td>
-      <td style="padding:8px 14px;color:#111;border-bottom:1px solid #e0e0e0;"><ul style="margin:0;padding-left:18px;list-style:none;">${chRows}</ul></td>
-    </tr>
-    <tr style="background:#f9f9f9;">
-      <td style="padding:8px 14px;font-weight:bold;color:#444;border-bottom:1px solid #e0e0e0;">Mail Chain</td>
-      <td style="padding:8px 14px;color:#111;border-bottom:1px solid #e0e0e0;">${escHtml(orNA(data.mail))}</td>
-    </tr>
-    <tr>
-      <td style="padding:8px 14px;font-weight:bold;color:#444;border-bottom:1px solid #e0e0e0;">Encoder(s) Used</td>
-      <td style="padding:8px 14px;color:#111;border-bottom:1px solid #e0e0e0;">${escHtml(orNA(data.encoder))}</td>
-    </tr>
-    <tr style="background:#eaf9f4;">
-      <td style="padding:8px 14px;font-weight:bold;color:#444;vertical-align:top;">Additional Information</td>
-      <td style="padding:8px 14px;color:#111;">${escHtml(orNA(data.additional)).replace(/\n/g,"<br>")}</td>
-    </tr>
+${rowsHtml}
   </tbody>
 </table>`;
   }
 
-  // Store last parsed data globally so copy always works
+  function buildRequestJiraHtml(data) {
+    const orNA = v => (v && v.trim()) ? escHtml(v.trim()) : "N/A";
+
+    const contactLines = data.contacts
+      ? data.contacts.split("\n").filter(l => l.trim()).map(l => `<li>${escHtml(l.trim())}</li>`).join("")
+      : "<li>N/A</li>";
+
+    const selectedWf = [...document.querySelectorAll('input[name="wf"]:checked')].map(cb => cb.value);
+    const wfRows = selectedWf.length
+      ? selectedWf.map(label => `<li>✅ ${escHtml(label)}</li>`).join("")
+      : "<li><em>None selected</em></li>";
+
+    const selectedCh = document.querySelector('input[name="ch"]:checked');
+    const chRows = selectedCh ? `<li>🔵 ${escHtml(selectedCh.value)}</li>` : "<li><em>None selected</em></li>";
+
+    const rows = [
+      ["Request Number",                `<span style="font-family:monospace;">${orNA(data.ritm)}</span>`],
+      ["Request Date / Time",           `🕐 ${orNA(data.openedDate)}`],
+      ["Requested For",                 orNA(data.requested)],
+      ["Provider Name",                 orNA(data.provider)],
+      ["Provider Contact Details",      `<ul style="margin:0;padding-left:18px;">${contactLines}</ul>`],
+      ["Sport / Rights / League",       orNA(data.sport)],
+      ["First / Single Live Event Date",`📅 ${orNA(data.firstDate)}`],
+      ["Last Live Event Date",          `📅 ${orNA(data.lastDate)}`],
+      ["Video Workflows Required",      `<ul style="margin:0;padding-left:18px;list-style:none;">${wfRows}</ul>`],
+      ["Channels Allocation",           `<ul style="margin:0;padding-left:18px;list-style:none;">${chRows}</ul>`],
+      ["Mail Chain",                    orNA(data.mail)],
+      ["Encoder(s) Used",               orNA(data.encoder)],
+      ["Additional Information",        orNA(data.additional).replace(/\n/g, "<br>")],
+    ].map((r, i) => jiraRow(r[0], r[1], i)).join("\n");
+
+    return jiraTable(`🎟️ ${escHtml(data.sport || "Ticket Details")}`, rows, "#0a3d2e", "#00c896");
+  }
+
+  function buildIncidentJiraHtml(d) {
+    const orNA = v => (v && String(v).trim()) ? escHtml(String(v).trim()) : "N/A";
+    const withUtc = (local, utc) => `🕐 ${orNA(local)}` + (utc ? ` <span style="color:#777;">(UTC ${escHtml(utc)})</span>` : "");
+
+    const attach = d.attachments.length
+      ? `<ul style="margin:0;padding-left:18px;">${d.attachments.map(a => `<li>📎 ${escHtml(a.name)} <span style="color:#777;">${escHtml(a.date)}</span></li>`).join("")}</ul>`
+      : "N/A";
+
+    const acts = d.activities.length
+      ? `<ul style="margin:0;padding-left:18px;">${d.activities.map(a =>
+          `<li style="margin-bottom:6px;"><strong>${escHtml(a.date)}</strong>${a.author ? " — " + escHtml(a.author) : ""} <em>(${escHtml(a.type)})</em><br>${escHtml(a.text).replace(/\n/g, "<br>")}</li>`
+        ).join("")}</ul>`
+      : "N/A";
+
+    const rows = [
+      ["Incident Number",   `<span style="font-family:monospace;">${orNA(d.number)}</span>`],
+      ["State",             orNA(d.state)],
+      ["Priority",          orNA(d.priority)],
+      ["Impact",            orNA(d.impact)],
+      ["Urgency",           orNA(d.urgency)],
+      ["Category",          orNA(d.category)],
+      ["Caller",            orNA(d.caller)],
+      ["Location",          orNA(d.location)],
+      ["Service",           orNA(d.service)],
+      ["Channel",           orNA(d.channel)],
+      ["Assignment Group",  orNA(d.assignmentGroup)],
+      ["Assigned To",       orNA(d.assignedTo)],
+      ["Incident Start",    withUtc(d.startDate, d.utcStart)],
+      ["Incident End",      withUtc(d.endDate, d.utcEnd)],
+      ["Short Description", orNA(d.shortDescription)],
+      ["Description",       orNA(d.description).replace(/\n/g, "<br>")],
+      ["Steps to Reproduce",orNA(d.steps).replace(/\n/g, "<br>")],
+      ["Attachments",       attach],
+      ["Notes & Comments",  acts],
+    ].map((r, i) => jiraRow(r[0], r[1], i)).join("\n");
+
+    const title = `🚨 ${escHtml(d.number || "Incident")}${d.shortDescription ? " — " + escHtml(d.shortDescription) : ""}`;
+    return jiraTable(title, rows, "#3d1f0a", "#ff9f43");
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     APP STATE & ACTIONS
+     ═══════════════════════════════════════════════════════════════ */
   let _lastData = null;
+  let _lastType = null;
+
+  function setTypeBadge(type) {
+    const b = document.getElementById("type-badge");
+    b.className = "type-badge " + (type || "");
+    b.textContent = type === "incident" ? "INCIDENT" : type === "request" ? "REQUEST" : "";
+  }
 
   function formatTicket() {
     const raw = document.getElementById("raw-input").value;
@@ -765,13 +1114,30 @@
       setStatus("⚠ Nothing to format — paste some text first");
       return;
     }
-    _lastData = parseRaw(raw);
-    renderFormatted(_lastData);
 
+    const sel = document.getElementById("type-select").value;
+    _lastType = sel === "auto" ? detectType(raw) : sel;
+
+    const reqOut = document.getElementById("formatted-output");
+    const incOut = document.getElementById("incident-output");
+
+    if (_lastType === "incident") {
+      _lastData = parseIncident(raw);
+      renderIncident(_lastData);
+      reqOut.style.display = "none";
+      incOut.style.display = "block";
+      setStatus("✔ Incident formatted — review and copy for Jira");
+    } else {
+      _lastData = parseRequest(raw);
+      renderRequest(_lastData);
+      incOut.style.display = "none";
+      reqOut.style.display = "block";
+      setStatus("✔ Request formatted — select workflows/channels then copy for Jira");
+    }
+
+    setTypeBadge(_lastType);
     document.getElementById("empty-state").style.display = "none";
-    document.getElementById("formatted-output").style.display = "block";
     document.getElementById("output-btns").style.display = "flex";
-    setStatus("✔ Formatted — select workflows/channels then copy for Jira");
   }
 
   function autoFormat() {
@@ -783,26 +1149,27 @@
     document.getElementById("raw-input").value = "";
     document.getElementById("empty-state").style.display = "flex";
     document.getElementById("formatted-output").style.display = "none";
+    document.getElementById("incident-output").style.display = "none";
     document.getElementById("output-btns").style.display = "none";
+    setTypeBadge(null);
     _lastData = null;
+    _lastType = null;
     setStatus("Cleared");
   }
 
   async function copyJiraHtml() {
     if (!_lastData) { setStatus("⚠ Format a ticket first"); return; }
 
-    const html = buildJiraHtml(_lastData);
+    const html = _lastType === "incident"
+      ? buildIncidentJiraHtml(_lastData)
+      : buildRequestJiraHtml(_lastData);
 
     try {
-      // Copy as rich HTML so it pastes formatted in Jira
       const blob = new Blob([html], { type: "text/html" });
-      await navigator.clipboard.write([
-        new ClipboardItem({ "text/html": blob })
-      ]);
+      await navigator.clipboard.write([new ClipboardItem({ "text/html": blob })]);
       showToast("✔ Copied! Paste directly into Jira description.");
       setStatus("✔ Rich HTML copied — paste into Jira description field");
     } catch (e) {
-      // Fallback: copy plain HTML source
       try {
         await navigator.clipboard.writeText(html);
         showToast("✔ HTML source copied (switch Jira to HTML mode to paste)");
