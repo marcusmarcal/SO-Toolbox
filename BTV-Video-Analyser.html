@@ -1265,18 +1265,15 @@
           />
         </div>
         <div class="field w120">
-          <label>Duration (s)</label>
-          <input
-            id="inp-dur"
-            type="number"
-            min="5"
-            max="300"
-            step="1"
-            value="30"
-            placeholder="5-300"
-            autocomplete="off"
-            title="Capture duration in seconds (max 300 = 5 minutes)"
-          />
+          <label>Duration</label>
+          <select id="inp-dur">
+            <option value="30" selected>30 seconds ★</option>
+            <option value="60">1 minute</option>
+            <option value="120">2 minutes</option>
+            <option value="180">3 minutes</option>
+            <option value="240">4 minutes</option>
+            <option value="300">5 minutes</option>
+          </select>
         </div>
         <div class="field w180">
           <label
@@ -1387,18 +1384,15 @@
           <datalist id="rtmp-url-presets"></datalist>
         </div>
         <div class="field w120">
-          <label>Duration (s)</label>
-          <input
-            id="inp-rtmp-dur"
-            type="number"
-            min="5"
-            max="300"
-            step="1"
-            value="30"
-            placeholder="5-300"
-            autocomplete="off"
-            title="Capture duration in seconds (max 300 = 5 minutes)"
-          />
+          <label>Duration</label>
+          <select id="inp-rtmp-dur">
+            <option value="30" selected>30 seconds ★</option>
+            <option value="60">1 minute</option>
+            <option value="120">2 minutes</option>
+            <option value="180">3 minutes</option>
+            <option value="240">4 minutes</option>
+            <option value="300">5 minutes</option>
+          </select>
         </div>
         <div class="field w180">
           <label
