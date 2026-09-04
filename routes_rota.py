@@ -111,16 +111,38 @@ VALID_ROTATION_GROUPS = {'management', 'engineering', 'specialist'}
 
 def _load_person_directory() -> dict:
     if not os.path.exists(PERSON_DIRECTORY_FILE):
-        raise RuntimeError(
-            f'person_directory.json missing at {PERSON_DIRECTORY_FILE} '
-            f'— create the file (can be an empty object {{}}) to start.'
-        )
+        if os.path.exists(PERSON_DIRECTORY_BACKUP_FILE):
+            print(f"[ROTA WARNING] person_directory.json missing — "
+                  f"restoring from backup at {PERSON_DIRECTORY_BACKUP_FILE}.")
+            backup = _load_json(PERSON_DIRECTORY_BACKUP_FILE)
+            if isinstance(backup, dict):
+                _save_json(PERSON_DIRECTORY_FILE, backup)
+            else:
+                print(f"[ROTA WARNING] backup file is also invalid — "
+                      f"falling back to empty directory.")
+                _save_json(PERSON_DIRECTORY_FILE, {})
+        else:
+            print(f"[ROTA WARNING] person_directory.json missing and no "
+                  f"backup found — creating empty file at "
+                  f"{PERSON_DIRECTORY_FILE}. Rota will show NO people "
+                  f"until entries are added via Admin > People.")
+            os.makedirs(ROTA_DIR, exist_ok=True)
+            _save_json(PERSON_DIRECTORY_FILE, {})
+
     d = _load_json(PERSON_DIRECTORY_FILE)
     if not isinstance(d, dict):
         raise RuntimeError(
             f'person_directory.json is not a valid JSON object at '
             f'{PERSON_DIRECTORY_FILE} — check for syntax errors.'
         )
+
+    # Self-heal: primary was fine, but if the backup is missing or stale
+    # relative to it, refresh it now rather than waiting for the next
+    # admin edit. Cheap — this only runs at boot and on admin writes.
+    if not os.path.exists(PERSON_DIRECTORY_BACKUP_FILE):
+        print(f"[ROTA INFO] backup missing — recreating from primary at boot.")
+        _save_json(PERSON_DIRECTORY_BACKUP_FILE, d)
+
     return d
 
 # rota_label = short grid alias — used as the internal key throughout the
@@ -140,6 +162,14 @@ def _rebuild_person_directory_caches() -> None:
     global _RID_TO_LABEL, _LABEL_TO_RID, _LABEL_TO_FULLNAME, _LABEL_TO_HRTEAM
 
     _DIR = _load_person_directory()
+
+def _rebuild_person_directory_caches() -> None:
+    global _DIR, MANAGEMENT_SHIFTS, ENGINEERING_OFFSETS, SPECIALIST_OFFSETS
+    global _RID_TO_LABEL, _LABEL_TO_RID, _LABEL_TO_FULLNAME, _LABEL_TO_HRTEAM
+
+    _DIR = _load_person_directory()
+    _save_json(PERSON_DIRECTORY_BACKUP_FILE, _DIR)   # keep last-known-good copy
+
     active = {rid: v for rid, v in _DIR.items() if v.get('active', True)}
 
     MANAGEMENT_SHIFTS   = {v['rota_label']: v['shift']
@@ -358,6 +388,12 @@ CELL_NOTES_FILE          = os.path.join(ROTA_DIR, 'cell_notes.json')
 FEEDBACK_FILE            = os.path.join(ROTA_DIR, 'feedback.json')
 HOURS_POT_FILE           = os.path.join(ROTA_DIR, 'hours_pot.json')
 AL_ALLOWANCE_FILE        = os.path.join(ROTA_DIR, 'al_allowance.json')
+PERSON_DIRECTORY_FILE        = os.path.join(ROTA_DIR, 'person_directory.json')
+# NOTE: intentionally stored one level above rota/ so a targeted wipe of
+# that subdirectory alone doesn't take the backup down with the original.
+# If you're doing cleanup in /opt/web/ and see this file, it's live —
+# don't delete it. Contact: <your name/contact>
+PERSON_DIRECTORY_BACKUP_FILE = os.path.join(_BASE_DIR, 'person_directory.backup.json')
 
 # ── Config ────────────────────────────────────────────────────────────────
 DEFAULT_CONFIG = {
