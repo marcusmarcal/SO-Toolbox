@@ -1131,7 +1131,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
 def gop_run():
     data       = request.get_json(silent=True) or {}
     url        = (data.get("url") or "").strip()
-    duration   = min(int(data.get("duration") or 30), 120)
+    duration   = max(5, min(int(data.get("duration") or 30), 300))  # clamp 5 s .. 300 s (5 min)
     passphrase = (data.get("passphrase") or "").strip()
     tag        = (data.get("tag") or "").strip()
     workflow   = (data.get("workflow") or _effective_default_workflow()).strip()
@@ -1552,7 +1552,7 @@ def gop_schedule():
     data       = request.get_json(silent=True) or {}
     url        = (data.get("url") or "").strip()
     run_at     = (data.get("run_at_utc") or "").strip()
-    duration   = min(int(data.get("duration") or 30), 120)
+    duration   = max(5, min(int(data.get("duration") or 30), 300))  # clamp 5 s .. 300 s (5 min)
     passphrase = (data.get("passphrase") or "").strip()
     tag        = (data.get("tag") or "").strip()
     workflow   = (data.get("workflow") or _effective_default_workflow()).strip()

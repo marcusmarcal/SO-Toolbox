@@ -6,6 +6,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.52.0] - 2026-09-04
+
+### Changed
+- Video Analyser: the capture Duration field on the SRT and RTMP tabs is now a
+  free-form numeric input (previously a fixed 15/30/60 s dropdown), accepting
+  any value between 5 seconds and 5 minutes (300 s). Out-of-range or invalid
+  values are clamped both in the browser and by the backend.
+
 ## [2.51.2] - 2026-09-03
 
 ### Added
