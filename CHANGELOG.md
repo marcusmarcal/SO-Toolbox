@@ -6,6 +6,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.52.2] - 2026-09-04
+
+### Added
+- Video Analyser: new "Record" tab that captures a source straight to a .ts
+  file without analysing the stream. Accepts SRT, RTMP and any other network
+  protocol supported by ffmpeg, with the same duration options as the analysis
+  tabs (30 seconds default, up to 5 minutes). Recordings have their own
+  independent history with download and delete actions, separate from the
+  analysis history.
+
 ## [2.52.1] - 2026-09-04
 
 ### Changed

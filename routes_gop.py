@@ -78,6 +78,11 @@ os.makedirs(GOP_DIR, exist_ok=True)
 INGEST_RESULTS_DIR = os.path.join(_BASE_DIR, "store/ingest-results")
 os.makedirs(INGEST_RESULTS_DIR, exist_ok=True)
 
+# Raw recordings ("Record" tab) — capture-only .ts files with a .json
+# metadata sidecar each; fully independent from the analysis history.
+REC_DIR = os.path.join(_BASE_DIR, "store/recordings")
+os.makedirs(REC_DIR, exist_ok=True)
+
 # ── Workflows ─────────────────────────────────────────────────────────────
 # Each workflow has its own specs file. "dc_aminos_tp" keeps using the
 # original specs.json so existing deployments don't lose their saved specs.
@@ -104,6 +109,8 @@ _gop_jobs      = {}
 _gop_lock      = threading.Lock()
 _gop_scheduled = {}
 _gop_sched_lock = threading.Lock()
+_rec_jobs      = {}
+_rec_lock      = threading.Lock()
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -1541,6 +1548,250 @@ def gop_delete(filename):
         if not os.path.isfile(filepath):
             return jsonify({"success": True, "deleted": deleted})
         return jsonify({"error": "Could not delete file"}), 500
+    return jsonify({"success": True, "deleted": deleted})
+
+
+# ── RECORDINGS ("Record" tab) ─────────────────────────────────────────────
+# Raw capture of any ffmpeg-supported network source to a .ts file, with an
+# independent history (one .json metadata sidecar per recording in REC_DIR).
+
+# Only network protocols are accepted — never local file access via the URL
+# field (blocks file:/concat:/data:/subfile:/lavfi:/pipe: style inputs).
+_REC_URL_RE = re.compile(r"^[a-z][a-z0-9+.\-]*://", re.IGNORECASE)
+_REC_BLOCKED_SCHEMES = ("file", "concat", "data", "subfile", "lavfi", "crypto", "pipe")
+
+
+def _record_stream(job_id, url, duration, tag):
+    """Background: capture a stream to a .ts file in REC_DIR (no analysis).
+    Saves a .json metadata sidecar next to the .ts for the recordings history."""
+    log_lines = []
+
+    def log(msg):
+        log_lines.append(msg)
+        with _rec_lock:
+            if job_id in _rec_jobs:
+                _rec_jobs[job_id]["log"] = list(log_lines)
+
+    url_display = re.sub(r'[?&]passphrase=[^&]*', '', url).rstrip('?&')
+
+    with _rec_lock:
+        username   = _rec_jobs.get(job_id, {}).get("username", "anonymous")
+        started_at = _rec_jobs.get(job_id, {}).get("started_at", "")
+
+    ts_str    = datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    safe_url  = re.sub(r"[^\w\-]", "_", url_display)[:60]
+    base_name = f"{ts_str}_{safe_url}"
+    ts_path   = os.path.join(REC_DIR, base_name + ".ts")
+    meta_path = os.path.join(REC_DIR, base_name + ".json")
+
+    def _save(status, error=None, size=0, actual_dur=None):
+        ended_at = datetime.datetime.utcnow().isoformat() + "Z"
+        meta = {
+            "file":            base_name + ".ts",
+            "url":             url_display,
+            "tag":             tag,
+            "username":        username,
+            "started_at":      started_at,
+            "ended_at":        ended_at,
+            "duration_req":    duration,
+            "duration_actual": actual_dur,
+            "size_bytes":      size,
+            "status":          status,
+            "error":           error,
+            "log":             log_lines,
+        }
+        try:
+            with open(meta_path, "w") as f:
+                json.dump(meta, f, indent=2)
+        except Exception as ex:
+            log(f"WARNING: could not save recording metadata: {ex}")
+        with _rec_lock:
+            _rec_jobs[job_id].update({
+                "status":     status,
+                "ended_at":   ended_at,
+                "log":        log_lines,
+                "file":       (base_name + ".ts") if status == "done" else None,
+                "size_bytes": size,
+                "error":      error,
+            })
+
+    try:
+        log(f"Starting recording: {url_display}")
+        log(f"Requested duration: {duration}s")
+
+        cap_cmd = ["ffmpeg", "-y"]
+        if url.startswith("rtmp://"):
+            # Same RTMP client-pull setup as the analysis capture — never use
+            # "-timeout" here (it implicitly enables listen/server mode).
+            cap_cmd.extend([
+                "-rw_timeout", str((duration + 10) * 1000000),
+                "-rtmp_live", "live",
+                "-rtmp_buffer", "3000",
+                "-fflags", "nobuffer",
+            ])
+        else:
+            cap_cmd.extend(["-timeout", str((duration + 10) * 1000000)])
+
+        cap_cmd.extend([
+            "-i", url,
+            "-map", "0",
+            "-t", str(duration),
+            "-c", "copy",
+            "-f", "mpegts",
+            ts_path,
+        ])
+
+        log("Recording with ffmpeg…")
+        try:
+            cap = subprocess.run(
+                cap_cmd,
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                timeout=duration + 45
+            )
+            cap_out = cap.stdout.decode(errors="replace")
+            log(f"ffmpeg done (exit {cap.returncode})")
+        except subprocess.TimeoutExpired:
+            cap_out = ""
+            log("WARNING: ffmpeg timed out — keeping partial capture if any")
+
+        size = os.path.getsize(ts_path) if os.path.isfile(ts_path) else 0
+        log(f"Recorded {size:,} bytes")
+
+        if size < 500:
+            log("ERROR: Recording produced no usable data. Is the source reachable?")
+            if cap_out:
+                log(cap_out[-800:])
+            try:
+                if os.path.isfile(ts_path):
+                    os.remove(ts_path)
+            except Exception:
+                pass
+            _save("failed", error="Source unreachable or produced no data")
+            return
+
+        # Probe the actual recorded duration (informational only)
+        actual_dur = None
+        try:
+            pr = subprocess.run(
+                ["ffprobe", "-v", "quiet", "-print_format", "json",
+                 "-show_format", ts_path],
+                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=30
+            )
+            fmt = json.loads(pr.stdout.decode(errors="replace") or "{}").get("format", {})
+            actual_dur = float(fmt.get("duration", 0) or 0) or None
+            if actual_dur:
+                log(f"Recorded duration: {actual_dur:.2f}s")
+        except Exception:
+            pass
+
+        log(f"Recording saved: {base_name}.ts")
+        _save("done", size=size, actual_dur=actual_dur)
+    except Exception as ex:
+        log(f"ERROR: {ex}")
+        _save("failed", error=str(ex))
+
+
+@gop_bp.route("/gop/record", methods=["POST"])
+def gop_record():
+    """Start a raw stream recording (Record tab) — capture only, no analysis.
+    Accepts any network protocol supported by ffmpeg (srt, rtmp, udp, http…)."""
+    data       = request.get_json(silent=True) or {}
+    url        = (data.get("url") or "").strip()
+    duration   = max(5, min(int(data.get("duration") or 30), 300))  # clamp 5 s .. 300 s (5 min)
+    passphrase = (data.get("passphrase") or "").strip()
+    tag        = (data.get("tag") or "").strip()
+
+    if not url:
+        return jsonify({"error": "url is required"}), 400
+    if not _REC_URL_RE.match(url):
+        return jsonify({"error": "url must include a protocol, e.g. srt:// or rtmp://"}), 400
+    scheme = url.split("://", 1)[0].lower()
+    if scheme in _REC_BLOCKED_SCHEMES:
+        return jsonify({"error": f"protocol '{scheme}' is not allowed"}), 400
+
+    if passphrase and url.lower().startswith("srt://") and "passphrase=" not in url:
+        sep = "&" if "?" in url else "?"
+        url = f"{url}{sep}passphrase={passphrase}"
+
+    job_id     = str(uuid.uuid4())[:8]
+    started_at = datetime.datetime.utcnow().isoformat() + "Z"
+    username   = _get_username_from_request()
+
+    with _rec_lock:
+        _rec_jobs[job_id] = {
+            "job_id":     job_id,
+            "status":     "running",
+            "started_at": started_at,
+            "ended_at":   None,
+            "url":        re.sub(r'[?&]passphrase=[^&]*', '', url).rstrip('?&'),
+            "tag":        tag,
+            "username":   username,
+            "file":       None,
+            "log":        [],
+        }
+
+    t = threading.Thread(target=_record_stream,
+                         args=(job_id, url, duration, tag), daemon=True)
+    t.start()
+    return jsonify({"job_id": job_id})
+
+
+@gop_bp.route("/gop/record/status/<job_id>", methods=["GET"])
+def gop_record_status(job_id):
+    with _rec_lock:
+        job = _rec_jobs.get(job_id)
+    if not job:
+        return jsonify({"error": "Job not found"}), 404
+    return jsonify(job)
+
+
+@gop_bp.route("/gop/recordings", methods=["GET"])
+def gop_recordings():
+    """Independent history of raw recordings (newest first, capped at 500)."""
+    items = []
+    try:
+        for fn in os.listdir(REC_DIR):
+            if not fn.endswith(".json"):
+                continue
+            try:
+                with open(os.path.join(REC_DIR, fn)) as f:
+                    meta = json.load(f)
+                meta.pop("log", None)  # keep the list payload small
+                items.append(meta)
+            except Exception:
+                continue
+    except Exception:
+        pass
+    items.sort(key=lambda m: m.get("started_at") or "", reverse=True)
+    return jsonify({"items": items[:500], "total": len(items)})
+
+
+@gop_bp.route("/gop/recording/<path:filename>", methods=["GET"])
+def gop_recording_download(filename):
+    """Download a recorded .ts file."""
+    return send_from_directory(REC_DIR, filename, as_attachment=True)
+
+
+@gop_bp.route("/gop/recording/<path:filename>", methods=["DELETE"])
+def gop_recording_delete(filename):
+    """Delete a recording (.ts + .json sidecar). Admin-password gated,
+    same as analysis-result deletion."""
+    ok, err = _check_password(request)
+    if not ok:
+        return err
+    filename = os.path.basename(filename)  # no path traversal
+    base = filename[:-3] if filename.endswith(".ts") else filename
+    deleted = []
+    for fp in [os.path.join(REC_DIR, base + ".ts"),
+               os.path.join(REC_DIR, base + ".json")]:
+        if os.path.isfile(fp):
+            try:
+                os.remove(fp)
+                deleted.append(os.path.basename(fp))
+            except Exception:
+                pass
+    if not deleted:
+        return jsonify({"error": "not found"}), 404
     return jsonify({"success": True, "deleted": deleted})
 
 

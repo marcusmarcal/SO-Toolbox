@@ -1221,6 +1221,25 @@
         >
           ⬆ Upload .ts
         </button>
+        <button
+          id="tab-record"
+          onclick="setInputMode('record')"
+          style="
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--muted);
+            font-family: var(--mono);
+            font-size: 0.78rem;
+            font-weight: 700;
+            padding: 0.35rem 0.9rem 0.35rem 0.9rem;
+            cursor: pointer;
+            margin-bottom: -1px;
+            transition: color 0.15s;
+          "
+        >
+          ⏺ Record
+        </button>
       </div>
 
       <!-- SRT mode -->
@@ -1271,6 +1290,8 @@
             <option value="60">1 minute</option>
             <option value="120">2 minutes</option>
             <option value="180">3 minutes</option>
+            <option value="240">4 minutes</option>
+            <option value="300">5 minutes</option>
           </select>
         </div>
         <div class="field w180">
@@ -1388,6 +1409,8 @@
             <option value="60">1 minute</option>
             <option value="120">2 minutes</option>
             <option value="180">3 minutes</option>
+            <option value="240">4 minutes</option>
+            <option value="300">5 minutes</option>
           </select>
         </div>
         <div class="field w180">
@@ -1539,6 +1562,85 @@
             align-self: flex-end;
           "
           title="Clear"
+        >
+          ✕ Clear
+        </button>
+      </div>
+
+      <!-- Record mode — raw capture to .ts, no analysis -->
+      <div id="form-record" class="form-row" style="display: none">
+        <div class="field grow">
+          <label>Source URL</label>
+          <input
+            id="inp-rec-url"
+            type="text"
+            placeholder="srt://10.0.0.1:9000 · rtmp://host/app/stream · udp://… (any ffmpeg input)"
+            autocomplete="off"
+          />
+        </div>
+        <div class="field w180">
+          <label
+            >Passphrase
+            <span style="color: var(--muted); font-weight: 400"
+              >(SRT only)</span
+            ></label
+          >
+          <input
+            id="inp-rec-pass"
+            type="text"
+            placeholder="leave blank if none"
+            autocomplete="new-password"
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
+            style="-webkit-text-security: disc; font-family: var(--mono)"
+          />
+        </div>
+        <div class="field w120">
+          <label>Duration</label>
+          <select id="inp-rec-dur">
+            <option value="30" selected>30 seconds ★</option>
+            <option value="60">1 minute</option>
+            <option value="120">2 minutes</option>
+            <option value="180">3 minutes</option>
+            <option value="240">4 minutes</option>
+            <option value="300">5 minutes</option>
+          </select>
+        </div>
+        <div class="field w180">
+          <label
+            >Tag
+            <span style="color: var(--muted); font-weight: 400"
+              >(optional)</span
+            ></label
+          >
+          <input
+            id="inp-rec-tag"
+            type="text"
+            placeholder="e.g. test, JIRA-123"
+            autocomplete="off"
+          />
+        </div>
+        <button class="btn-run" id="btn-record" onclick="runRecording()">
+          ⏺ Record
+        </button>
+        <button
+          onclick="clearRecordForm()"
+          style="
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            color: var(--muted);
+            font-family: var(--mono);
+            font-size: 0.76rem;
+            font-weight: 700;
+            padding: 0 0.75rem;
+            height: 36px;
+            cursor: pointer;
+            white-space: nowrap;
+            align-self: flex-end;
+          "
+          title="Clear all form fields"
         >
           ✕ Clear
         </button>
@@ -1876,8 +1978,26 @@
 
         <!-- History panel -->
         <div class="history-panel">
+          <!-- Recordings history (Record tab) — independent from analysis history -->
+          <div
+            id="recordings-section"
+            style="display: none; flex: 1; min-height: 0; flex-direction: column"
+          >
+            <div
+              class="history-header"
+              style="border-bottom: 1px solid var(--border)"
+            >
+              Recordings
+              <button class="btn-sm" onclick="loadRecordings()">↻</button>
+            </div>
+            <div class="history-list" id="recordings-list">
+              <div class="hist-empty">No recordings yet</div>
+            </div>
+          </div>
+
           <!-- Scheduled section -->
           <div
+            id="sched-header"
             class="history-header"
             style="border-bottom: 1px solid var(--border)"
           >
@@ -1896,11 +2016,11 @@
             <div class="hist-empty">No scheduled analyses</div>
           </div>
 
-          <div class="history-header">
+          <div id="analysis-hist-header" class="history-header">
             History
             <button class="btn-sm" onclick="loadHistory()">↻</button>
           </div>
-          <div class="hist-filters">
+          <div id="hist-filters-row1" class="hist-filters">
             <input
               class="f-search"
               id="hist-search"
@@ -1928,6 +2048,7 @@
             </button>
           </div>
           <div
+            id="hist-filters-row2"
             class="hist-filters"
             style="border-bottom: 1px solid var(--border)"
           >
@@ -3356,7 +3477,7 @@
       }
 
       // ── Run ───────────────────────────────────────────────────────────
-      // Clamp user-typed capture duration to a safe range (5 s .. 300 s / 5 min)
+      // Clamp capture duration to a safe range (5 s .. 300 s / 5 min)
       function clampDuration(v) {
         const n = parseInt(v, 10);
         if (isNaN(n)) return 30;
@@ -3540,6 +3661,180 @@
             console.error(e);
           }
         }, 1500);
+      }
+
+      // ── Record tab (raw capture to .ts, no analysis) ──────────────────
+      async function runRecording() {
+        const url = document.getElementById("inp-rec-url").value.trim();
+        const pass = document.getElementById("inp-rec-pass").value.trim();
+        const dur = clampDuration(document.getElementById("inp-rec-dur").value);
+        const tag = document.getElementById("inp-rec-tag").value.trim();
+
+        if (!url) {
+          setStatus("err", "Source URL is required.");
+          return;
+        }
+        if (!/^[a-z][a-z0-9+.\-]*:\/\//i.test(url)) {
+          setStatus("err", "URL must include a protocol, e.g. srt:// or rtmp://");
+          return;
+        }
+
+        // Never show a passphrase embedded in the URL in the status bar
+        const urlDisplay = url
+          .replace(/([?&])passphrase=[^&]*/i, "$1")
+          .replace(/[?&]+$/, "");
+
+        document.getElementById("btn-record").disabled = true;
+        document.getElementById("placeholder").style.display = "none";
+        document.getElementById("results-content").style.display = "none";
+        document.getElementById("log-card").style.display = "";
+        document.getElementById("log-output").textContent = "";
+        startProgress(dur);
+        setStatus("running", `Recording ${dur}s from ${urlDisplay}…`);
+
+        try {
+          const res = await fetch(`${PROXY}/gop/record`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url, duration: dur, passphrase: pass, tag }),
+          });
+          const data = await res.json();
+          if (!data.job_id) throw new Error(data.error || "No job_id");
+          pollStatusRecord(data.job_id);
+        } catch (e) {
+          setStatus("err", `Error: ${e.message}`);
+          document.getElementById("btn-record").disabled = false;
+          stopProgress(false);
+        }
+      }
+
+      function pollStatusRecord(job_id) {
+        clearInterval(pollTimer);
+        pollTimer = setInterval(async () => {
+          try {
+            const res = await fetch(`${PROXY}/gop/record/status/${job_id}`);
+            const job = await res.json();
+            const logEl = document.getElementById("log-output");
+            logEl.textContent = (job.log || []).join("\n");
+            logEl.scrollTop = logEl.scrollHeight;
+
+            if (job.status === "running") return;
+
+            clearInterval(pollTimer);
+            pollTimer = null;
+            stopProgress(job.status === "done");
+            document.getElementById("btn-record").disabled = false;
+
+            if (job.status === "done") {
+              const mb = job.size_bytes
+                ? (job.size_bytes / 1048576).toFixed(1) + " MB"
+                : "";
+              setStatus(
+                "ok",
+                `Recording saved — ${job.file || ""}${mb ? " (" + mb + ")" : ""}`
+              );
+            } else {
+              setStatus("err", job.error || "Recording failed");
+            }
+            loadRecordings();
+          } catch (e) {
+            console.error(e);
+          }
+        }, 1500);
+      }
+
+      async function loadRecordings() {
+        const list = document.getElementById("recordings-list");
+        if (!list) return;
+        try {
+          const res = await fetch(`${PROXY}/gop/recordings`);
+          const data = await res.json();
+          const items = data.items || [];
+          if (!items.length) {
+            list.innerHTML = '<div class="hist-empty">No recordings yet</div>';
+            return;
+          }
+          list.innerHTML = items
+            .map((it) => {
+              const d = it.started_at ? new Date(it.started_at) : null;
+              const dateStr = d
+                ? d.toLocaleString([], {
+                    day: "2-digit",
+                    month: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : "?";
+              const mb = it.size_bytes
+                ? (it.size_bytes / 1048576).toFixed(1) + " MB"
+                : "—";
+              const durStr = it.duration_actual
+                ? it.duration_actual.toFixed(1) + "s"
+                : it.duration_req
+                ? it.duration_req + "s"
+                : "?";
+              const failed = it.status !== "done";
+              const tagBadges = (it.tag || "")
+                .split(",")
+                .filter((t) => t.trim())
+                .map((t) => `<span class="hi-badge">🏷 ${t.trim()}</span>`)
+                .join("");
+              const dlBtn = !failed
+                ? `<a class="hi-badge" style="text-decoration:none;color:var(--cyan);border-color:var(--cyan)" href="${PROXY}/gop/recording/${encodeURIComponent(
+                    it.file
+                  )}" title="Download .ts">⬇ .ts</a>`
+                : "";
+              const statusBadge = failed
+                ? `<span class="hi-badge rejected">FAILED</span>`
+                : `<span class="hi-badge compliant">✓ ${mb}</span>`;
+              return `<div class="hist-item" style="cursor:default">
+        <div class="hist-item-body">
+          <div class="hi-dest" title="${it.url || ""}">${it.url || "?"}</div>
+          <div class="hi-sub">${dateStr} · ${durStr}${
+                failed && it.error ? " · " + it.error : ""
+              }</div>
+          <div class="hi-badges">
+            ${statusBadge}
+            ${dlBtn}
+            ${tagBadges}
+            <span class="hi-badge" style="opacity:.7">👤 ${(
+              it.username || "anonymous"
+            ).split("@")[0]}</span>
+            <span class="hi-badge" style="cursor:pointer;color:var(--red)" onclick="askDeleteRecording('${
+              it.file
+            }')" title="Delete recording">🗑</span>
+          </div>
+        </div>
+      </div>`;
+            })
+            .join("");
+        } catch (e) {
+          list.innerHTML =
+            '<div class="hist-empty">Could not load recordings</div>';
+        }
+      }
+
+      let _pendingDeleteRecording = null;
+      function askDeleteRecording(file) {
+        _pendingDeleteRecording = file;
+        _pendingDeleteFiles = [];
+        document.getElementById(
+          "delete-modal-body"
+        ).innerHTML = `Permanently delete recording <strong style="color:var(--red)">${file}</strong>?<br>This action is <strong style="color:var(--red)">irreversible</strong>.`;
+        document.getElementById("delete-pw").value = "";
+        document.getElementById("delete-pw").style.display = _hasAdminPw
+          ? ""
+          : "none";
+        document.getElementById("delete-err").textContent = "";
+        document.getElementById("delete-modal").classList.add("open");
+      }
+
+      function clearRecordForm() {
+        ["inp-rec-url", "inp-rec-pass", "inp-rec-tag"].forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.value = "";
+        });
+        document.getElementById("inp-rec-dur").value = "30";
       }
 
       // ── Render result ─────────────────────────────────────────────────
@@ -4280,6 +4575,7 @@
       function closeDeleteModal() {
         document.getElementById("delete-modal").classList.remove("open");
         _pendingDeleteFiles = [];
+        _pendingDeleteRecording = null;
       }
 
       async function confirmDelete() {
@@ -4288,6 +4584,27 @@
         errEl.textContent = "";
         const headers = {};
         if (_hasAdminPw && pw) headers["X-Admin-Password"] = pw;
+
+        // Recording delete (Record tab) — independent from analysis results
+        if (_pendingDeleteRecording) {
+          try {
+            const res = await fetch(
+              `${PROXY}/gop/recording/${encodeURIComponent(
+                _pendingDeleteRecording
+              )}`,
+              { method: "DELETE", headers }
+            );
+            if (res.status === 403) {
+              document.getElementById("delete-pw").classList.add("error");
+              errEl.textContent = "❌ Invalid password";
+              return;
+            }
+          } catch (e) {}
+          _pendingDeleteRecording = null;
+          closeDeleteModal();
+          loadRecordings();
+          return;
+        }
 
         let anyFailed = false;
         for (const file of _pendingDeleteFiles) {
@@ -5617,30 +5934,50 @@
         const isSrt = mode === "srt";
         const isRtmp = mode === "rtmp";
         const isUpload = mode === "upload";
-        
+        const isRecord = mode === "record";
+
         document.getElementById("form-srt").style.display = isSrt ? "" : "none";
         document.getElementById("form-rtmp").style.display = isRtmp ? "" : "none";
         document.getElementById("form-upload").style.display = isUpload ? "" : "none";
-        
-        const tabSrt = document.getElementById("tab-srt");
-        const tabRtmp = document.getElementById("tab-rtmp");
-        const tabUpload = document.getElementById("tab-upload");
-        
+        document.getElementById("form-record").style.display = isRecord ? "" : "none";
+
         // Update tab styling
-        tabSrt.style.borderBottomColor = isSrt ? "var(--purple)" : "transparent";
-        tabSrt.style.color = isSrt ? "#fff" : "var(--muted)";
-        
-        tabRtmp.style.borderBottomColor = isRtmp ? "var(--purple)" : "transparent";
-        tabRtmp.style.color = isRtmp ? "#fff" : "var(--muted)";
-        
-        tabUpload.style.borderBottomColor = isUpload ? "var(--purple)" : "transparent";
-        tabUpload.style.color = isUpload ? "#fff" : "var(--muted)";
+        [
+          ["tab-srt", isSrt],
+          ["tab-rtmp", isRtmp],
+          ["tab-upload", isUpload],
+          ["tab-record", isRecord],
+        ].forEach(([id, active]) => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.style.borderBottomColor = active ? "var(--purple)" : "transparent";
+          el.style.color = active ? "#fff" : "var(--muted)";
+        });
 
         const liveProbeStandaloneBtn = document.getElementById(
           "btn-live-probe-standalone"
         );
         if (liveProbeStandaloneBtn)
           liveProbeStandaloneBtn.style.display = isSrt ? "" : "none";
+
+        // Record tab shows its own independent Recordings history and hides
+        // the analysis history; every other tab does the opposite.
+        const recSection = document.getElementById("recordings-section");
+        if (recSection) recSection.style.display = isRecord ? "flex" : "none";
+        [
+          "sched-header",
+          "scheduled-list",
+          "analysis-hist-header",
+          "hist-filters-row1",
+          "hist-filters-row2",
+          "history-list",
+          "hist-pagination",
+          "bulk-bar",
+        ].forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.style.display = isRecord ? "none" : "";
+        });
+        if (isRecord) loadRecordings();
       }
 
       function clearHistFilters() {
