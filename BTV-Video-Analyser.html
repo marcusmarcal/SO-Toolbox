@@ -2200,6 +2200,13 @@
               >
                 👤 Assign
               </button>
+              <button
+                class="btn-bulk-act"
+                onclick="openCompareModal()"
+                title="Compare the selected tests — shows only the fields that differ"
+              >
+                ⇄ Compare
+              </button>
               <button class="btn-bulk-del" onclick="openBulkDeleteModal()">
                 🗑 Delete
               </button>
@@ -3106,6 +3113,28 @@
             style="display: none"
           />
           <div class="modal-err" id="delete-err"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Compare tests modal — shows only the differences between selected tests -->
+    <div class="modal-overlay" id="compare-modal">
+      <div
+        class="modal-card"
+        style="width: 1000px; max-width: 95vw; max-height: 90vh; display: flex; flex-direction: column"
+      >
+        <div class="modal-title" style="color: var(--cyan)">
+          ⇄ Compare Tests — differences only
+        </div>
+        <div
+          class="modal-body"
+          id="compare-modal-body"
+          style="overflow: auto; flex: 1; margin-bottom: 0.8rem"
+        >
+          Loading…
+        </div>
+        <div class="modal-actions">
+          <button class="btn-cancel" onclick="closeCompareModal()">Close</button>
         </div>
       </div>
     </div>
@@ -4029,6 +4058,205 @@
           box.innerHTML =
             '<div class="hist-empty">No recordings in progress</div>';
         }
+      }
+
+      // ── Compare tests (differences only) ───────────────────────────────
+      // Order and grouping follow the compliance table sections.
+      const COMPARE_KEYS = [
+        "overall_br",
+        "idr", "gop_size", "gop_type", "b_frames", "frame_size",
+        "aspect_ratio", "chroma", "pixel_format", "colour_range",
+        "scan_type", "bit_depth", "colour_gamut", "codec", "codec_level",
+        "codec_profile", "entropy", "rate_ctrl_v", "v_br", "hdr_scheme",
+        "fps",
+        "a_codec", "a_streams", "a_channels", "a_rate_ctrl",
+        "a_sample_rate", "a_bits", "a_br_kbps",
+        "mediainfo_delay",
+      ];
+
+      function _escHtml(x) {
+        return String(x ?? "—").replace(/[&<>"']/g, (ch) => ({
+          "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+        })[ch]);
+      }
+
+      async function openCompareModal() {
+        const files = Array.from(_checkedFiles);
+        if (files.length < 2) {
+          alert("Select at least 2 tests to compare.");
+          return;
+        }
+        if (files.length > 6) {
+          alert("Please select at most 6 tests to compare.");
+          return;
+        }
+
+        const body = document.getElementById("compare-modal-body");
+        body.innerHTML = "Loading…";
+        document.getElementById("compare-modal").classList.add("open");
+
+        // Fetch full result JSONs for every selected test
+        let results;
+        try {
+          results = await Promise.all(
+            files.map(async (f) => {
+              const res = await fetch(
+                `${PROXY}/gop/result/${encodeURIComponent(f)}`
+              );
+              if (!res.ok) throw new Error(`Could not load ${f}`);
+              const r = await res.json();
+              r._file = f;
+              return r;
+            })
+          );
+        } catch (e) {
+          body.innerHTML = `<span style="color:var(--red)">Error: ${_escHtml(
+            e.message
+          )}</span>`;
+          return;
+        }
+
+        // Header cards: test ID + tags + context, per test
+        const headCells = results
+          .map((r) => {
+            const d = r.started_at ? new Date(r.started_at) : null;
+            const dateStr = d
+              ? d.toLocaleString([], {
+                  day: "2-digit", month: "2-digit", year: "2-digit",
+                  hour: "2-digit", minute: "2-digit",
+                })
+              : "?";
+            const tags = (r.tag || "")
+              .split(",")
+              .map((t) => t.trim())
+              .filter(Boolean)
+              .map((t) => `<span class="hi-badge">🏷 ${_escHtml(t)}</span>`)
+              .join(" ");
+            const ov = _escHtml(r.overall_status || "UNKNOWN");
+            const ovCls = ov.startsWith("COMPLIANT")
+              ? "COMPLIANT"
+              : ov.startsWith("ACCEPTED")
+              ? "ACCEPTED"
+              : ov.startsWith("REJECTED") || ov === "FAILED" || ov === "ERROR"
+              ? "REJECTED"
+              : "UNKNOWN";
+            return `<td style="vertical-align:top;padding:.5rem .6rem;border:1px solid var(--border);background:var(--bg3)">
+              <div style="font-family:var(--mono);font-size:.62rem;color:var(--muted);word-break:break-all" title="Test ID">${_escHtml(
+                r.test_id || r._file
+              )}</div>
+              <div style="font-family:var(--mono);font-size:.72rem;color:#fff;font-weight:700;margin-top:3px">${_escHtml(
+                r.url || ""
+              )}</div>
+              <div style="font-family:var(--mono);font-size:.64rem;color:var(--muted);margin-top:2px">${dateStr}${
+              r.workflow ? " · " + _escHtml(r.workflow) : ""
+            }</div>
+              <div style="margin-top:4px;display:flex;gap:.25rem;flex-wrap:wrap">
+                <span class="status-pill ${ovCls}">${ov}</span>${tags}
+              </div>
+            </td>`;
+          })
+          .join("");
+
+        // Label lookup: prefer the spec labels embedded in any result
+        const labels = {};
+        results.forEach((r) => {
+          const sp = r.specs || {};
+          Object.keys(sp).forEach((k) => {
+            if (!labels[k] && sp[k] && sp[k].label) labels[k] = sp[k].label;
+          });
+        });
+
+        // Diff rows: a compliance key differs when the measured value OR the
+        // status is not identical across all selected tests.
+        const allKeys = new Set(COMPARE_KEYS);
+        results.forEach((r) =>
+          Object.keys(r.compliance || {}).forEach((k) => allKeys.add(k))
+        );
+        const orderedKeys = [
+          ...COMPARE_KEYS,
+          ...[...allKeys].filter((k) => !COMPARE_KEYS.includes(k)),
+        ];
+
+        let diffRows = "";
+        let diffCount = 0;
+        for (const key of orderedKeys) {
+          const vals = results.map((r) => {
+            const v = (r.compliance || {})[key];
+            return Array.isArray(v)
+              ? { status: v[0] || "UNKNOWN", measured: v[1] ?? "—", note: v[2] || "" }
+              : { status: "UNKNOWN", measured: "—", note: "" };
+          });
+          const same = vals.every(
+            (v) =>
+              v.status === vals[0].status &&
+              String(v.measured) === String(vals[0].measured)
+          );
+          if (same) continue;
+          diffCount++;
+          const cells = vals
+            .map(
+              (v) => `<td style="padding:.4rem .6rem;border:1px solid var(--border);font-family:var(--mono);font-size:.72rem">
+                <div>${_escHtml(v.measured)}${
+                v.note
+                  ? ` <span style="color:var(--muted);font-size:.58rem">(${_escHtml(
+                      v.note
+                    )})</span>`
+                  : ""
+              }</div>
+                <div style="margin-top:3px"><span class="status-pill ${_escHtml(
+                  v.status
+                )}">${_escHtml(v.status)}</span></div>
+              </td>`
+            )
+            .join("");
+          diffRows += `<tr>
+            <td style="padding:.4rem .6rem;border:1px solid var(--border);font-family:var(--mono);font-size:.72rem;color:var(--muted);white-space:nowrap">${_escHtml(
+              labels[key] || key
+            )}</td>${cells}</tr>`;
+        }
+
+        // Overall status is already shown in the header of each test; only
+        // list it as a diff row when it differs, for completeness.
+        const ovVals = results.map((r) => r.overall_status || "UNKNOWN");
+        const ovDiffers = !ovVals.every((v) => v === ovVals[0]);
+
+        const table = `<table style="border-collapse:collapse;width:100%">
+          <tr>
+            <td style="padding:.4rem .6rem;border:1px solid var(--border);font-family:var(--mono);font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Test</td>
+            ${headCells}
+          </tr>
+          ${
+            ovDiffers
+              ? `<tr><td style="padding:.4rem .6rem;border:1px solid var(--border);font-family:var(--mono);font-size:.72rem;color:var(--muted)">Overall status</td>${ovVals
+                  .map((v) => {
+                    const ov = _escHtml(v);
+                    const cls = ov.startsWith("COMPLIANT")
+                      ? "COMPLIANT"
+                      : ov.startsWith("ACCEPTED")
+                      ? "ACCEPTED"
+                      : ov.startsWith("REJECTED") || ov === "FAILED" || ov === "ERROR"
+                      ? "REJECTED"
+                      : "UNKNOWN";
+                    return `<td style="padding:.4rem .6rem;border:1px solid var(--border)"><span class="status-pill ${cls}">${ov}</span></td>`;
+                  })
+                  .join("")}</tr>`
+              : ""
+          }
+          ${diffRows}
+        </table>`;
+
+        body.innerHTML =
+          diffCount === 0 && !ovDiffers
+            ? table +
+              `<div style="font-family:var(--mono);font-size:.78rem;color:var(--green);margin-top:.8rem">✓ No differences found — the selected tests have identical measured values and statuses.</div>`
+            : `<div style="font-family:var(--mono);font-size:.72rem;color:var(--muted);margin-bottom:.6rem">${diffCount} differing field${
+                diffCount === 1 ? "" : "s"
+              } between ${results.length} tests — identical fields are hidden.</div>` +
+              table;
+      }
+
+      function closeCompareModal() {
+        document.getElementById("compare-modal").classList.remove("open");
       }
 
       let _pendingDeleteRecording = null;

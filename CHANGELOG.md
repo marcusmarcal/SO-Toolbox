@@ -6,6 +6,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.52.5] - 2026-09-04
+
+### Added
+- Video Analyser: tests can now be compared — select two or more results in
+  the history and click "Compare" to open a pop-up showing each test's ID,
+  tags and overall status alongside a table of only the fields that differ
+  between them, with the measured value and compliance status of each test.
+
 ## [2.52.4] - 2026-09-04
 
 ### Added
