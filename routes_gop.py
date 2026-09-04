@@ -1736,6 +1736,19 @@ def gop_record():
     return jsonify({"job_id": job_id})
 
 
+@gop_bp.route("/gop/record/jobs/running", methods=["GET"])
+def gop_record_jobs_running():
+    """List all in-progress recordings, regardless of which client started
+    them. Log lines are omitted to keep the polling payload small."""
+    with _rec_lock:
+        running = [
+            {k: v for k, v in job.items() if k != "log"}
+            for job in _rec_jobs.values()
+            if job.get("status") == "running"
+        ]
+    return jsonify(running)
+
+
 @gop_bp.route("/gop/record/status/<job_id>", methods=["GET"])
 def gop_record_status(job_id):
     with _rec_lock:

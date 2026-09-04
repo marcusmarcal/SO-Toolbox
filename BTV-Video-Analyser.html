@@ -1571,14 +1571,26 @@
       <div id="form-record" class="form-row" style="display: none">
         <div class="field grow">
           <label>Source URL</label>
-                    <input
+          <input
             id="inp-rec-url"
             type="text"
             placeholder="srt://10.0.0.1:9000 · rtmp://host/app/stream · udp://… (any ffmpeg input)"
             autocomplete="off"
             list="rec-url-presets"
+            oninput="onRecUrlInput()"
+            onchange="onRecUrlInput()"
           />
           <datalist id="rec-url-presets"></datalist>
+        </div>
+        <div class="field w90" id="rec-port-field" style="display: none">
+          <label>Port</label>
+          <input
+            id="inp-rec-port"
+            type="number"
+            placeholder="9000"
+            min="1"
+            max="65535"
+          />
         </div>
         <div class="field w180">
           <label
@@ -1601,9 +1613,9 @@
         <div class="field w120">
           <label>Duration</label>
           <select id="inp-rec-dur">
-            <option value="30" selected>30 seconds ★</option>
+            <option value="30">30 seconds</option>
             <option value="60">1 minute</option>
-            <option value="120">2 minutes</option>
+            <option value="120" selected>2 minutes ★</option>
             <option value="180">3 minutes</option>
             <option value="240">4 minutes</option>
             <option value="300">5 minutes</option>
@@ -1681,6 +1693,48 @@
           <div class="card" id="log-card" style="display: none">
             <div class="card-title">Analysis Log</div>
             <div id="log-output"></div>
+          </div>
+
+          <!-- Recording player (Record tab) — plays a saved .ts inline -->
+          <div class="card" id="rec-player-card" style="display: none">
+            <div
+              class="card-title"
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 0.6rem;
+              "
+            >
+              <span
+                >▶ Playback —
+                <span
+                  id="rec-player-filename"
+                  style="color: var(--cyan); word-break: break-all"
+                ></span
+              ></span>
+              <button
+                class="btn-sm"
+                onclick="closeRecordingPlayer()"
+                title="Close player"
+              >
+                ✕
+              </button>
+            </div>
+            <video
+              id="rec-player-video"
+              controls
+              style="width: 100%; max-height: 60vh; background: #000; border-radius: 6px"
+            ></video>
+            <div
+              id="rec-player-err"
+              style="
+                font-family: var(--mono);
+                font-size: 0.72rem;
+                color: var(--red);
+                margin-top: 0.35rem;
+              "
+            ></div>
           </div>
 
           <div id="results-content" style="display: none">
@@ -1985,6 +2039,23 @@
             id="recordings-section"
             style="display: none; flex: 1; min-height: 0; flex-direction: column"
           >
+            <div
+              class="history-header"
+              style="border-bottom: 1px solid var(--border)"
+            >
+              Recording now
+            </div>
+            <div
+              id="recordings-running"
+              style="
+                max-height: 120px;
+                overflow-y: auto;
+                flex-shrink: 0;
+                border-bottom: 1px solid var(--border);
+              "
+            >
+              <div class="hist-empty">No recordings in progress</div>
+            </div>
             <div
               class="history-header"
               style="border-bottom: 1px solid var(--border)"
@@ -3485,7 +3556,7 @@
                 { once: true }
               );
             });
-          } 
+          }
         } catch (e) {
           console.warn(e);
         }
@@ -3680,7 +3751,7 @@
 
       // ── Record tab (raw capture to .ts, no analysis) ──────────────────
       async function runRecording() {
-        const url = document.getElementById("inp-rec-url").value.trim();
+        let url = document.getElementById("inp-rec-url").value.trim();
         const pass = document.getElementById("inp-rec-pass").value.trim();
         const dur = clampDuration(document.getElementById("inp-rec-dur").value);
         const tag = document.getElementById("inp-rec-tag").value.trim();
@@ -3694,11 +3765,23 @@
           return;
         }
 
+        // SRT preset chosen (srt://host with no port) — combine with the
+        // dedicated Port field, mirroring the SRT tab's host+port split.
+        if (/^srt:\/\/[^:/?]+:?$/i.test(url)) {
+          const port = document.getElementById("inp-rec-port").value.trim();
+          if (!port) {
+            setStatus("err", "Port is required for the selected SRT server.");
+            return;
+          }
+          url = url.replace(/:+$/, "") + ":" + port;
+        }
+
         // Never show a passphrase embedded in the URL in the status bar
         const urlDisplay = url
           .replace(/([?&])passphrase=[^&]*/i, "$1")
           .replace(/[?&]+$/, "");
 
+        closeRecordingPlayer();
         document.getElementById("btn-record").disabled = true;
         document.getElementById("placeholder").style.display = "none";
         document.getElementById("results-content").style.display = "none";
@@ -3758,7 +3841,85 @@
         }, 1500);
       }
 
+      // Show the dedicated Port field when an SRT server preset is chosen
+      // (srt://host with no port yet), mirroring the SRT tab's layout.
+      function onRecUrlInput() {
+        const url = document.getElementById("inp-rec-url").value.trim();
+        const showPort = /^srt:\/\/[^:/?]+:?$/i.test(url);
+        document.getElementById("rec-port-field").style.display = showPort
+          ? ""
+          : "none";
+      }
+
+      // ── Recording playback (inline player in the result panel) ────────
+      let _recPlayer = null;
+
+      function openRecordingPlayer(file) {
+        const card = document.getElementById("rec-player-card");
+        const video = document.getElementById("rec-player-video");
+        const errEl = document.getElementById("rec-player-err");
+        document.getElementById("rec-player-filename").textContent = file;
+        errEl.textContent = "";
+        document.getElementById("placeholder").style.display = "none";
+        document.getElementById("results-content").style.display = "none";
+        document.getElementById("log-card").style.display = "none";
+        card.style.display = "";
+
+        if (!window.mpegts || !mpegts.isSupported()) {
+          errEl.textContent =
+            "In-browser playback isn't supported in this browser. Use ⬇ .ts instead.";
+          return;
+        }
+
+        _destroyRecPlayer();
+        try {
+          _recPlayer = mpegts.createPlayer({
+            type: "mse",
+            isLive: false,
+            url: `${PROXY}/gop/recording/${encodeURIComponent(file)}`,
+          });
+          _recPlayer.attachMediaElement(video);
+          _recPlayer.load();
+          _recPlayer.on(mpegts.Events.ERROR, (type, detail) => {
+            errEl.textContent = `Playback error: ${type} — ${detail || ""}`;
+          });
+          const playPromise = _recPlayer.play();
+          if (playPromise && playPromise.catch) playPromise.catch(() => {});
+        } catch (e) {
+          errEl.textContent = `Playback error: ${e.message}`;
+        }
+      }
+
+      function _destroyRecPlayer() {
+        if (_recPlayer) {
+          try {
+            _recPlayer.pause();
+            _recPlayer.unload();
+            _recPlayer.detachMediaElement();
+            _recPlayer.destroy();
+          } catch (e) {}
+          _recPlayer = null;
+        }
+        const video = document.getElementById("rec-player-video");
+        if (video) {
+          video.pause();
+          video.removeAttribute("src");
+          video.load();
+        }
+      }
+
+      function closeRecordingPlayer() {
+        const card = document.getElementById("rec-player-card");
+        const wasOpen = card && card.style.display !== "none";
+        _destroyRecPlayer();
+        if (card) card.style.display = "none";
+        // Only restore the placeholder if the player was actually showing,
+        // so switching tabs never hides live analysis results.
+        if (wasOpen) document.getElementById("placeholder").style.display = "";
+      }
+
       async function loadRecordings() {
+        _renderRunningRecordings();
         const list = document.getElementById("recordings-list");
         if (!list) return;
         try {
@@ -3797,12 +3958,15 @@
               const dlBtn = !failed
                 ? `<a class="hi-badge" style="text-decoration:none;color:var(--cyan);border-color:var(--cyan)" href="${PROXY}/gop/recording/${encodeURIComponent(
                     it.file
-                  )}" title="Download .ts">⬇ .ts</a>`
+                  )}" onclick="event.stopPropagation()" title="Download .ts">⬇ .ts</a>`
                 : "";
               const statusBadge = failed
                 ? `<span class="hi-badge rejected">FAILED</span>`
                 : `<span class="hi-badge compliant">✓ ${mb}</span>`;
-              return `<div class="hist-item" style="cursor:default">
+              const playClick = !failed
+                ? `onclick="openRecordingPlayer('${it.file}')" title="Click to play in-browser"`
+                : `style="cursor:default"`;
+              return `<div class="hist-item" ${playClick}>
         <div class="hist-item-body">
           <div class="hi-dest" title="${it.url || ""}">${it.url || "?"}</div>
           <div class="hi-sub">${dateStr} · ${durStr}${
@@ -3815,7 +3979,7 @@
             <span class="hi-badge" style="opacity:.7">👤 ${(
               it.username || "anonymous"
             ).split("@")[0]}</span>
-            <span class="hi-badge" style="cursor:pointer;color:var(--red)" onclick="askDeleteRecording('${
+            <span class="hi-badge" style="cursor:pointer;color:var(--red)" onclick="event.stopPropagation();askDeleteRecording('${
               it.file
             }')" title="Delete recording">🗑</span>
           </div>
@@ -3826,6 +3990,44 @@
         } catch (e) {
           list.innerHTML =
             '<div class="hist-empty">Could not load recordings</div>';
+        }
+      }
+
+      async function _renderRunningRecordings() {
+        const box = document.getElementById("recordings-running");
+        if (!box) return;
+        try {
+          const res = await fetch(`${PROXY}/gop/record/jobs/running`);
+          const jobs = await res.json();
+          if (!Array.isArray(jobs) || !jobs.length) {
+            box.innerHTML =
+              '<div class="hist-empty">No recordings in progress</div>';
+            return;
+          }
+          box.innerHTML = jobs
+            .map((j) => {
+              const d = j.started_at ? new Date(j.started_at) : null;
+              const t = d
+                ? d.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                  })
+                : "?";
+              return `<div class="hist-item" style="cursor:default">
+        <div class="hist-item-body">
+          <div class="hi-dest" title="${j.url || ""}">${j.url || "?"}</div>
+          <div class="hi-sub">started ${t} · 👤 ${(j.username || "anonymous").split("@")[0]}</div>
+          <div class="hi-badges">
+            <span class="hi-badge rejected" style="animation:blink 1.2s infinite">⏺ REC</span>
+          </div>
+        </div>
+      </div>`;
+            })
+            .join("");
+        } catch (e) {
+          box.innerHTML =
+            '<div class="hist-empty">No recordings in progress</div>';
         }
       }
 
@@ -3849,7 +4051,9 @@
           const el = document.getElementById(id);
           if (el) el.value = "";
         });
-        document.getElementById("inp-rec-dur").value = "30";
+        document.getElementById("inp-rec-dur").value = "120";
+        document.getElementById("rec-port-field").style.display = "none";
+        document.getElementById("inp-rec-port").value = "";
       }
 
       // ── Render result ─────────────────────────────────────────────────
@@ -5992,7 +6196,17 @@
           const el = document.getElementById(id);
           if (el) el.style.display = isRecord ? "none" : "";
         });
-        if (isRecord) loadRecordings();
+        // Keep the in-progress list fresh while the Record tab is open
+        if (window._recRefreshTimer) {
+          clearInterval(window._recRefreshTimer);
+          window._recRefreshTimer = null;
+        }
+        if (isRecord) {
+          loadRecordings();
+          window._recRefreshTimer = setInterval(loadRecordings, 4000);
+        } else {
+          closeRecordingPlayer();
+        }
       }
 
       function clearHistFilters() {

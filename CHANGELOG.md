@@ -6,6 +6,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.52.4] - 2026-09-04
+
+### Added
+- Video Analyser: recordings can now be played directly in the browser — a
+  click on a finished recording opens an inline player in the main panel.
+- Video Analyser: a "Recording now" list above the recordings history shows
+  captures currently in progress, refreshed automatically while the Record
+  tab is open.
+- Video Analyser: selecting an SRT server preset in the Record tab reveals a
+  dedicated Port field, matching the SRT tab layout.
+
+### Changed
+- Video Analyser: the Record tab's default capture duration is now 2 minutes.
+
 ## [2.52.3] - 2026-09-04
 
 ### Changed
