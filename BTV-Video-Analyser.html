@@ -1571,12 +1571,14 @@
       <div id="form-record" class="form-row" style="display: none">
         <div class="field grow">
           <label>Source URL</label>
-          <input
+                    <input
             id="inp-rec-url"
             type="text"
             placeholder="srt://10.0.0.1:9000 · rtmp://host/app/stream · udp://… (any ffmpeg input)"
             autocomplete="off"
+            list="rec-url-presets"
           />
+          <datalist id="rec-url-presets"></datalist>
         </div>
         <div class="field w180">
           <label
@@ -3430,6 +3432,9 @@
 
           const dl = document.getElementById("srt-host-presets");
           dl.innerHTML = "";
+          // Record tab reuses the same SRT server presets as srt:// URL suggestions
+          const recDl = document.getElementById("rec-url-presets");
+          if (recDl) recDl.innerHTML = "";
           _srtPresets = {};
           Object.keys(env)
             .filter((k) => /^SRT_LOCAL_\d+$/.test(k))
@@ -3444,6 +3449,12 @@
               opt.value = ip;
               opt.textContent = `${label || ip} (${ip})`;
               dl.appendChild(opt);
+              if (recDl) {
+                const recOpt = document.createElement("option");
+                recOpt.value = `srt://${ip}:`;
+                recOpt.textContent = `${label || ip} (srt://${ip}:…)`;
+                recDl.appendChild(recOpt);
+              }
             });
 
           // Populate server filter dropdown
@@ -3460,18 +3471,21 @@
           }
 
           if (env.SRT_PASSPHRASE) {
-            const el = document.getElementById("inp-pass");
-            el.value = env.SRT_PASSPHRASE;
-            el.classList.add("from-env");
-            el.addEventListener(
-              "input",
-              function () {
-                this.classList.remove("from-env");
-              },
-              { once: true }
-            );
-          }
-        } catch (e) {
+            // Pre-fill the default SRT passphrase on the SRT and Record tabs
+            ["inp-pass", "inp-rec-pass"].forEach((id) => {
+              const el = document.getElementById(id);
+              if (!el) return;
+              el.value = env.SRT_PASSPHRASE;
+              el.classList.add("from-env");
+              el.addEventListener(
+                "input",
+                function () {
+                  this.classList.remove("from-env");
+                },
+                { once: true }
+              );
+            });
+          } catch (e) {
           console.warn(e);
         }
       }

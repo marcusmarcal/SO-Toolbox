@@ -6,6 +6,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.52.3] - 2026-09-04
+
+### Changed
+- Video Analyser: the Record tab now suggests the SRT servers configured in
+  .env (same presets as the SRT tab) directly in the Source URL field as
+  srt:// entries, and pre-fills the passphrase with the configured default.
+
 ## [2.52.2] - 2026-09-04
 
 ### Added
