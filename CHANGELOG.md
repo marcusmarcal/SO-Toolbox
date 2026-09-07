@@ -6,6 +6,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.54.5] - 2026-09-07
+
+### Fixed
+- SRT Ingest: recordings sidecar tags are matched more tolerantly (`file`/`ts_file`/`filename`, with or without `.ts`, `tag` or `tags` list, same-stem fallback); `/sources` now reports `has_sidecar` per file for diagnostics.
+
 ## [2.54.4] - 2026-09-07
 
 ### Fixed

@@ -203,8 +203,18 @@ def _source_annotations() -> dict:
 
     # recordings ----------------------------------------------------------
     for stem, meta in _sidecar_index(RECORDINGS_SOURCE_DIR).items():
-        ts_name = meta.get("file") or (stem + ".ts")
-        put(ts_name, meta.get("tag"), meta.get("username"), meta.get("status"))
+        # Be tolerant about how the sidecar names its .ts: "file" is what
+        # _record_stream writes, but accept "ts_file"/"filename" and a value
+        # with or without the .ts extension, and always index the same-stem
+        # name too so a renamed/absent field still matches.
+        raw_name = meta.get("file") or meta.get("ts_file") or meta.get("filename") or ""
+        raw_name = os.path.basename(str(raw_name))
+        if raw_name and not raw_name.lower().endswith(".ts"):
+            raw_name += ".ts"
+        tags = meta.get("tag") if meta.get("tag") not in (None, "") else meta.get("tags")
+        for ts_name in {raw_name, stem + ".ts"}:
+            if ts_name and ts_name not in ann:
+                put(ts_name, tags, meta.get("username"), meta.get("status"))
 
     return ann
 
@@ -1047,6 +1057,7 @@ def list_sources():
     all_tags = set()
     for s in ts_sources:
         a = annotations.get(s["name"], {})
+        s["has_sidecar"] = s["name"] in annotations
         s["tags"] = a.get("tags", [])
         s["username"] = a.get("username")
         s["analysis_status"] = a.get("analysis_status")
