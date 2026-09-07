@@ -50,8 +50,8 @@ RECORDINGS_SOURCE_DIR = "/opt/web/store/recordings"
 # "label" is what the UI shows as the folder of a source and what the folder
 # filter matches against.
 TS_SOURCE_DIRS = [
-    {"path": TS_SOURCE_DIR, "label": "gop-results"},
-    {"path": RECORDINGS_SOURCE_DIR, "label": "recordings"},
+    {"path": TS_SOURCE_DIR, "label": "Video Analyser"},
+    {"path": RECORDINGS_SOURCE_DIR, "label": "Recordings"},
 ]
 
 # Recording / GOP-result filenames follow the pattern

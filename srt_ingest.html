@@ -189,7 +189,13 @@
     }
     .source-filters select:focus, .source-filters input:focus { border-color: var(--accent); }
     .source-filters input[type="date"] { color-scheme: dark; }
-    .source-filters .flt-tag { flex: 2 1 160px; }
+    .source-filters .flt-search { flex: 3 1 220px; }
+    .src-selected {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 8px 10px;
+      font-family: var(--mono); font-size: 11px; cursor: pointer; transition: border-color .2s;
+    }
+    .src-selected:hover { border-color: var(--accent); }
+    .src-selected .src-name { margin-top: 3px; }
     .source-filters .btn-src-refresh {
       width: auto; margin: 0; padding: 6px 10px; font-size: 11px; flex-shrink: 0;
       background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 3px;
@@ -310,17 +316,19 @@
     <div class="field">
       <label>Source File</label>
       <div class="source-picker" id="s-source-picker">
-        <input type="text" id="s-input" value="test.mp4" placeholder="search: 4015 · 2026-09-04 · 194.76.59.21 · recordings · srt — or paste a path" autocomplete="off" />
+        <!-- Hidden value carrier: the selected source path/label used by the previews and the API calls. -->
+        <input type="hidden" id="s-input" value="test.mp4" />
+        <div class="src-selected" id="s-source-selected" title="Click to change the source">test.mp4</div>
         <div class="source-filters">
-          <select id="s-filter-folder" title="Folder"><option value="">all folders</option></select>
+          <select id="s-filter-folder" title="Folder"><option value="">All folders</option></select>
           <input type="date" id="s-filter-date" title="Date" />
-          <input type="text" id="s-filter-port" title="Port" placeholder="port" inputmode="numeric" autocomplete="off" />
-          <input type="text" id="s-filter-tag" class="flt-tag" title="Tag (type to search or pick from the list)" placeholder="tag search / pick" list="source-tag-datalist" autocomplete="off" />
+          <input type="text" id="s-search" class="flt-search" title="Search by address, port, tag, user, date, protocol…" placeholder="search: address · port · tag · user · date…" list="source-tag-datalist" autocomplete="off" />
           <button type="button" class="btn-src-refresh" title="Rescan source folders" onclick="loadSources(true)">↻</button>
         </div>
         <div class="source-results" id="s-source-results"></div>
-        <div class="src-hint">tokens: <b>4015</b> · <b>2026-09-04</b> · <b>14:12</b> · <b>srt</b>/<b>rtmp</b> · <b>caller</b> · <b>failed</b> · <b>port:4110</b> · <b>date:2026-09</b> · <b>host:194.76</b> · <b>tag:xyz</b> · <b>user:name</b> · <b>dir:recordings</b></div>
+        <div class="src-hint">tokens: <b>4015</b> · <b>194.76.59.21</b> · <b>2026-09-04</b> · <b>14:12</b> · <b>srt</b>/<b>rtmp</b> · <b>caller</b> · <b>failed</b> · <b>port:4110</b> · <b>host:194.76</b> · <b>tag:xyz</b> · <b>user:name</b> · <b>date:2026-09</b> · <b>dir:recordings</b></div>
       </div>
+    </div>
     </div>
     <div class="field" id="s-passthrough-row" style="display:none">
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
@@ -353,17 +361,19 @@
     <div class="field">
       <label>Source File</label>
       <div class="source-picker" id="m-source-picker">
-        <input type="text" id="m-input" value="test.mp4" placeholder="search: 4015 · 2026-09-04 · 194.76.59.21 · recordings · srt — or paste a path" autocomplete="off" />
+        <!-- Hidden value carrier: the selected source path/label used by the previews and the API calls. -->
+        <input type="hidden" id="m-input" value="test.mp4" />
+        <div class="src-selected" id="m-source-selected" title="Click to change the source">test.mp4</div>
         <div class="source-filters">
-          <select id="m-filter-folder" title="Folder"><option value="">all folders</option></select>
+          <select id="m-filter-folder" title="Folder"><option value="">All folders</option></select>
           <input type="date" id="m-filter-date" title="Date" />
-          <input type="text" id="m-filter-port" title="Port" placeholder="port" inputmode="numeric" autocomplete="off" />
-          <input type="text" id="m-filter-tag" class="flt-tag" title="Tag (type to search or pick from the list)" placeholder="tag search / pick" list="source-tag-datalist" autocomplete="off" />
+          <input type="text" id="m-search" class="flt-search" title="Search by address, port, tag, user, date, protocol…" placeholder="search: address · port · tag · user · date…" list="source-tag-datalist" autocomplete="off" />
           <button type="button" class="btn-src-refresh" title="Rescan source folders" onclick="loadSources(true)">↻</button>
         </div>
         <div class="source-results" id="m-source-results"></div>
-        <div class="src-hint">tokens: <b>4015</b> · <b>2026-09-04</b> · <b>14:12</b> · <b>srt</b>/<b>rtmp</b> · <b>caller</b> · <b>failed</b> · <b>port:4110</b> · <b>date:2026-09</b> · <b>host:194.76</b> · <b>tag:xyz</b> · <b>user:name</b> · <b>dir:recordings</b></div>
+        <div class="src-hint">tokens: <b>4015</b> · <b>194.76.59.21</b> · <b>2026-09-04</b> · <b>14:12</b> · <b>srt</b>/<b>rtmp</b> · <b>caller</b> · <b>failed</b> · <b>port:4110</b> · <b>host:194.76</b> · <b>tag:xyz</b> · <b>user:name</b> · <b>date:2026-09</b> · <b>dir:recordings</b></div>
       </div>
+    </div>
     </div>
     <div class="field" id="m-passthrough-row" style="display:none">
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
@@ -893,9 +903,9 @@ function updateMultiPreview() {
   el.innerHTML = html;
 }
 
-['s-input','s-host','s-port','s-pass','s-bitrate'].forEach(id =>
+['s-host','s-port','s-pass','s-bitrate'].forEach(id =>
   document.getElementById(id).addEventListener('input', updateSinglePreview));
-['m-input','m-host','m-port-start','m-port-end','m-pass','m-bitrate'].forEach(id =>
+['m-host','m-port-start','m-port-end','m-pass','m-bitrate'].forEach(id =>
   document.getElementById(id).addEventListener('input', updateMultiPreview));
 
 // ── API calls ────────────────────────────────────────────────────────────────
@@ -1087,14 +1097,14 @@ function toast(msg, type='info') {
 
 
 
-// ── Source picker — gop-results + recordings .ts files ───────────────────────
+// ── Source picker — Video Analyser + Recordings .ts files ────────────────────
 // Maps a source file's exact value (e.g. full .ts path or "test.mp4") to its
-// type ("mp4" | "ts"), so the search input can look up the right type as the
-// user types or pastes a filename.
+// type ("mp4" | "ts"), used by syncSourceType() to toggle passthrough/bitrate.
 const sourceTypesByFile = {};
 // Full source list as returned by /sources (plus the generated B&T entry).
 let allSources = [];
-// Distinct Video Analyzer tags across all sources (from /sources).
+// Distinct Video Analyser tags across all sources (from /sources) — offered as
+// suggestions in the search field.
 let allSourceTags = [];
 let sourcesLoadedOnce = false;
 const SOURCE_RESULT_LIMIT = 80;
@@ -1110,8 +1120,8 @@ function fmtSize(bytes) {
 
 // Lower-cased searchable text for a source. Includes every alternate spelling
 // of the parsed fields (2026-09-04 and 20260904, 14:12:20 and 141220,
-// 194.76.59.21 and 194_76_59_21, ...) so free-text tokens match whichever
-// form the operator types.
+// 194.76.59.21 and 194_76_59_21, ...) plus tags, username and status, so a
+// free-text token matches whichever form the operator types.
 function sourceHaystack(s) {
   if (s._hay) return s._hay;
   const parts = [s.name || s.file, s.file, s.folder || '', s.type || ''];
@@ -1130,10 +1140,16 @@ function sourceHaystack(s) {
   return s._hay;
 }
 
+// Tag match: case-insensitive substring against each of the source's tags.
+function tagMatches(s, val) {
+  const v = val.toLowerCase();
+  return !!(s.tags && s.tags.some(t => t.toLowerCase().includes(v)));
+}
+
 // One search token against one source. Supports prefixed tokens
 // (port:4015, date:2026-09, time:14, host:194.76, proto:srt, mode:caller,
 // tag:xyz, user:name, dir:recordings, type:ts); anything else is a plain
-// substring match.
+// substring match across the whole haystack (address, port, tags, user...).
 function tokenMatches(s, tok) {
   const i = tok.indexOf(':');
   if (i > 0) {
@@ -1148,7 +1164,7 @@ function tokenMatches(s, tok) {
       case 'mode':  return !!s.mode && s.mode === val;
       case 'tag':   return tagMatches(s, val);
       case 'user':  return !!s.username && s.username.toLowerCase().includes(val);
-      case 'dir': case 'folder': return !!s.folder && s.folder.includes(val);
+      case 'dir': case 'folder': return !!s.folder && s.folder.toLowerCase().includes(val);
       case 'type':  return s.type === val;
       // Unknown prefix (e.g. a typed time like "14:12") → fall through to plain match.
     }
@@ -1156,13 +1172,8 @@ function tokenMatches(s, tok) {
   return sourceHaystack(s).includes(tok);
 }
 
-// Tag filter: case-insensitive substring against each of the source's tags.
-function tagMatches(s, val) {
-  const v = val.toLowerCase();
-  return !!(s.tags && s.tags.some(t => t.toLowerCase().includes(v)));
-}
-
-// Ranking: exact port / date / host / tag hits float above incidental substring hits.
+// Ranking: exact port / date / host / tag / user hits float above incidental
+// substring hits (e.g. a port number that also appears inside a timestamp).
 function sourceScore(s, tokens) {
   let score = 0;
   tokens.forEach(t => {
@@ -1170,35 +1181,66 @@ function sourceScore(s, tokens) {
     if (s.port != null && String(s.port) === v) score += 4;
     if (s.date && (s.date === v || s.date.replace(/-/g, '') === v)) score += 3;
     if (s.host && (s.host === v || s.host.replace(/\./g, '_') === v)) score += 3;
+    if (s.tags && s.tags.some(t2 => t2.toLowerCase() === v)) score += 2;
+    if (s.username && s.username.toLowerCase() === v) score += 2;
     if (s.protocol && s.protocol === v) score += 1;
     if (s.mode && s.mode === v) score += 1;
-    if (s.tags && s.tags.some(t => t.toLowerCase() === v)) score += 2;
   });
   return score;
 }
 
 function filterSources(prefix) {
-  const raw = document.getElementById(`${prefix}-input`).value.trim().toLowerCase();
-  // If the input currently holds an exact source path (a previous selection),
-  // treat it as "no query" so reopening the picker shows the full list.
-  const isExact = allSources.some(s => s.file.toLowerCase() === raw);
-  const tokens = isExact ? [] : raw.split(/\s+/).filter(Boolean);
+  const raw    = document.getElementById(`${prefix}-search`).value.trim().toLowerCase();
+  const tokens = raw.split(/\s+/).filter(Boolean);
   const folder = document.getElementById(`${prefix}-filter-folder`).value;
-  const date   = document.getElementById(`${prefix}-filter-date`).value;          // YYYY-MM-DD from <input type=date>
-  const port   = document.getElementById(`${prefix}-filter-port`).value.trim();   // free text, prefix match
-  const tag    = document.getElementById(`${prefix}-filter-tag`).value.trim();    // free text or picked from list
+  const date   = document.getElementById(`${prefix}-filter-date`).value;  // YYYY-MM-DD from <input type=date>
 
   const matched = allSources.filter(s => {
     if (folder && (s.folder || '') !== folder) return false;
     if (date && s.date !== date) return false;
-    if (port && !(s.port != null && String(s.port).startsWith(port))) return false;
-    if (tag && !tagMatches(s, tag)) return false;
     return tokens.every(t => tokenMatches(s, t));
   });
   if (tokens.length) {
     matched.sort((a, b) => sourceScore(b, tokens) - sourceScore(a, tokens)); // stable: keeps newest-first within a score
   }
   return { matched, total: allSources.length };
+}
+
+// Analysis / recording status from the Video Analyser JSON, coloured by outcome.
+function statusChip(status) {
+  const s = String(status);
+  const u = s.toUpperCase();
+  const cls = /COMPLIANT|ACCEPTED|^DONE$/.test(u) ? 'ok' : /REJECT|FAIL|ERROR/.test(u) ? 'bad' : '';
+  return `<span class="src-chip astatus ${cls}">${esc(s)}</span>`;
+}
+
+// Metadata lines (chips) for one source — shared by the result list and the
+// "selected source" box.
+function sourceMetaHtml(s) {
+  let meta = '';
+  if (s.type === 'bars_tone') {
+    meta = `<span class="src-chip gen">${esc(s.folder || 'Generated')}</span><span>${esc(s.name)}</span>`;
+  } else {
+    const when   = s.date ? `<span>${s.date} ${s.time || ''}</span>` : '';
+    const proto  = s.protocol ? `<span class="src-chip proto">${esc(s.protocol)}</span>` : '';
+    const dest   = s.host ? `<span>${esc(s.host)}${s.port != null ? `:<span class="src-port">${s.port}</span>` : ''}</span>` : '';
+    const mode   = s.mode ? `<span class="src-chip mode">${esc(s.mode)}</span>` : '';
+    const failed = s.failed ? `<span class="src-chip failed">failed</span>` : '';
+    const folder = s.folder ? `<span class="src-chip folder">${esc(s.folder)}</span>` : '';
+    const size   = s.size_bytes != null ? `<span class="src-size">${fmtSize(s.size_bytes)}</span>` : '';
+    meta = `${folder}${when}${proto}${dest}${mode}${failed}${size}`;
+    if (!s.date && !s.host) meta = `${folder}<span>${esc(s.name)}</span>${size}`;
+  }
+  // Video Analyser tags (clickable → becomes the search text), username and status.
+  let extra = '';
+  if (s.type !== 'bars_tone') {
+    const tagChips = (s.tags || []).map(t =>
+      `<span class="src-chip tag" data-tag="${esc(t).replace(/"/g, '&quot;')}" title="Search this tag">${esc(t)}</span>`).join('');
+    const user = s.username ? `<span class="src-chip user">${esc(s.username)}</span>` : '';
+    const st = s.analysis_status ? statusChip(s.analysis_status) : '';
+    if (tagChips || user || st) extra = `<div class="src-tags">${tagChips}${user}${st}</div>`;
+  }
+  return `<div class="src-meta">${meta}</div>${extra}<div class="src-name">${esc(s.file)}</div>`;
 }
 
 function renderSourceResults(prefix) {
@@ -1209,49 +1251,21 @@ function renderSourceResults(prefix) {
 
   let html = `<div class="src-summary">${matched.length} of ${total} sources${matched.length > shown.length ? ` · showing first ${shown.length}` : ''}</div>`;
   if (!shown.length) {
-    html += '<div class="src-empty">No source matches. Free text (paths included) is still accepted in the field above.</div>';
+    html += '<div class="src-empty">No source matches the current search / filters.</div>';
   } else {
-    html += shown.map(s => {
-      const sel = s.file === current ? ' selected' : '';
-      let meta = '';
-      if (s.type === 'bars_tone') {
-        meta = `<span class="src-chip gen">generated</span><span>${esc(s.name)}</span>`;
-      } else {
-        const when = s.date ? `<span>${s.date} ${s.time || ''}</span>` : '';
-        const proto = s.protocol ? `<span class="src-chip proto">${esc(s.protocol)}</span>` : '';
-        const dest = s.host ? `<span>${esc(s.host)}${s.port != null ? `:<span class="src-port">${s.port}</span>` : ''}</span>` : '';
-        const mode = s.mode ? `<span class="src-chip mode">${esc(s.mode)}</span>` : '';
-        const failed = s.failed ? `<span class="src-chip failed">failed</span>` : '';
-        const folder = s.folder ? `<span class="src-chip folder">${esc(s.folder)}</span>` : '';
-        const size = s.size_bytes != null ? `<span class="src-size">${fmtSize(s.size_bytes)}</span>` : '';
-        meta = `${folder}${when}${proto}${dest}${mode}${failed}${size}`;
-        if (!s.date && !s.host) meta = `${folder}<span>${esc(s.name)}</span>${size}`;
-      }
-      // Video Analyzer tags (clickable → becomes the tag filter), username and status.
-      let extra = '';
-      if (s.type !== 'bars_tone') {
-        const tagChips = (s.tags || []).map(t =>
-          `<span class="src-chip tag" data-tag="${esc(t).replace(/"/g, '&quot;')}" title="Filter by this tag">${esc(t)}</span>`).join('');
-        const user = s.username ? `<span class="src-chip user">${esc(s.username)}</span>` : '';
-        const st = s.analysis_status ? statusChip(s.analysis_status) : '';
-        if (tagChips || user || st) extra = `<div class="src-tags">${tagChips}${user}${st}</div>`;
-      }
-      return `<div class="src-item${sel}" data-file="${esc(s.file).replace(/"/g, '&quot;')}">
-        <div class="src-meta">${meta}</div>
-        ${extra}
-        <div class="src-name">${esc(s.file)}</div>
-      </div>`;
-    }).join('');
+    html += shown.map(s =>
+      `<div class="src-item${s.file === current ? ' selected' : ''}" data-file="${esc(s.file).replace(/"/g, '&quot;')}">${sourceMetaHtml(s)}</div>`
+    ).join('');
   }
   box.innerHTML = html;
 }
 
-// Analysis / recording status from the Video Analyzer JSON, coloured by outcome.
-function statusChip(status) {
-  const s = String(status);
-  const u = s.toUpperCase();
-  const cls = /COMPLIANT|ACCEPTED|^DONE$/.test(u) ? 'ok' : /REJECT|FAIL|ERROR/.test(u) ? 'bad' : '';
-  return `<span class="src-chip astatus ${cls}">${esc(s)}</span>`;
+// Shows the currently selected source (hidden input value) as a summary box.
+function renderSelectedSource(prefix) {
+  const value = document.getElementById(`${prefix}-input`).value.trim();
+  const box = document.getElementById(`${prefix}-source-selected`);
+  const s = allSources.find(x => x.file === value);
+  box.innerHTML = s ? sourceMetaHtml(s) : `<span>${esc(value || '— no source selected —')}</span>`;
 }
 
 function openSourceResults(prefix) {
@@ -1267,14 +1281,14 @@ function isSourceResultsOpen(prefix) {
 
 function selectSource(prefix, file) {
   document.getElementById(`${prefix}-input`).value = file;
+  renderSelectedSource(prefix);
   closeSourceResults(prefix);
   if (prefix === 's') updateSinglePreview(); else updateMultiPreview();
 }
 
 function populateSourceFilters(prefix) {
-  // Only the folder filter is a fixed list. Date is a native date input and
-  // port is free text — a production store can hold thousands of files, so
-  // enumerating dates/ports as dropdown options doesn't scale.
+  // Only the folder filter is a fixed list — a production store holds
+  // thousands of files, so every other criterion goes through the search box.
   const folders = [];
   allSources.forEach(s => { if (s.folder && !folders.includes(s.folder)) folders.push(s.folder); });
   const sel = document.getElementById(`${prefix}-filter-folder`);
@@ -1289,7 +1303,7 @@ function populateSourceFilters(prefix) {
   if (sel.value !== prev) sel.value = '';
 }
 
-// Tag list shared by both pickers: pick from it or type to search.
+// Tag suggestions shared by both search boxes.
 function populateTagDatalist() {
   const dl = document.getElementById('source-tag-datalist');
   dl.innerHTML = '';
@@ -1301,33 +1315,31 @@ function populateTagDatalist() {
 }
 
 function initSourcePicker(prefix) {
-  const input = document.getElementById(`${prefix}-input`);
-  const picker = document.getElementById(`${prefix}-source-picker`);
-  const results = document.getElementById(`${prefix}-source-results`);
+  const search   = document.getElementById(`${prefix}-search`);
+  const picker   = document.getElementById(`${prefix}-source-picker`);
+  const results  = document.getElementById(`${prefix}-source-results`);
+  const selected = document.getElementById(`${prefix}-source-selected`);
 
-  input.addEventListener('focus', () => openSourceResults(prefix));
-  input.addEventListener('input', () => openSourceResults(prefix));
-  input.addEventListener('keydown', e => {
+  search.addEventListener('focus', () => openSourceResults(prefix));
+  search.addEventListener('input', () => openSourceResults(prefix));
+  search.addEventListener('keydown', e => {
     if (e.key === 'Escape') { closeSourceResults(prefix); return; }
     if (e.key === 'Enter') {
-      // Enter picks the single remaining match (or the first one) — quick path
-      // for "type the port, hit Enter".
+      // Enter picks the first match — quick path for "type the port, hit Enter".
       const { matched } = filterSources(prefix);
-      if (matched.length && isSourceResultsOpen(prefix)) { e.preventDefault(); selectSource(prefix, matched[0].file); }
+      if (matched.length) { e.preventDefault(); selectSource(prefix, matched[0].file); }
     }
   });
   ['folder', 'date'].forEach(k =>
     document.getElementById(`${prefix}-filter-${k}`).addEventListener('change', () => openSourceResults(prefix)));
-  ['port', 'tag'].forEach(k => {
-    const el = document.getElementById(`${prefix}-filter-${k}`);
-    el.addEventListener('input', () => openSourceResults(prefix));
-    el.addEventListener('focus', () => openSourceResults(prefix));
+  selected.addEventListener('click', () => {
+    if (isSourceResultsOpen(prefix)) closeSourceResults(prefix); else { openSourceResults(prefix); search.focus(); }
   });
   results.addEventListener('click', e => {
     const chip = e.target.closest('.src-chip.tag');
     if (chip) {
-      // Clicking a tag chip narrows the list to that tag instead of selecting the file.
-      document.getElementById(`${prefix}-filter-tag`).value = chip.dataset.tag;
+      // Clicking a tag chip searches that tag instead of selecting the file.
+      search.value = chip.dataset.tag;
       openSourceResults(prefix);
       return;
     }
@@ -1349,7 +1361,7 @@ async function loadSources(manual = false) {
     // B&T colour bars is not a real file — it's offered as a generated entry
     // at the top of the list, matched by exact value (see isBarsToneValue).
     allSources = [
-      { file: BARS_TONE_LABEL, name: BARS_TONE_LABEL, type: 'bars_tone', folder: 'generated' },
+      { file: BARS_TONE_LABEL, name: BARS_TONE_LABEL, type: 'bars_tone', folder: 'Generated' },
       ...real,
     ];
     Object.keys(sourceTypesByFile).forEach(k => delete sourceTypesByFile[k]);
@@ -1357,14 +1369,9 @@ async function loadSources(manual = false) {
     allSourceTags = d.tags || [];
     populateTagDatalist();
 
-    ['s', 'm'].forEach(p => {
-      populateSourceFilters(p);
-      if (isSourceResultsOpen(p)) renderSourceResults(p);
-    });
-
-    // On first load, default both inputs to the first real source (test.mp4)
+    // On first load, default both pickers to the first real source (test.mp4)
     // and sync the dependent UI so passthrough/bitrate rows and previews never
-    // desync from what's selected. Periodic/manual reloads leave the inputs alone.
+    // desync from what's selected. Periodic/manual reloads leave the selection alone.
     if (!sourcesLoadedOnce) {
       sourcesLoadedOnce = true;
       const first = real[0];
@@ -1375,6 +1382,12 @@ async function loadSources(manual = false) {
         updateMultiPreview();
       }
     }
+
+    ['s', 'm'].forEach(p => {
+      populateSourceFilters(p);
+      renderSelectedSource(p);
+      if (isSourceResultsOpen(p)) renderSourceResults(p);
+    });
     if (manual) toast(`${real.length} source${real.length === 1 ? '' : 's'} found`, 'info');
   } catch(e) {
     console.warn('Could not load sources:', e);

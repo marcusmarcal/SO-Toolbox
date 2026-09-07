@@ -6,6 +6,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.54.2] - 2026-09-07
+
+### Changed
+- SRT Ingest: the source picker now has a single free-text search box (address, port, tags, user, date, protocol…) with tag suggestions; the selected source is shown as a summary box with its metadata chips.
+- SRT Ingest: folders are labelled "Video Analyser", "Recordings" and "Generated"; the `dir:` search token is case-insensitive.
+
+### Removed
+- SRT Ingest: the source filename text input and the dedicated port filter (both superseded by the search box).
+
 ## [2.54.1] - 2026-09-07
 
 ### Added
