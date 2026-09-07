@@ -12,6 +12,11 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 ## [Unreleased]
 
+## [3.56.0] - 2026-09-07
+
+### Fixed
+- Versioning was bad... should be 3.x.x, not 2.x.x. 
+
 ## [2.55.2] - 2026-09-07
 
 ### Changed
