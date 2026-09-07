@@ -1104,78 +1104,6 @@
   <!-- ══ TAB: ADMIN ══ -->
   <div class="tab-panel" id="panel-admin">
 
-    <!-- CARD: People -->
-    <div class="admin-card" id="admin-card-people">
-      <div class="admin-card-header">
-        <span class="admin-card-title">👥 People</span>
-        <div style="display:flex;gap:8px;">
-          <button class="btn primary" id="btn-admin-add-toggle" style="font-size:0.68rem;padding:5px 12px;">+ Add Person</button>
-          <button class="btn" id="btn-admin-audit-refresh" style="font-size:0.65rem;padding:4px 10px;">⟳ Recent Changes</button>
-        </div>
-      </div>
-
-      <!-- Add Person form (hidden by default) -->
-      <div id="admin-add-form" style="display:none;margin-bottom:20px;padding:16px;background:var(--bg);border-radius:8px;border:1px solid var(--border);">
-        <div class="form-grid" id="admin-add-grid">
-          <div class="form-group">
-            <label>Employee ID</label>
-            <input type="text" id="admin-new-employee-id" placeholder="e.g. 10234" inputmode="numeric" />
-          </div>
-          <div class="form-group">
-            <label>Full Name</label>
-            <input type="text" id="admin-new-full-name" placeholder="Legal name — used on HR exports" />
-          </div>
-          <div class="form-group">
-            <label>Rota Label</label>
-            <input type="text" id="admin-new-rota-label" placeholder="Short grid alias, e.g. &quot;Joao L&quot;" />
-          </div>
-          <div class="form-group">
-            <label>Rotation Group</label>
-            <select id="admin-new-rotation-group">
-              <option value="management">Management</option>
-              <option value="engineering">Engineering</option>
-              <option value="specialist">Specialist</option>
-            </select>
-          </div>
-          <div class="form-group" id="admin-new-shift-group">
-            <label>Shift (management)</label>
-            <input type="text" id="admin-new-shift" placeholder="0900-1730" maxlength="9" />
-          </div>
-          <div class="form-group" id="admin-new-offset-group" style="display:none;">
-            <label>Rotation Offset (days)</label>
-            <input type="number" min="0" id="admin-new-offset" placeholder="e.g. 35" />
-          </div>
-          <div class="form-group">
-            <label>HR Team</label>
-            <select id="admin-new-hr-team">
-              <option value="">— none —</option>
-              <option value="SOE">SOE</option>
-              <option value="SOS">SOS</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>SOE Join Date <span style="opacity:0.6;">(optional)</span></label>
-            <input type="date" id="admin-new-soe-join-date" />
-          </div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <button class="btn primary" id="btn-admin-add">+ Add Person</button>
-          <button class="btn" id="btn-admin-add-cancel">Cancel</button>
-        </div>
-        <div id="admin-add-err" style="display:none;margin-top:10px;font-family:var(--mono);font-size:0.72rem;color:var(--danger);"></div>
-      </div>
-
-      <!-- Directory -->
-      <div id="admin-directory-wrap">
-        <div class="loading-row"><div class="spinner"></div> Loading…</div>
-      </div>
-
-      <!-- Recent Changes (collapsible) -->
-      <div id="admin-audit-wrap" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
-        <div class="loading-row"><div class="spinner"></div> Loading…</div>
-      </div>
-    </div>
-
     <!-- CARD: Annual Leave -->
     <div class="admin-card" id="admin-card-al">
       <div class="admin-card-header">
@@ -1255,6 +1183,77 @@
       </div>
     </div>
 
+    <!-- CARD: People -->
+    <div class="admin-card" id="admin-card-people">
+      <div class="admin-card-header">
+        <span class="admin-card-title">👥 People</span>
+        <div style="display:flex;gap:8px;">
+          <button class="btn primary" id="btn-admin-add-toggle" style="font-size:0.68rem;padding:5px 12px;">+ Add Person</button>
+          <button class="btn" id="btn-admin-audit-refresh" style="font-size:0.65rem;padding:4px 10px;">⟳ Recent Changes</button>
+        </div>
+      </div>
+
+      <!-- Add Person form (hidden by default) -->
+      <div id="admin-add-form" style="display:none;margin-bottom:20px;padding:16px;background:var(--bg);border-radius:8px;border:1px solid var(--border);">
+        <div class="form-grid" id="admin-add-grid">
+          <div class="form-group">
+            <label>Employee ID</label>
+            <input type="text" id="admin-new-employee-id" placeholder="e.g. 10234" inputmode="numeric" />
+          </div>
+          <div class="form-group">
+            <label>Full Name</label>
+            <input type="text" id="admin-new-full-name" placeholder="Legal name — used on HR exports" />
+          </div>
+          <div class="form-group">
+            <label>Rota Label</label>
+            <input type="text" id="admin-new-rota-label" placeholder="Short grid alias, e.g. &quot;Joao L&quot;" />
+          </div>
+          <div class="form-group">
+            <label>Rotation Group</label>
+            <select id="admin-new-rotation-group">
+              <option value="management">Management</option>
+              <option value="engineering">Engineering</option>
+              <option value="specialist">Specialist</option>
+            </select>
+          </div>
+          <div class="form-group" id="admin-new-shift-group">
+            <label>Shift (management)</label>
+            <input type="text" id="admin-new-shift" placeholder="0900-1730" maxlength="9" />
+          </div>
+          <div class="form-group" id="admin-new-offset-group" style="display:none;">
+            <label>Rotation Offset (days)</label>
+            <input type="number" min="0" id="admin-new-offset" placeholder="e.g. 35" />
+          </div>
+          <div class="form-group">
+            <label>HR Team</label>
+            <select id="admin-new-hr-team">
+              <option value="">— none —</option>
+              <option value="SOE">SOE</option>
+              <option value="SOS">SOS</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>SOE Join Date <span style="opacity:0.6;">(optional)</span></label>
+            <input type="date" id="admin-new-soe-join-date" />
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn primary" id="btn-admin-add">+ Add Person</button>
+          <button class="btn" id="btn-admin-add-cancel">Cancel</button>
+        </div>
+        <div id="admin-add-err" style="display:none;margin-top:10px;font-family:var(--mono);font-size:0.72rem;color:var(--danger);"></div>
+      </div>
+
+      <!-- Directory -->
+      <div id="admin-directory-wrap">
+        <div class="loading-row"><div class="spinner"></div> Loading…</div>
+      </div>
+
+      <!-- Recent Changes (collapsible) -->
+      <div id="admin-audit-wrap" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+        <div class="loading-row"><div class="spinner"></div> Loading…</div>
+      </div>
+    </div>
   </div>
 
   <!-- ── NOTE TOOLTIP (hover, read-only) ── -->
