@@ -4008,6 +4008,12 @@
             <span class="hi-badge" style="opacity:.7">👤 ${(
               it.username || "anonymous"
             ).split("@")[0]}</span>
+            <span class="hi-badge" style="cursor:pointer" onclick="event.stopPropagation();openRecTagEditModal('${
+              it.file
+            }',${JSON.stringify(it.tag || "").replace(
+                /"/g,
+                "&quot;"
+              )})" title="Edit tags">✎</span>
             <span class="hi-badge" style="cursor:pointer;color:var(--red)" onclick="event.stopPropagation();askDeleteRecording('${
               it.file
             }')" title="Delete recording">🗑</span>
@@ -7693,6 +7699,14 @@
       // ── Tag editor ─────────────────────────────────────────────────────
       let _tagEditFile = null;
       let _tagEditChips = [];
+      let _tagEditIsRecording = false;
+
+      // Entry point from the Recordings list — same chip modal, but saves to
+      // the recording's metadata sidecar instead of an analysis result.
+      function openRecTagEditModal(file, tagStr) {
+        _tagEditIsRecording = true;
+        openTagEditModal(file, tagStr);
+      }
 
       function openTagEditModal(file, tagStr) {
         _tagEditFile = file;
@@ -7744,6 +7758,7 @@
       function closeTagEditModal() {
         document.getElementById("tag-edit-modal").classList.remove("open");
         _tagEditFile = null;
+        _tagEditIsRecording = false;
       }
 
       function renderTagChips() {
@@ -7798,22 +7813,24 @@
         const errEl = document.getElementById("tag-edit-err");
         errEl.textContent = "";
         try {
-          const res = await fetch(
-            `${PROXY}/gop/result/${encodeURIComponent(_tagEditFile)}`,
-            {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ tag }),
-            }
-          );
+          const endpoint = _tagEditIsRecording
+            ? `${PROXY}/gop/recording/${encodeURIComponent(_tagEditFile)}`
+            : `${PROXY}/gop/result/${encodeURIComponent(_tagEditFile)}`;
+          const res = await fetch(endpoint, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ tag }),
+          });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const okEl = document.getElementById("tag-edit-ok");
           okEl.style.display = "";
+          const wasRecording = _tagEditIsRecording;
           setTimeout(() => {
             okEl.style.display = "none";
             closeTagEditModal();
           }, 1200);
-          loadHistory();
+          if (wasRecording) loadRecordings();
+          else loadHistory();
         } catch (e) {
           errEl.textContent = `Error: ${e.message}`;
         }

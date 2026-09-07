@@ -6,6 +6,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.54.3] - 2026-09-07
+
+### Added
+- Video Analyser: tags on recordings can now be edited directly from the
+  Recordings list, using the same tag editor as the analysis history.
+
 ## [2.54.2] - 2026-09-07
 
 ### Changed

@@ -1785,6 +1785,29 @@ def gop_recording_download(filename):
     return send_from_directory(REC_DIR, filename, as_attachment=True)
 
 
+@gop_bp.route("/gop/recording/<path:filename>", methods=["PATCH"])
+def gop_recording_patch(filename):
+    """Update editable metadata of a recording — currently only 'tag'.
+    Mirrors the PATCH /gop/result/<file> tag-edit endpoint."""
+    filename = os.path.basename(filename)  # no path traversal
+    base = filename[:-3] if filename.endswith(".ts") else filename
+    meta_path = os.path.join(REC_DIR, base + ".json")
+    if not os.path.isfile(meta_path):
+        return jsonify({"error": "not found"}), 404
+    data = request.get_json(silent=True) or {}
+    if "tag" not in data:
+        return jsonify({"error": "nothing to update"}), 400
+    try:
+        with open(meta_path) as f:
+            meta = json.load(f)
+        meta["tag"] = (data.get("tag") or "").strip()
+        with open(meta_path, "w") as f:
+            json.dump(meta, f, indent=2)
+    except Exception as ex:
+        return jsonify({"error": str(ex)}), 500
+    return jsonify({"success": True, "tag": meta["tag"]})
+
+
 @gop_bp.route("/gop/recording/<path:filename>", methods=["DELETE"])
 def gop_recording_delete(filename):
     """Delete a recording (.ts + .json sidecar). Admin-password gated,
