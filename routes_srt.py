@@ -44,6 +44,54 @@ _job_counter = 0
 CBR_DEFAULT_MBPS = 8.0
 CBR_BUFSIZE_FACTOR = 2  # bufsize = bitrate * factor
 TS_SOURCE_DIR = "/opt/web/store/gop-results"
+RECORDINGS_SOURCE_DIR = "/opt/web/store/recordings"
+
+# Directories scanned by /sources for selectable .ts files, in display order.
+# "label" is what the UI shows as the folder of a source and what the folder
+# filter matches against.
+TS_SOURCE_DIRS = [
+    {"path": TS_SOURCE_DIR, "label": "gop-results"},
+    {"path": RECORDINGS_SOURCE_DIR, "label": "recordings"},
+]
+
+# Recording / GOP-result filenames follow the pattern
+#   <YYYYMMDD>-<HHMMSS>_<proto>___<a_b_c_d>[_<port>][_mode_<mode>][...][_FAILED]
+# e.g. 20260904-141220_srt___194_76_59_21_4015.ts
+#      20260824-092252_srt___194_76_59_20_4381_mode_caller.ts
+#      20260902-152331_rtmp___34_185_201_32_80_ingest__eROgohyk.ts
+# The metadata is parsed server-side so the UI can offer structured filters
+# (date / port / folder) and prefixed search tokens on top of free text.
+_SOURCE_NAME_RE = re.compile(
+    r"^(?P<date>\d{8})-(?P<time>\d{6})_(?P<proto>[a-z0-9]+)___"
+    r"(?P<host>\d{1,3}(?:_\d{1,3}){3})(?:_(?P<port>\d{1,5}))?(?P<rest>(?:_.*)?)$",
+    re.IGNORECASE,
+)
+_SOURCE_MODE_RE = re.compile(r"_mode_(?P<mode>[a-z]+)", re.IGNORECASE)
+
+
+def _parse_source_name(stem: str) -> dict:
+    """Extract date/time/protocol/host/port/mode/FAILED from a source filename
+    stem (no extension). Every field is None when the name does not follow
+    the known pattern (e.g. tmpXXXX.ts), except "failed" which is a plain
+    substring check."""
+    meta = {
+        "date": None, "time": None, "protocol": None,
+        "host": None, "port": None, "mode": None,
+        "failed": "FAILED" in stem.upper(),
+    }
+    m = _SOURCE_NAME_RE.match(stem)
+    if not m:
+        return meta
+    d, t = m.group("date"), m.group("time")
+    meta["date"] = f"{d[0:4]}-{d[4:6]}-{d[6:8]}"
+    meta["time"] = f"{t[0:2]}:{t[2:4]}:{t[4:6]}"
+    meta["protocol"] = m.group("proto").lower()
+    meta["host"] = m.group("host").replace("_", ".")
+    meta["port"] = int(m.group("port")) if m.group("port") else None
+    mm = _SOURCE_MODE_RE.search(m.group("rest") or "")
+    if mm:
+        meta["mode"] = mm.group("mode").lower()
+    return meta
 
 # Delay before an unattended job auto-reconnects after ffmpeg exits.
 RETRY_DELAY_SECONDS = 3
@@ -836,20 +884,48 @@ def clear_jobs():
 
 @srt_bp.route("/sources", methods=["GET"])
 def list_sources():
-    sources = [{"file": "test.mp4", "type": "mp4"}]
+    """List selectable source files: the bundled test.mp4 plus every .ts file
+    found in TS_SOURCE_DIRS (gop-results and recordings), newest first.
 
-    if os.path.isdir(TS_SOURCE_DIR):
-        ts_files = sorted(
-            [f for f in os.listdir(TS_SOURCE_DIR) if f.lower().endswith(".ts")],
-            reverse=True  # mais recente primeiro (baseado no nome)
-        )
+    Each .ts entry carries the metadata parsed from its filename (date, time,
+    protocol, host, port, mode, failed) plus folder, size and mtime, so the
+    UI can offer structured search/filters in addition to free-text search.
+    Files whose name doesn't follow the known pattern are still listed (with
+    null metadata) and sorted after the parsed ones.
+    """
+    sources = [{"file": "test.mp4", "name": "test.mp4", "type": "mp4", "folder": ""}]
 
-        for f in ts_files:
-            sources.append({
-                "file": os.path.join(TS_SOURCE_DIR, f),
+    ts_sources = []
+    for d in TS_SOURCE_DIRS:
+        if not os.path.isdir(d["path"]):
+            continue
+        try:
+            names = os.listdir(d["path"])
+        except OSError:
+            continue
+        for f in names:
+            if not f.lower().endswith(".ts"):
+                continue
+            full = os.path.join(d["path"], f)
+            try:
+                st = os.stat(full)
+            except OSError:
+                continue
+            entry = {
+                "file": full,
                 "name": f,
                 "type": "ts",
-            })
+                "folder": d["label"],
+                "size_bytes": st.st_size,
+                "mtime": st.st_mtime,
+            }
+            entry.update(_parse_source_name(os.path.splitext(f)[0]))
+            ts_sources.append(entry)
+
+    # Parsed (timestamped) files first, newest first — the name starts with
+    # the timestamp so a reverse name sort is a reverse chronological sort.
+    ts_sources.sort(key=lambda s: (s["date"] is not None, s["name"]), reverse=True)
+    sources.extend(ts_sources)
 
     return jsonify({"sources": sources})
 

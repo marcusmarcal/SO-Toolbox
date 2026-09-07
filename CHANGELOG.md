@@ -6,6 +6,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.54.0] - 2026-09-07
+
+### Added
+- SRT Ingest: `.ts` files from the `recordings` folder are now listed as sources alongside `gop-results`.
+- SRT Ingest: source filenames are parsed into date, time, protocol, host, port, mode and FAILED metadata, exposed by `/sources`.
+- SRT Ingest: new source picker with folder / date / port filters, free-text search that understands the filename syntax (e.g. `4015`, `2026-09-04`, `194.76.59.21`, `caller`, `failed`) and prefixed tokens (`port:`, `date:`, `host:`, `proto:`, `mode:`, `dir:`).
+- SRT Ingest: manual rescan button and automatic 60 s refresh of the source list.
+
+### Changed
+- SRT Ingest: the Source File `datalist` has been replaced by the new picker; pasting a full path still works.
+
 ## [2.53.0] - 2026-09-04
 
 ### Added
