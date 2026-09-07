@@ -6,6 +6,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.54.1] - 2026-09-07
+
+### Added
+- SRT Ingest: sources now carry Video Analyzer tags, username and analysis/recording status, read from the `gop-results` result JSON or `recordings` sidecar via `routes_gop`'s cached index.
+- SRT Ingest: tag filter in the source picker (type to search or pick from the known-tag list); tag chips on each result act as one-click filters; `tag:` and `user:` search tokens.
+- SRT Ingest: `/sources` returns the distinct tag list; host/port are filled from the JSON for files whose name doesn't include them.
+
+### Changed
+- SRT Ingest: date filter replaced by a native date input.
+- SRT Ingest: port filter replaced by a free-text prefix search instead of a dropdown, to scale to production stores with 1800+ files.
+
 ## [2.54.0] - 2026-09-07
 
 ### Added

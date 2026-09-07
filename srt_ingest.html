@@ -182,7 +182,14 @@
       flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--border); color: var(--text);
       font-family: var(--mono); font-size: 11px; padding: 6px 8px; border-radius: 3px; outline: none;
     }
-    .source-filters select:focus { border-color: var(--accent); }
+    .source-filters { flex-wrap: wrap; }
+    .source-filters select, .source-filters input {
+      flex: 1 1 110px; min-width: 0; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+      font-family: var(--mono); font-size: 11px; padding: 6px 8px; border-radius: 3px; outline: none;
+    }
+    .source-filters select:focus, .source-filters input:focus { border-color: var(--accent); }
+    .source-filters input[type="date"] { color-scheme: dark; }
+    .source-filters .flt-tag { flex: 2 1 160px; }
     .source-filters .btn-src-refresh {
       width: auto; margin: 0; padding: 6px 10px; font-size: 11px; flex-shrink: 0;
       background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 3px;
@@ -213,6 +220,13 @@
     .src-chip.failed { background: rgba(255,59,92,.15);  color: var(--red); }
     .src-chip.gen    { background: rgba(0,255,136,.12);  color: var(--green); }
     .src-port { color: var(--accent2); font-weight: 700; }
+    .src-chip.tag { background: rgba(0,255,136,.1); color: var(--green); border: 1px solid rgba(0,255,136,.25); text-transform: none; cursor: pointer; }
+    .src-chip.tag:hover { background: rgba(0,255,136,.22); }
+    .src-chip.user { background: rgba(74,90,110,.25); color: var(--text); text-transform: none; }
+    .src-chip.astatus { background: rgba(74,90,110,.25); color: var(--muted); }
+    .src-chip.astatus.ok  { background: rgba(0,255,136,.1);  color: var(--green); }
+    .src-chip.astatus.bad { background: rgba(255,59,92,.15); color: var(--red); }
+    .src-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
     .src-size { margin-left: auto; color: var(--muted); }
     .src-name { color: var(--muted); font-size: 10px; margin-top: 3px; word-break: break-all; }
     .src-empty { padding: 16px; text-align: center; color: var(--muted); font-family: var(--mono); font-size: 11px; }
@@ -299,12 +313,13 @@
         <input type="text" id="s-input" value="test.mp4" placeholder="search: 4015 · 2026-09-04 · 194.76.59.21 · recordings · srt — or paste a path" autocomplete="off" />
         <div class="source-filters">
           <select id="s-filter-folder" title="Folder"><option value="">all folders</option></select>
-          <select id="s-filter-date" title="Date"><option value="">any date</option></select>
-          <select id="s-filter-port" title="Port"><option value="">any port</option></select>
+          <input type="date" id="s-filter-date" title="Date" />
+          <input type="text" id="s-filter-port" title="Port" placeholder="port" inputmode="numeric" autocomplete="off" />
+          <input type="text" id="s-filter-tag" class="flt-tag" title="Tag (type to search or pick from the list)" placeholder="tag search / pick" list="source-tag-datalist" autocomplete="off" />
           <button type="button" class="btn-src-refresh" title="Rescan source folders" onclick="loadSources(true)">↻</button>
         </div>
         <div class="source-results" id="s-source-results"></div>
-        <div class="src-hint">tokens: <b>4015</b> · <b>2026-09-04</b> · <b>14:12</b> · <b>srt</b>/<b>rtmp</b> · <b>caller</b> · <b>failed</b> · <b>port:4110</b> · <b>date:2026-09</b> · <b>host:194.76</b> · <b>dir:recordings</b></div>
+        <div class="src-hint">tokens: <b>4015</b> · <b>2026-09-04</b> · <b>14:12</b> · <b>srt</b>/<b>rtmp</b> · <b>caller</b> · <b>failed</b> · <b>port:4110</b> · <b>date:2026-09</b> · <b>host:194.76</b> · <b>tag:xyz</b> · <b>user:name</b> · <b>dir:recordings</b></div>
       </div>
     </div>
     <div class="field" id="s-passthrough-row" style="display:none">
@@ -341,12 +356,13 @@
         <input type="text" id="m-input" value="test.mp4" placeholder="search: 4015 · 2026-09-04 · 194.76.59.21 · recordings · srt — or paste a path" autocomplete="off" />
         <div class="source-filters">
           <select id="m-filter-folder" title="Folder"><option value="">all folders</option></select>
-          <select id="m-filter-date" title="Date"><option value="">any date</option></select>
-          <select id="m-filter-port" title="Port"><option value="">any port</option></select>
+          <input type="date" id="m-filter-date" title="Date" />
+          <input type="text" id="m-filter-port" title="Port" placeholder="port" inputmode="numeric" autocomplete="off" />
+          <input type="text" id="m-filter-tag" class="flt-tag" title="Tag (type to search or pick from the list)" placeholder="tag search / pick" list="source-tag-datalist" autocomplete="off" />
           <button type="button" class="btn-src-refresh" title="Rescan source folders" onclick="loadSources(true)">↻</button>
         </div>
         <div class="source-results" id="m-source-results"></div>
-        <div class="src-hint">tokens: <b>4015</b> · <b>2026-09-04</b> · <b>14:12</b> · <b>srt</b>/<b>rtmp</b> · <b>caller</b> · <b>failed</b> · <b>port:4110</b> · <b>date:2026-09</b> · <b>host:194.76</b> · <b>dir:recordings</b></div>
+        <div class="src-hint">tokens: <b>4015</b> · <b>2026-09-04</b> · <b>14:12</b> · <b>srt</b>/<b>rtmp</b> · <b>caller</b> · <b>failed</b> · <b>port:4110</b> · <b>date:2026-09</b> · <b>host:194.76</b> · <b>tag:xyz</b> · <b>user:name</b> · <b>dir:recordings</b></div>
       </div>
     </div>
     <div class="field" id="m-passthrough-row" style="display:none">
@@ -445,6 +461,9 @@
   </div>
 
 </div><!-- /layout -->
+
+<!-- Tags known to the Video Analyzer (from /sources), shared by both source pickers -->
+<datalist id="source-tag-datalist"></datalist>
 
 <div class="toast-container" id="toasts"></div>
 
@@ -1075,6 +1094,8 @@ function toast(msg, type='info') {
 const sourceTypesByFile = {};
 // Full source list as returned by /sources (plus the generated B&T entry).
 let allSources = [];
+// Distinct Video Analyzer tags across all sources (from /sources).
+let allSourceTags = [];
 let sourcesLoadedOnce = false;
 const SOURCE_RESULT_LIMIT = 80;
 const SOURCE_REFRESH_MS = 60000;
@@ -1101,6 +1122,9 @@ function sourceHaystack(s) {
   if (s.port != null) parts.push(String(s.port), ':' + s.port);
   if (s.mode) parts.push(s.mode);
   if (s.failed) parts.push('failed');
+  if (s.tags && s.tags.length) parts.push(...s.tags);
+  if (s.username) parts.push(s.username);
+  if (s.analysis_status) parts.push(s.analysis_status);
   if (s.type === 'bars_tone') parts.push('bars tone b&t colour bars generated');
   s._hay = parts.join(' ').toLowerCase();
   return s._hay;
@@ -1108,7 +1132,8 @@ function sourceHaystack(s) {
 
 // One search token against one source. Supports prefixed tokens
 // (port:4015, date:2026-09, time:14, host:194.76, proto:srt, mode:caller,
-// dir:recordings, type:ts); anything else is a plain substring match.
+// tag:xyz, user:name, dir:recordings, type:ts); anything else is a plain
+// substring match.
 function tokenMatches(s, tok) {
   const i = tok.indexOf(':');
   if (i > 0) {
@@ -1121,6 +1146,8 @@ function tokenMatches(s, tok) {
       case 'host':  return !!s.host && s.host.includes(val);
       case 'proto': case 'protocol': return !!s.protocol && s.protocol === val;
       case 'mode':  return !!s.mode && s.mode === val;
+      case 'tag':   return tagMatches(s, val);
+      case 'user':  return !!s.username && s.username.toLowerCase().includes(val);
       case 'dir': case 'folder': return !!s.folder && s.folder.includes(val);
       case 'type':  return s.type === val;
       // Unknown prefix (e.g. a typed time like "14:12") → fall through to plain match.
@@ -1129,7 +1156,13 @@ function tokenMatches(s, tok) {
   return sourceHaystack(s).includes(tok);
 }
 
-// Ranking: exact port / date / host hits float above incidental substring hits.
+// Tag filter: case-insensitive substring against each of the source's tags.
+function tagMatches(s, val) {
+  const v = val.toLowerCase();
+  return !!(s.tags && s.tags.some(t => t.toLowerCase().includes(v)));
+}
+
+// Ranking: exact port / date / host / tag hits float above incidental substring hits.
 function sourceScore(s, tokens) {
   let score = 0;
   tokens.forEach(t => {
@@ -1139,6 +1172,7 @@ function sourceScore(s, tokens) {
     if (s.host && (s.host === v || s.host.replace(/\./g, '_') === v)) score += 3;
     if (s.protocol && s.protocol === v) score += 1;
     if (s.mode && s.mode === v) score += 1;
+    if (s.tags && s.tags.some(t => t.toLowerCase() === v)) score += 2;
   });
   return score;
 }
@@ -1150,13 +1184,15 @@ function filterSources(prefix) {
   const isExact = allSources.some(s => s.file.toLowerCase() === raw);
   const tokens = isExact ? [] : raw.split(/\s+/).filter(Boolean);
   const folder = document.getElementById(`${prefix}-filter-folder`).value;
-  const date   = document.getElementById(`${prefix}-filter-date`).value;
-  const port   = document.getElementById(`${prefix}-filter-port`).value;
+  const date   = document.getElementById(`${prefix}-filter-date`).value;          // YYYY-MM-DD from <input type=date>
+  const port   = document.getElementById(`${prefix}-filter-port`).value.trim();   // free text, prefix match
+  const tag    = document.getElementById(`${prefix}-filter-tag`).value.trim();    // free text or picked from list
 
   const matched = allSources.filter(s => {
     if (folder && (s.folder || '') !== folder) return false;
     if (date && s.date !== date) return false;
-    if (port && String(s.port ?? '') !== port) return false;
+    if (port && !(s.port != null && String(s.port).startsWith(port))) return false;
+    if (tag && !tagMatches(s, tag)) return false;
     return tokens.every(t => tokenMatches(s, t));
   });
   if (tokens.length) {
@@ -1191,13 +1227,31 @@ function renderSourceResults(prefix) {
         meta = `${folder}${when}${proto}${dest}${mode}${failed}${size}`;
         if (!s.date && !s.host) meta = `${folder}<span>${esc(s.name)}</span>${size}`;
       }
+      // Video Analyzer tags (clickable → becomes the tag filter), username and status.
+      let extra = '';
+      if (s.type !== 'bars_tone') {
+        const tagChips = (s.tags || []).map(t =>
+          `<span class="src-chip tag" data-tag="${esc(t).replace(/"/g, '&quot;')}" title="Filter by this tag">${esc(t)}</span>`).join('');
+        const user = s.username ? `<span class="src-chip user">${esc(s.username)}</span>` : '';
+        const st = s.analysis_status ? statusChip(s.analysis_status) : '';
+        if (tagChips || user || st) extra = `<div class="src-tags">${tagChips}${user}${st}</div>`;
+      }
       return `<div class="src-item${sel}" data-file="${esc(s.file).replace(/"/g, '&quot;')}">
         <div class="src-meta">${meta}</div>
+        ${extra}
         <div class="src-name">${esc(s.file)}</div>
       </div>`;
     }).join('');
   }
   box.innerHTML = html;
+}
+
+// Analysis / recording status from the Video Analyzer JSON, coloured by outcome.
+function statusChip(status) {
+  const s = String(status);
+  const u = s.toUpperCase();
+  const cls = /COMPLIANT|ACCEPTED|^DONE$/.test(u) ? 'ok' : /REJECT|FAIL|ERROR/.test(u) ? 'bad' : '';
+  return `<span class="src-chip astatus ${cls}">${esc(s)}</span>`;
 }
 
 function openSourceResults(prefix) {
@@ -1218,27 +1272,32 @@ function selectSource(prefix, file) {
 }
 
 function populateSourceFilters(prefix) {
-  const folders = [], dates = new Set(), ports = new Set();
-  allSources.forEach(s => {
-    if (s.folder && !folders.includes(s.folder)) folders.push(s.folder);
-    if (s.date) dates.add(s.date);
-    if (s.port != null) ports.add(s.port);
+  // Only the folder filter is a fixed list. Date is a native date input and
+  // port is free text — a production store can hold thousands of files, so
+  // enumerating dates/ports as dropdown options doesn't scale.
+  const folders = [];
+  allSources.forEach(s => { if (s.folder && !folders.includes(s.folder)) folders.push(s.folder); });
+  const sel = document.getElementById(`${prefix}-filter-folder`);
+  const prev = sel.value;
+  while (sel.options.length > 1) sel.remove(1);
+  folders.forEach(v => {
+    const o = document.createElement('option');
+    o.value = v; o.textContent = v;
+    sel.appendChild(o);
   });
-  const fill = (id, values, fmt) => {
-    const sel = document.getElementById(id);
-    const prev = sel.value;
-    while (sel.options.length > 1) sel.remove(1);
-    values.forEach(v => {
-      const o = document.createElement('option');
-      o.value = String(v); o.textContent = fmt ? fmt(v) : String(v);
-      sel.appendChild(o);
-    });
-    sel.value = prev;
-    if (sel.value !== prev) sel.value = '';
-  };
-  fill(`${prefix}-filter-folder`, folders);
-  fill(`${prefix}-filter-date`, [...dates].sort().reverse());
-  fill(`${prefix}-filter-port`, [...ports].sort((a, b) => a - b), v => `port ${v}`);
+  sel.value = prev;
+  if (sel.value !== prev) sel.value = '';
+}
+
+// Tag list shared by both pickers: pick from it or type to search.
+function populateTagDatalist() {
+  const dl = document.getElementById('source-tag-datalist');
+  dl.innerHTML = '';
+  allSourceTags.forEach(t => {
+    const o = document.createElement('option');
+    o.value = t;
+    dl.appendChild(o);
+  });
 }
 
 function initSourcePicker(prefix) {
@@ -1257,9 +1316,21 @@ function initSourcePicker(prefix) {
       if (matched.length && isSourceResultsOpen(prefix)) { e.preventDefault(); selectSource(prefix, matched[0].file); }
     }
   });
-  ['folder', 'date', 'port'].forEach(k =>
+  ['folder', 'date'].forEach(k =>
     document.getElementById(`${prefix}-filter-${k}`).addEventListener('change', () => openSourceResults(prefix)));
+  ['port', 'tag'].forEach(k => {
+    const el = document.getElementById(`${prefix}-filter-${k}`);
+    el.addEventListener('input', () => openSourceResults(prefix));
+    el.addEventListener('focus', () => openSourceResults(prefix));
+  });
   results.addEventListener('click', e => {
+    const chip = e.target.closest('.src-chip.tag');
+    if (chip) {
+      // Clicking a tag chip narrows the list to that tag instead of selecting the file.
+      document.getElementById(`${prefix}-filter-tag`).value = chip.dataset.tag;
+      openSourceResults(prefix);
+      return;
+    }
     const item = e.target.closest('.src-item');
     if (item) selectSource(prefix, item.dataset.file);
   });
@@ -1283,6 +1354,8 @@ async function loadSources(manual = false) {
     ];
     Object.keys(sourceTypesByFile).forEach(k => delete sourceTypesByFile[k]);
     real.forEach(s => { sourceTypesByFile[s.file] = s.type; });
+    allSourceTags = d.tags || [];
+    populateTagDatalist();
 
     ['s', 'm'].forEach(p => {
       populateSourceFilters(p);
