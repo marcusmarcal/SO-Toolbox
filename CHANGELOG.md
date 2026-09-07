@@ -6,6 +6,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.55.0] - 2026-09-07
+
+### Added
+- General Tool Admin: Proxy Management panel (replaces the Restart Proxy button) showing all
+  active background jobs in the proxy grouped by tool, with live counter in the header.
+- General Tool Admin: activity indicators on sidebar tools and welcome cards when the proxy
+  is running work for that tool (Video Analyzer, Live Probe, SRT Ingest, Ingest Analyzer,
+  MTR, TXCore).
+- Proxy: `GET /proxy/activity` endpoint aggregating active jobs (authenticated, read-only).
+
+### Changed
+- General Tool Admin: proxy restart is now a two-step action inside Proxy Management and
+  lists the exact jobs that will be terminated; the panel is visible to all users while the
+  restart action remains admin/engineer only.
+- Proxy: `/mtr/running` now uses the shared `_mtr_running_items()` helper (no functional change).
+
 ## [2.54.6] - 2026-09-07
 
 ### Changed

@@ -423,13 +423,13 @@ def mtr_delete(filename):
 
 
 
-@app.route("/mtr/running", methods=["GET"])
-def mtr_running():
-    """Return list of currently running MTR jobs (from .running.json files)."""
+def _mtr_running_items():
+    """Return list of currently running MTR jobs (from .running.json files).
+    Shared by /mtr/running and /proxy/activity."""
     base_dir    = os.path.dirname(os.path.abspath(__file__))
     results_dir = os.path.join(base_dir, "mtr-results")
     if not os.path.isdir(results_dir):
-        return jsonify([])
+        return []
     items = []
     for f in sorted(os.listdir(results_dir), reverse=True):
         if not f.endswith(".running.json"):
@@ -463,7 +463,13 @@ def mtr_running():
             })
         except Exception:
             pass
-    return jsonify(items)
+    return items
+
+
+@app.route("/mtr/running", methods=["GET"])
+def mtr_running():
+    """Return list of currently running MTR jobs (from .running.json files)."""
+    return jsonify(_mtr_running_items())
 
 
 @app.route("/mtr/tag/<path:filename>", methods=["POST"])
@@ -856,6 +862,203 @@ def ingest_report_file(filepath):
     report_dir = os.path.join(INGEST_RESULTS_DIR, dirname)
     return send_from_directory(report_dir, filename)
 
+
+
+# ════════════════════════════════════════════════════════════════════════════
+#  PROXY ACTIVITY — aggregated view of background jobs running inside the proxy
+#  Consumed by index.html (sidebar indicators + Proxy Management panel).
+# ════════════════════════════════════════════════════════════════════════════
+import time as _act_time
+import routes_srt as _act_srt
+import routes_live_probe as _act_live_probe
+import routes_txcore as _act_txcore
+from routes_auth import require_auth
+
+_PASSPHRASE_RE = re.compile(r'[?&]passphrase=[^&]*', re.IGNORECASE)
+
+
+def _act_strip_secrets(text):
+    """Remove passphrases from URLs/labels before exposing them to the UI."""
+    if not text:
+        return ""
+    return _PASSPHRASE_RE.sub("", str(text)).rstrip("?&")
+
+
+def _act_elapsed_iso(iso):
+    """Seconds elapsed since an ISO-8601 UTC timestamp (with or without Z)."""
+    if not iso:
+        return None
+    try:
+        s = str(iso).replace("Z", "")
+        if "+" in s[10:]:
+            s = s[:s.index("+", 10)]
+        st = datetime.datetime.fromisoformat(s)
+        return max(0, int((datetime.datetime.utcnow() - st).total_seconds()))
+    except Exception:
+        return None
+
+
+def _act_group(key, tool, icon, match, jobs):
+    return {
+        "key":   key,
+        "tool":  tool,
+        "icon":  icon,
+        # Lower-case substrings matched by the UI against TOOL_n name/file/badge
+        "match": match,
+        "count": len(jobs),
+        "jobs":  jobs,
+    }
+
+
+def _act_video_analyzer():
+    jobs = []
+    with routes_gop._gop_lock:
+        for j in routes_gop._gop_jobs.values():
+            if j.get("status") == "running":
+                jobs.append({
+                    "id": j.get("job_id"), "kind": "analysis", "status": "running",
+                    "label": _act_strip_secrets(j.get("url")), "tag": j.get("tag", ""),
+                    "user": j.get("username", ""), "started_at": j.get("started_at"),
+                    "elapsed_s": _act_elapsed_iso(j.get("started_at")),
+                    "extra": {"workflow": j.get("workflow", "")},
+                })
+    with routes_gop._rec_lock:
+        for j in routes_gop._rec_jobs.values():
+            if j.get("status") == "running":
+                jobs.append({
+                    "id": j.get("job_id"), "kind": "recording", "status": "running",
+                    "label": _act_strip_secrets(j.get("url")), "tag": j.get("tag", ""),
+                    "user": j.get("username", ""), "started_at": j.get("started_at"),
+                    "elapsed_s": _act_elapsed_iso(j.get("started_at")),
+                    "extra": {},
+                })
+    with routes_gop._gop_sched_lock:
+        for s in routes_gop._gop_scheduled.values():
+            if s.get("status") in ("pending", "running"):
+                jobs.append({
+                    "id": s.get("sched_id"), "kind": "scheduled", "status": s.get("status"),
+                    "label": _act_strip_secrets(s.get("url")), "tag": s.get("tag", ""),
+                    "user": s.get("username", ""), "started_at": None, "elapsed_s": None,
+                    "extra": {"run_at_utc": s.get("run_at_utc"), "workflow": s.get("workflow", "")},
+                })
+    return _act_group("video_analyzer", "Video Analyzer", "🎞",
+                      ["video analy", "video-analy", "gop"], jobs)
+
+
+def _act_live_probe_sessions():
+    jobs = []
+    now = _act_time.time()
+    with _act_live_probe._sessions_lock:
+        sessions = list(_act_live_probe._sessions.values())
+    for s in sessions:
+        alive = s.proc is not None and s.proc.poll() is None
+        jobs.append({
+            "id": s.id, "kind": "probe", "status": "running" if alive else "connecting",
+            "label": f"srt://{s.host}:{s.port}", "tag": getattr(s, "tag", "") or "",
+            "user": getattr(s, "username", "") or "",
+            "started_at": datetime.datetime.utcfromtimestamp(s.created_at).isoformat() + "Z",
+            "elapsed_s": max(0, int(now - s.created_at)),
+            "extra": {"viewers": len(s.subscribers)},
+        })
+    return _act_group("live_probe", "Live Probe", "📶",
+                      ["live probe", "live-probe", "liveprobe"], jobs)
+
+
+def _act_srt_ingest():
+    active = ("running", "reconnecting", "starting", "stopping")
+    jobs = []
+    with _act_srt._jobs_lock:
+        for j in _act_srt._running_jobs.values():
+            if j.get("status") not in active:
+                continue
+            label = f"{j.get('host')}:{j.get('port')}"
+            if j.get("type") == "shared" and j.get("destinations"):
+                label = f"{len(j['destinations'])} destinations"
+            src = os.path.basename(str(j.get("input_file") or "")) if j.get("source_mode") == "file" else j.get("source_mode", "")
+            jobs.append({
+                "id": j.get("id"), "kind": j.get("mode", "ingest"), "status": j.get("status"),
+                "label": label, "tag": "", "user": "",
+                "started_at": None, "elapsed_s": None,
+                "extra": {"source": src, "pid": j.get("pid"), "retries": j.get("retry_count", 0)},
+            })
+    return _act_group("srt_ingest", "SRT Ingest", "📡",
+                      ["srt ingest", "srt-ingest", "srt_ingest"], jobs)
+
+
+def _act_ingest_analyzer():
+    jobs = []
+    with _ingest_lock:
+        for j in _ingest_jobs.values():
+            if j.get("status") == "running":
+                jobs.append({
+                    "id": j.get("job_id"), "kind": "analysis", "status": "running",
+                    "label": _act_strip_secrets(j.get("url")), "tag": j.get("tag", ""),
+                    "user": "", "started_at": j.get("started_at"),
+                    "elapsed_s": _act_elapsed_iso(j.get("started_at")),
+                    "extra": {},
+                })
+    return _act_group("ingest_analyzer", "Ingest Analyzer", "🧪",
+                      ["ingest analy", "ingest-analy", "ingest_analy"], jobs)
+
+
+def _act_mtr():
+    jobs = []
+    for m in _mtr_running_items():
+        jobs.append({
+            "id": m.get("job_id"), "kind": m.get("mode") or "trace", "status": "running",
+            "label": m.get("destination", ""), "tag": m.get("tag", ""), "user": "",
+            "started_at": m.get("started_at"), "elapsed_s": m.get("elapsed"),
+            "extra": {"remaining_s": m.get("remaining"), "proto": m.get("proto")},
+        })
+    return _act_group("mtr", "MTR", "🛰", ["mtr"], jobs)
+
+
+def _act_txcore():
+    jobs = []
+    jobs_dir = getattr(_act_txcore, "JOBS_DIR", None)
+    if jobs_dir and os.path.isdir(jobs_dir):
+        for f in os.listdir(jobs_dir):
+            if not f.endswith(".json"):
+                continue
+            try:
+                with open(os.path.join(jobs_dir, f)) as fh:
+                    j = json.load(fh)
+            except Exception:
+                continue
+            if j.get("status") not in ("queued", "running"):
+                continue
+            params = j.get("params") or {}
+            jobs.append({
+                "id": j.get("job_id"), "kind": "channel-create", "status": j.get("status"),
+                "label": f"{j.get('progress', 0)}/{j.get('total', 0)} channels",
+                "tag": "", "user": j.get("created_by", ""),
+                "started_at": j.get("started_at") or j.get("created_at"),
+                "elapsed_s": _act_elapsed_iso(j.get("started_at") or j.get("created_at")),
+                "extra": {"dry_run": bool(params.get("dry_run"))},
+            })
+    return _act_group("txcore", "TXCore", "📺", ["txcore", "tx core", "tx-core"], jobs)
+
+
+@app.route("/proxy/activity", methods=["GET"])
+@require_auth
+def proxy_activity():
+    """Aggregate every active background job the proxy is currently running.
+    Read-only; safe for all authenticated users (secrets are stripped)."""
+    groups = []
+    for collector in (_act_video_analyzer, _act_live_probe_sessions, _act_srt_ingest,
+                      _act_ingest_analyzer, _act_mtr, _act_txcore):
+        try:
+            groups.append(collector())
+        except Exception as e:  # one broken collector must not hide the others
+            groups.append({"key": collector.__name__, "tool": collector.__name__,
+                           "icon": "⚠", "match": [], "count": 0, "jobs": [],
+                           "error": str(e)})
+    total = sum(g["count"] for g in groups)
+    return jsonify({
+        "generated_at": datetime.datetime.utcnow().isoformat() + "Z",
+        "total_active": total,
+        "groups": groups,
+    })
 
 
 @app.route("/server-stats", methods=["GET"])
