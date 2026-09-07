@@ -14,39 +14,27 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 ## [3.56.0] - 2026-09-07
 
-### Fixed
-- Versioning was bad... should be 3.x.x, not 2.x.x. 
-
-## [2.55.3] - 2026-09-07
-
 ### Changed
 
 - General Tool Admin: README modal redesigned — larger two-pane layout with a sticky section navigation (h2/h3, scroll-spy, click to jump), "Open raw" link, Escape to close; rendered markdown restyled (headings, tables with header row, code blocks with copy button, blockquotes, nested lists).
 - General Tool Admin: `README.md` restructured — related-documents block, table of contents, component and Blueprint tables, per-tool entries in a consistent "file — summary + bullets" layout, proxy endpoints as method/path/purpose tables, fixed directory tree, troubleshooting table; content updated with sessions and proxy-activity endpoints, `store/` result folders, restart-after-update note and corrected Rota Blueprint description.
+- General Tool Admin: changelog modal redesigned — wider card, collapsible releases (latest three open by default, Expand/Collapse all), coloured section labels with per-release counters, tool-name chips parsed from each bullet's `Tool:` prefix, inline `code`/**bold**/link rendering, nested bullets and `####` group labels, live filter by tool/version/keyword with match highlighting, Escape to close.
+- General Tool Admin: `CHANGELOG.md` normalised to LF line endings and a consistent Keep a Changelog layout (single-line bullets, uniform spacing, `**Tool**:` prefixes unified to `Tool:`, `[Unreleased]` section added); no releases or entries were added or removed.
+- General Tool Admin: releases from 2026-07-13 onwards renumbered from `2.26.0`–`2.55.1` to `3.26.0`–`3.55.1`, restoring the major version that had already been at `3.x` since `3.0.0` (2026-05-27); dates and contents are unchanged.
 
 ### Fixed
 
 - General Tool Admin: README markdown renderer now HTML-escapes all text, merges soft-wrapped lines into one paragraph, supports nested lists (previously rendered indented bullets as loose paragraphs), multi-line blockquotes and headings with anchor ids.
-
-## [2.55.2] - 2026-09-07
-
-### Changed
-
-- General Tool Admin: changelog modal redesigned — wider card, collapsible releases (latest three open by default, Expand/Collapse all), coloured section labels with per-release counters, tool-name chips parsed from each bullet's `Tool:` prefix, inline `code`/**bold**/link rendering, nested bullets and `####` group labels, live filter by tool/version/keyword with match highlighting, Escape to close.
-- General Tool Admin: `CHANGELOG.md` normalised to LF line endings and a consistent Keep a Changelog layout (single-line bullets, uniform spacing, `**Tool**:` prefixes unified to `Tool:`, `[Unreleased]` section added); no releases or entries were added or removed.
-
-### Fixed
-
 - General Tool Admin: changelog text is now HTML-escaped before rendering; entries containing markup inside backticks (e.g. a stray `</div>`) previously broke the modal layout.
 - General Tool Admin: nested bullets in `CHANGELOG.md` were flattened into the parent bullet by the old parser; they now render as an indented sub-list.
 
-## [2.55.1] - 2026-09-07
+## [3.55.1] - 2026-09-07
 
 ### Added
 
 - General Tool Admin: Proxy Management and tool activity indicators now include SRT Push services (running/starting), sourced from the srt-push systemd unit and its stats file.
 
-## [2.55.0] - 2026-09-07
+## [3.55.0] - 2026-09-07
 
 ### Added
 
@@ -59,7 +47,7 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 - General Tool Admin: proxy restart is now a two-step action inside Proxy Management and lists the exact jobs that will be terminated; the panel is visible to all users while the restart action remains admin/engineer only.
 - Proxy: `/mtr/running` now uses the shared `_mtr_running_items()` helper (no functional change).
 
-## [2.54.6] - 2026-09-07
+## [3.54.6] - 2026-09-07
 
 ### Changed
 
@@ -67,25 +55,25 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 - SRT Ingest: multi destination now defaults to one shared `-c copy` ffmpeg process; "Independent processes" is an explicit option with a server-CPU caution notice.
 - SRT Ingest: independent multi-ingest is limited to 5 destinations, enforced in the UI and by `/ingest/multi`; the shared single process keeps the 100-destination limit.
 
-## [2.54.5] - 2026-09-07
+## [3.54.5] - 2026-09-07
 
 ### Fixed
 
 - SRT Ingest: recordings sidecar tags are matched more tolerantly (`file`/`ts_file`/`filename`, with or without `.ts`, `tag` or `tags` list, same-stem fallback); `/sources` now reports `has_sidecar` per file for diagnostics.
 
-## [2.54.4] - 2026-09-07
+## [3.54.4] - 2026-09-07
 
 ### Fixed
 
 - SRT Ingest: Single/Multi destination cards were losing their fields (Host, Port, Passphrase, Start button rendered outside the card) due to an extra closing `</div>` after the source picker.
 
-## [2.54.3] - 2026-09-07
+## [3.54.3] - 2026-09-07
 
 ### Added
 
 - Video Analyser: tags on recordings can now be edited directly from the Recordings list, using the same tag editor as the analysis history.
 
-## [2.54.2] - 2026-09-07
+## [3.54.2] - 2026-09-07
 
 ### Changed
 
@@ -96,7 +84,7 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 - SRT Ingest: the source filename text input and the dedicated port filter (both superseded by the search box).
 
-## [2.54.1] - 2026-09-07
+## [3.54.1] - 2026-09-07
 
 ### Added
 
@@ -109,7 +97,7 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 - SRT Ingest: date filter replaced by a native date input.
 - SRT Ingest: port filter replaced by a free-text prefix search instead of a dropdown, to scale to production stores with 1800+ files.
 
-## [2.54.0] - 2026-09-07
+## [3.54.0] - 2026-09-07
 
 ### Added
 
@@ -122,7 +110,7 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 - SRT Ingest: the Source File `datalist` has been replaced by the new picker; pasting a full path still works.
 
-## [2.53.0] - 2026-09-04
+## [3.53.0] - 2026-09-04
 
 ### Added
 
@@ -134,13 +122,13 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 - Jira Ticket Formatter: generic field parser now shared by request and incident flows; ServiceNow UI noise (link helper prefixes, Spotlight Score, "-- None --") is filtered out.
 
-## [2.52.5] - 2026-09-04
+## [3.52.5] - 2026-09-04
 
 ### Added
 
 - Video Analyser: tests can now be compared — select two or more results in the history and click "Compare" to open a pop-up showing each test's ID, tags and overall status alongside a table of only the fields that differ between them, with the measured value and compliance status of each test.
 
-## [2.52.4] - 2026-09-04
+## [3.52.4] - 2026-09-04
 
 ### Added
 
@@ -152,37 +140,37 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 - Video Analyser: the Record tab's default capture duration is now 2 minutes.
 
-## [2.52.3] - 2026-09-04
+## [3.52.3] - 2026-09-04
 
 ### Changed
 
 - Video Analyser: the Record tab now suggests the SRT servers configured in .env (same presets as the SRT tab) directly in the Source URL field as srt:// entries, and pre-fills the passphrase with the configured default.
 
-## [2.52.2] - 2026-09-04
+## [3.52.2] - 2026-09-04
 
 ### Added
 
 - Video Analyser: new "Record" tab that captures a source straight to a .ts file without analysing the stream. Accepts SRT, RTMP and any other network protocol supported by ffmpeg, with the same duration options as the analysis tabs (30 seconds default, up to 5 minutes). Recordings have their own independent history with download and delete actions, separate from the analysis history.
 
-## [2.52.1] - 2026-09-04
+## [3.52.1] - 2026-09-04
 
 ### Changed
 
 - Video Analyser: the capture Duration field on the SRT and RTMP tabs now offers fixed options — 30 seconds (default), 1, 2, 3, 4 and 5 minutes — replacing the previous free-form numeric input.
 
-## [2.52.0] - 2026-09-04
+## [3.52.0] - 2026-09-04
 
 ### Changed
 
 - Video Analyser: the capture Duration field on the SRT and RTMP tabs is now a free-form numeric input (previously a fixed 15/30/60 s dropdown), accepting any value between 5 seconds and 5 minutes (300 s). Out-of-range or invalid values are clamped both in the browser and by the backend.
 
-## [2.51.2] - 2026-09-03
+## [3.51.2] - 2026-09-03
 
 ### Added
 
 - General Tool Admin: search box and filters (role, team, rota status) on the Users tab of User Management, with live result count, Clear button and `Ctrl/Cmd+K` / `/` shortcut to focus search.
 
-## [2.51.1] - 2026-09-03
+## [3.51.1] - 2026-09-03
 
 ### Added
 
@@ -195,7 +183,7 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 - General Tool Admin: User Management now uses a tabbed layout (Users / Online); confirm modal reused for delete and kick actions.
 - General Tool Admin: session heartbeat added to `users-admin.html`, matching `index.html`.
 
-## [2.51.0] - 2026-09-03
+## [3.51.0] - 2026-09-03
 
 ### Added
 
@@ -209,19 +197,19 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 - General Tool Admin: `sessions.json` added to the nginx deny list and `.gitignore`.
 
-## [2.50.4] - 2026-09-02
+## [3.50.4] - 2026-09-02
 
 ### Changed
 
 - Video Analyser: RTMP mode now defaults to the "RTS" workflow. The RTS option is pre-selected in the RTMP form and enforced after workflow labels load from the API; SRT and Upload modes are unchanged and keep the API default workflow.
 
-## [2.50.3] - 2026-09-02
+## [3.50.3] - 2026-09-02
 
 ### Fixed
 
 - Video Analyser: RTMP stream capture failed with "Cannot assign requested address" because ffmpeg's "-timeout" option implies listen (server) mode on the native RTMP protocol. RTMP inputs now use "-rw_timeout" and "-rtmp_live live" for a proper client-side pull; SRT and other protocols are unaffected.
 
-## [2.50.2] - 2026-09-02
+## [3.50.2] - 2026-09-02
 
 ### Added
 
@@ -243,7 +231,7 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 - Enhanced Mode Switching: Updated `setInputMode()` function to support three distinct input modes (SRT, RTMP, Upload) with proper tab highlighting and form visibility
 - RTMP Stream Presets: Extended datalist infrastructure for storing and recalling frequently-used RTMP URLs
 
-## [2.50.1] - 2026-09-02
+## [3.50.1] - 2026-09-02
 
 ### Added
 
@@ -265,7 +253,7 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 - Enhanced Mode Switching: Updated `setInputMode()` function to support three distinct input modes (SRT, RTMP, Upload) with proper tab highlighting and form visibility
 - RTMP Stream Presets: Extended datalist infrastructure for storing and recalling frequently-used RTMP URLs
 
-## [2.50.0] - 2026-09-02
+## [3.50.0] - 2026-09-02
 
 ### Added
 
@@ -282,7 +270,7 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 - Enhanced Mode Switching: Updated `setInputMode()` function to support three distinct input modes (SRT, RTMP, Upload) with proper tab highlighting and form visibility
 - RTMP Stream Presets: Extended datalist infrastructure for storing and recalling frequently-used RTMP URLs
 
-## [2.49.4] - 2026-09-01
+## [3.49.4] - 2026-09-01
 
 ### Fixed
 
@@ -292,7 +280,7 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 - SRT Ingest: The Bitrate Monitor's error panel now shows the full recent ffmpeg stderr output, not just a single summarized line, making it possible to see exactly why a stream fails to connect.
 
-## [2.49.3] - 2026-09-01
+## [3.49.3] - 2026-09-01
 
 ### Fixed
 
@@ -302,85 +290,85 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 - SRT Ingest: The Bitrate Monitor now shows the exact ffmpeg command line running for the selected "Watch Job", updated live.
 
-## [2.49.2] - 2026-08-31
+## [3.49.2] - 2026-08-31
 
 ### Added
 
 - Video Analyser: "▶ Play" button to preview a recorded .ts file directly in the browser (in-browser MSE transmuxing via mpegts.js), without downloading it first. Available on the test result view and in the history list.
 
-## [2.49.1] - 2026-08-31
+## [3.49.1] - 2026-08-31
 
 ### Fixed
 
 - SRT Ingest: Removed the Source File dropdown that could show a stale value alongside the search field, causing confusion. The search input (with autocomplete suggestions) is now the only control for choosing a source, including the B&T Colour Bars option. Also fixed the Multi Destination source field not updating the UI/preview while typing.
 
-## [2.49.0] - 2026-08-31
+## [3.49.0] - 2026-08-31
 
 ### Added
 
 - SRT Ingest: Source File fields (Single and Multi Destination) now work as a search-as-you-type input — typing or pasting a filename shows matching suggestions instead of requiring the dropdown.
 
-## [2.48.0] - 2026-08-31
+## [3.48.0] - 2026-08-31
 
 ### Fixed
 
 - Video Analyser: fixed SRT capture only recording a single audio track even when the source stream contained multiple audio PIDs. The ffmpeg capture command now uses `-map 0` to copy every stream from the input exactly as received, instead of ffmpeg's default single-stream-per-type selection.
 
-## [2.47.2] - 2026-08-28
+## [3.47.2] - 2026-08-28
 
 ### Fixed
 
 - Video Analyser: the "MediaInfo Report" button never appeared for any test because the backend never populated the mediainfo_report field it depends on — only the numeric "Delay relative to video" value was ever captured. mediainfo's full text report is now captured and saved alongside the result, so the button and its modal work.
 
-## [2.47.1] - 2026-08-28
+## [3.47.1] - 2026-08-28
 
 ### Fixed
 
 - Video Analyser: files that are not actually MPEG-TS (e.g. an MP3 or other media file renamed with a .ts extension) are now rejected outright with a clear error, instead of being analysed as if they were valid captures. Previously, an embedded ID3 cover-art image inside such files could be misread by ffprobe as a "video" stream and evaluated against video compliance specs, producing meaningless results (e.g. Frame Size/Aspect Ratio taken from the album art, CODEC Level -99, Frame Rate reported as the raw 90000Hz timebase).
 
-## [2.47.0] - 2026-08-28
+## [3.47.0] - 2026-08-28
 
 ### Fixed
 
 - Video Analyser: video-related compliance checks (GOP Type, B-Frames, Scan Type, Colour Range, HDR/SDR, Codec, FPS, etc.) no longer report COMPLIANT/ACCEPTED/REJECTED verdicts derived from ffprobe's default placeholder values when a file has no video stream/PID at all. These fields now correctly report UNKNOWN, and the overall result is forced to REJECTED when no video stream is found.
 
-## [2.46.2] - 2026-08-28
+## [3.46.2] - 2026-08-28
 
 ### Changed
 
 - Video Analyser: the bulk tag editor's "Remove tag(s)" suggestions now only list tags actually present on the currently-selected results, instead of every tag ever used in the system.
 
-## [2.46.1] - 2026-08-28
+## [3.46.1] - 2026-08-28
 
 ### Added
 
 - Video Analyser: the bulk tag editor's "Remove tag(s)" field now lists every tag currently known in the system as clickable suggestions, so tags can be selected for removal instead of typed out exactly.
 
-## [2.46.0] - 2026-08-28
+## [3.46.0] - 2026-08-28
 
 ### Added
 
 - Video Analyser: history panel selection now supports bulk actions beyond delete — assign selected anonymous results to a user, select every result matching the current filters across all pages, change workflow on selected results, and add/remove tags on selected results. The selection counter now also shows the total number of results matching the active filters.
 
-## [2.45.8] - 2026-08-26
+## [3.45.8] - 2026-08-26
 
 ### Fixed
 
 - Background fork history refresh no longer fails with "period-end-must-be-in-past"; the request's end time is now backed off by a 10-second safety margin to tolerate clock skew/latency.
 
-## [2.45.7] - 2026-08-26
+## [3.45.7] - 2026-08-26
 
 ### Changed
 
 - Simplified "Forked From" auto-population to a single fork-history request covering the last hour (merged into the existing map), removing the unneeded multi-day chunked backfill.
 
-## [2.45.6] - 2026-08-26
+## [3.45.6] - 2026-08-26
 
 ### Fixed
 
 - Channels tab "Forked From" column now reliably auto-populates on connect via a one-time 180-day historical scan, then stays current through fast 1-hour incremental scans (merged, not replaced) every few minutes — fixing cases where older fork relationships never showed up automatically.
 
-## [2.45.5] - 2026-08-26
+## [3.45.5] - 2026-08-26
 
 ### Added
 
@@ -391,13 +379,13 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 - Replaced the Stream Key column/checkbox with a Channel ID column/checkbox in the Channels view; stream key is no longer shown on this screen (still used internally for RTMP key export).
 - Reduced the fork history auto-refresh lookback window from 24 hours to 1 hour for faster "Forked From" population.
 
-## [2.45.4] - 2026-08-26
+## [3.45.4] - 2026-08-26
 
 ### Changed
 
 - Channels search box now searches every visible column (name, alias, channel ID, stream key, status, and Forked From base channel) instead of only the channel name.
 
-## [2.45.3] - 2026-08-26
+## [3.45.3] - 2026-08-26
 
 ### Changed
 
@@ -405,19 +393,19 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 - "RMG" supplier filter split into "RMG HA" and "RMG EBC" based on channel naming convention.
 - Supplier filter/export now include channels forked from a base channel of the selected supplier, not just channels named after that supplier directly.
 
-## [2.45.2] - 2026-08-26
+## [3.45.2] - 2026-08-26
 
 ### Fixed
 
 - Channels tab "Forked From" column now populates automatically in the background (fork history for the last 30 days, refreshed every 5 minutes) instead of only after manually running a report in the Fork Origin tab.
 
-## [2.45.1] - 2026-08-26
+## [3.45.1] - 2026-08-26
 
 ### Changed
 
 - Channels table now has a dedicated "Forked From" column instead of an inline FORK badge; it shows the base channel for fork destinations (using only the most recent fork event) and a dash for all other channels.
 
-## [2.45.0] - 2026-08-26
+## [3.45.0] - 2026-08-26
 
 ### Added
 
@@ -425,13 +413,13 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 - New "Fork Origin" tab: query fork events by UTC period, filter by channel name/ID, and resolve source/destination channel IDs to their display names when known.
 - Channels table now shows a "FORK" badge (with source channel and timestamp tooltip) for any channel identified as a fork destination in the most recently fetched Fork Origin report.
 
-## [2.44.1] - 2026-08-24
+## [3.44.1] - 2026-08-24
 
 ### Changed
 
 - Added "RMGEAL_" to Id3as monitor
 
-## [2.44.0] - 2026-08-24
+## [3.44.0] - 2026-08-24
 
 ### Added
 
@@ -446,13 +434,13 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 - Redundant frame-detail summary line (IDR count, non-IDR keyframes, GOP type, B-frames, total frames) from the Stream Check header — this data remains available in the GOP Statistics panel.
 
-## [2.43.0] - 2026-08-20
+## [3.43.0] - 2026-08-20
 
 ### Added
 
 - Button to export the selected supplier's channels as an Excel file containing the channel name and the primary/secondary RTMP stream keys formatted with RTS capabilities and screenName options. The button only appears after a supplier is selected in the existing filter dropdown.
 
-## [2.42.0] - 2026-08-18
+## [3.42.0] - 2026-08-18
 
 ### Added
 
@@ -500,13 +488,13 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 - Requires the so-proxy backend's `status`, `config`, `preview.jpg`, and `log` endpoints to be updated to the multi-service contract; the page falls back to treating the response as one service if the backend hasn't been migrated yet.
 
-## [2.41.1] - 2026-08-18
+## [3.41.1] - 2026-08-18
 
 ### Fixed
 
 - `GET /me` raised a `KeyError` because `rota_status`, `team`, `display_name` and `employee_id` were never stored in the session created at login. Sessions now carry these fields, and `/me` reads them defensively.
 
-## [2.41.0] - 2026-08-17
+## [3.41.0] - 2026-08-17
 
 ### Added
 
@@ -520,20 +508,20 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 - Remaining Portuguese-language strings and comments in `users-admin.html` translated to English.
 
-## [2.40.2] - 2026-07-31
+## [3.40.2] - 2026-07-31
 
 ### Changed
 
 - B&T burned-in UTC clock overlay now shows millisecond precision (HH:MM:SS.mmm) for finer-grained latency estimation.
 - Single-destination Command Preview now renders the complete, real ffmpeg command for B&T, consistent with file-based sources, instead of a summary line.
 
-## [2.40.1] - 2026-07-30
+## [3.40.1] - 2026-07-30
 
 ### Fixed
 
-- Source select desync on page load: listing B&T Colour Bars first (2.31.0) left the dropdown defaulting to B&T while the input field and preview still showed test.mp4, causing Start Ingest to launch the wrong source. loadSources() now re-syncs select value and dependent UI (input, passthrough/bitrate rows, preview) after populating options.
+- Source select desync on page load: listing B&T Colour Bars first (3.31.0) left the dropdown defaulting to B&T while the input field and preview still showed test.mp4, causing Start Ingest to launch the wrong source. loadSources() now re-syncs select value and dependent UI (input, passthrough/bitrate rows, preview) after populating options.
 
-## [2.40.0] - 2026-07-30
+## [3.40.0] - 2026-07-30
 
 ### Added
 
@@ -544,7 +532,7 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 - Source selects (single and multi destination) now list B&T Colour Bars first, followed by test.mp4 and other available sources.
 
-## [2.39.3] - 2026-07-28
+## [3.39.3] - 2026-07-28
 
 ### Changed
 
@@ -554,7 +542,7 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 - A feed that stopped delivering data while srt-live-transmit stayed running previously hung on a blocking read with no indication anything was wrong — the UI just froze on the last good values. Reads are now polled with select() so a stall is detected: after 5s the chart/readouts show a real "stalled" state with bitrate explicitly at 0 (populated every second, not frozen); after 15s the subprocess is killed and a fresh connection is attempted.
 
-## [2.39.2] - 2026-07-28
+## [3.39.2] - 2026-07-28
 
 ### Fixed
 
@@ -566,7 +554,7 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 - IAT warning (130ms, orange) and critical (150ms, red) thresholds, applied to the live chart bars, IAT avg/max readout color, and two dashed reference lines on the chart. MLR readout turns red when nonzero.
 - Unit test (test_ts_analyzer.py) for the TS analyzer: PAT/PMT parsing, PCR-based IAT, continuity-counter loss detection, and chunk-boundary carry-over.
 
-## [2.39.1] - 2026-07-28
+## [3.39.1] - 2026-07-28
 
 ### Fixed
 
@@ -576,7 +564,7 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 - Standalone "Live Probe" button in the GOP Analyser SRT run form (between Schedule and Clear), letting the IAT/MLR monitor run directly from the Host/Port/Passphrase fields without running a GOP test first. Hidden in Upload mode.
 
-## [2.39.0] - 2026-07-28
+## [3.39.0] - 2026-07-28
 
 ### Added
 
@@ -587,7 +575,7 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 - `srt-live-transmit` (Haivision srt-tools) installed and on PATH on the server. Not available via default Oracle Linux 9.8 repos — build from https://github.com/Haivision/srt.
 
-## [2.38.0] - 2026-07-24
+## [3.38.0] - 2026-07-24
 
 ### Added
 
@@ -611,7 +599,7 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 - Prevented configuration mismatches where `pref_lo`/`pref_hi` could allow values that were still rejected by `lo`/`hi`.
 - Validated fix using the reported scenario (`lo=3`, `hi=4.2`, `pref_lo=4.1`, `pref_hi=5.1`, `measured=5.1`), which now evaluates as **COMPLIANT**.
 
-## [2.37.0] - 2026-07-22
+## [3.37.0] - 2026-07-22
 
 ### Fixed
 
@@ -623,7 +611,7 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 - New informational-only "Pixel Format" field (spec key pixel_format), showing the raw pix_fmt value (e.g. yuv422p10le) on its own row across the compliance table, HTML report, text/Jira report and specs editor — separate from Chroma Subsampling and Colour Range. Never affects overall_status.
 - Result JSON: new v_full_range field, so reeval/workflow-change compliance reuses the accurate colour-range value instead of re-deriving it from pix_fmt alone.
 
-## [2.36.0] - 2026-07-21
+## [3.36.0] - 2026-07-21
 
 ### Added
 
@@ -631,19 +619,19 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 - GOP result JSON: new ingest_dir / ingest_zip fields, null if the Ingest Analyser is unavailable or fails (never blocks or fails the GOP result itself).
 - Frontend: new "Ingest Analyser Report" button (left of Generate Report, right of Re-run), shown only for tests that have an Ingest Analyser report, opening it in a new tab.
 
-## [2.35.4] - 2026-07-20
+## [3.35.4] - 2026-07-20
 
 ### Fixed
 
 - Audio Bits per Sample falsely REJECTED aac_latm streams ("?" instead of "fltp") because the codec whitelist used to infer floating-point sample format didn't include aac_latm. Now derived primarily from ffprobe's sample_fmt field, with the codec whitelist (now including aac_latm) kept only as a fallback.
 
-## [2.35.3] - 2026-07-20
+## [3.35.3] - 2026-07-20
 
 ### Fixed
 
 - Audio Coding compliance falsely REJECTED AAC-LATM streams because ffprobe reports codec_name as "aac_latm" (underscore), which bypassed the AAC profile-detection branch and produced "AAC_LATM" instead of the spec's "AAC-LATM". \_audio_display_name now recognizes codec_name "aac_latm" directly and normalizes it to "AAC-LATM".
 
-## [2.35.2] - 2026-07-20
+## [3.35.2] - 2026-07-20
 
 ### Changed
 
@@ -654,7 +642,7 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 - Obsolete "Inform only (never reject)" toggle for mediainfo_delay (leftover from the old AV sync spec pattern; no longer applicable).
 
-## [2.35.1] - 2026-07-20
+## [3.35.1] - 2026-07-20
 
 ### Added
 
@@ -673,13 +661,13 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 - mediainfo installed on the server (apt-get install mediainfo). Analysis falls back to UNKNOWN status if mediainfo is missing or the delay metric cannot be measured.
 
-## [2.35.0] - 2026-07-20
+## [3.35.0] - 2026-07-20
 
 ### Added
 
 - MediaInfo to SERVER_REBUILD
 
-## [2.34.0] - 2026-07-17
+## [3.34.0] - 2026-07-17
 
 ### Fixed
 
@@ -691,25 +679,25 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 - Extraction retries up to 3 times across all frames as a fallback for frames created after the initial call.
 - Loading state shows attempt/progress feedback during longer waits.
 
-## [2.33.0] - 2026-07-17
+## [3.33.0] - 2026-07-17
 
 ### Added
 
 - B&T to SRT Ingest
 
-## [2.32.0] - 2026-07-17
+## [3.32.0] - 2026-07-17
 
 ### Added
 
 - New standalone API documentation page (SO-Toolbox-API-Docs.html) covering all Flask Blueprints: auth, GOP compliance, SRT ingest, SRT push monitor, TXCore manager, RTS monitor, id3as DC monitor, WC2026 rota, and proxy.py utility routes. Includes searchable sidebar, collapsible endpoint cards, auth requirements, request/response examples, and known-issue notes carried over from current backlog items.
 
-## [2.30.1] - 2026-07-16
+## [3.30.1] - 2026-07-16
 
 ### Fixed
 
-- Restart Proxy was still rejecting requests with "Invalid admin password" after the 2.30.0 frontend change, because proxy.py's /restart-proxy endpoint still validated the X-Admin-Password header that the frontend no longer sends. /git-pull and /restart-proxy now use the existing require_admin_role decorator from routes_auth.py (admin/engineer only) instead of the ADMIN_PASSWORD check. The password check is unchanged for /mtr/kill and /mtr/delete.
+- Restart Proxy was still rejecting requests with "Invalid admin password" after the 3.30.0 frontend change, because proxy.py's /restart-proxy endpoint still validated the X-Admin-Password header that the frontend no longer sends. /git-pull and /restart-proxy now use the existing require_admin_role decorator from routes_auth.py (admin/engineer only) instead of the ADMIN_PASSWORD check. The password check is unchanged for /mtr/kill and /mtr/delete.
 
-## [2.30.0] - 2026-07-16
+## [3.30.0] - 2026-07-16
 
 ### Fixed
 
@@ -719,13 +707,13 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 - Update and Restart Proxy actions are now restricted to users with the admin or engineer role, read from /so-proxy/me. The buttons are hidden for other roles and the actions no-op client-side if called directly. The admin password prompt on Restart Proxy has been removed.
 
-## [2.29.0] - 2026-07-16
+## [3.29.0] - 2026-07-16
 
 ### Fixed
 
 - GOP analysis: incomplete leading GOP (frames captured before the first I frame) is now excluded from GOP statistics, matching the existing exclusion of the incomplete trailing GOP. GOP size, min/max/avg, and open/closed detection now only consider complete GOPs between the first and last I frame.
 
-## [2.28.1] - 2026-07-15
+## [3.28.1] - 2026-07-15
 
 ### Added
 
@@ -737,7 +725,7 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 - Shared mode only supports passthrough (-c copy). A shared-encode option for CBR transcode fan-out (via ffmpeg's tee muxer) is not implemented yet.
 
-## [2.28.0] - 2026-07-15
+## [3.28.0] - 2026-07-15
 
 ### Added
 
@@ -755,7 +743,7 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 - Job dict now stores full launch configuration (input file, host, port, passphrase, bitrate, mode), required to support relaunching a job.
 
-## [2.27.0] - 2026-07-15
+## [3.27.0] - 2026-07-15
 
 ### Added
 
@@ -767,7 +755,7 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 - GET /gop/results now returns a paginated object (items, total, page, page_size, total_pages, tags) instead of a flat array; filtering moved from client-side to query parameters (search, date, tag, server, user, page, page_size)
 
-## [2.26.5] - 2026-07-13
+## [3.26.5] - 2026-07-13
 
 ### Added
 
@@ -782,7 +770,7 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 - Channel creation failures with a non-JSON error body no longer crash response handling; the raw response text is now captured.
 
-## [2.26.4] - 2026-07-13
+## [3.26.4] - 2026-07-13
 
 ### Fixed
 
@@ -793,7 +781,7 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 - Reworked IP octet configuration: first two octets are now fixed per site (display-only), third octet is a shared field applied to all sites (still editable per site), last octet continues to follow First CH#. Ports are now read-only per site.
 - Added a live address preview per site (AVE/LMK/YER) so the final multicast address is visible before submitting.
 
-## [2.26.3] - 2026-07-13
+## [3.26.3] - 2026-07-13
 
 ### Changed
 
@@ -802,19 +790,19 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 - TXCore Manager: Channel number start and the three last-octet-start fields now auto-fill from First CH#, remaining editable; manual edits stop further auto-sync for that field.
 - TXCore Manager: AVE/LMK/YER 3-octet IP prefixes are now prefilled as real default values instead of placeholder text.
 
-## [2.26.2] - 2026-07-13
+## [3.26.2] - 2026-07-13
 
 ### Fixed
 
 - TXCore status endpoint reported all env vars as missing even when set in .env, due to import-order dependency on proxy.py's load_dotenv() call. routes_txcore.py now loads .env explicitly.
 
-## [2.26.1] - 2026-07-13
+## [3.26.1] - 2026-07-13
 
 ### Fixed
 
 - routes_txcore.py failed to import on startup due to a nonexistent auth module reference. Now uses routes_auth (\_get_session, \_token_from_request), consistent with the other blueprints.
 
-## [2.26.0] - 2026-07-13
+## [3.26.0] - 2026-07-13
 
 ### Added
 
