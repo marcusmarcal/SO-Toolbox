@@ -6,6 +6,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.54.4] - 2026-09-07
+
+### Fixed
+- SRT Ingest: Single/Multi destination cards were losing their fields (Host, Port, Passphrase, Start button rendered outside the card) due to an extra closing `</div>` after the source picker.
+
 ## [2.54.3] - 2026-09-07
 
 ### Added
