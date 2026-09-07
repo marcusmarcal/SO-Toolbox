@@ -6,6 +6,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.55.1] - 2026-09-07
+
+### Added
+- General Tool Admin: Proxy Management and tool activity indicators now include SRT Push
+  services (running/starting), sourced from the srt-push systemd unit and its stats file.
+
 ## [2.55.0] - 2026-09-07
 
 ### Added

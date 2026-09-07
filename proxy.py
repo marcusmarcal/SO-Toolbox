@@ -1039,14 +1039,54 @@ def _act_txcore():
     return _act_group("txcore", "TXCore", "📺", ["txcore", "tx core", "tx-core"], jobs)
 
 
+_PUSH_STATE_CACHE = {"ts": 0.0, "state": None}
+
+
+def _act_push_unit_state():
+    """systemd state of the srt-push unit, cached for 5s (the endpoint is polled
+    by every open browser and each call goes through sudo systemctl)."""
+    now = _act_time.time()
+    if _PUSH_STATE_CACHE["state"] is None or now - _PUSH_STATE_CACHE["ts"] > 5:
+        _PUSH_STATE_CACHE["state"] = _act_srt._push_service_state()
+        _PUSH_STATE_CACHE["ts"] = now
+    return _PUSH_STATE_CACHE["state"]
+
+
+def _act_srt_push():
+    """SRT Push runs as its own systemd unit (srt-push.py); it reports per-service
+    status via srt-push-stats.json. Only services actively pushing are listed."""
+    jobs = []
+    unit = _act_push_unit_state()
+    if unit.get("active_state") == "active":
+        stats  = (_act_srt._load_push_stats() or {}).get("services", {}) or {}
+        config = {s.get("id"): s for s in (_act_srt._load_push_config() or {}).get("services", [])}
+        for sid, st in stats.items():
+            status = st.get("service_status", "")
+            if status not in ("running", "starting"):
+                continue
+            cfg = config.get(sid, {})
+            jobs.append({
+                "id": sid, "kind": cfg.get("source_type", "push"), "status": status,
+                "label": f"{cfg.get('name', sid)} → {cfg.get('srt_host', '?')}:{cfg.get('srt_port', '?')}",
+                "tag": "", "user": "",
+                "started_at": st.get("started_at"),
+                "elapsed_s": _act_elapsed_iso(st.get("started_at")),
+                "extra": {"pid": st.get("ffmpeg_pid"), "bitrate": st.get("bitrate"),
+                          "fps": st.get("fps"), "unit": unit.get("sub_state")},
+            })
+    return _act_group("srt_push", "SRT Push", "📤",
+                      ["srt push", "srt-push", "srt_push", "push control"], jobs)
+
+
 @app.route("/proxy/activity", methods=["GET"])
 @require_auth
 def proxy_activity():
-    """Aggregate every active background job the proxy is currently running.
-    Read-only; safe for all authenticated users (secrets are stripped)."""
+    """Aggregate every active background job the proxy is currently running,
+    plus the SRT Push systemd unit. Read-only; safe for all authenticated users
+    (secrets are stripped)."""
     groups = []
     for collector in (_act_video_analyzer, _act_live_probe_sessions, _act_srt_ingest,
-                      _act_ingest_analyzer, _act_mtr, _act_txcore):
+                      _act_srt_push, _act_ingest_analyzer, _act_mtr, _act_txcore):
         try:
             groups.append(collector())
         except Exception as e:  # one broken collector must not hide the others
