@@ -1220,124 +1220,329 @@
         background: rgba(240, 165, 0, 0.07);
       }
 
+      /* ── README MODAL ── */
+      #readme-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(2px);
+        z-index: 300;
+        align-items: center;
+        justify-content: center;
+      }
+      #readme-modal.open {
+        display: flex;
+      }
+      .rm-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        width: 1080px;
+        max-width: 96vw;
+        height: 88vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        box-shadow: 0 0 60px rgba(0, 0, 0, 0.7);
+      }
+      .rm-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.9rem 1.25rem;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+      .rm-title {
+        font-family: var(--mono);
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--accent);
+        white-space: nowrap;
+      }
+      .rm-subtitle {
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .rm-spacer {
+        flex: 1;
+      }
+      .rm-btn {
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        padding: 4px 10px;
+        cursor: pointer;
+        white-space: nowrap;
+        text-decoration: none;
+      }
+      .rm-btn:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      .rm-body {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+      }
+      .rm-nav {
+        width: 230px;
+        flex-shrink: 0;
+        border-right: 1px solid var(--border);
+        overflow-y: auto;
+        padding: 0.9rem 0.6rem;
+        font-family: var(--mono);
+      }
+      .rm-nav a {
+        display: block;
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 0.64rem;
+        line-height: 1.35;
+        padding: 4px 8px 4px 10px;
+        border-left: 2px solid transparent;
+        border-radius: 0 4px 4px 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .rm-nav a.lvl-3 {
+        padding-left: 22px;
+        font-size: 0.6rem;
+      }
+      .rm-nav a:hover {
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.03);
+      }
+      .rm-nav a.active {
+        color: var(--accent);
+        border-left-color: var(--accent);
+        background: rgba(161, 139, 245, 0.08);
+      }
+      .rm-content {
+        flex: 1;
+        min-width: 0;
+        overflow-y: auto;
+        padding: 1.25rem 2rem 2.5rem;
+        scroll-behavior: smooth;
+      }
+      @media (max-width: 760px) {
+        .rm-nav {
+          display: none;
+        }
+        .rm-content {
+          padding: 1rem 1.1rem 2rem;
+        }
+      }
+
       /* ── README RENDERED MARKDOWN ── */
       .readme-rendered {
         font-family: var(--display);
-        font-size: 0.78rem;
-        color: var(--text);
-        line-height: 1.75;
+        font-size: 0.82rem;
+        color: #d4d4e4;
+        line-height: 1.7;
+        max-width: 780px;
+      }
+      .readme-rendered > :first-child {
+        margin-top: 0;
       }
       .readme-rendered h1 {
-        font-size: 1.25rem;
+        font-size: 1.45rem;
         font-weight: 800;
-        color: var(--accent);
-        margin: 0 0 0.6rem;
-        padding-bottom: 0.4rem;
-        border-bottom: 1px solid var(--border);
-        letter-spacing: 0.04em;
+        color: var(--text);
+        margin: 0 0 0.8rem;
+        letter-spacing: 0.02em;
       }
       .readme-rendered h2 {
-        font-size: 0.95rem;
+        font-family: var(--mono);
+        font-size: 0.8rem;
         font-weight: 700;
-        color: var(--text);
-        margin: 1.4rem 0 0.4rem;
-        padding-bottom: 0.25rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        color: var(--accent);
+        margin: 2.2rem 0 0.8rem;
+        padding-bottom: 0.4rem;
+        border-bottom: 1px solid var(--border);
         text-transform: uppercase;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.12em;
+        scroll-margin-top: 0.5rem;
       }
       .readme-rendered h3 {
-        font-size: 0.82rem;
+        font-size: 0.98rem;
+        font-weight: 700;
+        color: var(--text);
+        margin: 1.6rem 0 0.6rem;
+        scroll-margin-top: 0.5rem;
+      }
+      .readme-rendered h4 {
+        font-size: 0.86rem;
         font-weight: 700;
         color: #80c8ff;
-        margin: 1rem 0 0.25rem;
+        margin: 1.2rem 0 0.25rem;
+        scroll-margin-top: 0.5rem;
+      }
+      .readme-rendered h5,
+      .readme-rendered h6 {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: var(--muted);
+        margin: 0.9rem 0 0.2rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
       }
       .readme-rendered p {
-        margin: 0.4rem 0 0.7rem;
-        color: #c0c0d8;
+        margin: 0.35rem 0 0.75rem;
+      }
+      .readme-rendered h4 + p {
+        margin-top: 0;
+        color: var(--muted);
       }
       .readme-rendered ul,
       .readme-rendered ol {
-        margin: 0.3rem 0 0.7rem 1.2rem;
-        color: #c0c0d8;
+        margin: 0.3rem 0 0.8rem 1.25rem;
+        padding: 0;
+      }
+      .readme-rendered ul ul,
+      .readme-rendered ol ol,
+      .readme-rendered ul ol,
+      .readme-rendered ol ul {
+        margin: 0.15rem 0 0.2rem 1.1rem;
       }
       .readme-rendered li {
-        margin-bottom: 0.2rem;
+        margin-bottom: 0.22rem;
+      }
+      .readme-rendered li::marker {
+        color: var(--accent);
       }
       .readme-rendered code {
         font-family: var(--mono);
         font-size: 0.68rem;
-        background: rgba(0, 255, 200, 0.08);
-        color: var(--accent);
+        background: rgba(255, 255, 255, 0.07);
+        color: #e6e1ff;
         padding: 1px 5px;
         border-radius: 3px;
-        border: 1px solid rgba(0, 255, 200, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        white-space: nowrap;
       }
       .readme-rendered pre {
+        position: relative;
         background: var(--bg);
         border: 1px solid var(--border);
-        border-radius: 6px;
-        padding: 0.8rem 1rem;
+        border-radius: 8px;
+        padding: 0.9rem 1rem;
         overflow-x: auto;
-        margin: 0.6rem 0;
+        margin: 0.6rem 0 1rem;
       }
       .readme-rendered pre code {
         background: none;
         border: none;
         padding: 0;
-        color: #a0d8c8;
-        font-size: 0.68rem;
+        color: #b8e0d4;
+        font-size: 0.66rem;
+        line-height: 1.6;
+        white-space: pre;
+      }
+      .readme-rendered pre .rm-copy {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.55rem;
+        padding: 2px 7px;
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity 0.15s;
+      }
+      .readme-rendered pre:hover .rm-copy {
+        opacity: 1;
+      }
+      .readme-rendered pre .rm-copy:hover {
+        color: var(--accent);
+        border-color: var(--accent);
       }
       .readme-rendered blockquote {
         border-left: 3px solid var(--accent2);
-        margin: 0.5rem 0;
-        padding: 0.3rem 0.8rem;
-        background: rgba(123, 94, 167, 0.07);
-        border-radius: 0 4px 4px 0;
-        color: var(--muted);
-        font-style: italic;
+        margin: 0.6rem 0 1rem;
+        padding: 0.5rem 0.9rem;
+        background: rgba(250, 165, 26, 0.06);
+        border-radius: 0 6px 6px 0;
+        color: #c0c0d8;
+      }
+      .readme-rendered blockquote p {
+        margin: 0.15rem 0;
+      }
+      .readme-rendered blockquote ul {
+        margin: 0.2rem 0 0.2rem 1.1rem;
       }
       .readme-rendered hr {
         border: none;
         border-top: 1px solid var(--border);
-        margin: 1rem 0;
+        margin: 1.6rem 0;
       }
       .readme-rendered a {
         color: var(--accent);
         text-decoration: none;
+        border-bottom: 1px solid rgba(161, 139, 245, 0.35);
       }
       .readme-rendered a:hover {
-        text-decoration: underline;
+        border-bottom-color: var(--accent);
       }
       .readme-rendered strong {
         color: var(--text);
+        font-weight: 700;
       }
       .readme-rendered em {
         color: #b0b0cc;
-        font-style: italic;
+      }
+      .readme-rendered .rm-table {
+        overflow-x: auto;
+        margin: 0.6rem 0 1rem;
+        border: 1px solid var(--border);
+        border-radius: 8px;
       }
       .readme-rendered table {
         width: 100%;
         border-collapse: collapse;
-        font-family: var(--mono);
-        font-size: 0.65rem;
-        margin: 0.6rem 0;
+        font-size: 0.74rem;
       }
       .readme-rendered th {
         background: var(--card);
         color: var(--accent);
-        padding: 6px 10px;
-        border: 1px solid var(--border);
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 7px 12px;
         text-align: left;
-        letter-spacing: 0.06em;
+        border-bottom: 1px solid var(--border);
       }
       .readme-rendered td {
-        padding: 5px 10px;
-        border: 1px solid var(--border);
-        color: #c0c0d8;
+        padding: 6px 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        vertical-align: top;
+      }
+      .readme-rendered tr:last-child td {
+        border-bottom: none;
       }
       .readme-rendered tr:nth-child(even) td {
         background: rgba(255, 255, 255, 0.02);
+      }
+      .readme-rendered .rm-error {
+        color: #ffb3be;
+        font-family: var(--mono);
+        font-size: 0.7rem;
       }
 
       [data-tip] {
@@ -1668,48 +1873,20 @@
     </div>
 
     <!-- ── README Modal ────────────────────────────────────── -->
-    <div
-      id="readme-modal"
-      style="
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.7);
-        z-index: 300;
-        align-items: center;
-        justify-content: center;
-      "
-    >
-      <div
-        class="git-card"
-        style="
-          width: 700px;
-          max-width: 94vw;
-          max-height: 85vh;
-          display: flex;
-          flex-direction: column;
-        "
-      >
-        <div
-          style="
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-            flex-shrink: 0;
-          "
-        >
-          <div class="git-card-title" style="margin: 0">
-            📖 README — SP SO Web Toolbox
-          </div>
-          <button class="git-close-btn" onclick="closeReadme()">Close</button>
+    <div id="readme-modal">
+      <div class="rm-card">
+        <div class="rm-header">
+          <div class="rm-title">README</div>
+          <div class="rm-subtitle" id="rm-subtitle">SP SO Web Toolbox</div>
+          <div class="rm-spacer"></div>
+          <a class="rm-btn" href="README.md" target="_blank" rel="noopener">Open raw</a>
+          <button class="rm-btn" onclick="closeReadme()">Close</button>
         </div>
-        <div
-          id="readme-content"
-          class="readme-rendered"
-          style="flex: 1; overflow-y: auto; padding-right: 4px"
-        >
-          Loading...
+        <div class="rm-body">
+          <nav class="rm-nav" id="readme-nav"></nav>
+          <div class="rm-content" id="readme-scroll">
+            <div id="readme-content" class="readme-rendered">Loading&hellip;</div>
+          </div>
         </div>
       </div>
     </div>
@@ -2172,195 +2349,314 @@
       }
 
       // ── Lightweight Markdown → HTML renderer ──────────────────────
+      // Supports: headings (with slug ids), paragraphs (soft-wrapped lines
+      // merged), nested lists (ul/ol, 2-space indent), multi-line blockquotes
+      // (with lists inside), fenced code blocks, tables, hr, inline code,
+      // bold/italic, links. All text is HTML-escaped before inline formatting.
       function renderMarkdown(md) {
-        // Escape HTML
         const esc = (s) =>
-          s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          String(s)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
 
-        const lines = md.split(/\r?\n/);
-        let html = "";
-        let inCode = false,
-          codeLang = "",
-          codeBuf = [];
-        let inList = false,
-          listType = "";
-        let inTable = false,
-          tableRows = [];
-
-        function flushList() {
-          if (!inList) return;
-          const tag = listType === "ol" ? "ol" : "ul";
-          html +=
-            `<${tag}>` +
-            inList.map((i) => `<li>${inlineFormat(i)}</li>`).join("") +
-            `</${tag}>`;
-          inList = false;
-          listType = "";
-        }
-        function flushTable() {
-          if (!inTable || !tableRows.length) return;
-          let t = "<table>";
-          tableRows.forEach((row, i) => {
-            if (i === 1) return; // separator row
-            const tag = i === 0 ? "th" : "td";
-            t +=
-              "<tr>" +
-              row.map((c) => `<${tag}>${inlineFormat(c)}</${tag}>`).join("") +
-              "</tr>";
-          });
-          t += "</table>";
-          html += t;
-          inTable = false;
-          tableRows = [];
-        }
-        function inlineFormat(s) {
-          // code spans first
-          s = s.replace(/`([^`]+)`/g, (_, c) => `<code>${esc(c)}</code>`);
-          // bold+italic
-          s = s.replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>");
-          s = s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-          s = s.replace(/__(.+?)__/g, "<strong>$1</strong>");
-          s = s.replace(/\*(.+?)\*/g, "<em>$1</em>");
-          s = s.replace(/_([^_]+)_/g, "<em>$1</em>");
-          // links
-          s = s.replace(
-            /\[([^\]]+)\]\(([^)]+)\)/g,
-            '<a href="$2" target="_blank">$1</a>'
-          );
-          // inline images → skip
-          s = s.replace(/!\[[^\]]*\]\([^)]+\)/g, "");
+        const slugCounts = {};
+        function slugify(text) {
+          let s = text
+            .toLowerCase()
+            .replace(/`/g, "")
+            .replace(/[^\w\s-]/g, "")
+            .trim()
+            .replace(/\s+/g, "-");
+          if (!s) s = "section";
+          if (slugCounts[s] != null) {
+            slugCounts[s] += 1;
+            s += "-" + slugCounts[s];
+          } else {
+            slugCounts[s] = 0;
+          }
           return s;
         }
 
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i];
-
-          // fenced code block
-          if (/^```/.test(line)) {
-            if (!inCode) {
-              flushList();
-              flushTable();
-              codeLang = line.slice(3).trim();
-              inCode = true;
-              codeBuf = [];
-            } else {
-              html += `<pre><code class="lang-${esc(codeLang)}">${esc(
-                codeBuf.join("\n")
-              )}</code></pre>`;
-              inCode = false;
-            }
-            continue;
-          }
-          if (inCode) {
-            codeBuf.push(line);
-            continue;
-          }
-
-          // table
-          if (/^\|/.test(line)) {
-            flushList();
-            if (!inTable) inTable = true;
-            const cols = line
-              .replace(/^\||\|$/g, "")
-              .split("|")
-              .map((c) => c.trim());
-            // skip separator rows (---)
-            if (!cols.every((c) => /^[-: ]+$/.test(c))) tableRows.push(cols);
-            else tableRows.push(null); // placeholder for separator
-            continue;
-          } else if (inTable) {
-            flushTable();
-          }
-
-          // HR
-          if (/^(-{3,}|\*{3,}|_{3,})$/.test(line.trim())) {
-            flushList();
-            html += "<hr>";
-            continue;
-          }
-
-          // headings
-          const hm = line.match(/^(#{1,6})\s+(.*)/);
-          if (hm) {
-            flushList();
-            const lvl = hm[1].length;
-            html += `<h${lvl}>${inlineFormat(hm[2])}</h${lvl}>`;
-            continue;
-          }
-
-          // blockquote
-          if (/^> /.test(line)) {
-            flushList();
-            html += `<blockquote>${inlineFormat(line.slice(2))}</blockquote>`;
-            continue;
-          }
-
-          // unordered list
-          const ulm = line.match(/^[\-\*\+] (.*)/);
-          if (ulm) {
-            if (inList && listType !== "ul") flushList();
-            if (!inList) {
-              inList = [];
-              listType = "ul";
-            }
-            inList.push(ulm[1]);
-            continue;
-          }
-
-          // ordered list
-          const olm = line.match(/^\d+\. (.*)/);
-          if (olm) {
-            if (inList && listType !== "ol") flushList();
-            if (!inList) {
-              inList = [];
-              listType = "ol";
-            }
-            inList.push(olm[1]);
-            continue;
-          }
-
-          flushList();
-
-          // blank line → paragraph break
-          if (line.trim() === "") {
-            html += "";
-            continue;
-          }
-
-          // paragraph
-          html += `<p>${inlineFormat(line)}</p>`;
+        function inlineFormat(raw) {
+          let s = esc(raw);
+          const codes = [];
+          s = s.replace(/`([^`]+)`/g, (_, c) => {
+            codes.push(c);
+            return "\u0000" + (codes.length - 1) + "\u0000";
+          });
+          s = s.replace(/!\[[^\]]*\]\([^)]+\)/g, ""); // images → skipped
+          s = s.replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>");
+          s = s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+          s = s.replace(/__(.+?)__/g, "<strong>$1</strong>");
+          s = s.replace(/(^|[\s(])\*(?!\s)(.+?)\*(?=[\s).,;:!?]|$)/g, "$1<em>$2</em>");
+          s = s.replace(/(^|[\s(])_(?!\s)([^_]+?)_(?=[\s).,;:!?]|$)/g, "$1<em>$2</em>");
+          s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, text, href) => {
+            const safe = /^(https?:\/\/|#|\.?\/|[\w.-]+\.(md|html|json|txt|py|sh)$)/i.test(href)
+              ? href
+              : "#";
+            const ext = /^https?:\/\//i.test(safe) || /\.(html|md|json|txt|py|sh)$/i.test(safe);
+            return `<a href="${safe}"${ext ? ' target="_blank" rel="noopener"' : ""}>${text}</a>`;
+          });
+          s = s.replace(/\u0000(\d+)\u0000/g, (_, i) => `<code>${codes[+i]}</code>`);
+          return s;
         }
-        flushList();
-        flushTable();
-        if (inCode)
-          html += `<pre><code>${esc(codeBuf.join("\n"))}</code></pre>`;
+
+        // ── Block parsing ──
+        const lines = md.replace(/\r\n?/g, "\n").split("\n");
+        let html = "";
+        let i = 0;
+
+        function parseBlocks(blockLines) {
+          // Returns HTML for an array of lines (used for top level & blockquotes)
+          let out = "";
+          let k = 0;
+          let para = [];
+          const flushPara = () => {
+            if (para.length) {
+              out += `<p>${inlineFormat(para.join(" "))}</p>`;
+              para = [];
+            }
+          };
+          while (k < blockLines.length) {
+            const line = blockLines[k];
+
+            // fenced code
+            if (/^\s*```/.test(line)) {
+              flushPara();
+              const lang = line.trim().slice(3).trim();
+              const buf = [];
+              k++;
+              while (k < blockLines.length && !/^\s*```/.test(blockLines[k])) {
+                buf.push(blockLines[k]);
+                k++;
+              }
+              k++; // closing fence
+              out +=
+                `<pre><button class="rm-copy" type="button" onclick="rmCopyCode(this)">copy</button>` +
+                `<code class="lang-${esc(lang)}">${esc(buf.join("\n"))}</code></pre>`;
+              continue;
+            }
+
+            // table
+            if (/^\s*\|/.test(line) && k + 1 < blockLines.length && /^\s*\|?\s*:?-{2,}/.test(blockLines[k + 1])) {
+              flushPara();
+              const rows = [];
+              while (k < blockLines.length && /^\s*\|/.test(blockLines[k])) {
+                rows.push(blockLines[k]);
+                k++;
+              }
+              const cells = (r) =>
+                r
+                  .trim()
+                  .replace(/^\||\|$/g, "")
+                  .split("|")
+                  .map((c) => c.trim());
+              const head = cells(rows[0]);
+              let t = '<div class="rm-table"><table><thead><tr>';
+              t += head.map((c) => `<th>${inlineFormat(c)}</th>`).join("");
+              t += "</tr></thead><tbody>";
+              for (const r of rows.slice(2)) {
+                const cs = cells(r);
+                t += "<tr>" + head.map((_, ci) => `<td>${inlineFormat(cs[ci] || "")}</td>`).join("") + "</tr>";
+              }
+              t += "</tbody></table></div>";
+              out += t;
+              continue;
+            }
+
+            // hr
+            if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
+              flushPara();
+              out += "<hr>";
+              k++;
+              continue;
+            }
+
+            // heading
+            const hm = line.match(/^(#{1,6})\s+(.*?)\s*#*\s*$/);
+            if (hm) {
+              flushPara();
+              const lvl = hm[1].length;
+              const text = hm[2];
+              const id = slugify(text.replace(/\*\*/g, ""));
+              out += `<h${lvl} id="${id}">${inlineFormat(text)}</h${lvl}>`;
+              k++;
+              continue;
+            }
+
+            // blockquote (multi-line, may contain lists/paragraphs)
+            if (/^\s*>/.test(line)) {
+              flushPara();
+              const buf = [];
+              while (k < blockLines.length && /^\s*>/.test(blockLines[k])) {
+                buf.push(blockLines[k].replace(/^\s*>\s?/, ""));
+                k++;
+              }
+              out += `<blockquote>${parseBlocks(buf)}</blockquote>`;
+              continue;
+            }
+
+            // list (nested by indentation)
+            if (/^\s*([-*+]|\d+\.)\s+/.test(line)) {
+              flushPara();
+              const items = [];
+              while (k < blockLines.length) {
+                const l = blockLines[k];
+                const m = l.match(/^(\s*)([-*+]|\d+\.)\s+(.*)$/);
+                if (m) {
+                  items.push({ indent: m[1].replace(/\t/g, "  ").length, ordered: /\d/.test(m[2]), text: m[3] });
+                  k++;
+                } else if (l.trim() && /^\s+/.test(l) && items.length) {
+                  // continuation line of previous item
+                  items[items.length - 1].text += " " + l.trim();
+                  k++;
+                } else {
+                  break;
+                }
+              }
+              out += renderList(items);
+              continue;
+            }
+
+            // blank
+            if (!line.trim()) {
+              flushPara();
+              k++;
+              continue;
+            }
+
+            // paragraph text (soft-wrapped lines merged)
+            para.push(line.trim());
+            k++;
+          }
+          flushPara();
+          return out;
+        }
+
+        function renderList(items) {
+          // Build nested list from indent levels
+          let pos = 0;
+          function build(indent) {
+            const ordered = items[pos].ordered;
+            let h = ordered ? "<ol>" : "<ul>";
+            while (pos < items.length && items[pos].indent >= indent) {
+              if (items[pos].indent > indent) {
+                // nested list belongs to previous li: strip closing tag, append, re-close
+                const nested = build(items[pos].indent);
+                h = h.replace(/<\/li>$/, nested + "</li>");
+                continue;
+              }
+              h += `<li>${inlineFormat(items[pos].text)}</li>`;
+              pos++;
+            }
+            return h + (ordered ? "</ol>" : "</ul>");
+          }
+          return build(items[0].indent);
+        }
+
+        html = parseBlocks(lines);
         return html;
       }
 
-      // README modal
+      function rmCopyCode(btn) {
+        const code = btn.parentElement.querySelector("code");
+        navigator.clipboard.writeText(code.textContent).then(() => {
+          btn.textContent = "copied";
+          setTimeout(() => (btn.textContent = "copy"), 1200);
+        });
+      }
+
+      // ── README modal ──
+      let _readmeLoaded = false;
       async function openReadme() {
         const modal = document.getElementById("readme-modal");
+        modal.classList.add("open");
+        if (_readmeLoaded) return;
         const content = document.getElementById("readme-content");
-        modal.style.display = "flex";
-        content.innerHTML =
-          '<p style="color:var(--muted);font-family:var(--mono);font-size:.7rem">Loading README…</p>';
+        const nav = document.getElementById("readme-nav");
+        content.innerHTML = '<p class="rm-error" style="color:var(--muted)">Loading README&hellip;</p>';
         try {
           const res = await fetch("README.md", { cache: "no-cache" });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const text = await res.text();
           content.innerHTML = renderMarkdown(text);
+          // The sidebar replaces an in-document "Contents" list, so hide it here
+          const toc = content.querySelector("h2#contents");
+          if (toc) {
+            let n = toc.nextElementSibling;
+            toc.remove();
+            while (n && !/^H[1-6]$/.test(n.tagName)) {
+              const next = n.nextElementSibling;
+              n.remove();
+              n = next;
+            }
+          }
+          buildReadmeNav(content, nav);
+          const h1 = content.querySelector("h1");
+          if (h1) document.getElementById("rm-subtitle").textContent = h1.textContent;
+          _readmeLoaded = true;
         } catch (e) {
-          content.innerHTML = `<p style="color:#ffb3be;font-family:var(--mono);font-size:.7rem">Could not load README.md: ${e.message}<br><br>Make sure README.md is served alongside index.html.</p>`;
+          content.innerHTML = `<p class="rm-error">Could not load README.md: ${e.message}<br><br>Make sure README.md is served alongside index.html.</p>`;
         }
       }
       function closeReadme() {
-        document.getElementById("readme-modal").style.display = "none";
+        document.getElementById("readme-modal").classList.remove("open");
       }
+
+      // Sidebar navigation built from h2/h3 headings + scroll spy
+      function buildReadmeNav(content, nav) {
+        const heads = Array.from(content.querySelectorAll("h2, h3"));
+        nav.innerHTML = heads
+          .map((h) => `<a href="#${h.id}" class="lvl-${h.tagName[1]}" data-target="${h.id}">${h.textContent}</a>`)
+          .join("");
+        const scroller = document.getElementById("readme-scroll");
+        nav.querySelectorAll("a").forEach((a) => {
+          a.addEventListener("click", (e) => {
+            e.preventDefault();
+            const el = document.getElementById(a.dataset.target);
+            if (!el) return;
+            nav.querySelectorAll("a").forEach((x) => x.classList.toggle("active", x === a));
+            scroller.scrollTo({ top: el.offsetTop - scroller.offsetTop - 8, behavior: "smooth" });
+          });
+        });
+        // In-document anchors (e.g. table of contents) scroll inside the panel
+        content.querySelectorAll('a[href^="#"]').forEach((a) => {
+          a.addEventListener("click", (e) => {
+            const el = document.getElementById(a.getAttribute("href").slice(1));
+            if (!el) return;
+            e.preventDefault();
+            scroller.scrollTo({ top: el.offsetTop - scroller.offsetTop - 8, behavior: "smooth" });
+          });
+        });
+        let ticking = false;
+        scroller.addEventListener("scroll", () => {
+          if (ticking) return;
+          ticking = true;
+          requestAnimationFrame(() => {
+            ticking = false;
+            const top = scroller.scrollTop + scroller.offsetTop + 40;
+            let current = heads[0];
+            for (const h of heads) {
+              if (h.offsetTop <= top) current = h;
+              else break;
+            }
+            nav.querySelectorAll("a").forEach((a) => a.classList.toggle("active", current && a.dataset.target === current.id));
+          });
+        });
+        scroller.dispatchEvent(new Event("scroll"));
+      }
+
       document
         .getElementById("readme-modal")
         .addEventListener("click", function (e) {
           if (e.target === this) closeReadme();
         });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeReadme();
+      });
+
 
       $(function () {
         // ═══════════════════════════════════════════════════

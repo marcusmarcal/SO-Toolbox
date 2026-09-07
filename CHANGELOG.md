@@ -17,6 +17,17 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 ### Fixed
 - Versioning was bad... should be 3.x.x, not 2.x.x. 
 
+## [2.55.3] - 2026-09-07
+
+### Changed
+
+- General Tool Admin: README modal redesigned — larger two-pane layout with a sticky section navigation (h2/h3, scroll-spy, click to jump), "Open raw" link, Escape to close; rendered markdown restyled (headings, tables with header row, code blocks with copy button, blockquotes, nested lists).
+- General Tool Admin: `README.md` restructured — related-documents block, table of contents, component and Blueprint tables, per-tool entries in a consistent "file — summary + bullets" layout, proxy endpoints as method/path/purpose tables, fixed directory tree, troubleshooting table; content updated with sessions and proxy-activity endpoints, `store/` result folders, restart-after-update note and corrected Rota Blueprint description.
+
+### Fixed
+
+- General Tool Admin: README markdown renderer now HTML-escapes all text, merges soft-wrapped lines into one paragraph, supports nested lists (previously rendered indented bullets as loose paragraphs), multi-line blockquotes and headings with anchor ids.
+
 ## [2.55.2] - 2026-09-07
 
 ### Changed
