@@ -238,6 +238,13 @@
     .src-empty { padding: 16px; text-align: center; color: var(--muted); font-family: var(--mono); font-size: 11px; }
     .src-hint { font-size: 9px; color: var(--muted); font-family: var(--mono); margin-top: 5px; letter-spacing: .04em; }
 
+    .cpu-warning {
+      display: none; margin-top: 8px; padding: 8px 10px; border-radius: 3px;
+      background: rgba(255,209,102,.08); border: 1px solid rgba(255,209,102,.35);
+      font-family: var(--mono); font-size: 10px; color: var(--yellow); line-height: 1.6;
+    }
+    .cpu-warning.show { display: block; }
+
     .no-jobs { text-align:center; color:var(--muted); font-family:var(--mono); font-size:12px; padding:30px 0; }
     .stats-bar { display:flex; gap:24px; margin-bottom:16px; font-family:var(--mono); font-size:11px; color:var(--muted); }
     .stat-val { color:var(--text); font-size:18px; font-weight:700; display:block; }
@@ -303,7 +310,7 @@
   <div class="logo-icon">SRT</div>
   <div>
     <h1>SRT Ingest Tool</h1>
-    <p>ffmpeg · mpegts · libx264 CBR · aac · 1080p25 · closed-GOP</p>
+    <p>ffmpeg · mpegts · passthrough by default · libx264 CBR transcode on demand · 1080p25 · closed-GOP</p>
   </div>
   <div class="pill">● LIVE</div>
 </header>
@@ -329,10 +336,10 @@
         <div class="src-hint">tokens: <b>4015</b> · <b>194.76.59.21</b> · <b>2026-09-04</b> · <b>14:12</b> · <b>srt</b>/<b>rtmp</b> · <b>caller</b> · <b>failed</b> · <b>port:4110</b> · <b>host:194.76</b> · <b>tag:xyz</b> · <b>user:name</b> · <b>date:2026-09</b> · <b>dir:recordings</b></div>
       </div>
     </div>
-    <div class="field" id="s-passthrough-row" style="display:none">
+    <div class="field" id="s-transcode-row" style="display:none">
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
-        <input type="checkbox" id="s-passthrough" onchange="onPassthroughChange('s')" style="width:auto;accent-color:var(--accent2)" />
-        <span>Passthrough <span style="color:var(--muted);font-size:10px">(copy streams, no re-encode)</span></span>
+        <input type="checkbox" id="s-transcode" onchange="onTranscodeChange('s')" style="width:auto;accent-color:var(--accent2)" />
+        <span>Transcode <span style="color:var(--muted);font-size:10px">(re-encode with libx264 CBR — default is passthrough / stream copy)</span></span>
       </label>
     </div>
     <div class="field">
@@ -348,7 +355,7 @@
       <div class="field"><label>Port</label><input type="number" id="s-port" placeholder="4001" min="1" max="65535" /></div>
       <div class="field"><label>Passphrase <span style="color:var(--muted);font-size:9px">(optional)</span></label><input type="password" id="s-pass" placeholder="leave empty if none" /></div>
     </div>
-    <div class="field" id="s-bitrate-row"><label>Target Bitrate (Mbps)</label><input type="number" id="s-bitrate" value="8" min="1" max="50" step="0.5" /></div>
+    <div class="field" id="s-bitrate-row" style="display:none"><label>Target Bitrate (Mbps)</label><input type="number" id="s-bitrate" value="8" min="1" max="50" step="0.5" /></div>
     <div class="preview-label">Command Preview</div>
     <div class="ffmpeg-preview" id="s-preview">Fill the fields above to preview the command.</div>
     <button class="btn-single" onclick="startSingle()">▶ Start Ingest</button>
@@ -373,16 +380,17 @@
         <div class="src-hint">tokens: <b>4015</b> · <b>194.76.59.21</b> · <b>2026-09-04</b> · <b>14:12</b> · <b>srt</b>/<b>rtmp</b> · <b>caller</b> · <b>failed</b> · <b>port:4110</b> · <b>host:194.76</b> · <b>tag:xyz</b> · <b>user:name</b> · <b>date:2026-09</b> · <b>dir:recordings</b></div>
       </div>
     </div>
-    <div class="field" id="m-passthrough-row" style="display:none">
-      <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
-        <input type="checkbox" id="m-passthrough" onchange="onPassthroughChange('m')" style="width:auto;accent-color:var(--accent2)" />
-        <span>Passthrough <span style="color:var(--muted);font-size:10px">(copy streams, no re-encode)</span></span>
-      </label>
-    </div>
     <div class="field">
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
-        <input type="checkbox" id="m-shared" onchange="onSharedChange()" style="width:auto;accent-color:var(--accent2)" />
-        <span>Shared single process <span style="color:var(--muted);font-size:10px">(1 ffmpeg, -c copy, no re-encode — use this for many destinations to avoid CPU spikes)</span></span>
+        <input type="checkbox" id="m-independent" onchange="onIndependentChange()" style="width:auto;accent-color:var(--accent2)" />
+        <span>Independent processes <span style="color:var(--muted);font-size:10px">(one ffmpeg per destination — default is 1 shared process, -c copy)</span></span>
+      </label>
+      <div class="cpu-warning" id="m-cpu-warning">⚠ Caution: each destination runs its own ffmpeg decode (plus a libx264 encode in transcode / B&amp;T mode). This is heavy on the server CPU — independent mode is limited to <b>5 destinations</b>. Prefer the default shared single process for larger fan-outs.</div>
+    </div>
+    <div class="field" id="m-transcode-row" style="display:none">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+        <input type="checkbox" id="m-transcode" onchange="onTranscodeChange('m')" style="width:auto;accent-color:var(--accent2)" />
+        <span>Transcode <span style="color:var(--muted);font-size:10px">(re-encode with libx264 CBR — default is passthrough / stream copy)</span></span>
       </label>
     </div>
     <div class="field">
@@ -400,7 +408,7 @@
     </div>
     <div class="row">
       <div class="field"><label>Passphrase <span style="color:var(--muted);font-size:9px">(optional)</span></label><input type="password" id="m-pass" placeholder="leave empty if none" /></div>
-      <div class="field" id="m-bitrate-row"><label>Target Bitrate (Mbps)</label><input type="number" id="m-bitrate" value="8" min="1" max="50" step="0.5" /></div>
+      <div class="field" id="m-bitrate-row" style="display:none"><label>Target Bitrate (Mbps)</label><input type="number" id="m-bitrate" value="8" min="1" max="50" step="0.5" /></div>
     </div>
     <div class="preview-label">Destinations Preview</div>
     <div class="ffmpeg-preview" id="m-preview">Fill the fields above to preview destinations.</div>
@@ -826,54 +834,78 @@ function isBarsToneValue(value) {
   return value.trim() === BARS_TONE_LABEL;
 }
 
-// Looks up the type of a typed/pasted/selected source file and updates the
-// passthrough/bitrate rows accordingly.
-function syncSourceType(prefix) {
+const MULTI_INDEPENDENT_MAX = 5;  // keep in sync with MULTI_INDEPENDENT_MAX_DESTINATIONS in routes_srt.py
+
+// Resolves the effective ingest mode for a card from the selected source and
+// the checkboxes. Defaults: .ts sources (Video Analyser / Recordings) are
+// passthrough unless "Transcode" is ticked; test.mp4 is always transcoded;
+// multi destination is one shared -c copy process unless "Independent
+// processes" is ticked; B&T is always one transcode process per destination.
+function resolveMode(prefix) {
   const value = document.getElementById(`${prefix}-input`).value.trim();
-  const ptRow = document.getElementById(`${prefix}-passthrough-row`);
+  const isBarsTone = isBarsToneValue(value);
+  const type = sourceTypesByFile[value] || (value.toLowerCase().endsWith('.ts') ? 'ts' : 'mp4');
+  const transcodeBox = document.getElementById(`${prefix}-transcode`);
+  const independent = prefix === 'm'
+    ? (isBarsTone || document.getElementById('m-independent').checked)
+    : true;
+  const shared = prefix === 'm' && !independent;
+  // Transcode is forced for mp4 (no stream-copy path in the UI) and B&T;
+  // .ts sources transcode only when explicitly asked.
+  const transcode = isBarsTone || (type !== 'ts') || transcodeBox.checked;
+  const passthrough = !isBarsTone && !transcode;
+  return { value, isBarsTone, type, independent, shared, transcode, passthrough };
+}
+
+// Shows/hides the transcode + bitrate rows (and the independent-processes
+// warning on the multi card) according to the selected source and mode.
+function syncSourceType(prefix) {
+  const m = resolveMode(prefix);
+  const trRow = document.getElementById(`${prefix}-transcode-row`);
   const brRow = document.getElementById(`${prefix}-bitrate-row`);
 
-  if (isBarsToneValue(value)) {
-    // B&T is generated per destination, so shared/copy mode and
-    // passthrough/bitrate don't apply.
-    if (prefix === 'm') {
-      document.getElementById('m-shared').checked = false;
-      document.getElementById('m-shared').disabled = true;
-    }
-    document.getElementById(`${prefix}-passthrough`).checked = false;
-    if (ptRow) ptRow.style.display = 'none';
-    if (brRow) brRow.style.display = 'none';
-    return;
+  if (prefix === 'm') {
+    const indBox = document.getElementById('m-independent');
+    // B&T is generated per destination, so shared/copy mode doesn't apply.
+    if (m.isBarsTone) { indBox.checked = true; indBox.disabled = true; }
+    else indBox.disabled = false;
+    document.getElementById('m-cpu-warning').classList.toggle('show', m.independent);
   }
 
-  const type = sourceTypesByFile[value] || (value.toLowerCase().endsWith('.ts') ? 'ts' : 'mp4');
-  if (prefix === 'm') document.getElementById('m-shared').disabled = false;
-  if (ptRow) ptRow.style.display = type === 'ts' ? '' : 'none';
-  if (type !== 'ts') document.getElementById(`${prefix}-passthrough`).checked = false;
-  if (brRow) brRow.style.display = '';
+  if (m.isBarsTone) {
+    document.getElementById(`${prefix}-transcode`).checked = false;
+    trRow.style.display = 'none';
+    brRow.style.display = 'none';
+    return;
+  }
+  if (m.shared) {
+    // Shared mode is always -c copy: transcode/bitrate don't apply.
+    trRow.style.display = 'none';
+    brRow.style.display = 'none';
+    return;
+  }
+  trRow.style.display = m.type === 'ts' ? '' : 'none';
+  if (m.type !== 'ts') document.getElementById(`${prefix}-transcode`).checked = false;
+  brRow.style.display = m.transcode ? '' : 'none';
 }
 
 function updateSinglePreview() {
   syncSourceType('s');
-  const input   = document.getElementById('s-input').value.trim();
+  const m       = resolveMode('s');
   const host    = document.getElementById('s-host').value.trim();
   const port    = document.getElementById('s-port').value.trim();
   const pass    = document.getElementById('s-pass').value.trim();
-  const bitrate    = parseFloat(document.getElementById('s-bitrate').value) || 8;
-  const passthrough = document.getElementById('s-passthrough').checked;
-  const isBarsTone = isBarsToneValue(input);
+  const bitrate = parseFloat(document.getElementById('s-bitrate').value) || 8;
   const el      = document.getElementById('s-preview');
-  if (isBarsTone) {
-    const cmd = buildBarsToneCmd(host, port, pass);
-    el.innerHTML = cmd || '<span style="color:var(--muted)">Fill the fields above to preview the command.</span>';
-    return;
-  }
-  const cmd     = buildCmd(input, host, port, pass, bitrate, passthrough);
-  el.innerHTML  = cmd || '<span style="color:var(--muted)">Fill the fields above to preview the command.</span>';
+  const cmd = m.isBarsTone
+    ? buildBarsToneCmd(host, port, pass)
+    : buildCmd(m.value, host, port, pass, bitrate, m.passthrough);
+  el.innerHTML = cmd || '<span style="color:var(--muted)">Fill the fields above to preview the command.</span>';
 }
 
 function updateMultiPreview() {
   syncSourceType('m');
+  const m    = resolveMode('m');
   const host = document.getElementById('m-host').value.trim();
   const ps   = parseInt(document.getElementById('m-port-start').value) || 0;
   const pe   = parseInt(document.getElementById('m-port-end').value)   || 0;
@@ -884,20 +916,23 @@ function updateMultiPreview() {
   }
   const count = pe - ps + 1;
   const br    = parseFloat(document.getElementById('m-bitrate').value) || 8;
-  const mPt   = document.getElementById('m-passthrough').checked;
-  const shared = document.getElementById('m-shared').checked;
-  const isBarsTone = isBarsToneValue(document.getElementById('m-input').value);
-  const modeLabel = isBarsTone
-    ? '<span class="hlg">B&T · 1080p25 · AVC · 1 Mbps · GOP 1 s · no B-frames</span>'
-    : shared
+  const modeLabel = m.isBarsTone
+    ? '<span class="hlg">B&T · 1080p25 · AVC · 1 Mbps · GOP 1 s · no B-frames · 1 process per destination</span>'
+    : m.shared
     ? '<span class="hl2">passthrough · 1 shared ffmpeg process</span>'
-    : mPt ? '<span class="hl2">passthrough</span>' : `<span class="hlg">${br} Mbps CBR</span>`;
+    : m.passthrough
+    ? '<span class="hl2">passthrough · 1 process per destination</span>'
+    : `<span class="hlg">${br} Mbps CBR transcode · 1 process per destination</span>`;
   let html = `<span class="hl">${count} destination${count>1?'s':''}</span> @ ${modeLabel} → <span class="hl2">${esc(host)}</span>:\n`;
   for (let p = ps; p <= Math.min(pe, ps + 4); p++) {
     html += `  srt://${esc(host)}:<span class="hl2">${p}</span>\n`;
   }
   if (count > 5) html += `  <span style="color:var(--muted)">… and ${count - 5} more</span>`;
-  if (shared) html += `\n<span style="color:var(--muted)">All destinations share a single decode — no per-destination re-encode.</span>`;
+  if (m.shared) {
+    html += `\n<span style="color:var(--muted)">All destinations share a single decode — no per-destination re-encode.</span>`;
+  } else if (count > MULTI_INDEPENDENT_MAX) {
+    html += `\n<span style="color:var(--red)">⚠ Independent mode is limited to ${MULTI_INDEPENDENT_MAX} destinations (${count} requested). Reduce the port range or use the shared single process.</span>`;
+  }
   el.innerHTML = html;
 }
 
@@ -908,15 +943,15 @@ function updateMultiPreview() {
 
 // ── API calls ────────────────────────────────────────────────────────────────
 async function startSingle() {
-  const isBarsTone = isBarsToneValue(document.getElementById('s-input').value);
+  const m = resolveMode('s');
   const body = {
-    input_file:   document.getElementById('s-input').value.trim(),
+    input_file:   m.value,
     host:         document.getElementById('s-host').value.trim(),
     port:         parseInt(document.getElementById('s-port').value),
     passphrase:   document.getElementById('s-pass').value.trim(),
-    source_mode:  isBarsTone ? 'bars_tone' : 'file',
-    bitrate_mbps: isBarsTone ? 1 : (parseFloat(document.getElementById('s-bitrate').value) || 8),
-    passthrough:  isBarsTone ? false : document.getElementById('s-passthrough').checked,
+    source_mode:  m.isBarsTone ? 'bars_tone' : 'file',
+    bitrate_mbps: m.isBarsTone ? 1 : (parseFloat(document.getElementById('s-bitrate').value) || 8),
+    passthrough:  m.passthrough,
   };
   if (!body.host || !body.port) { toast('Host and port are required.','err'); return; }
   try {
@@ -932,23 +967,27 @@ async function startSingle() {
 }
 
 async function startMulti() {
-  const shared = document.getElementById('m-shared').checked;
-  const isBarsTone = isBarsToneValue(document.getElementById('m-input').value);
+  const m = resolveMode('m');
+  const shared = m.shared;
   const base = {
-    input_file:   document.getElementById('m-input').value.trim(),
+    input_file:   m.value,
     host:         document.getElementById('m-host').value.trim(),
     port_start:   parseInt(document.getElementById('m-port-start').value),
     port_end:     parseInt(document.getElementById('m-port-end').value),
     passphrase:   document.getElementById('m-pass').value.trim(),
-    source_mode:  isBarsTone ? 'bars_tone' : 'file',
+    source_mode:  m.isBarsTone ? 'bars_tone' : 'file',
   };
   if (!base.host || !base.port_start || !base.port_end) { toast('Host and port range are required.','err'); return; }
+  if (!shared && (base.port_end - base.port_start + 1) > MULTI_INDEPENDENT_MAX) {
+    toast(`Independent mode is limited to ${MULTI_INDEPENDENT_MAX} destinations — use the shared single process for larger fan-outs.`,'err');
+    return;
+  }
 
   const endpoint = shared ? '/ingest/multi-shared' : '/ingest/multi';
   const body = shared ? base : {
     ...base,
-    bitrate_mbps: isBarsTone ? 1 : (parseFloat(document.getElementById('m-bitrate').value) || 8),
-    passthrough:  isBarsTone ? false : document.getElementById('m-passthrough').checked,
+    bitrate_mbps: m.isBarsTone ? 1 : (parseFloat(document.getElementById('m-bitrate').value) || 8),
+    passthrough:  m.passthrough,
   };
   try {
     const r = await fetch(`${BASE}${endpoint}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
@@ -1393,31 +1432,16 @@ async function loadSources(manual = false) {
   }
 }
 
-function onPassthroughChange(prefix) {
-  const checked = document.getElementById(`${prefix}-passthrough`).checked;
-  const brRow   = document.getElementById(`${prefix}-bitrate-row`);
-  if (brRow) brRow.style.display = checked ? 'none' : '';
+function onTranscodeChange(prefix) {
   if (prefix === 's') updateSinglePreview();
   else updateMultiPreview();
 }
 
-function onSharedChange() {
-  const shared = document.getElementById('m-shared').checked;
-  const brRow  = document.getElementById('m-bitrate-row');
-  const ptRow  = document.getElementById('m-passthrough-row');
-  const ptBox  = document.getElementById('m-passthrough');
-  // Shared mode is always passthrough (-c copy): hide/lock the bitrate and
-  // passthrough-toggle fields so the choice is unambiguous.
-  if (shared) {
-    ptBox.checked = true;
-    if (brRow) brRow.style.display = 'none';
-    if (ptRow) ptRow.style.display = 'none';
-  } else {
-    ptBox.checked = false;
-    const value = document.getElementById('m-input').value.trim();
-    const type  = sourceTypesByFile[value] || (value.toLowerCase().endsWith('.ts') ? 'ts' : 'mp4');
-    if (ptRow) ptRow.style.display = type === 'ts' ? '' : 'none';
-    if (brRow) brRow.style.display = '';
+function onIndependentChange() {
+  // Switching back to shared mode also drops any transcode request, since
+  // shared mode is always -c copy.
+  if (!document.getElementById('m-independent').checked) {
+    document.getElementById('m-transcode').checked = false;
   }
   updateMultiPreview();
 }

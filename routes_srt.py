@@ -221,6 +221,12 @@ def _source_annotations() -> dict:
 # Delay before an unattended job auto-reconnects after ffmpeg exits.
 RETRY_DELAY_SECONDS = 3
 
+# /ingest/multi launches one full ffmpeg process per destination (one decode,
+# plus one libx264 encode in transcode/B&T mode), which is what saturates the
+# server CPU with large fan-outs. Cap it; /ingest/multi-shared (1 process,
+# -c copy) has no such cost and keeps the 100-destination limit.
+MULTI_INDEPENDENT_MAX_DESTINATIONS = 5
+
 # ffmpeg's own logger collapses a repeated line into "Last message repeated
 # N times" instead of reprinting it — if that happens to be the very last
 # stderr line before the process exits, naively using it as last_error hides
@@ -795,7 +801,9 @@ def ingest_single():
 @srt_bp.route("/ingest/multi", methods=["POST"])
 def ingest_multi():
     """
-    Start ingest to multiple SRT destinations (port range).
+    Start ingest to multiple SRT destinations (port range), one independent
+    ffmpeg process per destination. Limited to MULTI_INDEPENDENT_MAX_DESTINATIONS
+    to protect the server CPU — use /ingest/multi-shared for large fan-outs.
     Body JSON: { host, port_start, port_end, passphrase, input_file?, bitrate_mbps? }
     Each destination job keeps retrying to connect automatically until stopped.
     """
@@ -815,8 +823,14 @@ def ingest_multi():
         return jsonify({"error": "host, port_start and port_end are required"}), 400
     if port_start > port_end:
         return jsonify({"error": "port_start must be <= port_end"}), 400
-    if (port_end - port_start) > 99:
-        return jsonify({"error": "Port range limited to 100 destinations"}), 400
+    if (port_end - port_start) >= MULTI_INDEPENDENT_MAX_DESTINATIONS:
+        return jsonify({
+            "error": (
+                f"Independent multi-ingest is limited to {MULTI_INDEPENDENT_MAX_DESTINATIONS} "
+                "destinations (one ffmpeg process each). Use the shared single-process mode "
+                "for larger fan-outs."
+            )
+        }), 400
     if source_mode == "bars_tone":
         # B&T has a fixed compliance profile; do not inherit the UI bitrate
         # or passthrough choice.

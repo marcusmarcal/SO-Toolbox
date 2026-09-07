@@ -6,6 +6,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
+## [2.54.6] - 2026-09-07
+
+### Changed
+- SRT Ingest: passthrough (stream copy) is now the default for Video Analyser and Recordings sources; transcoding is an explicit "Transcode" option that reveals the bitrate field.
+- SRT Ingest: multi destination now defaults to one shared `-c copy` ffmpeg process; "Independent processes" is an explicit option with a server-CPU caution notice.
+- SRT Ingest: independent multi-ingest is limited to 5 destinations, enforced in the UI and by `/ingest/multi`; the shared single process keeps the 100-destination limit.
+
 ## [2.54.5] - 2026-09-07
 
 ### Fixed
