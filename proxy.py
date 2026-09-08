@@ -1031,7 +1031,7 @@ def _act_txcore():
             jobs.append({
                 "id": j.get("job_id"), "kind": "channel-create", "status": j.get("status"),
                 "label": f"{j.get('progress', 0)}/{j.get('total', 0)} channels",
-                "tag": "", "user": j.get("created_by", ""),
+                "tag": (j.get("cluster") or "").upper(), "user": j.get("created_by", ""),
                 "started_at": j.get("started_at") or j.get("created_at"),
                 "elapsed_s": _act_elapsed_iso(j.get("started_at") or j.get("created_at")),
                 "extra": {"dry_run": bool(params.get("dry_run"))},
