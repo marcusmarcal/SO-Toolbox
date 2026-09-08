@@ -11,6 +11,11 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 ---
 
 ## [Unreleased]
+## [3.57.0] - 2026-09-08
+
+### Added
+
+- VDP Event Creator
 
 ## [3.56.0] - 2026-09-07
 
