@@ -586,6 +586,66 @@ def rota_roster():
     })
 
 
+@rota_bp.route('/rota/next-shift', methods=['GET'])
+@require_auth
+def rota_next_shift():
+    """Next working shift (skips OFF/PARENTAL/MARITAL/AL/ABSENT) per person.
+    No 'person' param: bulk mode — self only for staff, full active roster
+    for management. 'person=<rota_label>': single-person mode, management
+    only unless it's the caller's own name."""
+    session   = request.session
+    rota_role = _get_rota_role(session)
+    if rota_role == 'guest':
+        return jsonify({'ok': False, 'error': 'Not authorised'}), 403
+
+    person_param = request.args.get('person', '').strip()
+    all_names = list(MANAGEMENT_SHIFTS) + list(ENGINEERING_OFFSETS) + list(SPECIALIST_OFFSETS)
+
+    if rota_role != 'management':
+        my_name = _rota_display_name(session['username'])
+        if person_param and person_param != my_name:
+            return jsonify({'ok': False, 'error': 'Not authorised'}), 403
+        names = [my_name] if my_name in all_names else []
+    else:
+        if person_param:
+            if person_param not in all_names:
+                return jsonify({'ok': False, 'error': 'Unknown person'}), 404
+            names = [person_param]
+        else:
+            names = all_names
+
+    leave_list = _load_json(LEAVE_FILE)
+    if not isinstance(leave_list, list):
+        leave_list = []
+    published_overrides = _load_json(PUBLISHED_OVERRIDES_FILE)
+    if not isinstance(published_overrides, list):
+        published_overrides = []
+    leave_map    = _build_leave_map(leave_list)
+    override_map = _build_override_map(published_overrides)
+
+    MAX_LOOKAHEAD_DAYS = 180
+    today  = date.today()
+    result = {}
+
+    for name in names:
+        found = None
+        d = today
+        for _ in range(MAX_LOOKAHEAD_DAYS):
+            shift = _resolve_shift(name, d, leave_map, override_map)
+            clean = shift
+            if clean and '|' in clean:
+                pfx = clean.split('|')[0]
+                clean = None if pfx in ('AL_APPROVED', 'AL_PENDING', 'ABSENT') else clean.split('|')[1]
+            elif clean and (clean.startswith('AL_') or clean.startswith('ABSENT')):
+                clean = None
+            if clean not in ('OFF', 'PARENTAL', 'MARITAL', None):
+                found = {'date': d.isoformat(), 'weekday': d.strftime('%A'), 'shift': clean}
+                break
+            d += timedelta(days=1)
+        result[name] = found
+
+    return jsonify({'ok': True, 'next_shift': result})
+
 # ── Directory admin (add / edit / hide / remove people) ────────────────────
 # Management only. Every write is appended to a small audit log — this data
 # drives shift computation and payroll exports, so unlike leave requests
