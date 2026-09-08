@@ -644,6 +644,46 @@
       display: flex; align-items: center; gap: 10px; padding: 6px 0;
       border-bottom: 1px solid #252525; font-family: var(--mono); font-size: 0.68rem;
     }
+
+    /* ── OVERVIEW CARD GRID (hero + all-members) ── */
+    .ov-grid {
+      display: grid; gap: 14px; margin-bottom: 20px;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    }
+    .ov-card {
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 16px 18px; background: var(--surface);
+      display: flex; flex-direction: column; justify-content: space-between;
+      min-height: 100px;
+    }
+    .ov-card-label {
+      font-family: var(--mono); font-size: 0.62rem; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;
+    }
+    .ov-card-big {
+      font-family: var(--display); font-weight: 800; font-size: 2.1rem;
+      line-height: 1; color: var(--text);
+    }
+    .ov-card-big .unit { font-size: 1.1rem; font-weight: 700; margin-left: 3px; color: var(--muted); }
+    .ov-card-sub { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); margin-top: 6px; }
+    .ov-card-date { display: flex; align-items: baseline; gap: 8px; }
+    .ov-card-weekday { font-family: var(--display); font-weight: 800; font-size: 1.6rem; line-height: 1; }
+    .ov-card-daymonth { display: flex; flex-direction: column; line-height: 1.15; }
+    .ov-card-daymonth .d { font-family: var(--mono); font-weight: 700; font-size: 0.85rem; }
+    .ov-card-daymonth .m { font-family: var(--mono); font-size: 0.6rem; color: var(--muted); }
+    .ov-card-empty { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); }
+
+    /* All-members tile — clickable, denser */
+    .ov-tile {
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px 14px; background: var(--surface); cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .ov-tile:hover { border-color: var(--accent); background: rgba(161,139,245,0.06); }
+    .ov-tile-name { font-family: var(--mono); font-weight: 700; font-size: 0.78rem; margin-bottom: 8px; }
+    .ov-tile-row { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 0.66rem; color: var(--muted); padding: 2px 0; }
+    .ov-tile-row .v { color: var(--text); font-weight: 700; }
+
     .al-misc-row:last-child { border-bottom: none; }
     .al-misc-reason { flex: 1; color: var(--muted); }
     .al-add-misc {
@@ -5129,58 +5169,43 @@ function _removeCellFromBoxes(ri, ci) {
     }
   }
 
-  function renderOverview() {
-    const el = document.getElementById('overview-result');
-    if (!_overviewData) return;
+  // ── Overview extra data (next-shift / next-leave) ─────────────────────
+  let _ovNextShift = {};
+  let _ovLeaveList  = [];
 
-    const isManagement = state.me && state.me.rota_role === 'management';
-    const myName       = state.me ? state.me.name : null;
-    const balances     = _overviewData.balances || {};
+  async function _loadOverviewExtras() {
+    try {
+      const [nsR, lvR] = await Promise.all([
+        fetch(`${PROXY}/rota/next-shift`, { credentials: 'same-origin' }),
+        fetch(`${PROXY}/rota/leave`,       { credentials: 'same-origin' }),
+      ]);
+      const nsD = await nsR.json();
+      const lvD = await lvR.json();
+      _ovNextShift = nsD.ok ? nsD.next_shift : {};
+      _ovLeaveList = lvD.ok ? (lvD.leave || []) : [];
+    } catch(e) { _ovNextShift = {}; _ovLeaveList = []; }
+  }
 
-    if (isManagement && _overviewShowAll) {
-      // All members view — grouped by team, filterable
-      const groups = { Management: [], Engineering: [], Specialists: [] };
-      Object.keys(balances).forEach(name => { groups[_personTeam(name)].push(name); });
-      Object.values(groups).forEach(list => list.sort());
+  function _ovNextLeaveFor(name) {
+    const today = new Date().toISOString().split('T')[0];
+    const mine = _ovLeaveList.filter(e =>
+      e.name === name && e.status === 'Confirmed' && e.date_start >= today);
+    if (!mine.length) return null;
+    mine.sort((a, b) => a.date_start.localeCompare(b.date_start));
+    const e = mine[0];
+    const days = Math.round((new Date(e.date_end) - new Date(e.date_start)) / 86400000) + 1;
+    return { date: e.date_start, leave_type: e.leave_type, days };
+  }
 
-      const teams = ['Management', 'Engineering', 'Specialists']
-        .filter(t => _overviewTeamFilters[t] && groups[t].length);
-
-      if (!teams.length) {
-        el.innerHTML = '<div class="empty-state">No teams selected.</div>';
-        return;
-      }
-
-      el.innerHTML = teams.map(t => `
-        <div style="margin-bottom:28px;">
-          <div class="approvals-group-header">${t}</div>
-          ${groups[t].map(name => _renderAlCard(name, balances[name], false)).join('')}
-        </div>`).join('');
-      return;
-    }
-
-    if (isManagement) {
-      // Individual member view (management default)
-      const memberSel = document.getElementById('overview-member-select');
-      const selected  = memberSel ? memberSel.value : null;
-      const name      = selected || (myName && balances[myName] ? myName : Object.keys(balances)[0]);
-      if (!name || !balances[name]) {
-        el.innerHTML = '<div class="empty-state">Select a member above.</div>';
-        return;
-      }
-      // Sync dropdown to resolved name
-      if (memberSel && !memberSel.value) memberSel.value = name;
-      el.innerHTML = _renderAlCard(name, balances[name], false);
-      return;
-    }
-
-    // Staff: own card only
-    const name = myName;
-    if (!name || !balances[name]) {
-      el.innerHTML = '<div class="empty-state">No allowance data for this year yet.</div>';
-      return;
-    }
-    el.innerHTML = _renderAlCard(name, balances[name], false);
+  function _ovDateBlock(isoDate) {
+    const d = new Date(isoDate + 'T00:00:00');
+    const weekday = d.toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase();
+    const day     = d.getDate();
+    const month   = d.toLocaleDateString('en-GB', { month: 'short' });
+    return `<div class="ov-card-date">
+      <span class="ov-card-weekday">${weekday}</span>
+      <span class="ov-card-daymonth"><span class="d">${day}</span><span class="m">${month}</span></span>
+    </div>`;
   }
 
   function _fmtH(v) {
@@ -5192,66 +5217,125 @@ function _removeCellFromBoxes(ri, ci) {
     return `${days}d (${(days * 8).toFixed(2)}h)`;
   }
 
-  function _renderAlCard(name, b, isManagement) {
-    if (!b) return '';
-
+  function _ovHeroCards(name, b) {
     const remainingClass = b.remaining_with_pending_hours < 0 ? 'bad'
-                          : b.remaining_with_pending_hours < 16 ? 'warn' : 'ok';
+                          : b.remaining_with_pending_hours < 16 ? 'warn' : '';
+    const ns = _ovNextShift[name];
+    const nl = _ovNextLeaveFor(name);
 
     return `
-      <div class="al-card" data-al-card="${name}">
-        <div class="al-card-header">
-          <span class="al-card-name">${name}</span>
-          ${b.carry_over_locked ? '<span class="status-badge Confirmed">Carry-over locked</span>' : ''}
+      <div class="ov-card">
+        <div class="ov-card-label">AL Allowance Remaining</div>
+        <div class="ov-card-big" style="${remainingClass ? `color:var(--${remainingClass === 'bad' ? 'danger' : 'muted'});` : ''}">
+          ${_fmtH(b.remaining_confirmed_hours)}
         </div>
-        <div class="al-headline">
-          <div class="al-stat">
-            <span class="al-stat-label">Total Allowance</span>
-            <span class="al-stat-value">${_fmtH(b.total_allowance_hours)}</span>
-          </div>
-          <div class="al-stat">
-            <span class="al-stat-label">Confirmed Used</span>
-            <span class="al-stat-value">${_fmtH(b.confirmed_used_hours)}</span>
-          </div>
-          <div class="al-stat">
-            <span class="al-stat-label">Remaining (Confirmed)</span>
-            <span class="al-stat-value">${_fmtH(b.remaining_confirmed_hours)}</span>
-          </div>
-          <div class="al-stat">
-            <span class="al-stat-label">Remaining incl. Pending *</span>
-            <span class="al-stat-value ${remainingClass}">${_fmtH(b.remaining_with_pending_hours)}</span>
-            <span class="al-stat-sub">* pending requests not yet confirmed</span>
-          </div>
-        </div>
-        <div class="al-breakdown">
-          <div class="al-breakdown-item">
-            <span class="lbl">Base Allowance</span>
-            <span class="val">${_fmtDaysH(b.base_allowance.final_days)}</span>
-          </div>
-          <div class="al-breakdown-item">
-            <span class="lbl">MHD</span>
-            <span class="val">${_fmtDaysH(b.mhd.final_days)}</span>
-          </div>
-          <div class="al-breakdown-item">
-            <span class="lbl">Absence Reward</span>
-            <span class="val">${_fmtDaysH(b.absence.final_days)}</span>
-          </div>
-          <div class="al-breakdown-item">
-            <span class="lbl">Misc Hours</span>
-            <span class="val">${_fmtH(b.misc_hours)}</span>
-          </div>
-          <div class="al-breakdown-item">
-            <span class="lbl">Carry-over</span>
-            <span class="val">${_fmtH(b.carry_over_hours)}</span>
-          </div>
-          <div class="al-breakdown-item">
-            <span class="lbl">PH-on-AL Giveback</span>
-            <span class="val">${_fmtH(b.ph_al_giveback_hours)}</span>
-            ${b.ph_al_giveback_dates && b.ph_al_giveback_dates.length
-              ? `<div style="color:var(--muted);font-size:0.58rem;margin-top:3px;">${b.ph_al_giveback_dates.map(_fmtDateShort).join(', ')}</div>` : ''}
-          </div>
-        </div>
+        <div class="ov-card-sub">≈ ${(b.remaining_confirmed_hours / 8).toFixed(1)} days</div>
+      </div>
+      <div class="ov-card">
+        <div class="ov-card-label">Booked vs Allowance</div>
+        <div class="ov-card-big">${b.confirmed_used_hours.toFixed(0)}<span class="unit">/${b.total_allowance_hours.toFixed(0)}h</span></div>
+        <div class="ov-card-sub">includes pending: ${(b.confirmed_used_hours + b.pending_used_hours).toFixed(0)}h</div>
+      </div>
+      <div class="ov-card">
+        <div class="ov-card-label">Next Shift</div>
+        ${ns ? _ovDateBlock(ns.date) + `<div class="ov-card-sub">${ns.shift}</div>`
+             : '<div class="ov-card-empty">No upcoming shift found</div>'}
+      </div>
+      <div class="ov-card">
+        <div class="ov-card-label">Next Leave</div>
+        ${nl ? _ovDateBlock(nl.date) + `<div class="ov-card-sub">${nl.leave_type} · ${nl.days}d</div>`
+             : '<div class="ov-card-empty">None scheduled</div>'}
       </div>`;
+  }
+
+  function _renderAlCard(name, b) {
+    if (!b) return '';
+    const fields = [
+      ['Base Allowance', _fmtDaysH(b.base_allowance.final_days)],
+      ['MHD',             _fmtDaysH(b.mhd.final_days)],
+      ['Absence Reward',  _fmtDaysH(b.absence.final_days)],
+      ['Misc Hours',      _fmtH(b.misc_hours)],
+      ['Carry-over',      _fmtH(b.carry_over_hours)],
+      ['PH-on-AL Giveback', _fmtH(b.ph_al_giveback_hours)],
+    ];
+    const breakdownCards = fields.map(([label, val]) => `
+      <div class="ov-card">
+        <div class="ov-card-label">${label}</div>
+        <div class="ov-card-big" style="font-size:1.3rem;">${val}</div>
+      </div>`).join('');
+
+    return `
+      <div class="al-card-header" style="border:none;margin-bottom:12px;padding-bottom:0;">
+        <span class="al-card-name">${name}</span>
+        ${b.carry_over_locked ? '<span class="status-badge Confirmed">Carry-over locked</span>' : ''}
+      </div>
+      <div class="ov-grid">
+        ${_ovHeroCards(name, b)}
+        ${breakdownCards}
+      </div>`;
+  }
+
+  function _renderOvTile(name, b) {
+    const ns = _ovNextShift[name];
+    const nl = _ovNextLeaveFor(name);
+    return `
+      <div class="ov-tile" data-ov-tile="${name}">
+        <div class="ov-tile-name">${name}</div>
+        <div class="ov-tile-row"><span>Remaining</span><span class="v">${_fmtH(b.remaining_confirmed_hours)}</span></div>
+        <div class="ov-tile-row"><span>Booked</span><span class="v">${b.confirmed_used_hours.toFixed(0)}/${b.total_allowance_hours.toFixed(0)}h</span></div>
+        <div class="ov-tile-row"><span>Next Shift</span><span class="v">${ns ? _fmtDateShort(ns.date) : '—'}</span></div>
+        <div class="ov-tile-row"><span>Next Leave</span><span class="v">${nl ? _fmtDateShort(nl.date) : '—'}</span></div>
+      </div>`;
+  }
+
+  function renderOverview() {
+    const el = document.getElementById('overview-result');
+    if (!_overviewData) return;
+
+    const isManagement = state.me && state.me.rota_role === 'management';
+    const myName       = state.me ? state.me.name : null;
+    const balances      = _overviewData.balances || {};
+
+    if (isManagement && _overviewShowAll) {
+      const groups = { Management: [], Engineering: [], Specialists: [] };
+      Object.keys(balances).forEach(name => { groups[_personTeam(name)].push(name); });
+      Object.values(groups).forEach(list => list.sort());
+      const teams = ['Management', 'Engineering', 'Specialists']
+        .filter(t => _overviewTeamFilters[t] && groups[t].length);
+
+      if (!teams.length) { el.innerHTML = '<div class="empty-state">No teams selected.</div>'; return; }
+
+      el.innerHTML = teams.map(t => `
+        <div style="margin-bottom:24px;">
+          <div class="approvals-group-header">${t}</div>
+          <div class="ov-grid">${groups[t].map(name => _renderOvTile(name, balances[name])).join('')}</div>
+        </div>`).join('');
+
+      el.querySelectorAll('[data-ov-tile]').forEach(t => t.addEventListener('click', () => {
+        const name = t.dataset.ovTile;
+        _overviewShowAll = false;
+        document.getElementById('overview-all-toggle').classList.remove('active');
+        document.getElementById('overview-team-toggles').style.display = 'none';
+        document.getElementById('overview-member-row').style.display   = '';
+        const sel = document.getElementById('overview-member-select');
+        if (sel) sel.value = name;
+        renderOverview();
+      }));
+      return;
+    }
+
+    let name;
+    if (isManagement) {
+      const memberSel = document.getElementById('overview-member-select');
+      const selected  = memberSel ? memberSel.value : null;
+      name = selected || (myName && balances[myName] ? myName : Object.keys(balances)[0]);
+      if (!name || !balances[name]) { el.innerHTML = '<div class="empty-state">Select a member above.</div>'; return; }
+      if (memberSel && !memberSel.value) memberSel.value = name;
+    } else {
+      name = myName;
+      if (!name || !balances[name]) { el.innerHTML = '<div class="empty-state">No allowance data for this year yet.</div>'; return; }
+    }
+    el.innerHTML = _renderAlCard(name, balances[name]);
   }
 
   // ════════════════════════════════════════════════════════════════

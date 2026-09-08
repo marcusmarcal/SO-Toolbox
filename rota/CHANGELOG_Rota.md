@@ -1,6 +1,25 @@
 # Changelog — Rota App
 
 ## [Unreleased]
+### Added 08-09-2026
+- `/rota/next-shift` backend route — returns each person's next working shift
+  (skipping OFF/AL/ABSENT/PARENTAL/MARITAL), bulk or single-person, capped at
+  180 days lookahead. Staff self-only, management full roster or by `person=`.
+- Overview tab redesigned: AL Allowance, Booked vs Allowance, Next Shift,
+  and Next Leave now render as a card grid (`.ov-grid`/`.ov-card`) for both
+  single-member and all-members views.
+- All-members view now shows compact clickable tiles (`.ov-tile`) per person;
+  clicking switches to that person's full single-member card view with no
+  re-fetch.
+- Single-member view: MHD, Base Allowance, Absence Reward, Misc Hours,
+  Carry-over, and PH-on-AL Giveback are now individual cards instead of a
+  bundled breakdown grid.
+
+### Pending (next pass)
+- AL monthly distribution chart (single-member view only).
+- SOE Weekend Coverage card restyle to match new card language.
+
+## [Unreleased]
 
 ### Fixed 04-09-2026
 - person_directory.json missing no longer crashes the whole app process.
