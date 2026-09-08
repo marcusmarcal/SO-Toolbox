@@ -5157,6 +5157,7 @@ function _removeCellFromBoxes(ri, ci) {
     el.innerHTML = '<div class="loading-row"><div class="spinner"></div> Loading…</div>';
 
     try {
+      await _loadOverviewExtras();
       const r = await fetch(`${PROXY}/rota/al-allowance?year=${year}`, { credentials: 'same-origin' });
       const d = await r.json();
       if (!d.ok) { el.innerHTML = `<div class="empty-state">Error: ${d.error}</div>`; return; }
