@@ -6,7 +6,7 @@
   <title>Streaming Ops Rota</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&family=Aptos+Narrow:wght@400;500;700&family=Roboto:wght@700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&family=Aptos+Narrow:wght@400;500;700&family=Roboto:wght@700&family=Inter+Tight:wght@400;700;800&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -22,6 +22,7 @@
       --ok:        #3fb950;
       --mono:      "Aptos Narrow", "Segoe UI", sans-serif;
       --display:   "Syne", sans-serif;
+      --numfont:   "Inter Tight", sans-serif;
       --mgmt:      #ac74d4;
       --eng:       #74b4d4;
       --spec:      #f0b359;
@@ -661,13 +662,15 @@
       text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;
     }
     .ov-card-big {
-      font-family: var(--display); font-weight: 800; font-size: 2.1rem;
-      line-height: 1; color: var(--text);
+      font-family: var(--numfont); font-weight: 800; font-size: 1.65rem;
+      line-height: 1.05; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      font-variant-numeric: tabular-nums;
     }
     .ov-card-big .unit { font-size: 1.1rem; font-weight: 700; margin-left: 3px; color: var(--muted); }
     .ov-card-sub { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); margin-top: 6px; }
     .ov-card-date { display: flex; align-items: baseline; gap: 8px; }
-    .ov-card-weekday { font-family: var(--display); font-weight: 800; font-size: 1.6rem; line-height: 1; }
+    .ov-card-weekday { font-family: var(--numfont); font-weight: 800; font-size: 1.3rem; line-height: 1; }
     .ov-card-daymonth { display: flex; flex-direction: column; line-height: 1.15; }
     .ov-card-daymonth .d { font-family: var(--mono); font-weight: 700; font-size: 0.85rem; }
     .ov-card-daymonth .m { font-family: var(--mono); font-size: 0.6rem; color: var(--muted); }
@@ -683,6 +686,15 @@
     .ov-tile-name { font-family: var(--mono); font-weight: 700; font-size: 0.78rem; margin-bottom: 8px; }
     .ov-tile-row { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 0.66rem; color: var(--muted); padding: 2px 0; }
     .ov-tile-row .v { color: var(--text); font-weight: 700; }
+    .al-dist-card { grid-column: 1 / -1; }
+    .al-dist-bars {
+      display: flex; align-items: flex-end; gap: 6px; height: 90px;
+      margin-top: 10px; padding-top: 4px;
+    }
+    .al-dist-bar { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+    .al-dist-bar .fill { width: 100%; background: var(--accent); border-radius: 3px 3px 0 0; min-height: 2px; }
+    .al-dist-bar .val   { font-family: var(--mono); font-size: 0.58rem; color: var(--muted); margin-bottom: 2px; }
+    .al-dist-bar .mth   { font-family: var(--mono); font-size: 0.56rem; color: var(--muted); margin-top: 4px; text-transform: uppercase; }
 
     .al-misc-row:last-child { border-bottom: none; }
     .al-misc-reason { flex: 1; color: var(--muted); }
@@ -5209,6 +5221,38 @@ function _removeCellFromBoxes(ri, ci) {
     </div>`;
   }
 
+  function _computeAlDistribution(name, year) {
+    const counts = new Array(12).fill(0);
+    _ovLeaveList
+      .filter(e => e.name === name && e.leave_type === 'Annual Leave' && e.status === 'Confirmed')
+      .forEach(e => {
+        let d = new Date(e.date_start + 'T00:00:00');
+        const end = new Date(e.date_end + 'T00:00:00');
+        while (d <= end) {
+          if (d.getFullYear() === year) counts[d.getMonth()]++;
+          d.setDate(d.getDate() + 1);
+        }
+      });
+    return counts;
+  }
+
+  function _renderAlDistributionCard(name, year) {
+    const counts = _computeAlDistribution(name, year);
+    const max = Math.max(1, ...counts);
+    const months = ['J','F','M','A','M','J','J','A','S','O','N','D'];
+    const bars = counts.map((c, i) => `
+      <div class="al-dist-bar">
+        <span class="val">${c || ''}</span>
+        <div class="fill" style="height:${(c / max) * 100}%;"></div>
+        <span class="mth">${months[i]}</span>
+      </div>`).join('');
+    return `
+      <div class="ov-card al-dist-card">
+        <div class="ov-card-label">AL Distribution — ${year}</div>
+        <div class="al-dist-bars">${bars}</div>
+      </div>`;
+  }
+
   function _fmtH(v) {
     const n = +v || 0;
     return `${n.toFixed(2)}h`;
@@ -5336,7 +5380,8 @@ function _removeCellFromBoxes(ri, ci) {
       name = myName;
       if (!name || !balances[name]) { el.innerHTML = '<div class="empty-state">No allowance data for this year yet.</div>'; return; }
     }
-    el.innerHTML = _renderAlCard(name, balances[name]);
+    const selYear = parseInt(document.getElementById('overview-year').value);
+    el.innerHTML = _renderAlCard(name, balances[name]) + _renderAlDistributionCard(name, selYear);
   }
 
   // ════════════════════════════════════════════════════════════════
