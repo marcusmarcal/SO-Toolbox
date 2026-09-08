@@ -5328,7 +5328,7 @@ function _removeCellFromBoxes(ri, ci) {
         <div class="ov-tile-name">${name}</div>
         <div class="ov-tile-row"><span>Remaining</span><span class="v">${_fmtH(b.remaining_confirmed_hours)}</span></div>
         <div class="ov-tile-row"><span>Booked</span><span class="v">${b.confirmed_used_hours.toFixed(0)}/${b.total_allowance_hours.toFixed(0)}h</span></div>
-        <div class="ov-tile-row"><span>Next Shift</span><span class="v">${ns ? _fmtDateShort(ns.date) : '—'}</span></div>
+        <div class="ov-tile-row"><span>Next Shift</span><span class="v">${ns ? `${ns.date.split('-').reverse().join('/')} | ${ns.shift}` : '—'}</span></div>
         <div class="ov-tile-row"><span>Next Leave</span><span class="v">${nl ? _fmtDateShort(nl.date) : '—'}</span></div>
       </div>`;
   }
