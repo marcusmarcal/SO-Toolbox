@@ -11,6 +11,25 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 ---
 
 ## [Unreleased]
+
+## [3.58.0] - 2026-09-08
+
+### Added
+
+- TXCore Manager: second cluster tab — **MAIN** (SRT) alongside the existing **STB** (multicast). Each tab has its own category picker/creator, bulk channel form, dry-run toggle and persisted form state; the active tab is remembered and can be pre-selected with `#stb` / `#main` in the URL.
+- TXCore Manager: MAIN channels are built with two SRT caller sources (protocol 6) — primary (priority 0) and optional backup (priority 1) — sharing the same port, incremented per channel from a configurable first port (default 8254). Source hosts offer the `SRT_SERVER_n` presets from `.env` with free-text override; picking a primary auto-pairs the backup with the same numeric suffix (e.g. INX03 → EQP03).
+- TXCore Manager: SRT encryption toggle (default on) using the server-side passphrase, plus an optional per-run passphrase override typed in a masked field that is never stored in the browser or on disk.
+- TXCore Manager: preview for SRT channels shows per-source addresses, priority dots and encryption state; warnings when no backup source is set, when an override passphrase is in use, or when no passphrase is available.
+- TXCore Manager: per-cluster configuration dot on each tab, header badge reflecting the active cluster, cluster label on preview/job panels and in the live-API confirmation dialog, and cluster tag (STB/MAIN) on running jobs in the proxy activity indicator.
+- routes_txcore.py: all endpoints accept a `cluster` selector (`stb` default, `main`) via JSON body or `?cluster=` query string; separate bearer token, base URL and HTTP session per cluster. `GET /api/txcore/status` now returns `default_cluster` and a `clusters` map (per-cluster token/url flags, geofence flags for STB, `srt_passphrase_set` and `srt_source_presets` for MAIN) while keeping the legacy top-level STB fields.
+- routes_txcore.py: new `.env` keys `BEARER_TOKEN_MAIN`, `APIURLMAIN` and `INTERNALSRTPASSPHRASE` (falls back to `SRT_PASSPHRASE`); `SRT_SERVER_n=IP|Label` entries are reused as SRT source presets.
+
+### Changed
+
+- TXCore Manager: form field ids are now prefixed per cluster and the localStorage key moved to `txcore-manager-form-v3`; previously saved STB form values are not migrated and will fall back to defaults once.
+- routes_txcore.py: SRT passphrases are redacted from preview responses and from every request body persisted in the job files; the override never enters the stored job params. Job ids are validated before touching the filesystem. Preview responses include `cluster`, `mode` and, for SRT, `passphrase_source` (`env` / `override` / `missing`).
+- routes_txcore.py: channel creation on MAIN is refused with HTTP 400 when encryption is on and neither `INTERNALSRTPASSPHRASE` nor an override is available; SRT port range is validated so `first_port + count - 1` stays within 65535 and backup host must differ from primary.
+
 ## [3.57.0] - 2026-09-08
 
 ### Added
