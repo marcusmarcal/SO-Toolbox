@@ -888,6 +888,32 @@
     .print-footer-logos-col img.print-logo {
       max-height: 16mm; max-width: 100%; object-fit: contain;
     }
+
+    /* ── SHIFT REGISTRY ── */
+    .shift-reg-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 0.75rem; }
+    .shift-reg-table th { font-size: 0.62rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; padding: 6px 14px 6px 10px; text-align: left; border-bottom: 1px solid var(--border); font-weight: 700; white-space: nowrap; }
+    .shift-reg-table td { padding: 8px 14px 8px 10px; border-bottom: 1px solid #252525; vertical-align: middle; }
+    .shift-reg-table tr:last-child td { border-bottom: none; }
+    .shift-color-swatch { display: inline-block; width: 32px; height: 18px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.15); vertical-align: middle; }
+    .alias-pill { display: inline-flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 0.58rem; font-weight: 700; padding: 2px 8px; border-radius: 12px; background: rgba(161,139,245,0.12); border: 1px solid rgba(161,139,245,0.3); color: var(--accent); margin-right: 4px; }
+    .alias-pill .alias-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.7rem; padding: 0 0 0 4px; line-height: 1; }
+    .alias-pill .alias-del:hover { color: var(--danger); }
+    .shift-reg-flow { display: flex; flex-direction: column; gap: 16px; max-width: 540px; }
+    .shift-reg-flow .flow-step { display: flex; flex-direction: column; gap: 6px; }
+    .shift-reg-flow .flow-step label { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+    .shift-reg-flow input, .shift-reg-flow select { background: var(--card); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 0.78rem; padding: 7px 10px; border-radius: 6px; outline: none; transition: border-color 0.2s; }
+    .shift-reg-flow input:focus, .shift-reg-flow select:focus { border-color: var(--accent); }
+    .color-preview-row { display: flex; align-items: center; gap: 10px; }
+    .color-preview-cell { display: flex; align-items: center; justify-content: center; width: 90px; height: 28px; border-radius: 5px; font-family: var(--mono); font-size: 0.72rem; font-weight: 700; border: 1px solid rgba(255,255,255,0.1); }
+    .diff-summary-box { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; font-family: var(--mono); font-size: 0.72rem; line-height: 1.7; }
+    .diff-row { display: flex; gap: 8px; align-items: baseline; }
+    .diff-field { color: var(--muted); min-width: 110px; }
+    .diff-unchanged { color: var(--muted); font-size: 0.65rem; }
+    .diff-changed { color: var(--accent); }
+    .rotation-tag { display: inline-block; font-family: var(--mono); font-size: 0.5rem; font-weight: 700; padding: 1px 6px; border-radius: 3px; letter-spacing: 0.05em; margin-right: 3px; }
+    .rotation-tag.engineering { background: rgba(116,180,212,0.2); color: var(--eng); border: 1px solid rgba(116,180,212,0.3); }
+    .rotation-tag.specialist  { background: rgba(240,179,89,0.2);  color: var(--spec); border: 1px solid rgba(240,179,89,0.3); }
+    .rotation-tag.management  { background: rgba(172,116,212,0.2); color: var(--mgmt); border: 1px solid rgba(172,116,212,0.3); }
   </style>
 </head>
 <body>
@@ -1235,6 +1261,50 @@
       </div>
     </div>
 
+    <!-- CARD: Shifts -->
+    <div class="admin-card" id="admin-card-shifts">
+      <div class="admin-card-header">
+        <span class="admin-card-title">🕐 Shifts</span>
+        <div style="display:flex;gap:8px;">
+          <button class="btn primary" id="btn-shift-add-toggle" style="font-size:0.68rem;padding:5px 12px;">+ Add Shift</button>
+          <button class="btn" id="btn-shift-refresh" style="font-size:0.65rem;padding:4px 10px;">⟳ Refresh</button>
+        </div>
+      </div>
+
+      <!-- Add Shift form -->
+      <div id="shift-add-form" style="display:none;margin-bottom:20px;padding:16px;background:var(--bg);border-radius:8px;border:1px solid var(--border);">
+        <div class="shift-reg-flow">
+          <div class="flow-step">
+            <label>Shift code <span style="color:var(--muted);font-size:0.58rem;">— format HHMM-HHMM</span></label>
+            <input type="text" id="shift-add-code" placeholder="e.g. 0800-1700" maxlength="9" style="width:160px;" />
+          </div>
+          <div class="flow-step">
+            <label>Cell color</label>
+            <div class="color-preview-row">
+              <input type="color" id="shift-add-color" value="#7a7a7a" style="width:48px;height:32px;padding:2px;border-radius:5px;cursor:pointer;" />
+              <input type="color" id="shift-add-fg" value="#000000" style="width:48px;height:32px;padding:2px;border-radius:5px;cursor:pointer;" title="Text color" />
+              <div class="color-preview-cell" id="shift-add-preview">Preview</div>
+            </div>
+            <span style="font-family:var(--mono);font-size:0.58rem;color:var(--muted);">Left = background · Right = text color</span>
+          </div>
+          <div class="flow-step">
+            <label>Note <span style="color:var(--muted);font-size:0.58rem;">(optional)</span></label>
+            <input type="text" id="shift-add-note" placeholder="e.g. SOE early shift" style="max-width:340px;" />
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px;align-items:center;">
+          <button class="btn primary" id="btn-shift-add-submit" style="font-size:0.65rem;padding:5px 12px;">+ Add to Registry</button>
+          <button class="btn" id="btn-shift-add-cancel" style="font-size:0.65rem;padding:5px 12px;">Cancel</button>
+        </div>
+        <div id="shift-add-err" style="display:none;margin-top:8px;font-family:var(--mono);font-size:0.65rem;color:var(--danger);"></div>
+      </div>
+
+      <!-- Registry table -->
+      <div id="shift-registry-wrap">
+        <div class="loading-row"><div class="spinner"></div> Loading…</div>
+      </div>
+    </div>
+
     <!-- CARD: People -->
     <div class="admin-card" id="admin-card-people">
       <div class="admin-card-header">
@@ -1475,6 +1545,71 @@
 
   <!-- ── PRINT-ONLY ROTA (populated on demand, only visible via print CSS) ── -->
   <div id="print-rota-root"></div>
+
+  <!-- ── SHIFT EDIT MODAL ── -->
+  <div id="shift-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:600;align-items:center;justify-content:center;">
+    <div class="modal-card" style="width:480px;max-width:95vw;max-height:90vh;overflow-y:auto;">
+      <div class="modal-title" id="shift-edit-modal-title">Edit Shift</div>
+
+      <!-- Step 1: fields -->
+      <div id="shift-edit-step1">
+        <div class="shift-reg-flow">
+          <div class="flow-step">
+            <label>Current shift code</label>
+            <div id="shift-edit-current-code" style="font-family:var(--mono);font-size:1rem;font-weight:700;color:var(--text);"></div>
+          </div>
+
+          <!-- Color section (always shown) -->
+          <div style="padding:12px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
+            <div style="font-family:var(--mono);font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px;">Color (takes effect immediately for all rotation-derived cells)</div>
+            <div class="color-preview-row">
+              <input type="color" id="shift-edit-color" style="width:48px;height:32px;padding:2px;border-radius:5px;cursor:pointer;" />
+              <input type="color" id="shift-edit-fg" style="width:48px;height:32px;padding:2px;border-radius:5px;cursor:pointer;" title="Text color" />
+              <div class="color-preview-cell" id="shift-edit-preview">Preview</div>
+            </div>
+            <span style="font-family:var(--mono);font-size:0.58rem;color:var(--muted);">Left = background · Right = text color</span>
+          </div>
+
+          <!-- Time alias section -->
+          <div style="padding-top:12px;">
+            <div style="font-family:var(--mono);font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px;">Rename shift time (date-gated — past cells stay unchanged)</div>
+            <div class="flow-step" style="margin-bottom:10px;">
+              <label>New shift code <span style="color:var(--muted);font-size:0.58rem;">(leave blank to keep current time)</span></label>
+              <input type="text" id="shift-edit-new-code" placeholder="e.g. 0900-1900" maxlength="9" style="width:160px;" />
+            </div>
+            <div class="flow-step" id="shift-edit-effective-group" style="display:none;">
+              <label>Effective from <span style="color:var(--muted);font-size:0.58rem;">(must be future)</span></label>
+              <input type="date" id="shift-edit-effective-from" style="width:180px;" />
+            </div>
+            <div class="flow-step" id="shift-edit-inherit-group" style="display:none;margin-top:8px;">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <input type="checkbox" id="shift-edit-inherit-color" checked />
+                Inherit current color for renamed shift
+              </label>
+              <span style="font-family:var(--mono);font-size:0.58rem;color:var(--muted);">Uncheck to use the color picker value above for the new code.</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">
+          <button class="btn primary" id="btn-shift-edit-preview" style="font-size:0.65rem;padding:5px 12px;">Review Changes</button>
+          <button class="btn" id="btn-shift-edit-cancel" style="font-size:0.65rem;padding:5px 12px;margin-left:8px;">Cancel</button>
+        </div>
+        <div id="shift-edit-err" style="display:none;margin-top:8px;font-family:var(--mono);font-size:0.65rem;color:var(--danger);"></div>
+      </div>
+
+      <!-- Step 2: diff confirmation -->
+      <div id="shift-edit-step2" style="display:none;">
+        <div style="font-family:var(--mono);font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px;">Confirm changes</div>
+        <div class="diff-summary-box" id="shift-edit-diff"></div>
+        <div style="margin-top:14px;display:flex;gap:8px;">
+          <button class="btn primary" id="btn-shift-edit-confirm" style="font-size:0.65rem;padding:5px 12px;">Apply</button>
+          <button class="btn" id="btn-shift-edit-back" style="font-size:0.65rem;padding:5px 12px;">← Back</button>
+        </div>
+        <div id="shift-edit-confirm-err" style="display:none;margin-top:8px;font-family:var(--mono);font-size:0.65rem;color:var(--danger);"></div>
+      </div>
+    </div>
+  </div>
 
   <div id="toast"></div>
 
@@ -5328,7 +5463,7 @@ function _removeCellFromBoxes(ri, ci) {
         <div class="ov-tile-name">${name}</div>
         <div class="ov-tile-row"><span>Remaining</span><span class="v">${_fmtH(b.remaining_confirmed_hours)}</span></div>
         <div class="ov-tile-row"><span>Booked</span><span class="v">${b.confirmed_used_hours.toFixed(0)}/${b.total_allowance_hours.toFixed(0)}h</span></div>
-        <div class="ov-tile-row"><span>Next Shift</span><span class="v">${ns ? `${ns.date.split('-').reverse().join('/')} | ${ns.shift}` : '—'}</span></div>
+        <div class="ov-tile-row"><span>Next Shift</span><span class="v">${ns ? _fmtDateShort(ns.date) : '—'}</span></div>
         <div class="ov-tile-row"><span>Next Leave</span><span class="v">${nl ? _fmtDateShort(nl.date) : '—'}</span></div>
       </div>`;
   }
@@ -5428,6 +5563,9 @@ function _removeCellFromBoxes(ri, ci) {
       document.getElementById('admin-fb-status-filter').addEventListener('change', loadAdminFeedback);
       document.getElementById('btn-admin-fb-refresh').addEventListener('click', loadAdminFeedback);
     }
+
+    // ── Shifts card ───────────────────────────────────────────────────────
+    _setupShiftRegistry();
 
     loadAdminDirectory();
     loadAdminFeedback();
@@ -5941,6 +6079,391 @@ function _removeCellFromBoxes(ri, ci) {
       wrap.innerHTML = `<div class="empty-state">Failed to load: ${e.message}</div>`;
     }
   }
+  // ════════════════════════════════════════════════════════════════
+  //  SHIFT REGISTRY
+  // ════════════════════════════════════════════════════════════════
+  let _shiftRegSetup = false;
+  let _shiftRegData  = {};   // code → entry, last fetched
+  let _shiftEditTarget = null;  // code being edited
+
+  function _setupShiftRegistry() {
+    if (_shiftRegSetup) { loadShiftRegistry(); return; }
+    _shiftRegSetup = true;
+
+    // Add form toggle
+    document.getElementById('btn-shift-add-toggle').addEventListener('click', () => {
+      const form = document.getElementById('shift-add-form');
+      const open = form.style.display !== 'none';
+      form.style.display = open ? 'none' : '';
+      document.getElementById('btn-shift-add-toggle').textContent = open ? '+ Add Shift' : '✕ Cancel';
+    });
+    document.getElementById('btn-shift-add-cancel').addEventListener('click', () => {
+      document.getElementById('shift-add-form').style.display = 'none';
+      document.getElementById('btn-shift-add-toggle').textContent = '+ Add Shift';
+    });
+    document.getElementById('btn-shift-refresh').addEventListener('click', loadShiftRegistry);
+    document.getElementById('btn-shift-add-submit').addEventListener('click', submitAddShift);
+
+    // Add form color preview
+    const _syncAddPreview = () => {
+      const bg   = document.getElementById('shift-add-color').value;
+      const fg   = document.getElementById('shift-add-fg').value;
+      const prev = document.getElementById('shift-add-preview');
+      const code = document.getElementById('shift-add-code').value || 'Preview';
+      prev.style.background = bg;
+      prev.style.color      = fg;
+      prev.textContent      = code;
+    };
+    document.getElementById('shift-add-color').addEventListener('input', _syncAddPreview);
+    document.getElementById('shift-add-fg').addEventListener('input', _syncAddPreview);
+    document.getElementById('shift-add-code').addEventListener('input', _syncAddPreview);
+
+    // Edit modal wiring
+    document.getElementById('btn-shift-edit-cancel').addEventListener('click', _closeShiftEditModal);
+    document.getElementById('shift-edit-modal').addEventListener('click', e => {
+      if (e.target.id === 'shift-edit-modal') _closeShiftEditModal();
+    });
+
+    const _syncEditPreview = () => {
+      const bg   = document.getElementById('shift-edit-color').value;
+      const fg   = document.getElementById('shift-edit-fg').value;
+      const prev = document.getElementById('shift-edit-preview');
+      prev.style.background = bg;
+      prev.style.color      = fg;
+      prev.textContent      = _shiftEditTarget || 'Preview';
+    };
+    document.getElementById('shift-edit-color').addEventListener('input', _syncEditPreview);
+    document.getElementById('shift-edit-fg').addEventListener('input', _syncEditPreview);
+
+    // Show/hide effective-from + inherit when new_code is typed
+    document.getElementById('shift-edit-new-code').addEventListener('input', e => {
+      const hasCode = e.target.value.trim().length > 0;
+      document.getElementById('shift-edit-effective-group').style.display = hasCode ? '' : 'none';
+      document.getElementById('shift-edit-inherit-group').style.display   = hasCode ? '' : 'none';
+    });
+
+    // Set tomorrow as default effective-from
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+    document.getElementById('shift-edit-effective-from').value =
+      tomorrow.toISOString().split('T')[0];
+    document.getElementById('shift-edit-effective-from').min =
+      tomorrow.toISOString().split('T')[0];
+
+    document.getElementById('btn-shift-edit-preview').addEventListener('click', _shiftEditShowDiff);
+    document.getElementById('btn-shift-edit-back').addEventListener('click', () => {
+      document.getElementById('shift-edit-step1').style.display = '';
+      document.getElementById('shift-edit-step2').style.display = 'none';
+    });
+    document.getElementById('btn-shift-edit-confirm').addEventListener('click', _submitShiftEdit);
+
+    loadShiftRegistry();
+  }
+
+  async function loadShiftRegistry() {
+    const wrap = document.getElementById('shift-registry-wrap');
+    wrap.innerHTML = '<div class="loading-row"><div class="spinner"></div> Loading…</div>';
+    try {
+      const r = await fetch(`${PROXY}/rota/shifts`, { credentials: 'same-origin' });
+      const d = await r.json();
+      if (!d.ok) { wrap.innerHTML = `<div class="empty-state">Error: ${d.error}</div>`; return; }
+      _shiftRegData = d.shifts || {};
+      renderShiftRegistry();
+    } catch(e) {
+      wrap.innerHTML = `<div class="empty-state">Failed: ${e.message}</div>`;
+    }
+  }
+
+  function renderShiftRegistry() {
+    const wrap = document.getElementById('shift-registry-wrap');
+    const entries = Object.values(_shiftRegData)
+      .sort((a, b) => a.code.localeCompare(b.code));
+
+    if (!entries.length) {
+      wrap.innerHTML = '<div class="empty-state">No shifts registered yet.</div>';
+      return;
+    }
+
+    const rows = entries.map(e => {
+      const rotationTags = (e.in_rotation || []).map(r =>
+        `<span class="rotation-tag ${r}">${r}</span>`).join('');
+
+      const aliases = (e.aliases || []).map(a => {
+        const isPast = new Date(a.effective_from) <= new Date();
+        const delBtn = isPast ? '' :
+          `<button class="alias-del" data-code="${e.code}" data-alias="${a.id}" title="Delete alias">✕</button>`;
+        return `<span class="alias-pill">
+          → ${a.new_code} from ${_fmtDateShort(a.effective_from)}${delBtn}
+        </span>`;
+      }).join('');
+
+      const statusBadge = e.active === false
+        ? '<span class="status-badge Withdrawn">Inactive</span>'
+        : (e.implicit ? '<span class="status-badge Pending" title="Exists in rotation but not explicitly registered">Implicit</span>'
+                      : '<span class="status-badge Confirmed">Active</span>');
+
+      return `<tr data-shift-code="${e.code}">
+        <td>
+          <span class="shift-color-swatch" style="background:${e.color || '#7a7a7a'};"></span>
+          <span style="font-family:var(--mono);font-weight:700;margin-left:8px;">${e.code}</span>
+        </td>
+        <td>${rotationTags || '<span style="color:var(--muted);font-size:0.65rem;">registry only</span>'}</td>
+        <td>${aliases || '<span style="color:var(--muted);font-size:0.65rem;">—</span>'}</td>
+        <td>${statusBadge}</td>
+        <td style="white-space:nowrap;">
+          <button class="btn" data-shift-edit="${e.code}" style="font-size:0.6rem;padding:3px 8px;">✎ Edit</button>
+          ${e.active !== false
+            ? `<button class="btn warn" data-shift-toggle="${e.code}" data-active="false" style="font-size:0.6rem;padding:3px 8px;">🙈 Deactivate</button>`
+            : `<button class="btn approve" data-shift-toggle="${e.code}" data-active="true" style="font-size:0.6rem;padding:3px 8px;">👁 Activate</button>`
+          }
+        </td>
+      </tr>`;
+    }).join('');
+
+    wrap.innerHTML = `
+      <table class="shift-reg-table">
+        <thead><tr>
+          <th>Code</th><th>Rotation</th><th>Aliases</th><th>Status</th><th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+
+    wrap.querySelectorAll('[data-shift-edit]').forEach(b =>
+      b.addEventListener('click', () => openShiftEditModal(b.dataset.shiftEdit)));
+    wrap.querySelectorAll('[data-shift-toggle]').forEach(b =>
+      b.addEventListener('click', () => toggleShiftActive(b.dataset.shiftToggle, b.dataset.active === 'true')));
+    wrap.querySelectorAll('[data-alias]').forEach(b =>
+      b.addEventListener('click', () => deleteShiftAlias(b.dataset.code, b.dataset.alias)));
+  }
+
+  function openShiftEditModal(code) {
+    _shiftEditTarget = code;
+    const entry = _shiftRegData[code] || { code, color: '#7a7a7a', fg_color: '#000' };
+
+    document.getElementById('shift-edit-modal-title').textContent = `Edit shift — ${code}`;
+    document.getElementById('shift-edit-current-code').textContent = code;
+    document.getElementById('shift-edit-color').value = entry.color || '#7a7a7a';
+    document.getElementById('shift-edit-fg').value    = entry.fg_color || '#000000';
+    document.getElementById('shift-edit-new-code').value = '';
+    document.getElementById('shift-edit-effective-from').value =
+      new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    document.getElementById('shift-edit-inherit-color').checked = true;
+    document.getElementById('shift-edit-effective-group').style.display = 'none';
+    document.getElementById('shift-edit-inherit-group').style.display   = 'none';
+    document.getElementById('shift-edit-err').style.display = 'none';
+    document.getElementById('shift-edit-step1').style.display = '';
+    document.getElementById('shift-edit-step2').style.display = 'none';
+
+    // Sync preview
+    const prev = document.getElementById('shift-edit-preview');
+    prev.style.background = entry.color || '#7a7a7a';
+    prev.style.color      = entry.fg_color || '#000';
+    prev.textContent      = code;
+
+    document.getElementById('shift-edit-modal').style.display = 'flex';
+  }
+
+  function _closeShiftEditModal() {
+    document.getElementById('shift-edit-modal').style.display = 'none';
+    _shiftEditTarget = null;
+  }
+
+  function _shiftEditShowDiff() {
+    const code     = _shiftEditTarget;
+    const entry    = _shiftRegData[code] || { color: '#7a7a7a', fg_color: '#000' };
+    const newColor = document.getElementById('shift-edit-color').value;
+    const newFg    = document.getElementById('shift-edit-fg').value;
+    const newCode  = document.getElementById('shift-edit-new-code').value.trim();
+    const effFrom  = document.getElementById('shift-edit-effective-from').value;
+    const inherit  = document.getElementById('shift-edit-inherit-color').checked;
+    const errEl    = document.getElementById('shift-edit-err');
+
+    errEl.style.display = 'none';
+
+    const colorChanged = newColor !== (entry.color || '#7a7a7a') || newFg !== (entry.fg_color || '#000000');
+    const timeChanged  = !!newCode;
+
+    if (!colorChanged && !timeChanged) {
+      errEl.textContent = 'No changes detected — adjust the color or enter a new shift code.';
+      errEl.style.display = ''; return;
+    }
+    if (timeChanged && !newCode.match(/^\d{4}-\d{4}$/)) {
+      errEl.textContent = 'New shift code must be HHMM-HHMM format.';
+      errEl.style.display = ''; return;
+    }
+    if (timeChanged && !effFrom) {
+      errEl.textContent = 'Effective-from date is required when renaming shift time.';
+      errEl.style.display = ''; return;
+    }
+    if (timeChanged && new Date(effFrom) <= new Date()) {
+      errEl.textContent = 'Effective-from must be a future date.';
+      errEl.style.display = ''; return;
+    }
+
+    // Build diff HTML
+    const swatchOld = `<span class="shift-color-swatch" style="background:${entry.color || '#7a7a7a'};display:inline-block;vertical-align:middle;margin-right:4px;"></span>`;
+    const swatchNew = `<span class="shift-color-swatch" style="background:${newColor};display:inline-block;vertical-align:middle;margin-right:4px;"></span>`;
+
+    let diffHtml = '';
+    if (colorChanged) {
+      diffHtml += `<div class="diff-row"><span class="diff-field">Color</span><span class="diff-changed">${swatchOld}${entry.color} → ${swatchNew}${newColor} (immediate, all rotation cells)</span></div>`;
+    } else {
+      diffHtml += `<div class="diff-row"><span class="diff-field">Color</span><span class="diff-unchanged">unchanged — ${swatchOld}${entry.color}</span></div>`;
+    }
+
+    if (timeChanged) {
+      const aliasColor = inherit ? (entry.color || '#7a7a7a') : newColor;
+      diffHtml += `<div class="diff-row"><span class="diff-field">Shift time</span><span class="diff-changed">${code} → ${newCode} from ${_fmtDateShort(effFrom)}</span></div>`;
+      diffHtml += `<div class="diff-row"><span class="diff-field">Alias color</span><span class="diff-changed">${inherit ? 'inherited from current' : 'new color'}: <span class="shift-color-swatch" style="background:${aliasColor};display:inline-block;vertical-align:middle;"></span> ${aliasColor}</span></div>`;
+      diffHtml += `<div class="diff-row" style="margin-top:6px;"><span class="diff-field" style="color:var(--muted);font-size:0.62rem;">Note</span><span class="diff-unchanged">Future published overrides using ${code} on/after ${_fmtDateShort(effFrom)} will be rewritten to ${newCode}. Past cells and manual overrides are untouched.</span></div>`;
+    } else {
+      diffHtml += `<div class="diff-row"><span class="diff-field">Shift time</span><span class="diff-unchanged">unchanged — ${code}</span></div>`;
+    }
+
+    document.getElementById('shift-edit-diff').innerHTML = diffHtml;
+    document.getElementById('shift-edit-confirm-err').style.display = 'none';
+    document.getElementById('shift-edit-step1').style.display = 'none';
+    document.getElementById('shift-edit-step2').style.display = '';
+  }
+
+  async function _submitShiftEdit() {
+    const code    = _shiftEditTarget;
+    const entry   = _shiftRegData[code] || { color: '#7a7a7a', fg_color: '#000' };
+    const newColor = document.getElementById('shift-edit-color').value;
+    const newFg    = document.getElementById('shift-edit-fg').value;
+    const newCode  = document.getElementById('shift-edit-new-code').value.trim();
+    const effFrom  = document.getElementById('shift-edit-effective-from').value;
+    const inherit  = document.getElementById('shift-edit-inherit-color').checked;
+    const errEl    = document.getElementById('shift-edit-confirm-err');
+    errEl.style.display = 'none';
+
+    const body = {};
+    if (newColor !== (entry.color || '#7a7a7a') || newFg !== (entry.fg_color || '#000000')) {
+      body.color    = newColor;
+      body.fg_color = newFg;
+    }
+    if (newCode) {
+      body.new_code       = newCode;
+      body.effective_from = effFrom;
+      body.inherit_color  = inherit;
+    }
+
+    try {
+      const r = await fetch(`${PROXY}/rota/shifts/${encodeURIComponent(code)}`, {
+        method: 'PUT', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const d = await r.json();
+      if (!d.ok) {
+        errEl.textContent = d.error || 'Failed to apply changes';
+        errEl.style.display = ''; return;
+      }
+
+      // Push updated colors into frontend SHIFT_COLORS so render is instant
+      if (body.color) {
+        SHIFT_COLORS[code] = { bg: body.color, fg: body.fg_color || '#000' };
+      }
+      if (body.new_code && d.created_alias) {
+        const aliasColor = inherit ? (body.color || entry.color) : body.color;
+        SHIFT_COLORS[body.new_code] = { bg: aliasColor, fg: body.fg_color || '#000' };
+      }
+
+      _closeShiftEditModal();
+      toast(`Shift ${code} updated`, 'ok');
+      await loadShiftRegistry();
+
+      // Refresh rota grid so color change shows immediately
+      if (state.rotaData) {
+        state.rotaData = null;
+        state.draft.active ? loadDraftRota() : loadRota();
+      }
+    } catch(e) {
+      errEl.textContent = 'Network error: ' + e.message;
+      errEl.style.display = '';
+    }
+  }
+
+  async function submitAddShift() {
+    const code  = document.getElementById('shift-add-code').value.trim();
+    const color = document.getElementById('shift-add-color').value;
+    const fg    = document.getElementById('shift-add-fg').value;
+    const note  = document.getElementById('shift-add-note').value.trim();
+    const errEl = document.getElementById('shift-add-err');
+    errEl.style.display = 'none';
+
+    if (!code.match(/^\d{4}-\d{4}$/)) {
+      errEl.textContent = 'Code must be HHMM-HHMM format (e.g. 0800-1700).';
+      errEl.style.display = ''; return;
+    }
+
+    const r = await fetch(`${PROXY}/rota/shifts`, {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, color, fg_color: fg, note }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      SHIFT_COLORS[code] = { bg: color, fg };
+      document.getElementById('shift-add-code').value  = '';
+      document.getElementById('shift-add-note').value  = '';
+      document.getElementById('shift-add-color').value = '#7a7a7a';
+      document.getElementById('shift-add-fg').value    = '#000000';
+      document.getElementById('shift-add-preview').textContent = 'Preview';
+      document.getElementById('shift-add-form').style.display = 'none';
+      document.getElementById('btn-shift-add-toggle').textContent = '+ Add Shift';
+      toast(`Shift ${code} added`, 'ok');
+      await loadShiftRegistry();
+    } else {
+      errEl.textContent = d.error || 'Failed to add shift';
+      errEl.style.display = '';
+    }
+  }
+
+  async function toggleShiftActive(code, active) {
+    const label = active ? 'Activate' : 'Deactivate';
+    const confirmed = await uiConfirm(
+      `${label} Shift`,
+      active
+        ? `Mark ${code} as active? It will reappear in the shift picker.`
+        : `Mark ${code} as inactive? It will be hidden from the shift picker but historical data is untouched.`,
+      label,
+      active ? 'approve' : 'warn'
+    );
+    if (!confirmed) return;
+    const r = await fetch(`${PROXY}/rota/shifts/${encodeURIComponent(code)}/active`, {
+      method: 'PUT', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ active }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast(`${code} ${active ? 'activated' : 'deactivated'}`, 'ok');
+      await loadShiftRegistry();
+    } else {
+      await uiAlert(d.error || 'Failed to update');
+    }
+  }
+
+  async function deleteShiftAlias(code, aliasId) {
+    const confirmed = await uiConfirm(
+      'Delete Alias',
+      `Remove this pending alias for ${code}? The shift will continue to use its current code on and after the alias date.`,
+      'Delete', 'reject'
+    );
+    if (!confirmed) return;
+    const r = await fetch(
+      `${PROXY}/rota/shifts/${encodeURIComponent(code)}/alias/${aliasId}`,
+      { method: 'DELETE', credentials: 'same-origin' }
+    );
+    const d = await r.json();
+    if (d.ok) {
+      toast('Alias removed', 'ok');
+      await loadShiftRegistry();
+    } else {
+      await uiAlert(d.error || 'Failed to delete alias');
+    }
+  }
+
   </script>
 </body>
 </html>

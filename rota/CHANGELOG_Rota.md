@@ -1,5 +1,35 @@
 # Changelog — Rota App
 
+# Rota Changelog
+
+## [Unreleased] — Shift Registry
+
+### Added 09-09-2026
+- **`rota/shift_registry.json`** — new persistent file. Stores explicit shift definitions (code, color, fg_color, active state, aliases). Shifts present in rotation arrays but not explicitly registered are shown as "implicit" in the UI and auto-register on first edit.
+- **Shift alias system** — time-gated renaming of shift codes. An alias maps `old_code → new_code` from a future `effective_from` date. `_base_shift()` now checks the alias cache before returning, so all rotation-derived cells transparently use the new code from that date without touching the rotation arrays or any historical data.
+- **`_ALIAS_CACHE`** — in-memory sorted list rebuilt on every registry write and at import time. Zero overhead for days with no aliases.
+- **`_resolve_alias(code, date)`** — returns the effective code for (code, date), picking the latest alias whose `effective_from ≤ date`.
+- **`_alias_color_for(code, date)`** — returns (bg, fg) from the active alias, used by the frontend color map.
+- **`_migrate_published_overrides_for_alias()`** — on alias creation, rewrites `published_overrides.json` entries whose `shift == old_code` and `date >= effective_from`, **only for non-manual types** (skips `shift_change`, `al_toggle`, `al_remove`). Manual overrides are left as-is.
+- **Routes (all management-only)**:
+  - `GET /rota/shifts` — full registry + implicit rotation shifts, annotated with rotation membership
+  - `POST /rota/shifts` — add a new shift to the registry (registry only; does NOT modify rotation arrays)
+  - `PUT /rota/shifts/<code>` — edit color and/or create a time alias. Color change is immediate and retroactive for rotation-derived cells. Alias is date-gated.
+  - `PUT /rota/shifts/<code>/active` — toggle active/inactive (inactive = hidden from shift picker, no data deleted)
+  - `DELETE /rota/shifts/<code>/alias/<alias_id>` — delete a future alias (refuses if `effective_from` is today or past)
+- **Admin tab — Shifts card** (`🕐 Shifts`): registry table with color swatches, rotation membership tags, alias pills with delete, active/inactive toggle, Edit and Add flows.
+- **Edit flow**: two-step modal — fields then diff summary. Diff explicitly lists what changed and what was left unchanged, with a note on scope (color = immediate all rotation cells; time = date-gated, past cells untouched, published override migration noted).
+- **Add flow**: inline form with live color preview cell.
+
+### Changed
+- `_base_shift()` now runs alias resolution after computing the rotation index. `OFF` codes skip the lookup. All callers of `_base_shift()` (`_resolve_shift`, `_flanking_off_range`, `_effective_shift_for_hours`, weekend swap pattern matching) inherit alias resolution automatically.
+- File paths block: added `SHIFT_REGISTRY_FILE = os.path.join(ROTA_DIR, 'shift_registry.json')`.
+
+### Not changed (by design)
+- Rotation arrays (`SPECIALIST_ROTATION`, `ENGINEERING_ROTATION`, `MANAGEMENT_SHIFTS`) are read-only from the app. Adding/removing shifts from the cycle remains a manual backend operation. The UI surfaces a clear label ("registry only") for shifts not in any rotation.
+- Night hours tables (`SHIFT_NIGHT_MINUTES`, `SHIFT_TOTAL_MINUTES`, etc.) are unchanged. New/aliased codes that are not in those tables fall back to `_parse_raw_shift_minutes()` which computes all four values generically and correctly.
+- Past published overrides with the old code that are typed as `shift_change` (manual human edits) are not migrated — they represent intentional overrides on specific cells.
+
 ## [Unreleased]
 ### Added 08-09-2026
 - `/rota/next-shift` backend route — returns each person's next working shift
