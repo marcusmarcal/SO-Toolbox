@@ -228,167 +228,6 @@
         }
       }
 
-      /* ── PROXY ACTIVITY INDICATORS ── */
-      @keyframes pulse-activity {
-        0%, 100% { box-shadow: 0 0 0 0 rgba(0, 255, 160, 0.55); }
-        70% { box-shadow: 0 0 0 5px rgba(0, 255, 160, 0); }
-      }
-      .tool-activity {
-        display: none;
-        align-items: center;
-        gap: 3px;
-        font-family: var(--mono);
-        font-size: 0.5rem;
-        font-weight: 700;
-        color: #5dffb8;
-        flex-shrink: 0;
-      }
-      .tool-activity::before {
-        content: "";
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: #2ee59d;
-        animation: pulse-activity 1.6s ease-out infinite;
-      }
-      .tool-item.has-activity .tool-activity {
-        display: inline-flex;
-      }
-      #app.sidebar-collapsed .tool-activity {
-        display: none !important;
-      }
-      .welcome-card {
-        position: relative;
-      }
-      .welcome-card .wc-activity {
-        display: none;
-        position: absolute;
-        top: 8px;
-        right: 8px;
-        font-family: var(--mono);
-        font-size: 0.5rem;
-        font-weight: 700;
-        color: #5dffb8;
-        align-items: center;
-        gap: 3px;
-      }
-      .welcome-card .wc-activity::before {
-        content: "";
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: #2ee59d;
-        animation: pulse-activity 1.6s ease-out infinite;
-      }
-      .welcome-card.has-activity .wc-activity {
-        display: inline-flex;
-      }
-      .welcome-card.has-activity {
-        border-color: rgba(46, 229, 157, 0.45);
-      }
-      #proxy-activity-count {
-        display: none;
-        margin-left: 6px;
-        padding: 1px 6px;
-        border-radius: 10px;
-        background: rgba(46, 229, 157, 0.18);
-        color: #5dffb8;
-        font-size: 0.55rem;
-      }
-      #btn-proxy-mgmt.has-activity #proxy-activity-count {
-        display: inline-block;
-      }
-      #btn-proxy-mgmt.has-activity {
-        border-color: rgba(46, 229, 157, 0.5) !important;
-        color: #5dffb8 !important;
-      }
-      .pm-section-title {
-        font-family: var(--mono);
-        font-size: 0.6rem;
-        font-weight: 700;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        color: var(--muted);
-        margin: 1rem 0 0.5rem;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-      .pm-group {
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        margin-bottom: 6px;
-        overflow: hidden;
-      }
-      .pm-group-head {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 6px 10px;
-        background: var(--card);
-        font-family: var(--mono);
-        font-size: 0.66rem;
-        font-weight: 700;
-        color: var(--text);
-      }
-      .pm-group-head .pm-count {
-        margin-left: auto;
-        padding: 1px 7px;
-        border-radius: 10px;
-        background: rgba(46, 229, 157, 0.18);
-        color: #5dffb8;
-        font-size: 0.55rem;
-      }
-      .pm-job {
-        display: grid;
-        grid-template-columns: 76px 1fr auto;
-        gap: 8px;
-        padding: 5px 10px;
-        border-top: 1px solid var(--border);
-        font-family: var(--mono);
-        font-size: 0.6rem;
-        color: var(--muted);
-        align-items: center;
-      }
-      .pm-job .pm-kind {
-        color: #c9b8ff;
-        text-transform: uppercase;
-        font-size: 0.52rem;
-        letter-spacing: 0.05em;
-      }
-      .pm-job .pm-label {
-        color: var(--text);
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .pm-job .pm-meta {
-        font-size: 0.52rem;
-        white-space: nowrap;
-      }
-      .pm-job .pm-status {
-        padding: 1px 6px;
-        border-radius: 3px;
-        font-size: 0.5rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        background: rgba(46, 229, 157, 0.15);
-        color: #5dffb8;
-      }
-      .pm-job .pm-status.warn {
-        background: rgba(240, 165, 0, 0.15);
-        color: #f0c060;
-      }
-      .pm-empty {
-        font-family: var(--mono);
-        font-size: 0.65rem;
-        color: var(--muted);
-        padding: 10px 12px;
-        border: 1px dashed var(--border);
-        border-radius: 6px;
-        text-align: center;
-      }
-
       /* ── SIDEBAR ── */
       #sidebar {
         background: var(--surface);
@@ -1009,7 +848,8 @@
         display: none;
         position: fixed;
         inset: 0;
-        background: rgba(0, 0, 0, 0.6);
+        background: rgba(0, 0, 0, 0.65);
+        backdrop-filter: blur(2px);
         z-index: 300;
         align-items: center;
         justify-content: center;
@@ -1021,18 +861,21 @@
         background: var(--surface);
         border: 1px solid var(--border);
         border-radius: 12px;
-        padding: 1.5rem 2rem;
-        width: 560px;
-        max-width: 92vw;
-        max-height: 80vh;
-        overflow-y: auto;
-        box-shadow: 0 0 60px rgba(0, 0, 0, 0.6);
+        width: 820px;
+        max-width: 94vw;
+        max-height: 86vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        box-shadow: 0 0 60px rgba(0, 0, 0, 0.7);
       }
       .cl-header {
         display: flex;
-        justify-content: space-between;
         align-items: center;
-        margin-bottom: 1.2rem;
+        gap: 0.75rem;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
       }
       .cl-title {
         font-family: var(--mono);
@@ -1041,51 +884,210 @@
         letter-spacing: 0.12em;
         text-transform: uppercase;
         color: var(--accent);
+        white-space: nowrap;
       }
+      .cl-count {
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .cl-search {
+        flex: 1;
+        min-width: 120px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        padding: 5px 10px;
+        outline: none;
+      }
+      .cl-search:focus {
+        border-color: var(--accent);
+      }
+      .cl-btn,
       .cl-close {
         background: transparent;
         border: 1px solid var(--border);
         border-radius: 5px;
         color: var(--muted);
         font-family: var(--mono);
-        font-size: 0.65rem;
-        padding: 3px 10px;
+        font-size: 0.62rem;
+        padding: 4px 10px;
         cursor: pointer;
+        white-space: nowrap;
       }
+      .cl-btn:hover,
       .cl-close:hover {
         border-color: var(--accent);
         color: var(--accent);
       }
-      .cl-entry {
-        display: flex;
-        gap: 1rem;
-        padding: 0.5rem 0;
-        border-bottom: 1px solid var(--border);
-        align-items: baseline;
+      #cl-body {
+        overflow-y: auto;
+        padding: 0.5rem 1.25rem 1.25rem;
+        font-family: var(--mono);
       }
-      .cl-entry:last-child {
+      .cl-empty {
+        color: var(--muted);
+        font-size: 0.7rem;
+        padding: 2rem 0;
+        text-align: center;
+      }
+
+      /* release block */
+      .cl-release {
+        border-bottom: 1px solid var(--border);
+      }
+      .cl-release:last-child {
         border-bottom: none;
       }
-      .cl-version {
-        font-family: var(--mono);
+      .cl-release > summary {
+        list-style: none;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.7rem 0;
+        cursor: pointer;
+        user-select: none;
+      }
+      .cl-release > summary::-webkit-details-marker {
+        display: none;
+      }
+      .cl-release > summary::before {
+        content: "\25B8";
+        color: var(--muted);
         font-size: 0.7rem;
+        width: 0.8rem;
+        transition: transform 0.15s;
+      }
+      .cl-release[open] > summary::before {
+        transform: rotate(90deg);
+      }
+      .cl-version {
+        font-size: 0.72rem;
         font-weight: 700;
         color: var(--accent);
+        background: rgba(161, 139, 245, 0.12);
+        border: 1px solid rgba(161, 139, 245, 0.35);
+        border-radius: 5px;
+        padding: 2px 8px;
         white-space: nowrap;
-        min-width: 50px;
+      }
+      .cl-release.latest .cl-version {
+        background: var(--accent);
+        color: var(--bg);
+        border-color: var(--accent);
       }
       .cl-date {
-        font-family: var(--mono);
-        font-size: 0.62rem;
+        font-size: 0.64rem;
         color: var(--muted);
         white-space: nowrap;
-        min-width: 80px;
       }
-      .cl-desc {
-        font-family: var(--mono);
-        font-size: 0.68rem;
+      .cl-tag-latest {
+        font-size: 0.55rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--res-ok);
+        border: 1px solid var(--res-ok);
+        border-radius: 4px;
+        padding: 1px 6px;
+      }
+      .cl-stats {
+        margin-left: auto;
+        display: flex;
+        gap: 0.6rem;
+        font-size: 0.58rem;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .cl-stats b {
+        font-weight: 700;
+      }
+      .cl-release-body {
+        padding: 0 0 0.9rem 1.55rem;
+      }
+
+      /* sections */
+      .cl-section {
+        margin-top: 0.55rem;
+      }
+      .cl-section-title {
+        display: inline-block;
+        font-size: 0.56rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        padding: 2px 7px;
+        border-radius: 4px;
+        border: 1px solid currentColor;
+        margin-bottom: 0.35rem;
+      }
+      .cl-sub-title {
+        font-size: 0.62rem;
+        font-weight: 700;
         color: var(--text);
-        line-height: 1.5;
+        margin: 0.4rem 0 0.15rem;
+      }
+      .cl-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .cl-list .cl-list {
+        margin: 0.2rem 0 0.1rem 1.1rem;
+        border-left: 1px solid var(--border);
+        padding-left: 0.6rem;
+      }
+      .cl-item {
+        position: relative;
+        padding: 0.18rem 0 0.18rem 0.85rem;
+        font-size: 0.7rem;
+        line-height: 1.55;
+        color: #d4d4e4;
+      }
+      .cl-item::before {
+        content: "";
+        position: absolute;
+        left: 0.1rem;
+        top: 0.72rem;
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: var(--sec-color, var(--muted));
+      }
+      .cl-tool {
+        display: inline-block;
+        font-size: 0.58rem;
+        font-weight: 700;
+        color: var(--accent2);
+        background: rgba(250, 165, 26, 0.1);
+        border: 1px solid rgba(250, 165, 26, 0.35);
+        border-radius: 4px;
+        padding: 0 6px;
+        margin-right: 6px;
+        vertical-align: 1px;
+        white-space: nowrap;
+      }
+      .cl-item code {
+        font-family: var(--mono);
+        font-size: 0.64rem;
+        color: #e6e1ff;
+        background: rgba(255, 255, 255, 0.07);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 3px;
+        padding: 0 4px;
+      }
+      .cl-item mark {
+        background: rgba(250, 165, 26, 0.35);
+        color: inherit;
+        border-radius: 2px;
+        padding: 0 1px;
+      }
+      .cl-item a {
+        color: var(--accent);
       }
 
       #topbar .version {
@@ -1218,124 +1220,329 @@
         background: rgba(240, 165, 0, 0.07);
       }
 
+      /* ── README MODAL ── */
+      #readme-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(2px);
+        z-index: 300;
+        align-items: center;
+        justify-content: center;
+      }
+      #readme-modal.open {
+        display: flex;
+      }
+      .rm-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        width: 1080px;
+        max-width: 96vw;
+        height: 88vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        box-shadow: 0 0 60px rgba(0, 0, 0, 0.7);
+      }
+      .rm-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.9rem 1.25rem;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+      .rm-title {
+        font-family: var(--mono);
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--accent);
+        white-space: nowrap;
+      }
+      .rm-subtitle {
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .rm-spacer {
+        flex: 1;
+      }
+      .rm-btn {
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        padding: 4px 10px;
+        cursor: pointer;
+        white-space: nowrap;
+        text-decoration: none;
+      }
+      .rm-btn:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      .rm-body {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+      }
+      .rm-nav {
+        width: 230px;
+        flex-shrink: 0;
+        border-right: 1px solid var(--border);
+        overflow-y: auto;
+        padding: 0.9rem 0.6rem;
+        font-family: var(--mono);
+      }
+      .rm-nav a {
+        display: block;
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 0.64rem;
+        line-height: 1.35;
+        padding: 4px 8px 4px 10px;
+        border-left: 2px solid transparent;
+        border-radius: 0 4px 4px 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .rm-nav a.lvl-3 {
+        padding-left: 22px;
+        font-size: 0.6rem;
+      }
+      .rm-nav a:hover {
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.03);
+      }
+      .rm-nav a.active {
+        color: var(--accent);
+        border-left-color: var(--accent);
+        background: rgba(161, 139, 245, 0.08);
+      }
+      .rm-content {
+        flex: 1;
+        min-width: 0;
+        overflow-y: auto;
+        padding: 1.25rem 2rem 2.5rem;
+        scroll-behavior: smooth;
+      }
+      @media (max-width: 760px) {
+        .rm-nav {
+          display: none;
+        }
+        .rm-content {
+          padding: 1rem 1.1rem 2rem;
+        }
+      }
+
       /* ── README RENDERED MARKDOWN ── */
       .readme-rendered {
         font-family: var(--display);
-        font-size: 0.78rem;
-        color: var(--text);
-        line-height: 1.75;
+        font-size: 0.82rem;
+        color: #d4d4e4;
+        line-height: 1.7;
+        max-width: 780px;
+      }
+      .readme-rendered > :first-child {
+        margin-top: 0;
       }
       .readme-rendered h1 {
-        font-size: 1.25rem;
+        font-size: 1.45rem;
         font-weight: 800;
-        color: var(--accent);
-        margin: 0 0 0.6rem;
-        padding-bottom: 0.4rem;
-        border-bottom: 1px solid var(--border);
-        letter-spacing: 0.04em;
+        color: var(--text);
+        margin: 0 0 0.8rem;
+        letter-spacing: 0.02em;
       }
       .readme-rendered h2 {
-        font-size: 0.95rem;
+        font-family: var(--mono);
+        font-size: 0.8rem;
         font-weight: 700;
-        color: var(--text);
-        margin: 1.4rem 0 0.4rem;
-        padding-bottom: 0.25rem;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        color: var(--accent);
+        margin: 2.2rem 0 0.8rem;
+        padding-bottom: 0.4rem;
+        border-bottom: 1px solid var(--border);
         text-transform: uppercase;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.12em;
+        scroll-margin-top: 0.5rem;
       }
       .readme-rendered h3 {
-        font-size: 0.82rem;
+        font-size: 0.98rem;
+        font-weight: 700;
+        color: var(--text);
+        margin: 1.6rem 0 0.6rem;
+        scroll-margin-top: 0.5rem;
+      }
+      .readme-rendered h4 {
+        font-size: 0.86rem;
         font-weight: 700;
         color: #80c8ff;
-        margin: 1rem 0 0.25rem;
+        margin: 1.2rem 0 0.25rem;
+        scroll-margin-top: 0.5rem;
+      }
+      .readme-rendered h5,
+      .readme-rendered h6 {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: var(--muted);
+        margin: 0.9rem 0 0.2rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
       }
       .readme-rendered p {
-        margin: 0.4rem 0 0.7rem;
-        color: #c0c0d8;
+        margin: 0.35rem 0 0.75rem;
+      }
+      .readme-rendered h4 + p {
+        margin-top: 0;
+        color: var(--muted);
       }
       .readme-rendered ul,
       .readme-rendered ol {
-        margin: 0.3rem 0 0.7rem 1.2rem;
-        color: #c0c0d8;
+        margin: 0.3rem 0 0.8rem 1.25rem;
+        padding: 0;
+      }
+      .readme-rendered ul ul,
+      .readme-rendered ol ol,
+      .readme-rendered ul ol,
+      .readme-rendered ol ul {
+        margin: 0.15rem 0 0.2rem 1.1rem;
       }
       .readme-rendered li {
-        margin-bottom: 0.2rem;
+        margin-bottom: 0.22rem;
+      }
+      .readme-rendered li::marker {
+        color: var(--accent);
       }
       .readme-rendered code {
         font-family: var(--mono);
         font-size: 0.68rem;
-        background: rgba(0, 255, 200, 0.08);
-        color: var(--accent);
+        background: rgba(255, 255, 255, 0.07);
+        color: #e6e1ff;
         padding: 1px 5px;
         border-radius: 3px;
-        border: 1px solid rgba(0, 255, 200, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        white-space: nowrap;
       }
       .readme-rendered pre {
+        position: relative;
         background: var(--bg);
         border: 1px solid var(--border);
-        border-radius: 6px;
-        padding: 0.8rem 1rem;
+        border-radius: 8px;
+        padding: 0.9rem 1rem;
         overflow-x: auto;
-        margin: 0.6rem 0;
+        margin: 0.6rem 0 1rem;
       }
       .readme-rendered pre code {
         background: none;
         border: none;
         padding: 0;
-        color: #a0d8c8;
-        font-size: 0.68rem;
+        color: #b8e0d4;
+        font-size: 0.66rem;
+        line-height: 1.6;
+        white-space: pre;
+      }
+      .readme-rendered pre .rm-copy {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.55rem;
+        padding: 2px 7px;
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity 0.15s;
+      }
+      .readme-rendered pre:hover .rm-copy {
+        opacity: 1;
+      }
+      .readme-rendered pre .rm-copy:hover {
+        color: var(--accent);
+        border-color: var(--accent);
       }
       .readme-rendered blockquote {
         border-left: 3px solid var(--accent2);
-        margin: 0.5rem 0;
-        padding: 0.3rem 0.8rem;
-        background: rgba(123, 94, 167, 0.07);
-        border-radius: 0 4px 4px 0;
-        color: var(--muted);
-        font-style: italic;
+        margin: 0.6rem 0 1rem;
+        padding: 0.5rem 0.9rem;
+        background: rgba(250, 165, 26, 0.06);
+        border-radius: 0 6px 6px 0;
+        color: #c0c0d8;
+      }
+      .readme-rendered blockquote p {
+        margin: 0.15rem 0;
+      }
+      .readme-rendered blockquote ul {
+        margin: 0.2rem 0 0.2rem 1.1rem;
       }
       .readme-rendered hr {
         border: none;
         border-top: 1px solid var(--border);
-        margin: 1rem 0;
+        margin: 1.6rem 0;
       }
       .readme-rendered a {
         color: var(--accent);
         text-decoration: none;
+        border-bottom: 1px solid rgba(161, 139, 245, 0.35);
       }
       .readme-rendered a:hover {
-        text-decoration: underline;
+        border-bottom-color: var(--accent);
       }
       .readme-rendered strong {
         color: var(--text);
+        font-weight: 700;
       }
       .readme-rendered em {
         color: #b0b0cc;
-        font-style: italic;
+      }
+      .readme-rendered .rm-table {
+        overflow-x: auto;
+        margin: 0.6rem 0 1rem;
+        border: 1px solid var(--border);
+        border-radius: 8px;
       }
       .readme-rendered table {
         width: 100%;
         border-collapse: collapse;
-        font-family: var(--mono);
-        font-size: 0.65rem;
-        margin: 0.6rem 0;
+        font-size: 0.74rem;
       }
       .readme-rendered th {
         background: var(--card);
         color: var(--accent);
-        padding: 6px 10px;
-        border: 1px solid var(--border);
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 7px 12px;
         text-align: left;
-        letter-spacing: 0.06em;
+        border-bottom: 1px solid var(--border);
       }
       .readme-rendered td {
-        padding: 5px 10px;
-        border: 1px solid var(--border);
-        color: #c0c0d8;
+        padding: 6px 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        vertical-align: top;
+      }
+      .readme-rendered tr:last-child td {
+        border-bottom: none;
       }
       .readme-rendered tr:nth-child(even) td {
         background: rgba(255, 255, 255, 0.02);
+      }
+      .readme-rendered .rm-error {
+        color: #ffb3be;
+        font-family: var(--mono);
+        font-size: 0.7rem;
       }
 
       [data-tip] {
@@ -1433,13 +1640,13 @@
           ⟳ Update
         </button>
         <button
-          id="btn-proxy-mgmt"
+          id="btn-restart-proxy"
           class="git-pull-btn"
-          data-tip="Proxy Management — active jobs &amp; restart"
-          onclick="openProxyMgmt()"
+          data-tip="Restart proxy service"
+          onclick="openRestartConfirm()"
           style="border-color: rgba(255, 78, 106, 0.4); color: #ffb3be"
         >
-          ⚙ Proxy Management<span id="proxy-activity-count">0</span>
+          ⏻ Restart Proxy
         </button>
         <button
           class="git-pull-btn"
@@ -1558,20 +1765,21 @@
     <div id="changelog-modal">
       <div class="cl-card">
         <div class="cl-header">
-          <div class="cl-title">SP SO Web Toolbox — Changelog</div>
+          <div class="cl-title">Changelog</div>
+          <span class="cl-count" id="cl-count"></span>
+          <input
+            type="search"
+            class="cl-search"
+            id="cl-search"
+            placeholder="Filter by tool, version or keyword&hellip;"
+            autocomplete="off"
+          />
+          <button class="cl-btn" id="cl-toggle-all" onclick="toggleAllChangelog()">
+            Expand all
+          </button>
           <button class="cl-close" onclick="closeChangelog()">Close</button>
         </div>
-        <div
-          id="cl-body"
-          style="
-            color: var(--muted);
-            font-family: var(--mono);
-            font-size: 0.65rem;
-            padding: 12px;
-          "
-        >
-          Loading changelog…
-        </div>
+        <div id="cl-body"><div class="cl-empty">Loading changelog…</div></div>
       </div>
     </div>
 
@@ -1584,9 +1792,9 @@
       </div>
     </div>
 
-    <!-- ── Proxy Management Modal ─────────────────────────── -->
+    <!-- ── Restart Confirm Modal ──────────────────────────── -->
     <div
-      id="proxy-mgmt-modal"
+      id="restart-modal"
       style="
         display: none;
         position: fixed;
@@ -1597,289 +1805,353 @@
         justify-content: center;
       "
     >
-      <div class="git-card" style="max-width: 620px; width: 620px">
+      <div class="git-card" style="max-width: 440px">
+        <div class="git-card-title" style="color: #ffb3be">
+          ⏻ Restart Proxy Service
+        </div>
         <div
-          class="git-card-title"
-          style="display: flex; align-items: center; gap: 10px"
+          style="
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            color: var(--text);
+            line-height: 1.7;
+            margin-bottom: 1rem;
+          "
         >
-          <span>⚙ Proxy Management</span>
-          <span
-            id="pm-refreshed"
-            style="
-              margin-left: auto;
-              font-size: 0.55rem;
-              letter-spacing: 0;
-              text-transform: none;
-              color: var(--muted);
-              font-weight: 400;
-            "
-          ></span>
+          ⚠ Restarting the proxy will
+          <strong style="color: #ffb3be">immediately terminate</strong> all
+          running background jobs:<br /><br />
+          <span style="color: var(--muted)"
+            >• MTR traces in progress<br />• Ingest analyses in progress</span
+          ><br /><br />
+          Are you sure you want to continue?
+        </div>
+        <div
+          style="
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            flex-wrap: wrap;
+          "
+        >
           <button
-            class="git-close-btn"
-            style="padding: 2px 10px; font-size: 0.6rem"
-            onclick="_fetchProxyActivity(true)"
-            data-tip="Refresh now"
+            onclick="confirmRestart()"
+            style="
+              background: #ff4e6a;
+              border: none;
+              border-radius: 6px;
+              color: #fff;
+              font-family: var(--mono);
+              font-size: 0.7rem;
+              font-weight: 700;
+              padding: 6px 16px;
+              cursor: pointer;
+            "
           >
-            ↻
+            Yes, Restart
+          </button>
+          <button onclick="closeRestartConfirm()" class="git-close-btn">
+            Cancel
           </button>
         </div>
-
-        <div class="pm-section-title">
-          Active proxy jobs
-          <span id="pm-total" class="pm-count" style="padding: 1px 7px; border-radius: 10px; background: rgba(46,229,157,.18); color: #5dffb8; font-size: .55rem"></span>
-        </div>
         <div
-          id="proxy-activity-list"
-          style="max-height: 40vh; overflow-y: auto; margin-bottom: 0.5rem"
-        >
-          <div class="pm-empty">Loading…</div>
-        </div>
-
-        <div id="pm-restart-section">
-          <div class="pm-section-title" style="color: #ffb3be">
-            Restart proxy service
-          </div>
-          <div
-            style="
-              font-family: var(--mono);
-              font-size: 0.68rem;
-              color: var(--text);
-              line-height: 1.7;
-              margin-bottom: 0.6rem;
-            "
-          >
-            ⚠ Restarting the proxy will
-            <strong style="color: #ffb3be">immediately terminate</strong>
-            <span id="pm-restart-impact">all running background jobs</span>.
-          </div>
-          <div
-            style="
-              display: flex;
-              gap: 0.5rem;
-              align-items: center;
-              flex-wrap: wrap;
-            "
-          >
-            <button
-              id="pm-restart-btn"
-              onclick="armRestart()"
-              style="
-                background: transparent;
-                border: 1px solid rgba(255, 78, 106, 0.5);
-                border-radius: 6px;
-                color: #ffb3be;
-                font-family: var(--mono);
-                font-size: 0.7rem;
-                font-weight: 700;
-                padding: 6px 16px;
-                cursor: pointer;
-              "
-            >
-              ⏻ Restart Proxy…
-            </button>
-            <button
-              id="pm-restart-confirm-btn"
-              onclick="confirmRestart()"
-              style="
-                display: none;
-                background: #ff4e6a;
-                border: none;
-                border-radius: 6px;
-                color: #fff;
-                font-family: var(--mono);
-                font-size: 0.7rem;
-                font-weight: 700;
-                padding: 6px 16px;
-                cursor: pointer;
-              "
-            >
-              Yes, restart now
-            </button>
-            <button
-              id="pm-restart-cancel-btn"
-              onclick="disarmRestart()"
-              class="git-close-btn"
-              style="display: none"
-            >
-              Cancel
-            </button>
-          </div>
-          <div
-            id="restart-pw-err"
-            style="
-              font-family: var(--mono);
-              font-size: 0.65rem;
-              color: #ffb3be;
-              margin-top: 0.4rem;
-              min-height: 1em;
-            "
-          ></div>
-          <div
-            id="restart-output"
-            style="display: none; margin-top: 0.6rem"
-            class="git-output"
-          ></div>
-        </div>
-
-        <div style="display: flex; justify-content: flex-end; margin-top: 0.8rem">
-          <button onclick="closeProxyMgmt()" class="git-close-btn">Close</button>
-        </div>
+          id="restart-pw-err"
+          style="
+            font-family: var(--mono);
+            font-size: 0.65rem;
+            color: #ffb3be;
+            margin-top: 0.4rem;
+            min-height: 1em;
+          "
+        ></div>
+        <div
+          id="restart-output"
+          style="display: none; margin-top: 1rem"
+          class="git-output"
+        ></div>
       </div>
     </div>
 
     <!-- ── README Modal ────────────────────────────────────── -->
-    <div
-      id="readme-modal"
-      style="
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.7);
-        z-index: 300;
-        align-items: center;
-        justify-content: center;
-      "
-    >
-      <div
-        class="git-card"
-        style="
-          width: 700px;
-          max-width: 94vw;
-          max-height: 85vh;
-          display: flex;
-          flex-direction: column;
-        "
-      >
-        <div
-          style="
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-            flex-shrink: 0;
-          "
-        >
-          <div class="git-card-title" style="margin: 0">
-            📖 README — SP SO Web Toolbox
-          </div>
-          <button class="git-close-btn" onclick="closeReadme()">Close</button>
+    <div id="readme-modal">
+      <div class="rm-card">
+        <div class="rm-header">
+          <div class="rm-title">README</div>
+          <div class="rm-subtitle" id="rm-subtitle">SP SO Web Toolbox</div>
+          <div class="rm-spacer"></div>
+          <a class="rm-btn" href="README.md" target="_blank" rel="noopener">Open raw</a>
+          <button class="rm-btn" onclick="closeReadme()">Close</button>
         </div>
-        <div
-          id="readme-content"
-          class="readme-rendered"
-          style="flex: 1; overflow-y: auto; padding-right: 4px"
-        >
-          Loading...
+        <div class="rm-body">
+          <nav class="rm-nav" id="readme-nav"></nav>
+          <div class="rm-content" id="readme-scroll">
+            <div id="readme-content" class="readme-rendered">Loading&hellip;</div>
+          </div>
         </div>
       </div>
     </div>
 
     <script>
       // ── Changelog: load from CHANGELOG.md ─────────────────────────
+      // Parses Keep a Changelog markdown into structured releases and
+      // renders them as collapsible blocks with per-tool chips, section
+      // colours, inline code/bold/link formatting and a live filter.
       let _changelogLoaded = false;
+      let _changelogEntries = [];
+      const CL_EXPANDED_BY_DEFAULT = 3; // latest N releases start open
+
       async function loadChangelog() {
         if (_changelogLoaded) return;
         try {
           const r = await fetch("CHANGELOG.md", { cache: "no-cache" });
           if (!r.ok) throw new Error("not found");
           const md = await r.text();
-          parseAndRenderChangelog(md);
+          _changelogEntries = parseChangelog(md);
+          const latest = _changelogEntries.find((e) => e.date);
+          if (latest) {
+            document.getElementById("app-version").textContent =
+              "v" + latest.ver;
+          }
+          renderChangelog();
           _changelogLoaded = true;
         } catch {
-          document.getElementById("cl-body").textContent =
-            "Could not load CHANGELOG.md";
+          document.getElementById("cl-body").innerHTML =
+            '<div class="cl-empty">Could not load CHANGELOG.md</div>';
         }
       }
 
-      function parseAndRenderChangelog(md) {
-        // Extract version entries: ## [x.y.z] - YYYY-MM-DD
-        const versionRe = /^## \[([^\]]+)\] - (\d{4}-\d{2}-\d{2})/;
+      // ── Parser ──
+      function parseChangelog(md) {
+        const versionRe = /^## \[([^\]]+)\](?:\s*-\s*(\d{4}-\d{2}-\d{2}))?/;
         const sectionRe = /^### (.+)/;
-        const itemRe = /^- (.+)/;
+        const subRe = /^#### (.+)/;
+        const itemRe = /^(\s*)- (.+)/;
 
-        const lines = md.split(/\r?\n/);
         const entries = [];
-        let cur = null;
-        let curSection = null;
+        let cur = null; // current release
+        let curSection = null; // { name, items: [] }
+        let itemStack = []; // [{ depth, node }]
 
-        for (const line of lines) {
+        function pushSection(name) {
+          curSection = { name, items: [], sub: null };
+          cur.sections.push(curSection);
+          itemStack = [];
+        }
+
+        for (const raw of md.split(/\r?\n/)) {
+          const line = raw.replace(/\s+$/, "");
           const vm = line.match(versionRe);
           if (vm) {
-            if (cur) entries.push(cur);
-            cur = { ver: vm[1], date: vm[2], sections: {} };
+            cur = { ver: vm[1], date: vm[2] || null, sections: [] };
+            entries.push(cur);
             curSection = null;
+            itemStack = [];
             continue;
           }
           if (!cur) continue;
+
           const sm = line.match(sectionRe);
           if (sm) {
-            curSection = sm[1];
-            cur.sections[curSection] = [];
+            pushSection(sm[1].trim());
+            continue;
+          }
+          const subm = line.match(subRe);
+          if (subm && curSection) {
+            // "#### Tool" grouping inside a section → treated as a label item
+            curSection.items.push({ text: subm[1].trim(), children: [], label: true });
+            itemStack = [];
             continue;
           }
           const im = line.match(itemRe);
           if (im && curSection) {
-            cur.sections[curSection].push(im[1]);
+            const depth = Math.floor(im[1].replace(/\t/g, "  ").length / 2);
+            const node = { text: im[2].trim(), children: [] };
+            while (itemStack.length && itemStack[itemStack.length - 1].depth >= depth) {
+              itemStack.pop();
+            }
+            if (itemStack.length) {
+              itemStack[itemStack.length - 1].node.children.push(node);
+            } else {
+              curSection.items.push(node);
+            }
+            itemStack.push({ depth, node });
             continue;
           }
-          // Wrapped continuation line of the previous bullet (indented,
-          // no leading "- "): append it instead of silently dropping it.
-          if (curSection && line.trim() && cur.sections[curSection].length) {
-            const items = cur.sections[curSection];
-            items[items.length - 1] += " " + line.trim();
+          // Wrapped continuation line → append to the last bullet
+          if (curSection && line.trim() && itemStack.length) {
+            itemStack[itemStack.length - 1].node.text += " " + line.trim();
           }
         }
-        if (cur) entries.push(cur);
+        // Drop empty releases (e.g. an empty [Unreleased] block)
+        return entries.filter((e) => e.sections.some((s) => s.items.length));
+      }
 
-        // Set version from first entry
-        if (entries.length) {
-          document.getElementById("app-version").textContent =
-            "v" + entries[0].ver;
+      // ── Rendering helpers ──
+      const CL_SECTION_COLORS = {
+        Added: "#3fb950",
+        Changed: "#4ea8ff",
+        Fixed: "#faa51a",
+        Removed: "#ff4e6a",
+        Security: "#c678dd",
+        Deprecated: "#9b9b9b",
+      };
+      const clEsc = (s) =>
+        String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+
+      // Escapes HTML, then applies inline markdown: `code`, **bold**, [text](url)
+      function clInline(text, hl) {
+        let s = clEsc(text);
+        const codes = [];
+        s = s.replace(/`([^`]+)`/g, (_, c) => {
+          codes.push(c);
+          return "\u0000" + (codes.length - 1) + "\u0000";
+        });
+        s = s.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+        s = s.replace(
+          /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,
+          '<a href="$2" target="_blank" rel="noopener">$1</a>'
+        );
+        if (hl) s = clHighlight(s, hl);
+        s = s.replace(/\u0000(\d+)\u0000/g, (_, i) => {
+          let c = codes[+i];
+          if (hl) c = clHighlight(c, hl);
+          return "<code>" + c + "</code>";
+        });
+        return s;
+      }
+
+      function clHighlight(escapedText, needle) {
+        const n = clEsc(needle).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return escapedText.replace(new RegExp("(" + n + ")", "gi"), "<mark>$1</mark>");
+      }
+
+      // Detect a leading "Tool Name:" prefix and split it from the body
+      const CL_TOOL_RE = /^([A-Za-z][A-Za-z0-9 &/.+\-]{1,34}?):\s+(.*)$/;
+      function clSplitTool(text) {
+        const m = text.match(CL_TOOL_RE);
+        if (!m) return { tool: null, body: text };
+        return { tool: m[1].trim(), body: m[2] };
+      }
+
+      function clRenderItems(items, hl) {
+        let html = '<ul class="cl-list">';
+        for (const it of items) {
+          if (it.label) {
+            html += `<div class="cl-sub-title">${clInline(it.text, hl)}</div>`;
+            continue;
+          }
+          const { tool, body } = clSplitTool(it.text);
+          html += '<li class="cl-item">';
+          if (tool) html += `<span class="cl-tool">${clInline(tool, hl)}</span>`;
+          html += clInline(body, hl);
+          if (it.children.length) html += clRenderItems(it.children, hl);
+          html += "</li>";
+        }
+        return html + "</ul>";
+      }
+
+      function clCountItems(items) {
+        return items.reduce((n, it) => n + (it.label ? 0 : 1 + clCountItems(it.children)), 0);
+      }
+
+      function clEntryMatches(e, q) {
+        if (!q) return true;
+        if (("v" + e.ver).toLowerCase().includes(q) || e.ver.toLowerCase().includes(q)) return true;
+        if (e.date && e.date.includes(q)) return true;
+        const walk = (items) =>
+          items.some(
+            (it) => it.text.toLowerCase().includes(q) || walk(it.children || [])
+          );
+        return e.sections.some((s) => s.name.toLowerCase().includes(q) || walk(s.items));
+      }
+
+      function renderChangelog() {
+        const q = (document.getElementById("cl-search").value || "").trim().toLowerCase();
+        const body = document.getElementById("cl-body");
+        const visible = _changelogEntries.filter((e) => clEntryMatches(e, q));
+
+        document.getElementById("cl-count").textContent =
+          q ? `${visible.length} / ${_changelogEntries.length} releases` : `${_changelogEntries.length} releases`;
+
+        if (!visible.length) {
+          body.innerHTML = '<div class="cl-empty">No entries match your filter.</div>';
+          return;
         }
 
-        // Render modal
-        const sectionColors = {
-          Added: "#00ffc8",
-          Fixed: "#f0a500",
-          Changed: "#4ea8ff",
-          Removed: "#ff4e6a",
-        };
         let html = "";
-        for (const e of entries) {
-          const parts = Object.entries(e.sections)
-            .map(([sec, items]) => {
-              const col = sectionColors[sec] || "#e8e8f0";
-              return (
-                `<div style="margin-top:5px"><span style="font-family:var(--mono);font-size:.54rem;font-weight:700;color:${col};text-transform:uppercase;letter-spacing:.1em">${sec}</span>` +
-                items
-                  .map(
-                    (i) =>
-                      `<div style="font-family:var(--mono);font-size:.6rem;color:#c0c0d8;padding-left:8px;margin-top:2px">· ${i}</div>`
-                  )
-                  .join("") +
-                `</div>`
-              );
+        visible.forEach((e, idx) => {
+          const isLatest = e === _changelogEntries[0];
+          const open = q || idx < CL_EXPANDED_BY_DEFAULT ? " open" : "";
+          const stats = e.sections
+            .map((s) => {
+              const col = CL_SECTION_COLORS[s.name] || "var(--muted)";
+              return `<span style="color:${col}"><b>${clCountItems(s.items)}</b> ${clEsc(s.name.toLowerCase())}</span>`;
             })
             .join("");
-          html += `<div class="cl-entry"><div class="cl-version">v${e.ver}</div><div class="cl-date">${e.date}</div><div class="cl-desc" style="padding:0">${parts}</div></div>`;
-        }
-        document.getElementById("cl-body").innerHTML =
-          html || "No entries found.";
+          let sections = "";
+          for (const s of e.sections) {
+            if (!s.items.length) continue;
+            const col = CL_SECTION_COLORS[s.name] || "var(--muted)";
+            sections +=
+              `<div class="cl-section" style="--sec-color:${col}">` +
+              `<div class="cl-section-title" style="color:${col}">${clEsc(s.name)}</div>` +
+              clRenderItems(s.items, q) +
+              `</div>`;
+          }
+          html +=
+            `<details class="cl-release${isLatest ? " latest" : ""}"${open}>` +
+            `<summary>` +
+            `<span class="cl-version">v${clEsc(e.ver)}</span>` +
+            `<span class="cl-date">${e.date ? clEsc(e.date) : "unreleased"}</span>` +
+            (isLatest ? '<span class="cl-tag-latest">latest</span>' : "") +
+            `<span class="cl-stats">${stats}</span>` +
+            `</summary>` +
+            `<div class="cl-release-body">${sections}</div>` +
+            `</details>`;
+        });
+        body.innerHTML = html;
+        updateToggleAllLabel();
+      }
+
+      function toggleAllChangelog() {
+        const all = document.querySelectorAll("#cl-body .cl-release");
+        const anyClosed = Array.from(all).some((d) => !d.open);
+        all.forEach((d) => (d.open = anyClosed));
+        updateToggleAllLabel();
+      }
+      function updateToggleAllLabel() {
+        const all = document.querySelectorAll("#cl-body .cl-release");
+        const anyClosed = Array.from(all).some((d) => !d.open);
+        document.getElementById("cl-toggle-all").textContent = anyClosed
+          ? "Expand all"
+          : "Collapse all";
       }
 
       function openChangelog() {
         loadChangelog(); // ensure loaded (noop if already done)
         document.getElementById("changelog-modal").classList.add("open");
+        setTimeout(() => document.getElementById("cl-search").focus(), 50);
       }
       function closeChangelog() {
         document.getElementById("changelog-modal").classList.remove("open");
       }
-      // Close on backdrop click
+      // Close on backdrop click / Escape
       document
         .getElementById("changelog-modal")
         .addEventListener("click", function (e) {
           if (e.target === this) closeChangelog();
         });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && document.getElementById("changelog-modal").classList.contains("open")) {
+          closeChangelog();
+        }
+      });
+      document.getElementById("cl-search").addEventListener("input", renderChangelog);
+      document.getElementById("cl-body").addEventListener("toggle", updateToggleAllLabel, true);
 
       // ── Sidebar collapsed tooltip ─────────────────────────────
       (function () {
@@ -2034,196 +2306,18 @@
         document.getElementById("git-modal").classList.remove("open");
       }
 
-      // ── Proxy Management (active jobs + restart) ───────────────────
-      const ACTIVITY_POLL_MS = 5000;
-      let _proxyActivity = null; // last payload from /proxy/activity
-      let _restartArmed = false;
-
-      function _esc(s) {
-        return String(s == null ? "" : s)
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;");
-      }
-
-      function _fmtElapsed(s) {
-        if (s == null || isNaN(s)) return "";
-        s = Math.max(0, Math.floor(s));
-        const h = Math.floor(s / 3600),
-          m = Math.floor((s % 3600) / 60),
-          sec = s % 60;
-        if (h) return `${h}h ${String(m).padStart(2, "0")}m`;
-        if (m) return `${m}m ${String(sec).padStart(2, "0")}s`;
-        return `${sec}s`;
-      }
-
-      // Match an activity group against a TOOL_n entry (id/file/name/badge).
-      function _activityForTool(tool) {
-        if (!_proxyActivity || !tool) return 0;
-        const hay = [tool.id, tool.file, tool.name, tool.badge]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-        let n = 0;
-        for (const g of _proxyActivity.groups || []) {
-          if (!g.count) continue;
-          if ((g.match || []).some((m) => hay.includes(m))) n += g.count;
-        }
-        return n;
-      }
-      window._activityForTool = _activityForTool;
-
-      // Toggle indicators on sidebar items and welcome cards in place
-      // (no re-render, so drag / search state is untouched).
-      function _applyActivityIndicators() {
-        const tools = window._tools || [];
-        const byId = {};
-        tools.forEach((t) => (byId[t.id] = t));
-        document.querySelectorAll(".tool-item[data-tool-id]").forEach((el) => {
-          const n = _activityForTool(byId[el.dataset.toolId]);
-          el.classList.toggle("has-activity", n > 0);
-          const dot = el.querySelector(".tool-activity");
-          if (dot) {
-            dot.textContent = n > 1 ? n : "";
-            dot.title = `${n} active proxy job${n !== 1 ? "s" : ""}`;
-          }
-        });
-        document.querySelectorAll(".welcome-card[data-tool-id]").forEach((el) => {
-          const n = _activityForTool(byId[el.dataset.toolId]);
-          el.classList.toggle("has-activity", n > 0);
-          const dot = el.querySelector(".wc-activity");
-          if (dot) dot.textContent = n > 1 ? `${n} active` : "active";
-        });
-      }
-      window._applyActivityIndicators = _applyActivityIndicators;
-
-      function _renderActivityHeader() {
-        const btn = document.getElementById("btn-proxy-mgmt");
-        const cnt = document.getElementById("proxy-activity-count");
-        const total = _proxyActivity ? _proxyActivity.total_active : 0;
-        if (cnt) cnt.textContent = total;
-        if (btn) btn.classList.toggle("has-activity", total > 0);
-      }
-
-      function _renderActivityPanel() {
-        const list = document.getElementById("proxy-activity-list");
-        const totalEl = document.getElementById("pm-total");
-        const impact = document.getElementById("pm-restart-impact");
-        const refreshed = document.getElementById("pm-refreshed");
-        if (!list) return;
-        if (!_proxyActivity) {
-          list.innerHTML = `<div class="pm-empty">Unable to read proxy activity</div>`;
-          return;
-        }
-        const groups = (_proxyActivity.groups || []).filter((g) => g.count > 0 || g.error);
-        const total = _proxyActivity.total_active || 0;
-        if (totalEl) totalEl.textContent = total;
-        if (refreshed)
-          refreshed.textContent = "updated " + new Date().toLocaleTimeString();
-        if (impact) {
-          impact.textContent = total
-            ? `${total} active job${total !== 1 ? "s" : ""} (${groups
-                .filter((g) => g.count)
-                .map((g) => `${g.tool} ×${g.count}`)
-                .join(", ")})`
-            : "all running background jobs (none active right now)";
-        }
-        if (!groups.length) {
-          list.innerHTML = `<div class="pm-empty">✓ No active jobs — proxy is idle</div>`;
-          return;
-        }
-        list.innerHTML = groups
-          .map((g) => {
-            const rows = g.error
-              ? `<div class="pm-job"><span class="pm-kind">error</span><span class="pm-label" style="color:#ffb3be">${_esc(g.error)}</span><span></span></div>`
-              : g.jobs
-                  .map((j) => {
-                    const meta = [
-                      j.user ? `@${j.user}` : "",
-                      j.tag ? `#${j.tag}` : "",
-                      j.elapsed_s != null ? _fmtElapsed(j.elapsed_s) : "",
-                      j.extra && j.extra.run_at_utc ? `at ${j.extra.run_at_utc}` : "",
-                      j.extra && j.extra.remaining_s != null ? `${_fmtElapsed(j.extra.remaining_s)} left` : "",
-                      j.extra && j.extra.viewers != null ? `${j.extra.viewers} viewer${j.extra.viewers !== 1 ? "s" : ""}` : "",
-                      j.extra && j.extra.source ? j.extra.source : "",
-                      j.extra && j.extra.dry_run ? "dry-run" : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" · ");
-                    const warn = !["running"].includes(j.status);
-                    return `<div class="pm-job">
-                        <span class="pm-kind">${_esc(j.kind)}</span>
-                        <span class="pm-label" title="${_esc(j.label)}">${_esc(j.label) || "—"}<div class="pm-meta">${_esc(meta)}</div></span>
-                        <span class="pm-status${warn ? " warn" : ""}">${_esc(j.status)}</span>
-                      </div>`;
-                  })
-                  .join("");
-            return `<div class="pm-group">
-                <div class="pm-group-head"><span>${_esc(g.icon)}</span><span>${_esc(g.tool)}</span><span class="pm-count">${g.count}</span></div>
-                ${rows}
-              </div>`;
-          })
-          .join("");
-      }
-
-      async function _fetchProxyActivity(force) {
-        try {
-          const r = await fetch(`${PROXY_URL}/proxy/activity`, {
-            cache: "no-cache",
-            credentials: "same-origin",
-          });
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          _proxyActivity = await r.json();
-        } catch {
-          _proxyActivity = null;
-        }
-        _renderActivityHeader();
-        _applyActivityIndicators();
-        const modal = document.getElementById("proxy-mgmt-modal");
-        if (force || (modal && modal.style.display === "flex")) _renderActivityPanel();
-      }
-      _fetchProxyActivity();
-      setInterval(_fetchProxyActivity, ACTIVITY_POLL_MS);
-
-      function openProxyMgmt() {
-        disarmRestart();
+      function openRestartConfirm() {
+        if (!_CAN_ADMIN(_userRole)) return;
         document.getElementById("restart-output").style.display = "none";
         document.getElementById("restart-pw-err").textContent = "";
-        document.getElementById("pm-restart-section").style.display = _CAN_ADMIN(
-          _userRole
-        )
-          ? ""
-          : "none";
-        document.getElementById("proxy-mgmt-modal").style.display = "flex";
-        _renderActivityPanel();
-        _fetchProxyActivity(true);
+        document.getElementById("restart-modal").style.display = "flex";
       }
-      function closeProxyMgmt() {
-        document.getElementById("proxy-mgmt-modal").style.display = "none";
-        disarmRestart();
-      }
-
-      // Two-step restart: arm → confirm
-      function armRestart() {
-        if (!_CAN_ADMIN(_userRole)) return;
-        _restartArmed = true;
-        document.getElementById("pm-restart-btn").style.display = "none";
-        document.getElementById("pm-restart-confirm-btn").style.display = "";
-        document.getElementById("pm-restart-cancel-btn").style.display = "";
-      }
-      function disarmRestart() {
-        _restartArmed = false;
-        const b = document.getElementById("pm-restart-btn");
-        const c = document.getElementById("pm-restart-confirm-btn");
-        const x = document.getElementById("pm-restart-cancel-btn");
-        if (b) b.style.display = "";
-        if (c) c.style.display = "none";
-        if (x) x.style.display = "none";
+      function closeRestartConfirm() {
+        document.getElementById("restart-modal").style.display = "none";
       }
 
       async function confirmRestart() {
-        if (!_CAN_ADMIN(_userRole) || !_restartArmed) return;
+        if (!_CAN_ADMIN(_userRole)) return;
         const out = document.getElementById("restart-output");
         const errEl = document.getElementById("restart-pw-err");
         errEl.textContent = "";
@@ -2240,7 +2334,6 @@
           if (res.status === 403) {
             out.style.display = "none";
             errEl.textContent = "❌ You don't have permission to restart the proxy";
-            disarmRestart();
             return;
           }
           out.textContent = data.output || "(no output)";
@@ -2256,195 +2349,314 @@
       }
 
       // ── Lightweight Markdown → HTML renderer ──────────────────────
+      // Supports: headings (with slug ids), paragraphs (soft-wrapped lines
+      // merged), nested lists (ul/ol, 2-space indent), multi-line blockquotes
+      // (with lists inside), fenced code blocks, tables, hr, inline code,
+      // bold/italic, links. All text is HTML-escaped before inline formatting.
       function renderMarkdown(md) {
-        // Escape HTML
         const esc = (s) =>
-          s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          String(s)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
 
-        const lines = md.split(/\r?\n/);
-        let html = "";
-        let inCode = false,
-          codeLang = "",
-          codeBuf = [];
-        let inList = false,
-          listType = "";
-        let inTable = false,
-          tableRows = [];
-
-        function flushList() {
-          if (!inList) return;
-          const tag = listType === "ol" ? "ol" : "ul";
-          html +=
-            `<${tag}>` +
-            inList.map((i) => `<li>${inlineFormat(i)}</li>`).join("") +
-            `</${tag}>`;
-          inList = false;
-          listType = "";
-        }
-        function flushTable() {
-          if (!inTable || !tableRows.length) return;
-          let t = "<table>";
-          tableRows.forEach((row, i) => {
-            if (i === 1) return; // separator row
-            const tag = i === 0 ? "th" : "td";
-            t +=
-              "<tr>" +
-              row.map((c) => `<${tag}>${inlineFormat(c)}</${tag}>`).join("") +
-              "</tr>";
-          });
-          t += "</table>";
-          html += t;
-          inTable = false;
-          tableRows = [];
-        }
-        function inlineFormat(s) {
-          // code spans first
-          s = s.replace(/`([^`]+)`/g, (_, c) => `<code>${esc(c)}</code>`);
-          // bold+italic
-          s = s.replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>");
-          s = s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-          s = s.replace(/__(.+?)__/g, "<strong>$1</strong>");
-          s = s.replace(/\*(.+?)\*/g, "<em>$1</em>");
-          s = s.replace(/_([^_]+)_/g, "<em>$1</em>");
-          // links
-          s = s.replace(
-            /\[([^\]]+)\]\(([^)]+)\)/g,
-            '<a href="$2" target="_blank">$1</a>'
-          );
-          // inline images → skip
-          s = s.replace(/!\[[^\]]*\]\([^)]+\)/g, "");
+        const slugCounts = {};
+        function slugify(text) {
+          let s = text
+            .toLowerCase()
+            .replace(/`/g, "")
+            .replace(/[^\w\s-]/g, "")
+            .trim()
+            .replace(/\s+/g, "-");
+          if (!s) s = "section";
+          if (slugCounts[s] != null) {
+            slugCounts[s] += 1;
+            s += "-" + slugCounts[s];
+          } else {
+            slugCounts[s] = 0;
+          }
           return s;
         }
 
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i];
-
-          // fenced code block
-          if (/^```/.test(line)) {
-            if (!inCode) {
-              flushList();
-              flushTable();
-              codeLang = line.slice(3).trim();
-              inCode = true;
-              codeBuf = [];
-            } else {
-              html += `<pre><code class="lang-${esc(codeLang)}">${esc(
-                codeBuf.join("\n")
-              )}</code></pre>`;
-              inCode = false;
-            }
-            continue;
-          }
-          if (inCode) {
-            codeBuf.push(line);
-            continue;
-          }
-
-          // table
-          if (/^\|/.test(line)) {
-            flushList();
-            if (!inTable) inTable = true;
-            const cols = line
-              .replace(/^\||\|$/g, "")
-              .split("|")
-              .map((c) => c.trim());
-            // skip separator rows (---)
-            if (!cols.every((c) => /^[-: ]+$/.test(c))) tableRows.push(cols);
-            else tableRows.push(null); // placeholder for separator
-            continue;
-          } else if (inTable) {
-            flushTable();
-          }
-
-          // HR
-          if (/^(-{3,}|\*{3,}|_{3,})$/.test(line.trim())) {
-            flushList();
-            html += "<hr>";
-            continue;
-          }
-
-          // headings
-          const hm = line.match(/^(#{1,6})\s+(.*)/);
-          if (hm) {
-            flushList();
-            const lvl = hm[1].length;
-            html += `<h${lvl}>${inlineFormat(hm[2])}</h${lvl}>`;
-            continue;
-          }
-
-          // blockquote
-          if (/^> /.test(line)) {
-            flushList();
-            html += `<blockquote>${inlineFormat(line.slice(2))}</blockquote>`;
-            continue;
-          }
-
-          // unordered list
-          const ulm = line.match(/^[\-\*\+] (.*)/);
-          if (ulm) {
-            if (inList && listType !== "ul") flushList();
-            if (!inList) {
-              inList = [];
-              listType = "ul";
-            }
-            inList.push(ulm[1]);
-            continue;
-          }
-
-          // ordered list
-          const olm = line.match(/^\d+\. (.*)/);
-          if (olm) {
-            if (inList && listType !== "ol") flushList();
-            if (!inList) {
-              inList = [];
-              listType = "ol";
-            }
-            inList.push(olm[1]);
-            continue;
-          }
-
-          flushList();
-
-          // blank line → paragraph break
-          if (line.trim() === "") {
-            html += "";
-            continue;
-          }
-
-          // paragraph
-          html += `<p>${inlineFormat(line)}</p>`;
+        function inlineFormat(raw) {
+          let s = esc(raw);
+          const codes = [];
+          s = s.replace(/`([^`]+)`/g, (_, c) => {
+            codes.push(c);
+            return "\u0000" + (codes.length - 1) + "\u0000";
+          });
+          s = s.replace(/!\[[^\]]*\]\([^)]+\)/g, ""); // images → skipped
+          s = s.replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>");
+          s = s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+          s = s.replace(/__(.+?)__/g, "<strong>$1</strong>");
+          s = s.replace(/(^|[\s(])\*(?!\s)(.+?)\*(?=[\s).,;:!?]|$)/g, "$1<em>$2</em>");
+          s = s.replace(/(^|[\s(])_(?!\s)([^_]+?)_(?=[\s).,;:!?]|$)/g, "$1<em>$2</em>");
+          s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, text, href) => {
+            const safe = /^(https?:\/\/|#|\.?\/|[\w.-]+\.(md|html|json|txt|py|sh)$)/i.test(href)
+              ? href
+              : "#";
+            const ext = /^https?:\/\//i.test(safe) || /\.(html|md|json|txt|py|sh)$/i.test(safe);
+            return `<a href="${safe}"${ext ? ' target="_blank" rel="noopener"' : ""}>${text}</a>`;
+          });
+          s = s.replace(/\u0000(\d+)\u0000/g, (_, i) => `<code>${codes[+i]}</code>`);
+          return s;
         }
-        flushList();
-        flushTable();
-        if (inCode)
-          html += `<pre><code>${esc(codeBuf.join("\n"))}</code></pre>`;
+
+        // ── Block parsing ──
+        const lines = md.replace(/\r\n?/g, "\n").split("\n");
+        let html = "";
+        let i = 0;
+
+        function parseBlocks(blockLines) {
+          // Returns HTML for an array of lines (used for top level & blockquotes)
+          let out = "";
+          let k = 0;
+          let para = [];
+          const flushPara = () => {
+            if (para.length) {
+              out += `<p>${inlineFormat(para.join(" "))}</p>`;
+              para = [];
+            }
+          };
+          while (k < blockLines.length) {
+            const line = blockLines[k];
+
+            // fenced code
+            if (/^\s*```/.test(line)) {
+              flushPara();
+              const lang = line.trim().slice(3).trim();
+              const buf = [];
+              k++;
+              while (k < blockLines.length && !/^\s*```/.test(blockLines[k])) {
+                buf.push(blockLines[k]);
+                k++;
+              }
+              k++; // closing fence
+              out +=
+                `<pre><button class="rm-copy" type="button" onclick="rmCopyCode(this)">copy</button>` +
+                `<code class="lang-${esc(lang)}">${esc(buf.join("\n"))}</code></pre>`;
+              continue;
+            }
+
+            // table
+            if (/^\s*\|/.test(line) && k + 1 < blockLines.length && /^\s*\|?\s*:?-{2,}/.test(blockLines[k + 1])) {
+              flushPara();
+              const rows = [];
+              while (k < blockLines.length && /^\s*\|/.test(blockLines[k])) {
+                rows.push(blockLines[k]);
+                k++;
+              }
+              const cells = (r) =>
+                r
+                  .trim()
+                  .replace(/^\||\|$/g, "")
+                  .split("|")
+                  .map((c) => c.trim());
+              const head = cells(rows[0]);
+              let t = '<div class="rm-table"><table><thead><tr>';
+              t += head.map((c) => `<th>${inlineFormat(c)}</th>`).join("");
+              t += "</tr></thead><tbody>";
+              for (const r of rows.slice(2)) {
+                const cs = cells(r);
+                t += "<tr>" + head.map((_, ci) => `<td>${inlineFormat(cs[ci] || "")}</td>`).join("") + "</tr>";
+              }
+              t += "</tbody></table></div>";
+              out += t;
+              continue;
+            }
+
+            // hr
+            if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
+              flushPara();
+              out += "<hr>";
+              k++;
+              continue;
+            }
+
+            // heading
+            const hm = line.match(/^(#{1,6})\s+(.*?)\s*#*\s*$/);
+            if (hm) {
+              flushPara();
+              const lvl = hm[1].length;
+              const text = hm[2];
+              const id = slugify(text.replace(/\*\*/g, ""));
+              out += `<h${lvl} id="${id}">${inlineFormat(text)}</h${lvl}>`;
+              k++;
+              continue;
+            }
+
+            // blockquote (multi-line, may contain lists/paragraphs)
+            if (/^\s*>/.test(line)) {
+              flushPara();
+              const buf = [];
+              while (k < blockLines.length && /^\s*>/.test(blockLines[k])) {
+                buf.push(blockLines[k].replace(/^\s*>\s?/, ""));
+                k++;
+              }
+              out += `<blockquote>${parseBlocks(buf)}</blockquote>`;
+              continue;
+            }
+
+            // list (nested by indentation)
+            if (/^\s*([-*+]|\d+\.)\s+/.test(line)) {
+              flushPara();
+              const items = [];
+              while (k < blockLines.length) {
+                const l = blockLines[k];
+                const m = l.match(/^(\s*)([-*+]|\d+\.)\s+(.*)$/);
+                if (m) {
+                  items.push({ indent: m[1].replace(/\t/g, "  ").length, ordered: /\d/.test(m[2]), text: m[3] });
+                  k++;
+                } else if (l.trim() && /^\s+/.test(l) && items.length) {
+                  // continuation line of previous item
+                  items[items.length - 1].text += " " + l.trim();
+                  k++;
+                } else {
+                  break;
+                }
+              }
+              out += renderList(items);
+              continue;
+            }
+
+            // blank
+            if (!line.trim()) {
+              flushPara();
+              k++;
+              continue;
+            }
+
+            // paragraph text (soft-wrapped lines merged)
+            para.push(line.trim());
+            k++;
+          }
+          flushPara();
+          return out;
+        }
+
+        function renderList(items) {
+          // Build nested list from indent levels
+          let pos = 0;
+          function build(indent) {
+            const ordered = items[pos].ordered;
+            let h = ordered ? "<ol>" : "<ul>";
+            while (pos < items.length && items[pos].indent >= indent) {
+              if (items[pos].indent > indent) {
+                // nested list belongs to previous li: strip closing tag, append, re-close
+                const nested = build(items[pos].indent);
+                h = h.replace(/<\/li>$/, nested + "</li>");
+                continue;
+              }
+              h += `<li>${inlineFormat(items[pos].text)}</li>`;
+              pos++;
+            }
+            return h + (ordered ? "</ol>" : "</ul>");
+          }
+          return build(items[0].indent);
+        }
+
+        html = parseBlocks(lines);
         return html;
       }
 
-      // README modal
+      function rmCopyCode(btn) {
+        const code = btn.parentElement.querySelector("code");
+        navigator.clipboard.writeText(code.textContent).then(() => {
+          btn.textContent = "copied";
+          setTimeout(() => (btn.textContent = "copy"), 1200);
+        });
+      }
+
+      // ── README modal ──
+      let _readmeLoaded = false;
       async function openReadme() {
         const modal = document.getElementById("readme-modal");
+        modal.classList.add("open");
+        if (_readmeLoaded) return;
         const content = document.getElementById("readme-content");
-        modal.style.display = "flex";
-        content.innerHTML =
-          '<p style="color:var(--muted);font-family:var(--mono);font-size:.7rem">Loading README…</p>';
+        const nav = document.getElementById("readme-nav");
+        content.innerHTML = '<p class="rm-error" style="color:var(--muted)">Loading README&hellip;</p>';
         try {
           const res = await fetch("README.md", { cache: "no-cache" });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const text = await res.text();
           content.innerHTML = renderMarkdown(text);
+          // The sidebar replaces an in-document "Contents" list, so hide it here
+          const toc = content.querySelector("h2#contents");
+          if (toc) {
+            let n = toc.nextElementSibling;
+            toc.remove();
+            while (n && !/^H[1-6]$/.test(n.tagName)) {
+              const next = n.nextElementSibling;
+              n.remove();
+              n = next;
+            }
+          }
+          buildReadmeNav(content, nav);
+          const h1 = content.querySelector("h1");
+          if (h1) document.getElementById("rm-subtitle").textContent = h1.textContent;
+          _readmeLoaded = true;
         } catch (e) {
-          content.innerHTML = `<p style="color:#ffb3be;font-family:var(--mono);font-size:.7rem">Could not load README.md: ${e.message}<br><br>Make sure README.md is served alongside index.html.</p>`;
+          content.innerHTML = `<p class="rm-error">Could not load README.md: ${e.message}<br><br>Make sure README.md is served alongside index.html.</p>`;
         }
       }
       function closeReadme() {
-        document.getElementById("readme-modal").style.display = "none";
+        document.getElementById("readme-modal").classList.remove("open");
       }
+
+      // Sidebar navigation built from h2/h3 headings + scroll spy
+      function buildReadmeNav(content, nav) {
+        const heads = Array.from(content.querySelectorAll("h2, h3"));
+        nav.innerHTML = heads
+          .map((h) => `<a href="#${h.id}" class="lvl-${h.tagName[1]}" data-target="${h.id}">${h.textContent}</a>`)
+          .join("");
+        const scroller = document.getElementById("readme-scroll");
+        nav.querySelectorAll("a").forEach((a) => {
+          a.addEventListener("click", (e) => {
+            e.preventDefault();
+            const el = document.getElementById(a.dataset.target);
+            if (!el) return;
+            nav.querySelectorAll("a").forEach((x) => x.classList.toggle("active", x === a));
+            scroller.scrollTo({ top: el.offsetTop - scroller.offsetTop - 8, behavior: "smooth" });
+          });
+        });
+        // In-document anchors (e.g. table of contents) scroll inside the panel
+        content.querySelectorAll('a[href^="#"]').forEach((a) => {
+          a.addEventListener("click", (e) => {
+            const el = document.getElementById(a.getAttribute("href").slice(1));
+            if (!el) return;
+            e.preventDefault();
+            scroller.scrollTo({ top: el.offsetTop - scroller.offsetTop - 8, behavior: "smooth" });
+          });
+        });
+        let ticking = false;
+        scroller.addEventListener("scroll", () => {
+          if (ticking) return;
+          ticking = true;
+          requestAnimationFrame(() => {
+            ticking = false;
+            const top = scroller.scrollTop + scroller.offsetTop + 40;
+            let current = heads[0];
+            for (const h of heads) {
+              if (h.offsetTop <= top) current = h;
+              else break;
+            }
+            nav.querySelectorAll("a").forEach((a) => a.classList.toggle("active", current && a.dataset.target === current.id));
+          });
+        });
+        scroller.dispatchEvent(new Event("scroll"));
+      }
+
       document
         .getElementById("readme-modal")
         .addEventListener("click", function (e) {
           if (e.target === this) closeReadme();
         });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeReadme();
+      });
+
 
       $(function () {
         // ═══════════════════════════════════════════════════
@@ -2585,7 +2797,7 @@
                               <span class="tool-drag-handle" title="Drag to reorder">⠿</span>
                               <span class="tool-icon">${tool.icon}</span>
                               <div class="tool-info">
-                                <div class="tool-name">${tool.name} <span class="tool-activity"></span></div>
+                                <div class="tool-name">${tool.name}</div>
                                 <div class="tool-desc">${tool.desc}</div>
                               </div>
                               ${
@@ -2610,7 +2822,6 @@
           const n = tools.length;
           $("#status-count").text(`${n} tool${n !== 1 ? "s" : ""} loaded`);
           $("#status-count-bar").text(`${n} tool${n !== 1 ? "s" : ""}`);
-          window._applyActivityIndicators && window._applyActivityIndicators();
         }
 
         // ═══════════════════════════════════════════════════
@@ -2621,14 +2832,12 @@
           tools.forEach((tool) => {
             $wc.append(`
                     <div class="welcome-card" data-tool-id="${tool.id}">
-                      <span class="wc-activity"></span>
                       <div class="wc-icon">${tool.icon}</div>
                       <div class="wc-name">${tool.name}</div>
                       <div class="wc-desc">${tool.desc}</div>
                     </div>
                   `);
           });
-          window._applyActivityIndicators && window._applyActivityIndicators();
         }
 
         // ═══════════════════════════════════════════════════
@@ -2933,11 +3142,9 @@
       function applyRolePermissions() {
         const canAdmin = _CAN_ADMIN(_userRole);
         const btnUpdate = document.getElementById("btn-git-pull");
+        const btnRestart = document.getElementById("btn-restart-proxy");
         if (btnUpdate) btnUpdate.style.display = canAdmin ? "" : "none";
-        // Proxy Management is visible to everyone (read-only job status);
-        // the restart section inside it is admin/engineer only.
-        const restartSection = document.getElementById("pm-restart-section");
-        if (restartSection) restartSection.style.display = canAdmin ? "" : "none";
+        if (btnRestart) btnRestart.style.display = canAdmin ? "" : "none";
       }
       applyRolePermissions(); // apply cached role immediately to avoid flash
 
