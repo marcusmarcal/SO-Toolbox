@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>User Management — SO-Toolbox</title>
+    <title>SO Toolbox Admin — SO-Toolbox</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
       href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap"
@@ -322,7 +322,8 @@
       }
 
       /* ── ADD/EDIT FORM ── */
-      #form-panel {
+      #form-panel,
+      .env-form-panel {
         background: var(--surface);
         border: 1px solid var(--border);
         border-radius: 12px;
@@ -612,13 +613,475 @@
         gap: 10px;
         justify-content: flex-end;
       }
+
+      /* ── ENVIRONMENT (.env) TAB ── */
+      .tab-btn.locked {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      #env-meta {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+      .env-pill {
+        font-family: var(--mono);
+        font-size: 0.55rem;
+        padding: 3px 9px;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        color: var(--muted);
+        background: var(--card);
+        white-space: nowrap;
+      }
+      .env-pill b {
+        color: var(--text);
+        font-weight: 700;
+      }
+      .env-pill.warn {
+        border-color: rgba(250, 165, 26, 0.45);
+        color: #fcc97a;
+      }
+      .env-pill.danger {
+        border-color: rgba(255, 78, 106, 0.45);
+        color: #ffb3be;
+      }
+      #env-banner {
+        display: none;
+        align-items: center;
+        gap: 12px;
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        padding: 10px 16px;
+        border-radius: 8px;
+        border: 1px solid rgba(250, 165, 26, 0.45);
+        background: rgba(250, 165, 26, 0.07);
+        color: #fcc97a;
+        margin-bottom: 14px;
+        line-height: 1.5;
+      }
+      #env-banner.show {
+        display: flex;
+      }
+      #env-banner .grow {
+        flex: 1;
+      }
+      #env-list {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 24px;
+      }
+      .env-row {
+        display: grid;
+        grid-template-columns: minmax(200px, 1.1fr) minmax(0, 2fr) auto;
+        gap: 14px;
+        align-items: center;
+        padding: 10px 20px;
+        border-bottom: 1px solid var(--border);
+        transition: background 0.15s;
+      }
+      .env-row:last-child {
+        border-bottom: none;
+      }
+      .env-row:hover {
+        background: rgba(255, 255, 255, 0.02);
+      }
+      .env-row.header {
+        font-family: var(--mono);
+        font-size: 0.56rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        background: var(--card);
+        font-weight: 700;
+      }
+      .env-row.editing {
+        background: rgba(250, 165, 26, 0.04);
+        border-left: 2px solid var(--accent2);
+      }
+      .env-row.duplicate {
+        border-left: 2px solid var(--danger);
+      }
+      .env-section {
+        padding: 8px 20px;
+        background: rgba(161, 139, 245, 0.06);
+        border-bottom: 1px solid var(--border);
+        border-top: 1px solid var(--border);
+        font-family: var(--mono);
+        font-size: 0.56rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--accent);
+        font-weight: 700;
+      }
+      .env-comment {
+        padding: 4px 20px;
+        font-family: var(--mono);
+        font-size: 0.58rem;
+        color: var(--muted);
+        opacity: 0.8;
+        white-space: pre-wrap;
+        word-break: break-word;
+        border-bottom: 1px dashed rgba(255, 255, 255, 0.04);
+      }
+      .env-invalid {
+        padding: 6px 20px;
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        color: #ffb3be;
+        background: rgba(255, 78, 106, 0.05);
+        border-bottom: 1px solid var(--border);
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+      .env-key {
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: var(--text);
+        word-break: break-all;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .env-key .lineno {
+        font-size: 0.5rem;
+        color: var(--muted);
+        font-weight: 400;
+        opacity: 0.6;
+      }
+      .env-desc {
+        font-family: var(--mono);
+        font-size: 0.52rem;
+        color: var(--muted);
+        margin-top: 3px;
+        line-height: 1.4;
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .env-chip {
+        font-family: var(--mono);
+        font-size: 0.48rem;
+        font-weight: 700;
+        padding: 1px 6px;
+        border-radius: 4px;
+        letter-spacing: 0.06em;
+        border: 1px solid var(--border);
+        color: var(--muted);
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+      .env-chip.secret {
+        color: #ffb3be;
+        border-color: rgba(255, 78, 106, 0.35);
+      }
+      .env-chip.live {
+        color: #9ee6a6;
+        border-color: rgba(63, 185, 80, 0.3);
+      }
+      .env-chip.restart,
+      .env-chip.mixed {
+        color: #fcc97a;
+        border-color: rgba(250, 165, 26, 0.35);
+      }
+      .env-chip.none,
+      .env-chip.unknown {
+        opacity: 0.7;
+      }
+      .env-chip.dup {
+        color: var(--danger);
+        border-color: rgba(255, 78, 106, 0.5);
+      }
+      .env-val {
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        color: var(--text);
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .env-val .val-text {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        min-width: 0;
+        flex: 1;
+      }
+      .env-val .val-text.masked {
+        color: var(--muted);
+        letter-spacing: 0.15em;
+      }
+      .env-val .val-text.empty {
+        color: var(--muted);
+        font-style: italic;
+        opacity: 0.6;
+      }
+      .env-val input {
+        flex: 1;
+        min-width: 0;
+        background: var(--card);
+        border: 1px solid rgba(250, 165, 26, 0.5);
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        padding: 6px 10px;
+        border-radius: 6px;
+        outline: none;
+      }
+      .env-val input:focus {
+        border-color: var(--accent2);
+      }
+      .btn.icon {
+        padding: 5px 9px;
+        font-size: 0.6rem;
+      }
+      .env-actions {
+        display: flex;
+        gap: 6px;
+        justify-content: flex-end;
+      }
+      #env-toolbar {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+      }
+      #env-toolbar input,
+      #env-toolbar select {
+        background: var(--card);
+        border: 1px solid var(--border);
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        padding: 7px 12px;
+        border-radius: 7px;
+        outline: none;
+        transition: border-color 0.2s;
+      }
+      #env-toolbar input:focus,
+      #env-toolbar select:focus {
+        border-color: var(--accent);
+      }
+      #env-toolbar input[type="search"] {
+        flex: 1;
+        min-width: 180px;
+      }
+      #env-toolbar select option {
+        background: var(--card);
+      }
+      #env-toolbar label.chk {
+        font-family: var(--mono);
+        font-size: 0.58rem;
+        color: var(--muted);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        white-space: nowrap;
+        padding: 0 4px;
+      }
+      #env-toolbar label.chk input[type="checkbox"] {
+        width: 13px;
+        height: 13px;
+        margin: 0;
+        padding: 0;
+        accent-color: var(--accent);
+        cursor: pointer;
+      }
+      /* The Environment tab needs more horizontal room than the user list */
+      #page.wide {
+        max-width: 1240px;
+      }
+      #env-count {
+        font-family: var(--mono);
+        font-size: 0.55rem;
+        color: var(--muted);
+        white-space: nowrap;
+        margin-left: auto;
+      }
+      #env-form textarea {
+        background: var(--card);
+        border: 1px solid var(--border);
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        padding: 9px 14px;
+        border-radius: 7px;
+        outline: none;
+        resize: vertical;
+      }
+
+      /* ── WIDE MODAL (raw editor / backups) ── */
+      .modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 400;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+      .modal.open {
+        display: flex;
+      }
+      .modal-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        width: 960px;
+        max-width: 100%;
+        max-height: 92vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+        overflow: hidden;
+      }
+      .modal-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px 22px;
+        border-bottom: 1px solid var(--border);
+      }
+      .modal-head .modal-title {
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        font-weight: 700;
+        color: var(--accent);
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+      }
+      .modal-head .modal-sub {
+        font-family: var(--mono);
+        font-size: 0.55rem;
+        color: var(--muted);
+      }
+      .modal-head .grow {
+        flex: 1;
+      }
+      .modal-body {
+        padding: 18px 22px;
+        overflow: auto;
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .modal-foot {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        align-items: center;
+        padding: 14px 22px;
+        border-top: 1px solid var(--border);
+      }
+      .modal-foot .grow {
+        flex: 1;
+        font-family: var(--mono);
+        font-size: 0.55rem;
+        color: var(--muted);
+      }
+      #raw-editor {
+        width: 100%;
+        min-height: 55vh;
+        flex: 1;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        line-height: 1.55;
+        padding: 14px 16px;
+        border-radius: 8px;
+        outline: none;
+        resize: vertical;
+        white-space: pre;
+        tab-size: 4;
+      }
+      #raw-editor:focus {
+        border-color: var(--accent);
+      }
+      .raw-warning {
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        padding: 9px 14px;
+        border-radius: 7px;
+        border: 1px solid rgba(255, 78, 106, 0.4);
+        background: rgba(255, 78, 106, 0.06);
+        color: #ffb3be;
+        line-height: 1.5;
+      }
+      #raw-problems {
+        display: none;
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        color: #ffb3be;
+        white-space: pre-wrap;
+      }
+      .bk-row {
+        display: grid;
+        grid-template-columns: 1fr auto auto auto;
+        gap: 12px;
+        align-items: center;
+        padding: 10px 14px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--card);
+        font-family: var(--mono);
+        font-size: 0.65rem;
+      }
+      .bk-row .bk-name {
+        font-weight: 700;
+        color: var(--text);
+      }
+      .bk-row .bk-meta {
+        color: var(--muted);
+        font-size: 0.55rem;
+        white-space: nowrap;
+      }
+      #bk-diff {
+        display: none;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px 14px;
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        line-height: 1.5;
+        white-space: pre;
+        overflow: auto;
+        max-height: 40vh;
+      }
+      #bk-diff .d-add {
+        color: #9ee6a6;
+      }
+      #bk-diff .d-del {
+        color: #ffb3be;
+      }
+      #bk-diff .d-hunk {
+        color: var(--accent);
+      }
+      #bk-diff .d-meta {
+        color: var(--muted);
+      }
     </style>
   </head>
   <body>
     <header id="topbar">
       <div class="logo-mark"></div>
       <h1>SP SO <span>Web Toolbox</span></h1>
-      <span class="topbar-badge">👥 User Management</span>
+      <span class="topbar-badge">⚙ SO Toolbox Admin</span>
       <div class="topbar-sep"></div>
       <div
         id="session-info"
@@ -648,6 +1111,14 @@
           </button>
           <button class="tab-btn" id="tab-btn-online" onclick="showTab('online')">
             ● Online<span class="tab-count" id="online-count">–</span>
+          </button>
+          <button
+            class="tab-btn locked"
+            id="tab-btn-env"
+            onclick="showTab('env')"
+            title="Admin role required"
+          >
+            ⚙ Environment<span class="tab-count" id="env-count-badge">–</span>
           </button>
         </div>
 
@@ -848,6 +1319,145 @@
           </div>
         </div>
         <!-- /tab-online -->
+
+        <!-- ── Environment (.env) tab ── -->
+        <div class="tab-panel" id="tab-env">
+          <div class="section-header">
+            <div class="section-title">Environment — .env</div>
+            <div class="section-line"></div>
+            <button class="btn ok" onclick="envNewVar()" id="btn-env-new">
+              ＋ Add Variable
+            </button>
+            <button class="btn" onclick="openRawEditor()" style="font-size: 0.6rem">
+              ✎ Raw Editor
+            </button>
+            <button class="btn" onclick="openBackups()" style="font-size: 0.6rem">
+              🗂 Backups<span class="tab-count" id="env-backups-count" style="margin-left:6px">–</span>
+            </button>
+            <button class="btn" onclick="loadEnv()" style="font-size: 0.6rem">
+              ⟳ Refresh
+            </button>
+          </div>
+
+          <div id="env-meta">
+            <span class="env-pill" id="env-pill-file">Loading…</span>
+          </div>
+
+          <div id="env-banner">
+            <span>⚠</span>
+            <span class="grow" id="env-banner-text"></span>
+            <button class="btn small" onclick="dismissEnvBanner()">Dismiss</button>
+            <button class="btn small danger" id="btn-env-restart" onclick="askRestartProxy()">
+              ↻ Restart Proxy
+            </button>
+          </div>
+
+          <div id="env-toolbar">
+            <input
+              type="search"
+              id="env-search"
+              placeholder="Search key, value, description, consumer…"
+              autocomplete="off"
+              oninput="renderEnv()"
+            />
+            <select id="env-filter" onchange="renderEnv()">
+              <option value="">All variables</option>
+              <option value="secret">Secrets only</option>
+              <option value="plain">Non-secrets</option>
+              <option value="restart">Needs restart</option>
+              <option value="unknown">Not referenced</option>
+              <option value="empty">Empty values</option>
+              <option value="duplicate">Duplicates</option>
+            </select>
+            <label class="chk">
+              <input type="checkbox" id="env-show-comments" checked onchange="renderEnv()" />
+              Comments
+            </label>
+            <label class="chk">
+              <input type="checkbox" id="env-reveal-all" onchange="envToggleRevealAll(this.checked)" />
+              Reveal secrets
+            </label>
+            <span id="env-count"></span>
+          </div>
+
+          <div id="env-list">
+            <div class="env-row header">
+              <span>Key</span><span>Value</span><span>Actions</span>
+            </div>
+            <div id="env-rows">
+              <div class="empty-state">Loading .env…</div>
+            </div>
+          </div>
+
+          <!-- ── Add variable form ── -->
+          <div class="section-header">
+            <div class="section-title">Add Variable</div>
+            <div class="section-line"></div>
+          </div>
+
+          <div id="env-form-panel" class="env-form-panel">
+            <div class="form-title">＋ New Variable</div>
+            <div class="form-grid" id="env-form">
+              <div class="form-group">
+                <label for="e-key">Key</label>
+                <input
+                  type="text"
+                  id="e-key"
+                  placeholder="MY_SETTING"
+                  autocomplete="off"
+                  spellcheck="false"
+                  oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9_]/g, '')"
+                />
+                <span class="form-hint">Letters, digits and underscore. Stored in UPPER_CASE.</span>
+              </div>
+              <div class="form-group">
+                <label for="e-after">Insert after</label>
+                <select id="e-after">
+                  <option value="">End of file</option>
+                </select>
+                <span class="form-hint">Keeps related keys grouped together</span>
+              </div>
+              <div class="form-group full">
+                <label for="e-value">Value</label>
+                <input
+                  type="text"
+                  id="e-value"
+                  placeholder="value (single line, written verbatim)"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+                <span class="form-hint">
+                  Written exactly as typed — no quoting is added. Avoid a bare <code>#</code>
+                  in unquoted values; python-dotenv treats it as an inline comment.
+                </span>
+              </div>
+              <div class="form-group full">
+                <label for="e-comment">Comment (optional)</label>
+                <input
+                  type="text"
+                  id="e-comment"
+                  placeholder="Short description placed on the line above"
+                  autocomplete="off"
+                  maxlength="200"
+                />
+              </div>
+            </div>
+            <div class="form-actions">
+              <button class="btn" onclick="envResetForm()">Clear</button>
+              <button class="btn primary" id="btn-env-submit" onclick="envSubmitNew()">
+                ＋ Add Variable
+              </button>
+            </div>
+          </div>
+          <div
+            style="font-family: var(--mono); font-size: 0.55rem; color: var(--muted); margin-top: 10px"
+          >
+            Every write takes a timestamped backup first and replaces the file atomically
+            (mode 0600). Keys tagged <b>RESTART</b> are cached by a Blueprint at start-up and
+            only take effect after a proxy restart; <b>LIVE</b> keys apply on the next request.
+          </div>
+        </div>
+        <!-- /tab-env -->
       </div>
       <!-- /main-content -->
     </div>
@@ -867,6 +1477,57 @@
           >
             Delete
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Raw .env editor ── -->
+    <div class="modal" id="raw-modal">
+      <div class="modal-card">
+        <div class="modal-head">
+          <div>
+            <div class="modal-title">✎ Raw .env Editor</div>
+            <div class="modal-sub" id="raw-sub">—</div>
+          </div>
+          <div class="grow"></div>
+          <button class="btn" onclick="closeRawEditor()">✕ Close</button>
+        </div>
+        <div class="modal-body">
+          <div class="raw-warning">
+            🔒 Full file contents including credentials. Every non-comment line must be
+            <code>KEY=VALUE</code>; the server rejects anything else. Saving takes a backup
+            first and overwrites the whole file.
+          </div>
+          <textarea id="raw-editor" spellcheck="false" wrap="off"></textarea>
+          <div id="raw-problems"></div>
+        </div>
+        <div class="modal-foot">
+          <span class="grow" id="raw-status"></span>
+          <button class="btn" onclick="closeRawEditor()">Cancel</button>
+          <button class="btn primary" id="btn-raw-save" onclick="askSaveRaw()">✔ Save File</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Backups ── -->
+    <div class="modal" id="bk-modal">
+      <div class="modal-card" style="width: 760px">
+        <div class="modal-head">
+          <div>
+            <div class="modal-title">🗂 .env Backups</div>
+            <div class="modal-sub" id="bk-sub">Automatic before every write · newest first</div>
+          </div>
+          <div class="grow"></div>
+          <button class="btn ok" onclick="createBackup()">＋ Backup now</button>
+          <button class="btn" onclick="closeBackups()">✕ Close</button>
+        </div>
+        <div class="modal-body">
+          <div id="bk-rows"><div class="empty-state">Loading…</div></div>
+          <div id="bk-diff"></div>
+        </div>
+        <div class="modal-foot">
+          <span class="grow" id="bk-status"></span>
+          <button class="btn" onclick="closeBackups()">Close</button>
         </div>
       </div>
     </div>
@@ -913,9 +1574,15 @@
 
             loadUsers();
             loadOnline(); // populate the Online tab counter
+
+            // .env management is admin-only (the file holds credentials)
+            if (d.role === "admin") {
+              envUnlock();
+              loadEnv(); // populate the Environment tab counter
+            }
           })
           .catch(() => {
-            window.location.href = "/login.html?next=/users-admin.html";
+            window.location.href = "/login.html?next=/so-toolbox-admin.html";
           });
       })();
 
@@ -1277,6 +1944,13 @@
       let _onlineTimer = null;
 
       function showTab(name) {
+        if (
+          name === "env" &&
+          document.getElementById("tab-btn-env").classList.contains("locked")
+        ) {
+          toast("Admin role required to manage .env", "err");
+          return;
+        }
         activeTab = name;
         document.querySelectorAll(".tab-btn").forEach((b) =>
           b.classList.toggle("active", b.id === `tab-btn-${name}`)
@@ -1284,11 +1958,13 @@
         document.querySelectorAll(".tab-panel").forEach((p) =>
           p.classList.toggle("active", p.id === `tab-${name}`)
         );
+        document.getElementById("page").classList.toggle("wide", name === "env");
         clearInterval(_onlineTimer);
         if (name === "online") {
           loadOnline();
           _onlineTimer = setInterval(loadOnline, 15000);
         }
+        if (name === "env") loadEnv();
       }
 
       // ── Online users ────────────────────────────────────────────────
@@ -1320,7 +1996,7 @@
           })
           .catch((st) => {
             if (st === 401) {
-              window.location.href = "/login.html?next=/users-admin.html";
+              window.location.href = "/login.html?next=/so-toolbox-admin.html";
               return;
             }
             toast("Failed to load online users", "err");
@@ -1416,7 +2092,7 @@
               cache: "no-cache",
             });
             if (r.status === 401)
-              window.location.href = "/login.html?next=/users-admin.html";
+              window.location.href = "/login.html?next=/so-toolbox-admin.html";
           } catch {
             /* proxy unreachable — retry on next tick */
           }
@@ -1426,6 +2102,747 @@
           if (!document.hidden) check();
         });
       })();
+
+      // ══════════════════════════════════════════════════════════════
+      //  ENVIRONMENT (.env) MANAGER — admin only
+      //  Backend: routes_env.py (prefix /env). Secrets are masked in the
+      //  list response and fetched one-by-one via /env/keys/<key>/reveal.
+      // ══════════════════════════════════════════════════════════════
+      let envData = null; // last GET /env payload
+      let envEditingKey = null; // key currently edited inline
+      let envRevealed = {}; // key → real value (fetched on demand)
+      let envPendingRestart = new Set(); // keys saved that need a proxy restart
+      let envBusy = false;
+
+      const ENV_RELOAD = {
+        live: ["LIVE", "Read from disk on every request — applies immediately"],
+        restart: ["RESTART", "Loaded at start-up — needs a proxy restart"],
+        mixed: ["MIXED", "Some consumers apply immediately, others after a proxy restart"],
+        none: ["REF", "Reference data — not read by any Blueprint"],
+        unknown: ["?", "Not referenced by any Blueprint"],
+      };
+
+      function envUnlock() {
+        const b = document.getElementById("tab-btn-env");
+        b.classList.remove("locked");
+        b.title = "Manage the server-side .env file";
+      }
+
+      function envFetch(path, opts = {}) {
+        return fetch(`${PROXY}/env${path}`, {
+          credentials: "same-origin",
+          ...opts,
+          headers: {
+            ...(opts.body ? { "Content-Type": "application/json" } : {}),
+            ...(opts.headers || {}),
+          },
+        }).then(async (r) => {
+          if (r.status === 401) {
+            window.location.href = "/login.html?next=/so-toolbox-admin.html";
+            throw new Error("Unauthorized");
+          }
+          let data = {};
+          try {
+            data = await r.json();
+          } catch {
+            /* non-JSON error body */
+          }
+          if (!r.ok || data.ok === false) {
+            const err = new Error(data.error || `HTTP ${r.status}`);
+            err.status = r.status;
+            err.data = data;
+            throw err;
+          }
+          return data;
+        });
+      }
+
+      function loadEnv() {
+        return envFetch("")
+          .then((d) => {
+            envData = d;
+            envEditingKey = null;
+            renderEnvMeta();
+            renderEnv();
+            envFillAfterSelect();
+          })
+          .catch((e) => {
+            toast(`Failed to load .env: ${e.message}`, "err");
+            document.getElementById(
+              "env-rows"
+            ).innerHTML = `<div class="empty-state">⚠ ${escHtml(e.message)}</div>`;
+          });
+      }
+
+      function fmtBytes(n) {
+        if (n < 1024) return `${n} B`;
+        if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+        return `${(n / 1024 / 1024).toFixed(1)} MB`;
+      }
+      function fmtTs(ts) {
+        if (!ts) return "—";
+        return new Date(ts * 1000).toLocaleString([], { hour12: false });
+      }
+
+      function renderEnvMeta() {
+        const m = envData.meta || {};
+        const s = envData.stats || {};
+        const pills = [];
+        if (!m.exists) {
+          pills.push(`<span class="env-pill danger">⚠ ${escHtml(m.file || ".env")} not found — add a variable to create it</span>`);
+        } else {
+          pills.push(`<span class="env-pill">📄 <b>${escHtml(m.file)}</b> · ${fmtBytes(m.size)} · ${escHtml(m.newline)}</span>`);
+          pills.push(`<span class="env-pill">modified <b>${escHtml(fmtTs(m.mtime))}</b></span>`);
+        }
+        pills.push(`<span class="env-pill"><b>${s.vars || 0}</b> variables</span>`);
+        pills.push(`<span class="env-pill"><b>${s.secrets || 0}</b> secrets</span>`);
+        if (s.empty) pills.push(`<span class="env-pill warn"><b>${s.empty}</b> empty</span>`);
+        if (s.unknown) pills.push(`<span class="env-pill"><b>${s.unknown}</b> not referenced</span>`);
+        if (s.invalid) pills.push(`<span class="env-pill danger"><b>${s.invalid}</b> invalid line${s.invalid !== 1 ? "s" : ""}</span>`);
+        if ((envData.duplicates || []).length)
+          pills.push(`<span class="env-pill danger">duplicate: <b>${escHtml(envData.duplicates.join(", "))}</b></span>`);
+        document.getElementById("env-meta").innerHTML = pills.join("");
+        document.getElementById("env-count-badge").textContent = s.vars || 0;
+        document.getElementById("env-backups-count").textContent = m.backups ?? "–";
+      }
+
+      // Comment heuristics: decoration-only lines are hidden; a single comment
+      // line sandwiched between two decoration lines, or one wrapped in ──,
+      // becomes a section header.
+      const DECO_RE = /^[\s─═━=\-#]*$/;
+      function commentInner(text) {
+        return text.replace(/^\s*#+\s?/, "");
+      }
+      function isDeco(line) {
+        return line && line.type === "comment" && DECO_RE.test(line.text);
+      }
+      function sectionTitle(lines, i) {
+        const l = lines[i];
+        const inner = commentInner(l.text).trim();
+        const wrapped = /^[─═━=]{2,}\s*.+?\s*[─═━=]{2,}$/.test(inner);
+        const sandwiched = isDeco(lines[i - 1]) && isDeco(lines[i + 1]) && inner.length <= 60;
+        if (!wrapped && !sandwiched) return null;
+        return inner.replace(/^[─═━=\-\s]+|[─═━=\-\s]+$/g, "");
+      }
+
+      function envVisible(line, f) {
+        if (f.filter === "secret" && !line.secret) return false;
+        if (f.filter === "plain" && line.secret) return false;
+        if (f.filter === "restart" && !["restart", "mixed"].includes(line.reload)) return false;
+        if (f.filter === "unknown" && line.known) return false;
+        if (f.filter === "empty" && line.has_value) return false;
+        if (f.filter === "duplicate" && !line.duplicate) return false;
+        if (f.q) {
+          const hay = [line.key, line.secret ? "" : line.value, line.description, line.consumer]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+          if (!hay.includes(f.q)) return false;
+        }
+        return true;
+      }
+
+      function renderEnv() {
+        if (!envData) return;
+        const el = document.getElementById("env-rows");
+        const lines = envData.lines || [];
+        const f = {
+          q: document.getElementById("env-search").value.trim().toLowerCase(),
+          filter: document.getElementById("env-filter").value,
+          comments: document.getElementById("env-show-comments").checked,
+        };
+        const filtering = !!(f.q || f.filter);
+        const showComments = f.comments && !filtering;
+
+        let html = "";
+        let shown = 0;
+        const total = lines.filter((l) => l.type === "var").length;
+
+        for (let i = 0; i < lines.length; i++) {
+          const l = lines[i];
+          if (l.type === "blank") continue;
+          if (l.type === "comment") {
+            if (!showComments || isDeco(l)) continue;
+            const title = sectionTitle(lines, i);
+            html += title
+              ? `<div class="env-section">${escHtml(title)}</div>`
+              : `<div class="env-comment">${escHtml(commentInner(l.text))}</div>`;
+            continue;
+          }
+          if (l.type === "invalid") {
+            if (filtering) continue;
+            html += `<div class="env-invalid" title="Line ${l.n}: not KEY=VALUE — fix it in the Raw Editor">⚠ L${l.n}  ${escHtml(l.text)}</div>`;
+            continue;
+          }
+          if (!envVisible(l, f)) continue;
+          shown++;
+          html += envRowHtml(l);
+        }
+
+        el.innerHTML =
+          html ||
+          `<div class="empty-state">${
+            total ? "No variables match the current filters" : "The .env file is empty — add a variable below"
+          }</div>`;
+        document.getElementById("env-count").textContent = filtering
+          ? `${shown} of ${total}`
+          : `${total} variable${total !== 1 ? "s" : ""}`;
+
+        if (envEditingKey) {
+          const inp = document.getElementById("env-edit-input");
+          if (inp) {
+            inp.focus();
+            inp.select();
+          }
+        }
+      }
+
+      function envRowHtml(l) {
+        const k = escHtml(l.key);
+        const kAttr = escAttr(l.key);
+        const editing = envEditingKey === l.key;
+        const revealed = Object.prototype.hasOwnProperty.call(envRevealed, l.key);
+        const [rlLabel, rlTitle] = ENV_RELOAD[l.reload] || ENV_RELOAD.unknown;
+
+        // ── value cell ──
+        let valCell;
+        if (editing) {
+          const real = l.secret ? envRevealed[l.key] ?? "" : l.value;
+          valCell = `
+            <input id="env-edit-input" type="${l.secret ? "password" : "text"}"
+                   value="${escAttr(real)}" spellcheck="false" autocomplete="off"
+                   onkeydown="envEditKey(event)" />
+            ${
+              l.secret
+                ? `<button class="btn icon" title="Show / hide" onclick="envToggleEditMask()">👁</button>`
+                : ""
+            }`;
+        } else if (!l.has_value) {
+          valCell = `<span class="val-text empty">(empty)</span>`;
+        } else if (l.secret && !revealed) {
+          valCell = `
+            <span class="val-text masked" title="${l.length} characters">${"•".repeat(Math.min(12, Math.max(6, l.length)))}</span>
+            <button class="btn icon" title="Reveal" onclick="envReveal('${kAttr}')">👁</button>
+            <button class="btn icon" title="Copy value" onclick="envCopy('${kAttr}')">⧉</button>`;
+        } else {
+          const v = l.secret ? envRevealed[l.key] : l.value;
+          valCell = `
+            <span class="val-text" title="${escAttr(v)}">${escHtml(v)}</span>
+            ${
+              l.secret
+                ? `<button class="btn icon" title="Hide" onclick="envHide('${kAttr}')">🙈</button>`
+                : ""
+            }
+            <button class="btn icon" title="Copy value" onclick="envCopy('${kAttr}')">⧉</button>`;
+        }
+
+        // ── actions ──
+        const actions = editing
+          ? `<button class="btn ok icon" onclick="envSaveEdit()">✔ Save</button>
+             <button class="btn icon" onclick="envCancelEdit()">Cancel</button>`
+          : `<button class="btn icon" title="Edit value" onclick="envEdit('${kAttr}')">✎ Edit</button>
+             <button class="btn icon" title="Rename key" onclick="envRename('${kAttr}')">⇄</button>
+             <button class="btn danger icon" title="Delete" onclick="envAskDelete('${kAttr}')">✕</button>`;
+
+        return `
+          <div class="env-row ${editing ? "editing" : ""} ${l.duplicate ? "duplicate" : ""}" data-key="${kAttr}">
+            <div>
+              <div class="env-key">
+                <span class="lineno">L${l.n}</span>${k}
+                ${l.secret ? `<span class="env-chip secret">secret</span>` : ""}
+                ${l.duplicate ? `<span class="env-chip dup" title="Defined more than once — the first definition wins">duplicate</span>` : ""}
+              </div>
+              <div class="env-desc">
+                <span class="env-chip ${escHtml(l.reload)}" title="${escAttr(rlTitle)}">${rlLabel}</span>
+                ${l.consumer && l.consumer !== "reference" ? `<span>${escHtml(l.consumer)}</span><span>·</span>` : ""}
+                <span>${escHtml(l.description || "")}</span>
+              </div>
+            </div>
+            <div class="env-val">${valCell}</div>
+            <div class="env-actions">${actions}</div>
+          </div>`;
+      }
+
+      // ── reveal / hide / copy ──
+      function envReveal(key) {
+        return envFetch(`/keys/${encodeURIComponent(key)}/reveal`)
+          .then((d) => {
+            envRevealed[key] = d.value;
+            renderEnv();
+            return d.value;
+          })
+          .catch((e) => toast(`Reveal failed: ${e.message}`, "err"));
+      }
+      function envHide(key) {
+        delete envRevealed[key];
+        renderEnv();
+      }
+      function envToggleRevealAll(on) {
+        if (!on) {
+          envRevealed = {};
+          renderEnv();
+          return;
+        }
+        const secrets = (envData?.lines || []).filter((l) => l.type === "var" && l.secret && l.has_value);
+        Promise.all(
+          secrets.map((l) =>
+            envFetch(`/keys/${encodeURIComponent(l.key)}/reveal`).then((d) => {
+              envRevealed[l.key] = d.value;
+            })
+          )
+        )
+          .then(() => renderEnv())
+          .catch((e) => toast(`Reveal failed: ${e.message}`, "err"));
+      }
+      async function envCopy(key) {
+        const l = (envData?.lines || []).find((x) => x.type === "var" && x.key === key);
+        if (!l) return;
+        let v = l.secret ? envRevealed[key] : l.value;
+        if (l.secret && v === undefined) {
+          try {
+            v = (await envFetch(`/keys/${encodeURIComponent(key)}/reveal`)).value;
+          } catch (e) {
+            toast(`Copy failed: ${e.message}`, "err");
+            return;
+          }
+        }
+        try {
+          await navigator.clipboard.writeText(v ?? "");
+          toast(`Copied ${key}`, "ok");
+        } catch {
+          toast("Clipboard unavailable", "err");
+        }
+      }
+
+      // ── inline edit ──
+      async function envEdit(key) {
+        const l = (envData?.lines || []).find((x) => x.type === "var" && x.key === key);
+        if (!l) return;
+        if (l.secret && l.has_value && !Object.prototype.hasOwnProperty.call(envRevealed, key)) {
+          const v = await envReveal(key);
+          if (v === undefined) return;
+        }
+        envEditingKey = key;
+        renderEnv();
+      }
+      function envCancelEdit() {
+        envEditingKey = null;
+        renderEnv();
+      }
+      function envEditKey(e) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          envSaveEdit();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          envCancelEdit();
+        }
+      }
+      function envToggleEditMask() {
+        const inp = document.getElementById("env-edit-input");
+        if (inp) inp.type = inp.type === "password" ? "text" : "password";
+      }
+      function envSaveEdit() {
+        const inp = document.getElementById("env-edit-input");
+        if (!inp || !envEditingKey || envBusy) return;
+        const key = envEditingKey;
+        const value = inp.value;
+        if (/[\r\n]/.test(value)) {
+          toast("Value must be a single line", "err");
+          return;
+        }
+        envBusy = true;
+        envFetch(`/keys/${encodeURIComponent(key)}`, {
+          method: "PUT",
+          body: JSON.stringify({ value }),
+        })
+          .then((d) => {
+            envBusy = false;
+            if (d.unchanged) {
+              toast(`${key} unchanged`);
+            } else {
+              toast(`${key} saved`, "ok");
+              envNoteRestart(key, d.reload);
+            }
+            if (Object.prototype.hasOwnProperty.call(envRevealed, key)) envRevealed[key] = value;
+            envEditingKey = null;
+            loadEnv();
+          })
+          .catch((e) => {
+            envBusy = false;
+            toast(`Save failed: ${e.message}`, "err");
+          });
+      }
+
+      // ── rename ──
+      function envRename(key) {
+        const next = window.prompt(`Rename "${key}" to:`, key);
+        if (next === null) return;
+        const newKey = next.trim().toUpperCase();
+        if (!/^[A-Z_][A-Z0-9_]*$/.test(newKey)) {
+          toast("Key must be letters, digits and underscore", "err");
+          return;
+        }
+        if (newKey === key) return;
+        envFetch(`/keys/${encodeURIComponent(key)}/rename`, {
+          method: "PUT",
+          body: JSON.stringify({ new_key: newKey }),
+        })
+          .then((d) => {
+            toast(`Renamed ${key} → ${newKey}`, "ok");
+            if (Object.prototype.hasOwnProperty.call(envRevealed, key)) {
+              envRevealed[newKey] = envRevealed[key];
+              delete envRevealed[key];
+            }
+            envNoteRestart(newKey, d.reload || "restart");
+            loadEnv();
+          })
+          .catch((e) => toast(`Rename failed: ${e.message}`, "err"));
+      }
+
+      // ── delete ──
+      function envAskDelete(key) {
+        const l = (envData?.lines || []).find((x) => x.type === "var" && x.key === key);
+        const consumer = l && l.known && l.consumer !== "reference" ? ` It is used by ${l.consumer}.` : "";
+        openConfirm({
+          title: "⚠ Delete Variable",
+          message: `Remove "${key}" from .env?${consumer} A backup is taken first.`,
+          button: "Delete",
+          onConfirm: () => {
+            envFetch(`/keys/${encodeURIComponent(key)}${l && l.duplicate ? "?all=1" : ""}`, {
+              method: "DELETE",
+            })
+              .then((d) => {
+                closeConfirm();
+                toast(`Deleted ${key}${d.removed > 1 ? ` (${d.removed} lines)` : ""}`, "ok");
+                delete envRevealed[key];
+                envNoteRestart(key, l ? l.reload : "unknown");
+                loadEnv();
+              })
+              .catch((e) => {
+                closeConfirm();
+                toast(`Delete failed: ${e.message}`, "err");
+              });
+          },
+        });
+      }
+
+      // ── add ──
+      function envNewVar() {
+        document.getElementById("e-key").focus();
+        document
+          .getElementById("env-form-panel")
+          .scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      function envResetForm() {
+        ["e-key", "e-value", "e-comment"].forEach((id) => (document.getElementById(id).value = ""));
+        document.getElementById("e-after").value = "";
+      }
+      function envFillAfterSelect() {
+        const sel = document.getElementById("e-after");
+        const current = sel.value;
+        const keys = (envData?.lines || []).filter((l) => l.type === "var").map((l) => l.key);
+        sel.innerHTML =
+          `<option value="">End of file</option>` +
+          keys.map((k) => `<option value="${escAttr(k)}">after ${escHtml(k)}</option>`).join("");
+        if (keys.includes(current)) sel.value = current;
+      }
+      function envSubmitNew() {
+        const key = document.getElementById("e-key").value.trim();
+        const value = document.getElementById("e-value").value;
+        const after = document.getElementById("e-after").value;
+        const comment = document.getElementById("e-comment").value.trim();
+        if (!/^[A-Z_][A-Z0-9_]*$/.test(key)) {
+          shakeInput("e-key");
+          toast("Key must be letters, digits and underscore", "err");
+          return;
+        }
+        if (/[\r\n]/.test(value)) {
+          shakeInput("e-value");
+          toast("Value must be a single line", "err");
+          return;
+        }
+        envFetch("/keys", {
+          method: "POST",
+          body: JSON.stringify({ key, value, after, comment }),
+        })
+          .then((d) => {
+            toast(`${key} added`, "ok");
+            envNoteRestart(key, d.reload);
+            envResetForm();
+            loadEnv();
+          })
+          .catch((e) => {
+            shakeInput("e-key");
+            toast(`Add failed: ${e.message}`, "err");
+          });
+      }
+
+      // ── restart banner ──
+      function envNoteRestart(key, reload) {
+        if (!["restart", "mixed", "unknown"].includes(reload)) return;
+        envPendingRestart.add(key);
+        showEnvBanner();
+      }
+      function showEnvBanner(text) {
+        const b = document.getElementById("env-banner");
+        document.getElementById("env-banner-text").textContent =
+          text ||
+          `Restart the proxy to apply: ${[...envPendingRestart].join(", ")}. Keys tagged LIVE already apply; the others are cached at start-up.`;
+        b.classList.add("show");
+      }
+      function dismissEnvBanner() {
+        envPendingRestart.clear();
+        document.getElementById("env-banner").classList.remove("show");
+      }
+      function askRestartProxy() {
+        openConfirm({
+          title: "↻ Restart Proxy",
+          message:
+            "Restart the so-proxy service now? Running background jobs (analyses, ingests, probes) will be interrupted and every open tool will reconnect.",
+          button: "Restart",
+          onConfirm: () => {
+            fetch(`${PROXY}/restart-proxy`, { method: "POST", credentials: "same-origin" })
+              .then((r) => r.json())
+              .then((d) => {
+                closeConfirm();
+                if (!d.success) {
+                  toast(d.output || "Restart failed", "err");
+                  return;
+                }
+                toast("Proxy restart scheduled", "ok");
+                document.getElementById("btn-env-restart").disabled = true;
+                showEnvBanner("Proxy is restarting… reloading .env in a few seconds.");
+                setTimeout(() => {
+                  document.getElementById("btn-env-restart").disabled = false;
+                  dismissEnvBanner();
+                  loadEnv();
+                }, 7000);
+              })
+              .catch(() => {
+                closeConfirm();
+                toast("Request failed", "err");
+              });
+          },
+        });
+      }
+
+      // ── raw editor ──
+      let rawMtime = null;
+      let rawForce = false;
+      function openRawEditor() {
+        rawForce = false;
+        document.getElementById("raw-problems").style.display = "none";
+        document.getElementById("raw-status").textContent = "Loading…";
+        document.getElementById("btn-raw-save").textContent = "✔ Save File";
+        document.getElementById("raw-modal").classList.add("open");
+        envFetch("/raw")
+          .then((d) => {
+            rawMtime = d.meta.mtime;
+            const ta = document.getElementById("raw-editor");
+            ta.value = d.content;
+            const n = d.content
+              ? d.content.replace(/\r\n/g, "\n").replace(/\n$/, "").split("\n").length
+              : 0;
+            document.getElementById("raw-sub").textContent = `${n} lines · ${fmtBytes(d.meta.size)} · ${d.meta.newline} · modified ${fmtTs(d.meta.mtime)}`;
+            document.getElementById("raw-status").textContent = "";
+            ta.focus();
+          })
+          .catch((e) => {
+            document.getElementById("raw-status").textContent = `⚠ ${e.message}`;
+          });
+      }
+      function closeRawEditor() {
+        document.getElementById("raw-modal").classList.remove("open");
+      }
+      function askSaveRaw() {
+        openConfirm({
+          title: "⚠ Overwrite .env",
+          message: rawForce
+            ? "The file changed on disk since you opened it. Force-save and overwrite those changes? A backup is taken first."
+            : "Replace the entire .env with the editor contents? A backup is taken first.",
+          button: rawForce ? "Force Save" : "Save",
+          onConfirm: saveRaw,
+        });
+      }
+      function saveRaw() {
+        const content = document.getElementById("raw-editor").value;
+        const problems = document.getElementById("raw-problems");
+        problems.style.display = "none";
+        envFetch("/raw", {
+          method: "PUT",
+          body: JSON.stringify({ content, mtime: rawMtime, force: rawForce }),
+        })
+          .then((d) => {
+            closeConfirm();
+            if (d.unchanged) {
+              toast("No changes to save");
+              closeRawEditor();
+              return;
+            }
+            toast(`.env saved (backup ${d.backup || "taken"})`, "ok");
+            closeRawEditor();
+            envRevealed = {};
+            envPendingRestart.add("raw edit");
+            showEnvBanner(
+              "The file was replaced through the Raw Editor. Restart the proxy if you changed any key that is cached at start-up."
+            );
+            loadEnv();
+          })
+          .catch((e) => {
+            closeConfirm();
+            if (e.status === 409) {
+              rawForce = true;
+              document.getElementById("btn-raw-save").textContent = "⚠ Force Save";
+              document.getElementById("raw-status").textContent =
+                "File changed on disk since it was loaded — close and reopen to see the latest, or Force Save to overwrite.";
+              toast("Conflict: file changed on disk", "err");
+              return;
+            }
+            if (e.data && e.data.problems) {
+              problems.style.display = "block";
+              problems.textContent =
+                "Invalid lines (must be KEY=VALUE or a # comment):\n" +
+                e.data.problems.map((p) => `  L${p.line}: ${p.text}`).join("\n");
+            }
+            toast(`Save failed: ${e.message}`, "err");
+          });
+      }
+
+      // ── backups ──
+      function openBackups() {
+        document.getElementById("bk-modal").classList.add("open");
+        document.getElementById("bk-diff").style.display = "none";
+        loadBackups();
+      }
+      function closeBackups() {
+        document.getElementById("bk-modal").classList.remove("open");
+      }
+      function loadBackups() {
+        envFetch("/backups")
+          .then((d) => renderBackups(d))
+          .catch((e) => {
+            document.getElementById("bk-rows").innerHTML = `<div class="empty-state">⚠ ${escHtml(e.message)}</div>`;
+          });
+      }
+      function bkStamp(name) {
+        const m = name.match(/(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})/);
+        return m ? `${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}:${m[6]}` : name;
+      }
+      function renderBackups(d) {
+        const list = d.backups || [];
+        document.getElementById("env-backups-count").textContent = list.length;
+        document.getElementById("bk-sub").textContent = `Automatic before every write · newest first · keeps the last ${d.max_backups}`;
+        if (!list.length) {
+          document.getElementById("bk-rows").innerHTML = '<div class="empty-state">No backups yet — one is created before every write</div>';
+          return;
+        }
+        document.getElementById("bk-rows").innerHTML = list
+          .map(
+            (b) => `
+            <div class="bk-row">
+              <div><div class="bk-name">${escHtml(bkStamp(b.name))}</div><div class="bk-meta">${escHtml(b.name)} · ${fmtBytes(b.size)}</div></div>
+              <button class="btn icon" onclick="bkDiff('${escAttr(b.name)}')">Δ Diff</button>
+              <button class="btn ok icon" onclick="bkAskRestore('${escAttr(b.name)}')">↶ Restore</button>
+              <button class="btn danger icon" onclick="bkAskDelete('${escAttr(b.name)}')">✕</button>
+            </div>`
+          )
+          .join("");
+      }
+      function createBackup() {
+        envFetch("/backups", { method: "POST" })
+          .then((d) => {
+            toast(`Backup ${d.name} created`, "ok");
+            renderBackups(d);
+            if (envData) {
+              envData.meta.backups = d.backups.length;
+              renderEnvMeta();
+            }
+          })
+          .catch((e) => toast(`Backup failed: ${e.message}`, "err"));
+      }
+      function bkDiff(name) {
+        const box = document.getElementById("bk-diff");
+        box.style.display = "block";
+        box.textContent = "Loading diff…";
+        envFetch(`/backups/${encodeURIComponent(name)}/diff`)
+          .then((d) => {
+            if (d.identical) {
+              box.innerHTML = `<span class="d-meta">${escHtml(name)} is identical to the current .env</span>`;
+              return;
+            }
+            box.innerHTML = d.diff
+              .map((line) => {
+                let cls = "";
+                if (line.startsWith("+++") || line.startsWith("---")) cls = "d-meta";
+                else if (line.startsWith("@@")) cls = "d-hunk";
+                else if (line.startsWith("+")) cls = "d-add";
+                else if (line.startsWith("-")) cls = "d-del";
+                return `<span class="${cls}">${escHtml(line)}</span>`;
+              })
+              .join("\n");
+          })
+          .catch((e) => {
+            box.textContent = `⚠ ${e.message}`;
+          });
+      }
+      function bkAskRestore(name) {
+        openConfirm({
+          title: "↶ Restore Backup",
+          message: `Replace the current .env with ${bkStamp(name)}? The current file is backed up first. Cached keys need a proxy restart afterwards.`,
+          button: "Restore",
+          onConfirm: () => {
+            envFetch(`/backups/${encodeURIComponent(name)}/restore`, { method: "POST" })
+              .then(() => {
+                closeConfirm();
+                toast(`Restored ${bkStamp(name)}`, "ok");
+                envRevealed = {};
+                envPendingRestart.add("restored backup");
+                showEnvBanner("A backup was restored. Restart the proxy so cached keys pick up the restored values.");
+                loadBackups();
+                loadEnv();
+              })
+              .catch((e) => {
+                closeConfirm();
+                toast(`Restore failed: ${e.message}`, "err");
+              });
+          },
+        });
+      }
+      function bkAskDelete(name) {
+        openConfirm({
+          title: "⚠ Delete Backup",
+          message: `Permanently delete backup ${bkStamp(name)}?`,
+          button: "Delete",
+          onConfirm: () => {
+            envFetch(`/backups/${encodeURIComponent(name)}`, { method: "DELETE" })
+              .then((d) => {
+                closeConfirm();
+                toast("Backup deleted", "ok");
+                renderBackups(d);
+                if (envData) {
+                  envData.meta.backups = d.backups.length;
+                  renderEnvMeta();
+                }
+              })
+              .catch((e) => {
+                closeConfirm();
+                toast(`Delete failed: ${e.message}`, "err");
+              });
+          },
+        });
+      }
+
+      // Esc closes the wide modals (confirm modal takes priority when open)
+      document.addEventListener("keydown", (e) => {
+        if (e.key !== "Escape") return;
+        if (document.getElementById("confirm-modal").classList.contains("open")) {
+          closeConfirm();
+          return;
+        }
+        if (document.getElementById("raw-modal").classList.contains("open")) closeRawEditor();
+        if (document.getElementById("bk-modal").classList.contains("open")) closeBackups();
+      });
 
       // ── Helpers ─────────────────────────────────────────────────────
       function escAttr(s) {

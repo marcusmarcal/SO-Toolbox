@@ -12,6 +12,21 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 ## [Unreleased]
 
+## [3.59.0] - 2026-09-09
+
+### Added
+
+- General Tool Admin: new **Environment** tab in `so-toolbox-admin.html` (admin role only) to manage every key in the server-side `.env` — add, inline edit, rename and delete variables; file-order view with section headers and comments; search plus filters for secrets, needs-restart, not-referenced, empty and duplicate keys; secret values masked with per-key reveal, reveal-all and copy.
+- General Tool Admin: each `.env` key shows which Blueprint/tool reads it and a LIVE / RESTART / MIXED / REF badge; after saving a cached key a banner offers a one-click proxy restart.
+- General Tool Admin: raw `.env` editor with server-side validation (every non-comment line must be `KEY=VALUE`) and modified-on-disk conflict detection with explicit force-save.
+- General Tool Admin: `.env` backups panel — automatic timestamped backup before every write (last 15 kept), manual backup, masked unified diff against the current file, restore and delete.
+- routes_env.py: new Blueprint under `/env` (`GET /`, `GET|PUT /raw`, `POST /keys`, `PUT|DELETE /keys/<key>`, `PUT /keys/<key>/rename`, `GET /keys/<key>/reveal`, `GET|POST /backups`, `GET /backups/<name>/diff`, `POST /backups/<name>/restore`, `DELETE /backups/<name>`). Admin-only, atomic writes with mode 0600, audit lines to stdout without values.
+
+### Changed
+
+- General Tool Admin: `users-admin.html` renamed to `so-toolbox-admin.html` ("SO Toolbox Admin"); login redirects, nginx public-page rules (`nginx.conf`, `nginx-debian.conf`), `README.md` and `SERVER_REBUILD.md` updated. Reload nginx after deploying.
+- `.gitignore`: `.env.bak-*` and `.env.tmp` ignored.
+
 ## [3.58.1] - 2026-09-09
 
 ### Fixed

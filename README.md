@@ -147,12 +147,12 @@ Integrated in BTV Video Analyser — Real-time network telemetry for SRT sources
 - **TXEdge VLC Launcher** — Detect and launch SRT streams in VLC (passphrase stored securely)
 - **SO Video Analyser** — Trigger video analysis from TXEdge/TXCore pages, results inline
 
-#### User Management
-`users-admin.html` — User administration with role-based access control.
+#### SO Toolbox Admin
+`so-toolbox-admin.html` — Administration console: users, live sessions and the server-side `.env`.
 
-- **Roles** — admin, engineer, specialist, analyst, user
-- **Fields** — `rota_status` (active / inactive / observer), `team` (SOE / SOS / NA), `display_name`, `employee_id`
+- **Users tab** — Roles admin, engineer, specialist, analyst, user; fields `rota_status` (active / inactive / observer), `team` (SOE / SOS / NA), `display_name`, `employee_id`
 - **Online tab** — Currently logged-in users with session metadata; admins can kick a user
+- **Environment tab** (admin only) — Manage every key in `.env`: add, edit inline, rename, delete; secrets masked with reveal-on-demand; file-order view with section headers and comments; search and filters (secrets, needs-restart, not referenced, empty, duplicates); LIVE / RESTART / REF badge per key showing which Blueprint reads it and whether a proxy restart is needed; raw editor with server-side validation and conflict detection; automatic timestamped backups before every write with diff, restore and delete; one-click proxy restart
 
 #### WC2026 Rota Management
 `wc2026_rota_management.html` — World Cup 2026 engineering rota planner.
@@ -174,6 +174,7 @@ Integrated in BTV Video Analyser — Real-time network telemetry for SRT sources
 | Blueprint | File | Purpose |
 |-----------|------|---------|
 | auth | `routes_auth.py` | Authentication, roles, sessions, user management |
+| env | `routes_env.py` | Admin-only `.env` manager: parsed view, CRUD, raw editor, backups |
 | GOP | `routes_gop.py` | Video compliance analysis, specs and workflow management |
 | SRT | `routes_srt.py` | SRT ingest, multi-destination fan-out, B&T source |
 | id3as | `id3as_routes.py` | DC monitoring: channels, nodes, events, logs |
@@ -187,7 +188,7 @@ Integrated in BTV Video Analyser — Real-time network telemetry for SRT sources
 
 ## Configuration
 
-All configuration lives in `.env` on the server. The file is git-ignored and is never served to the browser; `GET /so-proxy/config` exposes only the safe subset.
+All configuration lives in `.env` on the server. The file is git-ignored and is never served to the browser; `GET /so-proxy/config` exposes only the safe subset. Admins can edit it from the **Environment** tab of `so-toolbox-admin.html`; every write takes a `.env.bak-<timestamp>` backup first (last 15 kept, git-ignored and blocked by nginx). Keys read at start-up by `routes_txcore.py` need a proxy restart; the UI flags them.
 
 ```env
 # Application
@@ -247,6 +248,22 @@ The full reference, with request/response examples, is in [`SO-Toolbox-API-Docs.
 | GET | `/so-proxy/server-stats` | Live CPU, memory and disk usage (5 s refresh) |
 | GET | `/so-proxy/me` | Current user profile (role, team, rota status) |
 | GET | `/so-proxy/proxy/activity` | Active background jobs grouped by tool |
+
+#### .env manager (admin only)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/so-proxy/env` | Parsed `.env` in file order (secrets masked) with stats and per-key consumer/reload info |
+| GET | `/so-proxy/env/keys/<key>/reveal` | Real value of one key (audited) |
+| POST | `/so-proxy/env/keys` | Add a variable (`key`, `value`, optional `after`, `comment`) |
+| PUT | `/so-proxy/env/keys/<key>` | Update a value |
+| PUT | `/so-proxy/env/keys/<key>/rename` | Rename a key |
+| DELETE | `/so-proxy/env/keys/<key>` | Delete a key (`?all=1` removes duplicates too) |
+| GET / PUT | `/so-proxy/env/raw` | Read / replace the whole file (validated, mtime conflict check) |
+| GET / POST | `/so-proxy/env/backups` | List backups / create one now |
+| GET | `/so-proxy/env/backups/<name>/diff` | Unified diff backup → current (secrets masked) |
+| POST | `/so-proxy/env/backups/<name>/restore` | Restore a backup (current file is backed up first) |
+| DELETE | `/so-proxy/env/backups/<name>` | Delete a backup |
 
 #### PhenixRTS
 
@@ -336,12 +353,13 @@ The full reference, with request/response examples, is in [`SO-Toolbox-API-Docs.
 │   ├── ProbeMonitoring.html
 │   ├── wc2026_rota_management.html
 │   ├── jira-formatter.html
-│   ├── users-admin.html
+│   ├── so-toolbox-admin.html
 │   ├── sp-extensions.html
 │   └── SO-Toolbox-API-Docs.html
 │
 ├── Backend routes (Flask Blueprints)
 │   ├── routes_auth.py          Auth, users, roles, sessions
+│   ├── routes_env.py           .env manager (admin only)
 │   ├── routes_gop.py           Video analysis & compliance
 │   ├── routes_srt.py           SRT ingest control
 │   ├── id3as_routes.py         DC monitoring
