@@ -228,6 +228,167 @@
         }
       }
 
+      /* ── PROXY ACTIVITY INDICATORS ── */
+      @keyframes pulse-activity {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(0, 255, 160, 0.55); }
+        70% { box-shadow: 0 0 0 5px rgba(0, 255, 160, 0); }
+      }
+      .tool-activity {
+        display: none;
+        align-items: center;
+        gap: 3px;
+        font-family: var(--mono);
+        font-size: 0.5rem;
+        font-weight: 700;
+        color: #5dffb8;
+        flex-shrink: 0;
+      }
+      .tool-activity::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #2ee59d;
+        animation: pulse-activity 1.6s ease-out infinite;
+      }
+      .tool-item.has-activity .tool-activity {
+        display: inline-flex;
+      }
+      #app.sidebar-collapsed .tool-activity {
+        display: none !important;
+      }
+      .welcome-card {
+        position: relative;
+      }
+      .welcome-card .wc-activity {
+        display: none;
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        font-family: var(--mono);
+        font-size: 0.5rem;
+        font-weight: 700;
+        color: #5dffb8;
+        align-items: center;
+        gap: 3px;
+      }
+      .welcome-card .wc-activity::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #2ee59d;
+        animation: pulse-activity 1.6s ease-out infinite;
+      }
+      .welcome-card.has-activity .wc-activity {
+        display: inline-flex;
+      }
+      .welcome-card.has-activity {
+        border-color: rgba(46, 229, 157, 0.45);
+      }
+      #proxy-activity-count {
+        display: none;
+        margin-left: 6px;
+        padding: 1px 6px;
+        border-radius: 10px;
+        background: rgba(46, 229, 157, 0.18);
+        color: #5dffb8;
+        font-size: 0.55rem;
+      }
+      #btn-proxy-mgmt.has-activity #proxy-activity-count {
+        display: inline-block;
+      }
+      #btn-proxy-mgmt.has-activity {
+        border-color: rgba(46, 229, 157, 0.5) !important;
+        color: #5dffb8 !important;
+      }
+      .pm-section-title {
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin: 1rem 0 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .pm-group {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        margin-bottom: 6px;
+        overflow: hidden;
+      }
+      .pm-group-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        background: var(--card);
+        font-family: var(--mono);
+        font-size: 0.66rem;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .pm-group-head .pm-count {
+        margin-left: auto;
+        padding: 1px 7px;
+        border-radius: 10px;
+        background: rgba(46, 229, 157, 0.18);
+        color: #5dffb8;
+        font-size: 0.55rem;
+      }
+      .pm-job {
+        display: grid;
+        grid-template-columns: 76px 1fr auto;
+        gap: 8px;
+        padding: 5px 10px;
+        border-top: 1px solid var(--border);
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        color: var(--muted);
+        align-items: center;
+      }
+      .pm-job .pm-kind {
+        color: #c9b8ff;
+        text-transform: uppercase;
+        font-size: 0.52rem;
+        letter-spacing: 0.05em;
+      }
+      .pm-job .pm-label {
+        color: var(--text);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .pm-job .pm-meta {
+        font-size: 0.52rem;
+        white-space: nowrap;
+      }
+      .pm-job .pm-status {
+        padding: 1px 6px;
+        border-radius: 3px;
+        font-size: 0.5rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        background: rgba(46, 229, 157, 0.15);
+        color: #5dffb8;
+      }
+      .pm-job .pm-status.warn {
+        background: rgba(240, 165, 0, 0.15);
+        color: #f0c060;
+      }
+      .pm-empty {
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        color: var(--muted);
+        padding: 10px 12px;
+        border: 1px dashed var(--border);
+        border-radius: 6px;
+        text-align: center;
+      }
+
       /* ── SIDEBAR ── */
       #sidebar {
         background: var(--surface);
@@ -927,310 +1088,6 @@
         line-height: 1.5;
       }
 
-
-      /* ── PROXY ACTIVITY INDICATORS ── */
-      @keyframes act-pulse {
-        0%   { box-shadow: 0 0 0 0 rgba(0, 255, 200, 0.55); }
-        70%  { box-shadow: 0 0 0 6px rgba(0, 255, 200, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(0, 255, 200, 0); }
-      }
-      .act-dot {
-        display: none;
-        width: 7px;
-        height: 7px;
-        border-radius: 50%;
-        background: #00ffc8;
-        flex-shrink: 0;
-        animation: act-pulse 1.6s ease-out infinite;
-      }
-      .tool-item.has-activity .act-dot,
-      .welcome-card.has-activity .act-dot {
-        display: inline-block;
-      }
-      .tool-item .act-count {
-        display: none;
-        font-family: var(--mono);
-        font-size: 0.5rem;
-        font-weight: 700;
-        color: #00ffc8;
-        background: rgba(0, 255, 200, 0.12);
-        border: 1px solid rgba(0, 255, 200, 0.3);
-        border-radius: 3px;
-        padding: 1px 4px;
-        flex-shrink: 0;
-      }
-      .tool-item.has-activity .act-count {
-        display: inline-block;
-      }
-      #app.sidebar-collapsed .tool-item .act-count {
-        display: none;
-      }
-      #app.sidebar-collapsed .tool-item.has-activity {
-        position: relative;
-      }
-      #app.sidebar-collapsed .tool-item.has-activity .act-dot {
-        position: absolute;
-        top: 4px;
-        right: 4px;
-      }
-      .welcome-card {
-        position: relative;
-      }
-      .welcome-card .act-dot {
-        position: absolute;
-        top: 8px;
-        right: 8px;
-      }
-      .welcome-card.has-activity {
-        border-color: rgba(0, 255, 200, 0.35);
-      }
-
-      /* Proxy Management header button + live counter */
-      #btn-proxy-mgmt {
-        border-color: rgba(0, 255, 200, 0.35);
-        color: #7fe9d6;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-      }
-      #btn-proxy-mgmt.offline {
-        border-color: rgba(255, 78, 106, 0.4);
-        color: #ffb3be;
-      }
-      #btn-proxy-mgmt .pm-counter {
-        font-family: var(--mono);
-        font-size: 0.55rem;
-        font-weight: 700;
-        min-width: 16px;
-        text-align: center;
-        padding: 1px 5px;
-        border-radius: 8px;
-        background: rgba(106, 106, 138, 0.25);
-        color: var(--muted);
-      }
-      #btn-proxy-mgmt .pm-counter.live {
-        background: rgba(0, 255, 200, 0.16);
-        color: #00ffc8;
-        animation: act-pulse 1.6s ease-out infinite;
-      }
-
-      /* ── PROXY MANAGEMENT MODAL ── */
-      #proxy-modal {
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.65);
-        z-index: 300;
-        align-items: center;
-        justify-content: center;
-      }
-      #proxy-modal.open {
-        display: flex;
-      }
-      .pm-card {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        width: 720px;
-        max-width: 94vw;
-        max-height: 85vh;
-        display: flex;
-        flex-direction: column;
-        box-shadow: 0 0 60px rgba(0, 0, 0, 0.6);
-        overflow: hidden;
-      }
-      .pm-header {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 14px 20px;
-        border-bottom: 1px solid var(--border);
-        flex-shrink: 0;
-      }
-      .pm-header .pm-title {
-        font-family: var(--mono);
-        font-size: 0.75rem;
-        font-weight: 700;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        color: #7fe9d6;
-        flex: 1;
-      }
-      .pm-header .pm-live {
-        font-family: var(--mono);
-        font-size: 0.6rem;
-        color: var(--muted);
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
-      .pm-header .pm-live .act-dot {
-        display: inline-block;
-        animation: none;
-        background: var(--muted);
-      }
-      .pm-header .pm-live.live .act-dot {
-        background: #00ffc8;
-        animation: act-pulse 1.6s ease-out infinite;
-      }
-      .pm-body {
-        flex: 1;
-        overflow-y: auto;
-        padding: 14px 20px;
-      }
-      .pm-empty {
-        font-family: var(--mono);
-        font-size: 0.68rem;
-        color: var(--muted);
-        text-align: center;
-        padding: 30px 0;
-        line-height: 1.8;
-      }
-      .pm-group {
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        margin-bottom: 10px;
-        overflow: hidden;
-      }
-      .pm-group-head {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 12px;
-        background: var(--card);
-        font-size: 0.72rem;
-        font-weight: 600;
-      }
-      .pm-group-head .pm-group-count {
-        font-family: var(--mono);
-        font-size: 0.55rem;
-        font-weight: 700;
-        color: #00ffc8;
-        background: rgba(0, 255, 200, 0.12);
-        border: 1px solid rgba(0, 255, 200, 0.3);
-        border-radius: 3px;
-        padding: 1px 6px;
-        margin-left: auto;
-      }
-      .pm-job {
-        display: grid;
-        grid-template-columns: 1fr auto;
-        gap: 2px 12px;
-        padding: 8px 12px;
-        border-top: 1px solid var(--border);
-        font-family: var(--mono);
-        font-size: 0.62rem;
-      }
-      .pm-job .pm-job-label {
-        color: var(--text);
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .pm-job .pm-job-detail {
-        color: var(--muted);
-        grid-column: 1 / -1;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        font-size: 0.56rem;
-      }
-      .pm-job .pm-job-meta {
-        color: var(--muted);
-        white-space: nowrap;
-        font-size: 0.56rem;
-      }
-      .pm-job .pm-state {
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: #00ffc8;
-      }
-      .pm-job .pm-state.starting,
-      .pm-job .pm-state.queued,
-      .pm-job .pm-state.pending {
-        color: var(--accent2);
-      }
-      .pm-footer {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 12px 20px;
-        border-top: 1px solid var(--border);
-        flex-shrink: 0;
-        flex-wrap: wrap;
-      }
-      .pm-footer .pm-hint {
-        font-family: var(--mono);
-        font-size: 0.58rem;
-        color: var(--muted);
-        flex: 1;
-        min-width: 200px;
-      }
-      .pm-btn {
-        background: transparent;
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        color: var(--muted);
-        font-family: var(--mono);
-        font-size: 0.65rem;
-        padding: 5px 12px;
-        cursor: pointer;
-        transition: border-color 0.15s, color 0.15s, background 0.15s;
-      }
-      .pm-btn:hover {
-        border-color: var(--accent);
-        color: var(--accent);
-      }
-      .pm-btn.danger {
-        border-color: rgba(255, 78, 106, 0.4);
-        color: #ffb3be;
-      }
-      .pm-btn.danger:hover {
-        background: rgba(255, 78, 106, 0.1);
-        border-color: var(--danger);
-        color: var(--danger);
-      }
-      .pm-btn.danger.solid {
-        background: #ff4e6a;
-        border-color: #ff4e6a;
-        color: #fff;
-        font-weight: 700;
-      }
-      .pm-btn.danger.solid:hover {
-        background: #ff2f50;
-      }
-      .pm-btn:disabled {
-        opacity: 0.45;
-        cursor: not-allowed;
-      }
-      .pm-confirm {
-        display: none;
-        border: 1px solid rgba(255, 78, 106, 0.4);
-        background: rgba(255, 78, 106, 0.06);
-        border-radius: 8px;
-        padding: 12px 14px;
-        margin-top: 12px;
-        font-family: var(--mono);
-        font-size: 0.66rem;
-        line-height: 1.7;
-        color: var(--text);
-      }
-      .pm-confirm.open {
-        display: block;
-      }
-      .pm-confirm ul {
-        margin: 6px 0 8px 14px;
-        color: var(--muted);
-        font-size: 0.6rem;
-      }
-      .pm-confirm .pm-confirm-actions {
-        display: flex;
-        gap: 8px;
-        margin-top: 8px;
-        align-items: center;
-      }
-
       /* ── README TWO-PANE LAYOUT ── */
       .readme-layout {
         flex: 1;
@@ -1789,10 +1646,11 @@
         <button
           id="btn-proxy-mgmt"
           class="git-pull-btn"
-          data-tip="Proxy Management — active background jobs"
+          data-tip="Proxy Management — active jobs &amp; restart"
           onclick="openProxyMgmt()"
+          style="border-color: rgba(255, 78, 106, 0.4); color: #ffb3be"
         >
-          ⚙ Proxy <span class="pm-counter" id="pm-counter">–</span>
+          ⚙ Proxy Management<span id="proxy-activity-count">0</span>
         </button>
         <button
           class="git-pull-btn"
@@ -1953,53 +1811,144 @@
     </div>
 
     <!-- ── Proxy Management Modal ─────────────────────────── -->
-    <div id="proxy-modal">
-      <div class="pm-card">
-        <div class="pm-header">
-          <div class="pm-title">⚙ Proxy Management</div>
-          <div class="pm-live" id="pm-live">
-            <span class="act-dot"></span><span id="pm-live-text">Connecting…</span>
-          </div>
-          <button class="cl-close" onclick="refreshProxyActivity(true)" title="Refresh now">⟳</button>
-          <button class="cl-close" onclick="closeProxyMgmt()">Close</button>
-        </div>
-        <div class="pm-body">
-          <div id="pm-jobs" class="pm-empty">Loading activity…</div>
-          <div id="pm-confirm" class="pm-confirm">
-            <div>
-              ⚠ Restarting <code>so-proxy</code> will
-              <strong style="color: #ffb3be">immediately terminate</strong>
-              the following background jobs:
-            </div>
-            <ul id="pm-confirm-list"></ul>
-            <div style="color: var(--muted); font-size: 0.58rem">
-              SRT Push runs as a separate systemd unit and is <em>not</em> affected by a proxy restart.
-            </div>
-            <div class="pm-confirm-actions">
-              <button class="pm-btn danger solid" onclick="confirmRestart()">Yes, restart now</button>
-              <button class="pm-btn" onclick="cancelRestartStep()">Cancel</button>
-            </div>
-            <div
-              id="restart-pw-err"
-              style="font-size: 0.62rem; color: #ffb3be; margin-top: 6px; min-height: 1em"
-            ></div>
-            <div
-              id="restart-output"
-              style="display: none; margin-top: 10px"
-              class="git-output"
-            ></div>
-          </div>
-        </div>
-        <div class="pm-footer">
-          <div class="pm-hint" id="pm-hint">Polling every 5 s · read-only view for all users</div>
+    <div
+      id="proxy-mgmt-modal"
+      style="
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.65);
+        z-index: 300;
+        align-items: center;
+        justify-content: center;
+      "
+    >
+      <div class="git-card" style="max-width: 620px; width: 620px">
+        <div
+          class="git-card-title"
+          style="display: flex; align-items: center; gap: 10px"
+        >
+          <span>⚙ Proxy Management</span>
+          <span
+            id="pm-refreshed"
+            style="
+              margin-left: auto;
+              font-size: 0.55rem;
+              letter-spacing: 0;
+              text-transform: none;
+              color: var(--muted);
+              font-weight: 400;
+            "
+          ></span>
           <button
-            id="btn-restart-proxy"
-            class="pm-btn danger"
-            onclick="openRestartStep()"
-            style="display: none"
+            class="git-close-btn"
+            style="padding: 2px 10px; font-size: 0.6rem"
+            onclick="_fetchProxyActivity(true)"
+            data-tip="Refresh now"
           >
-            ⏻ Restart Proxy…
+            ↻
           </button>
+        </div>
+
+        <div class="pm-section-title">
+          Active proxy jobs
+          <span id="pm-total" class="pm-count" style="padding: 1px 7px; border-radius: 10px; background: rgba(46,229,157,.18); color: #5dffb8; font-size: .55rem"></span>
+        </div>
+        <div
+          id="proxy-activity-list"
+          style="max-height: 40vh; overflow-y: auto; margin-bottom: 0.5rem"
+        >
+          <div class="pm-empty">Loading…</div>
+        </div>
+
+        <div id="pm-restart-section">
+          <div class="pm-section-title" style="color: #ffb3be">
+            Restart proxy service
+          </div>
+          <div
+            style="
+              font-family: var(--mono);
+              font-size: 0.68rem;
+              color: var(--text);
+              line-height: 1.7;
+              margin-bottom: 0.6rem;
+            "
+          >
+            ⚠ Restarting the proxy will
+            <strong style="color: #ffb3be">immediately terminate</strong>
+            <span id="pm-restart-impact">all running background jobs</span>.
+          </div>
+          <div
+            style="
+              display: flex;
+              gap: 0.5rem;
+              align-items: center;
+              flex-wrap: wrap;
+            "
+          >
+            <button
+              id="pm-restart-btn"
+              onclick="armRestart()"
+              style="
+                background: transparent;
+                border: 1px solid rgba(255, 78, 106, 0.5);
+                border-radius: 6px;
+                color: #ffb3be;
+                font-family: var(--mono);
+                font-size: 0.7rem;
+                font-weight: 700;
+                padding: 6px 16px;
+                cursor: pointer;
+              "
+            >
+              ⏻ Restart Proxy…
+            </button>
+            <button
+              id="pm-restart-confirm-btn"
+              onclick="confirmRestart()"
+              style="
+                display: none;
+                background: #ff4e6a;
+                border: none;
+                border-radius: 6px;
+                color: #fff;
+                font-family: var(--mono);
+                font-size: 0.7rem;
+                font-weight: 700;
+                padding: 6px 16px;
+                cursor: pointer;
+              "
+            >
+              Yes, restart now
+            </button>
+            <button
+              id="pm-restart-cancel-btn"
+              onclick="disarmRestart()"
+              class="git-close-btn"
+              style="display: none"
+            >
+              Cancel
+            </button>
+          </div>
+          <div
+            id="restart-pw-err"
+            style="
+              font-family: var(--mono);
+              font-size: 0.65rem;
+              color: #ffb3be;
+              margin-top: 0.4rem;
+              min-height: 1em;
+            "
+          ></div>
+          <div
+            id="restart-output"
+            style="display: none; margin-top: 0.6rem"
+            class="git-output"
+          ></div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; margin-top: 0.8rem">
+          <button onclick="closeProxyMgmt()" class="git-close-btn">Close</button>
         </div>
       </div>
     </div>
@@ -2420,285 +2369,196 @@
         document.getElementById("git-modal").classList.remove("open");
       }
 
-      // ══════════════════════════════════════════════════════════════
-      //  Proxy Management & Activity
-      //  Polls GET /proxy/activity every 5 s and drives:
-      //    • header counter (#pm-counter)
-      //    • pulsing indicators on sidebar tools + welcome cards
-      //    • the Proxy Management modal (grouped job list, restart flow)
-      // ══════════════════════════════════════════════════════════════
+      // ── Proxy Management (active jobs + restart) ───────────────────
       const ACTIVITY_POLL_MS = 5000;
+      let _proxyActivity = null; // last payload from /proxy/activity
+      let _restartArmed = false;
 
-      // Tool ↔ job matching uses lowercase keyword arrays, never filenames.
-      //   tool: matched against the sidebar tool (id + name + desc + badge)
-      //   job : matched against the job's tool/module label from the proxy
-      // Order matters: more specific rules first (e.g. SRT Push before SRT).
-      const ACTIVITY_MATCH = [
-        { key: "srt-push",     label: "SRT Push",        tool: ["srt push", "srt-push", "srtpush"],                 job: ["srt_push", "srt-push", "srt push", "srtpush"] },
-        { key: "srt-ingest",   label: "SRT Ingest",      tool: ["srt ingest", "srt-ingest", "srt"],                 job: ["srt_ingest", "srt-ingest", "srt ingest", "srt"] },
-        { key: "video",        label: "Video Analyzer",  tool: ["video analy", "video-analy", "gop", "recording"],  job: ["gop", "video", "recording", "rec"] },
-        { key: "live-probe",   label: "Live Probe",      tool: ["live probe", "live-probe", "liveprobe", "probe"],  job: ["live_probe", "live-probe", "live probe", "probe"] },
-        { key: "ingest",       label: "Ingest Analyzer", tool: ["ingest analy", "ingest-analy", "ingest"],         job: ["ingest", "analy"] },
-        { key: "mtr",          label: "MTR",             tool: ["mtr", "trace"],                                    job: ["mtr", "trace"] },
-        { key: "txcore",       label: "TXCore",          tool: ["txcore", "tx core", "tx-core"],                    job: ["txcore", "tx_core", "tx-core"] },
-      ];
-
-      let _activity = { ok: false, total: 0, jobs: [], ts: 0, error: null };
-      let _activityTimer = null;
-      let _restartStep = false;
-
-      function _matchRule(hay, field) {
-        hay = (hay || "").toLowerCase();
-        for (const r of ACTIVITY_MATCH) {
-          if (r[field].some((k) => hay.includes(k))) return r.key;
-        }
-        return null;
+      function _esc(s) {
+        return String(s == null ? "" : s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
       }
 
-      // Normalise whatever shape /proxy/activity returns into a flat job list.
-      // Accepted shapes:
-      //   { jobs: [ {...} ] }
-      //   { tools: { "<tool>": [ {...} ] } }  or  { tools: { "<tool>": { jobs: [...] } } }
-      //   { groups: [ { tool, label, jobs: [...] } ] }
-      function _normaliseActivity(d) {
-        const out = [];
-        const push = (j, toolHint) => {
-          if (!j || typeof j !== "object") return;
-          const tool =
-            j.tool || j.module || j.source || j.service || j.kind || toolHint || "unknown";
-          out.push({
-            tool: String(tool),
-            id: j.job_id || j.id || "",
-            label:
-              j.label || j.title || j.name || j.tag || j.job_id || j.id || String(tool),
-            detail:
-              j.detail || j.url || j.target || j.host || j.file || j.description || "",
-            user: j.username || j.user || j.owner || "",
-            started: j.started_at || j.started || j.start || "",
-            state: (j.state || j.status || "running").toString().toLowerCase(),
-            external: !!(j.external || j.unit), // e.g. srt-push systemd unit
-          });
-        };
-        if (Array.isArray(d.jobs)) d.jobs.forEach((j) => push(j));
-        else if (Array.isArray(d.active)) d.active.forEach((j) => push(j));
-        if (Array.isArray(d.groups))
-          d.groups.forEach((g) => (g.jobs || []).forEach((j) => push(j, g.tool || g.label)));
-        if (d.tools && typeof d.tools === "object" && !Array.isArray(d.tools)) {
-          for (const [k, v] of Object.entries(d.tools)) {
-            const arr = Array.isArray(v) ? v : Array.isArray(v?.jobs) ? v.jobs : [];
-            arr.forEach((j) => push(j, k));
+      function _fmtElapsed(s) {
+        if (s == null || isNaN(s)) return "";
+        s = Math.max(0, Math.floor(s));
+        const h = Math.floor(s / 3600),
+          m = Math.floor((s % 3600) / 60),
+          sec = s % 60;
+        if (h) return `${h}h ${String(m).padStart(2, "0")}m`;
+        if (m) return `${m}m ${String(sec).padStart(2, "0")}s`;
+        return `${sec}s`;
+      }
+
+      // Match an activity group against a TOOL_n entry (id/file/name/badge).
+      function _activityForTool(tool) {
+        if (!_proxyActivity || !tool) return 0;
+        const hay = [tool.id, tool.file, tool.name, tool.badge]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        let n = 0;
+        for (const g of _proxyActivity.groups || []) {
+          if (!g.count) continue;
+          if ((g.match || []).some((m) => hay.includes(m))) n += g.count;
+        }
+        return n;
+      }
+      window._activityForTool = _activityForTool;
+
+      // Toggle indicators on sidebar items and welcome cards in place
+      // (no re-render, so drag / search state is untouched).
+      function _applyActivityIndicators() {
+        const tools = window._tools || [];
+        const byId = {};
+        tools.forEach((t) => (byId[t.id] = t));
+        document.querySelectorAll(".tool-item[data-tool-id]").forEach((el) => {
+          const n = _activityForTool(byId[el.dataset.toolId]);
+          el.classList.toggle("has-activity", n > 0);
+          const dot = el.querySelector(".tool-activity");
+          if (dot) {
+            dot.textContent = n > 1 ? n : "";
+            dot.title = `${n} active proxy job${n !== 1 ? "s" : ""}`;
           }
-        }
-        return out;
+        });
+        document.querySelectorAll(".welcome-card[data-tool-id]").forEach((el) => {
+          const n = _activityForTool(byId[el.dataset.toolId]);
+          el.classList.toggle("has-activity", n > 0);
+          const dot = el.querySelector(".wc-activity");
+          if (dot) dot.textContent = n > 1 ? `${n} active` : "active";
+        });
+      }
+      window._applyActivityIndicators = _applyActivityIndicators;
+
+      function _renderActivityHeader() {
+        const btn = document.getElementById("btn-proxy-mgmt");
+        const cnt = document.getElementById("proxy-activity-count");
+        const total = _proxyActivity ? _proxyActivity.total_active : 0;
+        if (cnt) cnt.textContent = total;
+        if (btn) btn.classList.toggle("has-activity", total > 0);
       }
 
-      async function refreshProxyActivity(manual = false) {
+      function _renderActivityPanel() {
+        const list = document.getElementById("proxy-activity-list");
+        const totalEl = document.getElementById("pm-total");
+        const impact = document.getElementById("pm-restart-impact");
+        const refreshed = document.getElementById("pm-refreshed");
+        if (!list) return;
+        if (!_proxyActivity) {
+          list.innerHTML = `<div class="pm-empty">Unable to read proxy activity</div>`;
+          return;
+        }
+        const groups = (_proxyActivity.groups || []).filter((g) => g.count > 0 || g.error);
+        const total = _proxyActivity.total_active || 0;
+        if (totalEl) totalEl.textContent = total;
+        if (refreshed)
+          refreshed.textContent = "updated " + new Date().toLocaleTimeString();
+        if (impact) {
+          impact.textContent = total
+            ? `${total} active job${total !== 1 ? "s" : ""} (${groups
+                .filter((g) => g.count)
+                .map((g) => `${g.tool} ×${g.count}`)
+                .join(", ")})`
+            : "all running background jobs (none active right now)";
+        }
+        if (!groups.length) {
+          list.innerHTML = `<div class="pm-empty">✓ No active jobs — proxy is idle</div>`;
+          return;
+        }
+        list.innerHTML = groups
+          .map((g) => {
+            const rows = g.error
+              ? `<div class="pm-job"><span class="pm-kind">error</span><span class="pm-label" style="color:#ffb3be">${_esc(g.error)}</span><span></span></div>`
+              : g.jobs
+                  .map((j) => {
+                    const meta = [
+                      j.user ? `@${j.user}` : "",
+                      j.tag ? `#${j.tag}` : "",
+                      j.elapsed_s != null ? _fmtElapsed(j.elapsed_s) : "",
+                      j.extra && j.extra.run_at_utc ? `at ${j.extra.run_at_utc}` : "",
+                      j.extra && j.extra.remaining_s != null ? `${_fmtElapsed(j.extra.remaining_s)} left` : "",
+                      j.extra && j.extra.viewers != null ? `${j.extra.viewers} viewer${j.extra.viewers !== 1 ? "s" : ""}` : "",
+                      j.extra && j.extra.source ? j.extra.source : "",
+                      j.extra && j.extra.dry_run ? "dry-run" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" · ");
+                    const warn = !["running"].includes(j.status);
+                    return `<div class="pm-job">
+                        <span class="pm-kind">${_esc(j.kind)}</span>
+                        <span class="pm-label" title="${_esc(j.label)}">${_esc(j.label) || "—"}<div class="pm-meta">${_esc(meta)}</div></span>
+                        <span class="pm-status${warn ? " warn" : ""}">${_esc(j.status)}</span>
+                      </div>`;
+                  })
+                  .join("");
+            return `<div class="pm-group">
+                <div class="pm-group-head"><span>${_esc(g.icon)}</span><span>${_esc(g.tool)}</span><span class="pm-count">${g.count}</span></div>
+                ${rows}
+              </div>`;
+          })
+          .join("");
+      }
+
+      async function _fetchProxyActivity(force) {
         try {
           const r = await fetch(`${PROXY_URL}/proxy/activity`, {
             cache: "no-cache",
             credentials: "same-origin",
           });
-          if (r.status === 401) {
-            stopActivityPolling();
-            return;
-          }
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          const d = await r.json();
-          const jobs = _normaliseActivity(d);
-          const total =
-            typeof d.total === "number"
-              ? d.total
-              : typeof d.count === "number"
-              ? d.count
-              : jobs.length;
-          _activity = { ok: true, total, jobs, ts: Date.now(), error: null };
-        } catch (e) {
-          _activity = { ..._activity, ok: false, error: e.message, ts: Date.now() };
+          _proxyActivity = await r.json();
+        } catch {
+          _proxyActivity = null;
         }
-        applyActivityIndicators();
-        if (document.getElementById("proxy-modal").classList.contains("open"))
-          renderProxyMgmt();
-        if (manual) setStatusSafe("Proxy activity refreshed");
+        _renderActivityHeader();
+        _applyActivityIndicators();
+        const modal = document.getElementById("proxy-mgmt-modal");
+        if (force || (modal && modal.style.display === "flex")) _renderActivityPanel();
       }
+      _fetchProxyActivity();
+      setInterval(_fetchProxyActivity, ACTIVITY_POLL_MS);
 
-      function setStatusSafe(msg) {
-        const el = document.getElementById("status-msg");
-        if (el) el.textContent = msg;
-      }
-
-      function startActivityPolling() {
-        if (_activityTimer) return;
-        refreshProxyActivity();
-        _activityTimer = setInterval(refreshProxyActivity, ACTIVITY_POLL_MS);
-      }
-      function stopActivityPolling() {
-        if (_activityTimer) clearInterval(_activityTimer);
-        _activityTimer = null;
-      }
-
-      // Per-rule job counts → sidebar / welcome cards / header counter
-      function applyActivityIndicators() {
-        const counts = {};
-        for (const j of _activity.jobs) {
-          const k = _matchRule(j.tool + " " + j.label, "job");
-          if (k) counts[k] = (counts[k] || 0) + 1;
-        }
-
-        // Header counter
-        const btn = document.getElementById("btn-proxy-mgmt");
-        const ctr = document.getElementById("pm-counter");
-        if (ctr) {
-          if (!_activity.ok) {
-            ctr.textContent = "!";
-            ctr.classList.remove("live");
-            btn && btn.classList.add("offline");
-            btn && btn.setAttribute("data-tip", `Proxy activity unavailable: ${_activity.error || "error"}`);
-          } else {
-            ctr.textContent = String(_activity.total);
-            ctr.classList.toggle("live", _activity.total > 0);
-            btn && btn.classList.remove("offline");
-            btn &&
-              btn.setAttribute(
-                "data-tip",
-                `Proxy Management — ${_activity.total} active job${_activity.total !== 1 ? "s" : ""}`
-              );
-          }
-        }
-
-        // Sidebar items + welcome cards (tools rendered from .env)
-        const tools = window._tools || [];
-        for (const t of tools) {
-          const hay = `${t.id} ${t.name} ${t.desc} ${t.badge}`;
-          const k = _matchRule(hay, "tool");
-          const n = k ? counts[k] || 0 : 0;
-          document
-            .querySelectorAll(`.tool-item[data-tool-id="${t.id}"]`)
-            .forEach((el) => {
-              el.classList.toggle("has-activity", n > 0);
-              const c = el.querySelector(".act-count");
-              if (c) c.textContent = n > 1 ? `×${n}` : "●";
-              el.title = n > 0 ? `${n} active job${n !== 1 ? "s" : ""} in proxy` : "";
-            });
-          document
-            .querySelectorAll(`.welcome-card[data-tool-id="${t.id}"]`)
-            .forEach((el) => el.classList.toggle("has-activity", n > 0));
-        }
-      }
-      window._applyActivityIndicators = applyActivityIndicators;
-
-      // ── Proxy Management modal ────────────────────────────────────
       function openProxyMgmt() {
-        _restartStep = false;
-        document.getElementById("pm-confirm").classList.remove("open");
+        disarmRestart();
         document.getElementById("restart-output").style.display = "none";
         document.getElementById("restart-pw-err").textContent = "";
-        document.getElementById("btn-restart-proxy").style.display = _CAN_ADMIN(_userRole) ? "" : "none";
-        document.getElementById("proxy-modal").classList.add("open");
-        renderProxyMgmt();
-        refreshProxyActivity();
+        document.getElementById("pm-restart-section").style.display = _CAN_ADMIN(
+          _userRole
+        )
+          ? ""
+          : "none";
+        document.getElementById("proxy-mgmt-modal").style.display = "flex";
+        _renderActivityPanel();
+        _fetchProxyActivity(true);
       }
       function closeProxyMgmt() {
-        document.getElementById("proxy-modal").classList.remove("open");
-      }
-      document.getElementById("proxy-modal").addEventListener("click", function (e) {
-        if (e.target === this) closeProxyMgmt();
-      });
-
-      function _fmtStarted(v) {
-        if (!v) return "";
-        // epoch seconds / ms or ISO string
-        let dt = null;
-        if (typeof v === "number") dt = new Date(v > 1e12 ? v : v * 1000);
-        else if (/^\d+(\.\d+)?$/.test(v)) dt = new Date(parseFloat(v) > 1e12 ? parseFloat(v) : parseFloat(v) * 1000);
-        else dt = new Date(v);
-        if (isNaN(dt.getTime())) return String(v);
-        const secs = Math.max(0, Math.round((Date.now() - dt.getTime()) / 1000));
-        const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), sec = secs % 60;
-        return h ? `${h}h ${m}m` : m ? `${m}m ${sec}s` : `${sec}s`;
+        document.getElementById("proxy-mgmt-modal").style.display = "none";
+        disarmRestart();
       }
 
-      function renderProxyMgmt() {
-        const live = document.getElementById("pm-live");
-        const liveTxt = document.getElementById("pm-live-text");
-        const box = document.getElementById("pm-jobs");
-        const esc = _clEsc;
-
-        if (!_activity.ok) {
-          live.classList.remove("live");
-          liveTxt.textContent = "Unavailable";
-          box.className = "pm-empty";
-          box.innerHTML = `⚠ Could not read proxy activity<br><span style="color:#ffb3be">${esc(
-            _activity.error || "unknown error"
-          )}</span>`;
-          return;
-        }
-        live.classList.toggle("live", _activity.total > 0);
-        liveTxt.textContent = `${_activity.total} active job${_activity.total !== 1 ? "s" : ""}`;
-
-        if (!_activity.jobs.length) {
-          box.className = "pm-empty";
-          box.innerHTML = "No background jobs running in the proxy.<br>Safe to restart.";
-          return;
-        }
-
-        // Group by matched rule (fall back to raw tool label)
-        const groups = new Map();
-        for (const j of _activity.jobs) {
-          const k = _matchRule(j.tool + " " + j.label, "job");
-          const rule = ACTIVITY_MATCH.find((r) => r.key === k);
-          const gk = rule ? rule.label : j.tool;
-          if (!groups.has(gk)) groups.set(gk, []);
-          groups.get(gk).push(j);
-        }
-        let html = "";
-        for (const [label, jobs] of groups) {
-          html += `<div class="pm-group">
-            <div class="pm-group-head"><span class="act-dot" style="display:inline-block"></span>${esc(label)}
-              <span class="pm-group-count">${jobs.length}</span></div>`;
-          for (const j of jobs) {
-            const meta = [
-              j.user ? `by ${esc(j.user)}` : "",
-              j.started ? `⏱ ${esc(_fmtStarted(j.started))}` : "",
-              j.id && j.id !== j.label ? `#${esc(String(j.id)).slice(0, 12)}` : "",
-              j.external ? "external unit" : "",
-            ]
-              .filter(Boolean)
-              .join(" · ");
-            html += `<div class="pm-job">
-              <div class="pm-job-label">${esc(String(j.label))}</div>
-              <div class="pm-job-meta"><span class="pm-state ${esc(j.state)}">${esc(j.state)}</span>${meta ? " · " + meta : ""}</div>
-              ${j.detail ? `<div class="pm-job-detail">${esc(String(j.detail))}</div>` : ""}
-            </div>`;
-          }
-          html += `</div>`;
-        }
-        box.className = "";
-        box.innerHTML = html;
-      }
-
-      // Step 1 → Step 2: list exactly what will be killed, then confirm
-      function openRestartStep() {
+      // Two-step restart: arm → confirm
+      function armRestart() {
         if (!_CAN_ADMIN(_userRole)) return;
-        _restartStep = true;
-        const list = document.getElementById("pm-confirm-list");
-        const affected = _activity.jobs.filter((j) => !j.external && !/srt.?push/i.test(j.tool));
-        list.innerHTML = affected.length
-          ? affected
-              .map((j) => `<li>${_clEsc(String(j.tool))} — ${_clEsc(String(j.label))}</li>`)
-              .join("")
-          : `<li style="color:#00ffc8">none — no in-process jobs are running</li>`;
-        document.getElementById("restart-output").style.display = "none";
-        document.getElementById("restart-pw-err").textContent = "";
-        document.getElementById("pm-confirm").classList.add("open");
-        document.getElementById("pm-confirm").scrollIntoView({ behavior: "smooth", block: "end" });
+        _restartArmed = true;
+        document.getElementById("pm-restart-btn").style.display = "none";
+        document.getElementById("pm-restart-confirm-btn").style.display = "";
+        document.getElementById("pm-restart-cancel-btn").style.display = "";
       }
-      function cancelRestartStep() {
-        _restartStep = false;
-        document.getElementById("pm-confirm").classList.remove("open");
+      function disarmRestart() {
+        _restartArmed = false;
+        const b = document.getElementById("pm-restart-btn");
+        const c = document.getElementById("pm-restart-confirm-btn");
+        const x = document.getElementById("pm-restart-cancel-btn");
+        if (b) b.style.display = "";
+        if (c) c.style.display = "none";
+        if (x) x.style.display = "none";
       }
 
       async function confirmRestart() {
-        if (!_CAN_ADMIN(_userRole)) return;
+        if (!_CAN_ADMIN(_userRole) || !_restartArmed) return;
         const out = document.getElementById("restart-output");
         const errEl = document.getElementById("restart-pw-err");
         errEl.textContent = "";
@@ -2715,12 +2575,12 @@
           if (res.status === 403) {
             out.style.display = "none";
             errEl.textContent = "❌ You don't have permission to restart the proxy";
+            disarmRestart();
             return;
           }
           out.textContent = data.output || "(no output)";
           out.classList.add(data.success ? "ok" : "err");
           if (data.success) {
-            stopActivityPolling();
             out.textContent += "\n\n⏳ Reloading in 6 seconds...";
             setTimeout(() => location.reload(), 6000);
           }
@@ -3144,9 +3004,8 @@
               )}" draggable="true">
                               <span class="tool-drag-handle" title="Drag to reorder">⠿</span>
                               <span class="tool-icon">${tool.icon}</span>
-                              <span class="act-dot"></span>
                               <div class="tool-info">
-                                <div class="tool-name">${tool.name}</div>
+                                <div class="tool-name">${tool.name} <span class="tool-activity"></span></div>
                                 <div class="tool-desc">${tool.desc}</div>
                               </div>
                               ${
@@ -3154,7 +3013,6 @@
                                   ? `<span class="tool-badge" style="${bs}">${tool.badge}</span>`
                                   : ""
                               }
-                              <span class="act-count">●</span>
                               <div class="tool-open-btn" data-tip="Open in new tab" data-tool-id="${
                                 tool.id
                               }">↗</div>
@@ -3183,7 +3041,7 @@
           tools.forEach((tool) => {
             $wc.append(`
                     <div class="welcome-card" data-tool-id="${tool.id}">
-                      <span class="act-dot"></span>
+                      <span class="wc-activity"></span>
                       <div class="wc-icon">${tool.icon}</div>
                       <div class="wc-name">${tool.name}</div>
                       <div class="wc-desc">${tool.desc}</div>
@@ -3401,7 +3259,6 @@
             renderSidebar();
             renderWelcomeCards();
             setStatus("Ready");
-            startActivityPolling();
 
             // ENV pill → ok
             $("#env-pill")
@@ -3496,11 +3353,11 @@
       function applyRolePermissions() {
         const canAdmin = _CAN_ADMIN(_userRole);
         const btnUpdate = document.getElementById("btn-git-pull");
-        const btnRestart = document.getElementById("btn-restart-proxy");
         if (btnUpdate) btnUpdate.style.display = canAdmin ? "" : "none";
-        // Proxy Management panel is visible to everyone; only the restart
-        // action inside it is gated to admin/engineer.
-        if (btnRestart) btnRestart.style.display = canAdmin ? "" : "none";
+        // Proxy Management is visible to everyone (read-only job status);
+        // the restart section inside it is admin/engineer only.
+        const restartSection = document.getElementById("pm-restart-section");
+        if (restartSection) restartSection.style.display = canAdmin ? "" : "none";
       }
       applyRolePermissions(); // apply cached role immediately to avoid flash
 
@@ -3525,9 +3382,9 @@
               "/login.html?next=" + encodeURIComponent(location.pathname);
           });
 
-        // Heartbeat: detect sessions kicked/expired server-side (e.g. proxy
-        // restart without persisted sessions, or admin kick) and bounce to
-        // login instead of leaving a dead UI behind.
+        // Heartbeat: detect sessions kicked/expired server-side (proxy
+        // restart, admin kick) and bounce to login instead of leaving a
+        // dead UI behind.
         const HEARTBEAT_MS = 15000;
         setInterval(() => {
           fetch("/so-proxy/me", { credentials: "same-origin", cache: "no-cache" })
