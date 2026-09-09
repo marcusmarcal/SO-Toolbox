@@ -12,6 +12,17 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 ## [Unreleased]
 
+## [3.58.1] - 2026-09-09
+
+### Fixed
+- General Tool Admin: restored the Proxy Management panel and live tool activity
+  indicators (`GET /proxy/activity`, 5 s poll) that had been lost from `index.html`.
+- General Tool Admin: restored the two-pane README viewer (sticky table of contents
+  with scroll-spy) and the collapsible, filterable CHANGELOG modal.
+
+### Changed
+- General Tool Admin: `Esc` now closes the README, CHANGELOG and Proxy Management modals.
+
 ## [3.58.0] - 2026-09-08
 
 ### Added
