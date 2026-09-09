@@ -706,6 +706,125 @@
       .env-row.duplicate {
         border-left: 2px solid var(--danger);
       }
+      /* Disabled option ("# KEY=VALUE") */
+      .env-row.off {
+        background: rgba(255, 255, 255, 0.012);
+      }
+      .env-row.off .env-key,
+      .env-row.off .env-val,
+      .env-row.off .env-struct-view {
+        opacity: 0.55;
+      }
+      .env-row.off .env-key {
+        text-decoration: line-through;
+        text-decoration-color: rgba(255, 255, 255, 0.35);
+      }
+      .env-row.off .env-key .env-chip {
+        text-decoration: none;
+      }
+      /* Structured editor takes the whole row */
+      .env-row.block {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+      .env-row.block .env-actions {
+        justify-content: flex-end;
+      }
+      .struct-grid {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 10px;
+      }
+      .struct-grid .form-group.wide {
+        grid-column: span 3;
+      }
+      .struct-grid .form-group.short {
+        grid-column: span 2;
+      }
+      .struct-grid label {
+        font-family: var(--mono);
+        font-size: 0.5rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        margin-bottom: 4px;
+      }
+      .struct-grid input {
+        background: var(--card);
+        border: 1px solid rgba(250, 165, 26, 0.45);
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        padding: 7px 10px;
+        border-radius: 6px;
+        outline: none;
+      }
+      .struct-grid input:focus {
+        border-color: var(--accent2);
+      }
+      .struct-grid input.err {
+        border-color: var(--danger);
+      }
+      #env-form-panel .struct-grid input {
+        border-color: var(--border);
+      }
+      #env-form-panel .struct-grid input:focus {
+        border-color: var(--accent);
+      }
+      /* Structured value view (tools / presets) */
+      .env-struct-view {
+        min-width: 0;
+      }
+      .env-struct-view .line1 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        font-family: var(--display);
+        font-size: 0.78rem;
+      }
+      .env-struct-view .line1 b {
+        font-weight: 700;
+      }
+      .env-struct-view .line2 {
+        font-family: var(--mono);
+        font-size: 0.56rem;
+        color: var(--muted);
+        margin-top: 3px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .tool-icon {
+        font-size: 1rem;
+        line-height: 1;
+      }
+      .env-chip.badge {
+        color: var(--accent);
+        border-color: rgba(161, 139, 245, 0.4);
+        background: rgba(161, 139, 245, 0.08);
+      }
+      .env-chip.file {
+        text-transform: none;
+        letter-spacing: 0;
+        font-weight: 400;
+      }
+      .env-chip.missing {
+        color: #ffb3be;
+        border-color: rgba(255, 78, 106, 0.45);
+      }
+      .env-chip.off {
+        color: var(--muted);
+        border-style: dashed;
+      }
+      .env-chip.alt {
+        color: #fcc97a;
+        border-color: rgba(250, 165, 26, 0.35);
+        border-style: dashed;
+      }
+      .form-group.hidden {
+        display: none;
+      }
       .env-section {
         padding: 8px 20px;
         background: rgba(161, 139, 245, 0.06);
@@ -1325,7 +1444,10 @@
           <div class="section-header">
             <div class="section-title">Environment — .env</div>
             <div class="section-line"></div>
-            <button class="btn ok" onclick="envNewVar()" id="btn-env-new">
+            <button class="btn ok" onclick="envNewVar('tool')" id="btn-env-new-tool">
+              ＋ Add Tool
+            </button>
+            <button class="btn ok" onclick="envNewVar('custom')" id="btn-env-new">
               ＋ Add Variable
             </button>
             <button class="btn" onclick="openRawEditor()" style="font-size: 0.6rem">
@@ -1362,6 +1484,9 @@
             />
             <select id="env-filter" onchange="renderEnv()">
               <option value="">All variables</option>
+              <option value="tools">Tools (TOOL_n)</option>
+              <option value="presets">SRT presets</option>
+              <option value="disabled">Disabled options</option>
               <option value="secret">Secrets only</option>
               <option value="plain">Non-secrets</option>
               <option value="restart">Needs restart</option>
@@ -1396,8 +1521,18 @@
           </div>
 
           <div id="env-form-panel" class="env-form-panel">
-            <div class="form-title">＋ New Variable</div>
+            <div class="form-title" id="env-form-title">＋ New Variable</div>
             <div class="form-grid" id="env-form">
+              <div class="form-group">
+                <label for="e-type">Type</label>
+                <select id="e-type" onchange="envFormType()">
+                  <option value="custom">Custom variable</option>
+                  <option value="tool">Tool (TOOL_n)</option>
+                  <option value="server">SRT server preset (SRT_SERVER_n)</option>
+                  <option value="local">Local preset (SRT_LOCAL_n)</option>
+                </select>
+                <span class="form-hint" id="e-type-hint">Free-form KEY=VALUE</span>
+              </div>
               <div class="form-group">
                 <label for="e-key">Key</label>
                 <input
@@ -1406,18 +1541,11 @@
                   placeholder="MY_SETTING"
                   autocomplete="off"
                   spellcheck="false"
-                  oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9_]/g, '')"
+                  oninput="envKeyTyped(this)"
                 />
                 <span class="form-hint">Letters, digits and underscore. Stored in UPPER_CASE.</span>
               </div>
-              <div class="form-group">
-                <label for="e-after">Insert after</label>
-                <select id="e-after">
-                  <option value="">End of file</option>
-                </select>
-                <span class="form-hint">Keeps related keys grouped together</span>
-              </div>
-              <div class="form-group full">
+              <div class="form-group full" id="e-value-group">
                 <label for="e-value">Value</label>
                 <input
                   type="text"
@@ -1431,7 +1559,19 @@
                   in unquoted values; python-dotenv treats it as an inline comment.
                 </span>
               </div>
-              <div class="form-group full">
+              <div class="form-group full hidden" id="e-struct-group">
+                <label>Fields</label>
+                <div id="e-struct"></div>
+                <span class="form-hint" id="e-struct-hint"></span>
+              </div>
+              <div class="form-group">
+                <label for="e-after">Insert after</label>
+                <select id="e-after">
+                  <option value="">End of file</option>
+                </select>
+                <span class="form-hint">Keeps related keys grouped together</span>
+              </div>
+              <div class="form-group">
                 <label for="e-comment">Comment (optional)</label>
                 <input
                   type="text"
@@ -1440,6 +1580,10 @@
                   autocomplete="off"
                   maxlength="200"
                 />
+                <label class="chk" style="margin-top: 8px; font-family: var(--mono); font-size: 0.58rem; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; cursor: pointer">
+                  <input type="checkbox" id="e-disabled" style="accent-color: var(--accent)" />
+                  Add as disabled option (commented out)
+                </label>
               </div>
             </div>
             <div class="form-actions">
@@ -1449,12 +1593,17 @@
               </button>
             </div>
           </div>
+          <datalist id="env-dl-files"></datalist>
+          <datalist id="env-dl-categories"></datalist>
+          <datalist id="env-dl-badges"></datalist>
           <div
             style="font-family: var(--mono); font-size: 0.55rem; color: var(--muted); margin-top: 10px"
           >
             Every write takes a timestamped backup first and replaces the file atomically
             (mode 0600). Keys tagged <b>RESTART</b> are cached by a Blueprint at start-up and
             only take effect after a proxy restart; <b>LIVE</b> keys apply on the next request.
+            Lines written as <code># KEY=VALUE</code> are <b>disabled options</b>: kept in the
+            file but ignored by the proxy — use ▶ Enable / ⏸ Disable to switch them.
           </div>
         </div>
         <!-- /tab-env -->
@@ -2109,10 +2258,106 @@
       //  list response and fetched one-by-one via /env/keys/<key>/reveal.
       // ══════════════════════════════════════════════════════════════
       let envData = null; // last GET /env payload
-      let envEditingKey = null; // key currently edited inline
-      let envRevealed = {}; // key → real value (fetched on demand)
+      let envEditingLine = null; // line number (1-based) currently edited inline
+      let envRevealed = {}; // line number → real value (fetched on demand)
       let envPendingRestart = new Set(); // keys saved that need a proxy restart
       let envBusy = false;
+
+      // Structured value schemas — the UI understands these formats and edits
+      // them field by field instead of as one opaque string.
+      const ENV_SCHEMAS = {
+        tool: {
+          label: "Tool",
+          sep: "|",
+          fields: [
+            { k: "file", label: "Page file", req: true, list: "env-dl-files", ph: "tool-page.html", cls: "wide" },
+            { k: "name", label: "Name", req: true, ph: "Tool name", cls: "wide" },
+            { k: "desc", label: "Description", ph: "Short text shown on the card", cls: "wide" },
+            { k: "icon", label: "Icon", ph: "emoji, e.g. 📡", cls: "short" },
+            { k: "category", label: "Category", list: "env-dl-categories", ph: "Monitoring", cls: "short" },
+            { k: "badge", label: "Badge", list: "env-dl-badges", ph: "optional — LIVE / BETA", cls: "short" },
+          ],
+        },
+        preset: {
+          label: "Preset",
+          sep: "|",
+          fields: [
+            { k: "host", label: "Host / IP", req: true, ph: "203.0.113.10", cls: "wide" },
+            { k: "label", label: "Label", req: true, ph: "INX01", cls: "wide" },
+          ],
+        },
+      };
+      function schemaOf(line) {
+        return ENV_SCHEMAS[line.schema] || null;
+      }
+      function parseStruct(schema, value) {
+        const parts = String(value ?? "").split(schema.sep);
+        const out = {};
+        const last = schema.fields.length - 1;
+        schema.fields.forEach((f, i) => {
+          out[f.k] = i === last ? parts.slice(i).join(schema.sep) : parts[i] ?? "";
+        });
+        return out;
+      }
+      function buildStruct(schema, obj) {
+        return schema.fields.map((f) => (obj[f.k] ?? "").trim()).join(schema.sep);
+      }
+      function structEditor(schema, value, idPrefix) {
+        const o = parseStruct(schema, value);
+        return `<div class="struct-grid">${schema.fields
+          .map(
+            (f) => `
+          <div class="form-group ${f.cls || ""}">
+            <label for="${idPrefix}-${f.k}">${escHtml(f.label)}${f.req ? " *" : ""}</label>
+            <input type="text" id="${idPrefix}-${f.k}" value="${escAttr(o[f.k] ?? "")}"
+                   placeholder="${escAttr(f.ph || "")}" ${f.list ? `list="${f.list}"` : ""}
+                   spellcheck="false" autocomplete="off" onkeydown="envEditKey(event)" />
+          </div>`
+          )
+          .join("")}</div>`;
+      }
+      function readStruct(schema, idPrefix) {
+        const o = {};
+        for (const f of schema.fields) o[f.k] = document.getElementById(`${idPrefix}-${f.k}`)?.value ?? "";
+        const last = schema.fields[schema.fields.length - 1].k;
+        for (const f of schema.fields) {
+          if (f.req && !o[f.k].trim()) return { error: `${f.label} is required`, field: `${idPrefix}-${f.k}` };
+          if (f.k !== last && o[f.k].includes(schema.sep))
+            return { error: `${f.label} cannot contain "${schema.sep}"`, field: `${idPrefix}-${f.k}` };
+        }
+        return { value: buildStruct(schema, o) };
+      }
+      function structView(l, real) {
+        const s = schemaOf(l);
+        if (!s) return null;
+        const o = parseStruct(s, real);
+        if (l.schema === "tool") {
+          const files = envData?.html_files || [];
+          const missing = files.length && o.file && !files.includes(o.file);
+          return `<div class="env-struct-view">
+            <div class="line1">
+              <span class="tool-icon">${escHtml(o.icon || "▫")}</span>
+              <b>${escHtml(o.name || "(no name)")}</b>
+              <span class="env-chip file ${missing ? "missing" : ""}" title="${
+                missing ? "File not found in the toolbox directory" : "Page file"
+              }">${escHtml(o.file || "no file")}${missing ? " ⚠" : ""}</span>
+              ${o.category ? `<span class="env-chip" title="Category">${escHtml(o.category)}</span>` : ""}
+              ${o.badge ? `<span class="env-chip badge" title="Badge">${escHtml(o.badge)}</span>` : ""}
+            </div>
+            ${o.desc ? `<div class="line2" title="${escAttr(o.desc)}">${escHtml(o.desc)}</div>` : ""}
+          </div>`;
+        }
+        if (l.schema === "preset") {
+          return `<div class="env-struct-view"><div class="line1">
+            <b style="font-family:var(--mono);font-size:0.7rem">${escHtml(o.host || "(no host)")}</b>
+            ${o.label ? `<span class="env-chip" title="Label">${escHtml(o.label)}</span>` : ""}
+          </div></div>`;
+        }
+        return null;
+      }
+      function lineAt(n) {
+        return (envData?.lines || []).find((x) => x.n === n && (x.type === "var" || x.type === "disabled"));
+      }
 
       const ENV_RELOAD = {
         live: ["LIVE", "Read from disk on every request — applies immediately"],
@@ -2161,10 +2406,13 @@
         return envFetch("")
           .then((d) => {
             envData = d;
-            envEditingKey = null;
+            envEditingLine = null;
+            envRevealed = {}; // line numbers may have shifted
+            document.getElementById("env-reveal-all").checked = false;
             renderEnvMeta();
             renderEnv();
             envFillAfterSelect();
+            envFillDatalists();
           })
           .catch((e) => {
             toast(`Failed to load .env: ${e.message}`, "err");
@@ -2195,6 +2443,7 @@
           pills.push(`<span class="env-pill">modified <b>${escHtml(fmtTs(m.mtime))}</b></span>`);
         }
         pills.push(`<span class="env-pill"><b>${s.vars || 0}</b> variables</span>`);
+        if (s.disabled) pills.push(`<span class="env-pill"><b>${s.disabled}</b> disabled</span>`);
         pills.push(`<span class="env-pill"><b>${s.secrets || 0}</b> secrets</span>`);
         if (s.empty) pills.push(`<span class="env-pill warn"><b>${s.empty}</b> empty</span>`);
         if (s.unknown) pills.push(`<span class="env-pill"><b>${s.unknown}</b> not referenced</span>`);
@@ -2226,6 +2475,9 @@
       }
 
       function envVisible(line, f) {
+        if (f.filter === "tools" && line.schema !== "tool") return false;
+        if (f.filter === "presets" && line.schema !== "preset") return false;
+        if (f.filter === "disabled" && line.type !== "disabled") return false;
         if (f.filter === "secret" && !line.secret) return false;
         if (f.filter === "plain" && line.secret) return false;
         if (f.filter === "restart" && !["restart", "mixed"].includes(line.reload)) return false;
@@ -2257,6 +2509,7 @@
         let html = "";
         let shown = 0;
         const total = lines.filter((l) => l.type === "var").length;
+        const disabledTotal = lines.filter((l) => l.type === "disabled").length;
 
         for (let i = 0; i < lines.length; i++) {
           const l = lines[i];
@@ -2285,14 +2538,16 @@
             total ? "No variables match the current filters" : "The .env file is empty — add a variable below"
           }</div>`;
         document.getElementById("env-count").textContent = filtering
-          ? `${shown} of ${total}`
-          : `${total} variable${total !== 1 ? "s" : ""}`;
+          ? `${shown} of ${total + disabledTotal}`
+          : `${total} variable${total !== 1 ? "s" : ""}${disabledTotal ? ` · ${disabledTotal} disabled` : ""}`;
 
-        if (envEditingKey) {
-          const inp = document.getElementById("env-edit-input");
+        if (envEditingLine) {
+          const inp =
+            document.getElementById("env-edit-input") ||
+            document.querySelector(`.env-row.editing .struct-grid input`);
           if (inp) {
             inp.focus();
-            inp.select();
+            if (inp.select) inp.select();
           }
         }
       }
@@ -2300,81 +2555,111 @@
       function envRowHtml(l) {
         const k = escHtml(l.key);
         const kAttr = escAttr(l.key);
-        const editing = envEditingKey === l.key;
-        const revealed = Object.prototype.hasOwnProperty.call(envRevealed, l.key);
+        const n = l.n;
+        const off = l.type === "disabled";
+        const editing = envEditingLine === n;
+        const revealed = Object.prototype.hasOwnProperty.call(envRevealed, n);
         const [rlLabel, rlTitle] = ENV_RELOAD[l.reload] || ENV_RELOAD.unknown;
+        const schema = schemaOf(l);
+        const real = l.secret ? envRevealed[n] : l.value;
+
+        const keyCell = `
+          <div>
+            <div class="env-key">
+              <span class="lineno">L${n}</span>${k}
+              ${off ? `<span class="env-chip off" title="Commented out — ignored by the proxy">off</span>` : ""}
+              ${off && l.has_active ? `<span class="env-chip alt" title="An active definition of this key exists — enabling this one replaces it">alternative</span>` : ""}
+              ${l.secret ? `<span class="env-chip secret">secret</span>` : ""}
+              ${l.duplicate ? `<span class="env-chip dup" title="Defined more than once — the first definition wins">duplicate</span>` : ""}
+              ${schema ? `<span class="env-chip" title="Structured value">${escHtml(schema.label)}</span>` : ""}
+            </div>
+            <div class="env-desc">
+              <span class="env-chip ${escHtml(l.reload)}" title="${escAttr(rlTitle)}">${rlLabel}</span>
+              ${l.consumer && l.consumer !== "reference" ? `<span>${escHtml(l.consumer)}</span><span>·</span>` : ""}
+              <span>${escHtml(l.description || "")}</span>
+            </div>
+          </div>`;
+
+        // ── structured editor takes the whole row ──
+        if (editing && schema) {
+          return `
+          <div class="env-row editing block ${off ? "off" : ""}" data-line="${n}" data-key="${kAttr}">
+            ${keyCell}
+            ${structEditor(schema, real ?? "", "env-edit")}
+            <div class="env-actions">
+              <button class="btn ok icon" onclick="envSaveEdit()">✔ Save</button>
+              <button class="btn icon" onclick="envCancelEdit()">Cancel</button>
+            </div>
+          </div>`;
+        }
 
         // ── value cell ──
         let valCell;
         if (editing) {
-          const real = l.secret ? envRevealed[l.key] ?? "" : l.value;
           valCell = `
             <input id="env-edit-input" type="${l.secret ? "password" : "text"}"
-                   value="${escAttr(real)}" spellcheck="false" autocomplete="off"
+                   value="${escAttr(real ?? "")}" spellcheck="false" autocomplete="off"
                    onkeydown="envEditKey(event)" />
-            ${
-              l.secret
-                ? `<button class="btn icon" title="Show / hide" onclick="envToggleEditMask()">👁</button>`
-                : ""
-            }`;
+            ${l.secret ? `<button class="btn icon" title="Show / hide" onclick="envToggleEditMask()">👁</button>` : ""}`;
         } else if (!l.has_value) {
           valCell = `<span class="val-text empty">(empty)</span>`;
         } else if (l.secret && !revealed) {
           valCell = `
             <span class="val-text masked" title="${l.length} characters">${"•".repeat(Math.min(12, Math.max(6, l.length)))}</span>
-            <button class="btn icon" title="Reveal" onclick="envReveal('${kAttr}')">👁</button>
-            <button class="btn icon" title="Copy value" onclick="envCopy('${kAttr}')">⧉</button>`;
+            <button class="btn icon" title="Reveal" onclick="envReveal(${n})">👁</button>
+            <button class="btn icon" title="Copy value" onclick="envCopy(${n})">⧉</button>`;
         } else {
-          const v = l.secret ? envRevealed[l.key] : l.value;
+          const view = schema ? structView(l, real) : null;
           valCell = `
-            <span class="val-text" title="${escAttr(v)}">${escHtml(v)}</span>
-            ${
-              l.secret
-                ? `<button class="btn icon" title="Hide" onclick="envHide('${kAttr}')">🙈</button>`
-                : ""
-            }
-            <button class="btn icon" title="Copy value" onclick="envCopy('${kAttr}')">⧉</button>`;
+            ${view || `<span class="val-text" title="${escAttr(real)}">${escHtml(real)}</span>`}
+            ${l.secret ? `<button class="btn icon" title="Hide" onclick="envHide(${n})">🙈</button>` : ""}
+            <button class="btn icon" title="Copy raw value" onclick="envCopy(${n})">⧉</button>`;
         }
 
         // ── actions ──
-        const actions = editing
-          ? `<button class="btn ok icon" onclick="envSaveEdit()">✔ Save</button>
-             <button class="btn icon" onclick="envCancelEdit()">Cancel</button>`
-          : `<button class="btn icon" title="Edit value" onclick="envEdit('${kAttr}')">✎ Edit</button>
-             <button class="btn icon" title="Rename key" onclick="envRename('${kAttr}')">⇄</button>
-             <button class="btn danger icon" title="Delete" onclick="envAskDelete('${kAttr}')">✕</button>`;
+        let actions;
+        if (editing) {
+          actions = `<button class="btn ok icon" onclick="envSaveEdit()">✔ Save</button>
+                     <button class="btn icon" onclick="envCancelEdit()">Cancel</button>`;
+        } else if (off) {
+          actions = `<button class="btn ok icon" title="Enable — uncomment this line" onclick="envToggle(${n}, true)">▶ Enable</button>
+                     <button class="btn icon" title="Edit value" onclick="envEdit(${n})">✎ Edit</button>
+                     <button class="btn danger icon" title="Delete line" onclick="envAskDelete(${n})">✕</button>`;
+        } else {
+          actions = `<button class="btn icon" title="Edit value" onclick="envEdit(${n})">✎ Edit</button>
+                     <button class="btn icon" title="Disable — keep the line commented out" onclick="envToggle(${n}, false)">⏸</button>
+                     <button class="btn icon" title="Rename key" onclick="envRename('${kAttr}')">⇄</button>
+                     <button class="btn danger icon" title="Delete" onclick="envAskDelete(${n})">✕</button>`;
+        }
 
         return `
-          <div class="env-row ${editing ? "editing" : ""} ${l.duplicate ? "duplicate" : ""}" data-key="${kAttr}">
-            <div>
-              <div class="env-key">
-                <span class="lineno">L${l.n}</span>${k}
-                ${l.secret ? `<span class="env-chip secret">secret</span>` : ""}
-                ${l.duplicate ? `<span class="env-chip dup" title="Defined more than once — the first definition wins">duplicate</span>` : ""}
-              </div>
-              <div class="env-desc">
-                <span class="env-chip ${escHtml(l.reload)}" title="${escAttr(rlTitle)}">${rlLabel}</span>
-                ${l.consumer && l.consumer !== "reference" ? `<span>${escHtml(l.consumer)}</span><span>·</span>` : ""}
-                <span>${escHtml(l.description || "")}</span>
-              </div>
-            </div>
+          <div class="env-row ${editing ? "editing" : ""} ${l.duplicate ? "duplicate" : ""} ${off ? "off" : ""}" data-line="${n}" data-key="${kAttr}">
+            ${keyCell}
             <div class="env-val">${valCell}</div>
             <div class="env-actions">${actions}</div>
           </div>`;
       }
 
-      // ── reveal / hide / copy ──
-      function envReveal(key) {
-        return envFetch(`/keys/${encodeURIComponent(key)}/reveal`)
+      // ── reveal / hide / copy (by line number) ──
+      function revealUrl(l) {
+        return `/lines/${l.n}/reveal?key=${encodeURIComponent(l.key)}`;
+      }
+      function envReveal(n) {
+        const l = lineAt(n);
+        if (!l) return Promise.resolve(undefined);
+        return envFetch(revealUrl(l))
           .then((d) => {
-            envRevealed[key] = d.value;
+            envRevealed[n] = d.value;
             renderEnv();
             return d.value;
           })
-          .catch((e) => toast(`Reveal failed: ${e.message}`, "err"));
+          .catch((e) => {
+            toast(`Reveal failed: ${e.message}`, "err");
+            if (e.status === 409) loadEnv();
+          });
       }
-      function envHide(key) {
-        delete envRevealed[key];
+      function envHide(n) {
+        delete envRevealed[n];
         renderEnv();
       }
       function envToggleRevealAll(on) {
@@ -2383,24 +2668,26 @@
           renderEnv();
           return;
         }
-        const secrets = (envData?.lines || []).filter((l) => l.type === "var" && l.secret && l.has_value);
+        const secrets = (envData?.lines || []).filter(
+          (l) => (l.type === "var" || l.type === "disabled") && l.secret && l.has_value
+        );
         Promise.all(
           secrets.map((l) =>
-            envFetch(`/keys/${encodeURIComponent(l.key)}/reveal`).then((d) => {
-              envRevealed[l.key] = d.value;
+            envFetch(revealUrl(l)).then((d) => {
+              envRevealed[l.n] = d.value;
             })
           )
         )
           .then(() => renderEnv())
           .catch((e) => toast(`Reveal failed: ${e.message}`, "err"));
       }
-      async function envCopy(key) {
-        const l = (envData?.lines || []).find((x) => x.type === "var" && x.key === key);
+      async function envCopy(n) {
+        const l = lineAt(n);
         if (!l) return;
-        let v = l.secret ? envRevealed[key] : l.value;
+        let v = l.secret ? envRevealed[n] : l.value;
         if (l.secret && v === undefined) {
           try {
-            v = (await envFetch(`/keys/${encodeURIComponent(key)}/reveal`)).value;
+            v = (await envFetch(revealUrl(l))).value;
           } catch (e) {
             toast(`Copy failed: ${e.message}`, "err");
             return;
@@ -2408,26 +2695,79 @@
         }
         try {
           await navigator.clipboard.writeText(v ?? "");
-          toast(`Copied ${key}`, "ok");
+          toast(`Copied ${l.key}`, "ok");
         } catch {
           toast("Clipboard unavailable", "err");
         }
       }
 
       // ── inline edit ──
-      async function envEdit(key) {
-        const l = (envData?.lines || []).find((x) => x.type === "var" && x.key === key);
+      async function envEdit(n) {
+        const l = lineAt(n);
         if (!l) return;
-        if (l.secret && l.has_value && !Object.prototype.hasOwnProperty.call(envRevealed, key)) {
-          const v = await envReveal(key);
+        if (l.secret && l.has_value && !Object.prototype.hasOwnProperty.call(envRevealed, n)) {
+          const v = await envReveal(n);
           if (v === undefined) return;
         }
-        envEditingKey = key;
+        envEditingLine = n;
         renderEnv();
       }
       function envCancelEdit() {
-        envEditingKey = null;
+        envEditingLine = null;
         renderEnv();
+      }
+
+      // ── enable / disable ──
+      function envToggle(n, enabled, replace = false) {
+        const l = lineAt(n);
+        if (!l) return;
+        const send = () =>
+          envFetch(`/lines/${n}/toggle`, {
+            method: "POST",
+            body: JSON.stringify({ key: l.key, enabled, replace }),
+          })
+            .then((d) => {
+              closeConfirm();
+              const extra = d.replaced_lines?.length ? ` (replaced L${d.replaced_lines.join(", L")})` : "";
+              toast(`${l.key} ${enabled ? "enabled" : "disabled"}${extra}`, "ok");
+              envNoteRestart(l.key, d.reload || l.reload);
+              loadEnv();
+            })
+            .catch((e) => {
+              closeConfirm();
+              if (e.status === 409 && e.data?.code === "active_exists") {
+                openConfirm({
+                  title: "⚠ Replace active value",
+                  message: `"${l.key}" is already active on line ${e.data.active_lines.join(", ")}. Enable this line and disable the other definition(s)?`,
+                  button: "Replace",
+                  onConfirm: () => envToggle(n, true, true),
+                });
+                return;
+              }
+              toast(`${enabled ? "Enable" : "Disable"} failed: ${e.message}`, "err");
+              if (e.status === 409) loadEnv();
+            });
+
+        if (enabled && l.has_active && !replace) {
+          openConfirm({
+            title: "⚠ Replace active value",
+            message: `"${l.key}" already has an active definition. Enable this line and disable the current one?`,
+            button: "Replace",
+            onConfirm: () => envToggle(n, true, true),
+          });
+          return;
+        }
+        if (!enabled) {
+          const what = l.schema === "tool" ? "The tool disappears from the sidebar and welcome cards." : "The proxy will ignore it.";
+          openConfirm({
+            title: "⏸ Disable option",
+            message: `Comment out "${l.key}"? ${what} The line is kept and can be re-enabled later.`,
+            button: "Disable",
+            onConfirm: send,
+          });
+          return;
+        }
+        send();
       }
       function envEditKey(e) {
         if (e.key === "Enter") {
@@ -2443,34 +2783,49 @@
         if (inp) inp.type = inp.type === "password" ? "text" : "password";
       }
       function envSaveEdit() {
-        const inp = document.getElementById("env-edit-input");
-        if (!inp || !envEditingKey || envBusy) return;
-        const key = envEditingKey;
-        const value = inp.value;
+        if (!envEditingLine || envBusy) return;
+        const n = envEditingLine;
+        const l = lineAt(n);
+        if (!l) return;
+        const schema = schemaOf(l);
+        let value;
+        if (schema) {
+          const r = readStruct(schema, "env-edit");
+          if (r.error) {
+            shakeInput(r.field);
+            toast(r.error, "err");
+            return;
+          }
+          value = r.value;
+        } else {
+          const inp = document.getElementById("env-edit-input");
+          if (!inp) return;
+          value = inp.value;
+        }
         if (/[\r\n]/.test(value)) {
           toast("Value must be a single line", "err");
           return;
         }
         envBusy = true;
-        envFetch(`/keys/${encodeURIComponent(key)}`, {
+        envFetch(`/lines/${n}`, {
           method: "PUT",
-          body: JSON.stringify({ value }),
+          body: JSON.stringify({ key: l.key, value }),
         })
           .then((d) => {
             envBusy = false;
             if (d.unchanged) {
-              toast(`${key} unchanged`);
+              toast(`${l.key} unchanged`);
             } else {
-              toast(`${key} saved`, "ok");
-              envNoteRestart(key, d.reload);
+              toast(`${l.key} saved${l.type === "disabled" ? " (still disabled)" : ""}`, "ok");
+              if (l.type !== "disabled") envNoteRestart(l.key, d.reload);
             }
-            if (Object.prototype.hasOwnProperty.call(envRevealed, key)) envRevealed[key] = value;
-            envEditingKey = null;
+            envEditingLine = null;
             loadEnv();
           })
           .catch((e) => {
             envBusy = false;
             toast(`Save failed: ${e.message}`, "err");
+            if (e.status === 409) loadEnv();
           });
       }
 
@@ -2490,53 +2845,125 @@
         })
           .then((d) => {
             toast(`Renamed ${key} → ${newKey}`, "ok");
-            if (Object.prototype.hasOwnProperty.call(envRevealed, key)) {
-              envRevealed[newKey] = envRevealed[key];
-              delete envRevealed[key];
-            }
             envNoteRestart(newKey, d.reload || "restart");
             loadEnv();
           })
           .catch((e) => toast(`Rename failed: ${e.message}`, "err"));
       }
 
-      // ── delete ──
-      function envAskDelete(key) {
-        const l = (envData?.lines || []).find((x) => x.type === "var" && x.key === key);
-        const consumer = l && l.known && l.consumer !== "reference" ? ` It is used by ${l.consumer}.` : "";
+      // ── delete (by line) ──
+      function envAskDelete(n) {
+        const l = lineAt(n);
+        if (!l) return;
+        const off = l.type === "disabled";
+        const consumer = !off && l.known && l.consumer !== "reference" ? ` It is used by ${l.consumer}.` : "";
         openConfirm({
-          title: "⚠ Delete Variable",
-          message: `Remove "${key}" from .env?${consumer} A backup is taken first.`,
+          title: off ? "⚠ Delete disabled option" : "⚠ Delete Variable",
+          message: off
+            ? `Remove the commented-out line "${l.key}" (L${n})? A backup is taken first.`
+            : `Remove "${l.key}" from .env?${consumer} Prefer ⏸ Disable if you may need it again. A backup is taken first.`,
           button: "Delete",
           onConfirm: () => {
-            envFetch(`/keys/${encodeURIComponent(key)}${l && l.duplicate ? "?all=1" : ""}`, {
-              method: "DELETE",
-            })
-              .then((d) => {
+            envFetch(`/lines/${n}?key=${encodeURIComponent(l.key)}`, { method: "DELETE" })
+              .then(() => {
                 closeConfirm();
-                toast(`Deleted ${key}${d.removed > 1 ? ` (${d.removed} lines)` : ""}`, "ok");
-                delete envRevealed[key];
-                envNoteRestart(key, l ? l.reload : "unknown");
+                toast(`Deleted ${l.key}`, "ok");
+                if (!off) envNoteRestart(l.key, l.reload);
                 loadEnv();
               })
               .catch((e) => {
                 closeConfirm();
                 toast(`Delete failed: ${e.message}`, "err");
+                if (e.status === 409) loadEnv();
               });
           },
         });
       }
 
       // ── add ──
-      function envNewVar() {
-        document.getElementById("e-key").focus();
-        document
-          .getElementById("env-form-panel")
-          .scrollIntoView({ behavior: "smooth", block: "center" });
+      const ENV_FORM_TYPES = {
+        custom: { schema: null, prefix: null, hint: "Free-form KEY=VALUE", title: "＋ New Variable", btn: "＋ Add Variable" },
+        tool: { schema: "tool", prefix: "TOOL_", pad: 2, hint: "Registers a page in the sidebar and welcome cards (index.html)", title: "＋ New Tool", btn: "＋ Add Tool" },
+        server: { schema: "preset", prefix: "SRT_SERVER_", pad: 1, hint: "Offered in the SRT host dropdowns (URI Builder, Video Analyser, TXCore Manager)", title: "＋ New SRT Server Preset", btn: "＋ Add Preset" },
+        local: { schema: "preset", prefix: "SRT_LOCAL_", pad: 1, hint: "Friendly label for a local interface IP (URI Builder, Ingest Analyzer, Video Analyser)", title: "＋ New Local Preset", btn: "＋ Add Preset" },
+      };
+      function envKeysOfPrefix(prefix) {
+        return (envData?.lines || [])
+          .filter((l) => (l.type === "var" || l.type === "disabled") && l.key.startsWith(prefix))
+          .map((l) => l.key);
+      }
+      function envNextKey(prefix, pad) {
+        const nums = envKeysOfPrefix(prefix)
+          .map((k) => k.slice(prefix.length))
+          .filter((s) => /^\d+$/.test(s));
+        const width = Math.max(pad, ...nums.map((s) => s.length), 0);
+        const next = nums.length ? Math.max(...nums.map(Number)) + 1 : 1;
+        return prefix + String(next).padStart(width, "0");
+      }
+      function envNewVar(type = "custom") {
+        const sel = document.getElementById("e-type");
+        sel.value = ENV_FORM_TYPES[type] ? type : "custom";
+        envFormType(true);
+        document.getElementById("env-form-panel").scrollIntoView({ behavior: "smooth", block: "center" });
+        const first =
+          document.querySelector("#e-struct input") || document.getElementById(type === "custom" ? "e-key" : "e-value");
+        if (first) first.focus();
+      }
+      function envFormType(reset = false) {
+        const type = document.getElementById("e-type").value;
+        const t = ENV_FORM_TYPES[type] || ENV_FORM_TYPES.custom;
+        const keyEl = document.getElementById("e-key");
+        document.getElementById("e-type-hint").textContent = t.hint;
+        document.getElementById("env-form-title").textContent = t.title;
+        document.getElementById("btn-env-submit").textContent = t.btn;
+        document.getElementById("e-value-group").classList.toggle("hidden", !!t.schema);
+        document.getElementById("e-struct-group").classList.toggle("hidden", !t.schema);
+        if (t.schema) {
+          const schema = ENV_SCHEMAS[t.schema];
+          const keep = reset ? {} : (() => {
+            try {
+              const r = readStruct(schema, "e-new");
+              return r.value !== undefined ? parseStruct(schema, r.value) : {};
+            } catch {
+              return {};
+            }
+          })();
+          document.getElementById("e-struct").innerHTML = structEditor(schema, buildStruct(schema, keep), "e-new");
+          document.querySelectorAll("#e-struct input").forEach((i) => (i.onkeydown = null));
+          document.getElementById("e-struct-hint").textContent =
+            t.schema === "tool"
+              ? "Stored as file|Name|Description|icon|Category|BADGE. Fields cannot contain “|”."
+              : "Stored as host|Label.";
+          if (reset || !keyEl.value || !keyEl.value.startsWith(t.prefix)) keyEl.value = envNextKey(t.prefix, t.pad);
+          // Insert after the last key of the same family so the group stays together
+          const fam = envKeysOfPrefix(t.prefix).filter((k) => k !== keyEl.value);
+          const afterSel = document.getElementById("e-after");
+          if (fam.length && [...afterSel.options].some((o) => o.value === fam[fam.length - 1]))
+            afterSel.value = fam[fam.length - 1];
+        } else if (reset) {
+          keyEl.value = "";
+          document.getElementById("e-value").value = "";
+          document.getElementById("e-after").value = "";
+        }
+      }
+      function envKeyTyped(el) {
+        el.value = el.value.toUpperCase().replace(/[^A-Z0-9_]/g, "");
+        // Typing a known family key switches the form to its structured editor
+        const sel = document.getElementById("e-type");
+        const want = /^TOOL_\d*$/.test(el.value) ? "tool" : /^SRT_SERVER_\d*$/.test(el.value) ? "server" : /^SRT_LOCAL_\d*$/.test(el.value) ? "local" : null;
+        if (want && sel.value !== want) {
+          sel.value = want;
+          const v = el.value;
+          envFormType(false);
+          el.value = v;
+        }
       }
       function envResetForm() {
         ["e-key", "e-value", "e-comment"].forEach((id) => (document.getElementById(id).value = ""));
         document.getElementById("e-after").value = "";
+        document.getElementById("e-disabled").checked = false;
+        document.getElementById("e-type").value = "custom";
+        envFormType(true);
       }
       function envFillAfterSelect() {
         const sel = document.getElementById("e-after");
@@ -2547,15 +2974,52 @@
           keys.map((k) => `<option value="${escAttr(k)}">after ${escHtml(k)}</option>`).join("");
         if (keys.includes(current)) sel.value = current;
       }
+      function envFillDatalists() {
+        const files = envData?.html_files || [];
+        document.getElementById("env-dl-files").innerHTML = files
+          .map((f) => `<option value="${escAttr(f)}"></option>`)
+          .join("");
+        const cats = new Set();
+        const badges = new Set();
+        for (const l of envData?.lines || []) {
+          if ((l.type === "var" || l.type === "disabled") && l.schema === "tool") {
+            const o = parseStruct(ENV_SCHEMAS.tool, l.value);
+            if (o.category) cats.add(o.category.trim());
+            if (o.badge) badges.add(o.badge.trim());
+          }
+        }
+        document.getElementById("env-dl-categories").innerHTML = [...cats]
+          .sort()
+          .map((c) => `<option value="${escAttr(c)}"></option>`)
+          .join("");
+        document.getElementById("env-dl-badges").innerHTML = [...badges]
+          .sort()
+          .map((b) => `<option value="${escAttr(b)}"></option>`)
+          .join("");
+      }
       function envSubmitNew() {
+        const type = document.getElementById("e-type").value;
+        const t = ENV_FORM_TYPES[type] || ENV_FORM_TYPES.custom;
         const key = document.getElementById("e-key").value.trim();
-        const value = document.getElementById("e-value").value;
         const after = document.getElementById("e-after").value;
         const comment = document.getElementById("e-comment").value.trim();
+        const enabled = !document.getElementById("e-disabled").checked;
         if (!/^[A-Z_][A-Z0-9_]*$/.test(key)) {
           shakeInput("e-key");
           toast("Key must be letters, digits and underscore", "err");
           return;
+        }
+        let value;
+        if (t.schema) {
+          const r = readStruct(ENV_SCHEMAS[t.schema], "e-new");
+          if (r.error) {
+            shakeInput(r.field);
+            toast(r.error, "err");
+            return;
+          }
+          value = r.value;
+        } else {
+          value = document.getElementById("e-value").value;
         }
         if (/[\r\n]/.test(value)) {
           shakeInput("e-value");
@@ -2564,11 +3028,11 @@
         }
         envFetch("/keys", {
           method: "POST",
-          body: JSON.stringify({ key, value, after, comment }),
+          body: JSON.stringify({ key, value, after, comment, enabled }),
         })
           .then((d) => {
-            toast(`${key} added`, "ok");
-            envNoteRestart(key, d.reload);
+            toast(`${key} added${enabled ? "" : " (disabled)"}`, "ok");
+            if (enabled) envNoteRestart(key, d.reload);
             envResetForm();
             loadEnv();
           })

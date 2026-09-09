@@ -28,16 +28,28 @@ copy it into ``os.environ`` at import time (``restart``). The
 ``KNOWN_KEYS`` registry below tells the UI which is which so it can show a
 "restart proxy" hint after saving.
 
+Disabled options
+----------------
+A comment of the exact form ``# KEY=VALUE`` (upper-case key) is reported as
+type ``disabled`` — an option that is switched off but kept for later. The
+line-based endpoints below can enable/disable it in place, edit its value or
+delete it, so duplicates and disabled alternatives are addressed by line
+number (validated against the expected key) rather than by key.
+
 Endpoints (prefix ``/env``)
 ---------------------------
 GET    /env                          parsed file (secrets masked) + metadata
 GET    /env/raw                      full raw content (secrets included)
 PUT    /env/raw                      replace full content (validated)
-GET    /env/keys/<key>/reveal        real value of one key
+GET    /env/keys/<key>/reveal        real value of one key (first active)
 POST   /env/keys                     add a variable
 PUT    /env/keys/<key>               update a variable's value
 PUT    /env/keys/<key>/rename        rename a variable
 DELETE /env/keys/<key>               delete a variable
+GET    /env/lines/<n>/reveal         real value of the var/disabled line n
+PUT    /env/lines/<n>                update value of line n (active or disabled)
+DELETE /env/lines/<n>                delete line n
+POST   /env/lines/<n>/toggle         enable / disable line n
 GET    /env/backups                  list backups
 POST   /env/backups                  create a manual backup
 GET    /env/backups/<name>/diff      unified diff backup → current (masked)
@@ -78,54 +90,70 @@ SECRET_RE  = re.compile(
 _lock = threading.Lock()
 
 # ── Known keys registry ───────────────────────────────────
-# (regex, consumer, description, reload)
+# (regex, consumer, description, reload, schema)
 #   reload: 'live'    → read from disk per request, effective immediately
 #           'restart' → loaded into os.environ at import, needs proxy restart
 #           'mixed'   → some consumers live, some need restart
 #           'none'    → reference data, not read by any Blueprint
+#   schema: how the UI edits the value —
+#           'tool'    → file.html|Name|Description|icon|Category|BADGE
+#           'preset'  → host|Label
+#           'url', 'host', 'ip', 'text'
 KNOWN_KEYS = [
     (r'^APP_TITLE$',            'index.html',
-     'Application title shown in the sidebar and browser tab', 'live'),
+     'Application title shown in the sidebar and browser tab', 'live', 'text'),
     (r'^APP_VERSION$',          'index.html',
-     'Legacy version string (the UI now reads the version from CHANGELOG.md)', 'live'),
+     'Legacy version string (the UI now reads the version from CHANGELOG.md)', 'live', 'text'),
     (r'^PROXY_URL$',            'index.html',
-     'Optional proxy base URL override for the frontends', 'live'),
+     'Optional proxy base URL override for the frontends', 'live', 'url'),
     (r'^TOOL_\d+$',             'index.html',
-     'Tool registry entry — file.html|Name|Description|icon|Category|BADGE', 'live'),
+     'Tool registry entry shown in the sidebar and welcome cards', 'live', 'tool'),
     (r'^SRT_SERVER_\d+$',       'SRT URI Builder · Video Analyser · TXCore Manager',
-     'SRT server preset — IP|Label', 'mixed'),
+     'SRT server preset offered in host dropdowns', 'mixed', 'preset'),
     (r'^SRT_LOCAL_\d+$',        'SRT URI Builder · Ingest Analyzer · Video Analyser',
-     'Local interface preset — IP|Label', 'mixed'),
+     'Local interface preset (friendly label for an IP)', 'mixed', 'preset'),
     (r'^SRT_PASSPHRASE$',       'SRT tools · TXCore Manager (fallback)',
-     'Default SRT passphrase pre-filled in the SRT tools', 'mixed'),
+     'Default SRT passphrase pre-filled in the SRT tools', 'mixed', 'text'),
     (r'^ADMIN_PASSWORD$',       'proxy.py · routes_gop.py',
-     'Legacy X-Admin-Password guarding destructive MTR/GOP actions', 'live'),
+     'Legacy X-Admin-Password guarding destructive MTR/GOP actions', 'live', 'text'),
     (r'^PRFAUTH$',              'id3as_routes.py',
-     'id3as API bearer token', 'live'),
+     'id3as API bearer token', 'live', 'text'),
     (r'^ID3AS_HOST_(IX|EQ)$',   'id3as_routes.py',
-     'id3as datacentre hostname used to build GUI deep-links', 'live'),
+     'id3as datacentre hostname used to build GUI deep-links', 'live', 'host'),
     (r'^BEARER_TOKEN_(STB|MAIN)$', 'routes_txcore.py',
-     'TXCore API bearer token for the cluster', 'restart'),
+     'TXCore API bearer token for the cluster', 'restart', 'text'),
     (r'^APIURL(STB|MAIN)$',     'routes_txcore.py',
-     'TXCore API base URL for the cluster (no trailing slash)', 'restart'),
+     'TXCore API base URL for the cluster (no trailing slash)', 'restart', 'url'),
     (r'^(AVE|LMK|YER)GEOID$',   'routes_txcore.py',
-     'TXCore geofence id for the site', 'restart'),
+     'TXCore geofence id for the site', 'restart', 'text'),
     (r'^INTERNALSRTPASSPHRASE$', 'routes_txcore.py',
-     'SRT passphrase applied to MAIN cluster sources', 'restart'),
+     'SRT passphrase applied to MAIN cluster sources', 'restart', 'text'),
     (r'^TXEDGE_[A-Z0-9]+_ID$',  'reference',
-     'TXEdge node id (reference data — not read by the proxy)', 'none'),
+     'TXEdge node id (reference data — not read by the proxy)', 'none', 'text'),
     (r'^[A-Z0-9]+_(INCOMING|OUTGOING)_(SRT|UDP|RTP)_IP$', 'reference',
-     'Site interface address (reference data — not read by the proxy)', 'none'),
+     'Site interface address (reference data — not read by the proxy)', 'none', 'ip'),
 ]
-_KNOWN = [(re.compile(rx), c, d, r) for rx, c, d, r in KNOWN_KEYS]
+_KNOWN = [(re.compile(rx), c, d, r, s) for rx, c, d, r, s in KNOWN_KEYS]
 
 
 def _key_info(key):
-    for rx, consumer, desc, reload in _KNOWN:
+    for rx, consumer, desc, reload, schema in _KNOWN:
         if rx.match(key):
-            return {'consumer': consumer, 'description': desc, 'reload': reload, 'known': True}
+            return {'consumer': consumer, 'description': desc, 'reload': reload,
+                    'schema': schema, 'known': True}
     return {'consumer': '', 'description': 'Not referenced by any Blueprint', 'reload': 'unknown',
-            'known': False}
+            'schema': 'text', 'known': False}
+
+
+def _html_files():
+    """Tool pages available for the TOOL_n file field (sorted, case-insensitive)."""
+    try:
+        return sorted(
+            (f for f in os.listdir(_BASE_DIR) if f.lower().endswith('.html')),
+            key=str.lower,
+        )
+    except OSError:
+        return []
 
 
 def _is_secret(key):
@@ -257,6 +285,9 @@ def _write_env(content):
 # ══════════════════════════════════════════════════════════
 
 _VAR_RE = re.compile(r'^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=(.*)$')
+# "# KEY=VALUE" — a switched-off option. Upper-case key only, so prose such as
+# "# Format: TOOL_n=file|Name" is left alone.
+_DISABLED_RE = re.compile(r'^\s*#\s*(?:export\s+)?([A-Z][A-Z0-9_]*)\s*=(.*)$')
 
 
 def _parse_line(text):
@@ -266,6 +297,9 @@ def _parse_line(text):
     if stripped == '':
         return {'type': 'blank'}
     if stripped.startswith('#'):
+        m = _DISABLED_RE.match(text)
+        if m:
+            return {'type': 'disabled', 'key': m.group(1), 'value': m.group(2).strip()}
         return {'type': 'comment'}
     m = _VAR_RE.match(text)
     if m:
@@ -279,23 +313,53 @@ def _parse(lines):
     for i, text in enumerate(lines):
         p = _parse_line(text)
         obj = {'n': i + 1, 'type': p['type'], 'text': text}
-        if p['type'] == 'var':
+        if p['type'] in ('var', 'disabled'):
             key, value = p['key'], p['value']
             secret = _is_secret(key)
+            active = p['type'] == 'var'
             obj.update({
                 'key': key,
+                'enabled': active,
                 'secret': secret,
                 'has_value': bool(value),
                 'value': MASK if (secret and value) else value,
                 'length': len(value),
-                'duplicate': key in seen,
+                'duplicate': active and key in seen,
             })
             obj.update(_key_info(key))
-            if key in seen:
-                duplicates.append(key)
-            seen.add(key)
+            if active:
+                if key in seen:
+                    duplicates.append(key)
+                seen.add(key)
         out.append(obj)
+    # A disabled line whose key is also active elsewhere is an "alternative"
+    for obj in out:
+        if obj['type'] == 'disabled':
+            obj['has_active'] = obj['key'] in seen
     return out, duplicates
+
+
+def _line_index(lines, n, key, types=('var', 'disabled')):
+    """Validate a 1-based line number against the expected key. Returns
+    (index, parsed) or (None, error_message)."""
+    try:
+        idx = int(n) - 1
+    except (TypeError, ValueError):
+        return None, 'invalid line number'
+    if idx < 0 or idx >= len(lines):
+        return None, 'line out of range — reload and retry'
+    p = _parse_line(lines[idx])
+    if p['type'] not in types or p.get('key') != key:
+        return None, 'line changed on disk — reload and retry'
+    return idx, p
+
+
+def _prefix_of(text):
+    """'export ' if the (possibly commented) line used it."""
+    body = text.lstrip()
+    if body.startswith('#'):
+        body = body[1:].lstrip()
+    return 'export ' if body.startswith('export ') else ''
 
 
 def _find_key(lines, key):
@@ -364,6 +428,7 @@ def get_env():
         'lines': lines,
         'stats': {
             'vars': len(vars_),
+            'disabled': sum(1 for l in lines if l['type'] == 'disabled'),
             'secrets': sum(1 for v in vars_ if v['secret']),
             'empty': sum(1 for v in vars_ if not v['has_value']),
             'unknown': sum(1 for v in vars_ if not v['known']),
@@ -371,6 +436,8 @@ def get_env():
             'invalid': sum(1 for l in lines if l['type'] == 'invalid'),
         },
         'duplicates': sorted(set(duplicates)),
+        # Helpers for the structured editors in the UI
+        'html_files': _html_files(),
     })
 
 
@@ -448,6 +515,7 @@ def add_key():
     value = data.get('value', '')
     after = str(data.get('after', '') or '').strip()      # insert after this key ('' → end)
     comment = str(data.get('comment', '') or '').strip()  # optional single-line comment above
+    enabled = data.get('enabled', True) is not False      # False → written as "# KEY=VALUE"
 
     err = _validate_key(key) or _validate_value(value)
     if err:
@@ -461,13 +529,14 @@ def add_key():
         content, mtime = _read_raw()
         nl = _newline_of(content)
         lines = _split_lines(content)
-        if _find_key(lines, key) >= 0:
-            return jsonify({'ok': False, 'error': f'Key "{key}" already exists — use PUT to update'}), 409
+        if enabled and _find_key(lines, key) >= 0:
+            return jsonify({'ok': False, 'error': f'Key "{key}" already exists — use PUT to update, '
+                                                  'or add it as a disabled alternative'}), 409
 
         new_lines = []
         if comment:
             new_lines.append('# ' + comment.lstrip('#').strip())
-        new_lines.append(f'{key}={value}')
+        new_lines.append(f"{'' if enabled else '# '}{key}={value}")
 
         if after:
             pos = _find_key(lines, after)
@@ -480,9 +549,10 @@ def add_key():
             lines.extend(new_lines)
 
         backup = _write_env(_join_lines(lines, nl))
-        os.environ[key] = value
-    _audit('add', key, f'backup={backup}')
-    return jsonify({'ok': True, 'key': key, 'backup': backup, **_key_info(key)}), 201
+        if enabled:
+            os.environ[key] = value
+    _audit('add', key, f'enabled={enabled} backup={backup}')
+    return jsonify({'ok': True, 'key': key, 'enabled': enabled, 'backup': backup, **_key_info(key)}), 201
 
 
 @env_bp.route('/keys/<key>', methods=['PUT'])
@@ -578,6 +648,140 @@ def delete_key(key):
 
 
 # ══════════════════════════════════════════════════════════
+# ROUTES — line based (active *and* disabled options, duplicates)
+# Every call carries the expected key so a stale UI never edits the
+# wrong line after the file changed underneath it.
+# ══════════════════════════════════════════════════════════
+
+@env_bp.route('/lines/<int:n>/reveal', methods=['GET'])
+@require_admin_only
+def reveal_line(n):
+    key = str(request.args.get('key', '')).strip()
+    if _validate_key(key):
+        return jsonify({'ok': False, 'error': 'key required'}), 400
+    with _lock:
+        content, _ = _read_raw()
+    lines = _split_lines(content)
+    idx, p = _line_index(lines, n, key)
+    if idx is None:
+        return jsonify({'ok': False, 'error': p}), 409
+    _audit('reveal', key, f'line={n}')
+    return jsonify({'ok': True, 'key': key, 'line': n, 'value': p['value'],
+                    'enabled': p['type'] == 'var'})
+
+
+@env_bp.route('/lines/<int:n>', methods=['PUT'])
+@require_admin_only
+def update_line(n):
+    data = request.get_json(silent=True) or {}
+    key = str(data.get('key', '')).strip()
+    value = data.get('value')
+    err = _validate_key(key) or _validate_value(value)
+    if err:
+        return jsonify({'ok': False, 'error': err}), 400
+
+    with _lock:
+        content, _ = _read_raw()
+        nl = _newline_of(content)
+        lines = _split_lines(content)
+        idx, p = _line_index(lines, n, key)
+        if idx is None:
+            return jsonify({'ok': False, 'error': p}), 409
+        if p['value'] == value:
+            return jsonify({'ok': True, 'key': key, 'line': n, 'unchanged': True, **_key_info(key)})
+        enabled = p['type'] == 'var'
+        lines[idx] = f"{'' if enabled else '# '}{_prefix_of(lines[idx])}{key}={value}"
+        backup = _write_env(_join_lines(lines, nl))
+        if enabled and _find_key(lines, key) == idx:
+            os.environ[key] = value
+    _audit('update', key, f'line={n} enabled={enabled} backup={backup}')
+    return jsonify({'ok': True, 'key': key, 'line': n, 'enabled': enabled, 'backup': backup,
+                    **_key_info(key)})
+
+
+@env_bp.route('/lines/<int:n>', methods=['DELETE'])
+@require_admin_only
+def delete_line(n):
+    key = str(request.args.get('key', '')).strip()
+    if _validate_key(key):
+        return jsonify({'ok': False, 'error': 'key required'}), 400
+    with _lock:
+        content, _ = _read_raw()
+        nl = _newline_of(content)
+        lines = _split_lines(content)
+        idx, p = _line_index(lines, n, key)
+        if idx is None:
+            return jsonify({'ok': False, 'error': p}), 409
+        was_enabled = p['type'] == 'var'
+        del lines[idx]
+        backup = _write_env(_join_lines(lines, nl))
+        if was_enabled:
+            j = _find_key(lines, key)
+            if j < 0:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = _parse_line(lines[j])['value']
+    _audit('delete', key, f'line={n} enabled={was_enabled} backup={backup}')
+    return jsonify({'ok': True, 'key': key, 'line': n, 'removed': 1, 'backup': backup})
+
+
+@env_bp.route('/lines/<int:n>/toggle', methods=['POST'])
+@require_admin_only
+def toggle_line(n):
+    """Enable (uncomment) or disable (comment out) one option line.
+
+    Body: { key, enabled: bool, replace: bool }
+    When enabling a line whose key is already active elsewhere, the call is
+    refused with 409 unless ``replace`` is true, in which case the other
+    active definitions are disabled so the file keeps a single active value.
+    """
+    data = request.get_json(silent=True) or {}
+    key = str(data.get('key', '')).strip()
+    enabled = bool(data.get('enabled'))
+    replace = bool(data.get('replace'))
+    if _validate_key(key):
+        return jsonify({'ok': False, 'error': 'key required'}), 400
+
+    with _lock:
+        content, _ = _read_raw()
+        nl = _newline_of(content)
+        lines = _split_lines(content)
+        idx, p = _line_index(lines, n, key)
+        if idx is None:
+            return jsonify({'ok': False, 'error': p}), 409
+        currently = p['type'] == 'var'
+        if currently == enabled:
+            return jsonify({'ok': True, 'key': key, 'line': n, 'enabled': enabled, 'unchanged': True})
+
+        prefix = _prefix_of(lines[idx])
+        replaced = []
+        if enabled:
+            others = [i for i, t in enumerate(lines)
+                      if i != idx and _parse_line(t)['type'] == 'var' and _parse_line(t)['key'] == key]
+            if others and not replace:
+                return jsonify({'ok': False, 'code': 'active_exists',
+                                'error': f'"{key}" is already active on line {others[0] + 1} — '
+                                         'disable it first or enable with replace',
+                                'active_lines': [i + 1 for i in others]}), 409
+            for i in others:
+                lines[i] = f"# {_prefix_of(lines[i])}{key}={_parse_line(lines[i])['value']}"
+                replaced.append(i + 1)
+            lines[idx] = f"{prefix}{key}={p['value']}"
+        else:
+            lines[idx] = f"# {prefix}{key}={p['value']}"
+
+        backup = _write_env(_join_lines(lines, nl))
+        j = _find_key(lines, key)
+        if j < 0:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = _parse_line(lines[j])['value']
+    _audit('enable' if enabled else 'disable', key, f'line={n} replaced={replaced} backup={backup}')
+    return jsonify({'ok': True, 'key': key, 'line': n, 'enabled': enabled,
+                    'replaced_lines': replaced, 'backup': backup, **_key_info(key)})
+
+
+# ══════════════════════════════════════════════════════════
 # ROUTES — backups
 # ══════════════════════════════════════════════════════════
 
@@ -610,8 +814,8 @@ def create_backup():
 
 def _mask_line(text):
     p = _parse_line(text)
-    if p['type'] == 'var' and _is_secret(p['key']) and p['value']:
-        return f"{p['key']}={MASK}"
+    if p['type'] in ('var', 'disabled') and _is_secret(p['key']) and p['value']:
+        return f"{'# ' if p['type'] == 'disabled' else ''}{p['key']}={MASK}"
     return text
 
 

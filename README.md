@@ -152,7 +152,7 @@ Integrated in BTV Video Analyser — Real-time network telemetry for SRT sources
 
 - **Users tab** — Roles admin, engineer, specialist, analyst, user; fields `rota_status` (active / inactive / observer), `team` (SOE / SOS / NA), `display_name`, `employee_id`
 - **Online tab** — Currently logged-in users with session metadata; admins can kick a user
-- **Environment tab** (admin only) — Manage every key in `.env`: add, edit inline, rename, delete; secrets masked with reveal-on-demand; file-order view with section headers and comments; search and filters (secrets, needs-restart, not referenced, empty, duplicates); LIVE / RESTART / REF badge per key showing which Blueprint reads it and whether a proxy restart is needed; raw editor with server-side validation and conflict detection; automatic timestamped backups before every write with diff, restore and delete; one-click proxy restart
+- **Environment tab** (admin only) — Manage every key in `.env`: add, edit inline, rename, delete; commented-out `# KEY=VALUE` lines shown as disabled options with Enable / Disable; structured editors for `TOOL_n` (file picker, name, description, icon, category, badge) and SRT presets (host + label); secrets masked with reveal-on-demand; file-order view with section headers and comments; search and filters (tools, presets, disabled, secrets, needs-restart, not referenced, empty, duplicates); LIVE / RESTART / REF badge per key showing which Blueprint reads it and whether a proxy restart is needed; raw editor with server-side validation and conflict detection; automatic timestamped backups before every write with diff, restore and delete; one-click proxy restart
 
 #### WC2026 Rota Management
 `wc2026_rota_management.html` — World Cup 2026 engineering rota planner.
@@ -259,6 +259,9 @@ The full reference, with request/response examples, is in [`SO-Toolbox-API-Docs.
 | PUT | `/so-proxy/env/keys/<key>` | Update a value |
 | PUT | `/so-proxy/env/keys/<key>/rename` | Rename a key |
 | DELETE | `/so-proxy/env/keys/<key>` | Delete a key (`?all=1` removes duplicates too) |
+| GET | `/so-proxy/env/lines/<n>/reveal?key=` | Real value of line `n` (active or disabled) |
+| PUT / DELETE | `/so-proxy/env/lines/<n>` | Update / delete line `n`, validated against the expected `key` |
+| POST | `/so-proxy/env/lines/<n>/toggle` | Enable or disable (comment out) line `n`; `replace: true` disables other active definitions |
 | GET / PUT | `/so-proxy/env/raw` | Read / replace the whole file (validated, mtime conflict check) |
 | GET / POST | `/so-proxy/env/backups` | List backups / create one now |
 | GET | `/so-proxy/env/backups/<name>/diff` | Unified diff backup → current (secrets masked) |
