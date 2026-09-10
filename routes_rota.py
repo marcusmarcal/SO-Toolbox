@@ -105,22 +105,45 @@ ENGINEERING_ROTATION = [
 # collision-free identifier every user has from day one. See
 # rota/person_directory.json. Nothing here is committed to source control.
 PERSON_DIRECTORY_FILE = os.path.join(ROTA_DIR, 'person_directory.json')
+PERSON_DIRECTORY_BACKUP_FILE = os.path.join(_BASE_DIR, 'person_directory.backup.json')
 DIRECTORY_AUDIT_FILE  = os.path.join(ROTA_DIR, 'directory_audit_log.json')
 
 VALID_ROTATION_GROUPS = {'management', 'engineering', 'specialist'}
 
 def _load_person_directory() -> dict:
     if not os.path.exists(PERSON_DIRECTORY_FILE):
-        raise RuntimeError(
-            f'person_directory.json missing at {PERSON_DIRECTORY_FILE} '
-            f'— create the file (can be an empty object {{}}) to start.'
-        )
+        if os.path.exists(PERSON_DIRECTORY_BACKUP_FILE):
+            print(f"[ROTA WARNING] person_directory.json missing — "
+                  f"restoring from backup at {PERSON_DIRECTORY_BACKUP_FILE}.")
+            backup = _load_json(PERSON_DIRECTORY_BACKUP_FILE)
+            if isinstance(backup, dict):
+                _save_json(PERSON_DIRECTORY_FILE, backup)
+            else:
+                print(f"[ROTA WARNING] backup file is also invalid — "
+                      f"falling back to empty directory.")
+                _save_json(PERSON_DIRECTORY_FILE, {})
+        else:
+            print(f"[ROTA WARNING] person_directory.json missing and no "
+                  f"backup found — creating empty file at "
+                  f"{PERSON_DIRECTORY_FILE}. Rota will show NO people "
+                  f"until entries are added via Admin > People.")
+            os.makedirs(ROTA_DIR, exist_ok=True)
+            _save_json(PERSON_DIRECTORY_FILE, {})
+
     d = _load_json(PERSON_DIRECTORY_FILE)
     if not isinstance(d, dict):
         raise RuntimeError(
             f'person_directory.json is not a valid JSON object at '
             f'{PERSON_DIRECTORY_FILE} — check for syntax errors.'
         )
+
+    # Self-heal: primary was fine, but if the backup is missing or stale
+    # relative to it, refresh it now rather than waiting for the next
+    # admin edit. Cheap — this only runs at boot and on admin writes.
+    if not os.path.exists(PERSON_DIRECTORY_BACKUP_FILE):
+        print(f"[ROTA INFO] backup missing — recreating from primary at boot.")
+        _save_json(PERSON_DIRECTORY_BACKUP_FILE, d)
+
     return d
 
 # rota_label = short grid alias — used as the internal key throughout the
@@ -140,6 +163,14 @@ def _rebuild_person_directory_caches() -> None:
     global _RID_TO_LABEL, _LABEL_TO_RID, _LABEL_TO_FULLNAME, _LABEL_TO_HRTEAM
 
     _DIR = _load_person_directory()
+
+def _rebuild_person_directory_caches() -> None:
+    global _DIR, MANAGEMENT_SHIFTS, ENGINEERING_OFFSETS, SPECIALIST_OFFSETS
+    global _RID_TO_LABEL, _LABEL_TO_RID, _LABEL_TO_FULLNAME, _LABEL_TO_HRTEAM
+
+    _DIR = _load_person_directory()
+    _save_json(PERSON_DIRECTORY_BACKUP_FILE, _DIR)   # keep last-known-good copy
+
     active = {rid: v for rid, v in _DIR.items() if v.get('active', True)}
 
     MANAGEMENT_SHIFTS   = {v['rota_label']: v['shift']
@@ -218,14 +249,20 @@ COVERAGE_FREE_SHIFTS     = {'0900-2000', '1300-0000'}
 def _base_shift(name: str, d: date) -> str:
     delta = (d - ANCHOR_MONDAY).days
     if name in SPECIALIST_OFFSETS:
-        idx = (SPECIALIST_OFFSETS[name] + delta) % len(SPECIALIST_ROTATION)
-        return SPECIALIST_ROTATION[idx]
-    if name in ENGINEERING_OFFSETS:
-        idx = (ENGINEERING_OFFSETS[name] + delta) % len(ENGINEERING_ROTATION)
-        return ENGINEERING_ROTATION[idx]
-    if d.weekday() >= 5 or d in PUBLIC_HOLIDAYS:
+        idx  = (SPECIALIST_OFFSETS[name] + delta) % len(SPECIALIST_ROTATION)
+        code = SPECIALIST_ROTATION[idx]
+    elif name in ENGINEERING_OFFSETS:
+        idx  = (ENGINEERING_OFFSETS[name] + delta) % len(ENGINEERING_ROTATION)
+        code = ENGINEERING_ROTATION[idx]
+    elif d.weekday() >= 5 or d in PUBLIC_HOLIDAYS:
         return "OFF"
-    return MANAGEMENT_SHIFTS.get(name, "OFF")
+    else:
+        code = MANAGEMENT_SHIFTS.get(name, "OFF")
+    # Apply any active alias for this code on this date.
+    # OFF is never aliased — skip the lookup for performance.
+    if code == "OFF":
+        return "OFF"
+    return _resolve_alias(code, d)
 
 def _resolve_shift(name: str, d: date, leave_map: dict,
                    override_map: dict = None) -> str:
@@ -358,6 +395,13 @@ CELL_NOTES_FILE          = os.path.join(ROTA_DIR, 'cell_notes.json')
 FEEDBACK_FILE            = os.path.join(ROTA_DIR, 'feedback.json')
 HOURS_POT_FILE           = os.path.join(ROTA_DIR, 'hours_pot.json')
 AL_ALLOWANCE_FILE        = os.path.join(ROTA_DIR, 'al_allowance.json')
+SHIFT_REGISTRY_FILE      = os.path.join(ROTA_DIR, 'shift_registry.json')
+PERSON_DIRECTORY_FILE        = os.path.join(ROTA_DIR, 'person_directory.json')
+# NOTE: intentionally stored one level above rota/ so a targeted wipe of
+# that subdirectory alone doesn't take the backup down with the original.
+# If you're doing cleanup in /opt/web/ and see this file, it's live —
+# don't delete it. Contact: <your name/contact>
+PERSON_DIRECTORY_BACKUP_FILE = os.path.join(_BASE_DIR, 'person_directory.backup.json')
 
 # ── Config ────────────────────────────────────────────────────────────────
 DEFAULT_CONFIG = {
@@ -371,6 +415,98 @@ def _load_config() -> dict:
     if not isinstance(cfg, dict):
         cfg = {}
     return {**DEFAULT_CONFIG, **cfg}
+
+# ════════════════════════════════════════════════════════════════════════════
+#  SHIFT REGISTRY
+# ════════════════════════════════════════════════════════════════════════════
+# shift_registry.json schema (keyed by shift code):
+# {
+#   "1000-2000": {
+#     "code": "1000-2000",
+#     "color": "#4A91BA",
+#     "fg_color": "#fff",
+#     "active": true,
+#     "in_rotation": ["engineering"],   // informational only
+#     "created_by": "admin@...",
+#     "created_at": "...",
+#     "aliases": [
+#       {
+#         "id": "abc123",
+#         "new_code": "0900-1900",
+#         "effective_from": "2026-10-01",
+#         "inherit_color": true,
+#         "new_color": "#4A91BA",       // copied at creation if inherit_color
+#         "created_by": "admin@...",
+#         "created_at": "..."
+#       }
+#     ]
+#   }
+# }
+#
+# _ALIAS_CACHE is a sorted list of (effective_from_date, from_code, to_code, color)
+# rebuilt on every registry write. _base_shift() checks it before returning.
+
+_ALIAS_CACHE: list = []   # sorted ascending by effective_from
+
+
+def _load_shift_registry() -> dict:
+    data = _load_json(SHIFT_REGISTRY_FILE)
+    return data if isinstance(data, dict) else {}
+
+
+def _save_shift_registry(registry: dict) -> None:
+    _save_json(SHIFT_REGISTRY_FILE, registry)
+    _rebuild_alias_cache(registry)
+
+
+def _rebuild_alias_cache(registry: dict | None = None) -> None:
+    global _ALIAS_CACHE
+    if registry is None:
+        registry = _load_shift_registry()
+    cache = []
+    for code, entry in registry.items():
+        for alias in entry.get('aliases', []):
+            try:
+                eff = date.fromisoformat(alias['effective_from'])
+            except (KeyError, ValueError):
+                continue
+            cache.append({
+                'from_code':      code,
+                'to_code':        alias['new_code'],
+                'effective_from': eff,
+                'color':          alias.get('new_color'),
+                'fg_color':       alias.get('new_fg_color'),
+                'alias_id':       alias['id'],
+            })
+    _ALIAS_CACHE = sorted(cache, key=lambda x: x['effective_from'])
+
+
+def _resolve_alias(code: str, d: date) -> str:
+    """Return the effective shift code for (code, date), applying the most
+    recent alias whose effective_from <= d. Returns code unchanged if none."""
+    result = code
+    for entry in _ALIAS_CACHE:
+        if entry['from_code'] == code and entry['effective_from'] <= d:
+            result = entry['to_code']
+        # Cache is sorted ascending; keep scanning to pick the latest match.
+    return result
+
+
+def _alias_color_for(code: str, d: date) -> tuple[str | None, str | None]:
+    """Return (bg_color, fg_color) from the active alias for (code, date),
+    or (None, None) if no alias is active."""
+    result_color = None
+    result_fg    = None
+    for entry in _ALIAS_CACHE:
+        if entry['from_code'] == code and entry['effective_from'] <= d:
+            result_color = entry.get('color')
+            result_fg    = entry.get('fg_color')
+    return result_color, result_fg
+
+
+# Bootstrap cache at import time (no-op if file doesn't exist yet).
+_rebuild_alias_cache()
+
 
 # ── Notes ──────────────────────────────────────────────────────────────────
 def _load_notes() -> list:
@@ -548,6 +684,66 @@ def rota_roster():
         'specialists': list(SPECIALIST_OFFSETS.keys()),
     })
 
+
+@rota_bp.route('/rota/next-shift', methods=['GET'])
+@require_auth
+def rota_next_shift():
+    """Next working shift (skips OFF/PARENTAL/MARITAL/AL/ABSENT) per person.
+    No 'person' param: bulk mode — self only for staff, full active roster
+    for management. 'person=<rota_label>': single-person mode, management
+    only unless it's the caller's own name."""
+    session   = request.session
+    rota_role = _get_rota_role(session)
+    if rota_role == 'guest':
+        return jsonify({'ok': False, 'error': 'Not authorised'}), 403
+
+    person_param = request.args.get('person', '').strip()
+    all_names = list(MANAGEMENT_SHIFTS) + list(ENGINEERING_OFFSETS) + list(SPECIALIST_OFFSETS)
+
+    if rota_role != 'management':
+        my_name = _rota_display_name(session['username'])
+        if person_param and person_param != my_name:
+            return jsonify({'ok': False, 'error': 'Not authorised'}), 403
+        names = [my_name] if my_name in all_names else []
+    else:
+        if person_param:
+            if person_param not in all_names:
+                return jsonify({'ok': False, 'error': 'Unknown person'}), 404
+            names = [person_param]
+        else:
+            names = all_names
+
+    leave_list = _load_json(LEAVE_FILE)
+    if not isinstance(leave_list, list):
+        leave_list = []
+    published_overrides = _load_json(PUBLISHED_OVERRIDES_FILE)
+    if not isinstance(published_overrides, list):
+        published_overrides = []
+    leave_map    = _build_leave_map(leave_list)
+    override_map = _build_override_map(published_overrides)
+
+    MAX_LOOKAHEAD_DAYS = 180
+    today  = date.today()
+    result = {}
+
+    for name in names:
+        found = None
+        d = today
+        for _ in range(MAX_LOOKAHEAD_DAYS):
+            shift = _resolve_shift(name, d, leave_map, override_map)
+            clean = shift
+            if clean and '|' in clean:
+                pfx = clean.split('|')[0]
+                clean = None if pfx in ('AL_APPROVED', 'AL_PENDING', 'ABSENT') else clean.split('|')[1]
+            elif clean and (clean.startswith('AL_') or clean.startswith('ABSENT')):
+                clean = None
+            if clean not in ('OFF', 'PARENTAL', 'MARITAL', None):
+                found = {'date': d.isoformat(), 'weekday': d.strftime('%A'), 'shift': clean}
+                break
+            d += timedelta(days=1)
+        result[name] = found
+
+    return jsonify({'ok': True, 'next_shift': result})
 
 # ── Directory admin (add / edit / hide / remove people) ────────────────────
 # Management only. Every write is appended to a small audit log — this data
@@ -743,6 +939,362 @@ def rota_directory_audit_get():
     if err: return err
     log = _load_directory_audit()
     return jsonify({'ok': True, 'log': list(reversed(log))[:200]})
+
+
+# ════════════════════════════════════════════════════════════════════════════
+#  SHIFT REGISTRY ROUTES
+# ════════════════════════════════════════════════════════════════════════════
+
+def _shift_registry_entry_from_code(code: str) -> dict | None:
+    """Return a registry entry for a code that may not be explicitly stored,
+    deriving sensible defaults from the existing color config."""
+    registry = _load_shift_registry()
+    if code in registry:
+        return registry[code]
+    # Not explicitly registered — synthesise a minimal view entry so the UI
+    # can still display it (e.g. legacy shifts pre-dating the registry).
+    cfg = _load_config()
+    color_map = cfg.get('custom_shift_color_map', {})
+    return {
+        'code':        code,
+        'color':       color_map.get(code, '#7a7a7a'),
+        'fg_color':    '#000',
+        'active':      True,
+        'in_rotation': [],
+        'aliases':     [],
+        'implicit':    True,   # not persisted — just synthesised for display
+    }
+
+
+@rota_bp.route('/rota/shifts', methods=['GET'])
+@require_auth
+def rota_shifts_get():
+    """Return the full shift registry plus implicit (unregistered) shifts
+    found in rotation arrays, so the UI always has a complete picture."""
+    err = _require_management()
+    if err: return err
+
+    registry = _load_shift_registry()
+
+    # Collect all unique codes referenced in rotation arrays
+    rotation_codes: set[str] = set()
+    for code in SPECIALIST_ROTATION + ENGINEERING_ROTATION:
+        if code != 'OFF':
+            rotation_codes.add(code)
+    for code in MANAGEMENT_SHIFTS.values():
+        if code != 'OFF':
+            rotation_codes.add(code)
+
+    cfg = _load_config()
+    color_map = cfg.get('custom_shift_color_map', {})
+
+    DEFAULT_SHIFT_COLORS = {
+        '0700-1800': ('#49B1E8', '#000'),
+        '0900-2000': ('#8474E3', '#fff'),
+        '1300-0000': ('#04BA9C', '#000'),
+        '1500-0200': ('#E8B159', '#000'),
+        '2100-0700': ('#5C5C5C', '#eee'),
+        '0900-1800': ('#95D6FC', '#000'),
+        '1000-2000': ('#4A91BA', '#fff'),
+        '0800-1630': ('#ABD1AD', '#000'),
+        '0930-1800': ('#ABD1AD', '#000'),
+        '0900-1730': ('#ABD1AD', '#000'),
+    }
+
+    def _resolve_default_color(code):
+        if code in color_map:
+            return color_map[code], '#000'
+        if code in DEFAULT_SHIFT_COLORS:
+            return DEFAULT_SHIFT_COLORS[code]
+        return '#7a7a7a', '#000'
+
+    # Annotate each registry entry with rotation membership
+    out = {}
+    for code, entry in registry.items():
+        e = {**entry}
+        # Only upgrade grey placeholder — never touch a color the user set
+        if e.get('color', '#7a7a7a') == '#7a7a7a' and code in DEFAULT_SHIFT_COLORS:
+            bg, fg = DEFAULT_SHIFT_COLORS[code]
+            e['color']    = color_map.get(code, bg)
+            e['fg_color'] = fg
+        out[code] = e
+
+    # Inject implicit entries for rotation codes not yet in the registry
+    for code in sorted(rotation_codes):
+        if code not in out:
+            bg, fg = _resolve_default_color(code)
+            out[code] = {
+                'code':        code,
+                'color':       bg,
+                'fg_color':    fg,
+                'active':      True,
+                'in_rotation': [],
+                'aliases':     [],
+                'implicit':    True,
+            }
+
+    # Annotate rotation membership on all entries
+    for code in out:
+        membership = []
+        if code in set(SPECIALIST_ROTATION):
+            membership.append('specialist')
+        if code in set(ENGINEERING_ROTATION):
+            membership.append('engineering')
+        if code in set(MANAGEMENT_SHIFTS.values()):
+            membership.append('management')
+        out[code]['in_rotation'] = membership
+
+    return jsonify({'ok': True, 'shifts': out})
+
+
+@rota_bp.route('/rota/shifts', methods=['POST'])
+@require_auth
+def rota_shifts_post():
+    """Add a new shift to the registry (does NOT add it to any rotation array)."""
+    err = _require_management()
+    if err: return err
+
+    session = request.session
+    data    = request.get_json(silent=True) or {}
+    code    = (data.get('code') or '').strip()
+    color   = (data.get('color') or '#7a7a7a').strip()
+    fg_color = (data.get('fg_color') or '#000').strip()
+    note    = (data.get('note') or '').strip()
+
+    if not re.match(r'^\d{4}-\d{4}$', code):
+        return jsonify({'ok': False, 'error': 'code must be HHMM-HHMM'}), 400
+
+    registry = _load_shift_registry()
+    if code in registry:
+        return jsonify({'ok': False,
+                        'error': f'Shift {code} already exists in the registry'}), 409
+
+    registry[code] = {
+        'code':        code,
+        'color':       color,
+        'fg_color':    fg_color,
+        'active':      True,
+        'in_rotation': [],
+        'note':        note,
+        'created_by':  session['username'],
+        'created_at':  _now_iso(),
+        'aliases':     [],
+    }
+    _save_shift_registry(registry)
+
+    # Also push color into config.custom_shift_color_map so it renders
+    # immediately without a cache refresh.
+    cfg = _load_config()
+    cfg.setdefault('custom_shift_color_map', {})[code] = color
+    _save_json(CONFIG_FILE, cfg)
+
+    return jsonify({'ok': True, 'entry': registry[code]}), 201
+
+
+@rota_bp.route('/rota/shifts/<code>', methods=['PUT'])
+@require_auth
+def rota_shifts_put(code):
+    """Edit a shift: color change (immediate, retroactive for rotation cells)
+    and/or create a time alias (date-gated from effective_from onwards).
+    Either field may be omitted if unchanged."""
+    err = _require_management()
+    if err: return err
+
+    session = request.session
+    data    = request.get_json(silent=True) or {}
+
+    registry = _load_shift_registry()
+
+    # Auto-register if the shift exists in rotation but not yet in the registry
+    if code not in registry:
+        cfg       = _load_config()
+        color_map = cfg.get('custom_shift_color_map', {})
+        registry[code] = {
+            'code':        code,
+            'color':       color_map.get(code, '#7a7a7a'),
+            'fg_color':    '#000',
+            'active':      True,
+            'in_rotation': [],
+            'note':        '',
+            'created_by':  session['username'],
+            'created_at':  _now_iso(),
+            'aliases':     [],
+        }
+
+    entry = registry[code]
+    changed_color = False
+    created_alias = None
+
+    # ── Color change ──────────────────────────────────────────────────────
+    new_color    = data.get('color')
+    new_fg_color = data.get('fg_color')
+    if new_color and new_color != entry.get('color'):
+        entry['color']    = new_color
+        entry['fg_color'] = new_fg_color or entry.get('fg_color', '#000')
+        changed_color = True
+        # Push to config color map so frontend picks it up immediately
+        cfg = _load_config()
+        cfg.setdefault('custom_shift_color_map', {})[code] = new_color
+        _save_json(CONFIG_FILE, cfg)
+
+    # ── Time alias (rename from effective_from) ───────────────────────────
+    new_code       = (data.get('new_code') or '').strip()
+    effective_from = (data.get('effective_from') or '').strip()
+    inherit_color  = bool(data.get('inherit_color', True))
+
+    if new_code:
+        if not re.match(r'^\d{4}-\d{4}$', new_code):
+            return jsonify({'ok': False,
+                            'error': 'new_code must be HHMM-HHMM'}), 400
+        if not effective_from:
+            return jsonify({'ok': False,
+                            'error': 'effective_from is required when providing new_code'}), 400
+        try:
+            eff_date = date.fromisoformat(effective_from)
+        except ValueError:
+            return jsonify({'ok': False,
+                            'error': 'effective_from must be YYYY-MM-DD'}), 400
+        if eff_date <= date.today():
+            return jsonify({'ok': False,
+                            'error': 'effective_from must be a future date'}), 400
+
+        alias_color    = entry.get('color')    if inherit_color else (new_color or entry.get('color'))
+        alias_fg_color = entry.get('fg_color') if inherit_color else (new_fg_color or entry.get('fg_color', '#000'))
+        alias_id       = str(uuid.uuid4())[:8]
+
+        alias_entry = {
+            'id':             alias_id,
+            'new_code':       new_code,
+            'effective_from': effective_from,
+            'inherit_color':  inherit_color,
+            'new_color':      alias_color,
+            'new_fg_color':   alias_fg_color,
+            'created_by':     session['username'],
+            'created_at':     _now_iso(),
+        }
+        entry.setdefault('aliases', []).append(alias_entry)
+        created_alias = alias_entry
+
+        # Push aliased code color into config so it renders immediately
+        cfg = _load_config()
+        cfg.setdefault('custom_shift_color_map', {})[new_code] = alias_color
+        _save_json(CONFIG_FILE, cfg)
+
+        # Migrate future published overrides that reference the old code
+        _migrate_published_overrides_for_alias(
+            old_code=code,
+            new_code=new_code,
+            effective_from=eff_date,
+            by=session['username'],
+        )
+
+    if not changed_color and not created_alias:
+        return jsonify({'ok': False, 'error': 'Nothing to update'}), 400
+
+    _save_shift_registry(registry)
+    return jsonify({
+        'ok':           True,
+        'entry':        registry[code],
+        'changed_color': changed_color,
+        'created_alias': created_alias,
+    })
+
+
+@rota_bp.route('/rota/shifts/<code>/active', methods=['PUT'])
+@require_auth
+def rota_shifts_toggle_active(code):
+    """Mark a shift active or inactive. Inactive shifts are hidden from the
+    shift picker but historical data referencing them is untouched."""
+    err = _require_management()
+    if err: return err
+
+    session  = request.session
+    data     = request.get_json(silent=True) or {}
+    active   = bool(data.get('active', False))
+
+    registry = _load_shift_registry()
+    if code not in registry:
+        return jsonify({'ok': False, 'error': f'Shift {code} not in registry'}), 404
+
+    registry[code]['active']      = active
+    registry[code]['updated_by']  = session['username']
+    registry[code]['updated_at']  = _now_iso()
+    _save_shift_registry(registry)
+    return jsonify({'ok': True, 'entry': registry[code]})
+
+
+@rota_bp.route('/rota/shifts/<code>/alias/<alias_id>', methods=['DELETE'])
+@require_auth
+def rota_shifts_alias_delete(code, alias_id):
+    """Remove a future alias. Refuses to delete aliases whose effective_from
+    is today or in the past — those are now live history."""
+    err = _require_management()
+    if err: return err
+
+    registry = _load_shift_registry()
+    if code not in registry:
+        return jsonify({'ok': False, 'error': f'Shift {code} not in registry'}), 404
+
+    aliases = registry[code].get('aliases', [])
+    target  = next((a for a in aliases if a['id'] == alias_id), None)
+    if not target:
+        return jsonify({'ok': False, 'error': 'Alias not found'}), 404
+
+    try:
+        eff = date.fromisoformat(target['effective_from'])
+    except ValueError:
+        eff = date.today()
+
+    if eff <= date.today():
+        return jsonify({
+            'ok':    False,
+            'error': f'Alias effective from {eff} is already live and cannot be deleted. '
+                     f'Create a new alias on {target["new_code"]} to revert it instead.',
+        }), 409
+
+    registry[code]['aliases'] = [a for a in aliases if a['id'] != alias_id]
+    _save_shift_registry(registry)
+    _rebuild_alias_cache(registry)
+    return jsonify({'ok': True})
+
+
+def _migrate_published_overrides_for_alias(old_code: str, new_code: str,
+                                            effective_from: date, by: str) -> int:
+    """Rewrite published_overrides entries that:
+      - have shift == old_code (exact, not an AL overlay or ABSENT)
+      - are on or after effective_from
+      - were NOT manually created overrides (type shift_change that came from
+        a human edit) — we leave those alone; only migrate rotation-derived
+        entries whose type is None/'weekend_swap'/'al_remove'.
+    Returns count of migrated entries."""
+    published = _load_json(PUBLISHED_OVERRIDES_FILE)
+    if not isinstance(published, list):
+        return 0
+
+    migrated = 0
+    now      = _now_iso()
+    SKIP_TYPES = {'shift_change', 'al_toggle', 'al_remove'}
+
+    for entry in published:
+        if entry.get('shift') != old_code:
+            continue
+        if entry.get('type') in SKIP_TYPES:
+            continue
+        try:
+            entry_date = date.fromisoformat(entry['date'])
+        except (KeyError, ValueError):
+            continue
+        if entry_date < effective_from:
+            continue
+        entry['shift']          = new_code
+        entry['migrated_from']  = old_code
+        entry['migrated_by']    = by
+        entry['migrated_at']    = now
+        migrated += 1
+
+    if migrated:
+        _save_json(PUBLISHED_OVERRIDES_FILE, published)
+    return migrated
 
 
 @rota_bp.route('/rota/schedule', methods=['GET'])

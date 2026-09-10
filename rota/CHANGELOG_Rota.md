@@ -1,5 +1,87 @@
 # Changelog — Rota App
 
+# Rota Changelog
+
+### Fixed 10-09-2026
+- Shift registry table: implicit shifts and entries saved with the grey
+  placeholder color now display their correct default colors in the admin UI.
+  Colors explicitly set by a user are never overwritten.
+
+## [Unreleased] — Shift Registry
+
+### Added 09-09-2026
+- **`rota/shift_registry.json`** — new persistent file. Stores explicit shift definitions (code, color, fg_color, active state, aliases). Shifts present in rotation arrays but not explicitly registered are shown as "implicit" in the UI and auto-register on first edit.
+- **Shift alias system** — time-gated renaming of shift codes. An alias maps `old_code → new_code` from a future `effective_from` date. `_base_shift()` now checks the alias cache before returning, so all rotation-derived cells transparently use the new code from that date without touching the rotation arrays or any historical data.
+- **`_ALIAS_CACHE`** — in-memory sorted list rebuilt on every registry write and at import time. Zero overhead for days with no aliases.
+- **`_resolve_alias(code, date)`** — returns the effective code for (code, date), picking the latest alias whose `effective_from ≤ date`.
+- **`_alias_color_for(code, date)`** — returns (bg, fg) from the active alias, used by the frontend color map.
+- **`_migrate_published_overrides_for_alias()`** — on alias creation, rewrites `published_overrides.json` entries whose `shift == old_code` and `date >= effective_from`, **only for non-manual types** (skips `shift_change`, `al_toggle`, `al_remove`). Manual overrides are left as-is.
+- **Routes (all management-only)**:
+  - `GET /rota/shifts` — full registry + implicit rotation shifts, annotated with rotation membership
+  - `POST /rota/shifts` — add a new shift to the registry (registry only; does NOT modify rotation arrays)
+  - `PUT /rota/shifts/<code>` — edit color and/or create a time alias. Color change is immediate and retroactive for rotation-derived cells. Alias is date-gated.
+  - `PUT /rota/shifts/<code>/active` — toggle active/inactive (inactive = hidden from shift picker, no data deleted)
+  - `DELETE /rota/shifts/<code>/alias/<alias_id>` — delete a future alias (refuses if `effective_from` is today or past)
+- **Admin tab — Shifts card** (`🕐 Shifts`): registry table with color swatches, rotation membership tags, alias pills with delete, active/inactive toggle, Edit and Add flows.
+- **Edit flow**: two-step modal — fields then diff summary. Diff explicitly lists what changed and what was left unchanged, with a note on scope (color = immediate all rotation cells; time = date-gated, past cells untouched, published override migration noted).
+- **Add flow**: inline form with live color preview cell.
+
+### Changed
+- `_base_shift()` now runs alias resolution after computing the rotation index. `OFF` codes skip the lookup. All callers of `_base_shift()` (`_resolve_shift`, `_flanking_off_range`, `_effective_shift_for_hours`, weekend swap pattern matching) inherit alias resolution automatically.
+- File paths block: added `SHIFT_REGISTRY_FILE = os.path.join(ROTA_DIR, 'shift_registry.json')`.
+
+### Not changed (by design)
+- Rotation arrays (`SPECIALIST_ROTATION`, `ENGINEERING_ROTATION`, `MANAGEMENT_SHIFTS`) are read-only from the app. Adding/removing shifts from the cycle remains a manual backend operation. The UI surfaces a clear label ("registry only") for shifts not in any rotation.
+- Night hours tables (`SHIFT_NIGHT_MINUTES`, `SHIFT_TOTAL_MINUTES`, etc.) are unchanged. New/aliased codes that are not in those tables fall back to `_parse_raw_shift_minutes()` which computes all four values generically and correctly.
+- Past published overrides with the old code that are typed as `shift_change` (manual human edits) are not migrated — they represent intentional overrides on specific cells.
+
+## [Unreleased]
+### Added 08-09-2026
+- `/rota/next-shift` backend route — returns each person's next working shift
+  (skipping OFF/AL/ABSENT/PARENTAL/MARITAL), bulk or single-person, capped at
+  180 days lookahead. Staff self-only, management full roster or by `person=`.
+- Overview tab redesigned: AL Allowance, Booked vs Allowance, Next Shift,
+  and Next Leave now render as a card grid (`.ov-grid`/`.ov-card`) for both
+  single-member and all-members views.
+- All-members view now shows compact clickable tiles (`.ov-tile`) per person;
+  clicking switches to that person's full single-member card view with no
+  re-fetch.
+- Single-member view: MHD, Base Allowance, Absence Reward, Misc Hours,
+  Carry-over, and PH-on-AL Giveback are now individual cards instead of a
+  bundled breakdown grid.
+
+### Pending (next pass)
+- AL monthly distribution chart (single-member view only).
+- SOE Weekend Coverage card restyle to match new card language.
+
+## [Unreleased]
+
+### Fixed 04-09-2026
+- person_directory.json missing no longer crashes the whole app process.
+  Backup copy now stored at /opt/web/person_directory.backup.json
+  (outside the rota/ subdirectory) so it survives a rota-scoped file
+  wipe. Auto-restores from backup on boot if the primary is missing;
+  falls back to an empty directory only if no backup exists either.
+
+### Changed 03-09-2026
+- **Admin tab** restructured into cards: People, Annual Leave, Feedback
+- **People card**: directory table now primary view; Add Person form expands on demand; Recent Changes collapsible via button
+- **Annual Leave card** (Admin, management only):
+  - MHD default field with lock/unlock flow — null → integer on first entry, locked after save; unlock requires confirmation modal; past years read-only
+  - Misc entries form with member dropdown; entry list shown contextually after member selection
+- **Overview tab** is now fully read-only:
+  - Staff: own balance card only
+  - Management: individual member dropdown (default) with All Members toggle restoring team-grouped view
+  - All edit controls (base allowance, MHD, misc entries) moved to Admin → Annual Leave card
+
+### Fixed 03-09-2026
+- SOE Weekend Coverage year dropdown now correctly pre-selects the current year on load.
+
+## [Unreleased]
+### Changed 03-09-2026
+- SOE Weekend Coverage widget now defaults to Single Year view with the current year pre-selected, instead of Aggregate.
+- Year dropdown is disabled (greyed out) when "All Years (Aggregate)" mode is selected.
+
 ### Fixed 02-09-2026
 - `_flanking_off_range` caused an OverflowError when the person directory
   was empty (all shifts resolve to OFF), because the 14-day cap was measured

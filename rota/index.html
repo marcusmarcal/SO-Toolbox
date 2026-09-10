@@ -6,7 +6,7 @@
   <title>Streaming Ops Rota</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&family=Aptos+Narrow:wght@400;500;700&family=Roboto:wght@700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&family=Aptos+Narrow:wght@400;500;700&family=Roboto:wght@700&family=Inter+Tight:wght@400;700;800&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -22,6 +22,7 @@
       --ok:        #3fb950;
       --mono:      "Aptos Narrow", "Segoe UI", sans-serif;
       --display:   "Syne", sans-serif;
+      --numfont:   "Inter Tight", sans-serif;
       --mgmt:      #ac74d4;
       --eng:       #74b4d4;
       --spec:      #f0b359;
@@ -644,6 +645,57 @@
       display: flex; align-items: center; gap: 10px; padding: 6px 0;
       border-bottom: 1px solid #252525; font-family: var(--mono); font-size: 0.68rem;
     }
+
+    /* ── OVERVIEW CARD GRID (hero + all-members) ── */
+    .ov-grid {
+      display: grid; gap: 14px; margin-bottom: 20px;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    }
+    .ov-card {
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 16px 18px; background: var(--surface);
+      display: flex; flex-direction: column; justify-content: space-between;
+      min-height: 100px;
+    }
+    .ov-card-label {
+      font-family: var(--mono); font-size: 0.62rem; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;
+    }
+    .ov-card-big {
+      font-family: var(--numfont); font-weight: 800; font-size: 1.65rem;
+      line-height: 1.05; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      font-variant-numeric: tabular-nums;
+    }
+    .ov-card-big .unit { font-size: 1.1rem; font-weight: 700; margin-left: 3px; color: var(--muted); }
+    .ov-card-sub { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); margin-top: 6px; }
+    .ov-card-date { display: flex; align-items: baseline; gap: 8px; }
+    .ov-card-weekday { font-family: var(--numfont); font-weight: 800; font-size: 1.3rem; line-height: 1; }
+    .ov-card-daymonth { display: flex; flex-direction: column; line-height: 1.15; }
+    .ov-card-daymonth .d { font-family: var(--mono); font-weight: 700; font-size: 0.85rem; }
+    .ov-card-daymonth .m { font-family: var(--mono); font-size: 0.6rem; color: var(--muted); }
+    .ov-card-empty { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); }
+
+    /* All-members tile — clickable, denser */
+    .ov-tile {
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px 14px; background: var(--surface); cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .ov-tile:hover { border-color: var(--accent); background: rgba(161,139,245,0.06); }
+    .ov-tile-name { font-family: var(--mono); font-weight: 700; font-size: 0.78rem; margin-bottom: 8px; }
+    .ov-tile-row { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 0.66rem; color: var(--muted); padding: 2px 0; }
+    .ov-tile-row .v { color: var(--text); font-weight: 700; }
+    .al-dist-card { grid-column: 1 / -1; }
+    .al-dist-bars {
+      display: flex; align-items: flex-end; gap: 6px; height: 90px;
+      margin-top: 10px; padding-top: 4px;
+    }
+    .al-dist-bar { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+    .al-dist-bar .fill { width: 100%; background: var(--accent); border-radius: 3px 3px 0 0; min-height: 2px; }
+    .al-dist-bar .val   { font-family: var(--mono); font-size: 0.58rem; color: var(--muted); margin-bottom: 2px; }
+    .al-dist-bar .mth   { font-family: var(--mono); font-size: 0.56rem; color: var(--muted); margin-top: 4px; text-transform: uppercase; }
+
     .al-misc-row:last-child { border-bottom: none; }
     .al-misc-reason { flex: 1; color: var(--muted); }
     .al-add-misc {
@@ -734,6 +786,21 @@
     .modal-card textarea:focus { border-color: var(--accent); }
     .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
 
+    /* ── ADMIN CARDS ── */
+    .admin-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 20px 24px; margin-bottom: 20px;
+    }
+    .admin-card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px; padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .admin-card-title {
+      font-family: var(--mono); font-size: 0.78rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent);
+    }
+
     /* ── PRINT MONTH EXPORT ── */
     #print-rota-root { display: none; }
     @media print {
@@ -821,6 +888,32 @@
     .print-footer-logos-col img.print-logo {
       max-height: 16mm; max-width: 100%; object-fit: contain;
     }
+
+    /* ── SHIFT REGISTRY ── */
+    .shift-reg-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 0.75rem; }
+    .shift-reg-table th { font-size: 0.62rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; padding: 6px 14px 6px 10px; text-align: left; border-bottom: 1px solid var(--border); font-weight: 700; white-space: nowrap; }
+    .shift-reg-table td { padding: 8px 14px 8px 10px; border-bottom: 1px solid #252525; vertical-align: middle; }
+    .shift-reg-table tr:last-child td { border-bottom: none; }
+    .shift-color-swatch { display: inline-block; width: 32px; height: 18px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.15); vertical-align: middle; }
+    .alias-pill { display: inline-flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 0.58rem; font-weight: 700; padding: 2px 8px; border-radius: 12px; background: rgba(161,139,245,0.12); border: 1px solid rgba(161,139,245,0.3); color: var(--accent); margin-right: 4px; }
+    .alias-pill .alias-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.7rem; padding: 0 0 0 4px; line-height: 1; }
+    .alias-pill .alias-del:hover { color: var(--danger); }
+    .shift-reg-flow { display: flex; flex-direction: column; gap: 16px; max-width: 540px; }
+    .shift-reg-flow .flow-step { display: flex; flex-direction: column; gap: 6px; }
+    .shift-reg-flow .flow-step label { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+    .shift-reg-flow input, .shift-reg-flow select { background: var(--card); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 0.78rem; padding: 7px 10px; border-radius: 6px; outline: none; transition: border-color 0.2s; }
+    .shift-reg-flow input:focus, .shift-reg-flow select:focus { border-color: var(--accent); }
+    .color-preview-row { display: flex; align-items: center; gap: 10px; }
+    .color-preview-cell { display: flex; align-items: center; justify-content: center; width: 90px; height: 28px; border-radius: 5px; font-family: var(--mono); font-size: 0.72rem; font-weight: 700; border: 1px solid rgba(255,255,255,0.1); }
+    .diff-summary-box { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; font-family: var(--mono); font-size: 0.72rem; line-height: 1.7; }
+    .diff-row { display: flex; gap: 8px; align-items: baseline; }
+    .diff-field { color: var(--muted); min-width: 110px; }
+    .diff-unchanged { color: var(--muted); font-size: 0.65rem; }
+    .diff-changed { color: var(--accent); }
+    .rotation-tag { display: inline-block; font-family: var(--mono); font-size: 0.5rem; font-weight: 700; padding: 1px 6px; border-radius: 3px; letter-spacing: 0.05em; margin-right: 3px; }
+    .rotation-tag.engineering { background: rgba(116,180,212,0.2); color: var(--eng); border: 1px solid rgba(116,180,212,0.3); }
+    .rotation-tag.specialist  { background: rgba(240,179,89,0.2);  color: var(--spec); border: 1px solid rgba(240,179,89,0.3); }
+    .rotation-tag.management  { background: rgba(172,116,212,0.2); color: var(--mgmt); border: 1px solid rgba(172,116,212,0.3); }
   </style>
 </head>
 <body>
@@ -1052,14 +1145,11 @@
       </div>
       <button class="btn primary" id="btn-overview-refresh">⟳ Refresh</button>
       <div class="sep"></div>
-      <div id="overview-mhd-group" style="display:none;align-items:center;gap:8px;">
-        <span class="toolbar-label">MHD Default (days)</span>
-        <input type="number" step="0.5" min="0" id="overview-mhd-input" style="width:60px;
-          background:var(--card);border:1px solid var(--border);color:var(--text);
-          font-family:var(--mono);font-size:0.75rem;padding:6px 8px;border-radius:6px;outline:none;" />
-        <button class="btn primary" id="btn-overview-mhd-save" style="font-size:0.65rem;padding:6px 12px;">Save MHD</button>
-      </div>
-      <div id="overview-mgmt-toggle" style="display:none;">
+      <div id="overview-mgmt-toggle" style="display:none;align-items:center;gap:10px;">
+        <div id="overview-member-row" style="display:flex;align-items:center;gap:8px;">
+          <span class="toolbar-label">Member</span>
+          <select class="toolbar-select" id="overview-member-select" style="font-size:0.72rem;"></select>
+        </div>
         <button class="toggle-btn" id="overview-all-toggle">All Members</button>
       </div>
       <div id="overview-team-toggles" style="display:none;gap:8px;">
@@ -1079,7 +1169,7 @@
         <p class="section-title" style="margin:0;">SOE Weekend Coverage</p>
         <select class="toolbar-select" id="soe-mode-select" style="font-size:0.68rem;">
           <option value="aggregate">All Years (Aggregate)</option>
-          <option value="year">Single Year</option>
+          <option value="year" selected>Single Year</option>
         </select>
         <select class="toolbar-select" id="soe-year-select" style="font-size:0.68rem;">
           <option value="">— year —</option>
@@ -1089,91 +1179,202 @@
     </div>
   </div>
 
-  <!-- ══ TAB: ADMIN (person directory) ══ -->
+  <!-- ══ TAB: ADMIN ══ -->
   <div class="tab-panel" id="panel-admin">
-    <p class="section-title">Add Person</p>
-    <div class="form-grid" id="admin-add-grid">
-      <div class="form-group">
-        <label>Employee ID</label>
-        <input type="text" id="admin-new-employee-id" placeholder="e.g. 10234" inputmode="numeric" />
-      </div>
-      <div class="form-group">
-        <label>Full Name</label>
-        <input type="text" id="admin-new-full-name" placeholder="Legal name — used on HR exports" />
-      </div>
-      <div class="form-group">
-        <label>Rota Label</label>
-        <input type="text" id="admin-new-rota-label" placeholder="Short grid alias, e.g. &quot;Joao L&quot;" />
-      </div>
-      <div class="form-group">
-        <label>Rotation Group</label>
-        <select id="admin-new-rotation-group">
-          <option value="management">Management</option>
-          <option value="engineering">Engineering</option>
-          <option value="specialist">Specialist</option>
-        </select>
-      </div>
-      <div class="form-group" id="admin-new-shift-group">
-        <label>Shift (management)</label>
-        <input type="text" id="admin-new-shift" placeholder="0900-1730" maxlength="9" />
-      </div>
-      <div class="form-group" id="admin-new-offset-group" style="display:none;">
-        <label>Rotation Offset (days)</label>
-        <input type="number" min="0" id="admin-new-offset" placeholder="e.g. 35" />
-      </div>
-      <div class="form-group">
-        <label>HR Team</label>
-        <select id="admin-new-hr-team">
-          <option value="">— none —</option>
-          <option value="SOE">SOE</option>
-          <option value="SOS">SOS</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>SOE Join Date <span style="opacity:0.6;">(optional)</span></label>
-        <input type="date" id="admin-new-soe-join-date" />
-    </div>
-    </div>
-    <button class="btn primary" id="btn-admin-add">+ Add Person</button>
-    <div id="admin-add-err" style="display:none;margin-top:10px;font-family:var(--mono);font-size:0.72rem;color:var(--danger);"></div>
 
-    <hr class="section-divider" />
-    <p class="section-title">
-      Directory
-      <span style="opacity:0.6;text-transform:none;letter-spacing:normal;">
-        — rota label can't be changed after creation; hide instead of deleting where possible.
-      </span>
-    </p>
-    <div id="admin-directory-wrap">
-      <div class="loading-row"><div class="spinner"></div> Loading…</div>
+    <!-- CARD: Annual Leave -->
+    <div class="admin-card" id="admin-card-al">
+      <div class="admin-card-header">
+        <span class="admin-card-title">📅 Annual Leave</span>
+      </div>
+
+      <!-- MHD Section -->
+      <div style="margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border);">
+        <div class="section-title" style="margin-bottom:12px;">MHD Default</div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div class="form-group" style="flex-direction:row;align-items:center;gap:10px;margin:0;">
+            <label style="white-space:nowrap;">Year</label>
+            <select class="toolbar-select" id="admin-al-year" style="width:100px;"></select>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;" id="admin-mhd-row">
+            <input type="number" step="0.5" min="0" id="admin-mhd-input"
+              style="width:80px;background:var(--card);border:1px solid var(--border);color:var(--text);
+                     font-family:var(--mono);font-size:0.75rem;padding:6px 8px;border-radius:6px;outline:none;" />
+            <button class="btn primary" id="btn-admin-mhd-save" style="font-size:0.65rem;padding:6px 12px;">Save MHD</button>
+            <button class="btn" id="btn-admin-mhd-unlock" style="display:none;font-size:0.65rem;padding:6px 12px;">🔓 Unlock</button>
+            <span id="admin-mhd-locked-display" style="display:none;font-family:var(--mono);font-size:0.75rem;color:var(--muted);">
+              <span id="admin-mhd-locked-value"></span>
+              <span style="margin-left:6px;font-size:0.6rem;">days 🔒</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Misc Entries Section -->
+      <div>
+        <div class="section-title" style="margin-bottom:12px;">Misc Entries</div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+          <div class="form-group" style="flex-direction:row;align-items:center;gap:10px;margin:0;">
+            <label style="white-space:nowrap;">Member</label>
+            <select class="toolbar-select" id="admin-misc-member">
+              <option value="">— select member —</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Misc form + list: shown after member selected -->
+        <div id="admin-misc-content" style="display:none;">
+          <div class="al-add-misc" style="margin-bottom:16px;">
+            <input type="date" id="admin-misc-date" />
+            <input type="number" step="0.5" id="admin-misc-hours" placeholder="Hours" style="width:80px;" />
+            <input type="text" id="admin-misc-reason" placeholder="Reason…" style="flex:1;min-width:160px;" />
+            <button class="btn primary" id="btn-admin-misc-add" style="font-size:0.62rem;">+ Add Entry</button>
+          </div>
+          <div id="admin-misc-list">
+            <div class="empty-state">No misc entries for this member.</div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <hr class="section-divider" />
-    <div class="history-controls">
-      <p class="section-title" style="margin:0;">Recent Changes</p>
-      <button class="btn" id="btn-admin-audit-refresh" style="font-size:0.65rem;padding:4px 10px;">⟳ Refresh</button>
+    <!-- CARD: Feedback -->
+    <div class="admin-card" id="admin-card-feedback">
+      <div class="admin-card-header">
+        <span class="admin-card-title">💬 Feedback</span>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select class="toolbar-select" id="admin-fb-type-filter" style="font-size:0.68rem;">
+            <option value="all">All types</option>
+            <option value="bug">🐛 Bugs</option>
+            <option value="enhancement">✨ Features</option>
+          </select>
+          <select class="toolbar-select" id="admin-fb-status-filter" style="font-size:0.68rem;">
+            <option value="all">All statuses</option>
+            <option value="unreviewed">Unreviewed</option>
+            <option value="resolved">Resolved</option>
+            <option value="dismissed">Dismissed</option>
+          </select>
+          <button class="btn" id="btn-admin-fb-refresh" style="font-size:0.65rem;padding:4px 10px;">⟳ Refresh</button>
+        </div>
+      </div>
+      <div id="admin-feedback-wrap">
+        <div class="empty-state">No feedback yet.</div>
+      </div>
     </div>
-    <div id="admin-audit-wrap">
-      <div class="empty-state">No changes yet.</div>
+
+    <!-- CARD: Shifts -->
+    <div class="admin-card" id="admin-card-shifts">
+      <div class="admin-card-header">
+        <span class="admin-card-title">🕐 Shifts</span>
+        <div style="display:flex;gap:8px;">
+          <button class="btn primary" id="btn-shift-add-toggle" style="font-size:0.68rem;padding:5px 12px;">+ Add Shift</button>
+          <button class="btn" id="btn-shift-refresh" style="font-size:0.65rem;padding:4px 10px;">⟳ Refresh</button>
+        </div>
+      </div>
+
+      <!-- Add Shift form -->
+      <div id="shift-add-form" style="display:none;margin-bottom:20px;padding:16px;background:var(--bg);border-radius:8px;border:1px solid var(--border);">
+        <div class="shift-reg-flow">
+          <div class="flow-step">
+            <label>Shift code <span style="color:var(--muted);font-size:0.58rem;">— format HHMM-HHMM</span></label>
+            <input type="text" id="shift-add-code" placeholder="e.g. 0800-1700" maxlength="9" style="width:160px;" />
+          </div>
+          <div class="flow-step">
+            <label>Cell color</label>
+            <div class="color-preview-row">
+              <input type="color" id="shift-add-color" value="#7a7a7a" style="width:48px;height:32px;padding:2px;border-radius:5px;cursor:pointer;" />
+              <input type="color" id="shift-add-fg" value="#000000" style="width:48px;height:32px;padding:2px;border-radius:5px;cursor:pointer;" title="Text color" />
+              <div class="color-preview-cell" id="shift-add-preview">Preview</div>
+            </div>
+            <span style="font-family:var(--mono);font-size:0.58rem;color:var(--muted);">Left = background · Right = text color</span>
+          </div>
+          <div class="flow-step">
+            <label>Note <span style="color:var(--muted);font-size:0.58rem;">(optional)</span></label>
+            <input type="text" id="shift-add-note" placeholder="e.g. SOE early shift" style="max-width:340px;" />
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px;align-items:center;">
+          <button class="btn primary" id="btn-shift-add-submit" style="font-size:0.65rem;padding:5px 12px;">+ Add to Registry</button>
+          <button class="btn" id="btn-shift-add-cancel" style="font-size:0.65rem;padding:5px 12px;">Cancel</button>
+        </div>
+        <div id="shift-add-err" style="display:none;margin-top:8px;font-family:var(--mono);font-size:0.65rem;color:var(--danger);"></div>
+      </div>
+
+      <!-- Registry table -->
+      <div id="shift-registry-wrap">
+        <div class="loading-row"><div class="spinner"></div> Loading…</div>
+      </div>
     </div>
-    <hr class="section-divider" />
-    <div class="history-controls">
-      <p class="section-title" style="margin:0;">Feedback</p>
-      <select class="toolbar-select" id="admin-fb-type-filter" style="font-size:0.68rem;">
-        <option value="all">All types</option>
-        <option value="bug">🐛 Bugs</option>
-        <option value="enhancement">✨ Features</option>
-      </select>
-      <select class="toolbar-select" id="admin-fb-status-filter" style="font-size:0.68rem;">
-        <option value="all">All statuses</option>
-        <option value="unreviewed">Unreviewed</option>
-        <option value="resolved">Resolved</option>
-        <option value="dismissed">Dismissed</option>
-      </select>
-      <button class="btn" id="btn-admin-fb-refresh" style="font-size:0.65rem;padding:4px 10px;">⟳ Refresh</button>
-    </div>
-    <div id="admin-feedback-wrap">
-      <div class="empty-state">No feedback yet.</div>
+
+    <!-- CARD: People -->
+    <div class="admin-card" id="admin-card-people">
+      <div class="admin-card-header">
+        <span class="admin-card-title">👥 People</span>
+        <div style="display:flex;gap:8px;">
+          <button class="btn primary" id="btn-admin-add-toggle" style="font-size:0.68rem;padding:5px 12px;">+ Add Person</button>
+          <button class="btn" id="btn-admin-audit-refresh" style="font-size:0.65rem;padding:4px 10px;">⟳ Recent Changes</button>
+        </div>
+      </div>
+
+      <!-- Add Person form (hidden by default) -->
+      <div id="admin-add-form" style="display:none;margin-bottom:20px;padding:16px;background:var(--bg);border-radius:8px;border:1px solid var(--border);">
+        <div class="form-grid" id="admin-add-grid">
+          <div class="form-group">
+            <label>Employee ID</label>
+            <input type="text" id="admin-new-employee-id" placeholder="e.g. 10234" inputmode="numeric" />
+          </div>
+          <div class="form-group">
+            <label>Full Name</label>
+            <input type="text" id="admin-new-full-name" placeholder="Legal name — used on HR exports" />
+          </div>
+          <div class="form-group">
+            <label>Rota Label</label>
+            <input type="text" id="admin-new-rota-label" placeholder="Short grid alias, e.g. &quot;Joao L&quot;" />
+          </div>
+          <div class="form-group">
+            <label>Rotation Group</label>
+            <select id="admin-new-rotation-group">
+              <option value="management">Management</option>
+              <option value="engineering">Engineering</option>
+              <option value="specialist">Specialist</option>
+            </select>
+          </div>
+          <div class="form-group" id="admin-new-shift-group">
+            <label>Shift (management)</label>
+            <input type="text" id="admin-new-shift" placeholder="0900-1730" maxlength="9" />
+          </div>
+          <div class="form-group" id="admin-new-offset-group" style="display:none;">
+            <label>Rotation Offset (days)</label>
+            <input type="number" min="0" id="admin-new-offset" placeholder="e.g. 35" />
+          </div>
+          <div class="form-group">
+            <label>HR Team</label>
+            <select id="admin-new-hr-team">
+              <option value="">— none —</option>
+              <option value="SOE">SOE</option>
+              <option value="SOS">SOS</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>SOE Join Date <span style="opacity:0.6;">(optional)</span></label>
+            <input type="date" id="admin-new-soe-join-date" />
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn primary" id="btn-admin-add">+ Add Person</button>
+          <button class="btn" id="btn-admin-add-cancel">Cancel</button>
+        </div>
+        <div id="admin-add-err" style="display:none;margin-top:10px;font-family:var(--mono);font-size:0.72rem;color:var(--danger);"></div>
+      </div>
+
+      <!-- Directory -->
+      <div id="admin-directory-wrap">
+        <div class="loading-row"><div class="spinner"></div> Loading…</div>
+      </div>
+
+      <!-- Recent Changes (collapsible) -->
+      <div id="admin-audit-wrap" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+        <div class="loading-row"><div class="spinner"></div> Loading…</div>
+      </div>
     </div>
   </div>
 
@@ -1344,6 +1545,71 @@
 
   <!-- ── PRINT-ONLY ROTA (populated on demand, only visible via print CSS) ── -->
   <div id="print-rota-root"></div>
+
+  <!-- ── SHIFT EDIT MODAL ── -->
+  <div id="shift-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:600;align-items:center;justify-content:center;">
+    <div class="modal-card" style="width:480px;max-width:95vw;max-height:90vh;overflow-y:auto;">
+      <div class="modal-title" id="shift-edit-modal-title">Edit Shift</div>
+
+      <!-- Step 1: fields -->
+      <div id="shift-edit-step1">
+        <div class="shift-reg-flow">
+          <div class="flow-step">
+            <label>Current shift code</label>
+            <div id="shift-edit-current-code" style="font-family:var(--mono);font-size:1rem;font-weight:700;color:var(--text);"></div>
+          </div>
+
+          <!-- Color section (always shown) -->
+          <div style="padding:12px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
+            <div style="font-family:var(--mono);font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px;">Color (takes effect immediately for all rotation-derived cells)</div>
+            <div class="color-preview-row">
+              <input type="color" id="shift-edit-color" style="width:48px;height:32px;padding:2px;border-radius:5px;cursor:pointer;" />
+              <input type="color" id="shift-edit-fg" style="width:48px;height:32px;padding:2px;border-radius:5px;cursor:pointer;" title="Text color" />
+              <div class="color-preview-cell" id="shift-edit-preview">Preview</div>
+            </div>
+            <span style="font-family:var(--mono);font-size:0.58rem;color:var(--muted);">Left = background · Right = text color</span>
+          </div>
+
+          <!-- Time alias section -->
+          <div style="padding-top:12px;">
+            <div style="font-family:var(--mono);font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px;">Rename shift time (date-gated — past cells stay unchanged)</div>
+            <div class="flow-step" style="margin-bottom:10px;">
+              <label>New shift code <span style="color:var(--muted);font-size:0.58rem;">(leave blank to keep current time)</span></label>
+              <input type="text" id="shift-edit-new-code" placeholder="e.g. 0900-1900" maxlength="9" style="width:160px;" />
+            </div>
+            <div class="flow-step" id="shift-edit-effective-group" style="display:none;">
+              <label>Effective from <span style="color:var(--muted);font-size:0.58rem;">(must be future)</span></label>
+              <input type="date" id="shift-edit-effective-from" style="width:180px;" />
+            </div>
+            <div class="flow-step" id="shift-edit-inherit-group" style="display:none;margin-top:8px;">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <input type="checkbox" id="shift-edit-inherit-color" checked />
+                Inherit current color for renamed shift
+              </label>
+              <span style="font-family:var(--mono);font-size:0.58rem;color:var(--muted);">Uncheck to use the color picker value above for the new code.</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">
+          <button class="btn primary" id="btn-shift-edit-preview" style="font-size:0.65rem;padding:5px 12px;">Review Changes</button>
+          <button class="btn" id="btn-shift-edit-cancel" style="font-size:0.65rem;padding:5px 12px;margin-left:8px;">Cancel</button>
+        </div>
+        <div id="shift-edit-err" style="display:none;margin-top:8px;font-family:var(--mono);font-size:0.65rem;color:var(--danger);"></div>
+      </div>
+
+      <!-- Step 2: diff confirmation -->
+      <div id="shift-edit-step2" style="display:none;">
+        <div style="font-family:var(--mono);font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px;">Confirm changes</div>
+        <div class="diff-summary-box" id="shift-edit-diff"></div>
+        <div style="margin-top:14px;display:flex;gap:8px;">
+          <button class="btn primary" id="btn-shift-edit-confirm" style="font-size:0.65rem;padding:5px 12px;">Apply</button>
+          <button class="btn" id="btn-shift-edit-back" style="font-size:0.65rem;padding:5px 12px;">← Back</button>
+        </div>
+        <div id="shift-edit-confirm-err" style="display:none;margin-top:8px;font-family:var(--mono);font-size:0.65rem;color:var(--danger);"></div>
+      </div>
+    </div>
+  </div>
 
   <div id="toast"></div>
 
@@ -1841,6 +2107,23 @@
       if (minConc === 1) {
         const respDate = days[Math.max(0, i - 1)].date;
         addFlag(respDate, 'hard', 'No relief for night-shift break 01:00–02:00 (following night)');
+      }
+    });
+
+    // 3b) Soft: solo coverage during high-demand window (1800–2100), no duration floor
+    const BUSY_WINDOW_START = 18 * 60; // 18:00
+    const BUSY_WINDOW_END   = 21 * 60; // 21:00
+    days.forEach((day, i) => {
+      const from = i * 1440 + BUSY_WINDOW_START, to = i * 1440 + BUSY_WINDOW_END;
+      let soloStart = null;
+      for (let t = from; t <= to; t++) {
+        const solo = t < to && concurrency[t] === 1;
+        if (solo && soloStart === null) soloStart = t;
+        if (!solo && soloStart !== null) {
+          addFlag(day.date, 'soft',
+            `Solo coverage during high-demand window ${fmtHM(soloStart)}–${fmtHM(t)}`);
+          soloStart = null;
+        }
       }
     });
 
@@ -4866,14 +5149,39 @@ function _removeCellFromBoxes(ri, ci) {
     document.getElementById('btn-overview-refresh').addEventListener('click', loadOverview);
 
     if (state.me && state.me.rota_role === 'management') {
-      document.getElementById('overview-mhd-group').style.display = 'flex';
+      document.getElementById('overview-mgmt-toggle').style.display = '';
       document.getElementById('overview-all-toggle').addEventListener('click', () => {
         _overviewShowAll = !_overviewShowAll;
         document.getElementById('overview-all-toggle').classList.toggle('active', _overviewShowAll);
         document.getElementById('overview-team-toggles').style.display = _overviewShowAll ? 'flex' : 'none';
+        document.getElementById('overview-member-row').style.display   = _overviewShowAll ? 'none' : '';
+        if (!_overviewShowAll) {
+          const sel     = document.getElementById('overview-member-select');
+          const myName  = state.me ? state.me.name : null;
+          const balances = _overviewData ? (_overviewData.balances || {}) : {};
+          if (sel && myName && balances[myName]) sel.value = myName;
+        }
         renderOverview();
       });
-      document.getElementById('btn-overview-mhd-save').addEventListener('click', saveMhdDefault);
+
+      // Individual member dropdown for management default view
+      const memberRow = document.getElementById('overview-member-row');
+      if (memberRow) {
+        const memberSel = document.getElementById('overview-member-select');
+        if (memberSel) {
+          const allNames = [
+            ...(state.roster.management  || []),
+            ...(state.roster.engineering || []),
+            ...(state.roster.specialists || []),
+          ].sort();
+          allNames.forEach(name => {
+            const opt = document.createElement('option');
+            opt.value = name; opt.textContent = name;
+            memberSel.appendChild(opt);
+          });
+          memberSel.addEventListener('change', renderOverview);
+        }
+      }
 
       document.querySelectorAll('#overview-team-toggles .team-toggle').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -4887,15 +5195,14 @@ function _removeCellFromBoxes(ri, ci) {
 
     loadOverview();
 
-    // SOE weekend widget — only render for management or engineers
     const role = state.me && state.me.rota_role;
     const team = state.me && state.me.team;
     if (role === 'management' || team === 'Engineering') {
       loadSoeWeekends();
-          document.getElementById('soe-weekends-section').style.display = '';
-      const yearSel = document.getElementById('soe-year-select');
-      if (yearSel) {
-        yearSel.addEventListener('change', () => {
+      document.getElementById('soe-weekends-section').style.display = '';
+      const soeYearSel = document.getElementById('soe-year-select');
+      if (soeYearSel) {
+        soeYearSel.addEventListener('change', () => {
           const mode = document.getElementById('soe-mode-select')?.value || 'aggregate';
           renderSoeWeekends(mode);
         });
@@ -4904,24 +5211,6 @@ function _removeCellFromBoxes(ri, ci) {
       if (modeSel) {
         modeSel.addEventListener('change', () => renderSoeWeekends(modeSel.value));
       }
-    }
-  }
-
-  async function saveMhdDefault() {
-    const year = document.getElementById('overview-year').value;
-    const val  = document.getElementById('overview-mhd-input').value.trim();
-    if (!val || isNaN(+val)) { toast('Enter a valid number of days', 'err'); return; }
-    const r = await fetch(`${PROXY}/rota/al-allowance/config`, {
-      method: 'PUT', credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ year: +year, mhd_default_days: +val }),
-    });
-    const d = await r.json();
-    if (d.ok) {
-      toast(`MHD default set to ${d.mhd_default_days} day(s) for ${year}`, 'ok');
-      loadOverview();
-    } else {
-      await uiAlert(d.error || 'Failed to save MHD default');
     }
   }
 
@@ -4940,7 +5229,7 @@ function _removeCellFromBoxes(ri, ci) {
       const d = await r.json();
       if (!d.ok) { el.innerHTML = `<div class="empty-state">Error: ${d.error}</div>`; return; }
       _soeWeekendData = d;
-      renderSoeWeekends('aggregate');
+      renderSoeWeekends('year');
     } catch(e) {
       el.innerHTML = `<div class="empty-state">Failed to load: ${e.message}</div>`;
     }
@@ -4954,14 +5243,18 @@ function _removeCellFromBoxes(ri, ci) {
     const members = d.members; // ordered list
     const yearSel = document.getElementById('soe-year-select');
 
-    // Populate year dropdown once
-    if (yearSel && yearSel.options.length <= 1) {
-      (d.years || []).slice().reverse().forEach(y => {
-        const opt = document.createElement('option');
-        opt.value = y; opt.textContent = y;
-        yearSel.appendChild(opt);
-      });
-    }
+  // Populate year dropdown once
+  if (yearSel && yearSel.options.length <= 1) {
+    (d.years || []).slice().reverse().forEach(y => {
+      const opt = document.createElement('option');
+      opt.value = y; opt.textContent = y;
+      yearSel.appendChild(opt);
+    });
+    // Set current year as default after options exist
+    const currentYear = String(new Date().getFullYear());
+    const match = Array.from(yearSel.options).find(o => o.value === currentYear);
+    if (match) yearSel.value = currentYear;
+  }
 
     let counts, title, showRatio;
 
@@ -5034,6 +5327,7 @@ function _removeCellFromBoxes(ri, ci) {
     el.innerHTML = '<div class="loading-row"><div class="spinner"></div> Loading…</div>';
 
     try {
+      await _loadOverviewExtras();
       const r = await fetch(`${PROXY}/rota/al-allowance?year=${year}`, { credentials: 'same-origin' });
       const d = await r.json();
       if (!d.ok) { el.innerHTML = `<div class="empty-state">Error: ${d.error}</div>`; return; }
@@ -5046,61 +5340,75 @@ function _removeCellFromBoxes(ri, ci) {
     }
   }
 
-  function renderOverview() {
-    const el = document.getElementById('overview-result');
-    if (!_overviewData) return;
+  // ── Overview extra data (next-shift / next-leave) ─────────────────────
+  let _ovNextShift = {};
+  let _ovLeaveList  = [];
 
-    const isManagement = state.me && state.me.rota_role === 'management';
-    const myName        = state.me ? state.me.name : null;
-    const balances       = _overviewData.balances || {};
-
-    if (!(isManagement && _overviewShowAll)) {
-      // Own-card view — no team grouping needed
-      const names = (myName && balances[myName]) ? [myName] : [];
-      if (!names.length) {
-        el.innerHTML = '<div class="empty-state">No allowance data for this year yet. If you\'re new, ask management to set your join date.</div>';
-        return;
-      }
-      el.innerHTML = names.map(name => _renderAlCard(name, balances[name], isManagement)).join('');
-      _wireOverviewCardHandlers(el, isManagement);
-      return;
-    }
-
-    // Management "All Members" view — grouped by team, rota order, filterable
-    const teamOf = _personTeam;
-
-    const groups = { Management: [], Engineering: [], Specialists: [] };
-    Object.keys(balances).forEach(name => { groups[teamOf(name)].push(name); });
-    Object.values(groups).forEach(list => list.sort());
-
-    const teams = ['Management', 'Engineering', 'Specialists']
-      .filter(t => _overviewTeamFilters[t] && groups[t].length);
-
-    if (!teams.length) {
-      el.innerHTML = '<div class="empty-state">No teams selected, or no allowance data for this year yet.</div>';
-      return;
-    }
-
-    el.innerHTML = teams.map(t => `
-      <div style="margin-bottom:28px;">
-        <div class="approvals-group-header">${t}</div>
-        ${groups[t].map(name => _renderAlCard(name, balances[name], isManagement)).join('')}
-      </div>`).join('');
-
-    _wireOverviewCardHandlers(el, isManagement);
+  async function _loadOverviewExtras() {
+    try {
+      const [nsR, lvR] = await Promise.all([
+        fetch(`${PROXY}/rota/next-shift`, { credentials: 'same-origin' }),
+        fetch(`${PROXY}/rota/leave`,       { credentials: 'same-origin' }),
+      ]);
+      const nsD = await nsR.json();
+      const lvD = await lvR.json();
+      _ovNextShift = nsD.ok ? nsD.next_shift : {};
+      _ovLeaveList = lvD.ok ? (lvD.leave || []) : [];
+    } catch(e) { _ovNextShift = {}; _ovLeaveList = []; }
   }
 
-  function _wireOverviewCardHandlers(el, isManagement) {
-    if (!isManagement) return;
-    el.querySelectorAll('[data-al-edit]').forEach(btn => {
-      btn.addEventListener('click', () => _openAlEditRow(btn));
-    });
-    el.querySelectorAll('[data-al-add-misc]').forEach(btn => {
-      btn.addEventListener('click', () => _submitMiscEntry(btn));
-    });
-    el.querySelectorAll('[data-al-del-misc]').forEach(btn => {
-      btn.addEventListener('click', () => _deleteMiscEntry(btn));
-    });
+  function _ovNextLeaveFor(name) {
+    const today = new Date().toISOString().split('T')[0];
+    const mine = _ovLeaveList.filter(e =>
+      e.name === name && e.status === 'Confirmed' && e.date_start >= today);
+    if (!mine.length) return null;
+    mine.sort((a, b) => a.date_start.localeCompare(b.date_start));
+    const e = mine[0];
+    const days = Math.round((new Date(e.date_end) - new Date(e.date_start)) / 86400000) + 1;
+    return { date: e.date_start, leave_type: e.leave_type, days };
+  }
+
+  function _ovDateBlock(isoDate) {
+    const d = new Date(isoDate + 'T00:00:00');
+    const weekday = d.toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase();
+    const day     = d.getDate();
+    const month   = d.toLocaleDateString('en-GB', { month: 'short' });
+    return `<div class="ov-card-date">
+      <span class="ov-card-weekday">${weekday}</span>
+      <span class="ov-card-daymonth"><span class="d">${day}</span><span class="m">${month}</span></span>
+    </div>`;
+  }
+
+  function _computeAlDistribution(name, year) {
+    const counts = new Array(12).fill(0);
+    _ovLeaveList
+      .filter(e => e.name === name && e.leave_type === 'Annual Leave' && e.status === 'Confirmed')
+      .forEach(e => {
+        let d = new Date(e.date_start + 'T00:00:00');
+        const end = new Date(e.date_end + 'T00:00:00');
+        while (d <= end) {
+          if (d.getFullYear() === year) counts[d.getMonth()]++;
+          d.setDate(d.getDate() + 1);
+        }
+      });
+    return counts;
+  }
+
+  function _renderAlDistributionCard(name, year) {
+    const counts = _computeAlDistribution(name, year);
+    const max = Math.max(1, ...counts);
+    const months = ['J','F','M','A','M','J','J','A','S','O','N','D'];
+    const bars = counts.map((c, i) => `
+      <div class="al-dist-bar">
+        <span class="val">${c || ''}</span>
+        <div class="fill" style="height:${(c / max) * 100}%;"></div>
+        <span class="mth">${months[i]}</span>
+      </div>`).join('');
+    return `
+      <div class="ov-card al-dist-card">
+        <div class="ov-card-label">AL Distribution — ${year}</div>
+        <div class="al-dist-bars">${bars}</div>
+      </div>`;
   }
 
   function _fmtH(v) {
@@ -5112,184 +5420,381 @@ function _removeCellFromBoxes(ri, ci) {
     return `${days}d (${(days * 8).toFixed(2)}h)`;
   }
 
-  function _renderAlCard(name, b, isManagement) {
-    if (!b) return '';
-    const year = _overviewData.year;
-
+  function _ovHeroCards(name, b) {
     const remainingClass = b.remaining_with_pending_hours < 0 ? 'bad'
-                          : b.remaining_with_pending_hours < 16 ? 'warn' : 'ok';
-
-    const fields = [
-      { key: 'base_allowance', label: 'Base Allowance', f: b.base_allowance },
-      { key: 'mhd',            label: 'MHD',            f: b.mhd },
-      { key: 'absence',        label: 'Absence Reward',  f: b.absence, readonly: true },
-    ];
-
-    const breakdownHtml = fields.map(({ key, label, f, readonly }) => {
-      const isManual  = f.auto_or_manual === 'manual';
-      const flagged   = f.flagged_for_review;
-      const cls = 'al-breakdown-item' + (isManual ? ' manual' : '') + (flagged ? ' flagged' : '');
-      const editBtn = (isManagement && !readonly)
-        ? `<button class="btn" data-al-edit data-name="${name}" data-year="${year}" data-field="${key}"
-             data-computed="${f.computed_days ?? ''}" data-final="${f.final_days ?? ''}"
-             style="font-size:0.55rem;padding:2px 6px;margin-top:5px;">✎ Edit</button>`
-        : '';
-      const reasonHtml = isManual && f.override_reason
-        ? `<div style="color:var(--muted);font-size:0.58rem;margin-top:3px;" title="${f.override_reason.replace(/"/g,'&quot;')}">↳ ${f.override_reason.length > 40 ? f.override_reason.slice(0,40)+'…' : f.override_reason}</div>`
-        : '';
-      const flagHtml = flagged
-        ? `<div style="color:#ffb3be;font-size:0.58rem;margin-top:3px;">⚠ Needs manual review (ABSENT days found last year)</div>`
-        : '';
-      return `<div class="${cls}">
-        <span class="lbl">${label}${isManual ? ' · manual' : ''}</span>
-        <span class="val">${_fmtDaysH(f.final_days)}</span>
-        ${flagHtml}${reasonHtml}${editBtn}
-      </div>`;
-    }).join('');
-
-    const miscHtml = (b.misc_entries || []).map(e => `
-      <div class="al-misc-row">
-        <span>${_fmtDateShort(e.date)}</span>
-        <span style="color:var(--text);font-weight:700;">${_fmtH(e.hours)}</span>
-        <span class="al-misc-reason">Reason: ${e.reason}</span>
-        ${isManagement ? `<button class="btn danger" data-al-del-misc data-name="${name}" data-year="${year}" data-id="${e.id}"
-             style="font-size:0.55rem;padding:2px 6px;">🗑</button>` : ''}
-      </div>`).join('') || '<div style="color:var(--muted);font-size:0.65rem;">No misc entries.</div>';
-
-    const addMiscHtml = isManagement ? `
-      <div class="al-add-misc">
-        <input type="date" data-misc-date placeholder="Date" style="width:120px;" />
-        <input type="number" step="0.5" data-misc-hours placeholder="Hours" style="width:70px;" />
-        <input type="text" data-misc-reason placeholder="Reason…" style="flex:1;min-width:160px;" />
-        <button class="btn primary" data-al-add-misc data-name="${name}" data-year="${year}"
-          style="font-size:0.62rem;">+ Add</button>
-      </div>` : '';
+                          : b.remaining_with_pending_hours < 16 ? 'warn' : '';
+    const ns = _ovNextShift[name];
+    const nl = _ovNextLeaveFor(name);
 
     return `
-      <div class="al-card" data-al-card="${name}">
-        <div class="al-card-header">
-          <span class="al-card-name">${name}</span>
-          ${b.carry_over_locked ? '<span class="status-badge Confirmed">Carry-over locked</span>' : ''}
+      <div class="ov-card">
+        <div class="ov-card-label">AL Allowance Remaining</div>
+        <div class="ov-card-big" style="${remainingClass ? `color:var(--${remainingClass === 'bad' ? 'danger' : 'muted'});` : ''}">
+          ${_fmtH(b.remaining_confirmed_hours)}
         </div>
-        <div class="al-headline">
-          <div class="al-stat">
-            <span class="al-stat-label">Total Allowance</span>
-            <span class="al-stat-value">${_fmtH(b.total_allowance_hours)}</span>
-          </div>
-          <div class="al-stat">
-            <span class="al-stat-label">Confirmed Used</span>
-            <span class="al-stat-value">${_fmtH(b.confirmed_used_hours)}</span>
-          </div>
-          <div class="al-stat">
-            <span class="al-stat-label">Remaining (Confirmed)</span>
-            <span class="al-stat-value">${_fmtH(b.remaining_confirmed_hours)}</span>
-          </div>
-          <div class="al-stat">
-            <span class="al-stat-label">Remaining incl. Pending *</span>
-            <span class="al-stat-value ${remainingClass}">${_fmtH(b.remaining_with_pending_hours)}</span>
-            <span class="al-stat-sub">* pending requests not yet confirmed</span>
-          </div>
-        </div>
-        <div class="al-breakdown">
-          ${breakdownHtml}
-          <div class="al-breakdown-item">
-            <span class="lbl">Misc Hours</span>
-            <span class="val">${_fmtH(b.misc_hours)}</span>
-          </div>
-          <div class="al-breakdown-item">
-            <span class="lbl">Carry-over</span>
-            <span class="val">${_fmtH(b.carry_over_hours)}</span>
-          </div>
-          <div class="al-breakdown-item">
-            <span class="lbl">PH-on-AL Giveback</span>
-            <span class="val">${_fmtH(b.ph_al_giveback_hours)}</span>
-            ${b.ph_al_giveback_dates && b.ph_al_giveback_dates.length
-              ? `<div style="color:var(--muted);font-size:0.58rem;margin-top:3px;">${b.ph_al_giveback_dates.map(_fmtDateShort).join(', ')}</div>` : ''}
-          </div>
-        </div>
-        ${isManagement ? `
-          <div class="al-misc-list">
-            <span class="popover-section-label">Misc Entries</span>
-            ${miscHtml}
-            ${addMiscHtml}
-          </div>` : ''}
+        <div class="ov-card-sub">≈ ${(b.remaining_confirmed_hours / 8).toFixed(1)} days</div>
+      </div>
+      <div class="ov-card">
+        <div class="ov-card-label">Booked vs Allowance</div>
+        <div class="ov-card-big">${b.confirmed_used_hours.toFixed(0)}<span class="unit">/${b.total_allowance_hours.toFixed(0)}h</span></div>
+        <div class="ov-card-sub">includes pending: ${(b.confirmed_used_hours + b.pending_used_hours).toFixed(0)}h</div>
+      </div>
+      <div class="ov-card">
+        <div class="ov-card-label">Next Shift</div>
+        ${ns ? _ovDateBlock(ns.date) + `<div class="ov-card-sub">${ns.shift}</div>`
+             : '<div class="ov-card-empty">No upcoming shift found</div>'}
+      </div>
+      <div class="ov-card">
+        <div class="ov-card-label">Next Leave</div>
+        ${nl ? _ovDateBlock(nl.date) + `<div class="ov-card-sub">${nl.leave_type} · ${nl.days}d</div>`
+             : '<div class="ov-card-empty">None scheduled</div>'}
       </div>`;
   }
 
-  function _openAlEditRow(btn) {
-    const name     = btn.dataset.name;
-    const year     = btn.dataset.year;
-    const field    = btn.dataset.field;
-    const computed = btn.dataset.computed;
-    const card     = btn.closest('.al-breakdown-item');
-    if (card.querySelector('.al-edit-row')) return; // already open
+  function _renderAlCard(name, b) {
+    if (!b) return '';
+    const fields = [
+      ['Base Allowance', _fmtDaysH(b.base_allowance.final_days)],
+      ['MHD',             _fmtDaysH(b.mhd.final_days)],
+      ['Absence Reward',  _fmtDaysH(b.absence.final_days)],
+      ['Misc Hours',      _fmtH(b.misc_hours)],
+      ['Carry-over',      _fmtH(b.carry_over_hours)],
+      ['PH-on-AL Giveback', _fmtH(b.ph_al_giveback_hours)],
+    ];
+    const breakdownCards = fields.map(([label, val]) => `
+      <div class="ov-card">
+        <div class="ov-card-label">${label}</div>
+        <div class="ov-card-big" style="font-size:1.3rem;">${val}</div>
+      </div>`).join('');
 
-    const row = document.createElement('div');
-    row.className = 'al-edit-row';
-    row.innerHTML = `
-      <input type="number" step="0.5" class="al-edit-days" value="${btn.dataset.final || ''}" placeholder="days" />
-      <input type="text" class="al-edit-reason" placeholder="Reason (required)…" style="width:140px;" />
-      <button class="btn primary al-edit-save" style="font-size:0.6rem;padding:3px 8px;">Save</button>
-      <button class="btn al-edit-cancel" style="font-size:0.6rem;padding:3px 8px;">✕</button>
-    `;
-    card.appendChild(row);
-    btn.style.display = 'none';
-
-    row.querySelector('.al-edit-cancel').addEventListener('click', () => {
-      row.remove(); btn.style.display = '';
-    });
-    row.querySelector('.al-edit-save').addEventListener('click', async () => {
-      const finalDays = row.querySelector('.al-edit-days').value.trim();
-      const reason    = row.querySelector('.al-edit-reason').value.trim();
-      if (!finalDays) { toast('Enter a number of days', 'err'); return; }
-      if (!reason)    { toast('Reason is required', 'err'); return; }
-      const r = await fetch(`${PROXY}/rota/al-allowance`, {
-        method: 'PUT', credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, year: +year, field, final_days: +finalDays, override_reason: reason }),
-      });
-      const d = await r.json();
-      if (d.ok) {
-        toast('Saved', 'ok');
-        loadOverview();
-      } else {
-        await uiAlert(d.error || 'Failed to save');
-      }
-    });
+    return `
+      <div class="al-card-header" style="border:none;margin-bottom:12px;padding-bottom:0;">
+        <span class="al-card-name">${name}</span>
+        ${b.carry_over_locked ? '<span class="status-badge Confirmed">Carry-over locked</span>' : ''}
+      </div>
+      <div class="ov-grid">
+        ${_ovHeroCards(name, b)}
+        ${breakdownCards}
+      </div>`;
   }
 
-  async function _submitMiscEntry(btn) {
-    const name = btn.dataset.name;
-    const year = btn.dataset.year;
-    const card = btn.closest('.al-add-misc');
-    const dateVal   = card.querySelector('[data-misc-date]').value;
-    const hoursVal  = card.querySelector('[data-misc-hours]').value.trim();
-    const reasonVal = card.querySelector('[data-misc-reason]').value.trim();
+  function _renderOvTile(name, b) {
+    const ns = _ovNextShift[name];
+    const nl = _ovNextLeaveFor(name);
+    return `
+      <div class="ov-tile" data-ov-tile="${name}">
+        <div class="ov-tile-name">${name}</div>
+        <div class="ov-tile-row"><span>Remaining</span><span class="v">${_fmtH(b.remaining_confirmed_hours)}</span></div>
+        <div class="ov-tile-row"><span>Booked</span><span class="v">${b.confirmed_used_hours.toFixed(0)}/${b.total_allowance_hours.toFixed(0)}h</span></div>
+        <div class="ov-tile-row"><span>Next Shift</span><span class="v">${ns ? _fmtDateShort(ns.date) : '—'}</span></div>
+        <div class="ov-tile-row"><span>Next Leave</span><span class="v">${nl ? _fmtDateShort(nl.date) : '—'}</span></div>
+      </div>`;
+  }
 
-    if (!dateVal || !hoursVal || !reasonVal) {
-      toast('Date, hours, and reason are all required', 'err'); return;
+  function renderOverview() {
+    const el = document.getElementById('overview-result');
+    if (!_overviewData) return;
+
+    const isManagement = state.me && state.me.rota_role === 'management';
+    const myName       = state.me ? state.me.name : null;
+    const balances      = _overviewData.balances || {};
+
+    if (isManagement && _overviewShowAll) {
+      const groups = { Management: [], Engineering: [], Specialists: [] };
+      Object.keys(balances).forEach(name => { groups[_personTeam(name)].push(name); });
+      Object.values(groups).forEach(list => list.sort());
+      const teams = ['Management', 'Engineering', 'Specialists']
+        .filter(t => _overviewTeamFilters[t] && groups[t].length);
+
+      if (!teams.length) { el.innerHTML = '<div class="empty-state">No teams selected.</div>'; return; }
+
+      el.innerHTML = teams.map(t => `
+        <div style="margin-bottom:24px;">
+          <div class="approvals-group-header">${t}</div>
+          <div class="ov-grid">${groups[t].map(name => _renderOvTile(name, balances[name])).join('')}</div>
+        </div>`).join('');
+
+      el.querySelectorAll('[data-ov-tile]').forEach(t => t.addEventListener('click', () => {
+        const name = t.dataset.ovTile;
+        _overviewShowAll = false;
+        document.getElementById('overview-all-toggle').classList.remove('active');
+        document.getElementById('overview-team-toggles').style.display = 'none';
+        document.getElementById('overview-member-row').style.display   = '';
+        const sel = document.getElementById('overview-member-select');
+        if (sel) sel.value = name;
+        renderOverview();
+      }));
+      return;
+    }
+
+    let name;
+    if (isManagement) {
+      const memberSel = document.getElementById('overview-member-select');
+      const selected  = memberSel ? memberSel.value : null;
+      name = selected || (myName && balances[myName] ? myName : null);
+      if (!name || !balances[name]) {
+        el.innerHTML = myName && !balances[myName]
+          ? '<div class="empty-state">You have no rota entry — select a member above to view their overview.</div>'
+          : '<div class="empty-state">Select a member above.</div>';
+        return;
+      }
+      if (memberSel && !memberSel.value) memberSel.value = name;
+    } else {
+      name = myName;
+      if (!name || !balances[name]) { el.innerHTML = '<div class="empty-state">No allowance data for this year yet.</div>'; return; }
+    }
+    const selYear = parseInt(document.getElementById('overview-year').value);
+    el.innerHTML = _renderAlCard(name, balances[name]) + _renderAlDistributionCard(name, selYear);
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  ADMIN — PERSON DIRECTORY (add / edit / hide / delete)
+  // ════════════════════════════════════════════════════════════════
+  let _adminDirectory = null;
+  let _adminAuditOpen = false;
+  let _adminAddFormOpen = false;
+
+  function setupAdminTab() {
+    if (!_adminTabReady) {
+      _adminTabReady = true;
+
+      // ── People card ──────────────────────────────────────────────────
+      document.getElementById('admin-new-rotation-group').addEventListener('change', _adminSyncGroupFields);
+      _adminSyncGroupFields();
+
+      document.getElementById('btn-admin-add-toggle').addEventListener('click', () => {
+        _adminAddFormOpen = !_adminAddFormOpen;
+        document.getElementById('admin-add-form').style.display = _adminAddFormOpen ? '' : 'none';
+        document.getElementById('btn-admin-add-toggle').textContent = _adminAddFormOpen ? '✕ Cancel' : '+ Add Person';
+      });
+      document.getElementById('btn-admin-add-cancel').addEventListener('click', () => {
+        _adminAddFormOpen = false;
+        document.getElementById('admin-add-form').style.display = 'none';
+        document.getElementById('btn-admin-add-toggle').textContent = '+ Add Person';
+      });
+      document.getElementById('btn-admin-add').addEventListener('click', submitAddPerson);
+
+      document.getElementById('btn-admin-audit-refresh').addEventListener('click', () => {
+        _adminAuditOpen = !_adminAuditOpen;
+        const wrap = document.getElementById('admin-audit-wrap');
+        wrap.style.display = _adminAuditOpen ? '' : 'none';
+        document.getElementById('btn-admin-audit-refresh').textContent =
+          _adminAuditOpen ? '✕ Hide Changes' : '⟳ Recent Changes';
+        if (_adminAuditOpen) loadAdminAudit();
+      });
+
+      // ── AL card ───────────────────────────────────────────────────────
+      _setupAdminAlCard();
+
+      // ── Feedback card ─────────────────────────────────────────────────
+      document.getElementById('admin-fb-type-filter').addEventListener('change', loadAdminFeedback);
+      document.getElementById('admin-fb-status-filter').addEventListener('change', loadAdminFeedback);
+      document.getElementById('btn-admin-fb-refresh').addEventListener('click', loadAdminFeedback);
+    }
+
+    // ── Shifts card ───────────────────────────────────────────────────────
+    _setupShiftRegistry();
+
+    loadAdminDirectory();
+    loadAdminFeedback();
+  }
+
+  // ── Admin AL card state ───────────────────────────────────────────────
+  let _adminAlMhdLocked   = false;  // true once a value exists for current year
+  let _adminAlCurrentYear = new Date().getFullYear();
+
+  function _setupAdminAlCard() {
+    const yearSel = document.getElementById('admin-al-year');
+    const thisYear = new Date().getFullYear();
+    _adminAlCurrentYear = thisYear;
+
+    // Populate year selector: current year only (editable), past years greyed/disabled
+    for (let y = thisYear; y >= thisYear - 2; y--) {
+      const opt = document.createElement('option');
+      opt.value = y;
+      opt.textContent = y;
+      if (y < thisYear) {
+        opt.disabled = true;
+        opt.style.color = 'var(--muted)';
+        opt.textContent = y + ' 🔒';
+      }
+      yearSel.appendChild(opt);
+    }
+    yearSel.value = thisYear;
+
+    yearSel.addEventListener('change', () => {
+      _adminAlCurrentYear = parseInt(yearSel.value);
+      _loadAdminMhd();
+    });
+
+    document.getElementById('btn-admin-mhd-save').addEventListener('click', _saveAdminMhd);
+    document.getElementById('btn-admin-mhd-unlock').addEventListener('click', _unlockAdminMhd);
+
+    // Member dropdown for misc entries
+    const memberSel = document.getElementById('admin-misc-member');
+    const allNames = [
+      ...(state.roster.management  || []),
+      ...(state.roster.engineering || []),
+      ...(state.roster.specialists || []),
+    ].sort();
+    allNames.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name; opt.textContent = name;
+      memberSel.appendChild(opt);
+    });
+    memberSel.addEventListener('change', () => {
+      const name = memberSel.value;
+      document.getElementById('admin-misc-content').style.display = name ? '' : 'none';
+      if (name) _loadAdminMiscEntries(name);
+    });
+
+    document.getElementById('btn-admin-misc-add').addEventListener('click', _addAdminMiscEntry);
+
+    _loadAdminMhd();
+  }
+
+  async function _loadAdminMhd() {
+    const year = _adminAlCurrentYear;
+    try {
+      const r = await fetch(`${PROXY}/rota/al-allowance?year=${year}`, { credentials: 'same-origin' });
+      const d = await r.json();
+      if (!d.ok) return;
+      const mhd = d.mhd_default_days;
+      _renderAdminMhdState(mhd);
+    } catch(e) { /* non-fatal */ }
+  }
+
+  function _renderAdminMhdState(mhd) {
+    const inp         = document.getElementById('admin-mhd-input');
+    const saveBtn     = document.getElementById('btn-admin-mhd-save');
+    const unlockBtn   = document.getElementById('btn-admin-mhd-unlock');
+    const lockedDisp  = document.getElementById('admin-mhd-locked-display');
+    const lockedVal   = document.getElementById('admin-mhd-locked-value');
+    const isPastYear  = _adminAlCurrentYear < new Date().getFullYear();
+
+    if (isPastYear) {
+      // Past year: always fully read-only
+      inp.style.display      = 'none';
+      saveBtn.style.display  = 'none';
+      unlockBtn.style.display = 'none';
+      lockedDisp.style.display = '';
+      lockedVal.textContent  = mhd !== null && mhd !== undefined ? mhd : '—';
+      _adminAlMhdLocked = true;
+      return;
+    }
+
+    if (mhd !== null && mhd !== undefined) {
+      // Current year, value set → locked display
+      _adminAlMhdLocked = true;
+      inp.style.display      = 'none';
+      saveBtn.style.display  = 'none';
+      unlockBtn.style.display = '';
+      lockedDisp.style.display = '';
+      lockedVal.textContent  = mhd;
+    } else {
+      // Current year, no value yet → editable
+      _adminAlMhdLocked = false;
+      inp.style.display      = '';
+      inp.value              = '';
+      saveBtn.style.display  = '';
+      unlockBtn.style.display = 'none';
+      lockedDisp.style.display = 'none';
+    }
+  }
+
+  async function _saveAdminMhd() {
+    const year = _adminAlCurrentYear;
+    const val  = document.getElementById('admin-mhd-input').value.trim();
+    if (!val || isNaN(+val)) { toast('Enter a valid number of days', 'err'); return; }
+    const r = await fetch(`${PROXY}/rota/al-allowance/config`, {
+      method: 'PUT', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ year: +year, mhd_default_days: +val }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast(`MHD set to ${d.mhd_default_days} day(s) for ${year}`, 'ok');
+      _renderAdminMhdState(d.mhd_default_days);
+    } else {
+      await uiAlert(d.error || 'Failed to save MHD');
+    }
+  }
+
+  async function _unlockAdminMhd() {
+    const confirmed = await uiConfirm(
+      'Unlock MHD',
+      `You are about to change the MHD default for ${_adminAlCurrentYear}. This will affect all eligible members. Are you sure?`,
+      'Unlock & Edit', 'warn'
+    );
+    if (!confirmed) return;
+    _adminAlMhdLocked = false;
+    const inp = document.getElementById('admin-mhd-input');
+    const currentVal = document.getElementById('admin-mhd-locked-value').textContent;
+    inp.value = currentVal;
+    inp.style.display = '';
+    document.getElementById('btn-admin-mhd-save').style.display = '';
+    document.getElementById('btn-admin-mhd-unlock').style.display = 'none';
+    document.getElementById('admin-mhd-locked-display').style.display = 'none';
+  }
+
+  async function _loadAdminMiscEntries(name) {
+    const year = _adminAlCurrentYear;
+    const wrap = document.getElementById('admin-misc-list');
+    wrap.innerHTML = '<div class="loading-row"><div class="spinner"></div> Loading…</div>';
+    try {
+      const r = await fetch(`${PROXY}/rota/al-allowance?year=${year}`, { credentials: 'same-origin' });
+      const d = await r.json();
+      if (!d.ok) { wrap.innerHTML = '<div class="empty-state">Failed to load.</div>'; return; }
+      const balance = d.balances && d.balances[name];
+      const entries = (balance && balance.misc_entries) || [];
+      if (!entries.length) {
+        wrap.innerHTML = '<div class="empty-state">No misc entries for this member.</div>';
+        return;
+      }
+      wrap.innerHTML = entries.map(e => `
+        <div class="al-misc-row">
+          <span>${_fmtDateShort(e.date)}</span>
+          <span style="color:var(--text);font-weight:700;">${e.hours}h</span>
+          <span class="al-misc-reason">${e.reason}</span>
+          <button class="btn danger" style="font-size:0.55rem;padding:2px 6px;"
+            onclick="_deleteAdminMiscEntry('${e.id}','${name}')">🗑</button>
+        </div>`).join('');
+    } catch(e) {
+      wrap.innerHTML = '<div class="empty-state">Failed to load.</div>';
+    }
+  }
+
+  async function _addAdminMiscEntry() {
+    const name   = document.getElementById('admin-misc-member').value;
+    const year   = _adminAlCurrentYear;
+    const dateV  = document.getElementById('admin-misc-date').value;
+    const hours  = document.getElementById('admin-misc-hours').value.trim();
+    const reason = document.getElementById('admin-misc-reason').value.trim();
+    if (!name || !dateV || !hours || !reason) {
+      toast('Member, date, hours and reason are all required', 'err'); return;
     }
     const r = await fetch(`${PROXY}/rota/al-allowance/misc`, {
       method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, year: +year, date: dateVal, hours: +hoursVal, reason: reasonVal }),
+      body: JSON.stringify({ name, year: +year, date: dateV, hours: +hours, reason }),
     });
     const d = await r.json();
     if (d.ok) {
       toast('Misc entry added', 'ok');
-      loadOverview();
+      document.getElementById('admin-misc-date').value   = '';
+      document.getElementById('admin-misc-hours').value  = '';
+      document.getElementById('admin-misc-reason').value = '';
+      _loadAdminMiscEntries(name);
     } else {
       await uiAlert(d.error || 'Failed to add entry');
     }
   }
 
-  async function _deleteMiscEntry(btn) {
-    const name = btn.dataset.name;
-    const year = btn.dataset.year;
-    const id   = btn.dataset.id;
+  async function _deleteAdminMiscEntry(entryId, name) {
+    const year = _adminAlCurrentYear;
     const confirmed = await uiConfirm('Delete Misc Entry', 'Remove this misc hours entry?', 'Delete', 'reject');
     if (!confirmed) return;
-    const r = await fetch(`${PROXY}/rota/al-allowance/misc/${id}`, {
+    const r = await fetch(`${PROXY}/rota/al-allowance/misc/${entryId}`, {
       method: 'DELETE', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, year: +year }),
@@ -5297,32 +5802,10 @@ function _removeCellFromBoxes(ri, ci) {
     const d = await r.json();
     if (d.ok) {
       toast('Entry removed', 'ok');
-      loadOverview();
+      _loadAdminMiscEntries(name);
     } else {
       await uiAlert(d.error || 'Failed to remove entry');
     }
-  }
-
-  // ════════════════════════════════════════════════════════════════
-  //  ADMIN — PERSON DIRECTORY (add / edit / hide / delete)
-  // ════════════════════════════════════════════════════════════════
-  let _adminReady     = false;
-  let _adminDirectory = null;   // { employee_id: {...entry, email} }
-
-  function setupAdminTab() {
-    if (!_adminReady) {
-      _adminReady = true;
-      document.getElementById('admin-new-rotation-group').addEventListener('change', _adminSyncGroupFields);
-      document.getElementById('btn-admin-add').addEventListener('click', submitAddPerson);
-      document.getElementById('btn-admin-audit-refresh').addEventListener('click', loadAdminAudit);
-      _adminSyncGroupFields();
-    }
-    loadAdminDirectory();
-    loadAdminAudit();
-      document.getElementById('admin-fb-type-filter').addEventListener('change', loadAdminFeedback);
-      document.getElementById('admin-fb-status-filter').addEventListener('change', loadAdminFeedback);
-      document.getElementById('btn-admin-fb-refresh').addEventListener('click', loadAdminFeedback);
-    loadAdminFeedback();
   }
 
   function _adminSyncGroupFields() {
@@ -5624,6 +6107,391 @@ function _removeCellFromBoxes(ri, ci) {
       wrap.innerHTML = `<div class="empty-state">Failed to load: ${e.message}</div>`;
     }
   }
+  // ════════════════════════════════════════════════════════════════
+  //  SHIFT REGISTRY
+  // ════════════════════════════════════════════════════════════════
+  let _shiftRegSetup = false;
+  let _shiftRegData  = {};   // code → entry, last fetched
+  let _shiftEditTarget = null;  // code being edited
+
+  function _setupShiftRegistry() {
+    if (_shiftRegSetup) { loadShiftRegistry(); return; }
+    _shiftRegSetup = true;
+
+    // Add form toggle
+    document.getElementById('btn-shift-add-toggle').addEventListener('click', () => {
+      const form = document.getElementById('shift-add-form');
+      const open = form.style.display !== 'none';
+      form.style.display = open ? 'none' : '';
+      document.getElementById('btn-shift-add-toggle').textContent = open ? '+ Add Shift' : '✕ Cancel';
+    });
+    document.getElementById('btn-shift-add-cancel').addEventListener('click', () => {
+      document.getElementById('shift-add-form').style.display = 'none';
+      document.getElementById('btn-shift-add-toggle').textContent = '+ Add Shift';
+    });
+    document.getElementById('btn-shift-refresh').addEventListener('click', loadShiftRegistry);
+    document.getElementById('btn-shift-add-submit').addEventListener('click', submitAddShift);
+
+    // Add form color preview
+    const _syncAddPreview = () => {
+      const bg   = document.getElementById('shift-add-color').value;
+      const fg   = document.getElementById('shift-add-fg').value;
+      const prev = document.getElementById('shift-add-preview');
+      const code = document.getElementById('shift-add-code').value || 'Preview';
+      prev.style.background = bg;
+      prev.style.color      = fg;
+      prev.textContent      = code;
+    };
+    document.getElementById('shift-add-color').addEventListener('input', _syncAddPreview);
+    document.getElementById('shift-add-fg').addEventListener('input', _syncAddPreview);
+    document.getElementById('shift-add-code').addEventListener('input', _syncAddPreview);
+
+    // Edit modal wiring
+    document.getElementById('btn-shift-edit-cancel').addEventListener('click', _closeShiftEditModal);
+    document.getElementById('shift-edit-modal').addEventListener('click', e => {
+      if (e.target.id === 'shift-edit-modal') _closeShiftEditModal();
+    });
+
+    const _syncEditPreview = () => {
+      const bg   = document.getElementById('shift-edit-color').value;
+      const fg   = document.getElementById('shift-edit-fg').value;
+      const prev = document.getElementById('shift-edit-preview');
+      prev.style.background = bg;
+      prev.style.color      = fg;
+      prev.textContent      = _shiftEditTarget || 'Preview';
+    };
+    document.getElementById('shift-edit-color').addEventListener('input', _syncEditPreview);
+    document.getElementById('shift-edit-fg').addEventListener('input', _syncEditPreview);
+
+    // Show/hide effective-from + inherit when new_code is typed
+    document.getElementById('shift-edit-new-code').addEventListener('input', e => {
+      const hasCode = e.target.value.trim().length > 0;
+      document.getElementById('shift-edit-effective-group').style.display = hasCode ? '' : 'none';
+      document.getElementById('shift-edit-inherit-group').style.display   = hasCode ? '' : 'none';
+    });
+
+    // Set tomorrow as default effective-from
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+    document.getElementById('shift-edit-effective-from').value =
+      tomorrow.toISOString().split('T')[0];
+    document.getElementById('shift-edit-effective-from').min =
+      tomorrow.toISOString().split('T')[0];
+
+    document.getElementById('btn-shift-edit-preview').addEventListener('click', _shiftEditShowDiff);
+    document.getElementById('btn-shift-edit-back').addEventListener('click', () => {
+      document.getElementById('shift-edit-step1').style.display = '';
+      document.getElementById('shift-edit-step2').style.display = 'none';
+    });
+    document.getElementById('btn-shift-edit-confirm').addEventListener('click', _submitShiftEdit);
+
+    loadShiftRegistry();
+  }
+
+  async function loadShiftRegistry() {
+    const wrap = document.getElementById('shift-registry-wrap');
+    wrap.innerHTML = '<div class="loading-row"><div class="spinner"></div> Loading…</div>';
+    try {
+      const r = await fetch(`${PROXY}/rota/shifts`, { credentials: 'same-origin' });
+      const d = await r.json();
+      if (!d.ok) { wrap.innerHTML = `<div class="empty-state">Error: ${d.error}</div>`; return; }
+      _shiftRegData = d.shifts || {};
+      renderShiftRegistry();
+    } catch(e) {
+      wrap.innerHTML = `<div class="empty-state">Failed: ${e.message}</div>`;
+    }
+  }
+
+  function renderShiftRegistry() {
+    const wrap = document.getElementById('shift-registry-wrap');
+    const entries = Object.values(_shiftRegData)
+      .sort((a, b) => a.code.localeCompare(b.code));
+
+    if (!entries.length) {
+      wrap.innerHTML = '<div class="empty-state">No shifts registered yet.</div>';
+      return;
+    }
+
+    const rows = entries.map(e => {
+      const rotationTags = (e.in_rotation || []).map(r =>
+        `<span class="rotation-tag ${r}">${r}</span>`).join('');
+
+      const aliases = (e.aliases || []).map(a => {
+        const isPast = new Date(a.effective_from) <= new Date();
+        const delBtn = isPast ? '' :
+          `<button class="alias-del" data-code="${e.code}" data-alias="${a.id}" title="Delete alias">✕</button>`;
+        return `<span class="alias-pill">
+          → ${a.new_code} from ${_fmtDateShort(a.effective_from)}${delBtn}
+        </span>`;
+      }).join('');
+
+      const statusBadge = e.active === false
+        ? '<span class="status-badge Withdrawn">Inactive</span>'
+        : (e.implicit ? '<span class="status-badge Pending" title="Exists in rotation but not explicitly registered">Implicit</span>'
+                      : '<span class="status-badge Confirmed">Active</span>');
+
+      return `<tr data-shift-code="${e.code}">
+        <td>
+          <span class="shift-color-swatch" style="background:${e.color || '#7a7a7a'};"></span>
+          <span style="font-family:var(--mono);font-weight:700;margin-left:8px;">${e.code}</span>
+        </td>
+        <td>${rotationTags || '<span style="color:var(--muted);font-size:0.65rem;">registry only</span>'}</td>
+        <td>${aliases || '<span style="color:var(--muted);font-size:0.65rem;">—</span>'}</td>
+        <td>${statusBadge}</td>
+        <td style="white-space:nowrap;">
+          <button class="btn" data-shift-edit="${e.code}" style="font-size:0.6rem;padding:3px 8px;">✎ Edit</button>
+          ${e.active !== false
+            ? `<button class="btn warn" data-shift-toggle="${e.code}" data-active="false" style="font-size:0.6rem;padding:3px 8px;">🙈 Deactivate</button>`
+            : `<button class="btn approve" data-shift-toggle="${e.code}" data-active="true" style="font-size:0.6rem;padding:3px 8px;">👁 Activate</button>`
+          }
+        </td>
+      </tr>`;
+    }).join('');
+
+    wrap.innerHTML = `
+      <table class="shift-reg-table">
+        <thead><tr>
+          <th>Code</th><th>Rotation</th><th>Aliases</th><th>Status</th><th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+
+    wrap.querySelectorAll('[data-shift-edit]').forEach(b =>
+      b.addEventListener('click', () => openShiftEditModal(b.dataset.shiftEdit)));
+    wrap.querySelectorAll('[data-shift-toggle]').forEach(b =>
+      b.addEventListener('click', () => toggleShiftActive(b.dataset.shiftToggle, b.dataset.active === 'true')));
+    wrap.querySelectorAll('[data-alias]').forEach(b =>
+      b.addEventListener('click', () => deleteShiftAlias(b.dataset.code, b.dataset.alias)));
+  }
+
+  function openShiftEditModal(code) {
+    _shiftEditTarget = code;
+    const entry = _shiftRegData[code] || { code, color: '#7a7a7a', fg_color: '#000' };
+
+    document.getElementById('shift-edit-modal-title').textContent = `Edit shift — ${code}`;
+    document.getElementById('shift-edit-current-code').textContent = code;
+    document.getElementById('shift-edit-color').value = entry.color || '#7a7a7a';
+    document.getElementById('shift-edit-fg').value    = entry.fg_color || '#000000';
+    document.getElementById('shift-edit-new-code').value = '';
+    document.getElementById('shift-edit-effective-from').value =
+      new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    document.getElementById('shift-edit-inherit-color').checked = true;
+    document.getElementById('shift-edit-effective-group').style.display = 'none';
+    document.getElementById('shift-edit-inherit-group').style.display   = 'none';
+    document.getElementById('shift-edit-err').style.display = 'none';
+    document.getElementById('shift-edit-step1').style.display = '';
+    document.getElementById('shift-edit-step2').style.display = 'none';
+
+    // Sync preview
+    const prev = document.getElementById('shift-edit-preview');
+    prev.style.background = entry.color || '#7a7a7a';
+    prev.style.color      = entry.fg_color || '#000';
+    prev.textContent      = code;
+
+    document.getElementById('shift-edit-modal').style.display = 'flex';
+  }
+
+  function _closeShiftEditModal() {
+    document.getElementById('shift-edit-modal').style.display = 'none';
+    _shiftEditTarget = null;
+  }
+
+  function _shiftEditShowDiff() {
+    const code     = _shiftEditTarget;
+    const entry    = _shiftRegData[code] || { color: '#7a7a7a', fg_color: '#000' };
+    const newColor = document.getElementById('shift-edit-color').value;
+    const newFg    = document.getElementById('shift-edit-fg').value;
+    const newCode  = document.getElementById('shift-edit-new-code').value.trim();
+    const effFrom  = document.getElementById('shift-edit-effective-from').value;
+    const inherit  = document.getElementById('shift-edit-inherit-color').checked;
+    const errEl    = document.getElementById('shift-edit-err');
+
+    errEl.style.display = 'none';
+
+    const colorChanged = newColor !== (entry.color || '#7a7a7a') || newFg !== (entry.fg_color || '#000000');
+    const timeChanged  = !!newCode;
+
+    if (!colorChanged && !timeChanged) {
+      errEl.textContent = 'No changes detected — adjust the color or enter a new shift code.';
+      errEl.style.display = ''; return;
+    }
+    if (timeChanged && !newCode.match(/^\d{4}-\d{4}$/)) {
+      errEl.textContent = 'New shift code must be HHMM-HHMM format.';
+      errEl.style.display = ''; return;
+    }
+    if (timeChanged && !effFrom) {
+      errEl.textContent = 'Effective-from date is required when renaming shift time.';
+      errEl.style.display = ''; return;
+    }
+    if (timeChanged && new Date(effFrom) <= new Date()) {
+      errEl.textContent = 'Effective-from must be a future date.';
+      errEl.style.display = ''; return;
+    }
+
+    // Build diff HTML
+    const swatchOld = `<span class="shift-color-swatch" style="background:${entry.color || '#7a7a7a'};display:inline-block;vertical-align:middle;margin-right:4px;"></span>`;
+    const swatchNew = `<span class="shift-color-swatch" style="background:${newColor};display:inline-block;vertical-align:middle;margin-right:4px;"></span>`;
+
+    let diffHtml = '';
+    if (colorChanged) {
+      diffHtml += `<div class="diff-row"><span class="diff-field">Color</span><span class="diff-changed">${swatchOld}${entry.color} → ${swatchNew}${newColor} (immediate, all rotation cells)</span></div>`;
+    } else {
+      diffHtml += `<div class="diff-row"><span class="diff-field">Color</span><span class="diff-unchanged">unchanged — ${swatchOld}${entry.color}</span></div>`;
+    }
+
+    if (timeChanged) {
+      const aliasColor = inherit ? (entry.color || '#7a7a7a') : newColor;
+      diffHtml += `<div class="diff-row"><span class="diff-field">Shift time</span><span class="diff-changed">${code} → ${newCode} from ${_fmtDateShort(effFrom)}</span></div>`;
+      diffHtml += `<div class="diff-row"><span class="diff-field">Alias color</span><span class="diff-changed">${inherit ? 'inherited from current' : 'new color'}: <span class="shift-color-swatch" style="background:${aliasColor};display:inline-block;vertical-align:middle;"></span> ${aliasColor}</span></div>`;
+      diffHtml += `<div class="diff-row" style="margin-top:6px;"><span class="diff-field" style="color:var(--muted);font-size:0.62rem;">Note</span><span class="diff-unchanged">Future published overrides using ${code} on/after ${_fmtDateShort(effFrom)} will be rewritten to ${newCode}. Past cells and manual overrides are untouched.</span></div>`;
+    } else {
+      diffHtml += `<div class="diff-row"><span class="diff-field">Shift time</span><span class="diff-unchanged">unchanged — ${code}</span></div>`;
+    }
+
+    document.getElementById('shift-edit-diff').innerHTML = diffHtml;
+    document.getElementById('shift-edit-confirm-err').style.display = 'none';
+    document.getElementById('shift-edit-step1').style.display = 'none';
+    document.getElementById('shift-edit-step2').style.display = '';
+  }
+
+  async function _submitShiftEdit() {
+    const code    = _shiftEditTarget;
+    const entry   = _shiftRegData[code] || { color: '#7a7a7a', fg_color: '#000' };
+    const newColor = document.getElementById('shift-edit-color').value;
+    const newFg    = document.getElementById('shift-edit-fg').value;
+    const newCode  = document.getElementById('shift-edit-new-code').value.trim();
+    const effFrom  = document.getElementById('shift-edit-effective-from').value;
+    const inherit  = document.getElementById('shift-edit-inherit-color').checked;
+    const errEl    = document.getElementById('shift-edit-confirm-err');
+    errEl.style.display = 'none';
+
+    const body = {};
+    if (newColor !== (entry.color || '#7a7a7a') || newFg !== (entry.fg_color || '#000000')) {
+      body.color    = newColor;
+      body.fg_color = newFg;
+    }
+    if (newCode) {
+      body.new_code       = newCode;
+      body.effective_from = effFrom;
+      body.inherit_color  = inherit;
+    }
+
+    try {
+      const r = await fetch(`${PROXY}/rota/shifts/${encodeURIComponent(code)}`, {
+        method: 'PUT', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const d = await r.json();
+      if (!d.ok) {
+        errEl.textContent = d.error || 'Failed to apply changes';
+        errEl.style.display = ''; return;
+      }
+
+      // Push updated colors into frontend SHIFT_COLORS so render is instant
+      if (body.color) {
+        SHIFT_COLORS[code] = { bg: body.color, fg: body.fg_color || '#000' };
+      }
+      if (body.new_code && d.created_alias) {
+        const aliasColor = inherit ? (body.color || entry.color) : body.color;
+        SHIFT_COLORS[body.new_code] = { bg: aliasColor, fg: body.fg_color || '#000' };
+      }
+
+      _closeShiftEditModal();
+      toast(`Shift ${code} updated`, 'ok');
+      await loadShiftRegistry();
+
+      // Refresh rota grid so color change shows immediately
+      if (state.rotaData) {
+        state.rotaData = null;
+        state.draft.active ? loadDraftRota() : loadRota();
+      }
+    } catch(e) {
+      errEl.textContent = 'Network error: ' + e.message;
+      errEl.style.display = '';
+    }
+  }
+
+  async function submitAddShift() {
+    const code  = document.getElementById('shift-add-code').value.trim();
+    const color = document.getElementById('shift-add-color').value;
+    const fg    = document.getElementById('shift-add-fg').value;
+    const note  = document.getElementById('shift-add-note').value.trim();
+    const errEl = document.getElementById('shift-add-err');
+    errEl.style.display = 'none';
+
+    if (!code.match(/^\d{4}-\d{4}$/)) {
+      errEl.textContent = 'Code must be HHMM-HHMM format (e.g. 0800-1700).';
+      errEl.style.display = ''; return;
+    }
+
+    const r = await fetch(`${PROXY}/rota/shifts`, {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, color, fg_color: fg, note }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      SHIFT_COLORS[code] = { bg: color, fg };
+      document.getElementById('shift-add-code').value  = '';
+      document.getElementById('shift-add-note').value  = '';
+      document.getElementById('shift-add-color').value = '#7a7a7a';
+      document.getElementById('shift-add-fg').value    = '#000000';
+      document.getElementById('shift-add-preview').textContent = 'Preview';
+      document.getElementById('shift-add-form').style.display = 'none';
+      document.getElementById('btn-shift-add-toggle').textContent = '+ Add Shift';
+      toast(`Shift ${code} added`, 'ok');
+      await loadShiftRegistry();
+    } else {
+      errEl.textContent = d.error || 'Failed to add shift';
+      errEl.style.display = '';
+    }
+  }
+
+  async function toggleShiftActive(code, active) {
+    const label = active ? 'Activate' : 'Deactivate';
+    const confirmed = await uiConfirm(
+      `${label} Shift`,
+      active
+        ? `Mark ${code} as active? It will reappear in the shift picker.`
+        : `Mark ${code} as inactive? It will be hidden from the shift picker but historical data is untouched.`,
+      label,
+      active ? 'approve' : 'warn'
+    );
+    if (!confirmed) return;
+    const r = await fetch(`${PROXY}/rota/shifts/${encodeURIComponent(code)}/active`, {
+      method: 'PUT', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ active }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast(`${code} ${active ? 'activated' : 'deactivated'}`, 'ok');
+      await loadShiftRegistry();
+    } else {
+      await uiAlert(d.error || 'Failed to update');
+    }
+  }
+
+  async function deleteShiftAlias(code, aliasId) {
+    const confirmed = await uiConfirm(
+      'Delete Alias',
+      `Remove this pending alias for ${code}? The shift will continue to use its current code on and after the alias date.`,
+      'Delete', 'reject'
+    );
+    if (!confirmed) return;
+    const r = await fetch(
+      `${PROXY}/rota/shifts/${encodeURIComponent(code)}/alias/${aliasId}`,
+      { method: 'DELETE', credentials: 'same-origin' }
+    );
+    const d = await r.json();
+    if (d.ok) {
+      toast('Alias removed', 'ok');
+      await loadShiftRegistry();
+    } else {
+      await uiAlert(d.error || 'Failed to delete alias');
+    }
+  }
+
   </script>
 </body>
 </html>
