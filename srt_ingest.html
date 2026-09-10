@@ -781,49 +781,104 @@ function disconnectSSE(endStatus = null) {
 // ── Preview builders ─────────────────────────────────────────────────────────
 function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-function buildCmd(input, host, port, pass, bitrate, passthrough) {
-  if (!host || !port || !input) return null;
-  const srtUrl = `srt://${esc(host)}:${port}${pass ? "?passphrase=***" : ""}`;
-  if (passthrough) {
-    return `ffmpeg -stream_loop -1 -re -i <span class="hl">${esc(input)}</span>\n`
-      + `-map 0:v:0 -map 0:a:0\n`
-      + `<span class="hl2">-c:v copy -c:a copy</span>\n`
-      + `-f mpegts -muxdelay 0 -muxpreload 0\n`
-      + `<span class="hl2">${srtUrl}</span>`;
-  }
-  const vbr = `${bitrate}M`;
-  const buf = `${bitrate * 2}M`;
-  return `ffmpeg -stream_loop -1 -re -i <span class="hl">${esc(input)}</span>\n`
-    + `-map 0:v:0 -map 0:a:0\n`
-    + `-c:v libx264 -x264-params "force-cfr=1:pic-struct=1" -bf 0 -flags +cgop\n`
-    + `-r 25 -g 50 -keyint_min 50 -sc_threshold 0\n`
-    + `<span class="hlg">-b:v ${vbr} -minrate ${vbr} -maxrate ${vbr} -bufsize ${buf}</span>\n`
-    + `-c:a aac -ar 48000 -ac 2\n`
-    + `-vf "scale=1920:1080" -f mpegts -muxdelay 0 -muxpreload 0\n`
-    + `<span class="hl2">${srtUrl}</span>`;
+// ── Command preview — served by the backend ─────────────────────────────────
+// The preview is NOT reconstructed in JS. The exact argv the ingest route
+// will launch is requested from POST /ingest/preview, which runs the very
+// same builders as /ingest/single, /ingest/multi and /ingest/multi-shared
+// (passphrase masked, nothing launched). The only difference at launch is
+// "-i": the job substitutes the cached pre-trimmed loop copy of the source.
+const previewState = {
+  s: { seq: 0, timer: null, ctrl: null },
+  m: { seq: 0, timer: null, ctrl: null },
+};
+const PREVIEW_DEBOUNCE_MS = 200;
+// Options that start a new visual line in the rendered argv.
+const CMD_BREAK_BEFORE = new Set(['-i', '-map', '-c', '-c:v', '-c:a', '-b:v', '-vf', '-filter:v', '-f', '-x264-params', '-r', '-stream_loop']);
+
+function shellQuote(tok) {
+  return /[\s"'\\]/.test(tok) ? '"' + tok.replace(/(["\\])/g, '\\$1') + '"' : tok;
 }
 
-function buildBarsToneCmd(host, port, pass) {
-  if (!host || !port) return null;
-  const srtUrl = `srt://${esc(host)}:${port}${pass ? "?passphrase=***" : ""}`;
-  const filter =
-    `drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:` +
-    `text='PORT ${port}':fontcolor=white:fontsize=72:` +
-    `box=1:boxcolor=black@0.70:boxborderw=20:x=(w-text_w)/2:y=h-140,` +
-    `drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:` +
-    `text='UTC %{gmtime\\:%X}.%{eif\\:mod(n\\,25)*40\\:d\\:3}':fontcolor=#00ff88:fontsize=56:` +
-    `box=1:boxcolor=black@0.70:boxborderw=16:x=(w-text_w)/2:y=40`;
-  return `ffmpeg -re -f lavfi -i smptebars=size=1920x1080:rate=25 \\\n`
-    + `  -f lavfi -i sine=frequency=1000:sample_rate=48000\n`
-    + `-filter:v <span class="hl">"${esc(filter)}"</span>\n`
-    + `-map 0:v:0 -map 1:a:0\n`
-    + `-c:v libx264 -profile:v high -pix_fmt yuv420p\n`
-    + `-x264-params "force-cfr=1:pic-struct=1:scenecut=0" -bf 0 -flags +cgop\n`
-    + `-r 25 -g 25 -keyint_min 25 -sc_threshold 0\n`
-    + `<span class="hlg">-b:v 1M -minrate 1M -maxrate 1M -bufsize 2M</span>\n`
-    + `-c:a aac -b:a 128k -ar 48000 -ac 2\n`
-    + `-f mpegts -muxdelay 0 -muxpreload 0\n`
-    + `<span class="hl2">${srtUrl}</span>`;
+// Renders a server-built argv with the same colour classes the preview always
+// used: source path (hl), SRT URL / stream copy (hl2), encoder + bitrate (hlg).
+function renderArgv(argv) {
+  let html = '', prev = '', firstMap = true;
+  argv.forEach(tok => {
+    let cls = '';
+    if (prev === '-i') cls = 'hl';
+    else if (/^srt:\/\//.test(tok)) cls = 'hl2';
+    else if (tok === 'copy' && /^-c(:[va])?$/.test(prev)) cls = 'hl2';
+    else if (tok === '-copy_unknown') cls = 'hl2';
+    else if (/^(libx264|aac)$/.test(tok) && /^-c:[va]$/.test(prev)) cls = 'hlg';
+    else if (/^-(b:v|minrate|maxrate|bufsize)$/.test(prev)) cls = 'hlg';
+    let sep = html ? ' ' : '';
+    if (html && (CMD_BREAK_BEFORE.has(tok) || /^srt:\/\//.test(tok))) {
+      // In the shared command every destination block starts with -map 0;
+      // keep the first -map on its own line and blank-line the others.
+      sep = (tok === '-map' && !firstMap && prev !== '-i') ? '\n\n' : '\n';
+      if (tok === '-map') firstMap = false;
+    }
+    const t = esc(shellQuote(tok));
+    html += sep + (cls ? `<span class="${cls}">${t}</span>` : t);
+    prev = tok;
+  });
+  return html;
+}
+
+function renderPreviewResponse(d, multi) {
+  let html = '';
+  (d.warnings || []).forEach(w => { html += `<span style="color:var(--red)">⚠ ${esc(w)}</span>\n`; });
+  d.cmds.forEach((c, i) => {
+    if (multi) {
+      const label = d.mode === 'multi'
+        ? `process ${i + 1} of ${d.count} → ${c.label}`
+        : c.label;
+      html += `<span style="color:var(--muted)"># ${esc(label)}</span>\n`;
+    }
+    html += renderArgv(c.argv) + '\n';
+    if (i < d.cmds.length - 1) html += '\n';
+  });
+  if (d.mode === 'multi' && d.count > d.cmds.length) {
+    html += `<span style="color:var(--muted)"># … ${d.count - d.cmds.length} more process${d.count - d.cmds.length > 1 ? 'es' : ''} (same command, next ports)</span>\n`;
+  }
+  if (d.note) html += `<span style="color:var(--muted)"># ${esc(d.note)}</span>`;
+  return html;
+}
+
+// Debounced request; a newer request always wins over an in-flight one.
+function schedulePreview(prefix, body, targetId) {
+  const st = previewState[prefix];
+  clearTimeout(st.timer);
+  st.timer = setTimeout(() => fetchPreview(prefix, body, targetId), PREVIEW_DEBOUNCE_MS);
+}
+
+function cancelPreview(prefix) {
+  const st = previewState[prefix];
+  clearTimeout(st.timer);
+  if (st.ctrl) { st.ctrl.abort(); st.ctrl = null; }
+  st.seq++;
+}
+
+async function fetchPreview(prefix, body, targetId) {
+  const st = previewState[prefix];
+  const seq = ++st.seq;
+  if (st.ctrl) st.ctrl.abort();
+  st.ctrl = new AbortController();
+  const el = document.getElementById(targetId);
+  if (!el) return;
+  try {
+    const r = await fetch(`${BASE}/ingest/preview`, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body), signal: st.ctrl.signal,
+    });
+    const d = await r.json();
+    if (seq !== st.seq) return;                      // superseded
+    if (!r.ok) { el.innerHTML = `<span style="color:var(--red)">${esc(d.error || 'Preview error')}</span>`; return; }
+    el.innerHTML = renderPreviewResponse(d, prefix === 'm');
+  } catch (e) {
+    if (e.name === 'AbortError' || seq !== st.seq) return;
+    el.innerHTML = '<span style="color:var(--red)">Preview unavailable (could not reach the server)</span>';
+  }
 }
 
 // The B&T source is not a real file, so it's offered as a plain-text entry
@@ -897,10 +952,20 @@ function updateSinglePreview() {
   const pass    = document.getElementById('s-pass').value.trim();
   const bitrate = parseFloat(document.getElementById('s-bitrate').value) || 8;
   const el      = document.getElementById('s-preview');
-  const cmd = m.isBarsTone
-    ? buildBarsToneCmd(host, port, pass)
-    : buildCmd(m.value, host, port, pass, bitrate, m.passthrough);
-  el.innerHTML = cmd || '<span style="color:var(--muted)">Fill the fields above to preview the command.</span>';
+  if (!host || !port || !m.value) {
+    cancelPreview('s');
+    el.innerHTML = '<span style="color:var(--muted)">Fill the fields above to preview the command.</span>';
+    return;
+  }
+  // Same payload startSingle() sends, plus the mode selector.
+  schedulePreview('s', {
+    mode: 'single',
+    input_file: m.value, host, port: parseInt(port),
+    passphrase: pass,
+    source_mode: m.isBarsTone ? 'bars_tone' : 'file',
+    bitrate_mbps: m.isBarsTone ? 1 : bitrate,
+    passthrough: m.passthrough,
+  }, 's-preview');
 }
 
 function updateMultiPreview() {
@@ -911,6 +976,7 @@ function updateMultiPreview() {
   const pe   = parseInt(document.getElementById('m-port-end').value)   || 0;
   const el   = document.getElementById('m-preview');
   if (!host || !ps || !pe || ps > pe) {
+    cancelPreview('m');
     el.innerHTML = '<span style="color:var(--muted)">Fill the fields above to preview destinations.</span>';
     return;
   }
@@ -929,11 +995,21 @@ function updateMultiPreview() {
   }
   if (count > 5) html += `  <span style="color:var(--muted)">… and ${count - 5} more</span>`;
   if (m.shared) {
-    html += `\n<span style="color:var(--muted)">All destinations share a single decode — no per-destination re-encode.</span>`;
+    html += `\n<span style="color:var(--muted)">All destinations share a single demux — no per-destination re-encode.</span>`;
   } else if (count > MULTI_INDEPENDENT_MAX) {
     html += `\n<span style="color:var(--red)">⚠ Independent mode is limited to ${MULTI_INDEPENDENT_MAX} destinations (${count} requested). Reduce the port range or use the shared single process.</span>`;
   }
+  // Exact command(s) as built by the route, fetched from the server.
+  html += `\n\n<span style="color:var(--muted)">ffmpeg command (as the route will launch it):</span>\n<div id="m-preview-cmd"><span style="color:var(--muted)">loading…</span></div>`;
   el.innerHTML = html;
+  const base = {
+    mode: m.shared ? 'multi-shared' : 'multi',
+    input_file: m.value, host, port_start: ps, port_end: pe,
+    passphrase: document.getElementById('m-pass').value.trim(),
+    source_mode: m.isBarsTone ? 'bars_tone' : 'file',
+  };
+  const body = m.shared ? base : { ...base, bitrate_mbps: m.isBarsTone ? 1 : br, passthrough: m.passthrough };
+  schedulePreview('m', body, 'm-preview-cmd');
 }
 
 ['s-host','s-port','s-pass','s-bitrate'].forEach(id =>

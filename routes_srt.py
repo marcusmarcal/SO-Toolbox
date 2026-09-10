@@ -265,6 +265,10 @@ def _pick_last_error(error_log) -> Optional[str]:
 # does not have this problem, so that's what's used below.
 LOOP_TRIM_SECONDS = 1.0
 LOOP_CACHE_DIR = "/tmp/srt-ingest-loop-cache"
+# Bump whenever the trim command in _looped_source_path changes, so cached
+# copies built by an older version (e.g. with ffmpeg's default one-video +
+# one-audio stream selection) are regenerated instead of being reused.
+LOOP_CACHE_VERSION = 2
 
 # Guards concurrent generation of the same cached trimmed file across job
 # reader threads (keyed by the destination cache path).
@@ -305,8 +309,15 @@ def _looped_source_path(input_file: str) -> str:
     is too short to safely trim, or the trim itself fails for any reason —
     ffmpeg will then just loop the full file as before.
 
-    The cache key includes the file's mtime and size, so replacing the
-    source file at the same path automatically invalidates the cached trim.
+    The trimmed copy keeps EVERY elementary stream of a .ts recording
+    (-map 0 -c copy -copy_unknown: all audio PIDs, subtitles, private data).
+    ffmpeg's default stream selection would keep only one video and one
+    audio stream, which silently dropped the extra audio PIDs before the
+    passthrough loop command ever saw the file.
+
+    The cache key includes the file's mtime, size and LOOP_CACHE_VERSION, so
+    replacing the source file at the same path (or changing the trim command)
+    automatically invalidates the cached trim.
     """
     try:
         stat = os.stat(input_file)
@@ -322,7 +333,7 @@ def _looped_source_path(input_file: str) -> str:
 
     ext = os.path.splitext(input_file)[1] or ".mp4"
     key = hashlib.sha1(
-        f"{input_file}:{stat.st_mtime}:{stat.st_size}:{trimmed_duration}".encode()
+        f"v{LOOP_CACHE_VERSION}:{input_file}:{stat.st_mtime}:{stat.st_size}:{trimmed_duration}".encode()
     ).hexdigest()
     cache_path = os.path.join(LOOP_CACHE_DIR, f"{key}{ext}")
 
@@ -337,11 +348,19 @@ def _looped_source_path(input_file: str) -> str:
 
         os.makedirs(LOOP_CACHE_DIR, exist_ok=True)
         tmp_path = os.path.join(LOOP_CACHE_DIR, f"{key}.tmp{ext}")
+        trim_cmd = ["ffmpeg", "-y", "-i", input_file, "-t", str(trimmed_duration)]
+        if ext.lower() == ".ts":
+            # Recordings: carry every stream through untouched, including
+            # streams ffmpeg does not recognise (private data / SCTE-35 ...).
+            trim_cmd += ["-map", "0", "-c", "copy", "-copy_unknown"]
+        else:
+            # test.mp4 & co: default selection is fine (transcode maps v:0/a:0
+            # anyway) and -copy_unknown is not supported by the mp4 muxer.
+            trim_cmd += ["-c", "copy"]
+        trim_cmd += ["-avoid_negative_ts", "make_zero", tmp_path]
         try:
             result = subprocess.run(
-                ["ffmpeg", "-y", "-i", input_file, "-t", str(trimmed_duration),
-                 "-c", "copy", "-avoid_negative_ts", "make_zero", tmp_path],
-                capture_output=True, text=True, timeout=60,
+                trim_cmd, capture_output=True, text=True, timeout=60,
             )
             if result.returncode != 0 or not os.path.isfile(tmp_path) or os.path.getsize(tmp_path) == 0:
                 return input_file
@@ -379,11 +398,15 @@ def _build_ffmpeg_cmd(
     bitrate_mbps: float = CBR_DEFAULT_MBPS,
     passthrough: bool = False,
     source_mode: str = "file",
+    resolve_loop: bool = True,
 ) -> list:
     """Build ffmpeg command for a single SRT destination.
 
     passthrough=True: copy streams without re-encoding (for .ts sources).
     passthrough=False: full CBR transcode with libx264/aac.
+    resolve_loop=False: keep the original input path in "-i" instead of
+    generating/looking up the cached pre-trimmed loop copy (used by the
+    /ingest/preview route, which must never touch the filesystem).
     """
     srt_url = f"srt://{host}:{port}?passphrase={passphrase}" if passphrase else f"srt://{host}:{port}"
 
@@ -433,16 +456,24 @@ def _build_ffmpeg_cmd(
         ]
 
     if passthrough:
-        loop_input = _looped_source_path(input_file)
+        # Send the recording as it was captured: every elementary stream
+        # (all audio PIDs, subtitles, private data) is mapped and stream
+        # copied; -copy_unknown keeps streams ffmpeg cannot identify.
+        # NOTE: no +discardcorrupt here. The mpegts demuxer flags a whole PES
+        # as corrupt on a continuity-counter error, which is common in
+        # recorded network streams; with +discardcorrupt those PES (IDR
+        # frames included) are dropped entirely and the receiver may never
+        # get a decodable keyframe.
+        loop_input = _looped_source_path(input_file) if resolve_loop else input_file
         return [
-            "ffmpeg", "-stream_loop", "-1",
-            "-fflags", "+genpts+discardcorrupt",
+            "ffmpeg",
+            "-stream_loop", "-1",
+            "-fflags", "+genpts",
             "-re",
             "-i", loop_input,
-            "-map", "0:v:0",
-            "-map", "0:a:0",
-            "-c:v", "copy",
-            "-c:a", "copy",
+            "-map", "0",
+            "-c", "copy",
+            "-copy_unknown",
             "-avoid_negative_ts", "make_zero",
             "-f", "mpegts",
             "-muxdelay", "0",
@@ -452,7 +483,7 @@ def _build_ffmpeg_cmd(
 
     vbr = f"{bitrate_mbps}M"
     bufsize = f"{bitrate_mbps * CBR_BUFSIZE_FACTOR}M"
-    loop_input = _looped_source_path(input_file)
+    loop_input = _looped_source_path(input_file) if resolve_loop else input_file
     return [
         "ffmpeg", "-stream_loop", "-1", "-re",
         "-fflags", "+genpts",
@@ -485,7 +516,9 @@ def _build_ffmpeg_cmd(
     ]
 
 
-def _build_ffmpeg_cmd_shared(input_file: str, destinations: list, passphrase: str) -> list:
+def _build_ffmpeg_cmd_shared(
+    input_file: str, destinations: list, passphrase: str, resolve_loop: bool = True
+) -> list:
     """Build a SINGLE ffmpeg command that reads input_file once and pushes an
     unmodified copy (-c copy) to every destination in `destinations`.
 
@@ -498,18 +531,23 @@ def _build_ffmpeg_cmd_shared(input_file: str, destinations: list, passphrase: st
 
     Passthrough/copy only — sharing a single re-encode across destinations
     would need the ffmpeg 'tee' muxer, which is not implemented here.
+
+    Every elementary stream of the recording is mapped to every output
+    (-map 0 -c copy -copy_unknown) so all audio PIDs / data streams reach the
+    destinations, same as the single-destination passthrough command.
+    resolve_loop=False keeps the original path in "-i" (preview only).
     """
-    loop_input = _looped_source_path(input_file)
-    cmd = ["ffmpeg", "-stream_loop", "-1", "-fflags", "+genpts+discardcorrupt", "-re", "-i", loop_input]
+    loop_input = _looped_source_path(input_file) if resolve_loop else input_file
+    cmd = ["ffmpeg", "-stream_loop", "-1", "-fflags", "+genpts", "-re", "-i", loop_input]
     for dest in destinations:
         srt_url = (
             f"srt://{dest['host']}:{dest['port']}?passphrase={passphrase}"
             if passphrase else f"srt://{dest['host']}:{dest['port']}"
         )
         cmd += [
-            "-map", "0:v:0",
-            "-map", "0:a?",
+            "-map", "0",
             "-c", "copy",
+            "-copy_unknown",
             "-avoid_negative_ts", "make_zero",
             "-f", "mpegts",
             "-muxdelay", "0",
@@ -886,6 +924,112 @@ def ingest_multi_shared():
         "message": f"Shared ingest started to {len(destinations)} destinations (1 ffmpeg process)",
         "job": _job_info(job),
     }), 201
+
+
+# Passphrases must never leave the server in clear text via the preview.
+_PASSPHRASE_RE = re.compile(r"(passphrase=)[^&\s]+")
+
+
+def _mask_cmd(cmd: list) -> list:
+    """Return a copy of an ffmpeg argv with SRT passphrases replaced by ***."""
+    return [_PASSPHRASE_RE.sub(r"\1***", tok) for tok in cmd]
+
+
+@srt_bp.route("/ingest/preview", methods=["POST"])
+def ingest_preview():
+    """
+    Return the exact ffmpeg argv the corresponding ingest route would launch,
+    WITHOUT launching anything or touching the filesystem. The UI uses this
+    instead of re-implementing the command builders in JavaScript, so the
+    preview can never drift from what the server actually runs.
+
+    Body JSON: { mode: "single" | "multi" | "multi-shared", host, port |
+                 port_start/port_end, passphrase?, input_file?, bitrate_mbps?,
+                 passthrough?, source_mode? }
+    Response:  { mode, count, cmds: [{label, argv, text}], warnings: [...],
+                 note }
+    Passphrases are masked. "-i" shows the selected source path; at launch
+    the job substitutes the cached pre-trimmed loop copy of that file (see
+    _looped_source_path), which is the only difference to the real argv.
+    Independent multi mode returns at most MULTI_INDEPENDENT_MAX_DESTINATIONS
+    commands (the same cap /ingest/multi enforces).
+    """
+    data = request.get_json(force=True) or {}
+    mode = data.get("mode", "single")
+    if mode not in ("single", "multi", "multi-shared"):
+        return jsonify({"error": "Invalid mode"}), 400
+    try:
+        host = str(data.get("host", "")).strip()
+        passphrase = str(data.get("passphrase", "")).strip()
+        input_file = str(data.get("input_file", "test.mp4")).strip()
+        bitrate_mbps = float(data.get("bitrate_mbps", CBR_DEFAULT_MBPS))
+        passthrough = bool(data.get("passthrough", False))
+        source_mode = data.get("source_mode", "file")
+        port = int(data.get("port", 0) or 0)
+        port_start = int(data.get("port_start", 0) or 0)
+        port_end = int(data.get("port_end", 0) or 0)
+    except (TypeError, ValueError):
+        return jsonify({"error": "Invalid numeric field"}), 400
+    if source_mode not in ("file", "bars_tone"):
+        return jsonify({"error": "Invalid source_mode"}), 400
+    if not host:
+        return jsonify({"error": "host is required"}), 400
+
+    warnings = []
+    if source_mode == "bars_tone":
+        # Same fixed profile as the ingest routes.
+        bitrate_mbps = 1.0
+        passthrough = False
+    elif not os.path.isfile(input_file):
+        warnings.append(f"Input file not found: {input_file}")
+
+    cmds = []
+    if mode == "single":
+        if not port:
+            return jsonify({"error": "port is required"}), 400
+        cmd = _build_ffmpeg_cmd(input_file, host, port, passphrase, bitrate_mbps,
+                                passthrough, source_mode, resolve_loop=False)
+        cmds.append({"label": f"{host}:{port}", "argv": _mask_cmd(cmd)})
+        count = 1
+    else:
+        if not port_start or not port_end:
+            return jsonify({"error": "port_start and port_end are required"}), 400
+        if port_start > port_end:
+            return jsonify({"error": "port_start must be <= port_end"}), 400
+        ports = list(range(port_start, port_end + 1))
+        if mode == "multi-shared":
+            if source_mode == "bars_tone":
+                return jsonify({"error": "Bars & tone cannot use the shared process"}), 400
+            if len(ports) > 100:
+                warnings.append("Port range limited to 100 destinations")
+            destinations = [{"host": host, "port": p} for p in ports]
+            cmd = _build_ffmpeg_cmd_shared(input_file, destinations, passphrase, resolve_loop=False)
+            cmds.append({"label": f"{host}:{port_start}-{port_end} ({len(ports)} destinations, 1 process)",
+                         "argv": _mask_cmd(cmd)})
+            count = 1
+        else:
+            if len(ports) > MULTI_INDEPENDENT_MAX_DESTINATIONS:
+                warnings.append(
+                    f"Independent multi-ingest is limited to {MULTI_INDEPENDENT_MAX_DESTINATIONS} "
+                    f"destinations ({len(ports)} requested) — the route will reject this request."
+                )
+            for p in ports[:MULTI_INDEPENDENT_MAX_DESTINATIONS]:
+                cmd = _build_ffmpeg_cmd(input_file, host, p, passphrase, bitrate_mbps,
+                                        passthrough, source_mode, resolve_loop=False)
+                cmds.append({"label": f"{host}:{p}", "argv": _mask_cmd(cmd)})
+            count = len(ports)
+
+    for c in cmds:
+        c["text"] = " ".join(c["argv"])
+
+    note = None
+    if source_mode == "file":
+        note = (
+            f"At launch, -i is replaced by the cached loop copy of this file "
+            f"({LOOP_CACHE_DIR}/<sha1>.ext, pre-trimmed {LOOP_TRIM_SECONDS:g}s short of "
+            "the real end so the loop restart never hits the file tail). All streams are kept."
+        )
+    return jsonify({"mode": mode, "count": count, "cmds": cmds, "warnings": warnings, "note": note})
 
 
 @srt_bp.route("/jobs", methods=["GET"])
