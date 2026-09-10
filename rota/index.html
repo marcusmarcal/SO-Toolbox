@@ -2110,6 +2110,23 @@
       }
     });
 
+    // 3b) Soft: solo coverage during high-demand window (1800–2100), no duration floor
+    const BUSY_WINDOW_START = 19 * 60; // 19:00
+    const BUSY_WINDOW_END   = 21 * 60; // 21:00
+    days.forEach((day, i) => {
+      const from = i * 1440 + BUSY_WINDOW_START, to = i * 1440 + BUSY_WINDOW_END;
+      let soloStart = null;
+      for (let t = from; t <= to; t++) {
+        const solo = t < to && concurrency[t] === 1;
+        if (solo && soloStart === null) soloStart = t;
+        if (!solo && soloStart !== null) {
+          addFlag(day.date, 'soft',
+            `Solo coverage during high-demand window ${fmtHM(soloStart)}–${fmtHM(t)}`);
+          soloStart = null;
+        }
+      }
+    });
+
     // 4) Soft: SOE presence every day
     days.forEach((day, i) => {
       if (!soeCov[i]) addFlag(day.date, 'soft', 'No SOE (Engineering) on shift');
