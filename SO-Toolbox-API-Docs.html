@@ -480,6 +480,115 @@ const DATA = [
     ]
   },
   {
+    id: "env",
+    title: "Environment (.env) Manager",
+    file: "routes_env.py",
+    prefix: "/env",
+    description: "Admin-only management of the server-side .env file, used by the Environment tab of so-toolbox-admin.html. Secret-looking keys (password, passphrase, token, bearer, auth, key) are masked in list responses and only returned by the explicit reveal endpoint. Every write takes a timestamped backup (.env.bak-YYYYmmdd-HHMMSS, last 15 kept) and replaces the file atomically with mode 0600. Audit lines (user, action, key — never the value) go to stdout.",
+    endpoints: [
+      {
+        method: "GET", path: "", auth: "superadmin",
+        summary: "Parsed .env in file order: blank, comment, invalid, var and disabled (# KEY=VALUE) lines. Vars carry key, enabled flag, masked/plain value, secret flag, duplicate flag, has_active (for disabled alternatives) and the known-key registry info (consumer, description, reload = live | restart | mixed | none | unknown, schema = tool | preset | url | host | ip | text). html_files lists the .html pages available for the TOOL_n file picker.",
+        responses: ["200 { ok, meta, lines: [...], stats, duplicates, html_files }", "403 admin role required"]
+      },
+      {
+        method: "GET", path: "/keys/<span class=\"param\">&lt;key&gt;</span>/reveal", auth: "superadmin",
+        summary: "Return the real value of one key. Audited.",
+        responses: ["200 { ok, key, value }", "404 Key not found"]
+      },
+      {
+        method: "POST", path: "/keys", auth: "superadmin",
+        summary: "Add a variable. Optionally insert it right after an existing key and/or prepend a one-line comment. Appends to the end of the file by default. enabled: false writes it as a disabled option (# KEY=VALUE), which is allowed even when the key is already active.",
+        body: `{
+  <span class="s">"key"</span>: <span class="s">"NEW_SETTING"</span>,
+  <span class="s">"value"</span>: <span class="s">"value"</span>,
+  <span class="s">"after"</span>: <span class="s">"APP_TITLE"</span>,
+  <span class="s">"comment"</span>: <span class="s">"optional description"</span>,
+  <span class="s">"enabled"</span>: true
+}`,
+        responses: ["201 { ok, key, backup, consumer, description, reload }", "400 invalid key/value", "404 after-key not found", "409 key exists"]
+      },
+      {
+        method: "PUT", path: "/keys/<span class=\"param\">&lt;key&gt;</span>", auth: "superadmin",
+        summary: "Update a value in place (first definition). Value is written verbatim, must be a single line. Also updates os.environ in the running process.",
+        body: `{ <span class="s">"value"</span>: <span class="s">"new value"</span> }`,
+        responses: ["200 { ok, key, backup, reload }", "200 { ok, unchanged: true }", "404 Key not found"]
+      },
+      {
+        method: "PUT", path: "/keys/<span class=\"param\">&lt;key&gt;</span>/rename", auth: "superadmin",
+        summary: "Rename a key keeping its value and position.",
+        body: `{ <span class="s">"new_key"</span>: <span class="s">"RENAMED_KEY"</span> }`,
+        responses: ["200 { ok, key, old_key, backup }", "404 Key not found", "409 new key exists"]
+      },
+      {
+        method: "DELETE", path: "/keys/<span class=\"param\">&lt;key&gt;</span>", auth: "superadmin",
+        summary: "Remove the first definition of a key. Pass ?all=1 to remove every duplicate definition.",
+        params: [{name:"all", in:"query", type:"string", required:false, desc:"'1' removes all occurrences"}],
+        responses: ["200 { ok, key, removed, backup }", "404 Key not found"]
+      },
+      {
+        method: "GET", path: "/lines/<span class=\"param\">&lt;n&gt;</span>/reveal", auth: "superadmin",
+        summary: "Real value of the var or disabled (# KEY=VALUE) line n. The expected key must be passed so a stale UI cannot read the wrong line.",
+        params: [{name:"key", in:"query", type:"string", required:true, desc:"Key expected on that line"}],
+        responses: ["200 { ok, key, line, value, enabled }", "409 line changed on disk — reload and retry"]
+      },
+      {
+        method: "PUT", path: "/lines/<span class=\"param\">&lt;n&gt;</span>", auth: "superadmin",
+        summary: "Update the value of line n, keeping its enabled/disabled state and any export prefix. Works for duplicates and disabled alternatives that key-based endpoints cannot address.",
+        body: `{ <span class="s">"key"</span>: <span class="s">"TOOL_01"</span>, <span class="s">"value"</span>: <span class="s">"page.html|Name|Desc|📡|Category|LIVE"</span> }`,
+        responses: ["200 { ok, key, line, enabled, backup, reload }", "400 invalid key/value", "409 line changed on disk"]
+      },
+      {
+        method: "DELETE", path: "/lines/<span class=\"param\">&lt;n&gt;</span>", auth: "superadmin",
+        summary: "Delete line n (active or disabled).",
+        params: [{name:"key", in:"query", type:"string", required:true, desc:"Key expected on that line"}],
+        responses: ["200 { ok, key, line, removed, backup }", "409 line changed on disk"]
+      },
+      {
+        method: "POST", path: "/lines/<span class=\"param\">&lt;n&gt;</span>/toggle", auth: "superadmin",
+        summary: "Enable (uncomment) or disable (comment out as # KEY=VALUE) line n. Enabling a line whose key is already active elsewhere returns 409 active_exists unless replace is true, in which case the other active definitions are disabled so a single value stays active.",
+        body: `{ <span class="s">"key"</span>: <span class="s">"TOOL_01"</span>, <span class="s">"enabled"</span>: true, <span class="s">"replace"</span>: false }`,
+        responses: ["200 { ok, key, line, enabled, replaced_lines, backup, reload }", "409 { code: 'active_exists', active_lines }", "409 line changed on disk"]
+      },
+      {
+        method: "GET", path: "/raw", auth: "superadmin",
+        summary: "Full raw file content including secrets, plus meta (size, mtime, newline style). Audited.",
+        responses: ["200 { ok, content, meta }"]
+      },
+      {
+        method: "PUT", path: "/raw", auth: "superadmin",
+        summary: "Replace the whole file. Every non-blank, non-comment line must be KEY=VALUE (400 with the offending lines otherwise). If mtime is sent and the file changed on disk since, returns 409 unless force is true. Newline style is preserved.",
+        body: `{ <span class="s">"content"</span>: <span class="s">"KEY=VALUE\\n..."</span>, <span class="s">"mtime"</span>: 1757400000.0, <span class="s">"force"</span>: false }`,
+        responses: ["200 { ok, backup, meta }", "400 { error, problems: [{line, text}] }", "409 { code: 'conflict', mtime }", "413 too large"]
+      },
+      {
+        method: "GET", path: "/backups", auth: "superadmin",
+        summary: "List .env backups, newest first.",
+        responses: ["200 { ok, backups: [{name, size, mtime}], max_backups }"]
+      },
+      {
+        method: "POST", path: "/backups", auth: "superadmin",
+        summary: "Create a manual backup of the current file.",
+        responses: ["201 { ok, name, backups }", "404 .env not found"]
+      },
+      {
+        method: "GET", path: "/backups/<span class=\"param\">&lt;name&gt;</span>/diff", auth: "superadmin",
+        summary: "Unified diff from the backup to the current file. Secret values are masked on both sides.",
+        responses: ["200 { ok, name, diff: [...], identical }", "404 Backup not found"]
+      },
+      {
+        method: "POST", path: "/backups/<span class=\"param\">&lt;name&gt;</span>/restore", auth: "superadmin",
+        summary: "Replace .env with the backup. The current file is saved as a new backup first. Cached keys need a proxy restart afterwards.",
+        responses: ["200 { ok, restored, backup, meta, note }", "404 Backup not found"]
+      },
+      {
+        method: "DELETE", path: "/backups/<span class=\"param\">&lt;name&gt;</span>", auth: "superadmin",
+        summary: "Delete one backup file.",
+        responses: ["200 { ok, deleted, backups }", "404 Backup not found"]
+      },
+    ]
+  },
+  {
     id: "gop",
     title: "BTV Video Analyser (GOP Compliance)",
     file: "routes_gop.py",
@@ -1173,6 +1282,7 @@ const AUTH_LABELS = {
   none: {text: "No auth", cls: "auth-none"},
   any: {text: "Any authenticated user", cls: "auth-any"},
   admin: {text: "Admin / Engineer", cls: "auth-admin"},
+  superadmin: {text: "Admin only", cls: "auth-admin"},
   password: {text: "X-Admin-Password", cls: "auth-pwd"},
 };
 

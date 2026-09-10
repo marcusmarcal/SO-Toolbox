@@ -5,387 +5,551 @@ All notable changes to SP SO Web Toolbox are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
+`SRT Ingest:`, `General Tool Admin:`) so entries can be filtered per tool.
+
 ---
-## [2.50.4] - 2026-09-02
+
+## [Unreleased]
+
+## [3.59.0] - 2026-09-09
+
+### Added
+
+- General Tool Admin: new **Environment** tab in `so-toolbox-admin.html` (admin role only) to manage every key in the server-side `.env` — add, inline edit, rename and delete variables; file-order view with section headers and comments; search plus filters for secrets, needs-restart, not-referenced, empty and duplicate keys; secret values masked with per-key reveal, reveal-all and copy.
+- General Tool Admin: each `.env` key shows which Blueprint/tool reads it and a LIVE / RESTART / MIXED / REF badge; after saving a cached key a banner offers a one-click proxy restart.
+- General Tool Admin: commented-out lines of the form `# KEY=VALUE` are shown as **disabled options** (dimmed, "off" chip, "alternative" chip when the key is also active) with ▶ Enable / ⏸ Disable actions; enabling a line whose key is already active asks to replace the current definition. New variables can be added directly as disabled, and a "Disabled options" filter lists them.
+- General Tool Admin: structured editors for known value formats — `TOOL_n` is edited as page file (picker from the `.html` files on the server), name, description, icon, category and badge, and rendered as a card-like row with a warning when the file does not exist; `SRT_SERVER_n` / `SRT_LOCAL_n` are edited as host + label. The add form has a type selector (Tool, SRT server preset, Local preset, Custom) that suggests the next free key and inserts after the last key of the same family; "＋ Add Tool" shortcut in the header; filters for Tools and SRT presets.
+- General Tool Admin: raw `.env` editor with server-side validation (every non-comment line must be `KEY=VALUE`) and modified-on-disk conflict detection with explicit force-save.
+- General Tool Admin: `.env` backups panel — automatic timestamped backup before every write (last 15 kept), manual backup, masked unified diff against the current file, restore and delete.
+- routes_env.py: new Blueprint under `/env` (`GET /`, `GET|PUT /raw`, `POST /keys`, `PUT|DELETE /keys/<key>`, `PUT /keys/<key>/rename`, `GET /keys/<key>/reveal`, line-based `GET /lines/<n>/reveal`, `PUT|DELETE /lines/<n>`, `POST /lines/<n>/toggle` for active and disabled lines, `GET|POST /backups`, `GET /backups/<name>/diff`, `POST /backups/<name>/restore`, `DELETE /backups/<name>`). Admin-only, atomic writes with mode 0600, audit lines to stdout without values. `GET /` also returns a per-key `schema` (tool / preset / url / host / ip / text) and the list of `.html` files for the tool picker.
 
 ### Changed
-- Video Analyser: RTMP mode now defaults to the "RTS" workflow. The RTS
-  option is pre-selected in the RTMP form and enforced after workflow
-  labels load from the API; SRT and Upload modes are unchanged and keep
-  the API default workflow.
 
-## [2.50.3] - 2026-09-02
+- General Tool Admin: `users-admin.html` renamed to `so-toolbox-admin.html` ("SO Toolbox Admin"); login redirects, nginx public-page rules (`nginx.conf`, `nginx-debian.conf`), `README.md` and `SERVER_REBUILD.md` updated. Reload nginx after deploying.
+- `.gitignore`: `.env.bak-*` and `.env.tmp` ignored.
+
+## [3.58.1] - 2026-09-09
 
 ### Fixed
-- Video Analyser: RTMP stream capture failed with "Cannot assign requested
-  address" because ffmpeg's "-timeout" option implies listen (server) mode
-  on the native RTMP protocol. RTMP inputs now use "-rw_timeout" and
-  "-rtmp_live live" for a proper client-side pull; SRT and other protocols
-  are unaffected.
+- General Tool Admin: restored the Proxy Management panel and live tool activity
+  indicators (`GET /proxy/activity`, 5 s poll) that had been lost from `index.html`.
+- General Tool Admin: restored the two-pane README viewer (sticky table of contents
+  with scroll-spy) and the collapsible, filterable CHANGELOG modal.
 
-## [2.50.2] - 2026-09-02
+### Changed
+- General Tool Admin: `Esc` now closes the README, CHANGELOG and Proxy Management modals.
+
+## [3.58.0] - 2026-09-08
+
+### Added
+
+- TXCore Manager: second cluster tab — **MAIN** (SRT) alongside the existing **STB** (multicast). Each tab has its own category picker/creator, bulk channel form, dry-run toggle and persisted form state; the active tab is remembered and can be pre-selected with `#stb` / `#main` in the URL.
+- TXCore Manager: MAIN channels are built with two SRT caller sources (protocol 6) — primary (priority 0) and optional backup (priority 1) — sharing the same port, incremented per channel from a configurable first port (default 8254). Source hosts offer the `SRT_SERVER_n` presets from `.env` with free-text override; picking a primary auto-pairs the backup with the same numeric suffix (e.g. INX03 → EQP03).
+- TXCore Manager: SRT encryption toggle (default on) using the server-side passphrase, plus an optional per-run passphrase override typed in a masked field that is never stored in the browser or on disk.
+- TXCore Manager: preview for SRT channels shows per-source addresses, priority dots and encryption state; warnings when no backup source is set, when an override passphrase is in use, or when no passphrase is available.
+- TXCore Manager: per-cluster configuration dot on each tab, header badge reflecting the active cluster, cluster label on preview/job panels and in the live-API confirmation dialog, and cluster tag (STB/MAIN) on running jobs in the proxy activity indicator.
+- routes_txcore.py: all endpoints accept a `cluster` selector (`stb` default, `main`) via JSON body or `?cluster=` query string; separate bearer token, base URL and HTTP session per cluster. `GET /api/txcore/status` now returns `default_cluster` and a `clusters` map (per-cluster token/url flags, geofence flags for STB, `srt_passphrase_set` and `srt_source_presets` for MAIN) while keeping the legacy top-level STB fields.
+- routes_txcore.py: new `.env` keys `BEARER_TOKEN_MAIN`, `APIURLMAIN` and `INTERNALSRTPASSPHRASE` (falls back to `SRT_PASSPHRASE`); `SRT_SERVER_n=IP|Label` entries are reused as SRT source presets.
+
+### Changed
+
+- TXCore Manager: form field ids are now prefixed per cluster and the localStorage key moved to `txcore-manager-form-v3`; previously saved STB form values are not migrated and will fall back to defaults once.
+- routes_txcore.py: SRT passphrases are redacted from preview responses and from every request body persisted in the job files; the override never enters the stored job params. Job ids are validated before touching the filesystem. Preview responses include `cluster`, `mode` and, for SRT, `passphrase_source` (`env` / `override` / `missing`).
+- routes_txcore.py: channel creation on MAIN is refused with HTTP 400 when encryption is on and neither `INTERNALSRTPASSPHRASE` nor an override is available; SRT port range is validated so `first_port + count - 1` stays within 65535 and backup host must differ from primary.
+
+## [3.57.0] - 2026-09-08
+
+### Added
+
+- VDP Event Creator
+
+## [3.56.0] - 2026-09-07
+
+### Changed
+
+- General Tool Admin: README modal redesigned — larger two-pane layout with a sticky section navigation (h2/h3, scroll-spy, click to jump), "Open raw" link, Escape to close; rendered markdown restyled (headings, tables with header row, code blocks with copy button, blockquotes, nested lists).
+- General Tool Admin: `README.md` restructured — related-documents block, table of contents, component and Blueprint tables, per-tool entries in a consistent "file — summary + bullets" layout, proxy endpoints as method/path/purpose tables, fixed directory tree, troubleshooting table; content updated with sessions and proxy-activity endpoints, `store/` result folders, restart-after-update note and corrected Rota Blueprint description.
+- General Tool Admin: changelog modal redesigned — wider card, collapsible releases (latest three open by default, Expand/Collapse all), coloured section labels with per-release counters, tool-name chips parsed from each bullet's `Tool:` prefix, inline `code`/**bold**/link rendering, nested bullets and `####` group labels, live filter by tool/version/keyword with match highlighting, Escape to close.
+- General Tool Admin: `CHANGELOG.md` normalised to LF line endings and a consistent Keep a Changelog layout (single-line bullets, uniform spacing, `**Tool**:` prefixes unified to `Tool:`, `[Unreleased]` section added); no releases or entries were added or removed.
+- General Tool Admin: releases from 2026-07-13 onwards renumbered from `2.26.0`–`2.55.1` to `3.26.0`–`3.55.1`, restoring the major version that had already been at `3.x` since `3.0.0` (2026-05-27); dates and contents are unchanged.
+
+### Fixed
+
+- General Tool Admin: README markdown renderer now HTML-escapes all text, merges soft-wrapped lines into one paragraph, supports nested lists (previously rendered indented bullets as loose paragraphs), multi-line blockquotes and headings with anchor ids.
+- General Tool Admin: changelog text is now HTML-escaped before rendering; entries containing markup inside backticks (e.g. a stray `</div>`) previously broke the modal layout.
+- General Tool Admin: nested bullets in `CHANGELOG.md` were flattened into the parent bullet by the old parser; they now render as an indented sub-list.
+
+## [3.55.1] - 2026-09-07
+
+### Added
+
+- General Tool Admin: Proxy Management and tool activity indicators now include SRT Push services (running/starting), sourced from the srt-push systemd unit and its stats file.
+
+## [3.55.0] - 2026-09-07
+
+### Added
+
+- General Tool Admin: Proxy Management panel (replaces the Restart Proxy button) showing all active background jobs in the proxy grouped by tool, with live counter in the header.
+- General Tool Admin: activity indicators on sidebar tools and welcome cards when the proxy is running work for that tool (Video Analyzer, Live Probe, SRT Ingest, Ingest Analyzer, MTR, TXCore).
+- Proxy: `GET /proxy/activity` endpoint aggregating active jobs (authenticated, read-only).
+
+### Changed
+
+- General Tool Admin: proxy restart is now a two-step action inside Proxy Management and lists the exact jobs that will be terminated; the panel is visible to all users while the restart action remains admin/engineer only.
+- Proxy: `/mtr/running` now uses the shared `_mtr_running_items()` helper (no functional change).
+
+## [3.54.6] - 2026-09-07
+
+### Changed
+
+- SRT Ingest: passthrough (stream copy) is now the default for Video Analyser and Recordings sources; transcoding is an explicit "Transcode" option that reveals the bitrate field.
+- SRT Ingest: multi destination now defaults to one shared `-c copy` ffmpeg process; "Independent processes" is an explicit option with a server-CPU caution notice.
+- SRT Ingest: independent multi-ingest is limited to 5 destinations, enforced in the UI and by `/ingest/multi`; the shared single process keeps the 100-destination limit.
+
+## [3.54.5] - 2026-09-07
+
+### Fixed
+
+- SRT Ingest: recordings sidecar tags are matched more tolerantly (`file`/`ts_file`/`filename`, with or without `.ts`, `tag` or `tags` list, same-stem fallback); `/sources` now reports `has_sidecar` per file for diagnostics.
+
+## [3.54.4] - 2026-09-07
+
+### Fixed
+
+- SRT Ingest: Single/Multi destination cards were losing their fields (Host, Port, Passphrase, Start button rendered outside the card) due to an extra closing `</div>` after the source picker.
+
+## [3.54.3] - 2026-09-07
+
+### Added
+
+- Video Analyser: tags on recordings can now be edited directly from the Recordings list, using the same tag editor as the analysis history.
+
+## [3.54.2] - 2026-09-07
+
+### Changed
+
+- SRT Ingest: the source picker now has a single free-text search box (address, port, tags, user, date, protocol…) with tag suggestions; the selected source is shown as a summary box with its metadata chips.
+- SRT Ingest: folders are labelled "Video Analyser", "Recordings" and "Generated"; the `dir:` search token is case-insensitive.
+
+### Removed
+
+- SRT Ingest: the source filename text input and the dedicated port filter (both superseded by the search box).
+
+## [3.54.1] - 2026-09-07
+
+### Added
+
+- SRT Ingest: sources now carry Video Analyzer tags, username and analysis/recording status, read from the `gop-results` result JSON or `recordings` sidecar via `routes_gop`'s cached index.
+- SRT Ingest: tag filter in the source picker (type to search or pick from the known-tag list); tag chips on each result act as one-click filters; `tag:` and `user:` search tokens.
+- SRT Ingest: `/sources` returns the distinct tag list; host/port are filled from the JSON for files whose name doesn't include them.
+
+### Changed
+
+- SRT Ingest: date filter replaced by a native date input.
+- SRT Ingest: port filter replaced by a free-text prefix search instead of a dropdown, to scale to production stores with 1800+ files.
+
+## [3.54.0] - 2026-09-07
+
+### Added
+
+- SRT Ingest: `.ts` files from the `recordings` folder are now listed as sources alongside `gop-results`.
+- SRT Ingest: source filenames are parsed into date, time, protocol, host, port, mode and FAILED metadata, exposed by `/sources`.
+- SRT Ingest: new source picker with folder / date / port filters, free-text search that understands the filename syntax (e.g. `4015`, `2026-09-04`, `194.76.59.21`, `caller`, `failed`) and prefixed tokens (`port:`, `date:`, `host:`, `proto:`, `mode:`, `dir:`).
+- SRT Ingest: manual rescan button and automatic 60 s refresh of the source list.
+
+### Changed
+
+- SRT Ingest: the Source File `datalist` has been replaced by the new picker; pasting a full path still works.
+
+## [3.53.0] - 2026-09-04
+
+### Added
+
+- Jira Ticket Formatter: support for ServiceNow Incidents (INC) alongside Requests (RITM), with automatic ticket-type detection and a manual type selector.
+- Jira Ticket Formatter: incident parser covering form fields, local/UTC start and end times, attachment list and a chronological activity log (work notes, additional comments, image uploads).
+- Jira Ticket Formatter: dedicated incident output view and Jira-ready HTML table.
+
+### Changed
+
+- Jira Ticket Formatter: generic field parser now shared by request and incident flows; ServiceNow UI noise (link helper prefixes, Spotlight Score, "-- None --") is filtered out.
+
+## [3.52.5] - 2026-09-04
+
+### Added
+
+- Video Analyser: tests can now be compared — select two or more results in the history and click "Compare" to open a pop-up showing each test's ID, tags and overall status alongside a table of only the fields that differ between them, with the measured value and compliance status of each test.
+
+## [3.52.4] - 2026-09-04
+
+### Added
+
+- Video Analyser: recordings can now be played directly in the browser — a click on a finished recording opens an inline player in the main panel.
+- Video Analyser: a "Recording now" list above the recordings history shows captures currently in progress, refreshed automatically while the Record tab is open.
+- Video Analyser: selecting an SRT server preset in the Record tab reveals a dedicated Port field, matching the SRT tab layout.
+
+### Changed
+
+- Video Analyser: the Record tab's default capture duration is now 2 minutes.
+
+## [3.52.3] - 2026-09-04
+
+### Changed
+
+- Video Analyser: the Record tab now suggests the SRT servers configured in .env (same presets as the SRT tab) directly in the Source URL field as srt:// entries, and pre-fills the passphrase with the configured default.
+
+## [3.52.2] - 2026-09-04
+
+### Added
+
+- Video Analyser: new "Record" tab that captures a source straight to a .ts file without analysing the stream. Accepts SRT, RTMP and any other network protocol supported by ffmpeg, with the same duration options as the analysis tabs (30 seconds default, up to 5 minutes). Recordings have their own independent history with download and delete actions, separate from the analysis history.
+
+## [3.52.1] - 2026-09-04
+
+### Changed
+
+- Video Analyser: the capture Duration field on the SRT and RTMP tabs now offers fixed options — 30 seconds (default), 1, 2, 3, 4 and 5 minutes — replacing the previous free-form numeric input.
+
+## [3.52.0] - 2026-09-04
+
+### Changed
+
+- Video Analyser: the capture Duration field on the SRT and RTMP tabs is now a free-form numeric input (previously a fixed 15/30/60 s dropdown), accepting any value between 5 seconds and 5 minutes (300 s). Out-of-range or invalid values are clamped both in the browser and by the backend.
+
+## [3.51.2] - 2026-09-03
+
+### Added
+
+- General Tool Admin: search box and filters (role, team, rota status) on the Users tab of User Management, with live result count, Clear button and `Ctrl/Cmd+K` / `/` shortcut to focus search.
+
+## [3.51.1] - 2026-09-03
+
+### Added
+
+- General Tool Admin: new **Online** tab in User Management listing currently logged-in users (role, team, active sessions, login time, expiry), auto-refreshing every 15s.
+- General Tool Admin: admins can now **kick** a user, terminating all their active sessions; the kicked browser is redirected to the login page within 15s.
+- General Tool Admin: `GET /so-proxy/sessions` (admin/engineer) and `DELETE /so-proxy/sessions/<username>` (admin) endpoints.
+
+### Changed
+
+- General Tool Admin: User Management now uses a tabbed layout (Users / Online); confirm modal reused for delete and kick actions.
+- General Tool Admin: session heartbeat added to `users-admin.html`, matching `index.html`.
+
+## [3.51.0] - 2026-09-03
+
+### Added
+
+- General Tool Admin: session heartbeat in `index.html` — the UI now polls `/me` every 15s (and on tab focus) and redirects to the login page as soon as the session is expired or invalidated, instead of appearing logged in.
+
+### Changed
+
+- General Tool Admin: user sessions are now persisted to `sessions.json` (mode 0600). Restarting the proxy no longer terminates active sessions; expired entries are pruned on startup.
+
+### Security
+
+- General Tool Admin: `sessions.json` added to the nginx deny list and `.gitignore`.
+
+## [3.50.4] - 2026-09-02
+
+### Changed
+
+- Video Analyser: RTMP mode now defaults to the "RTS" workflow. The RTS option is pre-selected in the RTMP form and enforced after workflow labels load from the API; SRT and Upload modes are unchanged and keep the API default workflow.
+
+## [3.50.3] - 2026-09-02
+
+### Fixed
+
+- Video Analyser: RTMP stream capture failed with "Cannot assign requested address" because ffmpeg's "-timeout" option implies listen (server) mode on the native RTMP protocol. RTMP inputs now use "-rw_timeout" and "-rtmp_live live" for a proper client-side pull; SRT and other protocols are unaffected.
+
+## [3.50.2] - 2026-09-02
 
 ### Added
 
 #### Video Analyser
 
-- **RTMP Stream Ingestion Support**: Added comprehensive RTMP stream analysis capability
-  - **Frontend**: New RTMP tab interface (📹 RTMP Stream) positioned between SRT and Upload tabs
+- RTMP Stream Ingestion Support: Added comprehensive RTMP stream analysis capability
+  - Frontend: New RTMP tab interface (📹 RTMP Stream) positioned between SRT and Upload tabs
     - RTMP URL input field with preset suggestions (datalist)
     - Duration selector (15/30/60 seconds)
     - Tag support for result identification
     - Workflow selection (DC - Aminos and TP, RTS, W&B)
     - Schedule button for deferred analysis runs
     - Clear button to reset all form fields
-  - **Backend**: Enhanced stream capture pipeline to support RTMP protocol
+  - Backend: Enhanced stream capture pipeline to support RTMP protocol
     - URL parsing regex now detects and extracts host/port from RTMP URLs
     - Added RTMP-specific ffmpeg flags (`-rtmp_buffer 3000`, `-fflags nobuffer`) for stable stream pull
     - Stream capture function extended to support both SRT and RTMP protocols in pull mode (client connecting to server)
+- Asynchronous RTMP Job Processing: Implemented dedicated `runAnalysisRTMP()` and `pollStatusRTMP()` functions for non-blocking stream capture
+- Enhanced Mode Switching: Updated `setInputMode()` function to support three distinct input modes (SRT, RTMP, Upload) with proper tab highlighting and form visibility
+- RTMP Stream Presets: Extended datalist infrastructure for storing and recalling frequently-used RTMP URLs
 
-- **Asynchronous RTMP Job Processing**: Implemented dedicated `runAnalysisRTMP()` and `pollStatusRTMP()` functions for non-blocking stream capture
-
-- **Enhanced Mode Switching**: Updated `setInputMode()` function to support three distinct input modes (SRT, RTMP, Upload) with proper tab highlighting and form visibility
-
-- **RTMP Stream Presets**: Extended datalist infrastructure for storing and recalling frequently-used RTMP URLs
-
-## [2.50.1] - 2026-09-02
+## [3.50.1] - 2026-09-02
 
 ### Added
 
 #### Video Analyser
 
-- **RTMP Stream Ingestion Support**: Added comprehensive RTMP stream analysis capability
-  - **Frontend**: New RTMP tab interface (📹 RTMP Stream) positioned between SRT and Upload tabs
+- RTMP Stream Ingestion Support: Added comprehensive RTMP stream analysis capability
+  - Frontend: New RTMP tab interface (📹 RTMP Stream) positioned between SRT and Upload tabs
     - RTMP URL input field with preset suggestions (datalist)
     - Duration selector (15/30/60 seconds)
     - Tag support for result identification
     - Workflow selection (DC - Aminos and TP, RTS, W&B)
     - Schedule button for deferred analysis runs
     - Clear button to reset all form fields
-  - **Backend**: Enhanced stream capture pipeline to support RTMP protocol
+  - Backend: Enhanced stream capture pipeline to support RTMP protocol
     - URL parsing regex now detects and extracts host/port from RTMP URLs
     - Added RTMP-specific ffmpeg flags (`-rtmp_live live`, `-rtmp_buffer 3000`) for stable stream capture
     - Stream capture function extended to support both SRT and RTMP protocols
+- Asynchronous RTMP Job Processing: Implemented dedicated `runAnalysisRTMP()` and `pollStatusRTMP()` functions for non-blocking stream capture
+- Enhanced Mode Switching: Updated `setInputMode()` function to support three distinct input modes (SRT, RTMP, Upload) with proper tab highlighting and form visibility
+- RTMP Stream Presets: Extended datalist infrastructure for storing and recalling frequently-used RTMP URLs
 
-- **Asynchronous RTMP Job Processing**: Implemented dedicated `runAnalysisRTMP()` and `pollStatusRTMP()` functions for non-blocking stream capture
-
-- **Enhanced Mode Switching**: Updated `setInputMode()` function to support three distinct input modes (SRT, RTMP, Upload) with proper tab highlighting and form visibility
-
-- **RTMP Stream Presets**: Extended datalist infrastructure for storing and recalling frequently-used RTMP URLs
-
-## [2.50.0] - 2026-09-02
+## [3.50.0] - 2026-09-02
 
 ### Added
 
 #### Video Analyser
 
-- **RTMP Stream Ingestion Support**: Added new RTMP tab interface for direct RTMP stream analysis, positioned between SRT and Upload tabs
+- RTMP Stream Ingestion Support: Added new RTMP tab interface for direct RTMP stream analysis, positioned between SRT and Upload tabs
   - RTMP URL input field with preset suggestions (datalist)
   - Duration selector (15/30/60 seconds)
   - Tag support for result identification
   - Workflow selection (DC - Aminos and TP, RTS, W&B)
   - Schedule button for deferred analysis runs
   - Clear button to reset all form fields
-- **Asynchronous RTMP Job Processing**: Implemented dedicated `runAnalysisRTMP()` and `pollStatusRTMP()` functions for non-blocking stream capture
-- **Enhanced Mode Switching**: Updated `setInputMode()` function to support three distinct input modes (SRT, RTMP, Upload) with proper tab highlighting and form visibility
-- **RTMP Stream Presets**: Extended datalist infrastructure for storing and recalling frequently-used RTMP URLs
+- Asynchronous RTMP Job Processing: Implemented dedicated `runAnalysisRTMP()` and `pollStatusRTMP()` functions for non-blocking stream capture
+- Enhanced Mode Switching: Updated `setInputMode()` function to support three distinct input modes (SRT, RTMP, Upload) with proper tab highlighting and form visibility
+- RTMP Stream Presets: Extended datalist infrastructure for storing and recalling frequently-used RTMP URLs
 
-## [2.49.4] - 2026-09-01
+## [3.49.4] - 2026-09-01
 
 ### Fixed
-- SRT Ingest: The Bitrate Monitor's reconnect/error message could show
-  ffmpeg's generic "Last message repeated N times" notice instead of the
-  actual connection failure reason.
+
+- SRT Ingest: The Bitrate Monitor's reconnect/error message could show ffmpeg's generic "Last message repeated N times" notice instead of the actual connection failure reason.
 
 ### Added
-- SRT Ingest: The Bitrate Monitor's error panel now shows the full
-  recent ffmpeg stderr output, not just a single summarized line, making
-  it possible to see exactly why a stream fails to connect.
 
-## [2.49.3] - 2026-09-01
+- SRT Ingest: The Bitrate Monitor's error panel now shows the full recent ffmpeg stderr output, not just a single summarized line, making it possible to see exactly why a stream fails to connect.
+
+## [3.49.3] - 2026-09-01
 
 ### Fixed
-- SRT Ingest: Looped sources (-stream_loop) no longer cause a bitrate
-  dip every time the source file reaches its end. Each loop now plays a
-  cached, physically pre-trimmed copy of the file instead of the real file
-  end, so the loop restart is seamless and the stream never stalls.
+
+- SRT Ingest: Looped sources (-stream_loop) no longer cause a bitrate dip every time the source file reaches its end. Each loop now plays a cached, physically pre-trimmed copy of the file instead of the real file end, so the loop restart is seamless and the stream never stalls.
 
 ### Added
-- SRT Ingest: The Bitrate Monitor now shows the exact ffmpeg command
-  line running for the selected "Watch Job", updated live.
 
-## [2.49.2] - 2026-08-31
+- SRT Ingest: The Bitrate Monitor now shows the exact ffmpeg command line running for the selected "Watch Job", updated live.
 
-### Added
-- Video Analyser: "▶ Play" button to preview a recorded .ts file directly
-  in the browser (in-browser MSE transmuxing via mpegts.js), without
-  downloading it first. Available on the test result view and in the
-  history list.
-
-## [2.49.1] - 2026-08-31
-
-### Fixed
-- SRT Ingest: Removed the Source File dropdown that could show a stale
-  value alongside the search field, causing confusion. The search input
-  (with autocomplete suggestions) is now the only control for choosing a
-  source, including the B&T Colour Bars option. Also fixed the Multi
-  Destination source field not updating the UI/preview while typing.
-
-## [2.49.0] - 2026-08-31
+## [3.49.2] - 2026-08-31
 
 ### Added
-- SRT Ingest: Source File fields (Single and Multi Destination) now work as a
-  search-as-you-type input — typing or pasting a filename shows matching
-  suggestions instead of requiring the dropdown.
 
-## [2.48.0] - 2026-08-31
+- Video Analyser: "▶ Play" button to preview a recorded .ts file directly in the browser (in-browser MSE transmuxing via mpegts.js), without downloading it first. Available on the test result view and in the history list.
 
-### Fixed
-- Video Analyser: fixed SRT capture only recording a single audio track
-  even when the source stream contained multiple audio PIDs. The ffmpeg
-  capture command now uses `-map 0` to copy every stream from the input
-  exactly as received, instead of ffmpeg's default single-stream-per-type
-  selection.
-
-## [2.47.2] - 2026-08-28
+## [3.49.1] - 2026-08-31
 
 ### Fixed
-- Video Analyser: the "MediaInfo Report" button never appeared for any
-  test because the backend never populated the mediainfo_report field
-  it depends on — only the numeric "Delay relative to video" value was
-  ever captured. mediainfo's full text report is now captured and
-  saved alongside the result, so the button and its modal work.
 
-## [2.47.1] - 2026-08-28
+- SRT Ingest: Removed the Source File dropdown that could show a stale value alongside the search field, causing confusion. The search input (with autocomplete suggestions) is now the only control for choosing a source, including the B&T Colour Bars option. Also fixed the Multi Destination source field not updating the UI/preview while typing.
+
+## [3.49.0] - 2026-08-31
+
+### Added
+
+- SRT Ingest: Source File fields (Single and Multi Destination) now work as a search-as-you-type input — typing or pasting a filename shows matching suggestions instead of requiring the dropdown.
+
+## [3.48.0] - 2026-08-31
 
 ### Fixed
-- Video Analyser: files that are not actually MPEG-TS (e.g. an MP3 or
-  other media file renamed with a .ts extension) are now rejected
-  outright with a clear error, instead of being analysed as if they
-  were valid captures. Previously, an embedded ID3 cover-art image
-  inside such files could be misread by ffprobe as a "video" stream
-  and evaluated against video compliance specs, producing meaningless
-  results (e.g. Frame Size/Aspect Ratio taken from the album art,
-  CODEC Level -99, Frame Rate reported as the raw 90000Hz timebase).
 
-## [2.47.0] - 2026-08-28
+- Video Analyser: fixed SRT capture only recording a single audio track even when the source stream contained multiple audio PIDs. The ffmpeg capture command now uses `-map 0` to copy every stream from the input exactly as received, instead of ffmpeg's default single-stream-per-type selection.
+
+## [3.47.2] - 2026-08-28
+
 ### Fixed
-- Video Analyser: video-related compliance checks (GOP Type, B-Frames,
-  Scan Type, Colour Range, HDR/SDR, Codec, FPS, etc.) no longer report
-  COMPLIANT/ACCEPTED/REJECTED verdicts derived from ffprobe's default
-  placeholder values when a file has no video stream/PID at all. These
-  fields now correctly report UNKNOWN, and the overall result is
-  forced to REJECTED when no video stream is found.
 
-## [2.46.2] - 2026-08-28
+- Video Analyser: the "MediaInfo Report" button never appeared for any test because the backend never populated the mediainfo_report field it depends on — only the numeric "Delay relative to video" value was ever captured. mediainfo's full text report is now captured and saved alongside the result, so the button and its modal work.
+
+## [3.47.1] - 2026-08-28
+
+### Fixed
+
+- Video Analyser: files that are not actually MPEG-TS (e.g. an MP3 or other media file renamed with a .ts extension) are now rejected outright with a clear error, instead of being analysed as if they were valid captures. Previously, an embedded ID3 cover-art image inside such files could be misread by ffprobe as a "video" stream and evaluated against video compliance specs, producing meaningless results (e.g. Frame Size/Aspect Ratio taken from the album art, CODEC Level -99, Frame Rate reported as the raw 90000Hz timebase).
+
+## [3.47.0] - 2026-08-28
+
+### Fixed
+
+- Video Analyser: video-related compliance checks (GOP Type, B-Frames, Scan Type, Colour Range, HDR/SDR, Codec, FPS, etc.) no longer report COMPLIANT/ACCEPTED/REJECTED verdicts derived from ffprobe's default placeholder values when a file has no video stream/PID at all. These fields now correctly report UNKNOWN, and the overall result is forced to REJECTED when no video stream is found.
+
+## [3.46.2] - 2026-08-28
 
 ### Changed
+
 - Video Analyser: the bulk tag editor's "Remove tag(s)" suggestions now only list tags actually present on the currently-selected results, instead of every tag ever used in the system.
 
-## [2.46.1] - 2026-08-28
+## [3.46.1] - 2026-08-28
 
 ### Added
+
 - Video Analyser: the bulk tag editor's "Remove tag(s)" field now lists every tag currently known in the system as clickable suggestions, so tags can be selected for removal instead of typed out exactly.
 
-## [2.46.0] - 2026-08-28
+## [3.46.0] - 2026-08-28
 
 ### Added
+
 - Video Analyser: history panel selection now supports bulk actions beyond delete — assign selected anonymous results to a user, select every result matching the current filters across all pages, change workflow on selected results, and add/remove tags on selected results. The selection counter now also shows the total number of results matching the active filters.
 
-## [2.45.8] - 2026-08-26
+## [3.45.8] - 2026-08-26
 
 ### Fixed
-- Background fork history refresh no longer fails with
-  "period-end-must-be-in-past"; the request's end time is now backed
-  off by a 10-second safety margin to tolerate clock skew/latency.
 
-## [2.45.7] - 2026-08-26
+- Background fork history refresh no longer fails with "period-end-must-be-in-past"; the request's end time is now backed off by a 10-second safety margin to tolerate clock skew/latency.
+
+## [3.45.7] - 2026-08-26
 
 ### Changed
-- Simplified "Forked From" auto-population to a single fork-history
-  request covering the last hour (merged into the existing map),
-  removing the unneeded multi-day chunked backfill.
 
-## [2.45.6] - 2026-08-26
+- Simplified "Forked From" auto-population to a single fork-history request covering the last hour (merged into the existing map), removing the unneeded multi-day chunked backfill.
+
+## [3.45.6] - 2026-08-26
 
 ### Fixed
-- Channels tab "Forked From" column now reliably auto-populates on
-  connect via a one-time 180-day historical scan, then stays current
-  through fast 1-hour incremental scans (merged, not replaced) every
-  few minutes — fixing cases where older fork relationships never
-  showed up automatically.
 
-## [2.45.5] - 2026-08-26
+- Channels tab "Forked From" column now reliably auto-populates on connect via a one-time 180-day historical scan, then stays current through fast 1-hour incremental scans (merged, not replaced) every few minutes — fixing cases where older fork relationships never showed up automatically.
+
+## [3.45.5] - 2026-08-26
 
 ### Added
-- "Description" column in the Channels table (from Phenix's channel
-  description field), included in the channel search.
+
+- "Description" column in the Channels table (from Phenix's channel description field), included in the channel search.
 
 ### Changed
-- Replaced the Stream Key column/checkbox with a Channel ID
-  column/checkbox in the Channels view; stream key is no longer
-  shown on this screen (still used internally for RTMP key export).
-- Reduced the fork history auto-refresh lookback window from 24
-  hours to 1 hour for faster "Forked From" population.
 
-## [2.45.4] - 2026-08-26
+- Replaced the Stream Key column/checkbox with a Channel ID column/checkbox in the Channels view; stream key is no longer shown on this screen (still used internally for RTMP key export).
+- Reduced the fork history auto-refresh lookback window from 24 hours to 1 hour for faster "Forked From" population.
+
+## [3.45.4] - 2026-08-26
 
 ### Changed
-- Channels search box now searches every visible column (name,
-  alias, channel ID, stream key, status, and Forked From base
-  channel) instead of only the channel name.
 
-## [2.45.3] - 2026-08-26
+- Channels search box now searches every visible column (name, alias, channel ID, stream key, status, and Forked From base channel) instead of only the channel name.
+
+## [3.45.3] - 2026-08-26
 
 ### Changed
-- Fork history auto-refresh window reduced from 30 days to 24 hours
-  for faster "Forked From" column population.
-- "RMG" supplier filter split into "RMG HA" and "RMG EBC" based on
-  channel naming convention.
-- Supplier filter/export now include channels forked from a base
-  channel of the selected supplier, not just channels named after
-  that supplier directly.
 
-## [2.45.2] - 2026-08-26
+- Fork history auto-refresh window reduced from 30 days to 24 hours for faster "Forked From" column population.
+- "RMG" supplier filter split into "RMG HA" and "RMG EBC" based on channel naming convention.
+- Supplier filter/export now include channels forked from a base channel of the selected supplier, not just channels named after that supplier directly.
+
+## [3.45.2] - 2026-08-26
 
 ### Fixed
-- Channels tab "Forked From" column now populates automatically in
-  the background (fork history for the last 30 days, refreshed
-  every 5 minutes) instead of only after manually running a report
-  in the Fork Origin tab.
 
-## [2.45.1] - 2026-08-26
+- Channels tab "Forked From" column now populates automatically in the background (fork history for the last 30 days, refreshed every 5 minutes) instead of only after manually running a report in the Fork Origin tab.
+
+## [3.45.1] - 2026-08-26
 
 ### Changed
-- Channels table now has a dedicated "Forked From" column instead
-  of an inline FORK badge; it shows the base channel for fork
-  destinations (using only the most recent fork event) and a dash
-  for all other channels.
 
-## [2.45.0] - 2026-08-26
+- Channels table now has a dedicated "Forked From" column instead of an inline FORK badge; it shows the base channel for fork destinations (using only the most recent fork event) and a dash for all other channels.
+
+## [3.45.0] - 2026-08-26
 
 ### Added
-- New `/rts/fork-history` backend endpoint proxying Phenix's
-  `PUT /pcast/reporting/fork/history` reporting API.
-- New "Fork Origin" tab: query fork events by UTC period, filter by
-  channel name/ID, and resolve source/destination channel IDs to
-  their display names when known.
-- Channels table now shows a "FORK" badge (with source channel and
-  timestamp tooltip) for any channel identified as a fork
-  destination in the most recently fetched Fork Origin report.
 
-## [2.44.1] - 2026-08-24
+- New `/rts/fork-history` backend endpoint proxying Phenix's `PUT /pcast/reporting/fork/history` reporting API.
+- New "Fork Origin" tab: query fork events by UTC period, filter by channel name/ID, and resolve source/destination channel IDs to their display names when known.
+- Channels table now shows a "FORK" badge (with source channel and timestamp tooltip) for any channel identified as a fork destination in the most recently fetched Fork Origin report.
+
+## [3.44.1] - 2026-08-24
 
 ### Changed
+
 - Added "RMGEAL_" to Id3as monitor
 
-
-## [2.44.0] - 2026-08-24
+## [3.44.0] - 2026-08-24
 
 ### Added
-- Full MediaInfo report viewer: a "MediaInfo Report" button next to
-  "Ingest Analyser Report" opens the complete, verbatim `mediainfo`
-  output for the test in a copyable text panel.
+
+- Full MediaInfo report viewer: a "MediaInfo Report" button next to "Ingest Analyser Report" opens the complete, verbatim `mediainfo` output for the test in a copyable text panel.
 
 ### Changed
-- Stream Check header redesigned: the main status badge now shows
-  the overall compliance result instead of IDR presence; the
-  secondary badge now shows GOP type (OPEN/CLOSED) instead of the
-  overall result.
-- "Clear" button is now icon-only and moved to the end of the
-  action button row.
+
+- Stream Check header redesigned: the main status badge now shows the overall compliance result instead of IDR presence; the secondary badge now shows GOP type (OPEN/CLOSED) instead of the overall result.
+- "Clear" button is now icon-only and moved to the end of the action button row.
 
 ### Removed
-- Redundant frame-detail summary line (IDR count, non-IDR keyframes,
-  GOP type, B-frames, total frames) from the Stream Check header —
-  this data remains available in the GOP Statistics panel.
 
-## [2.43.0] - 2026-08-20
+- Redundant frame-detail summary line (IDR count, non-IDR keyframes, GOP type, B-frames, total frames) from the Stream Check header — this data remains available in the GOP Statistics panel.
 
-### Added
-- Button to export the selected supplier's channels as an Excel file
-  containing the channel name and the primary/secondary RTMP stream
-  keys formatted with RTS capabilities and screenName options. The
-  button only appears after a supplier is selected in the existing
-  filter dropdown.
-
-## [2.42.0] - 2026-08-18
+## [3.43.0] - 2026-08-20
 
 ### Added
-- SRT Push Control API: per-service preview and log lookup via
-  `?id=<service_id>` on `GET /push/preview.jpg` and `GET /push/log`.
-- SRT Push Control API: input validation on `POST /push/config` for
-  the new services list (unique ids, valid `source_type`, required
-  `html_url`/`image_path` depending on source type).
+
+- Button to export the selected supplier's channels as an Excel file containing the channel name and the primary/secondary RTMP stream keys formatted with RTS capabilities and screenName options. The button only appears after a supplier is selected in the existing filter dropdown.
+
+## [3.42.0] - 2026-08-18
+
+### Added
+
+- SRT Push Control API: per-service preview and log lookup via `?id=<service_id>` on `GET /push/preview.jpg` and `GET /push/log`.
+- SRT Push Control API: input validation on `POST /push/config` for the new services list (unique ids, valid `source_type`, required `html_url`/`image_path` depending on source type).
 
 ### Changed
-- SRT Push Control API: `GET/POST /push/config` and the `config` field
-  of `GET /push/status` now use `{"services": [...]}` instead of a
-  single flat configuration object.
+
+- SRT Push Control API: `GET/POST /push/config` and the `config` field of `GET /push/status` now use `{"services": [...]}` instead of a single flat configuration object.
 
 ### Fixed
-- SRT Push Control API: service ids passed via query string are now
-  sanitized before being used to build a file path, closing a
-  potential path-traversal vector introduced by the new per-service
-  preview/log lookup.
+
+- SRT Push Control API: service ids passed via query string are now sanitized before being used to build a file path, closing a potential path-traversal vector introduced by the new per-service preview/log lookup.
 
 ### Note
-- Legacy flat `srt-push-config.json` / `srt-push-stats.json` files
-  (pre-multi-service) are still read correctly and normalized into a
-  single service, so no manual migration is required.
+
+- Legacy flat `srt-push-config.json` / `srt-push-stats.json` files (pre-multi-service) are still read correctly and normalized into a single service, so no manual migration is required.
 
 ### Added
-- Support for multiple concurrent services, each with its own source
-  (HTML page capture or static image) and its own SRT destination.
-- New `source_type: "image"` option to loop a static JPEG/PNG file
-  without needing Xvfb or Chromium.
+
+- Support for multiple concurrent services, each with its own source (HTML page capture or static image) and its own SRT destination.
+- New `source_type: "image"` option to loop a static JPEG/PNG file without needing Xvfb or Chromium.
 - Per-service log files under `/var/log/srt-push/<service-id>.log`.
 - Per-service preview files (`srt-push-preview-<service-id>.jpg`).
-- Clear, non-fatal error reporting when a service's required binaries
-  or source file are missing, instead of crashing the whole process.
+- Clear, non-fatal error reporting when a service's required binaries or source file are missing, instead of crashing the whole process.
 
 ### Changed
-- Config file format: `srt-push-config.json` now expects a `services`
-  array; the old flat single-service format is still accepted and
-  auto-converted.
-- Stats file format: `srt-push-stats.json` now exposes a `services` map
-  keyed by service id, with a `legacy` field mirroring the first
-  service in the previous flat shape.
-- systemd unit: removed the hardcoded `DISPLAY=:99` environment
-  variable, since each HTML-source service now allocates its own
-  display automatically.
 
+- Config file format: `srt-push-config.json` now expects a `services` array; the old flat single-service format is still accepted and auto-converted.
+- Stats file format: `srt-push-stats.json` now exposes a `services` map keyed by service id, with a `legacy` field mirroring the first service in the previous flat shape.
+- systemd unit: removed the hardcoded `DISPLAY=:99` environment variable, since each HTML-source service now allocates its own display automatically.
 
 ### Added
-- Monitor dashboard: per-service tabs with independent preview,
-  telemetry, and log viewing.
-- Monitor dashboard: dynamic service list in Configuration (add/remove
-  services, enable toggle, HTML-page vs static-image source switch).
+
+- Monitor dashboard: per-service tabs with independent preview, telemetry, and log viewing.
+- Monitor dashboard: dynamic service list in Configuration (add/remove services, enable toggle, HTML-page vs static-image source switch).
 
 ### Changed
-- Monitor dashboard: config save now posts `{"services": [...]}`
-  instead of a single flat config object.
-- Monitor dashboard: preview and log requests now take a `id` query
-  parameter identifying which service to fetch.
-- Monitor dashboard: the header status indicator aggregates the state
-  of all services instead of reflecting a single one.
+
+- Monitor dashboard: config save now posts `{"services": [...]}` instead of a single flat config object.
+- Monitor dashboard: preview and log requests now take a `id` query parameter identifying which service to fetch.
+- Monitor dashboard: the header status indicator aggregates the state of all services instead of reflecting a single one.
 
 ### Note
-- Requires the so-proxy backend's `status`, `config`, `preview.jpg`,
-  and `log` endpoints to be updated to the multi-service contract; the
-  page falls back to treating the response as one service if the
-  backend hasn't been migrated yet.
 
-## [2.41.1] - 2026-08-18
+- Requires the so-proxy backend's `status`, `config`, `preview.jpg`, and `log` endpoints to be updated to the multi-service contract; the page falls back to treating the response as one service if the backend hasn't been migrated yet.
+
+## [3.41.1] - 2026-08-18
 
 ### Fixed
-- `GET /me` raised a `KeyError` because `rota_status`, `team`, `display_name`
-  and `employee_id` were never stored in the session created at login.
-  Sessions now carry these fields, and `/me` reads them defensively.
 
-## [2.41.0] - 2026-08-17
+- `GET /me` raised a `KeyError` because `rota_status`, `team`, `display_name` and `employee_id` were never stored in the session created at login. Sessions now carry these fields, and `/me` reads them defensively.
+
+## [3.41.0] - 2026-08-17
 
 ### Added
+
 - `rota_status` field on user profile (`active`, `inactive`, `observer`), defaulting to `observer` for users without the flag.
 - `team` field on user profile (`soe`, `sos`, `na`), shown uppercase in the UI and stored lowercase in JSON; defaults to `na`.
 - `display_name` field, free text with a 14-character limit.
@@ -393,23 +557,23 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Team and rota_status badges in the user management list.
 
 ### Fixed
+
 - Remaining Portuguese-language strings and comments in `users-admin.html` translated to English.
 
-
-## [2.40.2] - 2026-07-31
+## [3.40.2] - 2026-07-31
 
 ### Changed
 
 - B&T burned-in UTC clock overlay now shows millisecond precision (HH:MM:SS.mmm) for finer-grained latency estimation.
 - Single-destination Command Preview now renders the complete, real ffmpeg command for B&T, consistent with file-based sources, instead of a summary line.
 
-## [2.40.1] - 2026-07-30
+## [3.40.1] - 2026-07-30
 
 ### Fixed
 
-- Source select desync on page load: listing B&T Colour Bars first (2.31.0) left the dropdown defaulting to B&T while the input field and preview still showed test.mp4, causing Start Ingest to launch the wrong source. loadSources() now re-syncs select value and dependent UI (input, passthrough/bitrate rows, preview) after populating options.
+- Source select desync on page load: listing B&T Colour Bars first (3.31.0) left the dropdown defaulting to B&T while the input field and preview still showed test.mp4, causing Start Ingest to launch the wrong source. loadSources() now re-syncs select value and dependent UI (input, passthrough/bitrate rows, preview) after populating options.
 
-## [2.40.0] - 2026-07-30
+## [3.40.0] - 2026-07-30
 
 ### Added
 
@@ -420,93 +584,50 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Source selects (single and multi destination) now list B&T Colour Bars first, followed by test.mp4 and other available sources.
 
-## [2.39.3] - 2026-07-28
+## [3.39.3] - 2026-07-28
 
 ### Changed
 
-- Live Probe terminology renamed throughout the UI and API payload to
-  describe exactly what is measured: "PCR interval avg/max" (was IAT)
-  and "TS CC loss" (was MLR), both computed on the MPEG-TS as
-  delivered by SRT (post-ARQ). Added an explanatory note in the modal
-  that this is not the same measurement point as a raw-multicast
-  probe such as Bridge Technologies, since SRT recovers most network
-  loss before this point.
+- Live Probe terminology renamed throughout the UI and API payload to describe exactly what is measured: "PCR interval avg/max" (was IAT) and "TS CC loss" (was MLR), both computed on the MPEG-TS as delivered by SRT (post-ARQ). Added an explanatory note in the modal that this is not the same measurement point as a raw-multicast probe such as Bridge Technologies, since SRT recovers most network loss before this point.
 
 ### Fixed
 
-- A feed that stopped delivering data while srt-live-transmit stayed
-  running previously hung on a blocking read with no indication
-  anything was wrong — the UI just froze on the last good values.
-  Reads are now polled with select() so a stall is detected: after
-  5s the chart/readouts show a real "stalled" state with bitrate
-  explicitly at 0 (populated every second, not frozen); after 15s
-  the subprocess is killed and a fresh connection is attempted.
+- A feed that stopped delivering data while srt-live-transmit stayed running previously hung on a blocking read with no indication anything was wrong — the UI just froze on the last good values. Reads are now polled with select() so a stall is detected: after 5s the chart/readouts show a real "stalled" state with bitrate explicitly at 0 (populated every second, not frozen); after 15s the subprocess is killed and a fresh connection is attempted.
 
-## [2.39.2] - 2026-07-28
+## [3.39.2] - 2026-07-28
 
 ### Fixed
 
-- Live Probe MLR was never reaching 0 even on loss-free tunnels: a
-  partial TS packet left at the end of each stdout read was being
-  discarded instead of carried to the next read, desyncing 188-byte
-  packet alignment on nearly every read and feeding the continuity-
-  counter tracker garbage. Fixed by carrying the remainder forward
-  and resyncing on the next TS sync byte if alignment is ever lost.
-- Live Probe IAT was measuring our own pipe-read timing (a few ms),
-  not the transport-level pacing broadcast probes report. IAT is now
-  computed from PCR (Program Clock Reference) inter-arrival time via
-  PAT -> PMT -> PCR_PID parsing, matching the ETSI TR 101 290 "PCR
-  repetition" convention (~100ms nominal on a healthy feed).
+- Live Probe MLR was never reaching 0 even on loss-free tunnels: a partial TS packet left at the end of each stdout read was being discarded instead of carried to the next read, desyncing 188-byte packet alignment on nearly every read and feeding the continuity- counter tracker garbage. Fixed by carrying the remainder forward and resyncing on the next TS sync byte if alignment is ever lost.
+- Live Probe IAT was measuring our own pipe-read timing (a few ms), not the transport-level pacing broadcast probes report. IAT is now computed from PCR (Program Clock Reference) inter-arrival time via PAT -> PMT -> PCR_PID parsing, matching the ETSI TR 101 290 "PCR repetition" convention (~100ms nominal on a healthy feed).
 
 ### Added
 
-- IAT warning (130ms, orange) and critical (150ms, red) thresholds,
-  applied to the live chart bars, IAT avg/max readout color, and two
-  dashed reference lines on the chart. MLR readout turns red when
-  nonzero.
-- Unit test (test_ts_analyzer.py) for the TS analyzer: PAT/PMT
-  parsing, PCR-based IAT, continuity-counter loss detection, and
-  chunk-boundary carry-over.
+- IAT warning (130ms, orange) and critical (150ms, red) thresholds, applied to the live chart bars, IAT avg/max readout color, and two dashed reference lines on the chart. MLR readout turns red when nonzero.
+- Unit test (test_ts_analyzer.py) for the TS analyzer: PAT/PMT parsing, PCR-based IAT, continuity-counter loss detection, and chunk-boundary carry-over.
 
-## [2.39.1] - 2026-07-28
+## [3.39.1] - 2026-07-28
 
 ### Fixed
 
-- Live Probe: suppress the first 2 seconds of samples after each
-  connect/reconnect. SRT handshake and prebuffer catch-up produced an
-  expected IAT spike on start that was being drawn on the chart as if
-  it were a real network event.
+- Live Probe: suppress the first 2 seconds of samples after each connect/reconnect. SRT handshake and prebuffer catch-up produced an expected IAT spike on start that was being drawn on the chart as if it were a real network event.
 
 ### Added
 
-- Standalone "Live Probe" button in the GOP Analyser SRT run form
-  (between Schedule and Clear), letting the IAT/MLR monitor run
-  directly from the Host/Port/Passphrase fields without running a
-  GOP test first. Hidden in Upload mode.
+- Standalone "Live Probe" button in the GOP Analyser SRT run form (between Schedule and Clear), letting the IAT/MLR monitor run directly from the Host/Port/Passphrase fields without running a GOP test first. Hidden in Upload mode.
 
-## [2.39.0] - 2026-07-28
+## [3.39.0] - 2026-07-28
 
 ### Added
 
-- New Live Probe: real-time IAT (Inter-Arrival Time) and MLR (Media Loss
-  Rate) monitor for SRT-source GOP Analyser tests, built independently
-  in-house (no external probe dependency). MLR is computed from MPEG-TS
-  continuity-counter discontinuities; IAT from inter-packet read timing.
-  Capture uses srt-live-transmit (not ffmpeg) so continuity counters
-  reflect exactly what was received off the wire. New blueprint
-  routes_live_probe.py exposes /live-probe/start, /live-probe/stream/<id>
-  (SSE), and /live-probe/stop/<id>, with idle/TTL session reaping.
-- "Live Probe" button in the GOP test detail panel, shown only for
-  SRT-source tests (never for uploaded-file tests), opening a modal with
-  a live area chart plus IAT avg/max, MLR, and bitrate readouts.
+- New Live Probe: real-time IAT (Inter-Arrival Time) and MLR (Media Loss Rate) monitor for SRT-source GOP Analyser tests, built independently in-house (no external probe dependency). MLR is computed from MPEG-TS continuity-counter discontinuities; IAT from inter-packet read timing. Capture uses srt-live-transmit (not ffmpeg) so continuity counters reflect exactly what was received off the wire. New blueprint routes_live_probe.py exposes /live-probe/start, /live-probe/stream/<id> (SSE), and /live-probe/stop/<id>, with idle/TTL session reaping.
+- "Live Probe" button in the GOP test detail panel, shown only for SRT-source tests (never for uploaded-file tests), opening a modal with a live area chart plus IAT avg/max, MLR, and bitrate readouts.
 
 ### Requires
 
-- `srt-live-transmit` (Haivision srt-tools) installed and on PATH on the
-  server. Not available via default Oracle Linux 9.8 repos — build from
-  https://github.com/Haivision/srt.
+- `srt-live-transmit` (Haivision srt-tools) installed and on PATH on the server. Not available via default Oracle Linux 9.8 repos — build from https://github.com/Haivision/srt.
 
-## [2.38.0] - 2026-07-24
+## [3.38.0] - 2026-07-24
 
 ### Added
 
@@ -530,349 +651,236 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Prevented configuration mismatches where `pref_lo`/`pref_hi` could allow values that were still rejected by `lo`/`hi`.
 - Validated fix using the reported scenario (`lo=3`, `hi=4.2`, `pref_lo=4.1`, `pref_hi=5.1`, `measured=5.1`), which now evaluates as **COMPLIANT**.
 
-## [2.37.0] - 2026-07-22
+## [3.37.0] - 2026-07-22
 
 ### Fixed
 
-- Chroma Subsampling falsely REJECTED high-bit-depth / non-8-bit
-  formats (e.g. yuv422p10le showed as an unrecognised raw pix_fmt
-  string instead of "4:2:2") because the chroma lookup table only
-  covered plain 8-bit yuv420p/yuv422p/yuv444p variants. Now derived
-  via regex, robust to bit-depth/endianness suffixes and NV/semi-planar
-  layouts (nv12, nv16, p010le, etc).
-- Colour Range showed the raw pix_fmt string as its measured value
-  instead of "limited"/"full". Now reports the actual colour range,
-  preferring ffprobe's color_range tag over the deprecated yuvj\*
-  pix_fmt heuristic.
+- Chroma Subsampling falsely REJECTED high-bit-depth / non-8-bit formats (e.g. yuv422p10le showed as an unrecognised raw pix_fmt string instead of "4:2:2") because the chroma lookup table only covered plain 8-bit yuv420p/yuv422p/yuv444p variants. Now derived via regex, robust to bit-depth/endianness suffixes and NV/semi-planar layouts (nv12, nv16, p010le, etc).
+- Colour Range showed the raw pix_fmt string as its measured value instead of "limited"/"full". Now reports the actual colour range, preferring ffprobe's color_range tag over the deprecated yuvj\* pix_fmt heuristic.
 
 ### Added
 
-- New informational-only "Pixel Format" field (spec key
-  pixel_format), showing the raw pix_fmt value (e.g. yuv422p10le) on
-  its own row across the compliance table, HTML report, text/Jira
-  report and specs editor — separate from Chroma Subsampling and
-  Colour Range. Never affects overall_status.
-- Result JSON: new v_full_range field, so reeval/workflow-change
-  compliance reuses the accurate colour-range value instead of
-  re-deriving it from pix_fmt alone.
+- New informational-only "Pixel Format" field (spec key pixel_format), showing the raw pix_fmt value (e.g. yuv422p10le) on its own row across the compliance table, HTML report, text/Jira report and specs editor — separate from Chroma Subsampling and Colour Range. Never affects overall_status.
+- Result JSON: new v_full_range field, so reeval/workflow-change compliance reuses the accurate colour-range value instead of re-deriving it from pix_fmt alone.
 
-## [2.36.0] - 2026-07-21
+## [3.36.0] - 2026-07-21
 
 ### Added
 
-- Every GOP test now automatically runs the Ingest Analyser on the
-  recorded .ts file (same script and same store/ingest-results output
-  used by the standalone Ingest Analyser tool), right after the
-  mediainfo delay check. Faster than a live re-capture and uses the
-  same source file.
-- GOP result JSON: new ingest_dir / ingest_zip fields, null if the
-  Ingest Analyser is unavailable or fails (never blocks or fails the
-  GOP result itself).
-- Frontend: new "Ingest Analyser Report" button (left of Generate
-  Report, right of Re-run), shown only for tests that have an Ingest
-  Analyser report, opening it in a new tab.
+- Every GOP test now automatically runs the Ingest Analyser on the recorded .ts file (same script and same store/ingest-results output used by the standalone Ingest Analyser tool), right after the mediainfo delay check. Faster than a live re-capture and uses the same source file.
+- GOP result JSON: new ingest_dir / ingest_zip fields, null if the Ingest Analyser is unavailable or fails (never blocks or fails the GOP result itself).
+- Frontend: new "Ingest Analyser Report" button (left of Generate Report, right of Re-run), shown only for tests that have an Ingest Analyser report, opening it in a new tab.
 
-## [2.35.4] - 2026-07-20
+## [3.35.4] - 2026-07-20
 
 ### Fixed
 
-- Audio Bits per Sample falsely REJECTED aac_latm streams ("?" instead
-  of "fltp") because the codec whitelist used to infer floating-point
-  sample format didn't include aac_latm. Now derived primarily from
-  ffprobe's sample_fmt field, with the codec whitelist (now including
-  aac_latm) kept only as a fallback.
+- Audio Bits per Sample falsely REJECTED aac_latm streams ("?" instead of "fltp") because the codec whitelist used to infer floating-point sample format didn't include aac_latm. Now derived primarily from ffprobe's sample_fmt field, with the codec whitelist (now including aac_latm) kept only as a fallback.
 
-## [2.35.3] - 2026-07-20
+## [3.35.3] - 2026-07-20
 
 ### Fixed
 
-- Audio Coding compliance falsely REJECTED AAC-LATM streams because
-  ffprobe reports codec_name as "aac_latm" (underscore), which bypassed
-  the AAC profile-detection branch and produced "AAC_LATM" instead of
-  the spec's "AAC-LATM". \_audio_display_name now recognizes codec_name
-  "aac_latm" directly and normalizes it to "AAC-LATM".
+- Audio Coding compliance falsely REJECTED AAC-LATM streams because ffprobe reports codec_name as "aac_latm" (underscore), which bypassed the AAC profile-detection branch and produced "AAC_LATM" instead of the spec's "AAC-LATM". \_audio_display_name now recognizes codec_name "aac_latm" directly and normalizes it to "AAC-LATM".
 
-## [2.35.2] - 2026-07-20
+## [3.35.2] - 2026-07-20
 
 ### Changed
 
-- mediainfo_delay spec now uses two adjustable thresholds instead of a
-  single hard limit: |delay| <= warn (default 350ms) is COMPLIANT,
-  <= hard (default 1000ms) is ACCEPTED, above hard is REJECTED. Both
-  thresholds are adjustable per workflow in the specs editor.
-- Specs editor, results panel, and HTML/text reports updated to reflect
-  the three-tier compliant/accepted/rejected status.
+- mediainfo_delay spec now uses two adjustable thresholds instead of a single hard limit: |delay| <= warn (default 350ms) is COMPLIANT, <= hard (default 1000ms) is ACCEPTED, above hard is REJECTED. Both thresholds are adjustable per workflow in the specs editor.
+- Specs editor, results panel, and HTML/text reports updated to reflect the three-tier compliant/accepted/rejected status.
 
 ### Removed
 
-- Obsolete "Inform only (never reject)" toggle for mediainfo_delay
-  (leftover from the old AV sync spec pattern; no longer applicable).
+- Obsolete "Inform only (never reject)" toggle for mediainfo_delay (leftover from the old AV sync spec pattern; no longer applicable).
 
-## [2.35.1] - 2026-07-20
+## [3.35.1] - 2026-07-20
 
 ### Added
 
-- GOP Analyzer: AV sync now measured via mediainfo's "Delay relative to
-  video" metric, read directly from the recorded .ts file after capture
-  or upload, before compliance evaluation.
-- New spec "mediainfo_delay" with an adjustable hard limit (default
-  1000ms / 1s), applied to all workflows. Exceeding the limit rejects
-  the result. Editable in the specs editor under the new "TIMING"
-  section.
+- GOP Analyzer: AV sync now measured via mediainfo's "Delay relative to video" metric, read directly from the recorded .ts file after capture or upload, before compliance evaluation.
+- New spec "mediainfo_delay" with an adjustable hard limit (default 1000ms / 1s), applied to all workflows. Exceeding the limit rejects the result. Editable in the specs editor under the new "TIMING" section.
 
 ### Removed
 
-- The unreliable ffprobe PTS-offset based AV sync analysis and its
-  "AV SYNC & TIMING" spec block (av_sync_warn, av_sync_max,
-  v_pts_jitter, a_pts_jitter), along with all related fields and UI
-  sections.
+- The unreliable ffprobe PTS-offset based AV sync analysis and its "AV SYNC & TIMING" spec block (av_sync_warn, av_sync_max, v_pts_jitter, a_pts_jitter), along with all related fields and UI sections.
 
 ### Changed
 
-- Result JSON: av_sync_min_ms, av_sync_max_ms, av_sync_avg_ms,
-  av_sync_median_ms, v_pts_jitter_ms and a_pts_jitter_ms replaced by a
-  single mediainfo_delay_ms field.
+- Result JSON: av_sync_min_ms, av_sync_max_ms, av_sync_avg_ms, av_sync_median_ms, v_pts_jitter_ms and a_pts_jitter_ms replaced by a single mediainfo_delay_ms field.
 
 ### Requires
 
-- mediainfo installed on the server (apt-get install mediainfo).
-  Analysis falls back to UNKNOWN status if mediainfo is missing or the
-  delay metric cannot be measured.
+- mediainfo installed on the server (apt-get install mediainfo). Analysis falls back to UNKNOWN status if mediainfo is missing or the delay metric cannot be measured.
 
-## [2.35.0] - 2026-07-20
+## [3.35.0] - 2026-07-20
 
 ### Added
 
 - MediaInfo to SERVER_REBUILD
 
-## [2.34.0] - 2026-07-17
+## [3.34.0] - 2026-07-17
 
 ### Fixed
 
-- Extraction returned zero fields and empty raw text on some machines/
-  sessions where the ServiceNow RITM ticket loads through the "Unified
-  Navigation App" shell (now/nav/ui), because pageExtractor read the page
-  before any async-mounted content existed.
+- Extraction returned zero fields and empty raw text on some machines/ sessions where the ServiceNow RITM ticket loads through the "Unified Navigation App" shell (now/nav/ui), because pageExtractor read the page before any async-mounted content existed.
 
 ### Changed
 
-- pageExtractor now waits (up to 12s, polling every 400ms) inside the
-  page for real content or form fields to appear before reading them.
-- Extraction retries up to 3 times across all frames as a fallback for
-  frames created after the initial call.
+- pageExtractor now waits (up to 12s, polling every 400ms) inside the page for real content or form fields to appear before reading them.
+- Extraction retries up to 3 times across all frames as a fallback for frames created after the initial call.
 - Loading state shows attempt/progress feedback during longer waits.
 
-## [2.33.0] - 2026-07-17
+## [3.33.0] - 2026-07-17
 
 ### Added
 
 - B&T to SRT Ingest
 
-## [2.32.0] - 2026-07-17
+## [3.32.0] - 2026-07-17
 
 ### Added
 
 - New standalone API documentation page (SO-Toolbox-API-Docs.html) covering all Flask Blueprints: auth, GOP compliance, SRT ingest, SRT push monitor, TXCore manager, RTS monitor, id3as DC monitor, WC2026 rota, and proxy.py utility routes. Includes searchable sidebar, collapsible endpoint cards, auth requirements, request/response examples, and known-issue notes carried over from current backlog items.
 
-## [2.30.1] - 2026-07-16
+## [3.30.1] - 2026-07-16
 
 ### Fixed
 
-- Restart Proxy was still rejecting requests with "Invalid admin
-  password" after the 2.30.0 frontend change, because proxy.py's
-  /restart-proxy endpoint still validated the X-Admin-Password header
-  that the frontend no longer sends. /git-pull and /restart-proxy now
-  use the existing require_admin_role decorator from routes_auth.py
-  (admin/engineer only) instead of the ADMIN_PASSWORD check. The
-  password check is unchanged for /mtr/kill and /mtr/delete.
+- Restart Proxy was still rejecting requests with "Invalid admin password" after the 3.30.0 frontend change, because proxy.py's /restart-proxy endpoint still validated the X-Admin-Password header that the frontend no longer sends. /git-pull and /restart-proxy now use the existing require_admin_role decorator from routes_auth.py (admin/engineer only) instead of the ADMIN_PASSWORD check. The password check is unchanged for /mtr/kill and /mtr/delete.
 
----
-
-## [2.30.0] - 2026-07-16
+## [3.30.0] - 2026-07-16
 
 ### Fixed
 
-- Changelog modal: bullet items that wrap onto multiple lines in
-  CHANGELOG.md were silently truncated at the first line, since the
-  parser only matched lines starting with "- " and dropped indented
-  continuation lines. Wrapped continuation lines are now appended to
-  the previous bullet instead of being discarded.
+- Changelog modal: bullet items that wrap onto multiple lines in CHANGELOG.md were silently truncated at the first line, since the parser only matched lines starting with "- " and dropped indented continuation lines. Wrapped continuation lines are now appended to the previous bullet instead of being discarded.
 
 ### Changed
 
-- Update and Restart Proxy actions are now restricted to users with
-  the admin or engineer role, read from /so-proxy/me. The buttons are
-  hidden for other roles and the actions no-op client-side if called
-  directly. The admin password prompt on Restart Proxy has been
-  removed.
+- Update and Restart Proxy actions are now restricted to users with the admin or engineer role, read from /so-proxy/me. The buttons are hidden for other roles and the actions no-op client-side if called directly. The admin password prompt on Restart Proxy has been removed.
 
----
-
-## [2.29.0] - 2026-07-16
+## [3.29.0] - 2026-07-16
 
 ### Fixed
 
-- GOP analysis: incomplete leading GOP (frames captured before the
-  first I frame) is now excluded from GOP statistics, matching the
-  existing exclusion of the incomplete trailing GOP. GOP size,
-  min/max/avg, and open/closed detection now only consider complete
-  GOPs between the first and last I frame.
+- GOP analysis: incomplete leading GOP (frames captured before the first I frame) is now excluded from GOP statistics, matching the existing exclusion of the incomplete trailing GOP. GOP size, min/max/avg, and open/closed detection now only consider complete GOPs between the first and last I frame.
 
-## [2.28.1] - 2026-07-15
+## [3.28.1] - 2026-07-15
 
 ### Added
 
-- Multi-destination ingest can now run as a single shared ffmpeg process
-  (passthrough / -c copy) instead of one process per destination, to avoid
-  CPU spikes when fanning out to many SRT targets at once.
+- Multi-destination ingest can now run as a single shared ffmpeg process (passthrough / -c copy) instead of one process per destination, to avoid CPU spikes when fanning out to many SRT targets at once.
 - New endpoint POST /srt/ingest/multi-shared for the shared-process mode.
 - "Shared single process" option in the Multi Destination form.
 
 ### Notes
 
-- Shared mode only supports passthrough (-c copy). A shared-encode option
-  for CBR transcode fan-out (via ffmpeg's tee muxer) is not implemented yet.
+- Shared mode only supports passthrough (-c copy). A shared-encode option for CBR transcode fan-out (via ffmpeg's tee muxer) is not implemented yet.
 
-## [2.28.0] - 2026-07-15
+## [3.28.0] - 2026-07-15
 
 ### Added
 
-- SRT ingest jobs now automatically retry connecting until the user explicitly
-  stops them, instead of ending on the first ffmpeg failure.
+- SRT ingest jobs now automatically retry connecting until the user explicitly stops them, instead of ending on the first ffmpeg failure.
 - Per-job restart endpoint and button, independent from other jobs.
-- Last error message per job is captured and shown live in the Bitrate
-  Monitor when a job is reconnecting or has failed.
+- Last error message per job is captured and shown live in the Bitrate Monitor when a job is reconnecting or has failed.
 - "Clear Finished Jobs" button to remove stopped/error jobs from the list.
 
 ### Changed
 
-- Job status model extended: starting, running, reconnecting, stopping,
-  stopped, error (finished status removed, replaced by stopped).
-- SSE stream for job stats now also emits a status event with status,
-  last_error and retry_count whenever the job state changes.
+- Job status model extended: starting, running, reconnecting, stopping, stopped, error (finished status removed, replaced by stopped).
+- SSE stream for job stats now also emits a status event with status, last_error and retry_count whenever the job state changes.
 
 ### Fixed
 
-- Job dict now stores full launch configuration (input file, host, port,
-  passphrase, bitrate, mode), required to support relaunching a job.
+- Job dict now stores full launch configuration (input file, host, port, passphrase, bitrate, mode), required to support relaunching a job.
 
-## [2.27.0] - 2026-07-15
+## [3.27.0] - 2026-07-15
 
 ### Added
 
-- Server-side filtering and pagination for the GOP results history,
-  so search/tag/user/date filters cover the entire history instead
-  of only the 500 most recently created results
-- In-memory results index with mtime-based cache invalidation to
-  avoid re-parsing every JSON result file on each request
+- Server-side filtering and pagination for the GOP results history, so search/tag/user/date filters cover the entire history instead of only the 500 most recently created results
+- In-memory results index with mtime-based cache invalidation to avoid re-parsing every JSON result file on each request
 - Numbered pagination controls in the History panel
 
 ### Changed
 
-- GET /gop/results now returns a paginated object
-  (items, total, page, page_size, total_pages, tags) instead of a
-  flat array; filtering moved from client-side to query parameters
-  (search, date, tag, server, user, page, page_size)
+- GET /gop/results now returns a paginated object (items, total, page, page_size, total_pages, tags) instead of a flat array; filtering moved from client-side to query parameters (search, date, tag, server, user, page, page_size)
 
-## [2.26.5] - 2026-07-13
+## [3.26.5] - 2026-07-13
 
 ### Added
 
-- GET /api/txcore/categories endpoint to list existing TXCore
-  categories.
-- Category picker dropdown in TXCore Manager, populated from the new
-  endpoint, to select an existing category instead of typing its ID.
+- GET /api/txcore/categories endpoint to list existing TXCore categories.
+- Category picker dropdown in TXCore Manager, populated from the new endpoint, to select an existing category instead of typing its ID.
 
 ### Changed
 
-- Failed channel creation attempts now show the HTTP status and the
-  API's response body directly in the job log, instead of just a
-  generic "error" status.
+- Failed channel creation attempts now show the HTTP status and the API's response body directly in the job log, instead of just a generic "error" status.
 
 ### Fixed
 
-- Channel creation failures with a non-JSON error body no longer
-  crash response handling; the raw response text is now captured.
+- Channel creation failures with a non-JSON error body no longer crash response handling; the raw response text is now captured.
 
-## [2.26.4] - 2026-07-13
+## [3.26.4] - 2026-07-13
 
 ### Fixed
 
-- Stream addresses could be generated incomplete (e.g. ".35:21216")
-  due to a stale empty value persisted in localStorage from an earlier
-  form version. Storage key bumped to invalidate old state.
+- Stream addresses could be generated incomplete (e.g. ".35:21216") due to a stale empty value persisted in localStorage from an earlier form version. Storage key bumped to invalidate old state.
 
 ### Changed
 
-- Reworked IP octet configuration: first two octets are now fixed per
-  site (display-only), third octet is a shared field applied to all
-  sites (still editable per site), last octet continues to follow
-  First CH#. Ports are now read-only per site.
-- Added a live address preview per site (AVE/LMK/YER) so the final
-  multicast address is visible before submitting.
+- Reworked IP octet configuration: first two octets are now fixed per site (display-only), third octet is a shared field applied to all sites (still editable per site), last octet continues to follow First CH#. Ports are now read-only per site.
+- Added a live address preview per site (AVE/LMK/YER) so the final multicast address is visible before submitting.
 
-## [2.26.3] - 2026-07-13
+## [3.26.3] - 2026-07-13
 
 ### Changed
 
 - TXCore Manager: "Provider name" relabeled to "Provider Acronym".
 - TXCore Manager: First CH# now defaults to 01, channel count to 10.
-- TXCore Manager: Channel number start and the three last-octet-start
-  fields now auto-fill from First CH#, remaining editable; manual
-  edits stop further auto-sync for that field.
-- TXCore Manager: AVE/LMK/YER 3-octet IP prefixes are now prefilled
-  as real default values instead of placeholder text.
+- TXCore Manager: Channel number start and the three last-octet-start fields now auto-fill from First CH#, remaining editable; manual edits stop further auto-sync for that field.
+- TXCore Manager: AVE/LMK/YER 3-octet IP prefixes are now prefilled as real default values instead of placeholder text.
 
-## [2.26.2] - 2026-07-13
+## [3.26.2] - 2026-07-13
 
 ### Fixed
 
-- TXCore status endpoint reported all env vars as missing even when
-  set in .env, due to import-order dependency on proxy.py's
-  load_dotenv() call. routes_txcore.py now loads .env explicitly.
+- TXCore status endpoint reported all env vars as missing even when set in .env, due to import-order dependency on proxy.py's load_dotenv() call. routes_txcore.py now loads .env explicitly.
 
-## [2.26.1] - 2026-07-13
+## [3.26.1] - 2026-07-13
 
 ### Fixed
 
-- routes_txcore.py failed to import on startup due to a nonexistent
-  auth module reference. Now uses routes_auth (\_get_session,
-  \_token_from_request), consistent with the other blueprints.
+- routes_txcore.py failed to import on startup due to a nonexistent auth module reference. Now uses routes_auth (\_get_session, \_token_from_request), consistent with the other blueprints.
 
-## [2.26.0] - 2026-07-13
+## [3.26.0] - 2026-07-13
 
 ### Added
 
-- TXCore Manager frontend (TXCore-Manager.html) for the TXCore
-  provisioning blueprint: category creation, bulk channel form,
-  request preview, and async job monitoring with live progress log.
+- TXCore Manager frontend (TXCore-Manager.html) for the TXCore provisioning blueprint: category creation, bulk channel form, request preview, and async job monitoring with live progress log.
 
 ## [3.25.0] - 2026-07-13
 
 ### Fixed
 
-- Id34as logs on showing reverse sort, new on top.
+- Id3as logs on showing reverse sort, new on top.
 
 ## [3.24.1] - 2026-07-10
 
 ### Added
 
-- Automatic log rotation for /var/log/srt-push.log: rotates via copytruncate
-  once the file exceeds 100 MB, keeps rotated backups for 7 days.
-- Strict transport-level CBR via ffmpeg -muxrate, padding the MPEG-TS with
-  null PID (0x1FFF) packets.
-- Default value placeholders on the SRT Push configuration form (dashboard
-  URL, width, height, FPS, bitrate).
+- Automatic log rotation for /var/log/srt-push.log: rotates via copytruncate once the file exceeds 100 MB, keeps rotated backups for 7 days.
+- Strict transport-level CBR via ffmpeg -muxrate, padding the MPEG-TS with null PID (0x1FFF) packets.
+- Default value placeholders on the SRT Push configuration form (dashboard URL, width, height, FPS, bitrate).
 
 ### Fixed
 
-- Bitrate/fps/frame telemetry and sparkline bars no longer keep showing
-  stale values after the service is stopped.
+- Bitrate/fps/frame telemetry and sparkline bars no longer keep showing stale values after the service is stopped.
 
 ### Changed
 
-- Tally light and sparkline bars now use green for the running/on-air state;
-  red is reserved for error/failed states.
+- Tally light and sparkline bars now use green for the running/on-air state; red is reserved for error/failed states.
 
 ## [3.24.0] - 2026-07-01
 
@@ -892,7 +900,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- WC2026 Rota: openfootball sync lookup used a single-entry map keyed by date+BST time; simultaneous kickoffs (all group-stage matchdays have two games at the same time) caused the second entry to overwrite the first, making every other match silently lose its sync result; lookup now stores arrays of candidates per key and disambiguates by fuzzy team-name match with diacritic normalization~
+- WC2026 Rota: openfootball sync lookup used a single-entry map keyed by date+BST time; simultaneous kickoffs (all group-stage matchdays have two games at the same time) caused the second entry to overwrite the first, making every other match silently lose its sync result; lookup now stores arrays of candidates per key and disambiguates by fuzzy team-name match with diacritic normalization
 
 ## [3.22.0] - 2026-06-30
 
@@ -973,72 +981,37 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- Specs Editor now has its own workflow dropdown, independent of the workflow
-  selector on the test page; switching workflow inside the editor loads the
-  corresponding specs without affecting the active test configuration
-- "Set as API default" button in the Specs Editor footer (admin/engineer only);
-  sets the workflow used by the API when no workflow is specified in the request
-- GET /gop/workflows now returns labels and default workflow key so the frontend
-  always knows which workflow is the current API default
-- POST /gop/workflows/default endpoint to persist the API default workflow to
-  workflow_default.json (admin/engineer only)
-- \_effective_default_workflow() helper in backend; all routes that previously
-  fell back to the hard-coded DEFAULT_WORKFLOW constant now read the persisted
-  value instead
-- "Accept any GOP size" checkbox in the Specs Editor for the GOP Size row; when
-  enabled, any measured GOP size returns ACCEPTED regardless of configured values
-  or tolerance
-- Re-evaluate button on each history entry: opens a modal to select a target
-  workflow and shows a read-only re-evaluated report without modifying the stored
-  result (GET /gop/reeval/file?workflow=wf)
-- Change Workflow button on each history entry (admin/engineer only):
-  permanently re-assigns the workflow, re-runs compliance, and appends an entry
-  to workflow_change_log in the result JSON (PATCH /gop/result/file/workflow)
-- After a workflow change the updated compliance result is rendered immediately
-  from the PATCH response, without a second round-trip
-- Workflow badge added to the test meta-bar on the main page; shows the workflow
-  used for the loaded result, or the re-evaluated workflow label in cyan when
-  showing a re-evaluated report
-- Re-evaluated report shows the target workflow label in the Workflow field of
-  both the visual and text report tabs, marked as re-evaluated
-- Specs save and workflow rename now record saved_by and saved_at in the specs
-  JSON; the Specs Editor footer displays who last saved and when
-- Role-based authorisation for all write operations in the Specs Editor (save,
-  rename, reset, set default): replaced admin password with /so-proxy/me role
-  check; requires admin or engineer role
-- GET /gop/specs includes \_meta in the response when specs have been saved at
-  least once
-- POST /gop/specs stamps \_meta server-side and returns HTTP 403 if the caller's
-  role is not admin or engineer
+- Specs Editor now has its own workflow dropdown, independent of the workflow selector on the test page; switching workflow inside the editor loads the corresponding specs without affecting the active test configuration
+- "Set as API default" button in the Specs Editor footer (admin/engineer only); sets the workflow used by the API when no workflow is specified in the request
+- GET /gop/workflows now returns labels and default workflow key so the frontend always knows which workflow is the current API default
+- POST /gop/workflows/default endpoint to persist the API default workflow to workflow_default.json (admin/engineer only)
+- \_effective_default_workflow() helper in backend; all routes that previously fell back to the hard-coded DEFAULT_WORKFLOW constant now read the persisted value instead
+- "Accept any GOP size" checkbox in the Specs Editor for the GOP Size row; when enabled, any measured GOP size returns ACCEPTED regardless of configured values or tolerance
+- Re-evaluate button on each history entry: opens a modal to select a target workflow and shows a read-only re-evaluated report without modifying the stored result (GET /gop/reeval/file?workflow=wf)
+- Change Workflow button on each history entry (admin/engineer only): permanently re-assigns the workflow, re-runs compliance, and appends an entry to workflow_change_log in the result JSON (PATCH /gop/result/file/workflow)
+- After a workflow change the updated compliance result is rendered immediately from the PATCH response, without a second round-trip
+- Workflow badge added to the test meta-bar on the main page; shows the workflow used for the loaded result, or the re-evaluated workflow label in cyan when showing a re-evaluated report
+- Re-evaluated report shows the target workflow label in the Workflow field of both the visual and text report tabs, marked as re-evaluated
+- Specs save and workflow rename now record saved_by and saved_at in the specs JSON; the Specs Editor footer displays who last saved and when
+- Role-based authorisation for all write operations in the Specs Editor (save, rename, reset, set default): replaced admin password with /so-proxy/me role check; requires admin or engineer role
+- GET /gop/specs includes \_meta in the response when specs have been saved at least once
+- POST /gop/specs stamps \_meta server-side and returns HTTP 403 if the caller's role is not admin or engineer
 
 ### Changed
 
-- Workflow selection is no longer persisted in localStorage; the page always
-  starts on the current API default workflow
-- GOP Type spec changed from a single required field to the standard
-  values + preferred model: CLOSED returns COMPLIANT, OPEN returns ACCEPTED;
-  the Specs Editor renders a dr0pdown for the Preferred column
-- B-Frames spec changed to the same values + preferred model: absent returns
-  COMPLIANT, present returns ACCEPTED; the Specs Editor renders a dropdown for
-  the Preferred column
-- Specs Editor preferred column now renders as a dr0pdown for any spec whose
-  allowed values are a short fixed list of strings (4 items or fewer), instead
-  of a free-text input
-- Frame Rate compliance row appends a note when 50p is accepted due to 720p
-  resolution, visible in both visual and text reports
-- GOP Type and B-Frames spec descriptions updated in visual and text report tabs
-  to reflect the preferred/accepted model
-- PATCH /gop/result/file/workflow now returns the full updated result object in
-  addition to overall_status, eliminating the need for a follow-up GET
+- Workflow selection is no longer persisted in localStorage; the page always starts on the current API default workflow
+- GOP Type spec changed from a single required field to the standard values + preferred model: CLOSED returns COMPLIANT, OPEN returns ACCEPTED; the Specs Editor renders a dropdown for the Preferred column
+- B-Frames spec changed to the same values + preferred model: absent returns COMPLIANT, present returns ACCEPTED; the Specs Editor renders a dropdown for the Preferred column
+- Specs Editor preferred column now renders as a dropdown for any spec whose allowed values are a short fixed list of strings (4 items or fewer), instead of a free-text input
+- Frame Rate compliance row appends a note when 50p is accepted due to 720p resolution, visible in both visual and text reports
+- GOP Type and B-Frames spec descriptions updated in visual and text report tabs to reflect the preferred/accepted model
+- PATCH /gop/result/file/workflow now returns the full updated result object in addition to overall_status, eliminating the need for a follow-up GET
 
 ### Fixed
 
-- Specs Editor no longer reads or writes localStorage; re-opening the tool
-  always reflects the API default instead of the last manually selected workflow
-- gop_type and b_frames compliance now goes through the shared comply_enum_multi
-  function, removing duplicate custom logic
-- Re-evaluate modal now populates the workflow list from WORKFLOW_LABELS at open
-  time, ensuring new or renamed workflows appear correctly
+- Specs Editor no longer reads or writes localStorage; re-opening the tool always reflects the API default instead of the last manually selected workflow
+- gop_type and b_frames compliance now goes through the shared comply_enum_multi function, removing duplicate custom logic
+- Re-evaluate modal now populates the workflow list from WORKFLOW_LABELS at open time, ensuring new or renamed workflows appear correctly
 
 ## [3.17.0] - 2026-06-23
 
@@ -1050,57 +1023,46 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- Event-starting alarm suppression now detects startup by comparing `started_at`
-  to current time (3-min window), instead of the absence of `encoder_job_started`
-  which was never false once the event was running.
+- Event-starting alarm suppression now detects startup by comparing `started_at` to current time (3-min window), instead of the absence of `encoder_job_started` which was never false once the event was running.
 
 ## [3.16.0] - 2026-06-23
 
 ### Added
 
-- **Nodes view – Event starting grace period**: when a channel has an active event but the encoder job has not yet started, alarms for that specific channel are suppressed for 3 minutes. The node card blinks green and displays an "event starting, ignoring alarms" badge during this window. Only alarms tied to that channel/event are suppressed; other channels on the same node are unaffected.
-- **Nodes view – Warnings-only filter**: channels in the event-starting grace period are excluded from the warning count and hidden when "Warnings only" is active.
+- Nodes view – Event starting grace period: when a channel has an active event but the encoder job has not yet started, alarms for that specific channel are suppressed for 3 minutes. The node card blinks green and displays an "event starting, ignoring alarms" badge during this window. Only alarms tied to that channel/event are suppressed; other channels on the same node are unaffected.
+- Nodes view – Warnings-only filter: channels in the event-starting grace period are excluded from the warning count and hidden when "Warnings only" is active.
 
 ### Fixed
 
-- **Events tab**: channel-level flags (`/flags/channels`) are now fetched alongside event flags when loading the running events view, so flag warnings appear correctly in the Events tab alongside the existing "no signal" indicator.
-- **Events tab**: event flag deduplication prevents duplicate warning entries when a flag appears under both event id and channel id keys.
+- Events tab: channel-level flags (`/flags/channels`) are now fetched alongside event flags when loading the running events view, so flag warnings appear correctly in the Events tab alongside the existing "no signal" indicator.
+- Events tab: event flag deduplication prevents duplicate warning entries when a flag appears under both event id and channel id keys.
 
 ## [3.15.1] - 2026-06-22
 
 ### Fixed
 
-- Colour Range spec editor now shows a note that internal values are
-  `limited` / `full` (not pixel format strings like `yuvj420p`).
-  Existing corrupted specs files should be reset to defaults.
-- AV Sync metrics in "Inform only" mode now show `INFO` status instead
-  of COMPLIANT/ACCEPTED, and are excluded from the overall result.
-  A new blue INFO pill was added to the compliance table and reports.
+- Colour Range spec editor now shows a note that internal values are `limited` / `full` (not pixel format strings like `yuvj420p`). Existing corrupted specs files should be reset to defaults.
+- AV Sync metrics in "Inform only" mode now show `INFO` status instead of COMPLIANT/ACCEPTED, and are excluded from the overall result. A new blue INFO pill was added to the compliance table and reports.
 
 ## [3.15.0] - 2026-06-22
 
 ### Added
 
-- AV Sync & Timing thresholds are now configurable in the Specs editor
-  (warn threshold, hard limit, and "Inform only" mode that prevents REJECTED).
-  Default mode is inform-only for all four AV sync metrics.
-- Workflow display name can be renamed directly in the Specs editor; names
-  are persisted server-side in workflow_labels.json and loaded at page boot.
+- AV Sync & Timing thresholds are now configurable in the Specs editor (warn threshold, hard limit, and "Inform only" mode that prevents REJECTED). Default mode is inform-only for all four AV sync metrics.
+- Workflow display name can be renamed directly in the Specs editor; names are persisted server-side in workflow_labels.json and loaded at page boot.
 - Workflow name now appears in both the visual and text test reports.
 
 ### Fixed
 
-- Colour Range: `yuvj420p` (full range) is now accepted (ACCEPTED) instead
-  of being incorrectly rejected; `limited` remains COMPLIANT.
-- B-Frames spec now renders correctly in the Specs editor with a dr0pdown
-  (absent / present); previously no field was shown.
+- Colour Range: `yuvj420p` (full range) is now accepted (ACCEPTED) instead of being incorrectly rejected; `limited` remains COMPLIANT.
+- B-Frames spec now renders correctly in the Specs editor with a dropdown (absent / present); previously no field was shown.
 
 ## [3.14.0] - 2026-06-19
 
 ### Added
 
 - Initial release of Probe Monitoring (`ProbeMonitoring.html`), replacing `RTV MV Monitoring.html`.
-- Two independent channel slots, each with a dr0pdown of 40 configurable channels (`Id3as AWS CH301 - PROBE CH01` through `Id3as AWS CH340 - PROBE CH40`) plus a fixed `RMG MV` entry.
+- Two independent channel slots, each with a dropdown of 40 configurable channels (`Id3as AWS CH301 - PROBE CH01` through `Id3as AWS CH340 - PROBE CH40`) plus a fixed `RMG MV` entry.
 - "Configure channels" modal to register the Id3as AWS and Probe URL pair for each of the 40 channels, persisted in `localStorage`.
 - `RMG MV` entry reproducing the original four reference feeds (T21 enc → INX, T21 enc → EQP, INX → AVE, EQP → AVE) as a fixed, non-editable option.
 - Slot selections persisted in `localStorage` so the last-viewed channels are restored on reload.
@@ -1111,78 +1073,48 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- The Specification column in the compliance table, and the matching
-  column in the visual/text test reports, now show the actual specs
-  saved for the workflow used in the test, instead of always showing
-  the original hardcoded defaults.
+- The Specification column in the compliance table, and the matching column in the visual/text test reports, now show the actual specs saved for the workflow used in the test, instead of always showing the original hardcoded defaults.
 
 ## [3.13.0] - 2026-06-18
 
 ### Added
 
-- Workflow selector dropdown before "Analyse Now", supporting independent
-  compliance spec sets: "DC - Aminos and TP" (existing), "RTS", and "W&B".
-- The Specs editor (⚙) now edits the compliance specs for the currently
-  selected workflow independently, with each workflow's specs stored and
-  saved separately on the server.
+- Workflow selector dropdown before "Analyse Now", supporting independent compliance spec sets: "DC - Aminos and TP" (existing), "RTS", and "W&B".
+- The Specs editor (⚙) now edits the compliance specs for the currently selected workflow independently, with each workflow's specs stored and saved separately on the server.
 - GOP analysis results now record which workflow was used for the test.
 
 ### Changed
 
-- Reduced the Host / IP field width to make room for the new Workflow
-  dropdown in the analysis form.
+- Reduced the Host / IP field width to make room for the new Workflow dropdown in the analysis form.
 
 ## [3.12.0] - 2026-06-16
 
 ### Added
 
-- New `GET /gop/jobs/running` endpoint listing all in-progress jobs from
-  the in-memory job store, regardless of the calling client (HTML
-  frontend, Chrome extension, or any other API consumer).
-- The Scheduled panel now also displays jobs started outside the
-  scheduler (e.g. by the Chrome extension calling `/gop/run` directly),
-  marked with a "🔌 External" badge and without a Cancel action.
+- New `GET /gop/jobs/running` endpoint listing all in-progress jobs from the in-memory job store, regardless of the calling client (HTML frontend, Chrome extension, or any other API consumer).
+- The Scheduled panel now also displays jobs started outside the scheduler (e.g. by the Chrome extension calling `/gop/run` directly), marked with a "🔌 External" badge and without a Cancel action.
 
 ## [3.11.2] - 2026-06-16
 
 ### Changed
 
-- Split the chroma compliance check into two independent rows: **Chroma
-  Subsampling** (4:2:0/4:2:2/4:4:4, derived from pixel format) and a new
-  **Colour Range** check (limited vs full). Previously both concepts were
-  conflated into a single `chroma` row, which made full-range formats
-  like `yuvj420p` either incorrectly pass (same subsampling as `yuv420p`)
-  or, after the v2.28.0 fix, correctly reject but under a misleading
-  "Chroma Subsampling" label.
+- Split the chroma compliance check into two independent rows: **Chroma Subsampling** (4:2:0/4:2:2/4:4:4, derived from pixel format) and a new **Colour Range** check (limited vs full). Previously both concepts were conflated into a single `chroma` row, which made full-range formats like `yuvj420p` either incorrectly pass (same subsampling as `yuv420p`) or, after the v2.28.0 fix, correctly reject but under a misleading "Chroma Subsampling" label.
 
 ### Added
 
-- New `colour_range` spec (default: `limited`) in `DEFAULT_SPECS`,
-  configurable via the Specs Editor. Pixel formats starting with `yuvj`
-  (e.g. `yuvj420p`) are measured as `full` and rejected against the
-  `limited` requirement; standard formats (`yuv420p`, etc.) measure as
-  `limited` and pass.
+- New `colour_range` spec (default: `limited`) in `DEFAULT_SPECS`, configurable via the Specs Editor. Pixel formats starting with `yuvj` (e.g. `yuvj420p`) are measured as `full` and rejected against the `limited` requirement; standard formats (`yuv420p`, etc.) measure as `limited` and pass.
 
 ## [3.11.1] - 2026-06-16
 
 ### Fixed
 
-- GOP chroma compliance check (`routes_gop.py`) no longer conflates pixel
-  format with chroma subsampling. `yuvj420p` (full-range) is now
-  correctly rejected instead of being reported as `ACCEPTED`; `yuv420p`
-  (limited-range) is accepted as before. The compliance report now shows
-  the actual pixel format (e.g. `yuv420p`, `yuvj420p`) as the measured
-  value, distinct from the `4:2:0` chroma subsampling notation used for
-  spec matching.
+- GOP chroma compliance check (`routes_gop.py`) no longer conflates pixel format with chroma subsampling. `yuvj420p` (full-range) is now correctly rejected instead of being reported as `ACCEPTED`; `yuv420p` (limited-range) is accepted as before. The compliance report now shows the actual pixel format (e.g. `yuv420p`, `yuvj420p`) as the measured value, distinct from the `4:2:0` chroma subsampling notation used for spec matching.
 
 ## [3.11.0] - 2026-06-16
 
 ### Fixed
 
-- BTV: Specs editor `saveSpecs()` no longer truncates `preferred` values containing
-  `:` or `x` (e.g. `4:2:0`, `1920x1080`) when saving. `parseFloat` was
-  silently parsing only the leading numeric portion; the fix now requires
-  an exact round-trip match before treating a value as numeric.
+- BTV: Specs editor `saveSpecs()` no longer truncates `preferred` values containing `:` or `x` (e.g. `4:2:0`, `1920x1080`) when saving. `parseFloat` was silently parsing only the leading numeric portion; the fix now requires an exact round-trip match before treating a value as numeric.
 
 ## [3.10.0] - 2026-06-15
 
@@ -1200,12 +1132,9 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- `wc2026_rota.html`: WC 2026 engineering rota planner — assign engineers to
-  matches, auto-assign by round-robin, filter by engineer/venue/date, export CSV
-- `wc2026_routes.py`: Flask blueprint exposing `GET /wc2026/assignments` and
-  `POST /wc2026/assignments`; assignments persisted to `wc2026_assignments.json`
-- Role-based access: only admin users can assign, auto-assign, clear, import CSV
-  or rename engineers; non-admins see the rota in read-only mode
+- `wc2026_rota.html`: WC 2026 engineering rota planner — assign engineers to matches, auto-assign by round-robin, filter by engineer/venue/date, export CSV
+- `wc2026_routes.py`: Flask blueprint exposing `GET /wc2026/assignments` and `POST /wc2026/assignments`; assignments persisted to `wc2026_assignments.json`
+- Role-based access: only admin users can assign, auto-assign, clear, import CSV or rename engineers; non-admins see the rota in read-only mode
 - CSV import restores assignments and engineer names from a previously exported file
 - Save status indicator in header shows last saved by/when, pending and error states
 - Session resolved via existing `/so-proxy/me` endpoint; no additional auth logic
@@ -1268,8 +1197,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- `router_srt.py`: replaced Python 3.10+ union type syntax (`dict | None`, `list[str]`)
-  with `typing.Optional` and `list` for compatibility with Python 3.9
+- `router_srt.py`: replaced Python 3.10+ union type syntax (`dict | None`, `list[str]`) with `typing.Optional` and `list` for compatibility with Python 3.9
 
 ## [3.1.2] - 2026-05-27
 
@@ -1382,15 +1310,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- Password hashing upgraded from SHA-256 to bcrypt (cost factor 12); existing
-  hashes from legacy systems (`$2a$`, `$2b$`, `$2y$`) are accepted without migration
+- Password hashing upgraded from SHA-256 to bcrypt (cost factor 12); existing hashes from legacy systems (`$2a$`, `$2b$`, `$2y$`) are accepted without migration
 
 ### Added
 
-- SQL export query (`import_users.sql`) to extract users and bcrypt hashes
-  from a legacy MariaDB database
-- Python import script to convert the SQL export into `users.json` format,
-  preserving the existing `admin` entry
+- SQL export query (`import_users.sql`) to extract users and bcrypt hashes from a legacy MariaDB database
+- Python import script to convert the SQL export into `users.json` format, preserving the existing `admin` entry
 
 ## [2.24.0] - 2026-05-20
 
@@ -1399,13 +1324,13 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Authentication system** — login wall protecting the main application; session tokens are issued on successful login and stored as `HttpOnly` cookies (TTL 8 h); fallback via `sessionStorage` for environments that strip cookies
 - **`login.html`** — standalone login page matching the SO-Toolbox visual identity; animated hex logo, grid background, shake-on-error UX, `?next=` redirect support after successful sign-in
 - **`users-admin.html`** — new tool for managing the local user database; full CRUD (create, edit, delete) gated behind `ADMIN_PASSWORD`; role assignment (`user` / `admin`); password change without revealing current hash; toast notifications and confirm-before-delete modal
-- **`proxy.py` — auth routes**:
+- `proxy.py` — auth routes:
   - `POST /so-proxy/login` — validates credentials against `users.json`, creates in-memory session, sets `sotb-session` cookie
   - `POST /so-proxy/logout` — invalidates session and clears cookie
-  - `GET  /so-proxy/me` — returns current session username and role
-  - `GET  /so-proxy/users` — lists all users (admin-only, via `X-Admin-Password`)
+  - `GET /so-proxy/me` — returns current session username and role
+  - `GET /so-proxy/users` — lists all users (admin-only, via `X-Admin-Password`)
   - `POST /so-proxy/users` — creates a user (admin-only)
-  - `PUT  /so-proxy/users/<username>` — updates role and/or password (admin-only)
+  - `PUT /so-proxy/users/<username>` — updates role and/or password (admin-only)
   - `DELETE /so-proxy/users/<username>` — removes user and invalidates their active sessions (admin-only)
 - **`users.json`** — local user database file (SHA-256 hashed passwords); excluded from Git via `.gitignore`; `users.json.template` committed as reference
 - **`@require_auth` / `@require_admin` decorators** in `proxy.py` for protecting existing and future routes
@@ -1449,11 +1374,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- Channels with `acquiring_signal` + active event (no signal) now correctly appear
-  in Warnings Only — `srcWarn` is included in `r.warnings` count, and `warnOnly`
-  filter simplified to `r.warnings > 0`.
-- `bfmEv` helper restored (was lost on manual edits); `evFm`, `evWm`, and `srcWarn`
-  re-applied to `renderChannels` and `renderNodes`.
+- Channels with `acquiring_signal` + active event (no signal) now correctly appear in Warnings Only — `srcWarn` is included in `r.warnings` count, and `warnOnly` filter simplified to `r.warnings > 0`.
+- `bfmEv` helper restored (was lost on manual edits); `evFm`, `evWm`, and `srcWarn` re-applied to `renderChannels` and `renderNodes`.
 - `renderRunning` uses `bfmEv(flagsEvData)` keyed by event id with `fm[id]` lookup.
 - `nW` in Nodes no longer double-counts `encWarn` (already included in `c.warnings`).
 
@@ -1461,13 +1383,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `warnOnly` filter in Channels now triggers on any encoder/source state that is not
-  healthy: `encWarn` (encoder not `running`), `srcWarn` (source not `streaming`;
-  `acquiring_signal` only counts as warning when there is an active event, i.e. "no
-  signal"), and `evWm` (flags/events warnings). All three contribute to `r.warnings`
-  so the counter in the summary bar reflects them correctly.
-- Nodes view follows the same logic: `chSrcWarn` and `encWarn` per channel are now
-  included in `nW`, driving the node-level `warnOnly` filter.
+- `warnOnly` filter in Channels now triggers on any encoder/source state that is not healthy: `encWarn` (encoder not `running`), `srcWarn` (source not `streaming`; `acquiring_signal` only counts as warning when there is an active event, i.e. "no signal"), and `evWm` (flags/events warnings). All three contribute to `r.warnings` so the counter in the summary bar reflects them correctly.
+- Nodes view follows the same logic: `chSrcWarn` and `encWarn` per channel are now included in `nW`, driving the node-level `warnOnly` filter.
 
 ## [2.22.0] - 2026-05-19
 
@@ -1481,14 +1398,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- Flags/events banner and per-event warn-strips were lost after manual code edits;
-  restored `bfmEv`, `evFm`, `evWm` across `renderChannels`, `renderNodes`, and
-  `renderRunning`.
+- Flags/events banner and per-event warn-strips were lost after manual code edits; restored `bfmEv`, `evFm`, `evWm` across `renderChannels`, `renderNodes`, and `renderRunning`.
 - `renderChannels` early `return` was again missing `renderFlagsBanner()` call.
-- `renderRunning` was looking up flags by `channel_id` instead of event `id`;
-  corrected to `fm[id]` with `fm[ch]` fallback using `bfmEv(flagsEvData)`.
-- Flags/events warnings now correctly counted in `r.warnings` / `nW` so
-  "Warnings only" filter works for both channels and nodes views.
+- `renderRunning` was looking up flags by `channel_id` instead of event `id`; corrected to `fm[id]` with `fm[ch]` fallback using `bfmEv(flagsEvData)`.
+- Flags/events warnings now correctly counted in `r.warnings` / `nW` so "Warnings only" filter works for both channels and nodes views.
 
 ## [2.20.0] - 2026-05-19
 
@@ -1501,31 +1414,21 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- `id3as_routes.py`: new `/id3as/config` endpoint on the Blueprint — returns DC GUI base URLs
-  built from `ID3AS_HOST_IX` / `ID3AS_HOST_EQ` in `.env`; used by the browser to build
-  external deep-links without any hostname hardcoded in source files
-- `DEPLOY_id3as.md`: updated deployment instructions to reflect Blueprint architecture;
-  added `ID3AS_HOST_IX` / `ID3AS_HOST_EQ` to required `.env` entries
+- `id3as_routes.py`: new `/id3as/config` endpoint on the Blueprint — returns DC GUI base URLs built from `ID3AS_HOST_IX` / `ID3AS_HOST_EQ` in `.env`; used by the browser to build external deep-links without any hostname hardcoded in source files
+- `DEPLOY_id3as.md`: updated deployment instructions to reflect Blueprint architecture; added `ID3AS_HOST_IX` / `ID3AS_HOST_EQ` to required `.env` entries
 
 ### Changed
 
-- **Channels view**: rows replaced by cards matching the Running Events visual style —
-  bordered blocks with channel ID, node, enc/src/bitrate/stream meta row, and events/warnings
-  inline below; in-place status cell updates preserved (`enc-X`, `src-X`, `bps-X`, `str-X`)
-- **Scheduled view**: horizon selector (3d / 7d / 14d / All) now correctly appears in the
-  sub-toolbar — `display:''` fixed to `display:'block'` so the CSS default no longer wins
-- `id3as-DC-Monitor.html`: `DC_URLS` no longer hardcoded — fetched at startup via
-  `await fetch('/so-proxy/id3as/config')` before first render; no hostnames in source
-- `README.md`: added `/so-proxy/id3as/config` to proxy endpoint table; updated id3as DC
-  Monitor description; added `ID3AS_HOST_IX` / `ID3AS_HOST_EQ` to `.env` format section
+- Channels view: rows replaced by cards matching the Running Events visual style — bordered blocks with channel ID, node, enc/src/bitrate/stream meta row, and events/warnings inline below; in-place status cell updates preserved (`enc-X`, `src-X`, `bps-X`, `str-X`)
+- Scheduled view: horizon selector (3d / 7d / 14d / All) now correctly appears in the sub-toolbar — `display:''` fixed to `display:'block'` so the CSS default no longer wins
+- `id3as-DC-Monitor.html`: `DC_URLS` no longer hardcoded — fetched at startup via `await fetch('/so-proxy/id3as/config')` before first render; no hostnames in source
+- `README.md`: added `/so-proxy/id3as/config` to proxy endpoint table; updated id3as DC Monitor description; added `ID3AS_HOST_IX` / `ID3AS_HOST_EQ` to `.env` format section
 - `SERVER_REBUILD.md`: added `PRFAUTH`, `ID3AS_HOST_IX`, `ID3AS_HOST_EQ` to `.env` template
 
 ### Security
 
-- Removed `proxy_id3as_patch.py` — all id3as routes consolidated into `id3as_routes.py`
-  (Flask Blueprint), the correct integration point via `app.register_blueprint(id3as_bp)`
-- DC hostnames moved out of all source files; stored exclusively in `.env` and never
-  committed to Git; Git history rewritten with `git filter-repo` to remove prior occurrences
+- Removed `proxy_id3as_patch.py` — all id3as routes consolidated into `id3as_routes.py` (Flask Blueprint), the correct integration point via `app.register_blueprint(id3as_bp)`
+- DC hostnames moved out of all source files; stored exclusively in `.env` and never committed to Git; Git history rewritten with `git filter-repo` to remove prior occurrences
 
 ## [2.19.0] - 2026-05-17
 
@@ -1557,44 +1460,33 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- Channel Monitor chart: X axis labels now show real UTC timestamps (HH:MM:SS)
-  derived from the actual sample timestamps in `bitrateHistory`, updating live
-  on every poll instead of static relative offsets
+- Channel Monitor chart: X axis labels now show real UTC timestamps (HH:MM:SS) derived from the actual sample timestamps in `bitrateHistory`, updating live on every poll instead of static relative offsets
 
 ## [2.17.4] - 2026-05-15
 
 ### Changed
 
-- Channel Monitor bitrate chart: Y grid lines with Mbps scale (4 divisions,
-  rounded to clean values), X grid lines with time offset labels (-Ns to now),
-  area fill, live value label with dot at last point
+- Channel Monitor bitrate chart: Y grid lines with Mbps scale (4 divisions, rounded to clean values), X grid lines with time offset labels (-Ns to now), area fill, live value label with dot at last point
 
 ## [2.17.3] - 2026-05-15
 
 ### Fixed
 
-- Channels: encoder state other than `running` now counted as warning —
-  `warnOnly` filter surfaces channels with e.g. `initializing`, `stopped`, etc.
-- Nodes: channels with non-running enc state now contribute to node warning
-  count (`nW`) and appear with amber chip; node visible in `warnOnly` filter
+- Channels: encoder state other than `running` now counted as warning — `warnOnly` filter surfaces channels with e.g. `initializing`, `stopped`, etc.
+- Nodes: channels with non-running enc state now contribute to node warning count (`nW`) and appear with amber chip; node visible in `warnOnly` filter
 
 ## [2.17.2] - 2026-05-15
 
 ### Fixed
 
-- Channel Monitor: events not shown — `renderChannelMonitorEvents` now reads
-  `raw.events` via `bev()` instead of non-existent `chData.events`
-- Channel Monitor: warnings not shown — `renderChannelMonitorWarnings` now
-  merges `raw.flags` + `flagsEvData` directly instead of relying on
-  `chMonState.flagsData` which was always empty
+- Channel Monitor: events not shown — `renderChannelMonitorEvents` now reads `raw.events` via `bev()` instead of non-existent `chData.events`
+- Channel Monitor: warnings not shown — `renderChannelMonitorWarnings` now merges `raw.flags` + `flagsEvData` directly instead of relying on `chMonState.flagsData` which was always empty
 
 ## [2.17.1] - 2026-05-14
 
 ### Fixed
 
-- Channel Monitor modal now triggered via dedicated ⧉ button beside channel ID,
-  preserving the external link click to id3as GUI; previously `onclick` on the
-  row captured all clicks including on the `<a>` ext-lnk.
+- Channel Monitor modal now triggered via dedicated ⧉ button beside channel ID, preserving the external link click to id3as GUI; previously `onclick` on the row captured all clicks including on the `<a>` ext-lnk.
 
 ## [2.17.0] - 2026-05-14
 
@@ -1613,10 +1505,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - Channel node column now renders as an external link (`nodeLink`) to the id3as admin UI.
-- Each event in the channels ev-strip shows its actual encoder node beside the event id;
-  highlighted in amber when the event node differs from the channel's node.
-- Each event row in the nodes nev-list shows its encoder node with `↗` prefix in amber
-  when it differs from the node card it appears under.
+- Each event in the channels ev-strip shows its actual encoder node beside the event id; highlighted in amber when the event node differs from the channel's node.
+- Each event row in the nodes nev-list shows its encoder node with `↗` prefix in amber when it differs from the node card it appears under.
 - `bev()` now carries `encoder_node_id` from the running event payload into the event map.
 
 ## [2.15.3] - 2026-05-14
@@ -1629,50 +1519,32 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- `evFm is not defined` in Nodes view — `evFm` is now declared locally
-  inside `renderChannels` and `renderNodes` (not as a global variable).
-- Flags/events (keyed by `system_id` = event id) now count as warnings
-  in Channels and Nodes: `evWm` added to `r.warnings` / `c.warnings`, so
-  "Warnings only" filters them correctly and the WARN counter in the sumBar reflects them.
-- `renderRunning`: `fm` now uses `bfmEv(flagsEvData)` indexed by event id
-  instead of `bfm(raw.flagsEv)` indexed by channel id — lookup fixed to
-  `fm[id]` (event id) with fallback to `fm[ch]`.
-- Channels: flag/event warn-strips appear indented below each event
-  in the ev-strip, with badge `⚠ N flag(s)`.
-- Nodes: nwarn-list shows flags/events with `[ev]` label to distinguish
-  them from channel flags.
+- `evFm is not defined` in Nodes view — `evFm` is now declared locally inside `renderChannels` and `renderNodes` (not as a global variable).
+- Flags/events (keyed by `system_id` = event id) now count as warnings in Channels and Nodes: `evWm` added to `r.warnings` / `c.warnings`, so "Warnings only" filters them correctly and the WARN counter in the sumBar reflects them.
+- `renderRunning`: `fm` now uses `bfmEv(flagsEvData)` indexed by event id instead of `bfm(raw.flagsEv)` indexed by channel id — lookup fixed to `fm[id]` (event id) with fallback to `fm[ch]`.
+- Channels: flag/event warn-strips appear indented below each event in the ev-strip, with badge `⚠ N flag(s)`.
+- Nodes: nwarn-list shows flags/events with `[ev]` label to distinguish them from channel flags.
 
 ## [2.15.1] - 2026-05-14
 
 ### Fixed
 
-- Flags/events were not appearing in any view because the code indexed by
-  `channel_id`, while `system_id` in flags/events corresponds to the **event ID**.
-- `renderRunning`: `fm` is now indexed by event ID (`bfmEv(flagsEvData)`),
-  lookup fixed to `fm[id]` (event ID) with fallback to `fm[ch]`.
-- `renderChannels`: added `evFm` indexed by event ID; each event
-  in the ev-strip shows a `⚠ N flag(s)` badge and warning-strip details below.
+- Flags/events were not appearing in any view because the code indexed by `channel_id`, while `system_id` in flags/events corresponds to the **event ID**.
+- `renderRunning`: `fm` is now indexed by event ID (`bfmEv(flagsEvData)`), lookup fixed to `fm[id]` (event ID) with fallback to `fm[ch]`.
+- `renderChannels`: added `evFm` indexed by event ID; each event in the ev-strip shows a `⚠ N flag(s)` badge and warning-strip details below.
 - `renderNodes`: nev-row displays an event-level flags badge via `evFm`.
-- `renderRunning` ev-card: `hw` border activates when there are event flags,
-  even if there are no channel flags.
+- `renderRunning` ev-card: `hw` border activates when there are event flags, even if there are no channel flags.
 
 ## [2.15.0] - 2026-05-13
 
 ### Added
 
-- **Flags/Events banner** — persistent alert bar immediately below the toolbar,
-  visible across all views, populated from `/flags/events`; sorted by `repeated`
-  in descending order; displays up to 6 flags with a `+N more` indicator; automatically
-  hides when there are no entries.
-- `flagsEvData` loaded across all views: `channels`, `nodes`, and `scheduled` perform
-  an additional fetch to `/flags/events`; `running` reuses the `fev` already present in
-  the `Promise.all` without making an extra request.
+- **Flags/Events banner** — persistent alert bar immediately below the toolbar, visible across all views, populated from `/flags/events`; sorted by `repeated` in descending order; displays up to 6 flags with a `+N more` indicator; automatically hides when there are no entries.
+- `flagsEvData` loaded across all views: `channels`, `nodes`, and `scheduled` perform an additional fetch to `/flags/events`; `running` reuses the `fev` already present in the `Promise.all` without making an extra request.
 
 ### Fixed
 
-- Event name truncated using `text-overflow: ellipsis` in `.ev-name2` (cards in the
-  Running Events view) and in `.ev-name` (inline event rows in channel/node cards),
-  preventing overflow when the API returns long descriptions.
+- Event name truncated using `text-overflow: ellipsis` in `.ev-name2` (cards in the Running Events view) and in `.ev-name` (inline event rows in channel/node cards), preventing overflow when the API returns long descriptions.
 
 ## [2.14.5] - 2026-05-12
 

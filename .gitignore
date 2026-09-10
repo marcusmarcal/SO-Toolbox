@@ -1,4 +1,6 @@
 .env
+.env.bak-*
+.env.tmp
 ingest-results/
 mtr-results/
 gop-results/

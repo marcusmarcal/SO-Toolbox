@@ -1,155 +1,194 @@
 # SP SO Web Toolbox
 
-A comprehensive browser-based operations toolbox for the Streaming & Broadcast Operations team. Built as a single-page application served via nginx, with tools loaded dynamically through a Flask proxy backend.
+Browser-based operations toolbox for the Streaming & Broadcast Operations team. A single-page application served by nginx, with tools loaded dynamically and backed by a Flask proxy (`so-proxy`) that keeps credentials server-side and aggregates third-party APIs.
 
-> **For server setup and rebuild instructions, see [`SERVER_REBUILD.md`](SERVER_REBUILD.md).**
-> **For deployment guidance on id3as monitoring, see [`DEPLOY_id3as.md`](DEPLOY_id3as.md).**
+> **Related documents**
+> - Server setup and rebuild: [`SERVER_REBUILD.md`](SERVER_REBUILD.md)
+> - id3as monitoring deployment: [`DEPLOY_id3as.md`](DEPLOY_id3as.md)
+> - API reference: [`SO-Toolbox-API-Docs.html`](SO-Toolbox-API-Docs.html)
+> - Version history: [`CHANGELOG.md`](CHANGELOG.md)
+
+## Contents
+
+- [Overview](#overview)
+- [Tools](#tools)
+- [Backend](#backend)
+- [Configuration](#configuration)
+- [Proxy Endpoints](#proxy-endpoints)
+- [Directory Structure](#directory-structure)
+- [Quick Start](#quick-start)
+- [Requirements](#requirements)
+- [Security Notes](#security-notes)
+- [Troubleshooting](#troubleshooting)
+- [Versioning](#versioning)
+- [License](#license)
 
 ---
 
 ## Overview
 
-The SO Toolbox is a unified platform providing real-time monitoring, stream analysis, and operational management for broadcast and streaming infrastructure. The architecture separates the frontend (static HTML/JS) from the backend (Flask proxy), enabling secure credential management and API aggregation.
+The Toolbox provides real-time monitoring, stream analysis and operational management for broadcast and streaming infrastructure. The frontend (static HTML/JS) is separated from the backend (Flask proxy), so credentials never reach the browser and every external API is reached through one authenticated entry point.
 
-### Key Components
-
-- **index.html** — Main application shell with navigation, tool registry, and real-time server monitoring
-- **proxy.py** — Flask CORS proxy handling API requests, credentials, and backend integrations
-- **nginx.conf** / **nginx-debian.conf** — Web server configuration (CentOS/RHEL and Debian/Ubuntu)
-- **so-proxy.service** — systemd service unit for the Flask proxy
-- **.env** — Tool registry, server presets, and credentials (git-ignored, server-side only)
+| Component | Role |
+|-----------|------|
+| `index.html` | Application shell: navigation, tool registry, server monitoring, README/changelog viewers |
+| `proxy.py` | Flask CORS proxy handling API requests, credentials and backend integrations; registers all Blueprints |
+| `nginx.conf` / `nginx-debian.conf` | Web server configuration (RHEL/CentOS and Debian/Ubuntu) |
+| `so-proxy.service` | systemd unit for the Flask proxy |
+| `.env` | Tool registry, server presets and credentials (git-ignored, server-side only) |
 
 ---
 
 ## Tools
 
-### 📊 Video & Stream Analysis
+Tools are registered in `.env` (`TOOL_n=...`) and rendered in the sidebar and welcome cards. Each tool is a standalone HTML page that talks to the proxy.
 
-#### **BTV Video Analyser** (`BTV-Video-Analyser.html`)
-Professional video stream analysis for SRT and uploaded files.
-- **Capabilities**: GOP analysis, frame type distribution, codec/profile detection, bitrate/resolution analysis
-- **Compliance**: Configurable specs for IDR presence, GOP structure, B-frames, audio/video sync
-- **Reports**: Visual compliance dashboard, text/Jira export, mediainfo report viewer
-- **Tech**: `ffprobe` / `mediainfo` backend, batch result storage with filtering/pagination
+### Video & Stream Analysis
 
-#### **Ingest Analyser** (`Ingest-Analyzer.html`)
-Stream quality validation for ingest sources (SRT, RTMP, UDP, file upload).
-- **Capabilities**: Runs detailed analysis via `run-ingest-analysis.sh` (~2 min), generates reports with charts
-- **Backend**: Streaming job monitor, background task support, ZIP + HTML report download
-- **Tech**: Requires `ffprobe`, `perl >= 5.36`, `gnuplot`, `jq`, `bc`
+#### BTV Video Analyser
+`BTV-Video-Analyser.html` — Professional video stream analysis for SRT, RTMP and uploaded files.
 
-#### **Live Probe** (integrated in BTV)
-Real-time network telemetry for SRT sources.
-- **Metrics**: PCR interval (IAT), TS continuity-counter loss (MLR), bitrate
-- **Tech**: `srt-live-transmit` backend (Haivision SRT tools), no external probe dependency
-- **Display**: Live area chart with avg/max readouts, configurable alarm thresholds
+- **Capabilities** — GOP analysis, frame type distribution, codec/profile detection, bitrate/resolution analysis
+- **Compliance** — Configurable specs per workflow for IDR presence, GOP structure, B-frames, audio/video sync
+- **Reports** — Visual compliance dashboard, text/Jira export, MediaInfo report viewer
+- **Tech** — `ffprobe` / `mediainfo` backend, result storage with filtering and pagination
 
-### 📡 Real-Time Monitoring
+#### Ingest Analyser
+`Ingest-Analyzer.html` — Stream quality validation for ingest sources (SRT, RTMP, UDP, file upload).
 
-#### **RTS Monitor** (`RTS-Monitor.html`)
-PhenixRTS channel and viewing statistics dashboard.
-- **Tabs**:
-  - **Channels** — Live channel table with publisher status, alias, channel ID, stream key, forked-from tracking
-  - **Viewing Report** — Query session data by Event ID and time window (UTC), paginated results (100 rows/batch)
-  - **Fork Origin** — Track fork events by date range; query source/destination channels
-- **Features**: Search (name, alias, channel ID, stream key, status), supplier filter (RMG HA/EBC), export to Excel
-- **Tech**: PhenixRTS API via proxy, no credentials in browser
+- **Capabilities** — Runs `run-ingest-analysis.sh` (~2 min) and generates reports with charts
+- **Backend** — Background jobs with progress monitor, ZIP + HTML report download
+- **Tech** — Requires `ffprobe`, `perl >= 5.36`, `gnuplot`, `jq`, `bc`
 
-#### **id3as DC Monitor** (`id3as-DC-Monitor.html`)
-Distributed encoding infrastructure monitoring across multiple Data Centers.
-- **Views**:
-  - **Channels** — Live channel state (encoding/source status), search & filter
-  - **Nodes** — Node list with health and alarm status, grace-period event-starting detection
-  - **Events** — Running scheduled events with channel flag warnings
-  - **Logs** — System event log (by date, today UTC by default)
-- **Features**: Real-time flag warnings (per channel or event), event-starting grace period (suppress alarms 3 min), drill-down to channel/node status
-- **Tech**: id3as API via proxy using PRFAUTH token, DC hostnames from `.env`
+#### Live Probe
+Integrated in BTV Video Analyser — Real-time network telemetry for SRT sources.
 
-#### **Probe Monitoring** (`ProbeMonitoring.html`)
-Control-room style monitoring for distributed probe channels.
-- **Features**: Two independent channel slots, 40 configurable Id3as AWS + Probe URL pairs, fixed RMG MV reference feeds
-- **Tech**: localStorage persistence, dark control-room UI with teal/amber accents
+- **Metrics** — PCR interval (IAT), TS continuity-counter loss (MLR), bitrate
+- **Display** — Live area chart with avg/max readouts and configurable alarm thresholds
+- **Tech** — `srt-live-transmit` backend (Haivision SRT tools), no external probe dependency
 
-### 🚀 SRT & Ingest Control
+### Real-Time Monitoring
 
-#### **SRT URI Builder** (`SRT-URI-Builder.html`)
-Form-based SRT connection URI generator.
-- **Features**: Mode, passphrase, latency, pbkeylen, advanced SRT options; server/local presets from `.env`
-- **Output**: Copy-ready SRT URIs for stream configuration
+#### RTS Monitor
+`RTS-Monitor.html` — PhenixRTS channel and viewing statistics dashboard.
 
-#### **SRT Tool** (`srt_tool.html`)
-Advanced SRT stream ingestion and management.
-- **Capabilities**: Single & multi-destination ingest, shared ffmpeg mode (passthrough to many targets), file-based or B&T (colour bars + 1kHz tone) source
-- **Features**: Auto-retry on failure, per-job restart, error tracking, bitrate monitor
-- **B&T Mode**: Burns live UTC clock overlay (HH:MM:SS.mmm) for latency measurement
+- **Channels** — Live channel table with publisher status, alias, channel ID, stream key and forked-from tracking
+- **Viewing Report** — Session data by Event ID and UTC time window, paginated (100 rows per batch)
+- **Fork Origin** — Fork events by date range with source/destination channel resolution
+- **Features** — Search across all columns, supplier filter (RMG HA / RMG EBC), export to Excel
+- **Tech** — PhenixRTS API via proxy, no credentials in the browser
 
-#### **SRT Push Monitor** (`srt_push_monitor.html`)
-Manages concurrent SRT push services (static image or HTML page capture).
-- **Features**: Per-service configuration, preview/log viewing, enable toggle, source type switching
-- **Tech**: Multi-service support via `srt-push.py` daemon, per-service systemd integration
+#### id3as DC Monitor
+`id3as-DC-Monitor.html` — Distributed encoding infrastructure monitoring across multiple data centres.
 
-### 📺 Broadcast Infrastructure
+- **Channels** — Live channel state (encoder/source status), search and filter
+- **Nodes** — Node list with health and alarm status, event-starting grace period
+- **Events** — Running scheduled events with channel flag warnings
+- **Logs** — System event log (by date, today UTC by default)
+- **Features** — Real-time flag warnings per channel or event, 3-minute alarm suppression while an event is starting, drill-down to channel/node status
+- **Tech** — id3as API via proxy using the PRFAUTH token; DC hostnames come from `.env`
 
-#### **RTS Player** (`RTS-Test-Player.html`)
-Generate and launch RTS player URLs with automatic viewer token injection.
+#### Probe Monitoring
+`ProbeMonitoring.html` — Control-room style view of distributed probe channels.
 
-#### **TXCore Manager** (`TXCore-Manager.html`)
-TXCore channel provisioning tool for AVE/LMK/YER sites.
-- **Features**: Category creation, bulk channel form, request preview, async job monitoring with live logs
-- **Config**: Site-specific IP prefixes, auto-fill from First CH#, live multicast address preview
+- **Features** — Two independent channel slots, 40 configurable Id3as AWS + Probe URL pairs, fixed RMG MV reference feeds
+- **Tech** — `localStorage` persistence, dark control-room UI
 
-#### **RTS BC ConfigTool** (`RTS-BC-ConfigTool.html`)
-Broadcast configuration management for RTS services.
+### SRT & Ingest Control
 
-#### **RTS Stats Channel Publisher** (`RTS-StatsChannelPublisher.html`)
-Real-time stats publishing for RTS channels.
+#### SRT URI Builder
+`SRT-URI-Builder.html` — Form-based SRT connection URI generator.
 
-### ⚙️ Admin & Utilities
+- **Features** — Mode, passphrase, latency, pbkeylen and advanced SRT options; server/local presets from `.env`
+- **Output** — Copy-ready SRT URIs
 
-#### **Jira Formatter** (`jira-formatter.html`)
-Transform ServiceNow onboarding data into clean Jira ticket format (copy-ready with rich text).
+#### SRT Ingest
+`srt_tool.html` — SRT stream ingestion and management.
 
-#### **RMG Purge URL Generator** (`purge-url-generator.html`)
-Build cache purge URLs from Event IDs and month/year.
+- **Capabilities** — Single and multi-destination ingest, shared ffmpeg mode (passthrough to many targets), file-based or B&T (colour bars + 1 kHz tone) source
+- **Features** — Auto-retry on failure, per-job restart, error tracking, bitrate monitor, source picker with search
+- **B&T mode** — Burns a live UTC clock overlay (HH:MM:SS.mmm) for latency measurement
 
-#### **Chrome Extensions** (`sp-extensions.html`)
-Browser extensions for operational workflows:
+#### SRT Push Monitor
+`srt_push_monitor.html` — Manages concurrent SRT push services (static image or HTML page capture).
+
+- **Features** — Per-service configuration, preview and log viewing, enable toggle, source type switching
+- **Tech** — Multi-service `srt-push.py` daemon run as a systemd unit
+
+### Broadcast Infrastructure
+
+#### RTS Player
+`RTS-Test-Player.html` — Generates and launches RTS player URLs with automatic viewer token injection.
+
+#### TXCore Manager
+`TXCore-Manager.html` — TXCore channel provisioning for the AVE / LMK / YER sites.
+
+- **Features** — Category creation, bulk channel form, request preview, async job monitoring with live log
+- **Config** — Site-specific IP prefixes, auto-fill from First CH#, live multicast address preview
+
+#### RTS BC ConfigTool
+`RTS-BC-ConfigTool.html` — Broadcast configuration management for RTS services.
+
+#### RTS Stats Channel Publisher
+`RTS-StatsChannelPublisher.html` — Loads StatsChannelPublisher with a given publishing token.
+
+### Admin & Utilities
+
+#### Jira Formatter
+`jira-formatter.html` — Converts ServiceNow Requests (RITM) and Incidents (INC) into a clean, copy-ready Jira ticket format.
+
+#### RMG Purge URL Generator
+`purge-url-generator.html` — Builds cache purge URLs from Event IDs and month/year.
+
+#### Chrome Extensions
+`sp-extensions.html` — Browser extensions for operational workflows.
+
 - **RITM Ticket Formatter** — Convert ServiceNow RITM pages to Jira tickets
-- **TXEdge VLC Launcher** — Auto-detect & launch SRT streams in VLC (passphrase stored securely)
-- **SO Video Analyser** — Trigger video analysis on TXEdge/TXCore pages, results inline
+- **TXEdge VLC Launcher** — Detect and launch SRT streams in VLC (passphrase stored securely)
+- **SO Video Analyser** — Trigger video analysis from TXEdge/TXCore pages, results inline
 
-#### **Users Admin** (`users-admin.html`)
-User management with role-based access control.
-- **Roles**: Admin, Engineer, Specialist, Analyst, User
-- **Fields**: rota_status (active/inactive/observer), team (SOE/SOS/NA), display_name, employee_id
+#### SO Toolbox Admin
+`so-toolbox-admin.html` — Administration console: users, live sessions and the server-side `.env`.
 
-#### **WC2026 Rota Management** (`wc2026_rota_management.html`)
-World Cup 2026 duty scheduling and rotation management.
-- **Integration**: openfootball sync for match schedules, team tracking, kickoff times
-- **Features**: Four engineer slots (auto-assign, bulk edit, score tracking), CSV export, filter by date/team
+- **Users tab** — Roles admin, engineer, specialist, analyst, user; fields `rota_status` (active / inactive / observer), `team` (SOE / SOS / NA), `display_name`, `employee_id`
+- **Online tab** — Currently logged-in users with session metadata; admins can kick a user
+- **Environment tab** (admin only) — Manage every key in `.env`: add, edit inline, rename, delete; commented-out `# KEY=VALUE` lines shown as disabled options with Enable / Disable; structured editors for `TOOL_n` (file picker, name, description, icon, category, badge) and SRT presets (host + label); secrets masked with reveal-on-demand; file-order view with section headers and comments; search and filters (tools, presets, disabled, secrets, needs-restart, not referenced, empty, duplicates); LIVE / RESTART / REF badge per key showing which Blueprint reads it and whether a proxy restart is needed; raw editor with server-side validation and conflict detection; automatic timestamped backups before every write with diff, restore and delete; one-click proxy restart
 
-#### **MTR Network Trace** (`MTR-Trace.html`)
-Server-side network path tracing with streaming results.
-- **Features**: Packet count or time duration mode, background daemon threads, tagged result storage, browsable history
+#### WC2026 Rota Management
+`wc2026_rota_management.html` — World Cup 2026 engineering rota planner.
+
+- **Integration** — openfootball sync for match schedules, team names and kickoff times
+- **Features** — Four engineer slots, auto-assign, bulk edit, score tracking, CSV import/export, filter by date/team
+
+#### MTR Network Trace
+`MTR-Trace.html` — Server-side network path tracing with streamed results.
+
+- **Features** — Packet-count or time-duration mode, background jobs, tagged result storage, browsable history
 
 ---
 
-## API & Configuration
+## Backend
 
-### Flask Blueprints (Backend Routes)
+`proxy.py` is the entry point and registers the following Flask Blueprints:
 
 | Blueprint | File | Purpose |
 |-----------|------|---------|
-| **auth** | `routes_auth.py` | User authentication, role validation, session management |
-| **GOP** | `routes_gop.py` | Video compliance analysis, specs management, workflow control |
-| **SRT** | `routes_srt.py` | SRT ingest, multi-destination fan-out, B&T source control |
-| **id3as** | `id3as_routes.py` | DC monitoring, channel/node/event/log queries |
-| **RTS** | `rts_routes.py` | PhenixRTS channel list, publisher count, fork history |
-| **TXCore** | `routes_txcore.py` | Channel provisioning, category management |
-| **Live Probe** | `routes_live_probe.py` | Real-time IAT/MLR monitor for SRT streams |
-| **Rota** | `routes_rota.py` | WC2026 schedule, assignments, team management |
+| auth | `routes_auth.py` | Authentication, roles, sessions, user management |
+| env | `routes_env.py` | Admin-only `.env` manager: parsed view, CRUD, raw editor, backups |
+| GOP | `routes_gop.py` | Video compliance analysis, specs and workflow management |
+| SRT | `routes_srt.py` | SRT ingest, multi-destination fan-out, B&T source |
+| id3as | `id3as_routes.py` | DC monitoring: channels, nodes, events, logs |
+| RTS | `rts_routes.py` | PhenixRTS channel list, publisher count, fork history, viewing report |
+| TXCore | `routes_txcore.py` | Channel provisioning and category management |
+| Live Probe | `routes_live_probe.py` | Real-time IAT/MLR monitor for SRT streams |
+| Rota | `routes_rota.py` | Team rota: members, roster, schedule, leave, notes, draft lock |
+| WC2026 | `wc2026_routes.py` | WC2026 assignments, scores and team names |
 
-### Environment Configuration (`.env`)
+---
+
+## Configuration
+
+All configuration lives in `.env` on the server. The file is git-ignored and is never served to the browser; `GET /so-proxy/config` exposes only the safe subset. Admins can edit it from the **Environment** tab of `so-toolbox-admin.html`; every write takes a `.env.bak-<timestamp>` backup first (last 15 kept, git-ignored and blocked by nginx). Keys read at start-up by `routes_txcore.py` need a proxy restart; the UI flags them.
 
 ```env
 # Application
@@ -172,7 +211,7 @@ SRT_SERVER_2=203.0.113.20|Ingest UK
 SRT_LOCAL_1=10.0.0.1|INX01
 SRT_LOCAL_2=10.0.0.2|INX02
 
-# Shared Credentials (Server-side only, never sent to browser)
+# Shared Credentials (server-side only, never sent to the browser)
 SRT_PASSPHRASE=your-passphrase-here
 PHENIXRTS_APP_ID=your-app-id
 PHENIXRTS_PASSWORD=your-password
@@ -194,135 +233,174 @@ AD_SERVER=ldap.example.com
 RTS_API_URL=https://rts-api.example.com
 ```
 
-### Proxy Endpoints
+---
 
-**Server Info & Status**
-- `GET /so-proxy/config` — Safe config from `.env` (tools, presets, passphrase)
-- `GET /so-proxy/server-info` — Local IPs, gateway, public IP
-- `GET /so-proxy/server-stats` — Live CPU, memory, disk usage (refreshed every 5s)
-- `GET /so-proxy/me` — Current user profile (role, team, rota_status)
+## Proxy Endpoints
 
-**PhenixRTS**
-- `GET /so-proxy/channels` — Channel list
-- `GET /so-proxy/publishers/count/<id>` — Publisher count for channel
-- `GET /so-proxy/rts/fork-history` — Fork events by date range
+The full reference, with request/response examples, is in [`SO-Toolbox-API-Docs.html`](SO-Toolbox-API-Docs.html). The most used routes:
 
-**id3as DC Monitoring**
-- `GET /so-proxy/id3as/config` — DC base URLs
-- `GET /so-proxy/id3as/<dc>/channels/<variant>` — Channel list (default | racing_uk)
-- `GET /so-proxy/id3as/<dc>/flags/channels` — Active channel warnings
-- `GET /so-proxy/id3as/<dc>/running_events` — Running scheduled events
-- `GET /so-proxy/id3as/<dc>/nodes` — Node list with status
-- `GET /so-proxy/id3as/<dc>/logs[/<y>/<m>/<d>]` — System event log
+#### Server info & status
 
-**GOP Video Analysis**
-- `POST /gop/run` — Start analysis job (SRT or file)
-- `GET /gop/jobs/running` — In-progress jobs
-- `GET /gop/results` — History with pagination/filtering
-- `PATCH /gop/result/<file>/workflow` — Change workflow, re-evaluate
-- `GET /gop/specs` — Compliance specs for workflow
-- `POST /gop/specs` — Save/update specs (admin/engineer)
-- `POST /gop/workflows/default` — Set API default workflow
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/so-proxy/config` | Safe config from `.env` (tools, presets) |
+| GET | `/so-proxy/server-info` | Local IPs, gateway, public IP |
+| GET | `/so-proxy/server-stats` | Live CPU, memory and disk usage (5 s refresh) |
+| GET | `/so-proxy/me` | Current user profile (role, team, rota status) |
+| GET | `/so-proxy/proxy/activity` | Active background jobs grouped by tool |
 
-**SRT Ingest**
-- `POST /srt/ingest/single` — Single-destination ingest
-- `POST /srt/ingest/multi` — Multi-destination fan-out
-- `POST /srt/ingest/multi-shared` — Shared ffmpeg mode
-- `GET /srt/status/<job_id>` — Job status & bitrate stats
+#### .env manager (admin only)
 
-**MTR Network Trace**
-- `GET /so-proxy/mtr/stream` — SSE stream for live trace
-- `GET /so-proxy/mtr/results` — Completed traces
-- `POST /so-proxy/mtr/tag/<file>` — Tag result
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/so-proxy/env` | Parsed `.env` in file order (secrets masked) with stats and per-key consumer/reload info |
+| GET | `/so-proxy/env/keys/<key>/reveal` | Real value of one key (audited) |
+| POST | `/so-proxy/env/keys` | Add a variable (`key`, `value`, optional `after`, `comment`) |
+| PUT | `/so-proxy/env/keys/<key>` | Update a value |
+| PUT | `/so-proxy/env/keys/<key>/rename` | Rename a key |
+| DELETE | `/so-proxy/env/keys/<key>` | Delete a key (`?all=1` removes duplicates too) |
+| GET | `/so-proxy/env/lines/<n>/reveal?key=` | Real value of line `n` (active or disabled) |
+| PUT / DELETE | `/so-proxy/env/lines/<n>` | Update / delete line `n`, validated against the expected `key` |
+| POST | `/so-proxy/env/lines/<n>/toggle` | Enable or disable (comment out) line `n`; `replace: true` disables other active definitions |
+| GET / PUT | `/so-proxy/env/raw` | Read / replace the whole file (validated, mtime conflict check) |
+| GET / POST | `/so-proxy/env/backups` | List backups / create one now |
+| GET | `/so-proxy/env/backups/<name>/diff` | Unified diff backup → current (secrets masked) |
+| POST | `/so-proxy/env/backups/<name>/restore` | Restore a backup (current file is backed up first) |
+| DELETE | `/so-proxy/env/backups/<name>` | Delete a backup |
 
-**File Upload & Download**
-- `POST /upload` — Accept .ts file uploads (requires `client_max_body_size 2G` in nginx)
-- `GET /so-proxy/ingest/download/<file>` — Download analysis ZIP
+#### PhenixRTS
 
-**Administration**
-- `POST /so-proxy/git-pull` — Update from git (admin/engineer)
-- `POST /so-proxy/restart-proxy` — Restart Flask proxy (admin/engineer)
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/so-proxy/channels` | Channel list |
+| GET | `/so-proxy/publishers/count/<id>` | Publisher count for a channel |
+| POST | `/so-proxy/rts/viewing-report` | Viewing sessions for a channel and time window (CSV) |
+| GET | `/so-proxy/rts/fork-history` | Fork events by date range |
+
+#### id3as DC monitoring
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/so-proxy/id3as/config` | DC base URLs |
+| GET | `/so-proxy/id3as/<dc>/channels/<variant>` | Channel list (`default` or `racing_uk`) |
+| GET | `/so-proxy/id3as/<dc>/flags/channels` | Active channel warnings |
+| GET | `/so-proxy/id3as/<dc>/running_events` | Running scheduled events |
+| GET | `/so-proxy/id3as/<dc>/nodes` | Node list with status |
+| GET | `/so-proxy/id3as/<dc>/logs[/<y>/<m>/<d>]` | System event log |
+
+#### Video analysis (GOP)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | `/gop/run` | Start an analysis job (SRT, RTMP or file) |
+| GET | `/gop/jobs/running` | In-progress jobs |
+| GET | `/gop/results` | History with pagination and filtering |
+| PATCH | `/gop/result/<file>/workflow` | Change workflow and re-evaluate |
+| GET | `/gop/specs` | Compliance specs for a workflow |
+| POST | `/gop/specs` | Save specs (admin/engineer) |
+| POST | `/gop/workflows/default` | Set the API default workflow |
+
+#### SRT ingest
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | `/srt/ingest/single` | Single-destination ingest |
+| POST | `/srt/ingest/multi` | Multi-destination fan-out (independent processes) |
+| POST | `/srt/ingest/multi-shared` | Shared single ffmpeg process |
+| GET | `/srt/status/<job_id>` | Job status and bitrate stats |
+
+#### MTR network trace
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/so-proxy/mtr/stream` | SSE stream for a live trace |
+| GET | `/so-proxy/mtr/results` | Completed traces |
+| POST | `/so-proxy/mtr/tag/<file>` | Tag a result |
+
+#### Files & administration
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | `/upload` | Accept `.ts` uploads (requires `client_max_body_size 2G` in nginx) |
+| GET | `/so-proxy/ingest/download/<file>` | Download an analysis ZIP |
+| GET | `/so-proxy/sessions` | Active sessions (admin/engineer) |
+| DELETE | `/so-proxy/sessions/<username>` | Terminate a user's sessions (admin) |
+| POST | `/so-proxy/git-pull` | Update from git (admin/engineer) |
+| POST | `/so-proxy/restart-proxy` | Restart the Flask proxy (admin/engineer) |
 
 ---
 
 ## Directory Structure
 
 ```
-.
-├── index.html                          # Main application shell
-├── proxy.py                            # Flask proxy (main entry point)
-├── so-proxy.service                    # systemd service unit
-├── nginx.conf                          # RHEL/CentOS config
-├── nginx-debian.conf                   # Debian/Ubuntu config
-├── .env                                # Credentials & config (git-ignored)
-├── users.json.template                 # User template for local auth
+/opt/web/
+├── index.html                  Main application shell
+├── proxy.py                    Flask proxy (entry point)
+├── so-proxy.service            systemd service unit
+├── nginx.conf                  RHEL/CentOS config
+├── nginx-debian.conf           Debian/Ubuntu config
+├── .env                        Credentials & config (git-ignored)
+├── users.json.template         User template for local auth
 │
-├── Tools (HTML Frontends)
-├── BTV-Video-Analyser.html
-├── Ingest-Analyzer.html
-├── id3as-DC-Monitor.html
-├── RTS-Monitor.html
-├── RTS-Player.html
-├── SRT-URI-Builder.html
-├── srt_tool.html
-├── srt_push_monitor.html
-├── MTR-Trace.html
-├── TXCore-Manager.html
-├── ProbeMonitoring.html
-├── WC2026.html
-├── wc2026_rota_management.html
-├── jira-formatter.html
-├── users-admin.html
-├── sp-extensions.html
-└── SO-Toolbox-API-Docs.html
+├── Tool frontends
+│   ├── BTV-Video-Analyser.html
+│   ├── Ingest-Analyzer.html
+│   ├── id3as-DC-Monitor.html
+│   ├── RTS-Monitor.html
+│   ├── RTS-Test-Player.html
+│   ├── SRT-URI-Builder.html
+│   ├── srt_tool.html
+│   ├── srt_push_monitor.html
+│   ├── MTR-Trace.html
+│   ├── TXCore-Manager.html
+│   ├── ProbeMonitoring.html
+│   ├── wc2026_rota_management.html
+│   ├── jira-formatter.html
+│   ├── so-toolbox-admin.html
+│   ├── sp-extensions.html
+│   └── SO-Toolbox-API-Docs.html
 │
-├── Backend Routes (Flask Blueprints)
-├── routes_auth.py                      # Auth, users, roles
-├── routes_gop.py                       # Video analysis & compliance
-├── routes_srt.py                       # SRT ingest control
-├── id3as_routes.py                     # DC monitoring
-├── rts_routes.py                       # PhenixRTS
-├── routes_txcore.py                    # TXCore provisioning
-├── routes_live_probe.py                # Real-time IAT/MLR monitor
-├── routes_rota.py                      # WC2026 scheduling
-└── wc2026_routes.py                    # WC2026 backend
+├── Backend routes (Flask Blueprints)
+│   ├── routes_auth.py          Auth, users, roles, sessions
+│   ├── routes_env.py           .env manager (admin only)
+│   ├── routes_gop.py           Video analysis & compliance
+│   ├── routes_srt.py           SRT ingest control
+│   ├── id3as_routes.py         DC monitoring
+│   ├── rts_routes.py           PhenixRTS
+│   ├── routes_txcore.py        TXCore provisioning
+│   ├── routes_live_probe.py    Real-time IAT/MLR monitor
+│   ├── routes_rota.py          Team rota
+│   └── wc2026_routes.py        WC2026 backend
 │
-├── Data & Storage
-├── mtr-results/                        # Saved MTR traces (JSON)
-├── ingest-results/                     # Analysis reports (ZIP + HTML)
-├── gop-results/                        # Video compliance results (JSON)
-└── rota/                               # WC2026 schedule data
+├── Data & storage
+│   ├── mtr-results/            Saved MTR traces (JSON)
+│   ├── store/gop-results/      Video compliance results (JSON + .ts)
+│   ├── store/ingest-results/   Analysis reports (ZIP + HTML)
+│   ├── store/recordings/       Video Analyser recordings (.ts)
+│   └── sessions.json           Persisted user sessions (mode 0600)
 │
-├── Build & Helper Scripts
-├── generate-report.sh                  # Generate HTML/text reports (perl >= 5.36)
-├── cleanup.sh                          # Maintenance cleanup
-├── srt-push.py                         # SRT push service daemon
-├── srt-push-config.example.json        # SRT push config template
+├── Scripts & services
+│   ├── generate-report.sh      HTML/text reports (perl >= 5.36)
+│   ├── cleanup.sh              Maintenance cleanup
+│   ├── srt-push.py             SRT push service daemon
+│   └── srt-push-config.example.json
 │
-├── Configuration
-├── SERVER_REBUILD.md                   # Setup & deployment guide
-├── DEPLOY_id3as.md                     # id3as deployment notes
-├── CHANGELOG.md                        # Version history (Keep a Changelog)
-├── README.md                           # This file
-└── LICENSE                             # MIT License
+└── Documentation
+    ├── README.md               This file
+    ├── SERVER_REBUILD.md       Setup & deployment guide
+    ├── DEPLOY_id3as.md         id3as deployment notes
+    ├── CHANGELOG.md            Version history (Keep a Changelog)
+    └── LICENSE                 MIT License
 ```
-
----
-
-## Version History
-
-See [CHANGELOG.md](CHANGELOG.md) for full version history in [Keep a Changelog](https://keepachangelog.com) format.
-
-**Current version** is always the first entry in `CHANGELOG.md`. The `index.html` reads the changelog at runtime to display the version badge and modal — no hardcoding required.
 
 ---
 
 ## Quick Start
 
-### Server Setup
+### Server
 
 ```bash
-# See SERVER_REBUILD.md for full instructions
+# See SERVER_REBUILD.md for the full procedure
 git clone https://github.com/marcusmarcal/SO-Toolbox.git /opt/web/so-toolbox
 cd /opt/web/so-toolbox
 cp .env.template .env
@@ -330,7 +408,13 @@ cp .env.template .env
 systemctl start so-proxy
 ```
 
-### Local Development
+After updating any served file (HTML, Python, Markdown) restart the proxy so the new version is picked up:
+
+```bash
+systemctl restart so-proxy.service
+```
+
+### Local development
 
 ```bash
 python3 proxy.py
@@ -342,58 +426,51 @@ python3 proxy.py
 
 ## Requirements
 
-### Backend
-- Python 3.8+
-- Flask, requests, python-ldap (or local auth)
-- ffprobe, mediainfo, perl >= 5.36, gnuplot, jq, bc (for analysis)
-- srt-live-transmit (for Live Probe)
-- nginx (web server)
+### Server
+
+- Python 3.8+ with Flask, requests and python-ldap (or local auth)
+- nginx
+- `ffprobe`, `mediainfo`, `perl >= 5.36`, `gnuplot`, `jq`, `bc` — video and ingest analysis
+- `srt-live-transmit` (Haivision srt-tools) — Live Probe
+- `mtr` — MTR Network Trace
 
 ### Browser
-- Modern browser (Chrome, Firefox, Safari, Edge)
-- JavaScript enabled
-- WebSocket support (for SSE streams)
+
+- Modern browser (Chrome, Firefox, Safari, Edge) with JavaScript enabled
+- `EventSource` (Server-Sent Events) support for live streams
 
 ---
 
 ## Security Notes
 
-- ✅ `.env` is git-ignored and never served directly to browsers
-- ✅ Credentials (PRFAUTH, API keys, passwords) are server-side only
-- ✅ Role-based access control (admin, engineer, specialist, analyst, user)
-- ✅ CORS proxy prevents cross-origin API access from untrusted sources
-- ✅ Large file uploads require `client_max_body_size 2G` in nginx config
-- ⚠️ SRT passphrase is exposed to browser (consider HTTPS only)
+- `.env`, `users.json` and `sessions.json` are git-ignored and blocked by nginx; they are never served to browsers.
+- Credentials (PRFAUTH, API keys, passwords) stay server-side; every third-party API is reached through the proxy.
+- Role-based access control: admin, engineer, specialist, analyst, user. Sensitive actions (git pull, restart, specs editing, user management) require admin or engineer.
+- Passwords are stored as bcrypt hashes; sessions are `HttpOnly` cookies with an 8-hour TTL and are persisted with mode 0600.
+- Large uploads need `client_max_body_size 2G` in the nginx configuration.
+- The SRT passphrase is delivered to the browser for the SRT tools — serve the Toolbox over HTTPS only.
 
 ---
 
 ## Troubleshooting
 
-**Jobs not running:**
-- Check `systemctl status so-proxy` and proxy logs
-- Verify `.env` credentials and network access
-- Ensure dependent binaries (ffprobe, mtr, srt-live-transmit) are installed
+| Symptom | Check |
+|---------|-------|
+| Jobs not running | `systemctl status so-proxy` and the proxy log; `.env` credentials and network access; dependent binaries (`ffprobe`, `mtr`, `srt-live-transmit`) installed |
+| A file update is not visible (old content or 404) | The proxy keeps serving the previous file until restarted: `systemctl restart so-proxy.service` |
+| Large file uploads fail | Increase `client_max_body_size` in the nginx config |
+| id3as data not loading | `ID3AS_HOST_IX` / `ID3AS_HOST_EQ` in `.env`; PRFAUTH token and DC network access |
+| Video analysis stuck | Incomplete `.ts` uploads; `ffprobe` / `mediainfo` availability; `/var/log/so-proxy.log` |
+| Users logged out after a restart | Sessions are persisted in `sessions.json`; check the file exists and is writable by the service user |
 
-**Large file uploads fail:**
-- Increase `client_max_body_size` in nginx config
+---
 
-**id3as data not loading:**
-- Verify `ID3AS_HOST_IX` and `ID3AS_HOST_EQ` in `.env`
-- Check PRFAUTH token and DC network access
+## Versioning
 
-**Video analysis stuck:**
-- Check for incomplete .ts file uploads
-- Verify ffprobe/mediainfo availability
-- Review `/var/log/so-proxy.log`
+Releases follow [Semantic Versioning](https://semver.org) and are documented in [`CHANGELOG.md`](CHANGELOG.md) using the [Keep a Changelog](https://keepachangelog.com) format. The current version is always the first release entry in `CHANGELOG.md`; `index.html` reads it at runtime for the version badge and the changelog viewer, so nothing is hard-coded.
 
 ---
 
 ## License
 
-MIT License - See LICENSE file for details
-
----
-
-## Support
-
-For issues, feature requests, or deployment questions, refer to [SERVER_REBUILD.md](SERVER_REBUILD.md) or check the [API documentation](SO-Toolbox-API-Docs.html).
+MIT License — see the `LICENSE` file for details.

@@ -49,7 +49,7 @@ DISPLAY_NAME_MAX_LEN = 14
 EMPLOYEE_ID_MAX_LEN  = 6
 
 # ── Session store ─────────────────────────────────────────
-_sessions = {}  # token → { username, role, expires }
+# Populated in the SESSION section below (loaded from sessions.json).
 
 
 # ══════════════════════════════════════════════════════════
@@ -120,6 +120,39 @@ def _verify_password(password, hashed):
 # SESSION
 # ══════════════════════════════════════════════════════════
 
+SESSIONS_FILE = os.path.join(_BASE_DIR, 'sessions.json')
+
+
+def _load_sessions():
+    """Load persisted sessions from disk, dropping any that have expired."""
+    if not os.path.exists(SESSIONS_FILE):
+        return {}
+    try:
+        with open(SESSIONS_FILE, 'r') as f:
+            data = json.load(f)
+        now = time.time()
+        return {t: s for t, s in data.items() if s.get('expires', 0) > now}
+    except Exception:
+        return {}
+
+
+def _save_sessions():
+    """Atomically persist the session store (0600 — contains live tokens)."""
+    try:
+        tmp = SESSIONS_FILE + '.tmp'
+        with open(tmp, 'w') as f:
+            json.dump(_sessions, f)
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, SESSIONS_FILE)
+    except Exception:
+        pass  # Persistence failure must never break authentication
+
+
+# token → { username, role, rota_status, team, display_name, employee_id, expires }
+# Persisted to disk so sessions survive a proxy restart.
+_sessions = _load_sessions()
+
+
 def _create_session(username, role, rota_status='observer', team='na',
                      display_name='', employee_id=''):
     token = secrets.token_hex(32)
@@ -132,6 +165,7 @@ def _create_session(username, role, rota_status='observer', team='na',
         'employee_id': employee_id,
         'expires': time.time() + SESSION_TTL
     }
+    _save_sessions()
     return token
 
 
@@ -141,12 +175,14 @@ def _get_session(token):
         return None
     if time.time() > s['expires']:
         del _sessions[token]
+        _save_sessions()
         return None
     return s
 
 
 def _invalidate_session(token):
-    _sessions.pop(token, None)
+    if _sessions.pop(token, None) is not None:
+        _save_sessions()
 
 
 def _token_from_request():
@@ -378,8 +414,83 @@ def delete_user(username):
     # Invalidate sessions
     for token in [t for t, s in _sessions.items() if s['username'] == username]:
         del _sessions[token]
+    _save_sessions()
 
     return jsonify({'ok': True, 'username': username})
+
+
+# ══════════════════════════════════════════════════════════
+# ONLINE SESSIONS (admin + engineer can view, admin can kick)
+# ══════════════════════════════════════════════════════════
+
+def _prune_expired_sessions():
+    """Drop expired sessions from the store. Returns True if anything changed."""
+    now = time.time()
+    expired = [t for t, s in _sessions.items() if s.get('expires', 0) <= now]
+    for t in expired:
+        del _sessions[t]
+    if expired:
+        _save_sessions()
+    return bool(expired)
+
+
+@auth_bp.route('/sessions', methods=['GET'])
+@require_admin_role
+def list_sessions():
+    """Return currently logged-in users, grouped by username.
+    Session tokens are never exposed — only aggregate metadata."""
+    _prune_expired_sessions()
+    my_token = _token_from_request()
+
+    by_user = {}
+    for token, s in _sessions.items():
+        u = s['username']
+        entry = by_user.setdefault(u, {
+            'username': u,
+            'role': s.get('role', 'user'),
+            'team': s.get('team', DEFAULT_TEAM),
+            'display_name': s.get('display_name', ''),
+            'sessions': 0,
+            'first_login': None,   # oldest active session start
+            'expires': 0,          # latest expiry across sessions
+            'is_me': False,
+        })
+        login_at = s['expires'] - SESSION_TTL
+        entry['sessions'] += 1
+        entry['first_login'] = login_at if entry['first_login'] is None else min(entry['first_login'], login_at)
+        entry['expires'] = max(entry['expires'], s['expires'])
+        if token == my_token:
+            entry['is_me'] = True
+
+    online = sorted(by_user.values(), key=lambda x: x['username'])
+    return jsonify({
+        'ok': True,
+        'online': online,
+        'total_sessions': len(_sessions),
+        'server_time': time.time(),
+        'can_kick': request.session.get('role') == 'admin',
+    })
+
+
+@auth_bp.route('/sessions/<username>', methods=['DELETE'])
+@require_admin_role
+def kick_user(username):
+    """Terminate every active session for a user. Admin only."""
+    if request.session.get('role') != 'admin':
+        return jsonify({'ok': False, 'error': 'Forbidden — admin role required to kick users'}), 403
+
+    if username == request.session.get('username'):
+        return jsonify({'ok': False, 'error': 'Use logout to end your own session'}), 400
+
+    tokens = [t for t, s in _sessions.items() if s['username'] == username]
+    if not tokens:
+        return jsonify({'ok': False, 'error': 'User has no active session'}), 404
+
+    for t in tokens:
+        del _sessions[t]
+    _save_sessions()
+
+    return jsonify({'ok': True, 'username': username, 'sessions_closed': len(tokens)})
 
 
 # ══════════════════════════════════════════════════════════
