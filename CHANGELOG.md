@@ -11,7 +11,7 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 ---
 
 
-## [Unreleased]
+## [3.60.0] - 2026-09-10
 
 ### SRT Ingest Tool: Passthrough Improvements
 
