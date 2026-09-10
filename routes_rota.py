@@ -7,6 +7,7 @@ import json
 import uuid
 import datetime
 import io
+from typing import Optional
 
 from flask import Blueprint, request, jsonify, send_file
 from routes_auth import require_auth, require_admin_role
