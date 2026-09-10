@@ -459,7 +459,7 @@ def _save_shift_registry(registry: dict) -> None:
     _rebuild_alias_cache(registry)
 
 
-def _rebuild_alias_cache(registry: dict | None = None) -> None:
+def _rebuild_alias_cache(registry: Optional[dict] = None) -> None:
     global _ALIAS_CACHE
     if registry is None:
         registry = _load_shift_registry()
@@ -492,7 +492,7 @@ def _resolve_alias(code: str, d: date) -> str:
     return result
 
 
-def _alias_color_for(code: str, d: date) -> tuple[str | None, str | None]:
+def _alias_color_for(code: str, d: date) -> tuple[Optional[str], Optional[str]]:
     """Return (bg_color, fg_color) from the active alias for (code, date),
     or (None, None) if no alias is active."""
     result_color = None
@@ -945,7 +945,7 @@ def rota_directory_audit_get():
 #  SHIFT REGISTRY ROUTES
 # ════════════════════════════════════════════════════════════════════════════
 
-def _shift_registry_entry_from_code(code: str) -> dict | None:
+def _shift_registry_entry_from_code(code: str) -> Optional[dict]:
     """Return a registry entry for a code that may not be explicitly stored,
     deriving sensible defaults from the existing color config."""
     registry = _load_shift_registry()
@@ -2038,7 +2038,7 @@ WEEKEND_SWAP_PATTERNS = [
 COVERAGE_NOTE_INDICES = {2, 3, 4, 5}
 
 
-from typing import Optional
+from typing import Optional, Tuple
 
 def _infer_absent_engineer(fri_date: date, leave_map: dict) -> Optional[str]:
     """Find which engineer has AL on Sat+Sun of the given weekend."""
