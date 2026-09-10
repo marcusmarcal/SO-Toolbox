@@ -435,20 +435,20 @@ def _build_ffmpeg_cmd(
     if passthrough:
         loop_input = _looped_source_path(input_file)
         return [
-            "ffmpeg", "-stream_loop", "-1",
+            "ffmpeg",
+            "-stream_loop", "-1",
             "-fflags", "+genpts+discardcorrupt",
             "-re",
             "-i", loop_input,
-            "-map", "0:v:0",
-            "-map", "0:a:0",
-            "-c:v", "copy",
-            "-c:a", "copy",
+            "-map", "0",
+            "-c", "copy",
+            "-copy_unknown",
             "-avoid_negative_ts", "make_zero",
             "-f", "mpegts",
             "-muxdelay", "0",
             "-muxpreload", "0",
             srt_url,
-        ]
+            ]
 
     vbr = f"{bitrate_mbps}M"
     bufsize = f"{bitrate_mbps * CBR_BUFSIZE_FACTOR}M"
