@@ -5138,6 +5138,12 @@ function _removeCellFromBoxes(ri, ci) {
         document.getElementById('overview-all-toggle').classList.toggle('active', _overviewShowAll);
         document.getElementById('overview-team-toggles').style.display = _overviewShowAll ? 'flex' : 'none';
         document.getElementById('overview-member-row').style.display   = _overviewShowAll ? 'none' : '';
+        if (!_overviewShowAll) {
+          const sel     = document.getElementById('overview-member-select');
+          const myName  = state.me ? state.me.name : null;
+          const balances = _overviewData ? (_overviewData.balances || {}) : {};
+          if (sel && myName && balances[myName]) sel.value = myName;
+        }
         renderOverview();
       });
 
@@ -5508,8 +5514,13 @@ function _removeCellFromBoxes(ri, ci) {
     if (isManagement) {
       const memberSel = document.getElementById('overview-member-select');
       const selected  = memberSel ? memberSel.value : null;
-      name = selected || (myName && balances[myName] ? myName : Object.keys(balances)[0]);
-      if (!name || !balances[name]) { el.innerHTML = '<div class="empty-state">Select a member above.</div>'; return; }
+      name = selected || (myName && balances[myName] ? myName : null);
+      if (!name || !balances[name]) {
+        el.innerHTML = myName && !balances[myName]
+          ? '<div class="empty-state">You have no rota entry — select a member above to view their overview.</div>'
+          : '<div class="empty-state">Select a member above.</div>';
+        return;
+      }
       if (memberSel && !memberSel.value) memberSel.value = name;
     } else {
       name = myName;
