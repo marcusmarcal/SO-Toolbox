@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TXCore Provisioning — SO-Toolbox</title>
-    <!-- TXCore Manager frontend v1.0.0 -->
+    <!-- TXCore Manager frontend v1.1.0 — STB (multicast) + MAIN (SRT) clusters -->
     <style>
       :root {
         --bg: #0f1216;
@@ -18,6 +18,8 @@
         --ave: #4fd1c5;
         --lmk: #f0a868;
         --yer: #c792ea;
+        --srt-pri: #7fb3ff;
+        --srt-bkp: #f0a868;
         --success: #6bcf7f;
         --error: #e5626b;
         --warn: #f0a868;
@@ -69,26 +71,8 @@
         margin-top: 2px;
       }
 
-      /* Fanout signature: one source splitting into the three geofenced sites */
-      .fanout {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
       .fanout svg {
         display: block;
-      }
-      .fanout-labels {
-        display: flex;
-        gap: 10px;
-        font-family: var(--font-mono);
-        font-size: 10px;
-        color: var(--text-dim);
-      }
-      .fanout-labels span {
-        display: flex;
-        align-items: center;
-        gap: 4px;
       }
       .dot {
         width: 6px;
@@ -105,6 +89,12 @@
       .dot.yer {
         background: var(--yer);
       }
+      .dot.pri {
+        background: var(--srt-pri);
+      }
+      .dot.bkp {
+        background: var(--srt-bkp);
+      }
 
       #status-badge {
         font-family: var(--font-mono);
@@ -113,6 +103,10 @@
         border-radius: 999px;
         border: 1px solid var(--border);
         color: var(--text-dim);
+        max-width: 48vw;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       #status-badge.ok {
         color: var(--success);
@@ -123,18 +117,76 @@
         border-color: var(--error);
       }
 
+      /* ---- Cluster tabs ---- */
+      .tabs {
+        display: flex;
+        gap: 2px;
+        padding: 0 28px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg);
+      }
+      .tab {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 18px;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        letter-spacing: 0.04em;
+        color: var(--text-dim);
+        background: transparent;
+        border: none;
+        border-bottom: 2px solid transparent;
+        border-radius: 0;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      .tab:hover {
+        color: var(--text);
+        border-color: var(--border);
+      }
+      .tab.active {
+        color: var(--text);
+        border-bottom-color: var(--ave);
+      }
+      .tab .tab-mode {
+        font-weight: 400;
+        color: var(--text-faint);
+        text-transform: none;
+      }
+      .tab .cfg-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--text-faint);
+        flex-shrink: 0;
+      }
+      .tab .cfg-dot.ok {
+        background: var(--success);
+      }
+      .tab .cfg-dot.bad {
+        background: var(--error);
+      }
+
       main {
         display: grid;
         grid-template-columns: 380px 1fr;
         gap: 1px;
         background: var(--border);
-        min-height: calc(100vh - 61px);
+        min-height: calc(100vh - 103px);
       }
 
       .panel {
         background: var(--bg);
         padding: 22px 24px;
         overflow-y: auto;
+      }
+
+      .tab-pane {
+        display: none;
+      }
+      .tab-pane.active {
+        display: block;
       }
 
       .panel h2 {
@@ -154,6 +206,15 @@
         flex: 1;
         height: 1px;
         background: var(--border);
+      }
+
+      .panel h2 .h2-tag {
+        font-size: 10px;
+        padding: 1px 6px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        color: var(--text-faint);
+        letter-spacing: 0.04em;
       }
 
       fieldset {
@@ -183,6 +244,7 @@
 
       input[type="text"],
       input[type="number"],
+      input[type="password"],
       select {
         width: 100%;
         background: var(--panel);
@@ -208,6 +270,12 @@
         border-color: var(--border);
       }
 
+      .hint {
+        color: var(--text-faint);
+        font-size: 11px;
+        margin-top: 4px;
+      }
+
       .addr-preview {
         font-family: var(--font-mono);
         font-size: 12px;
@@ -217,6 +285,7 @@
         border-radius: var(--radius);
         padding: 6px 9px;
         margin-top: 8px;
+        word-break: break-all;
       }
 
       .location-block {
@@ -234,6 +303,12 @@
       }
       .location-block.yer {
         --loc-color: var(--yer);
+      }
+      .location-block.pri {
+        --loc-color: var(--srt-pri);
+      }
+      .location-block.bkp {
+        --loc-color: var(--srt-bkp);
       }
 
       .location-block .loc-title {
@@ -297,6 +372,12 @@
       .switch input:checked + .track::before {
         transform: translateX(16px);
         background: var(--warn);
+      }
+      .switch.safe input:checked + .track {
+        background: rgba(107, 207, 127, 0.25);
+      }
+      .switch.safe input:checked + .track::before {
+        background: var(--success);
       }
 
       button {
@@ -364,6 +445,7 @@
       td {
         padding: 7px 10px;
         border-bottom: 1px solid var(--border-soft);
+        vertical-align: top;
       }
       tr:hover td {
         background: var(--panel);
@@ -372,6 +454,7 @@
       .site-fanout-mini {
         display: flex;
         gap: 4px;
+        padding-top: 5px;
       }
       .site-fanout-mini .dot {
         width: 7px;
@@ -385,6 +468,24 @@
         text-align: center;
         border: 1px dashed var(--border);
         border-radius: var(--radius);
+      }
+
+      .notice {
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        padding: 8px 10px;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        color: var(--text-dim);
+        margin-bottom: 10px;
+      }
+      .notice.warn {
+        border-color: rgba(240, 168, 104, 0.5);
+        color: var(--warn);
+      }
+      .notice.bad {
+        border-color: rgba(229, 98, 107, 0.5);
+        color: var(--error);
       }
 
       .progress-wrap {
@@ -437,25 +538,6 @@
         color: var(--text-faint);
       }
 
-      .status-tag {
-        font-family: var(--font-mono);
-        font-size: 10px;
-        padding: 2px 6px;
-        border-radius: 4px;
-      }
-      .status-tag.ok {
-        background: rgba(107, 207, 127, 0.15);
-        color: var(--success);
-      }
-      .status-tag.error {
-        background: rgba(229, 98, 107, 0.15);
-        color: var(--error);
-      }
-      .status-tag.skipped {
-        background: rgba(124, 135, 151, 0.15);
-        color: var(--text-dim);
-      }
-
       ::-webkit-scrollbar {
         width: 8px;
         height: 8px;
@@ -482,287 +564,491 @@
             <circle cx="16" cy="12" r="2.5" fill="var(--lmk)" />
             <circle cx="16" cy="20" r="2.5" fill="var(--yer)" />
           </svg>
-          <div>
-            <h1>TXCore Provisioning</h1>
-            <div class="subtitle">
-              Bulk category &amp; channel creation — AVE / LMK / YER
-            </div>
+        </div>
+        <div>
+          <h1>TXCore Provisioning</h1>
+          <div class="subtitle" id="header-subtitle">
+            Bulk category &amp; channel creation
           </div>
         </div>
       </div>
       <div id="status-badge">checking configuration…</div>
     </header>
 
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-cluster="stb" role="tab">
+        <span class="cfg-dot" id="stb-cfg-dot"></span>
+        STB <span class="tab-mode">· multicast · AVE / LMK / YER</span>
+      </button>
+      <button class="tab" data-cluster="main" role="tab">
+        <span class="cfg-dot" id="main-cfg-dot"></span>
+        MAIN <span class="tab-mode">· SRT · primary + backup edge</span>
+      </button>
+    </nav>
+
     <main>
       <!-- ===================== FORM PANEL ===================== -->
       <div class="panel">
-        <h2>Category</h2>
-        <fieldset>
-          <!-- Primeira parte: Seleção (Sempre visível) -->
-          <div class="field">
-            <label for="category-select">Pick an existing category</label>
-            <select id="category-select">
-              <option value="">— loading… —</option>
-            </select>
-          </div>
-          <div class="field" style="margin-top: 10px">
-            <label for="category-id">Category ID (used below)</label>
-            <input
-              type="text"
-              id="category-id"
-              placeholder="603f87befcb1184432a4a564"
-            />
-          </div>
-
-          <!-- SEGUNDA PARTE: Colapsada por padrão -->
-          <!-- O estilo cursor:pointer serve para mostrar a "mãozinha" ao passar o mouse no título -->
-          <details style="margin-top: 15px">
-            <summary
-              style="cursor: pointer; font-weight: bold; margin-bottom: 10px"
-            >
-              Or create a new one...
-            </summary>
-
+        <!-- ------------------------ STB (multicast) ------------------------ -->
+        <div class="tab-pane active" id="pane-stb" data-cluster="stb">
+          <h2>Category <span class="h2-tag">STB</span></h2>
+          <fieldset>
             <div class="field">
-              <label for="cat-name">Name</label>
-              <input type="text" id="cat-name" placeholder="ADHOC" />
+              <label for="stb-category-select">Pick an existing category</label>
+              <select id="stb-category-select">
+                <option value="">— loading… —</option>
+              </select>
             </div>
-            <div class="field">
-              <label for="cat-desc">Description</label>
+            <div class="field" style="margin-top: 10px">
+              <label for="stb-category-id">Category ID (used below)</label>
               <input
                 type="text"
-                id="cat-desc"
-                placeholder="Same as name if left empty"
+                id="stb-category-id"
+                placeholder="603f87befcb1184432a4a564"
               />
             </div>
-            <div class="btn-row" style="margin-top: 10px">
-              <button id="btn-create-category">Create category</button>
-            </div>
-          </details>
-        </fieldset>
 
-        <h2>Bulk channels</h2>
-        <fieldset>
-          <div class="field">
-            <label for="provider-name">Provider Acronym</label>
-            <input type="text" id="provider-name" placeholder="ADC" />
-          </div>
-          <div class="field-row">
+            <details style="margin-top: 15px">
+              <summary
+                style="cursor: pointer; font-weight: bold; margin-bottom: 10px"
+              >
+                Or create a new one...
+              </summary>
+              <div class="field">
+                <label for="stb-cat-name">Name</label>
+                <input type="text" id="stb-cat-name" placeholder="ADHOC" />
+              </div>
+              <div class="field">
+                <label for="stb-cat-desc">Description</label>
+                <input
+                  type="text"
+                  id="stb-cat-desc"
+                  placeholder="Same as name if left empty"
+                />
+              </div>
+              <div class="btn-row" style="margin-top: 10px">
+                <button id="stb-btn-create-category">Create category</button>
+              </div>
+            </details>
+          </fieldset>
+
+          <h2>Bulk channels <span class="h2-tag">STB</span></h2>
+          <fieldset>
             <div class="field">
-              <label for="first-ch">First CH#</label>
-              <input type="text" inputmode="numeric" id="first-ch" value="01" />
+              <label for="stb-provider-name">Provider Acronym</label>
+              <input type="text" id="stb-provider-name" placeholder="ADC" />
             </div>
-            <div class="field">
-              <label for="channel-count">Count</label>
-              <input type="number" id="channel-count" value="10" />
+            <div class="field-row">
+              <div class="field">
+                <label for="stb-first-ch">First CH#</label>
+                <input
+                  type="text"
+                  inputmode="numeric"
+                  id="stb-first-ch"
+                  value="01"
+                />
+              </div>
+              <div class="field">
+                <label for="stb-channel-count">Count</label>
+                <input type="number" id="stb-channel-count" value="10" />
+              </div>
             </div>
-          </div>
-          <div class="field-row">
+            <div class="field-row">
+              <div class="field">
+                <label for="stb-channel-number"
+                  >GVN Channel number start
+                  <span style="color: var(--text-faint)"
+                    >(= First GVN Channel)</span
+                  ></label
+                >
+                <input
+                  type="text"
+                  inputmode="numeric"
+                  id="stb-channel-number"
+                  value="01"
+                />
+              </div>
+              <div class="field">
+                <label for="stb-sleep-time">Delay between calls (s)</label>
+                <input
+                  type="number"
+                  id="stb-sleep-time"
+                  value="1"
+                  step="0.5"
+                />
+              </div>
+            </div>
+
             <div class="field">
-              <label for="channel-number"
-                >GVN Channel number start
+              <label for="shared-3rd-oct"
+                >3rd octet
                 <span style="color: var(--text-faint)"
-                  >(= First GVN Channel)</span
+                  >(applies to all sites below)</span
                 ></label
               >
               <input
                 type="text"
                 inputmode="numeric"
-                id="channel-number"
-                value="01"
+                id="shared-3rd-oct"
+                value="10"
               />
             </div>
-            <div class="field">
-              <label for="sleep-time">Delay between calls (s)</label>
-              <input type="number" id="sleep-time" value="1" step="0.5" />
+
+            <div class="location-block ave">
+              <div class="loc-title">
+                ● AVE — Aveiro
+                <span style="color: var(--text-faint); text-transform: none"
+                  >(231.216.x.x)</span
+                >
+              </div>
+              <div class="field-row">
+                <div class="field">
+                  <label for="ave-3rd-oct"
+                    >3rd octet
+                    <span style="color: var(--text-faint)"
+                      >(= shared)</span
+                    ></label
+                  >
+                  <input
+                    type="text"
+                    inputmode="numeric"
+                    id="ave-3rd-oct"
+                    value="10"
+                  />
+                </div>
+                <div class="field">
+                  <label for="ave-4oct"
+                    >Last octet start
+                    <span style="color: var(--text-faint)"
+                      >(= First CH#)</span
+                    ></label
+                  >
+                  <input
+                    type="text"
+                    inputmode="numeric"
+                    id="ave-4oct"
+                    value="01"
+                  />
+                </div>
+              </div>
+              <div class="field">
+                <label for="ave-port"
+                  >Port
+                  <span style="color: var(--text-faint)">(static)</span></label
+                >
+                <input type="number" id="ave-port" value="1234" readonly />
+              </div>
+              <div class="addr-preview" id="ave-addr-preview">
+                231.216.10.01:1234
+              </div>
             </div>
-          </div>
 
-          <div class="field">
-            <label for="shared-3rd-oct"
-              >3rd octet
-              <span style="color: var(--text-faint)"
-                >(applies to all sites below)</span
-              ></label
-            >
-            <input
-              type="text"
-              inputmode="numeric"
-              id="shared-3rd-oct"
-              value="10"
-            />
-          </div>
+            <div class="location-block lmk">
+              <div class="loc-title">
+                ● LMK
+                <span style="color: var(--text-faint); text-transform: none"
+                  >(226.1.x.x)</span
+                >
+              </div>
+              <div class="field-row">
+                <div class="field">
+                  <label for="lmk-3rd-oct"
+                    >3rd octet
+                    <span style="color: var(--text-faint)"
+                      >(= shared)</span
+                    ></label
+                  >
+                  <input
+                    type="text"
+                    inputmode="numeric"
+                    id="lmk-3rd-oct"
+                    value="10"
+                  />
+                </div>
+                <div class="field">
+                  <label for="lmk-4oct"
+                    >Last octet start
+                    <span style="color: var(--text-faint)"
+                      >(= First CH#)</span
+                    ></label
+                  >
+                  <input
+                    type="text"
+                    inputmode="numeric"
+                    id="lmk-4oct"
+                    value="01"
+                  />
+                </div>
+              </div>
+              <div class="field">
+                <label for="lmk-port"
+                  >Port
+                  <span style="color: var(--text-faint)">(static)</span></label
+                >
+                <input type="number" id="lmk-port" value="21216" readonly />
+              </div>
+              <div class="addr-preview" id="lmk-addr-preview">
+                226.1.10.01:21216
+              </div>
+            </div>
 
-          <div class="location-block ave">
-            <div class="loc-title">
-              ● AVE — Aveiro
-              <span style="color: var(--text-faint); text-transform: none"
-                >(231.216.x.x)</span
+            <div class="location-block yer">
+              <div class="loc-title">
+                ● YER
+                <span style="color: var(--text-faint); text-transform: none"
+                  >(228.33.x.x)</span
+                >
+              </div>
+              <div class="field-row">
+                <div class="field">
+                  <label for="yer-3rd-oct"
+                    >3rd octet
+                    <span style="color: var(--text-faint)"
+                      >(= shared)</span
+                    ></label
+                  >
+                  <input
+                    type="text"
+                    inputmode="numeric"
+                    id="yer-3rd-oct"
+                    value="10"
+                  />
+                </div>
+                <div class="field">
+                  <label for="yer-4oct"
+                    >Last octet start
+                    <span style="color: var(--text-faint)"
+                      >(= First CH#)</span
+                    ></label
+                  >
+                  <input
+                    type="text"
+                    inputmode="numeric"
+                    id="yer-4oct"
+                    value="01"
+                  />
+                </div>
+              </div>
+              <div class="field">
+                <label for="yer-port"
+                  >Port
+                  <span style="color: var(--text-faint)">(static)</span></label
+                >
+                <input type="number" id="yer-port" value="1234" readonly />
+              </div>
+              <div class="addr-preview" id="yer-addr-preview">
+                228.33.10.01:1234
+              </div>
+            </div>
+
+            <div class="toggle-row">
+              <label for="stb-dry-run-toggle"
+                >Dry run (preview only, no API calls)</label
               >
+              <label class="switch">
+                <input type="checkbox" id="stb-dry-run-toggle" checked />
+                <span class="track"></span>
+              </label>
+            </div>
+
+            <div class="btn-row">
+              <button id="stb-btn-preview">Preview</button>
+              <button id="stb-btn-create-channels" class="primary">
+                Create channels
+              </button>
+            </div>
+          </fieldset>
+        </div>
+
+        <!-- -------------------------- MAIN (SRT) -------------------------- -->
+        <div class="tab-pane" id="pane-main" data-cluster="main">
+          <h2>Category <span class="h2-tag">MAIN</span></h2>
+          <fieldset>
+            <div class="field">
+              <label for="main-category-select">Pick an existing category</label>
+              <select id="main-category-select">
+                <option value="">— loading… —</option>
+              </select>
+            </div>
+            <div class="field" style="margin-top: 10px">
+              <label for="main-category-id">Category ID (used below)</label>
+              <input
+                type="text"
+                id="main-category-id"
+                placeholder="65ccef8fbd29241036e4e7ac"
+              />
+            </div>
+
+            <details style="margin-top: 15px">
+              <summary
+                style="cursor: pointer; font-weight: bold; margin-bottom: 10px"
+              >
+                Or create a new one...
+              </summary>
+              <div class="field">
+                <label for="main-cat-name">Name</label>
+                <input type="text" id="main-cat-name" placeholder="SKY UK" />
+              </div>
+              <div class="field">
+                <label for="main-cat-desc">Description</label>
+                <input
+                  type="text"
+                  id="main-cat-desc"
+                  placeholder="Same as name if left empty"
+                />
+              </div>
+              <div class="btn-row" style="margin-top: 10px">
+                <button id="main-btn-create-category">Create category</button>
+              </div>
+            </details>
+          </fieldset>
+
+          <h2>Bulk channels <span class="h2-tag">MAIN</span></h2>
+          <fieldset>
+            <div class="field">
+              <label for="main-provider-name">Provider Acronym</label>
+              <input type="text" id="main-provider-name" placeholder="SUK" />
             </div>
             <div class="field-row">
               <div class="field">
-                <label for="ave-3rd-oct"
-                  >3rd octet
-                  <span style="color: var(--text-faint)"
-                    >(= shared)</span
-                  ></label
-                >
+                <label for="main-first-ch">First CH#</label>
                 <input
                   type="text"
                   inputmode="numeric"
-                  id="ave-3rd-oct"
-                  value="10"
-                />
-              </div>
-              <div class="field">
-                <label for="ave-4oct"
-                  >Last octet start
-                  <span style="color: var(--text-faint)"
-                    >(= First CH#)</span
-                  ></label
-                >
-                <input
-                  type="text"
-                  inputmode="numeric"
-                  id="ave-4oct"
+                  id="main-first-ch"
                   value="01"
                 />
               </div>
-            </div>
-            <div class="field">
-              <label for="ave-port"
-                >Port
-                <span style="color: var(--text-faint)">(static)</span></label
-              >
-              <input type="number" id="ave-port" value="1234" readonly />
-            </div>
-            <div class="addr-preview" id="ave-addr-preview">
-              231.216.10.01:1234
-            </div>
-          </div>
-
-          <div class="location-block lmk">
-            <div class="loc-title">
-              ● LMK
-              <span style="color: var(--text-faint); text-transform: none"
-                >(226.1.x.x)</span
-              >
+              <div class="field">
+                <label for="main-channel-count">Count</label>
+                <input type="number" id="main-channel-count" value="5" />
+              </div>
             </div>
             <div class="field-row">
               <div class="field">
-                <label for="lmk-3rd-oct"
-                  >3rd octet
-                  <span style="color: var(--text-faint)"
-                    >(= shared)</span
-                  ></label
+                <label for="main-channel-number"
+                  >GVN Channel number start</label
                 >
                 <input
                   type="text"
                   inputmode="numeric"
-                  id="lmk-3rd-oct"
-                  value="10"
+                  id="main-channel-number"
+                  value="4864"
                 />
               </div>
               <div class="field">
-                <label for="lmk-4oct"
-                  >Last octet start
-                  <span style="color: var(--text-faint)"
-                    >(= First CH#)</span
-                  ></label
-                >
+                <label for="main-sleep-time">Delay between calls (s)</label>
                 <input
-                  type="text"
-                  inputmode="numeric"
-                  id="lmk-4oct"
-                  value="01"
+                  type="number"
+                  id="main-sleep-time"
+                  value="1"
+                  step="0.5"
                 />
               </div>
             </div>
+
             <div class="field">
-              <label for="lmk-port"
-                >Port
-                <span style="color: var(--text-faint)">(static)</span></label
+              <label for="main-srt-first-port"
+                >First SRT port
+                <span style="color: var(--text-faint)"
+                  >(TXEdge SRT output; +1 per channel, same on both
+                  edges)</span
+                ></label
               >
-              <input type="number" id="lmk-port" value="21216" readonly />
+              <input type="number" id="main-srt-first-port" value="8254" />
             </div>
-            <div class="addr-preview" id="lmk-addr-preview">
-              226.1.10.01:21216
-            </div>
-          </div>
 
-          <div class="location-block yer">
-            <div class="loc-title">
-              ● YER
-              <span style="color: var(--text-faint); text-transform: none"
-                >(228.33.x.x)</span
-              >
-            </div>
-            <div class="field-row">
+            <datalist id="srt-presets"></datalist>
+
+            <div class="location-block pri">
+              <div class="loc-title">● Primary source — priority 0</div>
               <div class="field">
-                <label for="yer-3rd-oct"
-                  >3rd octet
-                  <span style="color: var(--text-faint)"
-                    >(= shared)</span
-                  ></label
-                >
+                <label for="main-srt-primary"
+                  >Host / IP
+                  <span id="main-srt-primary-label" style="color: var(--text-faint)"></span
+                ></label>
                 <input
                   type="text"
-                  inputmode="numeric"
-                  id="yer-3rd-oct"
-                  value="10"
+                  id="main-srt-primary"
+                  list="srt-presets"
+                  placeholder="194.76.59.22"
+                  autocomplete="off"
                 />
               </div>
+              <div class="addr-preview" id="main-srt-primary-preview">—</div>
+            </div>
+
+            <div class="location-block bkp">
+              <div class="loc-title">● Backup source — priority 1</div>
               <div class="field">
-                <label for="yer-4oct"
-                  >Last octet start
+                <label for="main-srt-backup"
+                  >Host / IP
                   <span style="color: var(--text-faint)"
-                    >(= First CH#)</span
-                  ></label
-                >
+                    >(optional; auto-pairs with primary)</span
+                  >
+                  <span id="main-srt-backup-label" style="color: var(--text-faint)"></span
+                ></label>
                 <input
                   type="text"
-                  inputmode="numeric"
-                  id="yer-4oct"
-                  value="01"
+                  id="main-srt-backup"
+                  list="srt-presets"
+                  placeholder="194.76.104.33"
+                  autocomplete="off"
                 />
               </div>
+              <div class="addr-preview" id="main-srt-backup-preview">—</div>
             </div>
-            <div class="field">
-              <label for="yer-port"
-                >Port
-                <span style="color: var(--text-faint)">(static)</span></label
+
+            <div class="toggle-row">
+              <label for="main-srt-encrypted"
+                >Encrypted SRT (passphrase from server .env)</label
               >
-              <input type="number" id="yer-port" value="1234" readonly />
+              <label class="switch safe">
+                <input type="checkbox" id="main-srt-encrypted" checked />
+                <span class="track"></span>
+              </label>
             </div>
-            <div class="addr-preview" id="yer-addr-preview">
-              228.33.10.01:1234
+            <div class="field" id="main-srt-passphrase-field">
+              <label for="main-srt-passphrase"
+                >Passphrase override
+                <span style="color: var(--text-faint)"
+                  >(optional — leave empty to use the server value; never
+                  stored)</span
+                ></label
+              >
+              <input
+                type="password"
+                id="main-srt-passphrase"
+                autocomplete="new-password"
+                placeholder="uses INTERNALSRTPASSPHRASE"
+              />
+              <div class="hint" id="main-srt-passphrase-hint"></div>
             </div>
-          </div>
 
-          <div class="toggle-row">
-            <label for="dry-run-toggle"
-              >Dry run (preview only, no API calls)</label
-            >
-            <label class="switch">
-              <input type="checkbox" id="dry-run-toggle" checked />
-              <span class="track"></span>
-            </label>
-          </div>
+            <div class="toggle-row">
+              <label for="main-dry-run-toggle"
+                >Dry run (preview only, no API calls)</label
+              >
+              <label class="switch">
+                <input type="checkbox" id="main-dry-run-toggle" checked />
+                <span class="track"></span>
+              </label>
+            </div>
 
-          <div class="btn-row">
-            <button id="btn-preview">Preview</button>
-            <button id="btn-create-channels" class="primary">
-              Create channels
-            </button>
-          </div>
-        </fieldset>
+            <div class="btn-row">
+              <button id="main-btn-preview">Preview</button>
+              <button id="main-btn-create-channels" class="primary">
+                Create channels
+              </button>
+            </div>
+          </fieldset>
+        </div>
       </div>
 
       <!-- ===================== RESULTS PANEL ===================== -->
       <div class="panel results-panel">
         <div>
-          <h2>Preview</h2>
+          <h2>Preview <span class="h2-tag" id="preview-cluster-tag">—</span></h2>
           <div id="preview-container">
             <div class="empty-state">
               No preview yet — fill in the form and click Preview.
@@ -771,7 +1057,7 @@
         </div>
 
         <div id="job-section" style="display: none">
-          <h2>Job progress</h2>
+          <h2>Job progress <span class="h2-tag" id="job-cluster-tag">—</span></h2>
           <div class="progress-wrap">
             <div class="progress-head">
               <span id="job-status-text">queued</span>
@@ -792,15 +1078,34 @@
 
         // Adjust this if the nginx reverse proxy path differs from /so-proxy/
         var API_BASE = "/so-proxy/api/txcore";
-        // Bumped to v2: earlier versions stored an empty "first 3 octets" value
-        // for users who never touched that field, which silently produced
-        // incomplete stream addresses like ".35:21216" once defaults were added.
-        var STORAGE_KEY = "txcore-manager-form-v2";
+        // v3: form state is now stored per cluster (stb / main).
+        var STORAGE_KEY = "txcore-manager-form-v3";
+        var ACTIVE_KEY = "txcore-manager-active-cluster";
 
         // First two octets are fixed per site and are not user-configurable.
         var STATIC_PREFIX = { ave: "231.216", lmk: "226.1", yer: "228.33" };
 
-        var FIELD_IDS = [
+        var CLUSTERS = {
+          stb: {
+            key: "stb",
+            label: "STB",
+            mode: "multicast",
+            subtitle: "Bulk category & channel creation — AVE / LMK / YER (multicast)",
+            status: null,
+            categoriesLoaded: false,
+          },
+          main: {
+            key: "main",
+            label: "MAIN",
+            mode: "srt",
+            subtitle: "Bulk category & channel creation — SRT primary + backup edge",
+            status: null,
+            categoriesLoaded: false,
+          },
+        };
+
+        // Common per-cluster field ids (prefixed with "<cluster>-").
+        var COMMON_FIELDS = [
           "cat-name",
           "cat-desc",
           "category-id",
@@ -809,6 +1114,10 @@
           "channel-count",
           "channel-number",
           "sleep-time",
+        ];
+        // Mode-specific ids (not prefixed). The passphrase override is
+        // deliberately excluded: it is never persisted.
+        var MULTICAST_FIELDS = [
           "shared-3rd-oct",
           "ave-3rd-oct",
           "ave-4oct",
@@ -820,59 +1129,55 @@
           "yer-4oct",
           "yer-port",
         ];
+        var SRT_FIELDS = ["main-srt-first-port", "main-srt-primary", "main-srt-backup"];
+        var SRT_CHECKBOXES = ["main-srt-encrypted"];
 
+        var activeCluster = "stb";
         var jobPollTimer = null;
-
-        // Fields that mirror "First CH#" by default. Each stops auto-syncing
-        // the moment the user types into it directly (marked "dirty"), so a
-        // manual override is never silently overwritten afterwards.
-        var LINKED_TO_FIRST_CH = [
-          "channel-number",
-          "ave-4oct",
-          "lmk-4oct",
-          "yer-4oct",
-        ];
-        var linkedDirty = {};
-
-        function syncLinkedFromFirstCh() {
-          var v = $("first-ch").value;
-          LINKED_TO_FIRST_CH.forEach(function (id) {
-            if (!linkedDirty[id]) $(id).value = v;
-          });
-        }
-
-        // Per-site 3rd octet mirrors the shared field by default (preference
-        // is the same value across all sites), editable per site if needed.
-        var THIRD_OCTET_LINKED = ["ave-3rd-oct", "lmk-3rd-oct", "yer-3rd-oct"];
-        var thirdOctetDirty = {};
-
-        function syncThirdOctetFromShared() {
-          var v = $("shared-3rd-oct").value;
-          THIRD_OCTET_LINKED.forEach(function (id) {
-            if (!thirdOctetDirty[id]) $(id).value = v;
-          });
-        }
-
-        function updateAddressPreviews() {
-          ["ave", "lmk", "yer"].forEach(function (loc) {
-            var thirdOct = $(loc + "-3rd-oct").value || "?";
-            var lastOct = $(loc + "-4oct").value || "?";
-            var port = $(loc + "-port").value || "?";
-            $(loc + "-addr-preview").textContent =
-              STATIC_PREFIX[loc] + "." + thirdOct + "." + lastOct + ":" + port;
-          });
-        }
+        var srtPresets = [];
 
         function $(id) {
           return document.getElementById(id);
         }
 
+        function fieldIdsFor(cluster) {
+          var ids = COMMON_FIELDS.map(function (f) {
+            return cluster + "-" + f;
+          });
+          if (cluster === "stb") ids = ids.concat(MULTICAST_FIELDS);
+          if (cluster === "main") ids = ids.concat(SRT_FIELDS);
+          return ids;
+        }
+
+        function allFieldIds() {
+          return fieldIdsFor("stb").concat(fieldIdsFor("main"));
+        }
+
+        function escapeHtml(str) {
+          return String(str).replace(/[&<>"']/g, function (c) {
+            return {
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            }[c];
+          });
+        }
+
+        // ---------------------------------------------------------------------
+        // Form state persistence
+        // ---------------------------------------------------------------------
         function saveFormState() {
           var state = {};
-          FIELD_IDS.forEach(function (id) {
+          allFieldIds().forEach(function (id) {
             state[id] = $(id).value;
           });
-          state["dry-run-toggle"] = $("dry-run-toggle").checked;
+          ["stb-dry-run-toggle", "main-dry-run-toggle"]
+            .concat(SRT_CHECKBOXES)
+            .forEach(function (id) {
+              state[id] = $(id).checked;
+            });
           try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
           } catch (e) {}
@@ -892,13 +1197,55 @@
           } catch (e) {
             return;
           }
-          FIELD_IDS.forEach(function (id) {
+          allFieldIds().forEach(function (id) {
             if (state[id] !== undefined && state[id] !== "")
               $(id).value = state[id];
           });
-          if (typeof state["dry-run-toggle"] === "boolean") {
-            $("dry-run-toggle").checked = state["dry-run-toggle"];
-          }
+          ["stb-dry-run-toggle", "main-dry-run-toggle"]
+            .concat(SRT_CHECKBOXES)
+            .forEach(function (id) {
+              if (typeof state[id] === "boolean") $(id).checked = state[id];
+            });
+        }
+
+        // ---------------------------------------------------------------------
+        // STB: linked fields (First CH# → channel number / last octets;
+        // shared 3rd octet → per-site 3rd octet). Each stops auto-syncing the
+        // moment the user types into it directly (marked "dirty").
+        // ---------------------------------------------------------------------
+        var LINKED_TO_FIRST_CH = [
+          "stb-channel-number",
+          "ave-4oct",
+          "lmk-4oct",
+          "yer-4oct",
+        ];
+        var linkedDirty = {};
+
+        function syncLinkedFromFirstCh() {
+          var v = $("stb-first-ch").value;
+          LINKED_TO_FIRST_CH.forEach(function (id) {
+            if (!linkedDirty[id]) $(id).value = v;
+          });
+        }
+
+        var THIRD_OCTET_LINKED = ["ave-3rd-oct", "lmk-3rd-oct", "yer-3rd-oct"];
+        var thirdOctetDirty = {};
+
+        function syncThirdOctetFromShared() {
+          var v = $("shared-3rd-oct").value;
+          THIRD_OCTET_LINKED.forEach(function (id) {
+            if (!thirdOctetDirty[id]) $(id).value = v;
+          });
+        }
+
+        function updateMulticastPreviews() {
+          ["ave", "lmk", "yer"].forEach(function (loc) {
+            var thirdOct = $(loc + "-3rd-oct").value || "?";
+            var lastOct = $(loc + "-4oct").value || "?";
+            var port = $(loc + "-port").value || "?";
+            $(loc + "-addr-preview").textContent =
+              STATIC_PREFIX[loc] + "." + thirdOct + "." + lastOct + ":" + port;
+          });
         }
 
         function collectLocations() {
@@ -914,17 +1261,117 @@
           return locs;
         }
 
-        function collectChannelParams() {
-          return {
-            channel_count: Number($("channel-count").value),
-            first_ch: Number($("first-ch").value),
-            provider_name: $("provider-name").value,
-            channel_number: Number($("channel-number").value),
-            category_id: $("category-id").value,
-            sleep_time: Number($("sleep-time").value),
-            dry_run: $("dry-run-toggle").checked,
-            locations: collectLocations(),
+        // ---------------------------------------------------------------------
+        // MAIN: SRT source helpers
+        // ---------------------------------------------------------------------
+        var backupDirty = false;
+
+        function presetLabel(ip) {
+          for (var i = 0; i < srtPresets.length; i++) {
+            if (srtPresets[i].ip === ip) return srtPresets[i].label;
+          }
+          return "";
+        }
+
+        function populateSrtPresets(presets) {
+          srtPresets = presets || [];
+          var dl = $("srt-presets");
+          dl.innerHTML = "";
+          srtPresets.forEach(function (p) {
+            var opt = document.createElement("option");
+            opt.value = p.ip;
+            opt.textContent = p.label;
+            dl.appendChild(opt);
+          });
+        }
+
+        // INX03 ↔ EQP03: pick the preset whose label shares the numeric
+        // suffix of the primary but has a different site prefix.
+        function autoPairBackup() {
+          if (backupDirty) return;
+          var primaryLabel = presetLabel($("main-srt-primary").value.trim());
+          var m = primaryLabel.match(/^(.*?)(\d+)$/);
+          if (!m) return;
+          for (var i = 0; i < srtPresets.length; i++) {
+            var pm = srtPresets[i].label.match(/^(.*?)(\d+)$/);
+            if (pm && pm[2] === m[2] && pm[1] !== m[1]) {
+              $("main-srt-backup").value = srtPresets[i].ip;
+              return;
+            }
+          }
+        }
+
+        function updateSrtPreviews() {
+          var firstPort = Number($("main-srt-first-port").value);
+          var count = Math.max(1, Number($("main-channel-count").value) || 1);
+          var lastPort = firstPort + count - 1;
+          var range = isFinite(firstPort) && firstPort > 0
+            ? ":" + firstPort + (count > 1 ? " … :" + lastPort : "")
+            : ":?";
+
+          [
+            ["main-srt-primary", "main-srt-primary-preview", "main-srt-primary-label"],
+            ["main-srt-backup", "main-srt-backup-preview", "main-srt-backup-label"],
+          ].forEach(function (ids) {
+            var host = $(ids[0]).value.trim();
+            var label = presetLabel(host);
+            $(ids[2]).textContent = label ? "· " + label : "";
+            $(ids[1]).textContent = host ? host + range : "—";
+          });
+
+          var enc = $("main-srt-encrypted").checked;
+          $("main-srt-passphrase-field").style.display = enc ? "" : "none";
+          var st = CLUSTERS.main.status;
+          var hint = $("main-srt-passphrase-hint");
+          if (!enc) {
+            hint.textContent = "";
+          } else if ($("main-srt-passphrase").value) {
+            hint.textContent = "Using the override typed above (not saved).";
+          } else if (st && st.srt_passphrase_set === false) {
+            hint.textContent =
+              "⚠ INTERNALSRTPASSPHRASE is not set on the server — type an override or configure .env.";
+          } else if (st && st.srt_passphrase_set) {
+            hint.textContent = "🔒 Server passphrase will be applied (never shown here).";
+          } else {
+            hint.textContent = "";
+          }
+        }
+
+        function collectSrt() {
+          var srt = {
+            primary_ip: $("main-srt-primary").value.trim(),
+            backup_ip: $("main-srt-backup").value.trim(),
+            first_port: Number($("main-srt-first-port").value),
+            encrypted: $("main-srt-encrypted").checked,
           };
+          var override = $("main-srt-passphrase").value;
+          if (srt.encrypted && override) srt.passphrase = override;
+          return srt;
+        }
+
+        // ---------------------------------------------------------------------
+        // Shared collection
+        // ---------------------------------------------------------------------
+        function collectChannelParams(cluster) {
+          var p = function (f) {
+            return $(cluster + "-" + f);
+          };
+          var params = {
+            cluster: cluster,
+            channel_count: Number(p("channel-count").value),
+            first_ch: Number(p("first-ch").value),
+            provider_name: p("provider-name").value.trim(),
+            channel_number: Number(p("channel-number").value),
+            category_id: p("category-id").value.trim(),
+            sleep_time: Number(p("sleep-time").value),
+            dry_run: p("dry-run-toggle").checked,
+          };
+          if (CLUSTERS[cluster].mode === "multicast") {
+            params.locations = collectLocations();
+          } else {
+            params.srt = collectSrt();
+          }
+          return params;
         }
 
         function apiFetch(path, options) {
@@ -949,54 +1396,117 @@
         }
 
         // ---------------------------------------------------------------------
+        // Cluster tabs
+        // ---------------------------------------------------------------------
+        function setActiveCluster(cluster) {
+          if (!CLUSTERS[cluster]) cluster = "stb";
+          activeCluster = cluster;
+          document.querySelectorAll(".tab").forEach(function (t) {
+            t.classList.toggle("active", t.getAttribute("data-cluster") === cluster);
+            t.setAttribute(
+              "aria-selected",
+              t.getAttribute("data-cluster") === cluster ? "true" : "false"
+            );
+          });
+          document.querySelectorAll(".tab-pane").forEach(function (p) {
+            p.classList.toggle("active", p.getAttribute("data-cluster") === cluster);
+          });
+          $("header-subtitle").textContent = CLUSTERS[cluster].subtitle;
+          renderStatusBadge();
+          try {
+            localStorage.setItem(ACTIVE_KEY, cluster);
+          } catch (e) {}
+          if (!CLUSTERS[cluster].categoriesLoaded) loadCategories(cluster);
+        }
+
+        document.querySelectorAll(".tab").forEach(function (tab) {
+          tab.addEventListener("click", function () {
+            setActiveCluster(tab.getAttribute("data-cluster"));
+          });
+        });
+
+        // ---------------------------------------------------------------------
         // Status badge
         // ---------------------------------------------------------------------
-        function loadStatus() {
+        function clusterMissing(st) {
+          var missing = [];
+          if (!st) return ["status unavailable"];
+          if (!st.bearer_token_set) missing.push("token");
+          if (!st.api_url_set) missing.push("api url");
+          Object.keys(st.geofence_ids_set || {}).forEach(function (loc) {
+            if (!st.geofence_ids_set[loc]) missing.push(loc + " geofence");
+          });
+          if (st.mode === "srt" && st.srt_passphrase_set === false)
+            missing.push("srt passphrase");
+          return missing;
+        }
+
+        function renderStatusBadge() {
           var badge = $("status-badge");
+          var c = CLUSTERS[activeCluster];
+          if (c.statusError) {
+            badge.textContent = "Status unavailable — " + c.statusError;
+            badge.className = "bad";
+            return;
+          }
+          if (!c.status) {
+            badge.textContent = "checking configuration…";
+            badge.className = "";
+            return;
+          }
+          var missing = clusterMissing(c.status);
+          if (missing.length === 0) {
+            badge.textContent = c.label + " API configured — " + c.status.api_url;
+            badge.className = "ok";
+          } else {
+            badge.textContent = c.label + " missing: " + missing.join(", ");
+            badge.className = "bad";
+          }
+        }
+
+        function loadStatus() {
           apiFetch("/status")
             .then(function (data) {
-              var missing = [];
-              if (!data.bearer_token_set) missing.push("token");
-              if (!data.api_url_set) missing.push("api url");
-              Object.keys(data.geofence_ids_set || {}).forEach(function (loc) {
-                if (!data.geofence_ids_set[loc])
-                  missing.push(loc + " geofence");
+              var clusters = data.clusters || {};
+              Object.keys(CLUSTERS).forEach(function (key) {
+                var st = clusters[key] || null;
+                // Legacy backend (pre-3.58) reports STB fields at top level.
+                if (!st && key === "stb" && data.bearer_token_set !== undefined) {
+                  st = Object.assign({ mode: "multicast" }, data);
+                }
+                CLUSTERS[key].status = st;
+                var dot = $(key + "-cfg-dot");
+                var missing = clusterMissing(st);
+                dot.className = "cfg-dot " + (missing.length ? "bad" : "ok");
+                dot.title = missing.length
+                  ? "Missing: " + missing.join(", ")
+                  : "Configured — " + (st && st.api_url);
               });
-              if (missing.length === 0) {
-                badge.textContent = "API configured — " + data.api_url;
-                badge.className = "ok";
-              } else {
-                badge.textContent = "Missing: " + missing.join(", ");
-                badge.className = "bad";
+              if (clusters.main && clusters.main.srt_source_presets) {
+                populateSrtPresets(clusters.main.srt_source_presets);
               }
+              renderStatusBadge();
+              updateSrtPreviews();
             })
             .catch(function (err) {
-              badge.textContent = "Status unavailable — " + err.message;
-              badge.className = "bad";
+              Object.keys(CLUSTERS).forEach(function (key) {
+                CLUSTERS[key].statusError = err.message;
+                $(key + "-cfg-dot").className = "cfg-dot bad";
+              });
+              renderStatusBadge();
             });
         }
 
         // ---------------------------------------------------------------------
-        // Category listing
+        // Category listing / creation (per cluster)
         // ---------------------------------------------------------------------
-        function escapeHtml(str) {
-          return String(str).replace(/[&<>"']/g, function (c) {
-            return {
-              "&": "&amp;",
-              "<": "&lt;",
-              ">": "&gt;",
-              '"': "&quot;",
-              "'": "&#39;",
-            }[c];
-          });
-        }
-
-        function loadCategories() {
-          var select = $("category-select");
+        function loadCategories(cluster) {
+          var select = $(cluster + "-category-select");
           select.innerHTML = '<option value="">— loading… —</option>';
 
-          apiFetch("/categories")
+          apiFetch("/categories?cluster=" + encodeURIComponent(cluster))
             .then(function (data) {
+              CLUSTERS[cluster].categoriesLoaded = true;
               var rows = data.rows || [];
               if (!rows.length) {
                 select.innerHTML = '<option value="">— none found —</option>';
@@ -1017,148 +1527,209 @@
                     );
                   })
                   .join("");
+              // Re-select the persisted id if it is in the list.
+              var current = $(cluster + "-category-id").value;
+              if (current) select.value = current;
             })
             .catch(function (err) {
-              select.innerHTML = '<option value="">— failed to load —</option>';
-              console.error("Failed to load categories:", err);
+              select.innerHTML =
+                '<option value="">— failed to load: ' +
+                escapeHtml(err.message) +
+                " —</option>";
+              console.error("Failed to load categories (" + cluster + "):", err);
             });
         }
 
-        $("category-select").addEventListener("change", function () {
-          if (this.value) {
-            $("category-id").value = this.value;
-            saveFormState();
-          }
-        });
+        function wireCategory(cluster) {
+          $(cluster + "-category-select").addEventListener("change", function () {
+            if (this.value) {
+              $(cluster + "-category-id").value = this.value;
+              saveFormState();
+            }
+          });
 
-        // ---------------------------------------------------------------------
-        // Category creation
-        // ---------------------------------------------------------------------
-        $("btn-create-category").addEventListener("click", function () {
-          var btn = this;
-          var name = $("cat-name").value.trim();
-          if (!name) {
-            alert("Category name is required.");
-            return;
-          }
+          $(cluster + "-btn-create-category").addEventListener("click", function () {
+            var btn = this;
+            var name = $(cluster + "-cat-name").value.trim();
+            if (!name) {
+              alert("Category name is required.");
+              return;
+            }
 
-          btn.disabled = true;
-          btn.textContent = "Creating…";
+            btn.disabled = true;
+            btn.textContent = "Creating…";
 
-          apiFetch("/category", {
-            method: "POST",
-            body: JSON.stringify({
-              name: name,
-              desc: $("cat-desc").value.trim() || name,
-              dry_run: $("dry-run-toggle").checked,
-            }),
-          })
-            .then(function (data) {
-              if (data.dry_run) {
-                alert(
-                  "Dry run — no category created. Request body logged to console."
-                );
-                console.log(
-                  "Dry run category request body:",
-                  data.request_body
-                );
-              } else {
-                $("category-id").value = data.category_id;
-                saveFormState();
-                loadCategories();
-                alert("Category created: " + data.category_id);
-              }
+            apiFetch("/category", {
+              method: "POST",
+              body: JSON.stringify({
+                cluster: cluster,
+                name: name,
+                desc: $(cluster + "-cat-desc").value.trim() || name,
+                dry_run: $(cluster + "-dry-run-toggle").checked,
+              }),
             })
-            .catch(function (err) {
-              alert("Failed to create category: " + err.message);
-            })
-            .finally(function () {
-              btn.disabled = false;
-              btn.textContent = "Create category";
-            });
-        });
+              .then(function (data) {
+                if (data.dry_run) {
+                  alert(
+                    "Dry run — no category created on " +
+                      CLUSTERS[cluster].label +
+                      ". Request body logged to console."
+                  );
+                  console.log("Dry run category request body:", data.request_body);
+                } else {
+                  $(cluster + "-category-id").value = data.category_id;
+                  saveFormState();
+                  loadCategories(cluster);
+                  alert(
+                    "Category created on " +
+                      CLUSTERS[cluster].label +
+                      ": " +
+                      data.category_id
+                  );
+                }
+              })
+              .catch(function (err) {
+                alert("Failed to create category: " + err.message);
+              })
+              .finally(function () {
+                btn.disabled = false;
+                btn.textContent = "Create category";
+              });
+          });
+        }
 
         // ---------------------------------------------------------------------
         // Preview
         // ---------------------------------------------------------------------
-        function renderPreview(bodies) {
+        function renderPreview(data) {
           var container = $("preview-container");
+          var bodies = data.request_bodies || [];
+          var mode = data.mode || CLUSTERS[data.cluster || activeCluster].mode;
+          $("preview-cluster-tag").textContent = CLUSTERS[data.cluster || activeCluster].label;
+
           if (!bodies.length) {
             container.innerHTML =
               '<div class="empty-state">No channels generated.</div>';
             return;
           }
 
-          var rows = bodies
-            .map(function (b) {
-              var srcMap = {};
-              b.sources.forEach(function (s) {
-                if (s.address.indexOf(".31.") !== -1 || true) {
-                } // no-op, address already carries the site by position
-              });
-              var siteLabels = ["ave", "lmk", "yer"];
-              var addrCells = b.sources
-                .map(function (s, i) {
-                  return "<div>" + s.address + "</div>";
-                })
-                .join("");
-              var fanoutDots = siteLabels
-                .map(function (loc) {
-                  return '<span class="dot ' + loc + '"></span>';
-                })
-                .join("");
+          var notice = "";
+          if (mode === "srt") {
+            if (data.passphrase_source === "missing") {
+              notice =
+                '<div class="notice bad">Encrypted SRT requested but no passphrase is available — set INTERNALSRTPASSPHRASE on the server or type an override. Creation will be refused.</div>';
+            } else if (data.passphrase_source === "override") {
+              notice =
+                '<div class="notice warn">Passphrase override in use (masked below, not persisted).</div>';
+            }
+            if (bodies[0].sources.length < 2) {
+              notice +=
+                '<div class="notice warn">No backup source — each channel will have a single SRT source.</div>';
+            }
+          }
 
-              return (
-                "<tr>" +
-                "<td>" +
-                b.number +
-                "</td>" +
-                "<td>" +
-                b.name +
-                "</td>" +
-                '<td><div class="site-fanout-mini">' +
-                fanoutDots +
-                "</div></td>" +
-                "<td>" +
-                addrCells +
-                "</td>" +
-                "</tr>"
-              );
-            })
-            .join("");
+          var head, rows;
+          if (mode === "srt") {
+            head =
+              "<tr><th>#</th><th>Name</th><th>Prio</th><th>Sources (primary / backup)</th><th>SRT</th></tr>";
+            rows = bodies
+              .map(function (b) {
+                var dots = b.sources
+                  .map(function (s) {
+                    return (
+                      '<span class="dot ' +
+                      (s.priority === 0 ? "pri" : "bkp") +
+                      '"></span>'
+                    );
+                  })
+                  .join("");
+                var addrs = b.sources
+                  .map(function (s) {
+                    return "<div>" + escapeHtml(s.address) + "</div>";
+                  })
+                  .join("");
+                var enc = b.sources.length && b.sources[0].options && b.sources[0].options.srt
+                  ? "encrypted · " + escapeHtml(b.sources[0].options.srt.passphrase || "")
+                  : "clear";
+                return (
+                  "<tr><td>" +
+                  b.number +
+                  "</td><td>" +
+                  escapeHtml(b.name) +
+                  '</td><td><div class="site-fanout-mini">' +
+                  dots +
+                  "</div></td><td>" +
+                  addrs +
+                  "</td><td>" +
+                  enc +
+                  "</td></tr>"
+                );
+              })
+              .join("");
+          } else {
+            head =
+              "<tr><th>#</th><th>Name</th><th>Sites</th><th>Sources (AVE / LMK / YER)</th></tr>";
+            rows = bodies
+              .map(function (b) {
+                var addrCells = b.sources
+                  .map(function (s) {
+                    return "<div>" + escapeHtml(s.address) + "</div>";
+                  })
+                  .join("");
+                var fanoutDots = ["ave", "lmk", "yer"]
+                  .map(function (loc) {
+                    return '<span class="dot ' + loc + '"></span>';
+                  })
+                  .join("");
+                return (
+                  "<tr><td>" +
+                  b.number +
+                  "</td><td>" +
+                  escapeHtml(b.name) +
+                  '</td><td><div class="site-fanout-mini">' +
+                  fanoutDots +
+                  "</div></td><td>" +
+                  addrCells +
+                  "</td></tr>"
+                );
+              })
+              .join("");
+          }
 
           container.innerHTML =
-            "<table>" +
-            "<thead><tr><th>#</th><th>Name</th><th>Sites</th><th>Sources (AVE / LMK / YER)</th></tr></thead>" +
-            "<tbody>" +
+            notice +
+            "<table><thead>" +
+            head +
+            "</thead><tbody>" +
             rows +
-            "</tbody>" +
-            "</table>";
+            "</tbody></table>";
         }
 
-        $("btn-preview").addEventListener("click", function () {
-          var btn = this;
-          var params = collectChannelParams();
-          saveFormState();
+        function wirePreview(cluster) {
+          $(cluster + "-btn-preview").addEventListener("click", function () {
+            var btn = this;
+            var params = collectChannelParams(cluster);
+            saveFormState();
 
-          btn.disabled = true;
-          btn.textContent = "Loading…";
+            btn.disabled = true;
+            btn.textContent = "Loading…";
 
-          apiFetch("/channels/preview", {
-            method: "POST",
-            body: JSON.stringify(params),
-          })
-            .then(function (data) {
-              renderPreview(data.request_bodies);
+            apiFetch("/channels/preview", {
+              method: "POST",
+              body: JSON.stringify(params),
             })
-            .catch(function (err) {
-              alert("Preview failed: " + err.message);
-            })
-            .finally(function () {
-              btn.disabled = false;
-              btn.textContent = "Preview";
-            });
-        });
+              .then(function (data) {
+                renderPreview(data);
+              })
+              .catch(function (err) {
+                alert("Preview failed: " + err.message);
+              })
+              .finally(function () {
+                btn.disabled = false;
+                btn.textContent = "Preview";
+              });
+          });
+        }
 
         // ---------------------------------------------------------------------
         // Bulk creation job
@@ -1172,8 +1743,9 @@
           log.scrollTop = log.scrollHeight;
         }
 
-        function resetJobUI() {
+        function resetJobUI(cluster) {
           $("job-section").style.display = "block";
+          $("job-cluster-tag").textContent = CLUSTERS[cluster].label;
           $("job-log").innerHTML = "";
           $("progress-bar-fill").style.width = "0%";
           $("progress-bar-fill").className = "progress-bar-fill";
@@ -1245,90 +1817,123 @@
           }, 1500);
         }
 
-        $("btn-create-channels").addEventListener("click", function () {
-          var btn = this;
-          var params = collectChannelParams();
-          saveFormState();
+        function wireCreate(cluster) {
+          $(cluster + "-btn-create-channels").addEventListener("click", function () {
+            var btn = this;
+            var params = collectChannelParams(cluster);
+            saveFormState();
 
-          if (!params.category_id) {
-            alert(
-              "Category ID is required — create a category or paste an existing ID first."
-            );
-            return;
-          }
+            if (!params.category_id) {
+              alert(
+                "Category ID is required — create a category or paste an existing ID first."
+              );
+              return;
+            }
+            if (params.srt && !params.srt.primary_ip) {
+              alert("Primary SRT source host is required.");
+              return;
+            }
 
-          if (!params.dry_run) {
-            var confirmed = confirm(
-              "This will create " +
-                params.channel_count +
-                " channels via the live TXCore API. Continue?"
-            );
-            if (!confirmed) return;
-          }
+            if (!params.dry_run) {
+              var st = CLUSTERS[cluster].status;
+              var confirmed = confirm(
+                "This will create " +
+                  params.channel_count +
+                  " channels on the " +
+                  CLUSTERS[cluster].label +
+                  " TXCore cluster" +
+                  (st && st.api_url ? " (" + st.api_url + ")" : "") +
+                  " via the live API. Continue?"
+              );
+              if (!confirmed) return;
+            }
 
-          btn.disabled = true;
-          btn.textContent = "Starting…";
-          resetJobUI();
+            btn.disabled = true;
+            btn.textContent = "Starting…";
+            resetJobUI(cluster);
 
-          apiFetch("/channels", {
-            method: "POST",
-            body: JSON.stringify(params),
-          })
-            .then(function (data) {
-              appendLog("Job started: " + data.job_id, "log-dim");
-              pollJob(data.job_id);
+            apiFetch("/channels", {
+              method: "POST",
+              body: JSON.stringify(params),
             })
-            .catch(function (err) {
-              appendLog("Failed to start job: " + err.message, "log-err");
-            })
-            .finally(function () {
-              btn.disabled = false;
-              btn.textContent = "Create channels";
-            });
-        });
+              .then(function (data) {
+                appendLog(
+                  "Job started on " + CLUSTERS[cluster].label + ": " + data.job_id,
+                  "log-dim"
+                );
+                pollJob(data.job_id);
+              })
+              .catch(function (err) {
+                appendLog("Failed to start job: " + err.message, "log-err");
+              })
+              .finally(function () {
+                btn.disabled = false;
+                btn.textContent = "Create channels";
+              });
+          });
+        }
 
         // ---------------------------------------------------------------------
         // Init
         // ---------------------------------------------------------------------
         loadFormState();
-        loadStatus();
-        loadCategories();
-        FIELD_IDS.forEach(function (id) {
+
+        ["stb", "main"].forEach(function (cluster) {
+          wireCategory(cluster);
+          wirePreview(cluster);
+          wireCreate(cluster);
+          fieldIdsFor(cluster).forEach(function (id) {
+            $(id).addEventListener("change", saveFormState);
+          });
+          $(cluster + "-dry-run-toggle").addEventListener("change", saveFormState);
+        });
+        SRT_CHECKBOXES.forEach(function (id) {
           $(id).addEventListener("change", saveFormState);
         });
-        $("dry-run-toggle").addEventListener("change", saveFormState);
 
-        $("first-ch").addEventListener("input", syncLinkedFromFirstCh);
+        // STB linked fields
+        $("stb-first-ch").addEventListener("input", syncLinkedFromFirstCh);
         LINKED_TO_FIRST_CH.forEach(function (id) {
           $(id).addEventListener("input", function () {
             linkedDirty[id] = true;
           });
         });
-
         $("shared-3rd-oct").addEventListener("input", syncThirdOctetFromShared);
         THIRD_OCTET_LINKED.forEach(function (id) {
           $(id).addEventListener("input", function () {
             thirdOctetDirty[id] = true;
           });
         });
-
-        var ADDR_PREVIEW_FIELDS = [
-          "ave-3rd-oct",
-          "lmk-3rd-oct",
-          "yer-3rd-oct",
-          "ave-4oct",
-          "lmk-4oct",
-          "yer-4oct",
-          "ave-port",
-          "lmk-port",
-          "yer-port",
-        ];
-        ADDR_PREVIEW_FIELDS.forEach(function (id) {
-          $(id).addEventListener("input", updateAddressPreviews);
+        MULTICAST_FIELDS.concat(["stb-first-ch"]).forEach(function (id) {
+          $(id).addEventListener("input", updateMulticastPreviews);
         });
-        $("first-ch").addEventListener("input", updateAddressPreviews);
-        $("shared-3rd-oct").addEventListener("input", updateAddressPreviews);
-        updateAddressPreviews();
+        updateMulticastPreviews();
+
+        // MAIN SRT fields
+        $("main-srt-primary").addEventListener("input", function () {
+          autoPairBackup();
+          updateSrtPreviews();
+        });
+        $("main-srt-backup").addEventListener("input", function () {
+          backupDirty = $("main-srt-backup").value.trim() !== "";
+          updateSrtPreviews();
+        });
+        ["main-srt-first-port", "main-channel-count", "main-srt-passphrase"].forEach(
+          function (id) {
+            $(id).addEventListener("input", updateSrtPreviews);
+          }
+        );
+        $("main-srt-encrypted").addEventListener("change", updateSrtPreviews);
+        if ($("main-srt-backup").value.trim()) backupDirty = true;
+        updateSrtPreviews();
+
+        var savedCluster = null;
+        try {
+          savedCluster = localStorage.getItem(ACTIVE_KEY);
+        } catch (e) {}
+        var hashCluster = (location.hash || "").replace("#", "").toLowerCase();
+        setActiveCluster(CLUSTERS[hashCluster] ? hashCluster : savedCluster || "stb");
+        loadStatus();
       })();
     </script>
   </body>

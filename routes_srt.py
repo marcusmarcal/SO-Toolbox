@@ -44,9 +44,188 @@ _job_counter = 0
 CBR_DEFAULT_MBPS = 8.0
 CBR_BUFSIZE_FACTOR = 2  # bufsize = bitrate * factor
 TS_SOURCE_DIR = "/opt/web/store/gop-results"
+RECORDINGS_SOURCE_DIR = "/opt/web/store/recordings"
+
+# Directories scanned by /sources for selectable .ts files, in display order.
+# "label" is what the UI shows as the folder of a source and what the folder
+# filter matches against.
+TS_SOURCE_DIRS = [
+    {"path": TS_SOURCE_DIR, "label": "Video Analyser"},
+    {"path": RECORDINGS_SOURCE_DIR, "label": "Recordings"},
+]
+
+# Recording / GOP-result filenames follow the pattern
+#   <YYYYMMDD>-<HHMMSS>_<proto>___<a_b_c_d>[_<port>][_mode_<mode>][...][_FAILED]
+# e.g. 20260904-141220_srt___194_76_59_21_4015.ts
+#      20260824-092252_srt___194_76_59_20_4381_mode_caller.ts
+#      20260902-152331_rtmp___34_185_201_32_80_ingest__eROgohyk.ts
+# The metadata is parsed server-side so the UI can offer structured filters
+# (date / port / folder) and prefixed search tokens on top of free text.
+_SOURCE_NAME_RE = re.compile(
+    r"^(?P<date>\d{8})-(?P<time>\d{6})_(?P<proto>[a-z0-9]+)___"
+    r"(?P<host>\d{1,3}(?:_\d{1,3}){3})(?:_(?P<port>\d{1,5}))?(?P<rest>(?:_.*)?)$",
+    re.IGNORECASE,
+)
+_SOURCE_MODE_RE = re.compile(r"_mode_(?P<mode>[a-z]+)", re.IGNORECASE)
+
+
+def _parse_source_name(stem: str) -> dict:
+    """Extract date/time/protocol/host/port/mode/FAILED from a source filename
+    stem (no extension). Every field is None when the name does not follow
+    the known pattern (e.g. tmpXXXX.ts), except "failed" which is a plain
+    substring check."""
+    meta = {
+        "date": None, "time": None, "protocol": None,
+        "host": None, "port": None, "mode": None,
+        "failed": "FAILED" in stem.upper(),
+    }
+    m = _SOURCE_NAME_RE.match(stem)
+    if not m:
+        return meta
+    d, t = m.group("date"), m.group("time")
+    meta["date"] = f"{d[0:4]}-{d[4:6]}-{d[6:8]}"
+    meta["time"] = f"{t[0:2]}:{t[2:4]}:{t[4:6]}"
+    meta["protocol"] = m.group("proto").lower()
+    meta["host"] = m.group("host").replace("_", ".")
+    meta["port"] = int(m.group("port")) if m.group("port") else None
+    mm = _SOURCE_MODE_RE.search(m.group("rest") or "")
+    if mm:
+        meta["mode"] = mm.group("mode").lower()
+    return meta
+
+
+# Partnership with the Video Analyzer (routes_gop.py). Every .ts in gop-results
+# has a result JSON and every .ts in recordings has a metadata sidecar, both
+# carrying the operator-assigned "tag" (comma-separated), the username and a
+# status. We reuse the Video Analyzer's own mtime-cached results index so the
+# ~2k gop-results JSON files are not re-parsed on every /sources call, and keep
+# a small equivalent cache here for the recordings sidecars. If routes_gop
+# cannot be imported (standalone deployment) sources are simply served without
+# tags — the ingest tool itself keeps working.
+try:
+    from routes_gop import _get_results_index as _gop_results_index
+except Exception:  # pragma: no cover - optional dependency
+    _gop_results_index = None
+
+_sidecar_cache: dict = {}   # json path -> {"mtime": float, "meta": dict}
+_sidecar_cache_lock = threading.Lock()
+
+
+def _split_tags(raw) -> list:
+    """'a, b,c' -> ['a', 'b', 'c'] (deduplicated, order preserved)."""
+    if isinstance(raw, list):
+        parts = [str(t).strip() for t in raw]
+    else:
+        parts = [t.strip() for t in str(raw or "").split(",")]
+    seen, out = set(), []
+    for t in parts:
+        if t and t.lower() not in seen:
+            seen.add(t.lower())
+            out.append(t)
+    return out
+
+
+def _sidecar_index(directory: str) -> dict:
+    """Return {json_basename_stem: meta} for every .json in `directory`,
+    re-reading only files whose mtime changed. The (potentially large) "log"
+    list is dropped from each meta to keep memory small."""
+    if not os.path.isdir(directory):
+        return {}
+    try:
+        names = [f for f in os.listdir(directory) if f.lower().endswith(".json")]
+    except OSError:
+        return {}
+    out = {}
+    with _sidecar_cache_lock:
+        live = set()
+        for f in names:
+            path = os.path.join(directory, f)
+            live.add(path)
+            try:
+                mtime = os.path.getmtime(path)
+            except OSError:
+                continue
+            cached = _sidecar_cache.get(path)
+            if cached is None or cached["mtime"] != mtime:
+                try:
+                    with open(path, "r") as fh:
+                        meta = json.load(fh)
+                    if not isinstance(meta, dict):
+                        continue
+                    meta.pop("log", None)
+                except (OSError, ValueError):
+                    continue
+                cached = {"mtime": mtime, "meta": meta}
+                _sidecar_cache[path] = cached
+            out[os.path.splitext(f)[0]] = cached["meta"]
+        # Drop cache entries for sidecars deleted from this directory.
+        for stale in [p for p in _sidecar_cache if os.path.dirname(p) == directory and p not in live]:
+            del _sidecar_cache[stale]
+    return out
+
+
+def _source_annotations() -> dict:
+    """Build {ts_basename: {"tags", "username", "analysis_status", "host", "port"}}
+    from the Video Analyzer's data:
+
+    - gop-results: the results index (result JSON per test; `ts_file` names
+      the captured .ts, falling back to <same stem>.ts).
+    - recordings: the .json sidecar written next to each recorded .ts
+      (`file` names the .ts, falling back to <same stem>.ts).
+    """
+    ann = {}
+
+    def put(ts_name, tags, username, status, host=None, port=None):
+        if not ts_name:
+            return
+        ann[ts_name] = {
+            "tags": _split_tags(tags),
+            "username": username or None,
+            "analysis_status": status or None,
+            "host": host or None,
+            "port": port,
+        }
+
+    # gop-results ---------------------------------------------------------
+    if _gop_results_index is not None:
+        try:
+            for it in _gop_results_index():
+                ts_name = it.get("ts_file") or (os.path.splitext(it.get("file", ""))[0] + ".ts")
+                put(ts_name, it.get("tag"), it.get("username"), it.get("overall_status"),
+                    it.get("url_host"), it.get("url_port"))
+        except Exception:
+            pass
+    else:
+        for stem, meta in _sidecar_index(TS_SOURCE_DIR).items():
+            ts_name = meta.get("ts_file") or (stem + ".ts")
+            put(ts_name, meta.get("tag"), meta.get("username"), meta.get("overall_status"),
+                meta.get("url_host"), meta.get("url_port"))
+
+    # recordings ----------------------------------------------------------
+    for stem, meta in _sidecar_index(RECORDINGS_SOURCE_DIR).items():
+        # Be tolerant about how the sidecar names its .ts: "file" is what
+        # _record_stream writes, but accept "ts_file"/"filename" and a value
+        # with or without the .ts extension, and always index the same-stem
+        # name too so a renamed/absent field still matches.
+        raw_name = meta.get("file") or meta.get("ts_file") or meta.get("filename") or ""
+        raw_name = os.path.basename(str(raw_name))
+        if raw_name and not raw_name.lower().endswith(".ts"):
+            raw_name += ".ts"
+        tags = meta.get("tag") if meta.get("tag") not in (None, "") else meta.get("tags")
+        for ts_name in {raw_name, stem + ".ts"}:
+            if ts_name and ts_name not in ann:
+                put(ts_name, tags, meta.get("username"), meta.get("status"))
+
+    return ann
 
 # Delay before an unattended job auto-reconnects after ffmpeg exits.
 RETRY_DELAY_SECONDS = 3
+
+# /ingest/multi launches one full ffmpeg process per destination (one decode,
+# plus one libx264 encode in transcode/B&T mode), which is what saturates the
+# server CPU with large fan-outs. Cap it; /ingest/multi-shared (1 process,
+# -c copy) has no such cost and keeps the 100-destination limit.
+MULTI_INDEPENDENT_MAX_DESTINATIONS = 5
 
 # ffmpeg's own logger collapses a repeated line into "Last message repeated
 # N times" instead of reprinting it — if that happens to be the very last
@@ -622,7 +801,9 @@ def ingest_single():
 @srt_bp.route("/ingest/multi", methods=["POST"])
 def ingest_multi():
     """
-    Start ingest to multiple SRT destinations (port range).
+    Start ingest to multiple SRT destinations (port range), one independent
+    ffmpeg process per destination. Limited to MULTI_INDEPENDENT_MAX_DESTINATIONS
+    to protect the server CPU — use /ingest/multi-shared for large fan-outs.
     Body JSON: { host, port_start, port_end, passphrase, input_file?, bitrate_mbps? }
     Each destination job keeps retrying to connect automatically until stopped.
     """
@@ -642,8 +823,14 @@ def ingest_multi():
         return jsonify({"error": "host, port_start and port_end are required"}), 400
     if port_start > port_end:
         return jsonify({"error": "port_start must be <= port_end"}), 400
-    if (port_end - port_start) > 99:
-        return jsonify({"error": "Port range limited to 100 destinations"}), 400
+    if (port_end - port_start) >= MULTI_INDEPENDENT_MAX_DESTINATIONS:
+        return jsonify({
+            "error": (
+                f"Independent multi-ingest is limited to {MULTI_INDEPENDENT_MAX_DESTINATIONS} "
+                "destinations (one ffmpeg process each). Use the shared single-process mode "
+                "for larger fan-outs."
+            )
+        }), 400
     if source_mode == "bars_tone":
         # B&T has a fixed compliance profile; do not inherit the UI bitrate
         # or passthrough choice.
@@ -836,22 +1023,82 @@ def clear_jobs():
 
 @srt_bp.route("/sources", methods=["GET"])
 def list_sources():
-    sources = [{"file": "test.mp4", "type": "mp4"}]
+    """List selectable source files: the bundled test.mp4 plus every .ts file
+    found in TS_SOURCE_DIRS (gop-results and recordings), newest first.
 
-    if os.path.isdir(TS_SOURCE_DIR):
-        ts_files = sorted(
-            [f for f in os.listdir(TS_SOURCE_DIR) if f.lower().endswith(".ts")],
-            reverse=True  # mais recente primeiro (baseado no nome)
-        )
+    Each .ts entry carries the metadata parsed from its filename (date, time,
+    protocol, host, port, mode, failed) plus folder, size and mtime, and the
+    Video Analyzer tags / username / status taken from the matching result
+    JSON or recording sidecar, so the UI can offer structured search/filters
+    in addition to free-text search. The response also lists every distinct
+    tag so the UI can offer them for selection.
+    Files whose name doesn't follow the known pattern are still listed (with
+    null metadata) and sorted after the parsed ones.
+    """
+    sources = [{"file": "test.mp4", "name": "test.mp4", "type": "mp4", "folder": ""}]
 
-        for f in ts_files:
-            sources.append({
-                "file": os.path.join(TS_SOURCE_DIR, f),
+    ts_sources = []
+    for d in TS_SOURCE_DIRS:
+        if not os.path.isdir(d["path"]):
+            continue
+        try:
+            names = os.listdir(d["path"])
+        except OSError:
+            continue
+        for f in names:
+            if not f.lower().endswith(".ts"):
+                continue
+            full = os.path.join(d["path"], f)
+            try:
+                st = os.stat(full)
+            except OSError:
+                continue
+            entry = {
+                "file": full,
                 "name": f,
                 "type": "ts",
-            })
+                "folder": d["label"],
+                "size_bytes": st.st_size,
+                "mtime": st.st_mtime,
+            }
+            entry.update(_parse_source_name(os.path.splitext(f)[0]))
+            ts_sources.append(entry)
 
-    return jsonify({"sources": sources})
+    # Video Analyzer partnership: attach tags / username / status from the
+    # matching result JSON or recording sidecar, and fill host/port for files
+    # whose name doesn't carry them (e.g. uploads) when the JSON knows them.
+    annotations = _source_annotations()
+    all_tags = set()
+    for s in ts_sources:
+        a = annotations.get(s["name"], {})
+        s["has_sidecar"] = s["name"] in annotations
+        s["tags"] = a.get("tags", [])
+        s["username"] = a.get("username")
+        s["analysis_status"] = a.get("analysis_status")
+        if s["host"] is None and a.get("host"):
+            s["host"] = a["host"]
+        if s["port"] is None and a.get("port") not in (None, ""):
+            try:
+                s["port"] = int(a["port"])
+            except (TypeError, ValueError):
+                pass
+        all_tags.update(s["tags"])
+
+    # Parsed (timestamped) files first, newest first — the name starts with
+    # the timestamp so a reverse name sort is a reverse chronological sort.
+    ts_sources.sort(key=lambda s: (s["date"] is not None, s["name"]), reverse=True)
+    sources.extend(ts_sources)
+
+    # Tags are offered case-insensitively (the search is too); keep the first
+    # spelling seen for each.
+    uniq_tags = {}
+    for t in sorted(all_tags, key=str.lower):
+        uniq_tags.setdefault(t.lower(), t)
+
+    return jsonify({
+        "sources": sources,
+        "tags": list(uniq_tags.values()),
+    })
 
 
 @srt_bp.route("/jobs/<int:job_id>/stats", methods=["GET"])

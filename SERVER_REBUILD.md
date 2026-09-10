@@ -211,12 +211,12 @@ location = /so-proxy/_auth_check {
 }
 ```
 
-**Public pages** — `login.html` and `users-admin.html` are served without
+**Public pages** — `login.html` and `so-toolbox-admin.html` are served without
 auth (they manage their own authentication):
 
 ```nginx
-location = /login.html    { root /opt/web; }
-location = /users-admin.html { root /opt/web; }
+location = /login.html            { root /opt/web; }
+location = /so-toolbox-admin.html { root /opt/web; }
 ```
 
 **Protected zone** — everything else requires a valid session; unauthenticated
@@ -430,7 +430,7 @@ echo -n "your-password-here" | sha256sum
 nano /opt/web/users.json
 ```
 
-Alternatively, use the `users-admin.html` tool after the proxy is running —
+Alternatively, use the `so-toolbox-admin.html` tool after the proxy is running —
 it can create users (including the first admin) via the `POST /so-proxy/users`
 endpoint protected by `ADMIN_PASSWORD`.
 
@@ -466,5 +466,5 @@ Or enforce it at the nginx level with `auth_request` pointing to `/so-proxy/me`.
 - [ ] Verify `users.json` is in `.gitignore`
 - [ ] Add `users.json` block to nginx config and reload nginx
 - [ ] Confirm `ADMIN_PASSWORD` is set in `.env`
-- [ ] Open `users-admin.html` and create any additional users
+- [ ] Open `so-toolbox-admin.html` and create any additional users
 - [ ] Test login at `/login.html`

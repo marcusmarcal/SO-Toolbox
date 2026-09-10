@@ -175,6 +175,76 @@
     }
     .host-combo select:focus { border-color: var(--accent); }
     .host-combo input { flex: 1; }
+    /* ── Source picker ─────────────────────────────────────────── */
+    .source-picker { position: relative; }
+    .source-filters { display: flex; gap: 8px; margin-top: 8px; align-items: stretch; }
+    .source-filters select {
+      flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+      font-family: var(--mono); font-size: 11px; padding: 6px 8px; border-radius: 3px; outline: none;
+    }
+    .source-filters { flex-wrap: wrap; }
+    .source-filters select, .source-filters input {
+      flex: 1 1 110px; min-width: 0; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+      font-family: var(--mono); font-size: 11px; padding: 6px 8px; border-radius: 3px; outline: none;
+    }
+    .source-filters select:focus, .source-filters input:focus { border-color: var(--accent); }
+    .source-filters input[type="date"] { color-scheme: dark; }
+    .source-filters .flt-search { flex: 3 1 220px; }
+    .src-selected {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 8px 10px;
+      font-family: var(--mono); font-size: 11px; cursor: pointer; transition: border-color .2s;
+    }
+    .src-selected:hover { border-color: var(--accent); }
+    .src-selected .src-name { margin-top: 3px; }
+    .source-filters .btn-src-refresh {
+      width: auto; margin: 0; padding: 6px 10px; font-size: 11px; flex-shrink: 0;
+      background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 3px;
+    }
+    .source-filters .btn-src-refresh:hover { border-color: var(--accent); color: var(--accent); }
+    .source-results {
+      display: none; margin-top: 8px; border: 1px solid var(--border); border-radius: 3px;
+      background: var(--bg); max-height: 280px; overflow-y: auto;
+    }
+    .source-results.open { display: block; }
+    .src-summary {
+      position: sticky; top: 0; background: var(--bg); padding: 6px 10px; z-index: 1;
+      font-family: var(--mono); font-size: 9px; color: var(--muted); letter-spacing: .1em;
+      text-transform: uppercase; border-bottom: 1px solid var(--border);
+    }
+    .src-item {
+      padding: 8px 10px; border-bottom: 1px solid var(--border); cursor: pointer;
+      font-family: var(--mono); font-size: 11px; transition: background .12s;
+    }
+    .src-item:last-child { border-bottom: none; }
+    .src-item:hover { background: rgba(0,212,255,.08); }
+    .src-item.selected { background: rgba(0,212,255,.14); }
+    .src-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; color: var(--text); }
+    .src-chip { font-size: 9px; padding: 1px 5px; border-radius: 2px; letter-spacing: .06em; text-transform: uppercase; }
+    .src-chip.folder { background: rgba(255,209,102,.12); color: var(--yellow); }
+    .src-chip.proto  { background: rgba(0,212,255,.1);   color: var(--accent); }
+    .src-chip.mode   { background: rgba(255,107,53,.15); color: var(--accent2); }
+    .src-chip.failed { background: rgba(255,59,92,.15);  color: var(--red); }
+    .src-chip.gen    { background: rgba(0,255,136,.12);  color: var(--green); }
+    .src-port { color: var(--accent2); font-weight: 700; }
+    .src-chip.tag { background: rgba(0,255,136,.1); color: var(--green); border: 1px solid rgba(0,255,136,.25); text-transform: none; cursor: pointer; }
+    .src-chip.tag:hover { background: rgba(0,255,136,.22); }
+    .src-chip.user { background: rgba(74,90,110,.25); color: var(--text); text-transform: none; }
+    .src-chip.astatus { background: rgba(74,90,110,.25); color: var(--muted); }
+    .src-chip.astatus.ok  { background: rgba(0,255,136,.1);  color: var(--green); }
+    .src-chip.astatus.bad { background: rgba(255,59,92,.15); color: var(--red); }
+    .src-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+    .src-size { margin-left: auto; color: var(--muted); }
+    .src-name { color: var(--muted); font-size: 10px; margin-top: 3px; word-break: break-all; }
+    .src-empty { padding: 16px; text-align: center; color: var(--muted); font-family: var(--mono); font-size: 11px; }
+    .src-hint { font-size: 9px; color: var(--muted); font-family: var(--mono); margin-top: 5px; letter-spacing: .04em; }
+
+    .cpu-warning {
+      display: none; margin-top: 8px; padding: 8px 10px; border-radius: 3px;
+      background: rgba(255,209,102,.08); border: 1px solid rgba(255,209,102,.35);
+      font-family: var(--mono); font-size: 10px; color: var(--yellow); line-height: 1.6;
+    }
+    .cpu-warning.show { display: block; }
+
     .no-jobs { text-align:center; color:var(--muted); font-family:var(--mono); font-size:12px; padding:30px 0; }
     .stats-bar { display:flex; gap:24px; margin-bottom:16px; font-family:var(--mono); font-size:11px; color:var(--muted); }
     .stat-val { color:var(--text); font-size:18px; font-weight:700; display:block; }
@@ -240,7 +310,7 @@
   <div class="logo-icon">SRT</div>
   <div>
     <h1>SRT Ingest Tool</h1>
-    <p>ffmpeg · mpegts · libx264 CBR · aac · 1080p25 · closed-GOP</p>
+    <p>ffmpeg · mpegts · passthrough by default · libx264 CBR transcode on demand · 1080p25 · closed-GOP</p>
   </div>
   <div class="pill">● LIVE</div>
 </header>
@@ -252,13 +322,24 @@
     <div class="card-title">Single Destination <span class="tag">1:1</span></div>
     <div class="field">
       <label>Source File</label>
-      <input type="text" id="s-input" value="test.mp4" placeholder="type or paste filename to search" list="s-source-datalist" autocomplete="off" />
-      <datalist id="s-source-datalist"></datalist>
+      <div class="source-picker" id="s-source-picker">
+        <!-- Hidden value carrier: the selected source path/label used by the previews and the API calls. -->
+        <input type="hidden" id="s-input" value="test.mp4" />
+        <div class="src-selected" id="s-source-selected" title="Click to change the source">test.mp4</div>
+        <div class="source-filters">
+          <select id="s-filter-folder" title="Folder"><option value="">All folders</option></select>
+          <input type="date" id="s-filter-date" title="Date" />
+          <input type="text" id="s-search" class="flt-search" title="Search by address, port, tag, user, date, protocol…" placeholder="search: address · port · tag · user · date…" list="source-tag-datalist" autocomplete="off" />
+          <button type="button" class="btn-src-refresh" title="Rescan source folders" onclick="loadSources(true)">↻</button>
+        </div>
+        <div class="source-results" id="s-source-results"></div>
+        <div class="src-hint">tokens: <b>4015</b> · <b>194.76.59.21</b> · <b>2026-09-04</b> · <b>14:12</b> · <b>srt</b>/<b>rtmp</b> · <b>caller</b> · <b>failed</b> · <b>port:4110</b> · <b>host:194.76</b> · <b>tag:xyz</b> · <b>user:name</b> · <b>date:2026-09</b> · <b>dir:recordings</b></div>
+      </div>
     </div>
-    <div class="field" id="s-passthrough-row" style="display:none">
+    <div class="field" id="s-transcode-row" style="display:none">
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
-        <input type="checkbox" id="s-passthrough" onchange="onPassthroughChange('s')" style="width:auto;accent-color:var(--accent2)" />
-        <span>Passthrough <span style="color:var(--muted);font-size:10px">(copy streams, no re-encode)</span></span>
+        <input type="checkbox" id="s-transcode" onchange="onTranscodeChange('s')" style="width:auto;accent-color:var(--accent2)" />
+        <span>Transcode <span style="color:var(--muted);font-size:10px">(re-encode with libx264 CBR — default is passthrough / stream copy)</span></span>
       </label>
     </div>
     <div class="field">
@@ -274,7 +355,7 @@
       <div class="field"><label>Port</label><input type="number" id="s-port" placeholder="4001" min="1" max="65535" /></div>
       <div class="field"><label>Passphrase <span style="color:var(--muted);font-size:9px">(optional)</span></label><input type="password" id="s-pass" placeholder="leave empty if none" /></div>
     </div>
-    <div class="field" id="s-bitrate-row"><label>Target Bitrate (Mbps)</label><input type="number" id="s-bitrate" value="8" min="1" max="50" step="0.5" /></div>
+    <div class="field" id="s-bitrate-row" style="display:none"><label>Target Bitrate (Mbps)</label><input type="number" id="s-bitrate" value="8" min="1" max="50" step="0.5" /></div>
     <div class="preview-label">Command Preview</div>
     <div class="ffmpeg-preview" id="s-preview">Fill the fields above to preview the command.</div>
     <button class="btn-single" onclick="startSingle()">▶ Start Ingest</button>
@@ -285,19 +366,31 @@
     <div class="card-title">Multi Destination <span class="tag">1:N</span></div>
     <div class="field">
       <label>Source File</label>
-      <input type="text" id="m-input" value="test.mp4" placeholder="type or paste filename to search" list="m-source-datalist" autocomplete="off" />
-      <datalist id="m-source-datalist"></datalist>
-    </div>
-    <div class="field" id="m-passthrough-row" style="display:none">
-      <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
-        <input type="checkbox" id="m-passthrough" onchange="onPassthroughChange('m')" style="width:auto;accent-color:var(--accent2)" />
-        <span>Passthrough <span style="color:var(--muted);font-size:10px">(copy streams, no re-encode)</span></span>
-      </label>
+      <div class="source-picker" id="m-source-picker">
+        <!-- Hidden value carrier: the selected source path/label used by the previews and the API calls. -->
+        <input type="hidden" id="m-input" value="test.mp4" />
+        <div class="src-selected" id="m-source-selected" title="Click to change the source">test.mp4</div>
+        <div class="source-filters">
+          <select id="m-filter-folder" title="Folder"><option value="">All folders</option></select>
+          <input type="date" id="m-filter-date" title="Date" />
+          <input type="text" id="m-search" class="flt-search" title="Search by address, port, tag, user, date, protocol…" placeholder="search: address · port · tag · user · date…" list="source-tag-datalist" autocomplete="off" />
+          <button type="button" class="btn-src-refresh" title="Rescan source folders" onclick="loadSources(true)">↻</button>
+        </div>
+        <div class="source-results" id="m-source-results"></div>
+        <div class="src-hint">tokens: <b>4015</b> · <b>194.76.59.21</b> · <b>2026-09-04</b> · <b>14:12</b> · <b>srt</b>/<b>rtmp</b> · <b>caller</b> · <b>failed</b> · <b>port:4110</b> · <b>host:194.76</b> · <b>tag:xyz</b> · <b>user:name</b> · <b>date:2026-09</b> · <b>dir:recordings</b></div>
+      </div>
     </div>
     <div class="field">
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
-        <input type="checkbox" id="m-shared" onchange="onSharedChange()" style="width:auto;accent-color:var(--accent2)" />
-        <span>Shared single process <span style="color:var(--muted);font-size:10px">(1 ffmpeg, -c copy, no re-encode — use this for many destinations to avoid CPU spikes)</span></span>
+        <input type="checkbox" id="m-independent" onchange="onIndependentChange()" style="width:auto;accent-color:var(--accent2)" />
+        <span>Independent processes <span style="color:var(--muted);font-size:10px">(one ffmpeg per destination — default is 1 shared process, -c copy)</span></span>
+      </label>
+      <div class="cpu-warning" id="m-cpu-warning">⚠ Caution: each destination runs its own ffmpeg decode (plus a libx264 encode in transcode / B&amp;T mode). This is heavy on the server CPU — independent mode is limited to <b>5 destinations</b>. Prefer the default shared single process for larger fan-outs.</div>
+    </div>
+    <div class="field" id="m-transcode-row" style="display:none">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+        <input type="checkbox" id="m-transcode" onchange="onTranscodeChange('m')" style="width:auto;accent-color:var(--accent2)" />
+        <span>Transcode <span style="color:var(--muted);font-size:10px">(re-encode with libx264 CBR — default is passthrough / stream copy)</span></span>
       </label>
     </div>
     <div class="field">
@@ -315,7 +408,7 @@
     </div>
     <div class="row">
       <div class="field"><label>Passphrase <span style="color:var(--muted);font-size:9px">(optional)</span></label><input type="password" id="m-pass" placeholder="leave empty if none" /></div>
-      <div class="field" id="m-bitrate-row"><label>Target Bitrate (Mbps)</label><input type="number" id="m-bitrate" value="8" min="1" max="50" step="0.5" /></div>
+      <div class="field" id="m-bitrate-row" style="display:none"><label>Target Bitrate (Mbps)</label><input type="number" id="m-bitrate" value="8" min="1" max="50" step="0.5" /></div>
     </div>
     <div class="preview-label">Destinations Preview</div>
     <div class="ffmpeg-preview" id="m-preview">Fill the fields above to preview destinations.</div>
@@ -384,6 +477,9 @@
   </div>
 
 </div><!-- /layout -->
+
+<!-- Tags known to the Video Analyzer (from /sources), shared by both source pickers -->
+<datalist id="source-tag-datalist"></datalist>
 
 <div class="toast-container" id="toasts"></div>
 
@@ -731,61 +827,85 @@ function buildBarsToneCmd(host, port, pass) {
 }
 
 // The B&T source is not a real file, so it's offered as a plain-text entry
-// in the search datalist rather than a path. Matched by exact value.
+// in the source picker rather than a path. Matched by exact value.
 const BARS_TONE_LABEL = 'B&T — Colour Bars + 1 kHz Tone (port + UTC clock overlay)';
 
 function isBarsToneValue(value) {
   return value.trim() === BARS_TONE_LABEL;
 }
 
-// Looks up the type of a typed/pasted/selected source file and updates the
-// passthrough/bitrate rows accordingly.
-function syncSourceType(prefix) {
+const MULTI_INDEPENDENT_MAX = 5;  // keep in sync with MULTI_INDEPENDENT_MAX_DESTINATIONS in routes_srt.py
+
+// Resolves the effective ingest mode for a card from the selected source and
+// the checkboxes. Defaults: .ts sources (Video Analyser / Recordings) are
+// passthrough unless "Transcode" is ticked; test.mp4 is always transcoded;
+// multi destination is one shared -c copy process unless "Independent
+// processes" is ticked; B&T is always one transcode process per destination.
+function resolveMode(prefix) {
   const value = document.getElementById(`${prefix}-input`).value.trim();
-  const ptRow = document.getElementById(`${prefix}-passthrough-row`);
+  const isBarsTone = isBarsToneValue(value);
+  const type = sourceTypesByFile[value] || (value.toLowerCase().endsWith('.ts') ? 'ts' : 'mp4');
+  const transcodeBox = document.getElementById(`${prefix}-transcode`);
+  const independent = prefix === 'm'
+    ? (isBarsTone || document.getElementById('m-independent').checked)
+    : true;
+  const shared = prefix === 'm' && !independent;
+  // Transcode is forced for mp4 (no stream-copy path in the UI) and B&T;
+  // .ts sources transcode only when explicitly asked.
+  const transcode = isBarsTone || (type !== 'ts') || transcodeBox.checked;
+  const passthrough = !isBarsTone && !transcode;
+  return { value, isBarsTone, type, independent, shared, transcode, passthrough };
+}
+
+// Shows/hides the transcode + bitrate rows (and the independent-processes
+// warning on the multi card) according to the selected source and mode.
+function syncSourceType(prefix) {
+  const m = resolveMode(prefix);
+  const trRow = document.getElementById(`${prefix}-transcode-row`);
   const brRow = document.getElementById(`${prefix}-bitrate-row`);
 
-  if (isBarsToneValue(value)) {
-    // B&T is generated per destination, so shared/copy mode and
-    // passthrough/bitrate don't apply.
-    if (prefix === 'm') {
-      document.getElementById('m-shared').checked = false;
-      document.getElementById('m-shared').disabled = true;
-    }
-    document.getElementById(`${prefix}-passthrough`).checked = false;
-    if (ptRow) ptRow.style.display = 'none';
-    if (brRow) brRow.style.display = 'none';
-    return;
+  if (prefix === 'm') {
+    const indBox = document.getElementById('m-independent');
+    // B&T is generated per destination, so shared/copy mode doesn't apply.
+    if (m.isBarsTone) { indBox.checked = true; indBox.disabled = true; }
+    else indBox.disabled = false;
+    document.getElementById('m-cpu-warning').classList.toggle('show', m.independent);
   }
 
-  const type = sourceTypesByFile[value] || (value.toLowerCase().endsWith('.ts') ? 'ts' : 'mp4');
-  if (prefix === 'm') document.getElementById('m-shared').disabled = false;
-  if (ptRow) ptRow.style.display = type === 'ts' ? '' : 'none';
-  if (type !== 'ts') document.getElementById(`${prefix}-passthrough`).checked = false;
-  if (brRow) brRow.style.display = '';
+  if (m.isBarsTone) {
+    document.getElementById(`${prefix}-transcode`).checked = false;
+    trRow.style.display = 'none';
+    brRow.style.display = 'none';
+    return;
+  }
+  if (m.shared) {
+    // Shared mode is always -c copy: transcode/bitrate don't apply.
+    trRow.style.display = 'none';
+    brRow.style.display = 'none';
+    return;
+  }
+  trRow.style.display = m.type === 'ts' ? '' : 'none';
+  if (m.type !== 'ts') document.getElementById(`${prefix}-transcode`).checked = false;
+  brRow.style.display = m.transcode ? '' : 'none';
 }
 
 function updateSinglePreview() {
   syncSourceType('s');
-  const input   = document.getElementById('s-input').value.trim();
+  const m       = resolveMode('s');
   const host    = document.getElementById('s-host').value.trim();
   const port    = document.getElementById('s-port').value.trim();
   const pass    = document.getElementById('s-pass').value.trim();
-  const bitrate    = parseFloat(document.getElementById('s-bitrate').value) || 8;
-  const passthrough = document.getElementById('s-passthrough').checked;
-  const isBarsTone = isBarsToneValue(input);
+  const bitrate = parseFloat(document.getElementById('s-bitrate').value) || 8;
   const el      = document.getElementById('s-preview');
-  if (isBarsTone) {
-    const cmd = buildBarsToneCmd(host, port, pass);
-    el.innerHTML = cmd || '<span style="color:var(--muted)">Fill the fields above to preview the command.</span>';
-    return;
-  }
-  const cmd     = buildCmd(input, host, port, pass, bitrate, passthrough);
-  el.innerHTML  = cmd || '<span style="color:var(--muted)">Fill the fields above to preview the command.</span>';
+  const cmd = m.isBarsTone
+    ? buildBarsToneCmd(host, port, pass)
+    : buildCmd(m.value, host, port, pass, bitrate, m.passthrough);
+  el.innerHTML = cmd || '<span style="color:var(--muted)">Fill the fields above to preview the command.</span>';
 }
 
 function updateMultiPreview() {
   syncSourceType('m');
+  const m    = resolveMode('m');
   const host = document.getElementById('m-host').value.trim();
   const ps   = parseInt(document.getElementById('m-port-start').value) || 0;
   const pe   = parseInt(document.getElementById('m-port-end').value)   || 0;
@@ -796,39 +916,42 @@ function updateMultiPreview() {
   }
   const count = pe - ps + 1;
   const br    = parseFloat(document.getElementById('m-bitrate').value) || 8;
-  const mPt   = document.getElementById('m-passthrough').checked;
-  const shared = document.getElementById('m-shared').checked;
-  const isBarsTone = isBarsToneValue(document.getElementById('m-input').value);
-  const modeLabel = isBarsTone
-    ? '<span class="hlg">B&T · 1080p25 · AVC · 1 Mbps · GOP 1 s · no B-frames</span>'
-    : shared
+  const modeLabel = m.isBarsTone
+    ? '<span class="hlg">B&T · 1080p25 · AVC · 1 Mbps · GOP 1 s · no B-frames · 1 process per destination</span>'
+    : m.shared
     ? '<span class="hl2">passthrough · 1 shared ffmpeg process</span>'
-    : mPt ? '<span class="hl2">passthrough</span>' : `<span class="hlg">${br} Mbps CBR</span>`;
+    : m.passthrough
+    ? '<span class="hl2">passthrough · 1 process per destination</span>'
+    : `<span class="hlg">${br} Mbps CBR transcode · 1 process per destination</span>`;
   let html = `<span class="hl">${count} destination${count>1?'s':''}</span> @ ${modeLabel} → <span class="hl2">${esc(host)}</span>:\n`;
   for (let p = ps; p <= Math.min(pe, ps + 4); p++) {
     html += `  srt://${esc(host)}:<span class="hl2">${p}</span>\n`;
   }
   if (count > 5) html += `  <span style="color:var(--muted)">… and ${count - 5} more</span>`;
-  if (shared) html += `\n<span style="color:var(--muted)">All destinations share a single decode — no per-destination re-encode.</span>`;
+  if (m.shared) {
+    html += `\n<span style="color:var(--muted)">All destinations share a single decode — no per-destination re-encode.</span>`;
+  } else if (count > MULTI_INDEPENDENT_MAX) {
+    html += `\n<span style="color:var(--red)">⚠ Independent mode is limited to ${MULTI_INDEPENDENT_MAX} destinations (${count} requested). Reduce the port range or use the shared single process.</span>`;
+  }
   el.innerHTML = html;
 }
 
-['s-input','s-host','s-port','s-pass','s-bitrate'].forEach(id =>
+['s-host','s-port','s-pass','s-bitrate'].forEach(id =>
   document.getElementById(id).addEventListener('input', updateSinglePreview));
-['m-input','m-host','m-port-start','m-port-end','m-pass','m-bitrate'].forEach(id =>
+['m-host','m-port-start','m-port-end','m-pass','m-bitrate'].forEach(id =>
   document.getElementById(id).addEventListener('input', updateMultiPreview));
 
 // ── API calls ────────────────────────────────────────────────────────────────
 async function startSingle() {
-  const isBarsTone = isBarsToneValue(document.getElementById('s-input').value);
+  const m = resolveMode('s');
   const body = {
-    input_file:   document.getElementById('s-input').value.trim(),
+    input_file:   m.value,
     host:         document.getElementById('s-host').value.trim(),
     port:         parseInt(document.getElementById('s-port').value),
     passphrase:   document.getElementById('s-pass').value.trim(),
-    source_mode:  isBarsTone ? 'bars_tone' : 'file',
-    bitrate_mbps: isBarsTone ? 1 : (parseFloat(document.getElementById('s-bitrate').value) || 8),
-    passthrough:  isBarsTone ? false : document.getElementById('s-passthrough').checked,
+    source_mode:  m.isBarsTone ? 'bars_tone' : 'file',
+    bitrate_mbps: m.isBarsTone ? 1 : (parseFloat(document.getElementById('s-bitrate').value) || 8),
+    passthrough:  m.passthrough,
   };
   if (!body.host || !body.port) { toast('Host and port are required.','err'); return; }
   try {
@@ -844,23 +967,27 @@ async function startSingle() {
 }
 
 async function startMulti() {
-  const shared = document.getElementById('m-shared').checked;
-  const isBarsTone = isBarsToneValue(document.getElementById('m-input').value);
+  const m = resolveMode('m');
+  const shared = m.shared;
   const base = {
-    input_file:   document.getElementById('m-input').value.trim(),
+    input_file:   m.value,
     host:         document.getElementById('m-host').value.trim(),
     port_start:   parseInt(document.getElementById('m-port-start').value),
     port_end:     parseInt(document.getElementById('m-port-end').value),
     passphrase:   document.getElementById('m-pass').value.trim(),
-    source_mode:  isBarsTone ? 'bars_tone' : 'file',
+    source_mode:  m.isBarsTone ? 'bars_tone' : 'file',
   };
   if (!base.host || !base.port_start || !base.port_end) { toast('Host and port range are required.','err'); return; }
+  if (!shared && (base.port_end - base.port_start + 1) > MULTI_INDEPENDENT_MAX) {
+    toast(`Independent mode is limited to ${MULTI_INDEPENDENT_MAX} destinations — use the shared single process for larger fan-outs.`,'err');
+    return;
+  }
 
   const endpoint = shared ? '/ingest/multi-shared' : '/ingest/multi';
   const body = shared ? base : {
     ...base,
-    bitrate_mbps: isBarsTone ? 1 : (parseFloat(document.getElementById('m-bitrate').value) || 8),
-    passthrough:  isBarsTone ? false : document.getElementById('m-passthrough').checked,
+    bitrate_mbps: m.isBarsTone ? 1 : (parseFloat(document.getElementById('m-bitrate').value) || 8),
+    passthrough:  m.passthrough,
   };
   try {
     const r = await fetch(`${BASE}${endpoint}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
@@ -1007,83 +1134,321 @@ function toast(msg, type='info') {
 
 
 
-// ── Source file loader — /gop-results .ts files ──────────────────────────────
+// ── Source picker — Video Analyser + Recordings .ts files ────────────────────
 // Maps a source file's exact value (e.g. full .ts path or "test.mp4") to its
-// type ("mp4" | "ts"), so the search input can look up the right type as the
-// user types or pastes a filename, without needing the dropdown.
+// type ("mp4" | "ts"), used by syncSourceType() to toggle passthrough/bitrate.
 const sourceTypesByFile = {};
+// Full source list as returned by /sources (plus the generated B&T entry).
+let allSources = [];
+// Distinct Video Analyser tags across all sources (from /sources) — offered as
+// suggestions in the search field.
+let allSourceTags = [];
+let sourcesLoadedOnce = false;
+const SOURCE_RESULT_LIMIT = 80;
+const SOURCE_REFRESH_MS = 60000;
 
-async function loadSources() {
+function fmtSize(bytes) {
+  if (bytes == null) return '';
+  if (bytes >= 1e9) return (bytes / 1e9).toFixed(2) + ' GB';
+  if (bytes >= 1e6) return (bytes / 1e6).toFixed(1) + ' MB';
+  if (bytes >= 1e3) return (bytes / 1e3).toFixed(0) + ' kB';
+  return bytes + ' B';
+}
+
+// Lower-cased searchable text for a source. Includes every alternate spelling
+// of the parsed fields (2026-09-04 and 20260904, 14:12:20 and 141220,
+// 194.76.59.21 and 194_76_59_21, ...) plus tags, username and status, so a
+// free-text token matches whichever form the operator types.
+function sourceHaystack(s) {
+  if (s._hay) return s._hay;
+  const parts = [s.name || s.file, s.file, s.folder || '', s.type || ''];
+  if (s.date) parts.push(s.date, s.date.replace(/-/g, ''));
+  if (s.time) parts.push(s.time, s.time.replace(/:/g, ''), s.time.slice(0, 5));
+  if (s.protocol) parts.push(s.protocol);
+  if (s.host) parts.push(s.host, s.host.replace(/\./g, '_'));
+  if (s.port != null) parts.push(String(s.port), ':' + s.port);
+  if (s.mode) parts.push(s.mode);
+  if (s.failed) parts.push('failed');
+  if (s.tags && s.tags.length) parts.push(...s.tags);
+  if (s.username) parts.push(s.username);
+  if (s.analysis_status) parts.push(s.analysis_status);
+  if (s.type === 'bars_tone') parts.push('bars tone b&t colour bars generated');
+  s._hay = parts.join(' ').toLowerCase();
+  return s._hay;
+}
+
+// Tag match: case-insensitive substring against each of the source's tags.
+function tagMatches(s, val) {
+  const v = val.toLowerCase();
+  return !!(s.tags && s.tags.some(t => t.toLowerCase().includes(v)));
+}
+
+// One search token against one source. Supports prefixed tokens
+// (port:4015, date:2026-09, time:14, host:194.76, proto:srt, mode:caller,
+// tag:xyz, user:name, dir:recordings, type:ts); anything else is a plain
+// substring match across the whole haystack (address, port, tags, user...).
+function tokenMatches(s, tok) {
+  const i = tok.indexOf(':');
+  if (i > 0) {
+    const key = tok.slice(0, i), val = tok.slice(i + 1);
+    if (!val) return true;
+    switch (key) {
+      case 'port':  return s.port != null && String(s.port) === val;
+      case 'date':  return !!s.date && (s.date.startsWith(val) || s.date.replace(/-/g, '').startsWith(val));
+      case 'time':  return !!s.time && (s.time.startsWith(val) || s.time.replace(/:/g, '').startsWith(val));
+      case 'host':  return !!s.host && s.host.includes(val);
+      case 'proto': case 'protocol': return !!s.protocol && s.protocol === val;
+      case 'mode':  return !!s.mode && s.mode === val;
+      case 'tag':   return tagMatches(s, val);
+      case 'user':  return !!s.username && s.username.toLowerCase().includes(val);
+      case 'dir': case 'folder': return !!s.folder && s.folder.toLowerCase().includes(val);
+      case 'type':  return s.type === val;
+      // Unknown prefix (e.g. a typed time like "14:12") → fall through to plain match.
+    }
+  }
+  return sourceHaystack(s).includes(tok);
+}
+
+// Ranking: exact port / date / host / tag / user hits float above incidental
+// substring hits (e.g. a port number that also appears inside a timestamp).
+function sourceScore(s, tokens) {
+  let score = 0;
+  tokens.forEach(t => {
+    const v = t.includes(':') && !/^\d/.test(t) ? t.slice(t.indexOf(':') + 1) : t;
+    if (s.port != null && String(s.port) === v) score += 4;
+    if (s.date && (s.date === v || s.date.replace(/-/g, '') === v)) score += 3;
+    if (s.host && (s.host === v || s.host.replace(/\./g, '_') === v)) score += 3;
+    if (s.tags && s.tags.some(t2 => t2.toLowerCase() === v)) score += 2;
+    if (s.username && s.username.toLowerCase() === v) score += 2;
+    if (s.protocol && s.protocol === v) score += 1;
+    if (s.mode && s.mode === v) score += 1;
+  });
+  return score;
+}
+
+function filterSources(prefix) {
+  const raw    = document.getElementById(`${prefix}-search`).value.trim().toLowerCase();
+  const tokens = raw.split(/\s+/).filter(Boolean);
+  const folder = document.getElementById(`${prefix}-filter-folder`).value;
+  const date   = document.getElementById(`${prefix}-filter-date`).value;  // YYYY-MM-DD from <input type=date>
+
+  const matched = allSources.filter(s => {
+    if (folder && (s.folder || '') !== folder) return false;
+    if (date && s.date !== date) return false;
+    return tokens.every(t => tokenMatches(s, t));
+  });
+  if (tokens.length) {
+    matched.sort((a, b) => sourceScore(b, tokens) - sourceScore(a, tokens)); // stable: keeps newest-first within a score
+  }
+  return { matched, total: allSources.length };
+}
+
+// Analysis / recording status from the Video Analyser JSON, coloured by outcome.
+function statusChip(status) {
+  const s = String(status);
+  const u = s.toUpperCase();
+  const cls = /COMPLIANT|ACCEPTED|^DONE$/.test(u) ? 'ok' : /REJECT|FAIL|ERROR/.test(u) ? 'bad' : '';
+  return `<span class="src-chip astatus ${cls}">${esc(s)}</span>`;
+}
+
+// Metadata lines (chips) for one source — shared by the result list and the
+// "selected source" box.
+function sourceMetaHtml(s) {
+  let meta = '';
+  if (s.type === 'bars_tone') {
+    meta = `<span class="src-chip gen">${esc(s.folder || 'Generated')}</span><span>${esc(s.name)}</span>`;
+  } else {
+    const when   = s.date ? `<span>${s.date} ${s.time || ''}</span>` : '';
+    const proto  = s.protocol ? `<span class="src-chip proto">${esc(s.protocol)}</span>` : '';
+    const dest   = s.host ? `<span>${esc(s.host)}${s.port != null ? `:<span class="src-port">${s.port}</span>` : ''}</span>` : '';
+    const mode   = s.mode ? `<span class="src-chip mode">${esc(s.mode)}</span>` : '';
+    const failed = s.failed ? `<span class="src-chip failed">failed</span>` : '';
+    const folder = s.folder ? `<span class="src-chip folder">${esc(s.folder)}</span>` : '';
+    const size   = s.size_bytes != null ? `<span class="src-size">${fmtSize(s.size_bytes)}</span>` : '';
+    meta = `${folder}${when}${proto}${dest}${mode}${failed}${size}`;
+    if (!s.date && !s.host) meta = `${folder}<span>${esc(s.name)}</span>${size}`;
+  }
+  // Video Analyser tags (clickable → becomes the search text), username and status.
+  let extra = '';
+  if (s.type !== 'bars_tone') {
+    const tagChips = (s.tags || []).map(t =>
+      `<span class="src-chip tag" data-tag="${esc(t).replace(/"/g, '&quot;')}" title="Search this tag">${esc(t)}</span>`).join('');
+    const user = s.username ? `<span class="src-chip user">${esc(s.username)}</span>` : '';
+    const st = s.analysis_status ? statusChip(s.analysis_status) : '';
+    if (tagChips || user || st) extra = `<div class="src-tags">${tagChips}${user}${st}</div>`;
+  }
+  return `<div class="src-meta">${meta}</div>${extra}<div class="src-name">${esc(s.file)}</div>`;
+}
+
+function renderSourceResults(prefix) {
+  const box = document.getElementById(`${prefix}-source-results`);
+  const current = document.getElementById(`${prefix}-input`).value.trim();
+  const { matched, total } = filterSources(prefix);
+  const shown = matched.slice(0, SOURCE_RESULT_LIMIT);
+
+  let html = `<div class="src-summary">${matched.length} of ${total} sources${matched.length > shown.length ? ` · showing first ${shown.length}` : ''}</div>`;
+  if (!shown.length) {
+    html += '<div class="src-empty">No source matches the current search / filters.</div>';
+  } else {
+    html += shown.map(s =>
+      `<div class="src-item${s.file === current ? ' selected' : ''}" data-file="${esc(s.file).replace(/"/g, '&quot;')}">${sourceMetaHtml(s)}</div>`
+    ).join('');
+  }
+  box.innerHTML = html;
+}
+
+// Shows the currently selected source (hidden input value) as a summary box.
+function renderSelectedSource(prefix) {
+  const value = document.getElementById(`${prefix}-input`).value.trim();
+  const box = document.getElementById(`${prefix}-source-selected`);
+  const s = allSources.find(x => x.file === value);
+  box.innerHTML = s ? sourceMetaHtml(s) : `<span>${esc(value || '— no source selected —')}</span>`;
+}
+
+function openSourceResults(prefix) {
+  renderSourceResults(prefix);
+  document.getElementById(`${prefix}-source-results`).classList.add('open');
+}
+function closeSourceResults(prefix) {
+  document.getElementById(`${prefix}-source-results`).classList.remove('open');
+}
+function isSourceResultsOpen(prefix) {
+  return document.getElementById(`${prefix}-source-results`).classList.contains('open');
+}
+
+function selectSource(prefix, file) {
+  document.getElementById(`${prefix}-input`).value = file;
+  renderSelectedSource(prefix);
+  closeSourceResults(prefix);
+  if (prefix === 's') updateSinglePreview(); else updateMultiPreview();
+}
+
+function populateSourceFilters(prefix) {
+  // Only the folder filter is a fixed list — a production store holds
+  // thousands of files, so every other criterion goes through the search box.
+  const folders = [];
+  allSources.forEach(s => { if (s.folder && !folders.includes(s.folder)) folders.push(s.folder); });
+  const sel = document.getElementById(`${prefix}-filter-folder`);
+  const prev = sel.value;
+  while (sel.options.length > 1) sel.remove(1);
+  folders.forEach(v => {
+    const o = document.createElement('option');
+    o.value = v; o.textContent = v;
+    sel.appendChild(o);
+  });
+  sel.value = prev;
+  if (sel.value !== prev) sel.value = '';
+}
+
+// Tag suggestions shared by both search boxes.
+function populateTagDatalist() {
+  const dl = document.getElementById('source-tag-datalist');
+  dl.innerHTML = '';
+  allSourceTags.forEach(t => {
+    const o = document.createElement('option');
+    o.value = t;
+    dl.appendChild(o);
+  });
+}
+
+function initSourcePicker(prefix) {
+  const search   = document.getElementById(`${prefix}-search`);
+  const picker   = document.getElementById(`${prefix}-source-picker`);
+  const results  = document.getElementById(`${prefix}-source-results`);
+  const selected = document.getElementById(`${prefix}-source-selected`);
+
+  search.addEventListener('focus', () => openSourceResults(prefix));
+  search.addEventListener('input', () => openSourceResults(prefix));
+  search.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { closeSourceResults(prefix); return; }
+    if (e.key === 'Enter') {
+      // Enter picks the first match — quick path for "type the port, hit Enter".
+      const { matched } = filterSources(prefix);
+      if (matched.length) { e.preventDefault(); selectSource(prefix, matched[0].file); }
+    }
+  });
+  ['folder', 'date'].forEach(k =>
+    document.getElementById(`${prefix}-filter-${k}`).addEventListener('change', () => openSourceResults(prefix)));
+  selected.addEventListener('click', () => {
+    if (isSourceResultsOpen(prefix)) closeSourceResults(prefix); else { openSourceResults(prefix); search.focus(); }
+  });
+  results.addEventListener('click', e => {
+    const chip = e.target.closest('.src-chip.tag');
+    if (chip) {
+      // Clicking a tag chip searches that tag instead of selecting the file.
+      search.value = chip.dataset.tag;
+      openSourceResults(prefix);
+      return;
+    }
+    const item = e.target.closest('.src-item');
+    if (item) selectSource(prefix, item.dataset.file);
+  });
+  document.addEventListener('mousedown', e => {
+    if (!picker.contains(e.target)) closeSourceResults(prefix);
+  });
+}
+
+async function loadSources(manual = false) {
   try {
     const r = await fetch(`${BASE}/sources`);
     if (!r.ok) return;
     const d = await r.json();
+    const real = d.sources || [];
 
-    // Build the search index + datalists backing the Source File text inputs,
-    // so typing or pasting a filename finds the specific source directly.
-    // B&T colour bars is included as a plain-text entry since it isn't a
-    // real file.
+    // B&T colour bars is not a real file — it's offered as a generated entry
+    // at the top of the list, matched by exact value (see isBarsToneValue).
+    allSources = [
+      { file: BARS_TONE_LABEL, name: BARS_TONE_LABEL, type: 'bars_tone', folder: 'Generated' },
+      ...real,
+    ];
     Object.keys(sourceTypesByFile).forEach(k => delete sourceTypesByFile[k]);
-    d.sources.forEach(s => { sourceTypesByFile[s.file] = s.type; });
-    ['s-source-datalist', 'm-source-datalist'].forEach(listId => {
-      const dl = document.getElementById(listId);
-      dl.innerHTML = '';
-      const bt = document.createElement('option');
-      bt.value = BARS_TONE_LABEL;
-      dl.appendChild(bt);
-      d.sources.forEach(s => {
-        const o = document.createElement('option');
-        o.value = s.file;
-        if (s.type === 'ts') o.label = s.name;
-        dl.appendChild(o);
-      });
-    });
+    real.forEach(s => { sourceTypesByFile[s.file] = s.type; });
+    allSourceTags = d.tags || [];
+    populateTagDatalist();
 
-    // Default selection stays on the first real source (e.g. test.mp4).
-    // Explicitly sync the input value + dependent UI so the passthrough/
-    // bitrate rows and preview never desync from what's selected.
-    const first = d.sources[0];
-    if (first) {
-      document.getElementById('s-input').value = first.file;
-      document.getElementById('m-input').value = first.file;
-      updateSinglePreview();
-      updateMultiPreview();
+    // On first load, default both pickers to the first real source (test.mp4)
+    // and sync the dependent UI so passthrough/bitrate rows and previews never
+    // desync from what's selected. Periodic/manual reloads leave the selection alone.
+    if (!sourcesLoadedOnce) {
+      sourcesLoadedOnce = true;
+      const first = real[0];
+      if (first) {
+        document.getElementById('s-input').value = first.file;
+        document.getElementById('m-input').value = first.file;
+        updateSinglePreview();
+        updateMultiPreview();
+      }
     }
+
+    ['s', 'm'].forEach(p => {
+      populateSourceFilters(p);
+      renderSelectedSource(p);
+      if (isSourceResultsOpen(p)) renderSourceResults(p);
+    });
+    if (manual) toast(`${real.length} source${real.length === 1 ? '' : 's'} found`, 'info');
   } catch(e) {
     console.warn('Could not load sources:', e);
+    if (manual) toast('Could not load sources', 'err');
   }
 }
 
-function onPassthroughChange(prefix) {
-  const checked = document.getElementById(`${prefix}-passthrough`).checked;
-  const brRow   = document.getElementById(`${prefix}-bitrate-row`);
-  if (brRow) brRow.style.display = checked ? 'none' : '';
+function onTranscodeChange(prefix) {
   if (prefix === 's') updateSinglePreview();
   else updateMultiPreview();
 }
 
-function onSharedChange() {
-  const shared = document.getElementById('m-shared').checked;
-  const brRow  = document.getElementById('m-bitrate-row');
-  const ptRow  = document.getElementById('m-passthrough-row');
-  const ptBox  = document.getElementById('m-passthrough');
-  // Shared mode is always passthrough (-c copy): hide/lock the bitrate and
-  // passthrough-toggle fields so the choice is unambiguous.
-  if (shared) {
-    ptBox.checked = true;
-    if (brRow) brRow.style.display = 'none';
-    if (ptRow) ptRow.style.display = 'none';
-  } else {
-    ptBox.checked = false;
-    const value = document.getElementById('m-input').value.trim();
-    const type  = sourceTypesByFile[value] || (value.toLowerCase().endsWith('.ts') ? 'ts' : 'mp4');
-    if (ptRow) ptRow.style.display = type === 'ts' ? '' : 'none';
-    if (brRow) brRow.style.display = '';
+function onIndependentChange() {
+  // Switching back to shared mode also drops any transcode request, since
+  // shared mode is always -c copy.
+  if (!document.getElementById('m-independent').checked) {
+    document.getElementById('m-transcode').checked = false;
   }
   updateMultiPreview();
 }
 
+['s', 'm'].forEach(initSourcePicker);
 loadSources();
+setInterval(loadSources, SOURCE_REFRESH_MS);
 
 // ── Config loader — SRT_LOCAL_X servers ──────────────────────────────────────
 async function loadConfig() {
