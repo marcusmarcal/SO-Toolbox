@@ -10,7 +10,15 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 ---
 
+
 ## [Unreleased]
+
+### SRT Ingest Tool: Passthrough Improvements
+
+- Passthrough mode now forwards all available source streams instead of only the primary video and audio tracks.
+- Preserves multiple audio tracks, subtitles, and supported data streams.
+- Added support for copying unknown/private streams where supported by FFmpeg.
+- Provides a more complete MPEG-TS passthrough experience for SRT outputs.
 
 ## [3.59.0] - 2026-09-09
 
