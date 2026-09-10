@@ -2,6 +2,11 @@
 
 # Rota Changelog
 
+### Fixed 10-09-2026
+- Shift registry table: implicit shifts and entries saved with the grey
+  placeholder color now display their correct default colors in the admin UI.
+  Colors explicitly set by a user are never overwritten.
+
 ## [Unreleased] — Shift Registry
 
 ### Added 09-09-2026

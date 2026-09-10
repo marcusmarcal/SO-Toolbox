@@ -988,18 +988,45 @@ def rota_shifts_get():
     cfg = _load_config()
     color_map = cfg.get('custom_shift_color_map', {})
 
+    DEFAULT_SHIFT_COLORS = {
+        '0700-1800': ('#49B1E8', '#000'),
+        '0900-2000': ('#8474E3', '#fff'),
+        '1300-0000': ('#04BA9C', '#000'),
+        '1500-0200': ('#E8B159', '#000'),
+        '2100-0700': ('#5C5C5C', '#eee'),
+        '0900-1800': ('#95D6FC', '#000'),
+        '1000-2000': ('#4A91BA', '#fff'),
+        '0800-1630': ('#ABD1AD', '#000'),
+        '0930-1800': ('#ABD1AD', '#000'),
+        '0900-1730': ('#ABD1AD', '#000'),
+    }
+
+    def _resolve_default_color(code):
+        if code in color_map:
+            return color_map[code], '#000'
+        if code in DEFAULT_SHIFT_COLORS:
+            return DEFAULT_SHIFT_COLORS[code]
+        return '#7a7a7a', '#000'
+
     # Annotate each registry entry with rotation membership
     out = {}
     for code, entry in registry.items():
-        out[code] = {**entry}
+        e = {**entry}
+        # Only upgrade grey placeholder — never touch a color the user set
+        if e.get('color', '#7a7a7a') == '#7a7a7a' and code in DEFAULT_SHIFT_COLORS:
+            bg, fg = DEFAULT_SHIFT_COLORS[code]
+            e['color']    = color_map.get(code, bg)
+            e['fg_color'] = fg
+        out[code] = e
 
     # Inject implicit entries for rotation codes not yet in the registry
     for code in sorted(rotation_codes):
         if code not in out:
+            bg, fg = _resolve_default_color(code)
             out[code] = {
                 'code':        code,
-                'color':       color_map.get(code, '#7a7a7a'),
-                'fg_color':    '#000',
+                'color':       bg,
+                'fg_color':    fg,
                 'active':      True,
                 'in_rotation': [],
                 'aliases':     [],
