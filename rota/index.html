@@ -2111,7 +2111,7 @@
     });
 
     // 3b) Soft: solo coverage during high-demand window (1800–2100), no duration floor
-    const BUSY_WINDOW_START = 19 * 60; // 19:00
+    const BUSY_WINDOW_START = 18 * 60; // 18:00
     const BUSY_WINDOW_END   = 21 * 60; // 21:00
     days.forEach((day, i) => {
       const from = i * 1440 + BUSY_WINDOW_START, to = i * 1440 + BUSY_WINDOW_END;
