@@ -2990,7 +2990,7 @@ def rota_hours_export():
 
 # ── PicaPonto (attendance) export ─────────────────────────────────────────
 
-from typing import Optional
+#from typing import Optional
 
 _PICAPONTO_ROLE_ORDER = [
     'Technical Operations Manager',
