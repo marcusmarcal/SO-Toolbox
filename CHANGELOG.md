@@ -9,6 +9,38 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 `SRT Ingest:`, `General Tool Admin:`) so entries can be filtered per tool.
 
 ---
+## [3.62.1] - 2026-09-11
+
+### Changed
+- Video Analyser: the AAC-LATM `channel_configuration` check now inspects
+  every audio track instead of only a:0. Any LATM track signalling cc=0
+  (in-band PCE) fails the field; the measured value lists each track
+  (`a:0=2, a:1=2, a:2=0, a:3=0`) and the note names the offending ones.
+  Re-evaluation and older results remain compatible.
+- Video Analyser: redesigned Compliance Specs Editor — single workflow
+  toolbar, grading legend, per-field descriptions and type badges,
+  explicit "Accepted range" / "Compliant range" groups, colour-coded
+  value chips, field filter, collapsible sections and an unsaved-changes
+  indicator.
+
+### Fixed
+- Video Analyser: renaming a workflow from the Specs Editor threw after a
+  successful rename; delay thresholds (`warn`/`hard`) are now saved as
+  numbers.
+
+## [3.62.0] - 2026-09-11
+
+### Added
+- Video Analyser: AAC-LATM `channel_configuration` compliance check. A
+  built-in LOAS/LATM bitstream parser (ISO 14496-3) samples the first
+  audio packets and rejects LATM streams signalling
+  `channel_configuration=0` (channel layout carried in-band via PCE),
+  while explicit configs (e.g. 2 = direct stereo) and AAC/ADTS remain
+  unaffected. The check is configurable per workflow in the specs editor
+  ("Reject when channel_configuration = 0"), with an option to flag such
+  streams as ACCEPTED instead. The measured value is shown in the audio
+  info panel, compliance table, visual/text reports and the multi-test
+  comparison modal, and is included in workflow re-evaluation.
 
 ## [3.61.0] - 2026-09-10
 
