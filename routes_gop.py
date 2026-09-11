@@ -520,21 +520,22 @@ def _parse_loas_channel_config(data):
     return None
 
 
-def _probe_latm_channel_config(ts_path, log):
-    """Dump the first audio packets with ``ffprobe -show_data`` and parse the
-    LOAS/LATM bitstream to recover channelConfiguration. Returns int or None."""
+def _probe_latm_channel_config(ts_path, log, a_index=0):
+    """Dump the first packets of audio track ``a:<a_index>`` with
+    ``ffprobe -show_data`` and parse the LOAS/LATM bitstream to recover
+    channelConfiguration. Returns int or None."""
     try:
         cmd = [
             "ffprobe", "-v", "quiet", "-print_format", "json",
-            "-select_streams", "a:0",
+            "-select_streams", f"a:{a_index}",
             "-show_packets", "-show_data",
-            "-read_intervals", "%+#60",
+            "-read_intervals", "%+#120",
             ts_path,
         ]
         r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
         pkts = json.loads(r.stdout.decode() or "{}").get("packets", [])
     except Exception as e:
-        log(f"WARNING: LATM packet dump failed: {e}")
+        log(f"WARNING: LATM packet dump failed for a:{a_index}: {e}")
         return None
 
     blob = bytearray()
@@ -553,29 +554,72 @@ def _probe_latm_channel_config(ts_path, log):
                 continue
 
     if not blob:
-        log("WARNING: No audio packet data returned for LATM parse")
+        log(f"WARNING: No audio packet data returned for LATM parse (a:{a_index})")
         return None
     cc = _parse_loas_channel_config(bytes(blob))
     if cc is None:
-        log("WARNING: Could not find an in-band LOAS StreamMuxConfig in the sampled packets")
+        log(f"WARNING: a:{a_index}: no in-band LOAS StreamMuxConfig in the sampled packets")
     else:
-        log(f"LATM StreamMuxConfig parsed: channel_configuration={cc}")
+        log(f"a:{a_index}: LATM StreamMuxConfig parsed — channel_configuration={cc}")
     return cc
 
 
-def _latm_cc_check(a_codec_display, latm_cc, sp):
-    """Compliance verdict for the LATM channel_configuration spec. Only
-    AAC-LATM audio is evaluated — everything else (AAC/ADTS, MP2, …) is
-    reported as a non-applicable COMPLIANT so it never degrades the result."""
+def _probe_latm_tracks(ts_path, audio_streams, log):
+    """Probe EVERY AAC-LATM audio track of the capture (not just a:0) and
+    return a list of ``{"track", "pid", "cc"}`` dicts, one per LATM track.
+    Non-LATM tracks (AAC/ADTS, MP2, …) are skipped — the check does not
+    apply to them. A stream may carry a clean cc=2 track alongside cc=0
+    tracks, so the worst case across all tracks is what matters."""
+    tracks = []
+    for a_index, s in enumerate(audio_streams):
+        if (s.get("codec_name") or "").lower() != "aac_latm":
+            continue
+        log(f"AAC-LATM on a:{a_index} (PID {s.get('id', '?')}) — parsing LOAS StreamMuxConfig…")
+        cc = _probe_latm_channel_config(ts_path, log, a_index)
+        tracks.append({"track": a_index, "pid": s.get("id"), "cc": cc})
+    return tracks
+
+
+def _latm_cc_check(latm_tracks, sp):
+    """Compliance verdict for the LATM channel_configuration spec across ALL
+    AAC-LATM tracks. Any track with cc=0 fails the whole field (worst case
+    wins); tracks that could not be parsed make it UNKNOWN; streams with no
+    LATM audio at all (AAC/ADTS, MP2, …) are a non-applicable COMPLIANT so
+    they never degrade the result."""
     enforce = bool(sp.get("enforce", True))
-    if a_codec_display != "AAC-LATM":
-        return ("COMPLIANT", "N/A", "Only applies to AAC-LATM")
-    if latm_cc is None:
-        return ("UNKNOWN", "—", "Could not parse LOAS/LATM StreamMuxConfig")
-    if latm_cc == 0:
-        note = "channel_configuration=0 — channel layout signalled in-band (PCE)"
-        return ("REJECTED" if enforce else "ACCEPTED", "0", note)
-    return ("COMPLIANT", str(latm_cc), "")
+    tracks = latm_tracks or []
+    if not tracks:
+        return ("COMPLIANT", "N/A", "No AAC-LATM audio track")
+
+    def _fmt(t):
+        cc = t.get("cc")
+        return f"a:{t.get('track', '?')}={'?' if cc is None else cc}"
+
+    measured = str(tracks[0].get("cc", "?")) if len(tracks) == 1 else ", ".join(_fmt(t) for t in tracks)
+    if len(tracks) == 1 and tracks[0].get("cc") is None:
+        measured = "—"
+    bad = [t for t in tracks if t.get("cc") == 0]
+    unknown = [t for t in tracks if t.get("cc") is None]
+    if bad:
+        which = ", ".join(f"a:{t.get('track', '?')}" for t in bad)
+        note = f"channel_configuration=0 on {which} — channel layout signalled in-band (PCE)"
+        return ("REJECTED" if enforce else "ACCEPTED", measured, note)
+    if unknown:
+        which = ", ".join(f"a:{t.get('track', '?')}" for t in unknown)
+        return ("UNKNOWN", measured, f"Could not parse LOAS/LATM StreamMuxConfig on {which}")
+    return ("COMPLIANT", measured, f"{len(tracks)} LATM track(s), all explicit" if len(tracks) > 1 else "")
+
+
+def _latm_tracks_from_stored(r):
+    """Rebuild the LATM track list from a stored result. Falls back to the
+    single-track ``a_latm_channel_config`` field written by the first
+    version of this check (a:0 only) so older results still re-evaluate."""
+    tracks = r.get("a_latm_tracks")
+    if isinstance(tracks, list):
+        return tracks
+    if r.get("a_codec_display", r.get("a_codec", "")) in ("AAC-LATM", "aac_latm"):
+        return [{"track": 0, "pid": None, "cc": r.get("a_latm_channel_config")}]
+    return []
 
 
 def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, _original_name=None, workflow=DEFAULT_WORKFLOW):
@@ -970,12 +1014,11 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
         a_lang     = aud.get("tags", {}).get("language", "?")
 
         # AAC-LATM: recover the raw channelConfiguration from the LOAS
-        # StreamMuxConfig. cc=0 (layout carried in-band via PCE) is the
-        # problematic case; explicit configs (e.g. 2 = stereo) are fine.
-        a_latm_cc = None
-        if a_codec == "aac_latm" or a_codec_display == "AAC-LATM":
-            log("AAC-LATM detected — parsing LOAS StreamMuxConfig for channel_configuration…")
-            a_latm_cc = _probe_latm_channel_config(ts_path, log)
+        # StreamMuxConfig of EVERY audio track. cc=0 (layout carried
+        # in-band via PCE) is the problematic case; explicit configs (e.g.
+        # 2 = stereo) are fine. A capture can mix clean and cc=0 tracks.
+        a_latm_tracks = _probe_latm_tracks(ts_path, aud_list, log)
+        a_latm_cc = a_latm_tracks[0]["cc"] if a_latm_tracks else None  # a:0 legacy field
 
         a_sample_fmt = (aud.get("sample_fmt") or "").lower()
         a_bps_raw  = aud.get("bits_per_raw_sample") or aud.get("bits_per_coded_sample")
@@ -1160,7 +1203,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             "a_codec":      comply_enum_multi(a_codec_display, "a_codec"),
             "a_streams":    comply_range(audio_track_count, "a_streams"),
             "a_channels":   comply_range(a_ch, "a_channels"),
-            "latm_cc":      _latm_cc_check(a_codec_display, a_latm_cc, _s("latm_cc")),
+            "latm_cc":      _latm_cc_check(a_latm_tracks, _s("latm_cc")),
             "a_rate_ctrl":  comply_enum_multi("VBR", "a_rate_ctrl"),
             "a_sample_rate":comply_range(a_rate_khz, "a_sample_rate"),
             "a_bits":       comply_enum_multi(a_bps.lower(), "a_bits"),
@@ -1202,6 +1245,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             "a_codec": a_codec, "a_codec_display": a_codec_display,
             "a_profile": a_profile, "a_channels": a_ch,
             "a_latm_channel_config": a_latm_cc,
+            "a_latm_tracks": a_latm_tracks,
             "a_layout": a_layout, "a_rate": a_rate, "a_rate_khz": a_rate_khz,
             "a_br": a_br, "a_br_kbps": a_br_kbps_f, "a_lang": a_lang,
             "a_bps": str(a_bps), "audio_tracks": audio_track_count,
@@ -2374,7 +2418,7 @@ def _reeval_compliance(stored: dict, specs: dict) -> tuple:
     fps_eff      = r.get("v_fps_compliance", r.get("v_fps_val", 0))
     a_codec_display = r.get("a_codec_display", r.get("a_codec", ""))
     a_ch         = r.get("a_channels", 0)
-    a_latm_cc    = r.get("a_latm_channel_config", None)
+    a_latm_tracks = _latm_tracks_from_stored(r)
     a_bps        = str(r.get("a_bps", ""))
     audio_tracks = r.get("audio_tracks", 0)
 
@@ -2447,7 +2491,7 @@ def _reeval_compliance(stored: dict, specs: dict) -> tuple:
         "a_codec":      comply_enum_multi(a_codec_display, "a_codec"),
         "a_streams":    comply_range(audio_tracks, "a_streams"),
         "a_channels":   comply_range(a_ch, "a_channels"),
-        "latm_cc":      _latm_cc_check(a_codec_display, a_latm_cc, _s("latm_cc")),
+        "latm_cc":      _latm_cc_check(a_latm_tracks, _s("latm_cc")),
         "a_rate_ctrl":  comply_enum_multi("VBR", "a_rate_ctrl"),
         "a_sample_rate":comply_range(a_rate_khz, "a_sample_rate"),
         "a_bits":       comply_enum_multi(a_bps.lower(), "a_bits"),

@@ -1123,6 +1123,364 @@
         min-height: 1em;
         width: 100%;
       }
+
+      /* ── Compliance Specs Editor (redesign) ─────────────────────────── */
+      .spx-card {
+        width: 900px;
+        max-width: 96vw;
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+        padding: 1.2rem 1.5rem 1rem;
+      }
+      .spx-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-shrink: 0;
+        margin-bottom: 0.7rem;
+      }
+      .spx-head .modal-title {
+        color: var(--purple);
+        margin: 0;
+      }
+      .spx-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+        flex-shrink: 0;
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 0.5rem 0.7rem;
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        color: var(--muted);
+      }
+      .spx-toolbar label {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-size: 0.6rem;
+      }
+      .spx-toolbar select,
+      .spx-toolbar input[type="text"] {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        padding: 3px 8px;
+        outline: none;
+      }
+      .spx-toolbar select {
+        color: var(--purple);
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .spx-toolbar .spx-sep {
+        width: 1px;
+        height: 18px;
+        background: var(--border);
+      }
+      .spx-btn {
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.66rem;
+        padding: 3px 10px;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .spx-btn:hover {
+        border-color: var(--cyan);
+        color: var(--cyan);
+      }
+      .spx-btn.danger:hover {
+        border-color: var(--red);
+        color: var(--red);
+      }
+      .spx-legend {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        align-items: center;
+        flex-shrink: 0;
+        margin: 0.6rem 0 0.5rem;
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        color: var(--muted);
+      }
+      .spx-legend .status-pill {
+        font-size: 0.56rem;
+      }
+      .spx-filter {
+        width: 100%;
+        box-sizing: border-box;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        padding: 5px 10px;
+        outline: none;
+        margin-bottom: 0.5rem;
+        flex-shrink: 0;
+      }
+      .spx-filter:focus {
+        border-color: var(--purple);
+      }
+      .spx-body {
+        flex: 1;
+        overflow-y: auto;
+        padding-right: 0.3rem;
+      }
+      .spx-section {
+        margin-bottom: 0.7rem;
+      }
+      .spx-section-hd {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--purple);
+        padding: 0.35rem 0.6rem;
+        background: var(--purple-d);
+        border: 1px solid var(--border);
+        border-radius: 6px 6px 0 0;
+        cursor: pointer;
+        user-select: none;
+      }
+      .spx-section-hd .spx-count {
+        color: var(--muted);
+        letter-spacing: 0;
+      }
+      .spx-section.collapsed .spx-row {
+        display: none;
+      }
+      .spx-row {
+        display: grid;
+        grid-template-columns: 210px 1fr;
+        gap: 0.8rem;
+        padding: 0.55rem 0.7rem;
+        border: 1px solid var(--border);
+        border-top: none;
+        background: var(--bg2);
+      }
+      .spx-row:nth-child(even) {
+        background: var(--bg);
+      }
+      .spx-row:last-child {
+        border-radius: 0 0 6px 6px;
+      }
+      .spx-row.hidden {
+        display: none;
+      }
+      .spx-row.dirty {
+        box-shadow: inset 3px 0 0 var(--yellow);
+      }
+      .spx-label {
+        font-family: var(--sans);
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: var(--text);
+        line-height: 1.25;
+      }
+      .spx-key {
+        display: block;
+        font-family: var(--mono);
+        font-size: 0.58rem;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+      .spx-type {
+        display: inline-block;
+        margin-top: 5px;
+        font-family: var(--mono);
+        font-size: 0.55rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 1px 6px;
+        border-radius: 3px;
+        border: 1px solid var(--border);
+        color: var(--muted);
+      }
+      .spx-fields {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem 1.4rem;
+        align-items: flex-start;
+      }
+      .spx-group {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        min-width: 150px;
+      }
+      .spx-group-lbl {
+        font-family: var(--mono);
+        font-size: 0.58rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .spx-group-lbl.ok {
+        color: var(--green);
+      }
+      .spx-group-lbl.warn {
+        color: var(--yellow);
+      }
+      .spx-group-in {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        color: var(--muted);
+      }
+      .spx-fields input.spx-in,
+      .spx-fields select.spx-in,
+      .spx-in {
+        background: var(--bg3);
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        color: #fff;
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        padding: 3px 6px;
+        outline: none;
+        width: 74px;
+        transition: border-color 0.15s;
+      }
+      .spx-fields input.spx-in.wide {
+        width: 260px;
+      }
+      .spx-in:focus {
+        border-color: var(--purple);
+      }
+      .spx-fields select.spx-in {
+        width: auto;
+        cursor: pointer;
+      }
+      .spx-toolbar select,
+      .spx-toolbar input[type="text"],
+      .spx-filter {
+        width: auto;
+      }
+      .spx-filter {
+        width: 100%;
+      }
+      .spx-hint {
+        font-family: var(--mono);
+        font-size: 0.58rem;
+        color: var(--muted);
+        line-height: 1.4;
+      }
+      .spx-hint b {
+        color: var(--text);
+        font-weight: 600;
+      }
+      .spx-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 2px;
+        min-height: 16px;
+      }
+      .spx-chip {
+        font-family: var(--mono);
+        font-size: 0.58rem;
+        padding: 1px 7px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        color: var(--yellow);
+        background: var(--yellow-d);
+      }
+      .spx-chip.pref {
+        color: var(--green);
+        background: var(--green-d);
+        border-color: var(--green);
+      }
+      .spx-fields label.spx-toggle,
+      .spx-toggle {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+        cursor: pointer;
+        font-family: var(--mono);
+        font-size: 0.66rem;
+        font-weight: 400;
+        text-transform: none;
+        letter-spacing: 0;
+        color: var(--text);
+        max-width: 420px;
+        line-height: 1.4;
+      }
+      .spx-toggle input {
+        margin-top: 2px;
+        accent-color: var(--purple);
+      }
+      .spx-toggle .spx-hint {
+        display: block;
+      }
+      .spx-info {
+        font-family: var(--mono);
+        font-size: 0.66rem;
+        color: var(--muted);
+        font-style: italic;
+      }
+      .spx-foot {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        flex-shrink: 0;
+        margin-top: 0.7rem;
+        padding-top: 0.6rem;
+        border-top: 1px solid var(--border);
+      }
+      .spx-foot .modal-err {
+        flex: 1;
+        width: auto;
+        margin: 0;
+      }
+      .spx-saved {
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .spx-save {
+        background: var(--purple);
+        border: none;
+        border-radius: 5px;
+        color: #fff;
+        font-family: var(--mono);
+        font-size: 0.75rem;
+        font-weight: 700;
+        padding: 6px 18px;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .spx-save.dirty {
+        box-shadow: 0 0 0 2px var(--yellow-d), 0 0 10px rgba(250, 165, 26, 0.35);
+      }
+      .spx-empty {
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        color: var(--muted);
+        padding: 0.8rem;
+        text-align: center;
+      }
     </style>
   </head>
   <body>
@@ -2218,120 +2576,46 @@
 
     <!-- Specs Editor modal -->
     <div class="modal-overlay" id="specs-modal">
-      <div
-        class="modal-card"
-        style="
-          width: 720px;
-          max-width: 96vw;
-          max-height: 88vh;
-          display: flex;
-          flex-direction: column;
-        "
-      >
-        <div
-          style="
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.85rem;
-            flex-shrink: 0;
-          "
-        >
-          <div class="modal-title" style="color: var(--purple); margin: 0; display:flex; align-items:center; gap:.6rem">
-            ⚙ Compliance Specs Editor —
-            <select id="specs-workflow-select" onchange="onSpecsWorkflowChange()"
-              style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--purple);font-family:var(--mono);font-size:.8rem;padding:2px 8px;outline:none;cursor:pointer">
-            </select>
-          </div>
-          <div style="display: flex; gap: 0.5rem">
-            <button
-              onclick="resetSpecs()"
-              style="
-                background: transparent;
-                border: 1px solid var(--border);
-                border-radius: 5px;
-                color: var(--muted);
-                font-family: var(--mono);
-                font-size: 0.68rem;
-                padding: 3px 10px;
-                cursor: pointer;
-              "
-            >
-              ↺ Reset to default
-            </button>
-            <button class="btn-cancel" onclick="closeSpecsModal()">
-              Close
-            </button>
-          </div>
+      <div class="modal-card spx-card">
+        <div class="spx-head">
+          <div class="modal-title">⚙ Compliance Specs Editor</div>
+          <button class="btn-cancel" onclick="closeSpecsModal()">Close</button>
         </div>
-        <div
-          style="
-            font-family: var(--mono);
-            font-size: 0.7rem;
-            color: var(--muted);
-            margin-bottom: 0.75rem;
-            flex-shrink: 0;
-          "
-        >
-          Saved separately for this workflow on the server. Requires admin or
-          engineer role.
+
+        <div class="spx-toolbar">
+          <label>Workflow
+            <select id="specs-workflow-select" onchange="onSpecsWorkflowChange()"></select>
+          </label>
+          <span id="specs-admin-tools" style="display:contents">
+            <span class="spx-sep"></span>
+            <input id="specs-rename" type="text" placeholder="Workflow name…" style="width:170px" />
+            <button id="btn-rename-wf" class="spx-btn" onclick="renameWorkflow()" title="Rename this workflow">✏ Rename</button>
+            <button id="btn-set-default-wf" class="spx-btn" onclick="setDefaultWorkflow()"
+              title="Set this workflow as the API default (used when no workflow is specified)">★ Set as API default</button>
+            <span class="spx-sep"></span>
+            <button class="spx-btn danger" onclick="resetSpecs()" title="Discard all custom values for this workflow">↺ Reset to defaults</button>
+          </span>
+          <span id="specs-no-perm" style="display:none">View only — admin or engineer role required to edit</span>
+          <span style="margin-left:auto">Specs are saved per workflow on the server</span>
         </div>
-        <div style="flex: 1; overflow-y: auto" id="specs-editor-body"></div>
-        <div
-          style="
-            margin-top: 0.85rem;
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-            flex-shrink: 0;
-            padding-top: 0.65rem;
-            border-top: 1px solid var(--border);
-          "
-        >
-          <input
-            id="specs-rename"
-            type="text"
-            placeholder="Rename workflow…"
-            style="
-              background: var(--bg);
-              border: 1px solid var(--border);
-              border-radius: 5px;
-              color: var(--text);
-              font-family: var(--mono);
-              font-size: 0.68rem;
-              padding: 4px 8px;
-              width: 160px;
-              outline: none;
-            "
-          />
-          <button
-            id="btn-save-specs"
-            class="btn-danger"
-            style="background: var(--purple); display: none"
-            onclick="saveSpecs()"
-          >
-            Save Specs
-          </button>
-          <button
-            id="btn-rename-wf"
-            class="btn-cancel"
-            onclick="renameWorkflow()"
-            style="font-size: 0.7rem; display: none"
-          >
-            ✏ Rename
-          </button>
-          <button
-            id="btn-set-default-wf"
-            class="btn-cancel"
-            onclick="setDefaultWorkflow()"
-            style="font-size: 0.7rem; display: none"
-            title="Set this workflow as the API default (used when no workflow is specified)"
-          >
-            ★ Set as API default
-          </button>
-          <span id="specs-no-perm" style="font-family:var(--mono);font-size:.68rem;color:var(--muted);display:none">View only — requires admin or engineer role to edit</span>
+
+        <div class="spx-legend">
+          <span>How a measured value is graded:</span>
+          <span><span class="status-pill COMPLIANT">COMPLIANT</span> preferred value / inside compliant range</span>
+          <span><span class="status-pill ACCEPTED">ACCEPTED</span> allowed but not preferred</span>
+          <span><span class="status-pill REJECTED">REJECTED</span> outside allowed values — fails the test</span>
+          <span><span class="status-pill INFO">INFO</span> displayed only</span>
+        </div>
+
+        <input id="specs-filter" class="spx-filter" type="text"
+          placeholder="Filter fields… (e.g. bitrate, gop, audio)" oninput="filterSpecsEditor(this.value)" />
+
+        <div id="specs-editor-body" class="spx-body"></div>
+
+        <div class="spx-foot">
           <div class="modal-err" id="specs-err"></div>
-          <span id="specs-saved-by" style="font-family:var(--mono);font-size:.62rem;color:var(--muted);margin-left:auto"></span>
+          <span id="specs-saved-by" class="spx-saved"></span>
+          <button id="btn-save-specs" class="spx-save" style="display:none" onclick="saveSpecs()">Save Specs</button>
         </div>
       </div>
     </div>
@@ -4480,17 +4764,24 @@
         infoRows("tbl-audio", [
           ["[A] Codec", aCodecDisplay, aCodecCol],
           ["[A] Channels", r.a_channels],
-          ...(aCodecDisplay === "AAC-LATM"
-            ? [[
-                "[A] LATM Channel Config",
-                r.a_latm_channel_config ?? "—",
-                r.a_latm_channel_config === 0
-                  ? "red"
-                  : r.a_latm_channel_config != null
-                  ? "green"
-                  : "",
-              ]]
-            : []),
+          ...(() => {
+            // One entry per AAC-LATM track: "a:0=2, a:1=2, a:2=0, a:3=0"
+            const tracks = Array.isArray(r.a_latm_tracks)
+              ? r.a_latm_tracks
+              : aCodecDisplay === "AAC-LATM"
+              ? [{ track: 0, cc: r.a_latm_channel_config }]
+              : [];
+            if (!tracks.length) return [];
+            const txt = tracks.length === 1
+              ? (tracks[0].cc ?? "—")
+              : tracks.map((t) => `a:${t.track}=${t.cc ?? "?"}`).join(", ");
+            const cls = tracks.some((t) => t.cc === 0)
+              ? "red"
+              : tracks.every((t) => t.cc != null)
+              ? "green"
+              : "yellow";
+            return [["[A] LATM Channel Config", txt, cls]];
+          })(),
           ["[A] Layout", r.a_layout],
           ["[A] Sampling Rate", r.a_rate ? r.a_rate + " Hz" : "—"],
           ["[A] Bitrate", r.a_br ? fmtBps(r.a_br) : "—"],
@@ -4579,7 +4870,7 @@
         if (s.info) return "Informational only";
         if ("enforce" in s) {
           return s.enforce
-            ? "≠ 0 (reject in-band PCE)"
+            ? "≠ 0 on every LATM track"
             : "cc=0 flagged as ACCEPTED";
         }
         if ("warn" in s) {
@@ -6012,7 +6303,7 @@
         )}
         ${vrow(
           "LATM Channel Config",
-          "≠ 0 (reject in-band PCE)",
+          "≠ 0 on every LATM track",
           (c.latm_cc || [])[1] || "—",
           "latm_cc"
         )}
@@ -7227,9 +7518,10 @@
 
         const canEdit = ["admin", "engineer"].includes(_currentUserRole);
         document.getElementById("btn-save-specs").style.display = canEdit ? "" : "none";
-        document.getElementById("btn-rename-wf").style.display = canEdit ? "" : "none";
-        document.getElementById("btn-set-default-wf").style.display = canEdit ? "" : "none";
+        document.getElementById("specs-admin-tools").style.display = canEdit ? "contents" : "none";
         document.getElementById("specs-no-perm").style.display = canEdit ? "none" : "";
+        document.getElementById("specs-filter").value = "";
+        _setSpecsDirty(false);
 
         // Populate the specs-modal's own workflow select
         const sel = document.getElementById("specs-workflow-select");
@@ -7254,8 +7546,9 @@
         _currentSpecsWorkflow = workflow;
         const wfLabel = WORKFLOW_LABELS[workflow] || workflow;
         document.getElementById("specs-rename").value = wfLabel;
+        _setSpecsDirty(false);
         document.getElementById("specs-editor-body").innerHTML =
-          '<div style="font-family:var(--mono);font-size:.7rem;color:var(--muted);padding:.5rem">Loading…</div>';
+          '<div class="spx-empty">Loading…</div>';
 
         // Update Set as default button label
         const defBtn = document.getElementById("btn-set-default-wf");
@@ -7321,152 +7614,268 @@
         document.getElementById("specs-modal").classList.remove("open");
       }
 
-      function renderSpecsEditor(specs) {
-        const sections = {
-          "MEDIA PROFILE": ["overall_br"],
-          VIDEO: [
-            "gop_size",
-            "gop_type",
-            "b_frames",
-            "idr",
-            "frame_size",
-            "aspect_ratio",
-            "chroma",
-            "pixel_format",
-            "colour_range",
-            "scan_type",
-            "bit_depth",
-            "colour_gamut",
-            "codec",
-            "codec_level",
-            "codec_profile",
-            "entropy",
-            "rate_ctrl_v",
-            "v_br",
-            "hdr_scheme",
-            "fps",
-          ],
-          AUDIO: [
-            "a_codec",
-            "a_streams",
-            "a_channels",
-            "latm_cc",
-            "a_rate_ctrl",
-            "a_sample_rate",
-            "a_bits",
-            "a_br_kbps",
-          ],
-          "TIMING": ["mediainfo_delay"],
-        };
+      // ── Compliance Specs Editor ────────────────────────────────────────
+      // Every editable input carries data-key / data-field so saveSpecs()
+      // can rebuild the specs object generically; the layout below is purely
+      // presentational.
+      const SPX_SECTIONS = {
+        "Media Profile": ["overall_br"],
+        Video: [
+          "codec", "codec_profile", "codec_level", "entropy",
+          "frame_size", "aspect_ratio", "fps", "scan_type",
+          "gop_size", "gop_type", "b_frames", "idr",
+          "chroma", "pixel_format", "bit_depth", "colour_range", "colour_gamut", "hdr_scheme",
+          "rate_ctrl_v", "v_br",
+        ],
+        Audio: [
+          "a_codec", "latm_cc", "a_streams", "a_channels",
+          "a_sample_rate", "a_bits", "a_rate_ctrl", "a_br_kbps",
+        ],
+        Timing: ["mediainfo_delay"],
+      };
 
-        let html = `<table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.72rem">
-    <thead><tr>
-      <th style="text-align:left;padding:.3rem .6rem;border-bottom:1px solid var(--border);color:var(--muted);font-size:.63rem;text-transform:uppercase">Element</th>
-      <th style="text-align:left;padding:.3rem .6rem;border-bottom:1px solid var(--border);color:var(--muted);font-size:.63rem;text-transform:uppercase">Allowed values / Range</th>
-      <th style="text-align:left;padding:.3rem .6rem;border-bottom:1px solid var(--border);color:var(--muted);font-size:.63rem;text-transform:uppercase">Preferred</th>
-      <th style="text-align:left;padding:.3rem .6rem;border-bottom:1px solid var(--border);color:var(--muted);font-size:.63rem;text-transform:uppercase">Special</th>
-    </tr></thead><tbody>`;
+      // Short, human explanation of what each field measures.
+      const SPX_HELP = {
+        overall_br: "Total transport-stream bitrate (video + audio + tables), in Mbps.",
+        gop_size: "Average distance between I-frames. 1s/2s means one or two seconds at the stream's frame rate.",
+        gop_type: "CLOSED = every GOP decodable on its own; OPEN = B-frames may reference the previous GOP.",
+        b_frames: "Whether the encoder uses bidirectional (B) frames.",
+        idr: "IDR frames are mandatory — the test is REJECTED when none are found.",
+        frame_size: "Coded picture size, width×height.",
+        aspect_ratio: "Display aspect ratio.",
+        chroma: "Chroma subsampling derived from the pixel format.",
+        pixel_format: "Raw ffprobe pix_fmt — shown for reference only.",
+        colour_range: "Internal values are limited / full (not pix_fmt names).",
+        scan_type: "progressive, interlaced or mbaff as detected on the video stream.",
+        bit_depth: "Bits per sample of the video stream.",
+        colour_gamut: "Colour primaries / space as signalled (bt709, unknown …).",
+        codec: "Video coding algorithm (ffprobe codec_name, lower-case).",
+        codec_level: "H.264/HEVC level as a decimal (4.1, 4.2 …).",
+        codec_profile: "Codec profile, lower-case (high, main, baseline …).",
+        entropy: "CABAC or CAVLC, inferred from the profile.",
+        rate_ctrl_v: "CBR when video bitrate ≈ overall bitrate, otherwise VBR.",
+        v_br: "Video elementary-stream bitrate, in Mbps.",
+        hdr_scheme: "SDR or HDR, from the colour transfer characteristic.",
+        fps: "Effective frame rate. Interlaced 50i is evaluated as 25 fps.",
+        a_codec: "Audio coding of the first audio track (AAC-LC, AAC-LATM, MP2 …).",
+        latm_cc: "AAC-LATM only. Checks every LATM track: channel_configuration=0 means the channel layout is carried in-band (PCE) instead of in the config — a known decoder problem. Explicit configs (e.g. 2 = stereo) and AAC/ADTS are never affected.",
+        a_streams: "Number of audio tracks in the programme.",
+        a_channels: "Channel count of the first audio track.",
+        a_rate_ctrl: "Audio rate control. Currently always measured as VBR.",
+        a_sample_rate: "Audio sample rate, in kHz.",
+        a_bits: "Audio sample format / bits per sample (fltp, 16 …).",
+        a_br_kbps: "Audio bitrate of the first audio track, in Kbps.",
+        mediainfo_delay: "Audio delay relative to video measured by mediainfo. Absolute value is compared.",
+      };
 
-        for (const [section, keys] of Object.entries(sections)) {
-          html += `<tr><td colspan="4" style="background:var(--bg3);color:var(--muted);font-size:.63rem;text-transform:uppercase;letter-spacing:.08em;padding:.22rem .6rem">${section}</td></tr>`;
-          for (const key of keys) {
-            const s = specs[key] || {};
-            const label = s.label || key;
-
-            // Build input fields based on spec type
-            let allowedEl = "",
-              prefEl = "",
-              specialEl = "";
-
-            if ("info" in s) {
-              // Informational-only field — not adjustable, always displayed as INFO
-              allowedEl = `<span style="color:var(--muted)">Informational only — not enforced</span>`;
-            } else if ("enforce" in s) {
-              // AAC-LATM channel_configuration check — boolean enforce toggle
-              allowedEl = `<label style="cursor:pointer"><input type="checkbox" data-key="${key}" data-field="enforce" ${
-                s.enforce ? "checked" : ""
-              } /> Reject when channel_configuration = 0 (in-band PCE)</label>
-              <div style="color:var(--muted);font-size:.6rem;margin-top:2px">Only applies to AAC-LATM audio. Unchecked: cc=0 is flagged as ACCEPTED instead of REJECTED. Explicit configs (e.g. 2 = stereo) and AAC/ADTS are never affected.</div>`;
-            } else if ("warn" in s) {
-              // Delay threshold spec: warn = max |ms| still COMPLIANT, hard = max |ms| still ACCEPTED (above = REJECTED)
-              allowedEl = `Compliant up to: <input data-key="${key}" data-field="warn" type="number" value="${s.warn}" step="10" style="${inStyle};width:70px" title="Compliant threshold (ms)" /> ms &nbsp; Accepted up to: <input data-key="${key}" data-field="hard" type="number" value="${s.hard}" step="10" style="${inStyle};width:70px" title="Reject above this (ms)" /> ms`;
-              prefEl = ``;
-            } else if ("lo" in s) {
-              // Range spec: lo/hi = hard accept/reject bound, pref_lo/pref_hi = compliant sub-range
-              allowedEl = `<span style="color:var(--muted);font-size:.6rem">Accept range:</span> <input data-key="${key}" data-field="lo" type="number" value="${s.lo}" step="0.1" style="${inStyle}" title="Reject below this" /> – <input data-key="${key}" data-field="hi" type="number" value="${s.hi}" step="0.1" style="${inStyle}" title="Reject above this" />`;
-              if ("pref_lo" in s) {
-                prefEl = `<span style="color:var(--muted);font-size:.6rem">Compliant within:</span> <input data-key="${key}" data-field="pref_lo" type="number" value="${s.pref_lo}" step="0.1" style="${inStyle}" title="Preferred min — must stay inside the accept range above" /> – <input data-key="${key}" data-field="pref_hi" type="number" value="${s.pref_hi}" step="0.1" style="${inStyle}" title="Preferred max — must stay inside the accept range above" />`;
-              }
-            } else if ("values" in s) {
-              // Enum spec — values can contain numbers or strings
-              const valStr = Array.isArray(s.values)
-                ? s.values.join(", ")
-                : s.values || "";
-              const noteHtml = key === "colour_range"
-                ? `<div style="color:var(--muted);font-size:.6rem;margin-top:2px">internal values: <code>limited</code> / <code>full</code> (not pix_fmt)</div>`
-                : "";
-              allowedEl = `<input data-key="${key}" data-field="values" type="text" value="${valStr}" style="${inStyle};width:190px" placeholder="comma separated" />${noteHtml}`;
-              // For short fixed-value specs (b_frames, gop_type) render preferred as a select
-              const valArr = Array.isArray(s.values) ? s.values : [];
-              if (valArr.length > 0 && valArr.length <= 4 && valArr.every(v => typeof v === "string")) {
-                const optHtml = valArr.map(v =>
-                  `<option value="${v}" ${String(s.preferred) === String(v) ? "selected" : ""}>${v}</option>`
-                ).join("");
-                prefEl = `<select data-key="${key}" data-field="preferred" style="${inStyle};width:110px">${optHtml}</select>`;
-              } else {
-                const prefStr = Array.isArray(s.preferred)
-                  ? s.preferred.join(", ")
-                  : s.preferred ?? "";
-                prefEl = `<input data-key="${key}" data-field="preferred" type="text" value="${prefStr}" style="${inStyle};width:110px" />`;
-              }
-            } else if ("required" in s) {
-              // Required-value spec (legacy fallback)
-              allowedEl = `<input data-key="${key}" data-field="required" type="text" value="${
-                s.required || ""
-              }" style="${inStyle};width:110px" />`;
-            }
-
-            // Special options
-            let specials = [];
-            if ("allow_seconds" in s)
-              specials.push(
-                `<label style="cursor:pointer"><input type="checkbox" data-key="${key}" data-field="allow_seconds" ${
-                  s.allow_seconds ? "checked" : ""
-                } /> Accept GOP in seconds (1s, 2s)</label>`
-              );
-            if ("any" in s || key === "gop_size")
-              specials.push(
-                `<label style="cursor:pointer"><input type="checkbox" data-key="${key}" data-field="any" ${
-                  s.any ? "checked" : ""
-                } /> Accept any GOP size (ACCEPTED)</label>`
-              );
-            if ("allow_50p_720" in s)
-              specials.push(
-                `<label style="cursor:pointer"><input type="checkbox" data-key="${key}" data-field="allow_50p_720" ${
-                  s.allow_50p_720 ? "checked" : ""
-                } /> Accept 50p if 720p</label>`
-              );
-            if ("tolerance" in s)
-              specials.push(
-                `±<input data-key="${key}" data-field="tolerance" type="number" value="${s.tolerance}" step="1" min="0" style="${inStyle};width:50px" title="Tolerance" />`
-              );
-            if (!("warn" in s)) specialEl = specials.join(" &nbsp; ");
-
-            html += `<tr style="border-bottom:1px solid rgba(255,255,255,.03)">
-        <td style="padding:.3rem .6rem;color:var(--text)">${label}</td>
-        <td style="padding:.3rem .6rem">${allowedEl}</td>
-        <td style="padding:.3rem .6rem">${prefEl}</td>
-        <td style="padding:.3rem .6rem;font-size:.65rem;color:var(--muted)">${specialEl}</td>
-      </tr>`;
-          }
-        }
-        html += "</tbody></table>";
-
-        document.getElementById("specs-editor-body").innerHTML = html;
+      let _specsDirty = false;
+      function _setSpecsDirty(v) {
+        _specsDirty = !!v;
+        const btn = document.getElementById("btn-save-specs");
+        if (!btn) return;
+        btn.textContent = _specsDirty ? "Save Specs ●" : "Save Specs";
+        btn.classList.toggle("dirty", _specsDirty);
       }
 
-      const inStyle =
-        "background:var(--bg);border:1px solid var(--border);border-radius:3px;color:#fff;font-family:var(--mono);font-size:.68rem;padding:2px 5px;outline:none;width:80px;transition:border-color .15s";
+      function _spxEsc(v) {
+        return String(v ?? "").replace(/[&<>"']/g, (ch) => ({
+          "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+        })[ch]);
+      }
+
+      function _spxNum(key, field, val, title, step = "0.1") {
+        return `<input class="spx-in" data-key="${key}" data-field="${field}" type="number" step="${step}" value="${_spxEsc(val)}" title="${_spxEsc(title)}" />`;
+      }
+
+      function _spxToggle(key, field, checked, label, hint) {
+        return `<label class="spx-toggle"><input type="checkbox" data-key="${key}" data-field="${field}" ${checked ? "checked" : ""} />
+          <span>${label}${hint ? `<span class="spx-hint">${hint}</span>` : ""}</span></label>`;
+      }
+
+      function _spxChipsHtml(values, preferred) {
+        const prefs = Array.isArray(preferred) ? preferred.map(String) : preferred !== undefined && preferred !== "" ? [String(preferred)] : [];
+        // Green = graded COMPLIANT, amber = graded ACCEPTED. With no preferred
+        // value every allowed value is COMPLIANT, so all chips are green.
+        return values.map((v) =>
+          `<span class="spx-chip ${!prefs.length || prefs.includes(String(v)) ? "pref" : ""}">${_spxEsc(v)}</span>`
+        ).join("");
+      }
+
+      // Live chip preview while typing in an "Allowed values" box
+      function _spxRefreshChips(inputEl) {
+        const row = inputEl.closest(".spx-row");
+        if (!row) return;
+        const chips = row.querySelector(".spx-chips");
+        const prefEl = row.querySelector('[data-field="preferred"]');
+        const vals = inputEl.value.split(",").map((v) => v.trim()).filter(Boolean);
+        const pref = prefEl ? prefEl.value : "";
+        if (chips) chips.innerHTML = _spxChipsHtml(vals, pref);
+        // Keep a <select> preferred in sync with the new value list
+        if (prefEl && prefEl.tagName === "SELECT") {
+          const current = prefEl.value;
+          prefEl.innerHTML = vals.map((v) => `<option value="${_spxEsc(v)}" ${v === current ? "selected" : ""}>${_spxEsc(v)}</option>`).join("");
+        }
+      }
+
+      function _spxTypeOf(s) {
+        if ("info" in s) return "info";
+        if ("enforce" in s) return "toggle";
+        if ("warn" in s) return "threshold";
+        if ("lo" in s) return "range";
+        if ("values" in s) return "list";
+        if ("required" in s) return "required";
+        return "other";
+      }
+
+      function _spxFields(key, s) {
+        const type = _spxTypeOf(s);
+        let html = "";
+
+        if (type === "info") {
+          html += `<div class="spx-info">Displayed for reference only — never affects the overall result.</div>`;
+
+        } else if (type === "required") {
+          html += `<div class="spx-info">Mandatory — the test is <b style="color:var(--red)">REJECTED</b> when absent. Not adjustable.</div>`;
+
+        } else if (type === "toggle") {
+          html += `<div class="spx-group">${_spxToggle(key, "enforce", s.enforce,
+            "Reject when channel_configuration = 0 (in-band PCE)",
+            "Checked → REJECTED &nbsp;·&nbsp; Unchecked → flagged as ACCEPTED instead. Any LATM track with cc=0 fails the field.")}</div>`;
+
+        } else if (type === "threshold") {
+          html += `<div class="spx-group">
+              <div class="spx-group-lbl ok">Compliant up to</div>
+              <div class="spx-group-in">${_spxNum(key, "warn", s.warn, "Max |delay| still COMPLIANT (ms)", "10")} ms</div>
+              <div class="spx-hint">|delay| ≤ this → COMPLIANT</div>
+            </div>
+            <div class="spx-group">
+              <div class="spx-group-lbl warn">Accepted up to</div>
+              <div class="spx-group-in">${_spxNum(key, "hard", s.hard, "Max |delay| still ACCEPTED (ms)", "10")} ms</div>
+              <div class="spx-hint">Between the two → ACCEPTED &nbsp;·&nbsp; above → REJECTED</div>
+            </div>`;
+
+        } else if (type === "range") {
+          html += `<div class="spx-group">
+              <div class="spx-group-lbl warn">Accepted range (hard limits)</div>
+              <div class="spx-group-in">${_spxNum(key, "lo", s.lo, "Reject below this")} <span>–</span> ${_spxNum(key, "hi", s.hi, "Reject above this")}</div>
+              <div class="spx-hint">Outside → REJECTED</div>
+            </div>`;
+          if ("pref_lo" in s) {
+            html += `<div class="spx-group">
+              <div class="spx-group-lbl ok">Compliant range (preferred)</div>
+              <div class="spx-group-in">${_spxNum(key, "pref_lo", s.pref_lo, "Preferred minimum")} <span>–</span> ${_spxNum(key, "pref_hi", s.pref_hi, "Preferred maximum")}</div>
+              <div class="spx-hint">Inside → COMPLIANT &nbsp;·&nbsp; inside accepted only → ACCEPTED</div>
+            </div>`;
+          } else {
+            html += `<div class="spx-group"><div class="spx-group-lbl">&nbsp;</div><div class="spx-hint">Inside the range → COMPLIANT</div></div>`;
+          }
+
+        } else if (type === "list") {
+          const vals = Array.isArray(s.values) ? s.values : [];
+          const valStr = vals.join(", ");
+          const allStrings = vals.every((v) => typeof v === "string");
+          let prefEl;
+          if (vals.length > 0 && vals.length <= 6 && allStrings) {
+            prefEl = `<select class="spx-in" data-key="${key}" data-field="preferred" onchange="_spxRefreshChips(this.closest('.spx-row').querySelector('[data-field=values]'))">
+              <option value="" ${!s.preferred ? "selected" : ""}>— none —</option>
+              ${vals.map((v) => `<option value="${_spxEsc(v)}" ${String(s.preferred) === String(v) ? "selected" : ""}>${_spxEsc(v)}</option>`).join("")}
+            </select>`;
+          } else {
+            const prefStr = Array.isArray(s.preferred) ? s.preferred.join(", ") : s.preferred ?? "";
+            prefEl = `<input class="spx-in" data-key="${key}" data-field="preferred" type="text" value="${_spxEsc(prefStr)}" placeholder="optional" oninput="_spxRefreshChips(this.closest('.spx-row').querySelector('[data-field=values]'))" />`;
+          }
+          html += `<div class="spx-group" style="min-width:280px">
+              <div class="spx-group-lbl warn">Allowed values</div>
+              <div class="spx-group-in"><input class="spx-in wide" data-key="${key}" data-field="values" type="text" value="${_spxEsc(valStr)}" placeholder="comma separated" oninput="_spxRefreshChips(this)" /></div>
+              <div class="spx-chips">${_spxChipsHtml(vals, s.preferred)}</div>
+              <div class="spx-hint">Not listed → REJECTED</div>
+            </div>
+            <div class="spx-group">
+              <div class="spx-group-lbl ok">Preferred</div>
+              <div class="spx-group-in">${prefEl}</div>
+              <div class="spx-hint">Matches → COMPLIANT &nbsp;·&nbsp; other allowed → ACCEPTED<br>None set → every allowed value is COMPLIANT</div>
+            </div>`;
+        }
+
+        // ── Field-specific options ──────────────────────────────────────
+        const opts = [];
+        if ("tolerance" in s)
+          opts.push(`<div class="spx-group-in">Tolerance ± ${_spxNum(key, "tolerance", s.tolerance, "Frames of slack around each allowed value", "1")} frames <span class="spx-hint">within tolerance → ACCEPTED</span></div>`);
+        if ("allow_seconds" in s)
+          opts.push(_spxToggle(key, "allow_seconds", s.allow_seconds, "Also accept 1 s / 2 s GOPs", "GOP length equal to one or two seconds at the measured frame rate"));
+        if ("any" in s || key === "gop_size")
+          opts.push(_spxToggle(key, "any", s.any, "Accept any GOP size", "Overrides the list above — always graded ACCEPTED"));
+        if ("allow_50p_720" in s)
+          opts.push(_spxToggle(key, "allow_50p_720", s.allow_50p_720, "Accept 50p when the frame size is 720p", "50 fps progressive is graded ACCEPTED only for 1280×720"));
+        if (opts.length)
+          html += `<div class="spx-group" style="flex-basis:100%"><div class="spx-group-lbl">Options</div><div style="display:flex;flex-wrap:wrap;gap:.5rem 1.4rem">${opts.join("")}</div></div>`;
+
+        return html;
+      }
+
+      const SPX_TYPE_LABEL = {
+        info: "info", toggle: "rule", threshold: "threshold", range: "range", list: "list", required: "required", other: "",
+      };
+
+      function renderSpecsEditor(specs) {
+        let html = "";
+        for (const [section, keys] of Object.entries(SPX_SECTIONS)) {
+          const present = keys.filter((k) => specs[k]);
+          if (!present.length) continue;
+          html += `<div class="spx-section" data-section="${_spxEsc(section)}">
+            <div class="spx-section-hd" onclick="this.parentElement.classList.toggle('collapsed')">
+              <span>${_spxEsc(section)}</span><span class="spx-count">${present.length} field${present.length === 1 ? "" : "s"} ▾</span>
+            </div>`;
+          for (const key of present) {
+            const s = specs[key];
+            const label = s.label || key;
+            const type = _spxTypeOf(s);
+            const search = `${label} ${key} ${section} ${SPX_HELP[key] || ""}`.toLowerCase();
+            html += `<div class="spx-row" data-spx-key="${key}" data-search="${_spxEsc(search)}">
+              <div>
+                <div class="spx-label">${_spxEsc(label)}<span class="spx-key">${key}</span></div>
+                ${SPX_TYPE_LABEL[type] ? `<span class="spx-type">${SPX_TYPE_LABEL[type]}</span>` : ""}
+                ${SPX_HELP[key] ? `<div class="spx-hint" style="margin-top:6px">${SPX_HELP[key]}</div>` : ""}
+              </div>
+              <div class="spx-fields">${_spxFields(key, s)}</div>
+            </div>`;
+          }
+          html += `</div>`;
+        }
+        if (!html) html = `<div class="spx-empty">No specs to display</div>`;
+
+        const body = document.getElementById("specs-editor-body");
+        body.innerHTML = html;
+        _setSpecsDirty(false);
+
+        // Dirty tracking: mark the row and the Save button on any edit
+        const markDirty = (e) => {
+          const row = e.target.closest(".spx-row");
+          if (row) row.classList.add("dirty");
+          _setSpecsDirty(true);
+        };
+        body.addEventListener("input", markDirty);
+        body.addEventListener("change", markDirty);
+
+        // Re-apply an active filter after re-render
+        const f = document.getElementById("specs-filter");
+        if (f && f.value) filterSpecsEditor(f.value);
+      }
+
+      function filterSpecsEditor(q) {
+        const needle = (q || "").trim().toLowerCase();
+        document.querySelectorAll("#specs-editor-body .spx-section").forEach((sec) => {
+          let visible = 0;
+          sec.querySelectorAll(".spx-row").forEach((row) => {
+            const hit = !needle || (row.dataset.search || "").includes(needle);
+            row.classList.toggle("hidden", !hit);
+            if (hit) visible++;
+          });
+          sec.style.display = visible ? "" : "none";
+          if (needle && visible) sec.classList.remove("collapsed");
+        });
+      }
+
 
       async function saveSpecs() {
         const errEl = document.getElementById("specs-err");
@@ -7505,7 +7914,7 @@
               .map((v) => v.trim())
               .filter(Boolean);
           } else if (
-            ["lo", "hi", "pref_lo", "pref_hi", "tolerance"].includes(field)
+            ["lo", "hi", "pref_lo", "pref_hi", "tolerance", "warn", "hard"].includes(field)
           ) {
             const n = parseFloat(el.value);
             specs[key][field] = isNaN(n) ? 0 : n;
@@ -7540,6 +7949,8 @@
             return;
           }
           _currentSpecs = specs;
+          _setSpecsDirty(false);
+          document.querySelectorAll("#specs-editor-body .spx-row.dirty").forEach((r) => r.classList.remove("dirty"));
           errEl.style.color = "var(--green)";
           errEl.textContent = "✓ Saved — new analyses will use these specs";
 
@@ -7581,14 +7992,21 @@
           if (!data.success)
             throw new Error(data.error || "Failed to rename");
           Object.assign(WORKFLOW_LABELS, data.labels);
-          document.getElementById("specs-modal-workflow").textContent = label;
+          const wfSel = document.getElementById("specs-workflow-select");
+          Array.from(wfSel.options).forEach((opt) => {
+            if (opt.value === workflow)
+              opt.textContent = label + (workflow === _apiDefaultWorkflow ? " ★" : "");
+          });
+          const okEl = document.getElementById("specs-err");
+          okEl.style.color = "var(--green)";
+          okEl.textContent = `✓ Workflow renamed to "${label}"`;
+          setTimeout(() => { okEl.textContent = ""; okEl.style.color = ""; }, 3000);
           const sel = document.getElementById("inp-workflow");
           if (sel) {
             Array.from(sel.options).forEach((opt) => {
               if (opt.value === workflow) opt.textContent = label;
             });
           }
-          document.getElementById("specs-err").textContent = "";
         } catch (e) {
           document.getElementById("specs-err").textContent = e.message;
         }
