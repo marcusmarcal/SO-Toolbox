@@ -4075,7 +4075,7 @@
         "scan_type", "bit_depth", "colour_gamut", "codec", "codec_level",
         "codec_profile", "entropy", "rate_ctrl_v", "v_br", "hdr_scheme",
         "fps",
-        "a_codec", "a_streams", "a_channels", "a_rate_ctrl",
+        "a_codec", "a_streams", "a_channels", "latm_cc", "a_rate_ctrl",
         "a_sample_rate", "a_bits", "a_br_kbps",
         "mediainfo_delay",
       ];
@@ -4480,6 +4480,17 @@
         infoRows("tbl-audio", [
           ["[A] Codec", aCodecDisplay, aCodecCol],
           ["[A] Channels", r.a_channels],
+          ...(aCodecDisplay === "AAC-LATM"
+            ? [[
+                "[A] LATM Channel Config",
+                r.a_latm_channel_config ?? "—",
+                r.a_latm_channel_config === 0
+                  ? "red"
+                  : r.a_latm_channel_config != null
+                  ? "green"
+                  : "",
+              ]]
+            : []),
           ["[A] Layout", r.a_layout],
           ["[A] Sampling Rate", r.a_rate ? r.a_rate + " Hz" : "—"],
           ["[A] Bitrate", r.a_br ? fmtBps(r.a_br) : "—"],
@@ -4566,6 +4577,11 @@
       function formatSpecText(s) {
         if (!s) return "—";
         if (s.info) return "Informational only";
+        if ("enforce" in s) {
+          return s.enforce
+            ? "≠ 0 (reject in-band PCE)"
+            : "cc=0 flagged as ACCEPTED";
+        }
         if ("warn" in s) {
           const mode = s.mode === "inform" ? " (inform only)" : "";
           return `≤ ${s.warn}ms compliant, ≤ ${s.hard}ms accepted${mode}`;
@@ -4625,6 +4641,7 @@
             "a_codec",
             "a_streams",
             "a_channels",
+            "latm_cc",
             "a_rate_ctrl",
             "a_sample_rate",
             "a_bits",
@@ -5994,6 +6011,12 @@
           "a_channels"
         )}
         ${vrow(
+          "LATM Channel Config",
+          "≠ 0 (reject in-band PCE)",
+          (c.latm_cc || [])[1] || "—",
+          "latm_cc"
+        )}
+        ${vrow(
           "Sample Rate",
           "44.1–48.0 kHz",
           r.a_rate_khz ? r.a_rate_khz + " kHz" : "—",
@@ -6200,6 +6223,12 @@
             "a_streams"
           ),
           tr("Audio Channels", "2", String(r.a_channels || "—"), "a_channels"),
+          tr(
+            "LATM Channel Cfg",
+            "≠ 0",
+            (c.latm_cc || [])[1] || "—",
+            "latm_cc"
+          ),
           tr(
             "Sample Rate",
             "44.1–48.0 kHz",
@@ -7321,6 +7350,7 @@
             "a_codec",
             "a_streams",
             "a_channels",
+            "latm_cc",
             "a_rate_ctrl",
             "a_sample_rate",
             "a_bits",
@@ -7351,6 +7381,12 @@
             if ("info" in s) {
               // Informational-only field — not adjustable, always displayed as INFO
               allowedEl = `<span style="color:var(--muted)">Informational only — not enforced</span>`;
+            } else if ("enforce" in s) {
+              // AAC-LATM channel_configuration check — boolean enforce toggle
+              allowedEl = `<label style="cursor:pointer"><input type="checkbox" data-key="${key}" data-field="enforce" ${
+                s.enforce ? "checked" : ""
+              } /> Reject when channel_configuration = 0 (in-band PCE)</label>
+              <div style="color:var(--muted);font-size:.6rem;margin-top:2px">Only applies to AAC-LATM audio. Unchecked: cc=0 is flagged as ACCEPTED instead of REJECTED. Explicit configs (e.g. 2 = stereo) and AAC/ADTS are never affected.</div>`;
             } else if ("warn" in s) {
               // Delay threshold spec: warn = max |ms| still COMPLIANT, hard = max |ms| still ACCEPTED (above = REJECTED)
               allowedEl = `Compliant up to: <input data-key="${key}" data-field="warn" type="number" value="${s.warn}" step="10" style="${inStyle};width:70px" title="Compliant threshold (ms)" /> ms &nbsp; Accepted up to: <input data-key="${key}" data-field="hard" type="number" value="${s.hard}" step="10" style="${inStyle};width:70px" title="Reject above this (ms)" /> ms`;
