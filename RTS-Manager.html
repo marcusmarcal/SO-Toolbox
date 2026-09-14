@@ -373,7 +373,7 @@
       }
       .git-output.ok  { color: var(--green); }
       .git-output.err { color: var(--red); }
-      .git-card.wide { width: 860px; }
+      .git-card.wide { width: 1240px; max-width: 96vw; }
       .git-card-head {
         display: flex;
         align-items: center;
@@ -425,19 +425,24 @@
       }
       .member-meta dt { color: var(--cyan); text-transform: uppercase; font-size: 10px; }
       .member-meta dd { color: var(--text); word-break: break-all; }
-      .stream-table { width: 100%; border-collapse: collapse; }
+      .stream-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
       .stream-table th {
         position: static;
         background: var(--bg3);
         padding: 6px 8px;
         font-size: 10px;
+        white-space: nowrap;
       }
       .stream-table td {
-        padding: 6px 8px;
+        padding: 8px;
         font-size: 11px;
         vertical-align: top;
-        word-break: break-all;
+        white-space: nowrap;
       }
+      /* Only the stream ID is allowed to wrap; everything else stays on one line. */
+      .stream-table td.wrap { white-space: normal; word-break: break-all; }
+      .stream-table td.caps { white-space: normal; }
+      .stream-table .badge { white-space: nowrap; }
       .cap-chip {
         display: inline-block;
         background: var(--bg3);
@@ -1948,11 +1953,11 @@
                   : '<span style="color:var(--text-dim)">—</span>';
                 return `<tr>
                   <td>${_esc(st.type || "—")}</td>
-                  <td>${_esc(p.streamId)}</td>
+                  <td class="wrap">${_esc(p.streamId)}</td>
                   <td>${_esc(p.region || "—")}</td>
                   <td style="text-align:center">${_trackBadge(st.audioState)}</td>
                   <td style="text-align:center">${_trackBadge(st.videoState)}</td>
-                  <td>${caps}</td>
+                  <td class="caps">${caps}</td>
                 </tr>`;
               })
               .join("")
@@ -1972,6 +1977,14 @@
             <dt>Streams</dt><dd>${streams.length}</dd>
           </dl>
           <table class="stream-table">
+            <colgroup>
+              <col style="width:110px" />
+              <col style="width:34%" />
+              <col style="width:120px" />
+              <col style="width:120px" />
+              <col style="width:120px" />
+              <col />
+            </colgroup>
             <thead><tr>
               <th>TYPE</th><th>STREAM ID</th><th>REGION</th>
               <th style="text-align:center">AUDIO</th>
@@ -2012,7 +2025,7 @@
             `${PROXY}/channel/members/${encodeURIComponent(_membersChannelId)}`,
             { headers: headers() }
           );
-                    const text = await res.text();
+          const text = await res.text();
           // Discard the response if the user has since switched channel
           // or closed the modal.
           if (_membersChannelId !== requestedId) return;
