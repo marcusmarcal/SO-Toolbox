@@ -373,7 +373,7 @@
       }
       .git-output.ok  { color: var(--green); }
       .git-output.err { color: var(--red); }
-      .git-card.wide { width: 860px; }
+      .git-card.wide { width: 1240px; max-width: 96vw; }
       .git-card-head {
         display: flex;
         align-items: center;
@@ -425,19 +425,24 @@
       }
       .member-meta dt { color: var(--cyan); text-transform: uppercase; font-size: 10px; }
       .member-meta dd { color: var(--text); word-break: break-all; }
-      .stream-table { width: 100%; border-collapse: collapse; }
+      .stream-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
       .stream-table th {
         position: static;
         background: var(--bg3);
         padding: 6px 8px;
         font-size: 10px;
+        white-space: nowrap;
       }
       .stream-table td {
-        padding: 6px 8px;
+        padding: 8px;
         font-size: 11px;
         vertical-align: top;
-        word-break: break-all;
+        white-space: nowrap;
       }
+      /* Only the stream ID is allowed to wrap; everything else stays on one line. */
+      .stream-table td.wrap { white-space: normal; word-break: break-all; }
+      .stream-table td.caps { white-space: normal; }
+      .stream-table .badge { white-space: nowrap; }
       .cap-chip {
         display: inline-block;
         background: var(--bg3);
@@ -911,8 +916,8 @@
           </div>
           <div id="fo-status" class="vr-status">
             The Channels tab auto-populates "Forked From" in the
-            background (last 30min, refreshed every minute). Use this
-            tab to browse the full fork history or check a custom period.
+            background (refreshed every minute). Use this tab to browse
+            the full fork history or check a custom period.
           </div>
           <div class="vr-table-wrap">
             <table id="fo-table">
@@ -999,19 +1004,11 @@
       // destinationChannelId -> { sourceId, timestamp }
       let forkOriginMap = {};
       const itemsPerPage = 50;
-      // Forks are created constantly, so a 30min lookback is always
-      // enough to find current relationships (well under Phenix's hard
-      // 1-day cap per fork-history request). Merged into the existing
-      // map so a quiet check doesn't erase what was already found.
-      const FORK_LOOKBACK_MINUTES = 5;
-      // How often to re-check for fork events in the background.
+      // How often to ask the proxy for the latest fork-origin map. The
+      // proxy polls Phenix incrementally (only the period since its last
+      // poll) and caches the result per App ID, so this call is cheap
+      // regardless of how many dashboards are open.
       const FORK_REFRESH_MS = 60 * 1000;
-      // Phenix rejects a report whose "end" isn't strictly in the past
-      // ("period-end-must-be-in-past"). Using the exact current instant
-      // can trip this due to client/server clock skew or request
-      // latency, so "end" is backed off by a few seconds as a safety
-      // margin.
-      const FORK_END_SAFETY_BUFFER_MS = 60 * 1000;
 
       function headers() {
         return { "X-App-Id": appId, "X-Password": password };
@@ -1055,7 +1052,7 @@
         document.getElementById("fo-tbody").innerHTML = "";
         document.getElementById("fo-status").className = "vr-status";
         document.getElementById("fo-status").textContent =
-          `The Channels tab auto-populates "Forked From" in the background (last ${FORK_LOOKBACK_MINUTES}min, refreshed every minute). Use this tab to browse the full fork history or check a custom period.`;
+          `The Channels tab auto-populates "Forked From" in the background (refreshed every minute). Use this tab to browse the full fork history or check a custom period.`;
         document.getElementById("fo-load-more").style.display = "none";
 
         // Clear UI
@@ -1087,8 +1084,7 @@
           ).textContent = `Next update in ${secondsLeft}s`;
         }, 1000);
 
-        // Fork relationships are constantly created, so a 1h lookback is
-        // always enough; refreshed on a much slower cadence than the
+        // Fork relationships refresh on a much slower cadence than the
         // channel/publisher poll above.
         refreshForkOriginMap();
         forkOriginTimer = setInterval(refreshForkOriginMap, FORK_REFRESH_MS);
@@ -1797,41 +1793,35 @@
         }
       }
 
-      // Formats a Date as "YYYY-MM-DDTHH:MM:SSZ" for the Phenix reporting API.
-      function _isoNoMillis(date) {
-        return date.toISOString().replace(/\.\d{3}Z$/, "Z");
-      }
-
-      // Silently checks the last FORK_LOOKBACK_MINUTES for fork events and
-      // merges any found into forkOriginMap, refreshing the Channels
-      // table's "Forked From" column. Runs in the background (on connect
-      // and on a timer) so it populates without visiting the Fork Origin
-      // tab. Merging (rather than replacing) means a quiet check never
-      // erases a fork found by an earlier one. Failures (e.g. reporting
-      // not provisioned for this account) are silent here; the Fork
-      // Origin tab's manual Run button will surface the real error if the
-      // user checks there.
+      // Fetches the latest-fork-per-destination map from the proxy and
+      // merges it into forkOriginMap, refreshing the Channels table's
+      // "Forked From" column. The proxy does the incremental Phenix
+      // polling and CSV parsing, so this only moves a small JSON map.
+      // Merging (rather than replacing) means a stale/partial answer never
+      // erases a fork found earlier. Failures are silent here; the Fork
+      // Origin tab's manual Run button surfaces real errors.
       async function refreshForkOriginMap() {
-        const end = new Date(Date.now() - FORK_END_SAFETY_BUFFER_MS);
-        const start = new Date(end.getTime() - FORK_LOOKBACK_MINUTES * 60000);
-
         try {
-          const res = await fetch(`${PROXY}/rts/fork-history`, {
-            method: "POST",
-            headers: { ...headers(), "Content-Type": "application/json" },
-            body: JSON.stringify({
-              start: _isoNoMillis(start),
-              end: _isoNoMillis(end),
-            }),
-          });
+          const res = await fetch(`${PROXY}/rts/fork-origin`, { headers: headers() });
           if (!res.ok) return;
-
-          const text = await res.text();
-          const rows = _foRowsFromCsv(text);
-          forkOriginMap = _buildForkOriginMap(rows, forkOriginMap);
-          render();
+          const data = await res.json();
+          const forks = data.forks || {};
+          let changed = false;
+          Object.keys(forks).forEach((destId) => {
+            const f = forks[destId];
+            const existing = forkOriginMap[destId];
+            if (!existing || f.timestamp > existing.timestamp) {
+              forkOriginMap[destId] = {
+                sourceId: f.sourceId,
+                sourceName: channelNameFor(f.sourceId),
+                timestamp: f.timestamp,
+              };
+              changed = true;
+            }
+          });
+          if (changed) render();
         } catch (e) {
-          console.warn("Background fork history refresh failed:", e.message);
+          console.warn("Background fork origin refresh failed:", e.message);
         }
       }
 
@@ -1948,11 +1938,11 @@
                   : '<span style="color:var(--text-dim)">—</span>';
                 return `<tr>
                   <td>${_esc(st.type || "—")}</td>
-                  <td>${_esc(p.streamId)}</td>
+                  <td class="wrap">${_esc(p.streamId)}</td>
                   <td>${_esc(p.region || "—")}</td>
                   <td style="text-align:center">${_trackBadge(st.audioState)}</td>
                   <td style="text-align:center">${_trackBadge(st.videoState)}</td>
-                  <td>${caps}</td>
+                  <td class="caps">${caps}</td>
                 </tr>`;
               })
               .join("")
@@ -1972,6 +1962,14 @@
             <dt>Streams</dt><dd>${streams.length}</dd>
           </dl>
           <table class="stream-table">
+            <colgroup>
+              <col style="width:110px" />
+              <col style="width:34%" />
+              <col style="width:120px" />
+              <col style="width:120px" />
+              <col style="width:120px" />
+              <col />
+            </colgroup>
             <thead><tr>
               <th>TYPE</th><th>STREAM ID</th><th>REGION</th>
               <th style="text-align:center">AUDIO</th>
@@ -2012,7 +2010,7 @@
             `${PROXY}/channel/members/${encodeURIComponent(_membersChannelId)}`,
             { headers: headers() }
           );
-                    const text = await res.text();
+          const text = await res.text();
           // Discard the response if the user has since switched channel
           // or closed the modal.
           if (_membersChannelId !== requestedId) return;

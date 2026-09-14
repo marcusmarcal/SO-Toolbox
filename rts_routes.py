@@ -1,4 +1,10 @@
 import base64
+import csv
+import io
+import threading
+import time
+from datetime import datetime, timedelta, timezone
+
 import requests
 from flask import Blueprint, request, jsonify, Response
 from urllib.parse import quote
@@ -11,6 +17,28 @@ rts_bp = Blueprint("rts", __name__)
 _session = requests.Session()
 
 PHENIX_BASE = "https://pcast.phenixrts.com"
+
+# ── Fork-origin cache ─────────────────────────────────────────────────
+# Phenix's fork-history report cannot be filtered by channel and always
+# returns the full CSV, so the cheapest strategy is to poll it once per
+# App ID (not once per browser tab), over incremental time windows, and
+# keep only the latest successful fork per destination channel.
+#
+# Cache layout: { app_id: {"map": {dest_id: {"sourceId", "timestamp"}},
+#                          "last_end": datetime, "updated": float} }
+# Only derived fork relationships are cached — credentials are never stored.
+_fork_cache = {}
+_fork_cache_lock = threading.Lock()
+
+FORK_CACHE_TTL_S           = 55        # serve cached map if younger than this
+FORK_INITIAL_LOOKBACK_MIN  = 30        # first scan window for a new App ID
+FORK_OVERLAP_S             = 120       # re-read this much of the previous window
+FORK_END_SAFETY_S          = 60        # Phenix requires "end" strictly in the past
+FORK_MAX_WINDOW_H          = 23        # stay under Phenix's 1-day-per-request cap
+
+
+def _iso_z(dt: datetime) -> str:
+    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _get_session():
@@ -181,6 +209,89 @@ def rts_fork_history():
         )
     except Exception as e:
         return jsonify({"error": str(e)}), 502
+
+
+def _fetch_fork_rows(app_id, password, start, end):
+    """Fetch the fork-history CSV for [start, end] and return parsed rows."""
+    payload = {
+        "forkHistoryReport": {
+            "applicationIds": [app_id],
+            "start": _iso_z(start),
+            "end": _iso_z(end),
+        }
+    }
+    resp = _get_session().put(
+        f"{PHENIX_BASE}/pcast/reporting/fork/history",
+        auth=(app_id, password),
+        headers={"Accept": "text/csv", "Content-Type": "application/json"},
+        json=payload,
+        timeout=120,
+    )
+    if resp.status_code != 200:
+        raise RuntimeError(f"Phenix {resp.status_code}: {resp.text[:200]}")
+    return list(csv.DictReader(io.StringIO(resp.text)))
+
+
+def _merge_fork_rows(fork_map, rows):
+    """Merge rows into fork_map keeping the most recent HTTP-200 fork per
+    destination. Timestamps are 'YYYY-MM-DD HH:MM:SS' so string comparison
+    orders them correctly."""
+    for r in rows:
+        dest = (r.get("DestinationId") or "").strip()
+        if not dest or (r.get("Status") or "").strip() != "200":
+            continue
+        ts = (r.get("Timestamp") or "").strip()
+        cur = fork_map.get(dest)
+        if not cur or ts > cur["timestamp"]:
+            fork_map[dest] = {"sourceId": (r.get("SourceId") or "").strip(), "timestamp": ts}
+    return fork_map
+
+
+@rts_bp.route("/rts/fork-origin", methods=["GET"])
+def rts_fork_origin():
+    """Return the latest successful fork per destination channel as JSON:
+        { "forks": { destId: { sourceId, timestamp } }, "updatedAt", "stale" }
+    Polls Phenix at most once per FORK_CACHE_TTL_S per App ID, using an
+    incremental window since the previous poll. Intended for the Channels
+    tab's background "Forked From" column; the Fork Origin tab still uses
+    /rts/fork-history for arbitrary user-selected periods.
+    """
+    app_id   = request.headers.get("X-App-Id")
+    password = request.headers.get("X-Password")
+    if not app_id or not password:
+        return jsonify({"error": "Missing credentials headers"}), 400
+
+    now = datetime.now(timezone.utc)
+    end = now - timedelta(seconds=FORK_END_SAFETY_S)
+
+    with _fork_cache_lock:
+        entry = _fork_cache.get(app_id)
+        if entry and time.time() - entry["updated"] < FORK_CACHE_TTL_S:
+            return jsonify({"forks": entry["map"], "updatedAt": entry["updated"], "stale": False})
+
+        if entry:
+            start = entry["last_end"] - timedelta(seconds=FORK_OVERLAP_S)
+            # Long idle gap (e.g. proxy kept running with no clients): cap
+            # the window so a single request stays within Phenix's limit.
+            start = max(start, end - timedelta(hours=FORK_MAX_WINDOW_H))
+        else:
+            start = end - timedelta(minutes=FORK_INITIAL_LOOKBACK_MIN)
+
+        if start >= end:
+            return jsonify({"forks": entry["map"] if entry else {}, "updatedAt": time.time(), "stale": False})
+
+        try:
+            rows = _fetch_fork_rows(app_id, password, start, end)
+        except Exception as e:
+            if entry:
+                # Upstream hiccup: serve the last known map rather than failing.
+                return jsonify({"forks": entry["map"], "updatedAt": entry["updated"],
+                                "stale": True, "error": str(e)})
+            return jsonify({"error": str(e)}), 502
+
+        fork_map = _merge_fork_rows(dict(entry["map"]) if entry else {}, rows)
+        _fork_cache[app_id] = {"map": fork_map, "last_end": end, "updated": time.time()}
+        return jsonify({"forks": fork_map, "updatedAt": time.time(), "stale": False})
 
 
 @rts_bp.route("/edge-token", methods=["POST"])

@@ -9,8 +9,17 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 `SRT Ingest:`, `General Tool Admin:`) so entries can be filtered per tool.
 
 ---
+## [3.63.1] - 2026-09-14
 
-## [Unreleased]
+### Added
+- RTS Manager: `/rts/fork-origin` proxy route returning the latest
+  successful fork per destination channel as JSON, cached per App ID and
+  refreshed incrementally.
+
+### Changed
+- RTS Manager: the Channels tab's background "Forked From" refresh now uses
+  `/rts/fork-origin` instead of downloading and parsing the raw fork-history
+  CSV in every open browser tab.
 
 ## [3.63.0] - 2026-09-14
 
