@@ -62,6 +62,32 @@ def get_publishers_count(channel_id):
         return jsonify({"error": str(e)}), 502
 
 
+@rts_bp.route("/channel/members/<path:channel_id>", methods=["GET"])
+def get_channel_members(channel_id):
+    """Proxy for the Phenix channel members endpoint.
+    Returns the current members (publishers) of a channel, each with its
+    session ID, screen name, role, state, last update and stream list.
+    Response is passed through unchanged: { "status": "ok", "members": [...] }
+    """
+    app_id   = request.headers.get("X-App-Id")
+    password = request.headers.get("X-Password")
+    if not app_id or not password:
+        return jsonify({"error": "Missing credentials headers"}), 400
+    try:
+        encoded_id = quote(channel_id, safe="")
+        resp = _get_session().get(
+            f"{PHENIX_BASE}/pcast/channel/{encoded_id}/members",
+            headers={
+                "Authorization": _make_auth_header(app_id, password),
+                "Accept": "application/json",
+            },
+            timeout=15,
+        )
+        return Response(resp.content, status=resp.status_code, content_type="application/json")
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+
+
 @rts_bp.route("/rts/viewing-report", methods=["POST"])
 def rts_viewing_report():
     """Proxy for the Phenix RTS viewing report endpoint.
