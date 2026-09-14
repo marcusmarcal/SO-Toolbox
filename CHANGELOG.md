@@ -9,6 +9,29 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 `SRT Ingest:`, `General Tool Admin:`) so entries can be filtered per tool.
 
 ---
+
+## [Unreleased]
+
+## [3.63.0] - 2026-09-14
+
+### Added
+- RTS Manager: "Streams" button on each base channel opening a modal with
+  member details (screen name, role, state, session ID, last update) and a
+  per-stream table (type, stream ID, region, audio/video track state,
+  capabilities).
+- RTS Manager: `/channel/members/<channel_id>` proxy route for the Phenix
+  channel members endpoint.
+
+### Changed
+- RTS Manager: tool renamed from "RTS Monitor" to "RTS Manager"
+  (RTS-Monitor.html → RTS-Manager.html).
+
+### Fixed
+- RTS Manager: publisher counts were only fetched for the first 100 channels
+  due to an incorrect loop bound.
+- RTS Manager: `.table-message` styling was not applied due to a missing CSS
+  selector.
+
 ## [3.62.1] - 2026-09-11
 
 ### Changed
