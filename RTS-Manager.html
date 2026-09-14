@@ -916,8 +916,8 @@
           </div>
           <div id="fo-status" class="vr-status">
             The Channels tab auto-populates "Forked From" in the
-            background (last 30min, refreshed every minute). Use this
-            tab to browse the full fork history or check a custom period.
+            background (refreshed every minute). Use this tab to browse
+            the full fork history or check a custom period.
           </div>
           <div class="vr-table-wrap">
             <table id="fo-table">
@@ -1004,19 +1004,11 @@
       // destinationChannelId -> { sourceId, timestamp }
       let forkOriginMap = {};
       const itemsPerPage = 50;
-      // Forks are created constantly, so a 30min lookback is always
-      // enough to find current relationships (well under Phenix's hard
-      // 1-day cap per fork-history request). Merged into the existing
-      // map so a quiet check doesn't erase what was already found.
-      const FORK_LOOKBACK_MINUTES = 5;
-      // How often to re-check for fork events in the background.
+      // How often to ask the proxy for the latest fork-origin map. The
+      // proxy polls Phenix incrementally (only the period since its last
+      // poll) and caches the result per App ID, so this call is cheap
+      // regardless of how many dashboards are open.
       const FORK_REFRESH_MS = 60 * 1000;
-      // Phenix rejects a report whose "end" isn't strictly in the past
-      // ("period-end-must-be-in-past"). Using the exact current instant
-      // can trip this due to client/server clock skew or request
-      // latency, so "end" is backed off by a few seconds as a safety
-      // margin.
-      const FORK_END_SAFETY_BUFFER_MS = 60 * 1000;
 
       function headers() {
         return { "X-App-Id": appId, "X-Password": password };
@@ -1060,7 +1052,7 @@
         document.getElementById("fo-tbody").innerHTML = "";
         document.getElementById("fo-status").className = "vr-status";
         document.getElementById("fo-status").textContent =
-          `The Channels tab auto-populates "Forked From" in the background (last ${FORK_LOOKBACK_MINUTES}min, refreshed every minute). Use this tab to browse the full fork history or check a custom period.`;
+          `The Channels tab auto-populates "Forked From" in the background (refreshed every minute). Use this tab to browse the full fork history or check a custom period.`;
         document.getElementById("fo-load-more").style.display = "none";
 
         // Clear UI
@@ -1092,8 +1084,7 @@
           ).textContent = `Next update in ${secondsLeft}s`;
         }, 1000);
 
-        // Fork relationships are constantly created, so a 1h lookback is
-        // always enough; refreshed on a much slower cadence than the
+        // Fork relationships refresh on a much slower cadence than the
         // channel/publisher poll above.
         refreshForkOriginMap();
         forkOriginTimer = setInterval(refreshForkOriginMap, FORK_REFRESH_MS);
@@ -1330,6 +1321,19 @@
 
         return fields.some((f) => f.toLowerCase().includes(term));
       }
+      // Channel role is fixed by naming convention:
+      //   fork destinations are purely numeric names in 1..399
+      //   base channels always contain "_CH" (e.g. CRO_CH12, RMG-EBC_CH01_HA)
+      const FORK_NAME_PATTERN = /^\d{1,3}$/;
+      function isForkChannel(name) {
+        const n = name || "";
+        if (!FORK_NAME_PATTERN.test(n)) return false;
+        const v = parseInt(n, 10);
+        return v >= 1 && v <= 399;
+      }
+      function isBaseChannel(name) {
+        return (name || "").includes("_CH");
+      }
 
       function render() {
         const tbody = document.getElementById("table-body");
@@ -1400,20 +1404,27 @@
           // in forkOriginMap (see _buildForkOriginMap), so this always
           // reflects the current base channel, not older fork history.
           const forkInfo = ch.channelId ? forkOriginMap[ch.channelId] : null;
-          const forkedFromCell = forkInfo
-            ? `<span class="badge fork" title="Forked at: ${
-                forkInfo.timestamp
-              }">${
-                forkInfo.sourceName
-                  ? `${forkInfo.sourceName} <span style="color:var(--text-dim)">(${forkInfo.sourceId})</span>`
-                  : forkInfo.sourceId
-              }</span>`
-            : '<span style="color:var(--text-dim)">—</span>';
+          let forkedFromCell;
+          if (forkInfo) {
+            forkedFromCell = `<span class="badge fork" title="Forked at: ${
+              forkInfo.timestamp
+            }">${
+              forkInfo.sourceName
+                ? `${forkInfo.sourceName} <span style="color:var(--text-dim)">(${forkInfo.sourceId})</span>`
+                : forkInfo.sourceId
+            }</span>`;
+          } else if (isForkChannel(ch.name)) {
+            // Known to be a fork by name, origin not yet seen in fork history.
+            forkedFromCell = '<span style="color:var(--text-dim)">Loading…</span>';
+          } else if (isBaseChannel(ch.name)) {
+            forkedFromCell = "";
+          } else {
+            forkedFromCell = '<span style="color:var(--text-dim)">—</span>';
+          }
           // Stream details are only offered on base channels: a fork
-          // destination carries no publishers of its own, so its member
-          // list would always be empty.
+          // destination carries no publishers of its own.
           const streamsCell =
-            !forkInfo && ch.channelId
+            isBaseChannel(ch.name) && ch.channelId
               ? `<button class="btn-sm" onclick="openMembersModal(this.dataset.channelId)" data-channel-id="${_esc(
                   ch.channelId
                 )}">STREAMS</button>`
@@ -1802,41 +1813,35 @@
         }
       }
 
-      // Formats a Date as "YYYY-MM-DDTHH:MM:SSZ" for the Phenix reporting API.
-      function _isoNoMillis(date) {
-        return date.toISOString().replace(/\.\d{3}Z$/, "Z");
-      }
-
-      // Silently checks the last FORK_LOOKBACK_MINUTES for fork events and
-      // merges any found into forkOriginMap, refreshing the Channels
-      // table's "Forked From" column. Runs in the background (on connect
-      // and on a timer) so it populates without visiting the Fork Origin
-      // tab. Merging (rather than replacing) means a quiet check never
-      // erases a fork found by an earlier one. Failures (e.g. reporting
-      // not provisioned for this account) are silent here; the Fork
-      // Origin tab's manual Run button will surface the real error if the
-      // user checks there.
+      // Fetches the latest-fork-per-destination map from the proxy and
+      // merges it into forkOriginMap, refreshing the Channels table's
+      // "Forked From" column. The proxy does the incremental Phenix
+      // polling and CSV parsing, so this only moves a small JSON map.
+      // Merging (rather than replacing) means a stale/partial answer never
+      // erases a fork found earlier. Failures are silent here; the Fork
+      // Origin tab's manual Run button surfaces real errors.
       async function refreshForkOriginMap() {
-        const end = new Date(Date.now() - FORK_END_SAFETY_BUFFER_MS);
-        const start = new Date(end.getTime() - FORK_LOOKBACK_MINUTES * 60000);
-
         try {
-          const res = await fetch(`${PROXY}/rts/fork-history`, {
-            method: "POST",
-            headers: { ...headers(), "Content-Type": "application/json" },
-            body: JSON.stringify({
-              start: _isoNoMillis(start),
-              end: _isoNoMillis(end),
-            }),
-          });
+          const res = await fetch(`${PROXY}/rts/fork-origin`, { headers: headers() });
           if (!res.ok) return;
-
-          const text = await res.text();
-          const rows = _foRowsFromCsv(text);
-          forkOriginMap = _buildForkOriginMap(rows, forkOriginMap);
-          render();
+          const data = await res.json();
+          const forks = data.forks || {};
+          let changed = false;
+          Object.keys(forks).forEach((destId) => {
+            const f = forks[destId];
+            const existing = forkOriginMap[destId];
+            if (!existing || f.timestamp > existing.timestamp) {
+              forkOriginMap[destId] = {
+                sourceId: f.sourceId,
+                sourceName: channelNameFor(f.sourceId),
+                timestamp: f.timestamp,
+              };
+              changed = true;
+            }
+          });
+          if (changed) render();
         } catch (e) {
-          console.warn("Background fork history refresh failed:", e.message);
+          console.warn("Background fork origin refresh failed:", e.message);
         }
       }
 
