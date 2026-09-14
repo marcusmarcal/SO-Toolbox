@@ -1989,12 +1989,19 @@
         document.getElementById("members-title").textContent = `Streams — ${
           ch ? ch.name : channelId
         }`;
+        // Always start from a clean slate so stale members from a
+        // previously opened channel are never shown while loading.
+        document.getElementById("members-body").innerHTML = "";
+        const statusEl = document.getElementById("members-status");
+        statusEl.className = "members-status";
+        statusEl.textContent = "Loading…";
         document.getElementById("members-modal").classList.add("open");
         await refreshMembersModal();
       }
 
       async function refreshMembersModal() {
         if (!_membersChannelId) return;
+        const requestedId = _membersChannelId;
         const statusEl = document.getElementById("members-status");
         const body = document.getElementById("members-body");
         statusEl.className = "members-status";
@@ -2005,7 +2012,10 @@
             `${PROXY}/channel/members/${encodeURIComponent(_membersChannelId)}`,
             { headers: headers() }
           );
-          const text = await res.text();
+                    const text = await res.text();
+          // Discard the response if the user has since switched channel
+          // or closed the modal.
+          if (_membersChannelId !== requestedId) return;
           if (!res.ok) {
             statusEl.className = "members-status err";
             statusEl.textContent = `Error ${res.status}: ${text.slice(0, 200)}`;
