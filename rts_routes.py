@@ -25,13 +25,15 @@ PHENIX_BASE = "https://pcast.phenixrts.com"
 # keep only the latest successful fork per destination channel.
 #
 # Cache layout: { app_id: {"map": {dest_id: {"sourceId", "timestamp"}},
-#                          "last_end": datetime, "updated": float} }
-# Only derived fork relationships are cached — credentials are never stored.
+#                          "last_end": datetime, "updated": float,
+#                          "backfilling": bool} }
+# Only derived fork relationships are cached — credentials are never stored
+# beyond the lifetime of the in-flight backfill thread.
 _fork_cache = {}
 _fork_cache_lock = threading.Lock()
 
 FORK_CACHE_TTL_S           = 55        # serve cached map if younger than this
-FORK_INITIAL_LOOKBACK_MIN  = 30        # first scan window for a new App ID
+FORK_INITIAL_LOOKBACK_H    = 24        # backfill window for a new App ID (hours)
 FORK_OVERLAP_S             = 120       # re-read this much of the previous window
 FORK_END_SAFETY_S          = 60        # Phenix requires "end" strictly in the past
 FORK_MAX_WINDOW_H          = 23        # stay under Phenix's 1-day-per-request cap
@@ -247,6 +249,36 @@ def _merge_fork_rows(fork_map, rows):
     return fork_map
 
 
+def _backfill_fork_history(app_id, password, start, end):
+    """Background job: scan [start, end] in <= FORK_MAX_WINDOW_H chunks,
+    newest first (so the most relevant forks land in the cache soonest),
+    merging each chunk into the App ID's cached map. Older forks never
+    overwrite newer ones because merge compares timestamps."""
+    chunk = timedelta(hours=FORK_MAX_WINDOW_H)
+    cur_end = end
+    try:
+        while cur_end > start:
+            cur_start = max(start, cur_end - chunk)
+            try:
+                rows = _fetch_fork_rows(app_id, password, cur_start, cur_end)
+            except Exception:
+                # Give up on the remaining (older) chunks; the newer ones
+                # already merged are still valid.
+                break
+            with _fork_cache_lock:
+                entry = _fork_cache.get(app_id)
+                if entry is None:
+                    break
+                _merge_fork_rows(entry["map"], rows)
+            cur_end = cur_start
+    finally:
+        with _fork_cache_lock:
+            entry = _fork_cache.get(app_id)
+            if entry is not None:
+                entry["backfilling"] = False
+                entry["updated"] = time.time()
+
+
 @rts_bp.route("/rts/fork-origin", methods=["GET"])
 def rts_fork_origin():
     """Return the latest successful fork per destination channel as JSON:
@@ -266,32 +298,55 @@ def rts_fork_origin():
 
     with _fork_cache_lock:
         entry = _fork_cache.get(app_id)
-        if entry and time.time() - entry["updated"] < FORK_CACHE_TTL_S:
-            return jsonify({"forks": entry["map"], "updatedAt": entry["updated"], "stale": False})
 
-        if entry:
-            start = entry["last_end"] - timedelta(seconds=FORK_OVERLAP_S)
-            # Long idle gap (e.g. proxy kept running with no clients): cap
-            # the window so a single request stays within Phenix's limit.
-            start = max(start, end - timedelta(hours=FORK_MAX_WINDOW_H))
-        else:
-            start = end - timedelta(minutes=FORK_INITIAL_LOOKBACK_MIN)
+        # First time we see this App ID: register an empty entry and kick
+        # off a background backfill of the last FORK_INITIAL_LOOKBACK_H
+        # hours. Respond immediately; the map fills in over the next polls.
+        if entry is None:
+            entry = {"map": {}, "last_end": end, "updated": time.time(), "backfilling": True}
+            _fork_cache[app_id] = entry
+            start = end - timedelta(hours=FORK_INITIAL_LOOKBACK_H)
+            threading.Thread(
+                target=_backfill_fork_history,
+                args=(app_id, password, start, end),
+                daemon=True,
+            ).start()
+            return jsonify({"forks": {}, "updatedAt": entry["updated"],
+                            "stale": False, "backfilling": True})
 
+        # While the backfill is running, or if the cache is still fresh,
+        # just return what we have.
+        if entry["backfilling"] or time.time() - entry["updated"] < FORK_CACHE_TTL_S:
+            return jsonify({"forks": entry["map"], "updatedAt": entry["updated"],
+                            "stale": False, "backfilling": entry["backfilling"]})
+
+        start = entry["last_end"] - timedelta(seconds=FORK_OVERLAP_S)
+        # Long idle gap (e.g. proxy kept running with no clients): cap the
+        # window so a single request stays within Phenix's limit.
+        start = max(start, end - timedelta(hours=FORK_MAX_WINDOW_H))
         if start >= end:
-            return jsonify({"forks": entry["map"] if entry else {}, "updatedAt": time.time(), "stale": False})
+            return jsonify({"forks": entry["map"], "updatedAt": entry["updated"],
+                            "stale": False, "backfilling": False})
 
-        try:
-            rows = _fetch_fork_rows(app_id, password, start, end)
-        except Exception as e:
-            if entry:
-                # Upstream hiccup: serve the last known map rather than failing.
-                return jsonify({"forks": entry["map"], "updatedAt": entry["updated"],
-                                "stale": True, "error": str(e)})
-            return jsonify({"error": str(e)}), 502
+    # Incremental fetch outside the lock so other App IDs aren't blocked.
+    try:
+        rows = _fetch_fork_rows(app_id, password, start, end)
+    except Exception as e:
+        # Upstream hiccup: serve the last known map rather than failing.
+        with _fork_cache_lock:
+            entry = _fork_cache.get(app_id) or {"map": {}, "updated": time.time()}
+            return jsonify({"forks": entry["map"], "updatedAt": entry["updated"],
+                            "stale": True, "backfilling": False, "error": str(e)})
 
-        fork_map = _merge_fork_rows(dict(entry["map"]) if entry else {}, rows)
-        _fork_cache[app_id] = {"map": fork_map, "last_end": end, "updated": time.time()}
-        return jsonify({"forks": fork_map, "updatedAt": time.time(), "stale": False})
+    with _fork_cache_lock:
+        entry = _fork_cache.get(app_id)
+        if entry is None:
+            return jsonify({"forks": {}, "updatedAt": time.time(), "stale": False, "backfilling": False})
+        _merge_fork_rows(entry["map"], rows)
+        entry["last_end"] = end
+        entry["updated"] = time.time()
+        return jsonify({"forks": entry["map"], "updatedAt": entry["updated"],
+                        "stale": False, "backfilling": False})
 
 
 @rts_bp.route("/edge-token", methods=["POST"])
