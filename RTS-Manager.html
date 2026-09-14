@@ -1321,6 +1321,19 @@
 
         return fields.some((f) => f.toLowerCase().includes(term));
       }
+      // Channel role is fixed by naming convention:
+      //   fork destinations are purely numeric names in 1..399
+      //   base channels always contain "_CH" (e.g. CRO_CH12, RMG-EBC_CH01_HA)
+      const FORK_NAME_PATTERN = /^\d{1,3}$/;
+      function isForkChannel(name) {
+        const n = name || "";
+        if (!FORK_NAME_PATTERN.test(n)) return false;
+        const v = parseInt(n, 10);
+        return v >= 1 && v <= 399;
+      }
+      function isBaseChannel(name) {
+        return (name || "").includes("_CH");
+      }
 
       function render() {
         const tbody = document.getElementById("table-body");
@@ -1391,20 +1404,27 @@
           // in forkOriginMap (see _buildForkOriginMap), so this always
           // reflects the current base channel, not older fork history.
           const forkInfo = ch.channelId ? forkOriginMap[ch.channelId] : null;
-          const forkedFromCell = forkInfo
-            ? `<span class="badge fork" title="Forked at: ${
-                forkInfo.timestamp
-              }">${
-                forkInfo.sourceName
-                  ? `${forkInfo.sourceName} <span style="color:var(--text-dim)">(${forkInfo.sourceId})</span>`
-                  : forkInfo.sourceId
-              }</span>`
-            : '<span style="color:var(--text-dim)">—</span>';
+          let forkedFromCell;
+          if (forkInfo) {
+            forkedFromCell = `<span class="badge fork" title="Forked at: ${
+              forkInfo.timestamp
+            }">${
+              forkInfo.sourceName
+                ? `${forkInfo.sourceName} <span style="color:var(--text-dim)">(${forkInfo.sourceId})</span>`
+                : forkInfo.sourceId
+            }</span>`;
+          } else if (isForkChannel(ch.name)) {
+            // Known to be a fork by name, origin not yet seen in fork history.
+            forkedFromCell = '<span style="color:var(--text-dim)">Loading…</span>';
+          } else if (isBaseChannel(ch.name)) {
+            forkedFromCell = "";
+          } else {
+            forkedFromCell = '<span style="color:var(--text-dim)">—</span>';
+          }
           // Stream details are only offered on base channels: a fork
-          // destination carries no publishers of its own, so its member
-          // list would always be empty.
+          // destination carries no publishers of its own.
           const streamsCell =
-            !forkInfo && ch.channelId
+            isBaseChannel(ch.name) && ch.channelId
               ? `<button class="btn-sm" onclick="openMembersModal(this.dataset.channelId)" data-channel-id="${_esc(
                   ch.channelId
                 )}">STREAMS</button>`
