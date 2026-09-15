@@ -9,6 +9,16 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 `SRT Ingest:`, `General Tool Admin:`) so entries can be filtered per tool.
 
 ---
+
+## [3.64.2] - 2026-09-14
+
+### Added
+- Video Ingest: multi-destination RTMP via a list of stream keys (`stream_keys` in `/ingest/multi` and `/ingest/multi-shared`), one output per key to the same ingest URL; two key fields in the UI with an "add stream key" button.
+### Changed
+- Video Ingest: RTMP destinations default to passthrough (stream copy) for every file source, with Transcode as an opt-in checkbox; SRT/WHIP behaviour unchanged.
+- Video Ingest: the `{n}` URL template and index range now apply to multi-destination WHIP only.
+- Video Ingest: shared RTMP jobs are labelled `<ingest url>/*** xN`.
+
 ## [3.64.1] - 2026-09-14
 
 ### Added

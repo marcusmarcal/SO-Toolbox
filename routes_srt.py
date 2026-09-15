@@ -404,7 +404,8 @@ def _parse_destinations(data: dict, multi: bool) -> tuple:
             host, port_start, port_end     (multi)
             passphrase (optional)
       rtmp  url (base or full), stream_key (optional, appended to url)
-            index_start, index_end         (multi; url/key must contain {n})
+            url (base), stream_keys: [k1, k2, ...]   (multi; one stream
+            per key, all to the same ingest URL)
       whip  url (WHIP endpoint), passphrase|token (optional Bearer token)
             index_start, index_end         (multi; url must contain {n})
 
@@ -456,18 +457,33 @@ def _parse_destinations(data: dict, multi: bool) -> tuple:
     url = str(data.get("url", "")).strip()
     if not url:
         raise ValueError("url is required")
+    if re.search(r"\s", url):
+        raise ValueError("url must not contain whitespace")
     if protocol == "rtmp":
+        secret = ""  # the stream key travels inside the URL
+        if not re.match(r"^rtmps?://[^/\s]+/", url, re.IGNORECASE):
+            raise ValueError("RTMP url must look like rtmp://host[:port]/app/")
+        if multi:
+            # Several simultaneous streams to the same ingest URL, one stream
+            # key each (all pushed from the same process in shared mode).
+            raw_keys = data.get("stream_keys")
+            keys = [str(k).strip() for k in raw_keys if str(k).strip()] if isinstance(raw_keys, list) else []
+            if not keys:
+                raise ValueError("At least one stream key is required")
+            if len(set(keys)) != len(keys):
+                raise ValueError("Stream keys must be distinct")
+            for i, key in enumerate(keys, start=1):
+                u = url.rstrip("/") + "/" + key.lstrip("/")
+                dests.append({"protocol": "rtmp", "url": u, "index": i, "label": _mask_url(u)})
+            return protocol, dests, secret
         key = str(data.get("stream_key", "")).strip()
         if key:
             url = url.rstrip("/") + "/" + key.lstrip("/")
-        if not re.match(r"^rtmps?://[^/\s]+/", url, re.IGNORECASE):
-            raise ValueError("RTMP url must look like rtmp://host[:port]/app/<stream key>")
-        secret = ""  # the stream key travels inside the URL
+        if re.search(r"\s", url):
+            raise ValueError("stream key must not contain whitespace")
     else:
         if not re.match(r"^https?://[^/\s]+", url, re.IGNORECASE):
             raise ValueError("WHIP url must be an http(s):// endpoint")
-    if re.search(r"\s", url):
-        raise ValueError("url must not contain whitespace")
 
     if multi:
         idx_start, idx_end = _int("index_start"), _int("index_end")
@@ -498,6 +514,10 @@ def _destinations_label(destinations: list) -> str:
         return first["label"]
     if first["protocol"] == "srt" and all(d["host"] == first["host"] for d in destinations):
         return f"{first['host']}:{first['port']}-{last['port']}"
+    if first["protocol"] == "rtmp":
+        bases = {d["url"].rsplit("/", 1)[0] for d in destinations}
+        if len(bases) == 1:
+            return f"{bases.pop()}/*** x{len(destinations)}"
     return f"{first['label']} … {last['label']}"
 
 # -stream_loop reopens the input file from scratch on every iteration. Looping
@@ -1150,7 +1170,7 @@ def ingest_multi():
     destination. Limited to MULTI_INDEPENDENT_MAX_DESTINATIONS to protect the
     server CPU — use /ingest/multi-shared for large fan-outs.
     Body JSON: { protocol?, host, port_start, port_end, passphrase? |
-                 url (with {n}), stream_key?, index_start, index_end |
+                 url, stream_keys: [...] |
                  url (with {n}), token?, index_start, index_end,
                  input_file?, bitrate_mbps?, passthrough?, source_mode? }
     Each destination job keeps retrying to connect automatically until stopped.
@@ -1193,8 +1213,8 @@ def ingest_multi_shared():
     libx264 encode) per destination, which is what causes CPU to spike with
     large fan-outs.
     Body JSON: { protocol?, host, port_start, port_end, passphrase? |
-                 url (with {n}), stream_key? | token?, index_start, index_end,
-                 input_file? }
+                 url, stream_keys: [...] |
+                 url (with {n}), token?, index_start, index_end, input_file? }
     """
     data = request.get_json(force=True) or {}
     input_file = str(data.get("input_file", "test.mp4")).strip()

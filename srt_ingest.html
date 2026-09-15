@@ -188,6 +188,12 @@
       font-family: var(--mono); font-size: 10px; color: var(--text); line-height: 1.6;
     }
     .proto-note.show { display: block; }
+    .btn-add-key {
+      width: auto; margin: 8px 0 0; padding: 5px 10px; font-size: 10px;
+      background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 3px;
+    }
+    .btn-add-key:hover { border-color: var(--accent2); color: var(--accent2); }
+    #m-keys { row-gap: 8px; }
     .field-hint { font-size: 9px; color: var(--muted); font-family: var(--mono); margin-top: 5px; letter-spacing: .04em; }
     /* ── Source picker ─────────────────────────────────────────── */
     .source-picker { position: relative; }
@@ -469,12 +475,18 @@
         </div>
         <div class="field-hint" id="m-url-hint"></div>
       </div>
-      <div class="row">
-        <div class="field" id="m-key-row"><label>Stream Key Template</label><input type="password" id="m-key" placeholder="e.g. mykey-{n}" autocomplete="off" /></div>
-        <div class="field" id="m-token-row" style="display:none"><label>Bearer Token <span style="color:var(--muted);font-size:9px">(optional)</span></label><input type="password" id="m-token" placeholder="WHIP authorization token" autocomplete="off" /></div>
+      <!-- RTMP: one simultaneous stream per key, same ingest URL, one shared process -->
+      <div class="field" id="m-key-row">
+        <label>Stream Keys <span style="color:var(--muted);font-size:9px">(one stream per key · empty fields ignored)</span></label>
+        <div class="row" id="m-keys">
+          <input type="password" class="m-key" placeholder="stream key 1" autocomplete="off" />
+          <input type="password" class="m-key" placeholder="stream key 2" autocomplete="off" />
+        </div>
+        <button type="button" class="btn-add-key" onclick="addStreamKeyField()">+ add stream key</button>
       </div>
+      <div class="field" id="m-token-row" style="display:none"><label>Bearer Token <span style="color:var(--muted);font-size:9px">(optional)</span></label><input type="password" id="m-token" placeholder="WHIP authorization token" autocomplete="off" /></div>
     </div>
-    <div class="row">
+    <div class="row" id="m-range-row">
       <div class="field"><label id="m-range-start-label">Port Start</label><input type="number" id="m-range-start" placeholder="4001" min="1" max="65535" /></div>
       <div class="field"><label id="m-range-end-label">Port End</label><input type="number" id="m-range-end" placeholder="4010" min="1" max="65535" /></div>
     </div>
@@ -942,13 +954,18 @@ function onProtocolChange(prefix) {
     }
   }
   if (prefix === 'm') {
+    // SRT: port range. WHIP: index range over a {n} URL template.
+    // RTMP: no range — one output per stream key, same ingest URL.
+    document.getElementById('m-range-row').style.display = p === 'rtmp' ? 'none' : '';
     document.getElementById('m-range-start-label').textContent = isSrt ? 'Port Start' : 'Index Start';
     document.getElementById('m-range-end-label').textContent   = isSrt ? 'Port End'   : 'Index End';
     const rs = document.getElementById('m-range-start'), re = document.getElementById('m-range-end');
     rs.placeholder = isSrt ? '4001' : '1'; re.placeholder = isSrt ? '4010' : '10';
     rs.max = re.max = isSrt ? 65535 : 100000;
-    document.getElementById('m-url-hint').textContent = isSrt ? '' :
-      `Use ${INDEX_PLACEHOLDER} in the URL${p === 'rtmp' ? ' or stream key' : ''} — it is replaced by each index in the range (e.g. live-${INDEX_PLACEHOLDER} → live-1, live-2 …).`;
+    document.getElementById('m-url-hint').textContent =
+      isSrt ? '' :
+      p === 'rtmp' ? 'Every stream key below becomes its own output to this URL — all pushed by one shared ffmpeg process (stream copy).' :
+      `Use ${INDEX_PLACEHOLDER} in the URL — it is replaced by each index in the range (e.g. …/whip/live-${INDEX_PLACEHOLDER} → live-1, live-2 …).`;
   }
   if (prefix === 's') updateSinglePreview(); else updateMultiPreview();
 }
@@ -974,31 +991,52 @@ function destinationPayload(prefix, multi) {
   }
   body.url = document.getElementById(`${prefix}-url`).value.trim();
   if (!body.url) return null;
-  if (p === 'rtmp') body.stream_key = document.getElementById(`${prefix}-key`).value.trim();
   if (p === 'whip') body.passphrase = document.getElementById(`${prefix}-token`).value.trim();
+  if (p === 'rtmp') {
+    if (!multi) { body.stream_key = document.getElementById('s-key').value.trim(); return body; }
+    body.stream_keys = streamKeys();
+    if (!body.stream_keys.length) return null;
+    const uniq = new Set(body.stream_keys);
+    if (uniq.size !== body.stream_keys.length) body.reason = 'Stream keys must be distinct.';
+    return body;
+  }
   if (multi) {
     body.index_start = parseInt(document.getElementById('m-range-start').value) || 0;
     body.index_end   = parseInt(document.getElementById('m-range-end').value)   || 0;
     if (!body.index_start || !body.index_end || body.index_start > body.index_end) return null;
-    const tpl = body.url + (body.stream_key || '');
-    if (body.index_end > body.index_start && !tpl.includes(INDEX_PLACEHOLDER)) {
-      body.reason = `Multi-destination ${p.toUpperCase()} needs ${INDEX_PLACEHOLDER} in the URL${p === 'rtmp' ? ' or stream key' : ''} so every destination is distinct.`;
+    if (body.index_end > body.index_start && !body.url.includes(INDEX_PLACEHOLDER)) {
+      body.reason = `Multi-destination WHIP needs ${INDEX_PLACEHOLDER} in the URL so every destination is distinct.`;
     }
   }
   return body;
 }
 
+// Non-empty stream keys typed in the multi card, in field order.
+function streamKeys() {
+  return [...document.querySelectorAll('#m-keys .m-key')].map(i => i.value.trim()).filter(Boolean);
+}
+
+function addStreamKeyField() {
+  const box = document.getElementById('m-keys');
+  const n = box.querySelectorAll('.m-key').length + 1;
+  const inp = document.createElement('input');
+  inp.type = 'password'; inp.className = 'm-key'; inp.autocomplete = 'off';
+  inp.placeholder = `stream key ${n}`;
+  box.appendChild(inp);
+  inp.focus();
+}
+
 function destinationCount(body) {
   if (body.protocol === 'srt') return body.port_end - body.port_start + 1;
+  if (body.protocol === 'rtmp') return body.stream_keys.length;
   return body.index_end - body.index_start + 1;
 }
 
-// Display form of one destination in the multi summary (stream key masked).
+// Display form of the n-th destination in the multi summary (stream key masked).
 function destinationDisplay(body, n) {
   if (body.protocol === 'srt') return `srt://${esc(body.host)}:<span class="hl2">${n}</span>`;
-  let url = body.url;
-  if (body.protocol === 'rtmp') url = url.replace(/\/?$/, '/') + (body.stream_key ? '***' : '');
-  return esc(url).split(INDEX_PLACEHOLDER).join(`<span class="hl2">${n}</span>`);
+  if (body.protocol === 'rtmp') return `${esc(body.url.replace(/\/?$/, '/'))}<span class="hl2">***</span> <span style="color:var(--muted)">(key ${n})</span>`;
+  return esc(body.url).split(INDEX_PLACEHOLDER).join(`<span class="hl2">${n}</span>`);
 }
 
 // ── Command preview — served by the backend ─────────────────────────────────
@@ -1128,11 +1166,14 @@ function resolveMode(prefix) {
     ? (isBarsTone || document.getElementById('m-independent').checked)
     : true;
   const shared = prefix === 'm' && !independent;
-  // Transcode is forced for mp4 (no stream-copy path in the UI) and B&T;
-  // .ts sources transcode only when explicitly asked.
-  const transcode = isBarsTone || (type !== 'ts') || transcodeBox.checked;
+  // RTMP is passthrough (stream copy) by default for every file source,
+  // opt-in Transcode. SRT/WHIP: transcode is forced for mp4 (no full-stream
+  // copy path in the UI) and B&T; .ts sources transcode only when asked.
+  const rtmp = getProtocol(prefix) === 'rtmp';
+  const copyEligible = rtmp || type === 'ts';
+  const transcode = isBarsTone || !copyEligible || transcodeBox.checked;
   const passthrough = !isBarsTone && !transcode;
-  return { value, isBarsTone, type, independent, shared, transcode, passthrough };
+  return { value, isBarsTone, type, rtmp, copyEligible, independent, shared, transcode, passthrough };
 }
 
 // Shows/hides the transcode + bitrate rows (and the independent-processes
@@ -1162,8 +1203,8 @@ function syncSourceType(prefix) {
     brRow.style.display = 'none';
     return;
   }
-  trRow.style.display = m.type === 'ts' ? '' : 'none';
-  if (m.type !== 'ts') document.getElementById(`${prefix}-transcode`).checked = false;
+  trRow.style.display = m.copyEligible ? '' : 'none';
+  if (!m.copyEligible) document.getElementById(`${prefix}-transcode`).checked = false;
   brRow.style.display = m.transcode ? '' : 'none';
 }
 
@@ -1208,8 +1249,8 @@ function updateMultiPreview() {
     : m.passthrough
     ? '<span class="hl2">passthrough · 1 process per destination</span>'
     : `<span class="hlg">${br} Mbps CBR transcode · 1 process per destination</span>`;
-  const first = dest.protocol === 'srt' ? dest.port_start : dest.index_start;
-  const last  = dest.protocol === 'srt' ? dest.port_end   : dest.index_end;
+  const first = dest.protocol === 'srt' ? dest.port_start : dest.protocol === 'rtmp' ? 1 : dest.index_start;
+  const last  = dest.protocol === 'srt' ? dest.port_end   : dest.protocol === 'rtmp' ? count : dest.index_end;
   let html = `<span class="hl">${count} destination${count>1?'s':''}</span> @ ${modeLabel} via <span class="hl2">${dest.protocol.toUpperCase()}</span>:\n`;
   for (let n = first; n <= Math.min(last, first + 4); n++) {
     html += `  ${destinationDisplay(dest, n)}\n`;
@@ -1241,8 +1282,9 @@ function updateMultiPreview() {
 
 ['s-host','s-port','s-pass','s-bitrate','s-url','s-key','s-token'].forEach(id =>
   document.getElementById(id).addEventListener('input', updateSinglePreview));
-['m-host','m-range-start','m-range-end','m-pass','m-bitrate','m-url','m-key','m-token'].forEach(id =>
+['m-host','m-range-start','m-range-end','m-pass','m-bitrate','m-url','m-token'].forEach(id =>
   document.getElementById(id).addEventListener('input', updateMultiPreview));
+document.getElementById('m-keys').addEventListener('input', updateMultiPreview);  // covers added key fields too
 
 // ── API calls ────────────────────────────────────────────────────────────────
 async function startSingle() {
@@ -1272,7 +1314,7 @@ async function startMulti() {
   const m = resolveMode('m');
   const shared = m.shared;
   const dest = destinationPayload('m', true);
-  if (!dest) { toast('Destination fields and range are required.','err'); return; }
+  if (!dest) { toast('Destination fields (and range / stream keys) are required.','err'); return; }
   if (dest.reason) { toast(dest.reason,'err'); return; }
   const count = destinationCount(dest);
   if (!shared && count > MULTI_INDEPENDENT_MAX) {
