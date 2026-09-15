@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SRT Ingest Tool</title>
+  <title>Video Ingest</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;500;700&display=swap" rel="stylesheet" />
   <style>
@@ -108,6 +108,7 @@
       margin-top: 16px; background: var(--bg); border: 1px solid var(--border);
       border-radius: 3px; padding: 12px; font-family: var(--mono); font-size: 11px;
       color: var(--muted); line-height: 1.7; word-break: break-all; min-height: 60px;
+      white-space: pre-wrap;
     }
     .ffmpeg-preview span.hl  { color: var(--accent); }
     .ffmpeg-preview span.hl2 { color: var(--accent2); }
@@ -127,7 +128,7 @@
     }
     @keyframes slide-in { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
     .job-id   { color: var(--muted); font-size: 11px; }
-    .job-dest { color: var(--text); }
+    .job-dest { color: var(--text); word-break: break-all; }
     .job-status {
       font-size: 10px; padding: 3px 8px; border-radius: 20px; letter-spacing: .08em;
     }
@@ -155,6 +156,10 @@
       grid-column: 1 / -1; font-size:10px; color:var(--red); opacity:.85;
       margin-top:4px; word-break:break-all;
     }
+    .job-tag { font-size:9px; padding:2px 5px; border-radius:2px; margin-left:4px; }
+    .job-tag.proto { background:rgba(0,212,255,.1); color:var(--accent); text-transform:uppercase; }
+    .job-tag.passthrough, .job-tag.shared { background:rgba(255,107,53,.15); color:var(--accent2); }
+    .job-tag.transcode, .job-tag.barstone { background:rgba(0,212,255,.1); color:var(--accent); }
     .monitor-error-box {
       display:none; margin-top:14px; padding:10px 12px; border-radius:3px;
       background:rgba(255,59,92,.08); border:1px solid rgba(255,59,92,.3);
@@ -168,13 +173,22 @@
     }
 
     .host-combo { display: flex; gap: 8px; }
-    .host-combo select {
+    .host-combo select, .proto-select {
       background: var(--bg); border: 1px solid var(--border); color: var(--text);
       font-family: var(--mono); font-size: 12px; padding: 9px 10px; border-radius: 3px;
       outline: none; flex-shrink: 0; max-width: 140px;
     }
-    .host-combo select:focus { border-color: var(--accent); }
+    .host-combo select:focus, .proto-select:focus { border-color: var(--accent); }
     .host-combo input { flex: 1; }
+    /* ── Protocol selector ─────────────────────────────────────── */
+    .proto-select { width: 100%; max-width: none; }
+    .proto-note {
+      display: none; margin-top: 8px; padding: 8px 10px; border-radius: 3px;
+      background: rgba(0,212,255,.06); border: 1px solid rgba(0,212,255,.25);
+      font-family: var(--mono); font-size: 10px; color: var(--text); line-height: 1.6;
+    }
+    .proto-note.show { display: block; }
+    .field-hint { font-size: 9px; color: var(--muted); font-family: var(--mono); margin-top: 5px; letter-spacing: .04em; }
     /* ── Source picker ─────────────────────────────────────────── */
     .source-picker { position: relative; }
     .source-filters { display: flex; gap: 8px; margin-top: 8px; align-items: stretch; }
@@ -307,10 +321,10 @@
 <body>
 
 <header>
-  <div class="logo-icon">SRT</div>
+  <div class="logo-icon">VID</div>
   <div>
-    <h1>SRT Ingest Tool</h1>
-    <p>ffmpeg · mpegts · passthrough by default · libx264 CBR transcode on demand · 1080p25 · closed-GOP</p>
+    <h1>Video Ingest</h1>
+    <p>ffmpeg · SRT / RTMP / WHIP · passthrough by default · libx264 CBR transcode on demand · 1080p25 · closed-GOP</p>
   </div>
   <div class="pill">● LIVE</div>
 </header>
@@ -343,17 +357,45 @@
       </label>
     </div>
     <div class="field">
-      <label>Host / Server</label>
-      <div class="host-combo">
-        <select id="s-server-select" onchange="applyServerSelect('s')">
-          <option value="">— quick select —</option>
-        </select>
-        <input type="text" id="s-host" placeholder="host or IP" />
+      <label>Output Protocol</label>
+      <select id="s-protocol" class="proto-select" onchange="onProtocolChange('s')">
+        <option value="srt">SRT — mpegts</option>
+        <option value="rtmp">RTMP — flv</option>
+        <option value="whip">WHIP — WebRTC (ffmpeg ≥ 8.0)</option>
+      </select>
+      <div class="proto-note" id="s-proto-note"></div>
+    </div>
+    <!-- SRT destination -->
+    <div id="s-srt-fields">
+      <div class="field">
+        <label>Host / Server</label>
+        <div class="host-combo">
+          <select id="s-server-select" onchange="applyServerSelect('s')">
+            <option value="">— quick select —</option>
+          </select>
+          <input type="text" id="s-host" placeholder="host or IP" />
+        </div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Port</label><input type="number" id="s-port" placeholder="4001" min="1" max="65535" /></div>
+        <div class="field"><label>Passphrase <span style="color:var(--muted);font-size:9px">(optional)</span></label><input type="password" id="s-pass" placeholder="leave empty if none" autocomplete="off" /></div>
       </div>
     </div>
-    <div class="row">
-      <div class="field"><label>Port</label><input type="number" id="s-port" placeholder="4001" min="1" max="65535" /></div>
-      <div class="field"><label>Passphrase <span style="color:var(--muted);font-size:9px">(optional)</span></label><input type="password" id="s-pass" placeholder="leave empty if none" /></div>
+    <!-- RTMP / WHIP destination -->
+    <div id="s-url-fields" style="display:none">
+      <div class="field">
+        <label id="s-url-label">Ingest URL</label>
+        <div class="host-combo">
+          <select id="s-url-preset" onchange="applyUrlPreset('s')">
+            <option value="">— presets —</option>
+          </select>
+          <input type="text" id="s-url" placeholder="rtmp://host/app/" autocomplete="off" />
+        </div>
+      </div>
+      <div class="row">
+        <div class="field" id="s-key-row"><label>Stream Key</label><input type="password" id="s-key" placeholder="stream key (appended to the URL)" autocomplete="off" /></div>
+        <div class="field" id="s-token-row" style="display:none"><label>Bearer Token <span style="color:var(--muted);font-size:9px">(optional)</span></label><input type="password" id="s-token" placeholder="WHIP authorization token" autocomplete="off" /></div>
+      </div>
     </div>
     <div class="field" id="s-bitrate-row" style="display:none"><label>Target Bitrate (Mbps)</label><input type="number" id="s-bitrate" value="8" min="1" max="50" step="0.5" /></div>
     <div class="preview-label">Command Preview</div>
@@ -383,7 +425,7 @@
     <div class="field">
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
         <input type="checkbox" id="m-independent" onchange="onIndependentChange()" style="width:auto;accent-color:var(--accent2)" />
-        <span>Independent processes <span style="color:var(--muted);font-size:10px">(one ffmpeg per destination — default is 1 shared process, -c copy)</span></span>
+        <span>Independent processes <span style="color:var(--muted);font-size:10px">(one ffmpeg per destination — default is 1 shared process, stream copy)</span></span>
       </label>
       <div class="cpu-warning" id="m-cpu-warning">⚠ Caution: each destination runs its own ffmpeg decode (plus a libx264 encode in transcode / B&amp;T mode). This is heavy on the server CPU — independent mode is limited to <b>5 destinations</b>. Prefer the default shared single process for larger fan-outs.</div>
     </div>
@@ -394,22 +436,49 @@
       </label>
     </div>
     <div class="field">
-      <label>Host / Server</label>
-      <div class="host-combo">
-        <select id="m-server-select" onchange="applyServerSelect('m')">
-          <option value="">— quick select —</option>
-        </select>
-        <input type="text" id="m-host" placeholder="host or IP" />
+      <label>Output Protocol</label>
+      <select id="m-protocol" class="proto-select" onchange="onProtocolChange('m')">
+        <option value="srt">SRT — mpegts</option>
+        <option value="rtmp">RTMP — flv</option>
+        <option value="whip">WHIP — WebRTC (ffmpeg ≥ 8.0)</option>
+      </select>
+      <div class="proto-note" id="m-proto-note"></div>
+    </div>
+    <!-- SRT destinations -->
+    <div id="m-srt-fields">
+      <div class="field">
+        <label>Host / Server</label>
+        <div class="host-combo">
+          <select id="m-server-select" onchange="applyServerSelect('m')">
+            <option value="">— quick select —</option>
+          </select>
+          <input type="text" id="m-host" placeholder="host or IP" />
+        </div>
+      </div>
+      <div class="field"><label>Passphrase <span style="color:var(--muted);font-size:9px">(optional)</span></label><input type="password" id="m-pass" placeholder="leave empty if none" autocomplete="off" /></div>
+    </div>
+    <!-- RTMP / WHIP destinations -->
+    <div id="m-url-fields" style="display:none">
+      <div class="field">
+        <label id="m-url-label">Ingest URL</label>
+        <div class="host-combo">
+          <select id="m-url-preset" onchange="applyUrlPreset('m')">
+            <option value="">— presets —</option>
+          </select>
+          <input type="text" id="m-url" placeholder="rtmp://host/app/" autocomplete="off" />
+        </div>
+        <div class="field-hint" id="m-url-hint"></div>
+      </div>
+      <div class="row">
+        <div class="field" id="m-key-row"><label>Stream Key Template</label><input type="password" id="m-key" placeholder="e.g. mykey-{n}" autocomplete="off" /></div>
+        <div class="field" id="m-token-row" style="display:none"><label>Bearer Token <span style="color:var(--muted);font-size:9px">(optional)</span></label><input type="password" id="m-token" placeholder="WHIP authorization token" autocomplete="off" /></div>
       </div>
     </div>
     <div class="row">
-      <div class="field"><label>Port Start</label><input type="number" id="m-port-start" placeholder="4001" min="1" max="65535" /></div>
-      <div class="field"><label>Port End</label><input type="number" id="m-port-end" placeholder="4010" min="1" max="65535" /></div>
+      <div class="field"><label id="m-range-start-label">Port Start</label><input type="number" id="m-range-start" placeholder="4001" min="1" max="65535" /></div>
+      <div class="field"><label id="m-range-end-label">Port End</label><input type="number" id="m-range-end" placeholder="4010" min="1" max="65535" /></div>
     </div>
-    <div class="row">
-      <div class="field"><label>Passphrase <span style="color:var(--muted);font-size:9px">(optional)</span></label><input type="password" id="m-pass" placeholder="leave empty if none" /></div>
-      <div class="field" id="m-bitrate-row" style="display:none"><label>Target Bitrate (Mbps)</label><input type="number" id="m-bitrate" value="8" min="1" max="50" step="0.5" /></div>
-    </div>
+    <div class="field" id="m-bitrate-row" style="display:none"><label>Target Bitrate (Mbps)</label><input type="number" id="m-bitrate" value="8" min="1" max="50" step="0.5" /></div>
     <div class="preview-label">Destinations Preview</div>
     <div class="ffmpeg-preview" id="m-preview">Fill the fields above to preview destinations.</div>
     <button class="btn-multi" onclick="startMulti()">▶ Start Multi-Ingest</button>
@@ -484,6 +553,8 @@
 <div class="toast-container" id="toasts"></div>
 
 <script>
+// The API prefix is unchanged ("/srt"): renaming it would also require
+// changes to the blueprint registration and the reverse-proxy path.
 const BASE = "/so-proxy/srt";
 
 // ── UTC clock ────────────────────────────────────────────────────────────────
@@ -630,9 +701,10 @@ let watchedJobId = null;
 let watchedJobTarget = 8;
 let watchedPassthrough = false;
 
-// Shows the exact ffmpeg command line currently running for the watched job
-// in the Bitrate Monitor card. Called on every job list refresh (so it stays
-// in sync if the job auto-reconnects) and immediately on job selection.
+// Shows the exact (secret-masked) ffmpeg command line currently running for
+// the watched job in the Bitrate Monitor card. Called on every job list
+// refresh (so it stays in sync if the job auto-reconnects) and immediately
+// on job selection.
 function updateWatchedCmdDisplay(jobs) {
   const row = document.getElementById('watched-cmd-row');
   const el  = document.getElementById('watched-cmd');
@@ -679,7 +751,8 @@ function showMonitorError(status, lastError, retryCount, errorDetail) {
   // errorDetail is the tail of ffmpeg's raw stderr output (most recent last).
   // It's shown in full underneath so the actual underlying reason (e.g.
   // "Connection refused", "Input/output error", an SRT handshake timeout,
-  // etc.) is visible even when it isn't the very last line ffmpeg printed.
+  // a WHIP 401/403 answer, etc.) is visible even when it isn't the very
+  // last line ffmpeg printed.
   const lines = (errorDetail || []).filter(l => l && l !== lastError);
   if (lines.length) {
     html += `<div class="monitor-error-detail">${esc(lines.join('\n'))}</div>`;
@@ -778,14 +851,161 @@ function disconnectSSE(endStatus = null) {
   badge.classList.add('off');
 }
 
-// ── Preview builders ─────────────────────────────────────────────────────────
-function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── Output protocols ─────────────────────────────────────────────────────────
+// Destination presets offered in the URL quick-select per protocol.
+const PROTOCOL_PRESETS = {
+  rtmp: [{ label: 'PhenixRTS ingest', url: 'rtmp://ingest.phenixrts.com:80/ingest/' }],
+  whip: [{ label: 'PhenixRTS WHIP',   url: 'https://pcast.phenixrts.com/pcast/performgroup.com/whip' }],
+};
+// Operator-facing caveats shown under the protocol selector.
+const PROTOCOL_NOTES = {
+  srt:  '',
+  rtmp: 'RTMP/FLV carries one H.264 video + one AAC audio stream. Passthrough maps the first video/audio pair of the recording and requires H.264 + AAC — tick Transcode otherwise. Stream key is appended to the URL.',
+  whip: 'WHIP requires ffmpeg ≥ 8.0 built with the whip muxer (OpenSSL). WebRTC mandates H.264 without B-frames + Opus: audio is always re-encoded to Opus; in passthrough the H.264 video is stream-copied (tick Transcode if the receiver rejects it). Optional Bearer token → -authorization.',
+};
+const INDEX_PLACEHOLDER = '{n}';  // keep in sync with INDEX_PLACEHOLDER in routes_srt.py
+
+function getProtocol(prefix) {
+  return document.getElementById(`${prefix}-protocol`).value;
+}
+
+// Protocols the server's ffmpeg binaries actually support (GET /capabilities).
+// Unsupported ones are disabled in both selectors with the server's reason,
+// so a WHIP job is never launched against an ffmpeg without the whip muxer.
+let capabilities = null;
+async function loadCapabilities() {
+  try {
+    const r = await fetch(`${BASE}/capabilities`);
+    if (!r.ok) return;
+    capabilities = await r.json();
+  } catch (e) { console.warn('Could not load capabilities:', e); return; }
+  const supported = capabilities.protocols || {};
+  ['s', 'm'].forEach(prefix => {
+    const sel = document.getElementById(`${prefix}-protocol`);
+    let changed = false;
+    [...sel.options].forEach(o => {
+      const ok = supported[o.value] !== false;
+      o.disabled = !ok;
+      if (!ok && !o.textContent.includes('unavailable')) o.textContent += ' — unavailable';
+      if (!ok && sel.value === o.value) { sel.value = 'srt'; changed = true; }
+    });
+    if (changed) onProtocolChange(prefix);
+  });
+  if (supported.whip === false && capabilities.whip_reason) {
+    PROTOCOL_NOTES.whip = capabilities.whip_reason;
+  }
+}
+
+function populateUrlPresets(prefix, protocol) {
+  const sel = document.getElementById(`${prefix}-url-preset`);
+  while (sel.options.length > 1) sel.remove(1);
+  (PROTOCOL_PRESETS[protocol] || []).forEach(p => {
+    const o = document.createElement('option');
+    o.value = p.url; o.textContent = p.label;
+    sel.appendChild(o);
+  });
+  sel.value = '';
+}
+
+function applyUrlPreset(prefix) {
+  const sel = document.getElementById(`${prefix}-url-preset`);
+  if (!sel.value) return;
+  document.getElementById(`${prefix}-url`).value = sel.value;
+  if (prefix === 's') updateSinglePreview(); else updateMultiPreview();
+}
+
+// Shows the destination fields for the selected protocol (SRT host/port vs
+// RTMP/WHIP URL + key/token), relabels the multi range and pre-fills the
+// first preset URL when the URL field is still empty.
+function onProtocolChange(prefix) {
+  const p = getProtocol(prefix);
+  const isSrt = p === 'srt';
+  document.getElementById(`${prefix}-srt-fields`).style.display = isSrt ? '' : 'none';
+  document.getElementById(`${prefix}-url-fields`).style.display = isSrt ? 'none' : '';
+  document.getElementById(`${prefix}-key-row`).style.display   = p === 'rtmp' ? '' : 'none';
+  document.getElementById(`${prefix}-token-row`).style.display = p === 'whip' ? '' : 'none';
+  const note = document.getElementById(`${prefix}-proto-note`);
+  note.textContent = PROTOCOL_NOTES[p] || '';
+  note.classList.toggle('show', !!PROTOCOL_NOTES[p]);
+
+  if (!isSrt) {
+    document.getElementById(`${prefix}-url-label`).textContent = p === 'rtmp' ? 'RTMP Ingest URL' : 'WHIP Endpoint URL';
+    const urlEl = document.getElementById(`${prefix}-url`);
+    urlEl.placeholder = p === 'rtmp' ? 'rtmp://host[:port]/app/' : 'https://host/path/whip';
+    populateUrlPresets(prefix, p);
+    // Switching protocol: a URL of the other scheme is never valid here.
+    if (!urlEl.value.trim() || !urlEl.value.trim().toLowerCase().startsWith(p === 'rtmp' ? 'rtmp' : 'http')) {
+      const first = (PROTOCOL_PRESETS[p] || [])[0];
+      urlEl.value = first ? first.url : '';
+    }
+  }
+  if (prefix === 'm') {
+    document.getElementById('m-range-start-label').textContent = isSrt ? 'Port Start' : 'Index Start';
+    document.getElementById('m-range-end-label').textContent   = isSrt ? 'Port End'   : 'Index End';
+    const rs = document.getElementById('m-range-start'), re = document.getElementById('m-range-end');
+    rs.placeholder = isSrt ? '4001' : '1'; re.placeholder = isSrt ? '4010' : '10';
+    rs.max = re.max = isSrt ? 65535 : 100000;
+    document.getElementById('m-url-hint').textContent = isSrt ? '' :
+      `Use ${INDEX_PLACEHOLDER} in the URL${p === 'rtmp' ? ' or stream key' : ''} — it is replaced by each index in the range (e.g. live-${INDEX_PLACEHOLDER} → live-1, live-2 …).`;
+  }
+  if (prefix === 's') updateSinglePreview(); else updateMultiPreview();
+}
+
+// Destination part of the request body for a card, or null when the fields
+// aren't filled in yet. `reason` explains a rejected combination (shown red).
+function destinationPayload(prefix, multi) {
+  const p = getProtocol(prefix);
+  const body = { protocol: p };
+  if (p === 'srt') {
+    body.host = document.getElementById(`${prefix}-host`).value.trim();
+    body.passphrase = document.getElementById(`${prefix}-pass`).value.trim();
+    if (!body.host) return null;
+    if (multi) {
+      body.port_start = parseInt(document.getElementById('m-range-start').value) || 0;
+      body.port_end   = parseInt(document.getElementById('m-range-end').value)   || 0;
+      if (!body.port_start || !body.port_end || body.port_start > body.port_end) return null;
+    } else {
+      body.port = parseInt(document.getElementById('s-port').value) || 0;
+      if (!body.port) return null;
+    }
+    return body;
+  }
+  body.url = document.getElementById(`${prefix}-url`).value.trim();
+  if (!body.url) return null;
+  if (p === 'rtmp') body.stream_key = document.getElementById(`${prefix}-key`).value.trim();
+  if (p === 'whip') body.passphrase = document.getElementById(`${prefix}-token`).value.trim();
+  if (multi) {
+    body.index_start = parseInt(document.getElementById('m-range-start').value) || 0;
+    body.index_end   = parseInt(document.getElementById('m-range-end').value)   || 0;
+    if (!body.index_start || !body.index_end || body.index_start > body.index_end) return null;
+    const tpl = body.url + (body.stream_key || '');
+    if (body.index_end > body.index_start && !tpl.includes(INDEX_PLACEHOLDER)) {
+      body.reason = `Multi-destination ${p.toUpperCase()} needs ${INDEX_PLACEHOLDER} in the URL${p === 'rtmp' ? ' or stream key' : ''} so every destination is distinct.`;
+    }
+  }
+  return body;
+}
+
+function destinationCount(body) {
+  if (body.protocol === 'srt') return body.port_end - body.port_start + 1;
+  return body.index_end - body.index_start + 1;
+}
+
+// Display form of one destination in the multi summary (stream key masked).
+function destinationDisplay(body, n) {
+  if (body.protocol === 'srt') return `srt://${esc(body.host)}:<span class="hl2">${n}</span>`;
+  let url = body.url;
+  if (body.protocol === 'rtmp') url = url.replace(/\/?$/, '/') + (body.stream_key ? '***' : '');
+  return esc(url).split(INDEX_PLACEHOLDER).join(`<span class="hl2">${n}</span>`);
+}
 
 // ── Command preview — served by the backend ─────────────────────────────────
 // The preview is NOT reconstructed in JS. The exact argv the ingest route
 // will launch is requested from POST /ingest/preview, which runs the very
 // same builders as /ingest/single, /ingest/multi and /ingest/multi-shared
-// (passphrase masked, nothing launched). The only difference at launch is
+// (secrets masked, nothing launched). The only difference at launch is
 // "-i": the job substitutes the cached pre-trimmed loop copy of the source.
 const previewState = {
   s: { seq: 0, timer: null, ctrl: null },
@@ -793,29 +1013,31 @@ const previewState = {
 };
 const PREVIEW_DEBOUNCE_MS = 200;
 // Options that start a new visual line in the rendered argv.
-const CMD_BREAK_BEFORE = new Set(['-i', '-map', '-c', '-c:v', '-c:a', '-b:v', '-vf', '-filter:v', '-f', '-x264-params', '-r', '-stream_loop']);
+const CMD_BREAK_BEFORE = new Set(['-i', '-map', '-c', '-c:v', '-c:a', '-b:v', '-vf', '-filter:v', '-f', '-x264-params', '-r', '-stream_loop', '-authorization']);
+const URL_RE = /^(srt|rtmps?|https?):\/\//i;
 
 function shellQuote(tok) {
   return /[\s"'\\]/.test(tok) ? '"' + tok.replace(/(["\\])/g, '\\$1') + '"' : tok;
 }
 
 // Renders a server-built argv with the same colour classes the preview always
-// used: source path (hl), SRT URL / stream copy (hl2), encoder + bitrate (hlg).
+// used: source path (hl), destination URL / stream copy (hl2), encoder +
+// bitrate (hlg).
 function renderArgv(argv) {
   let html = '', prev = '', firstMap = true;
   argv.forEach(tok => {
     let cls = '';
     if (prev === '-i') cls = 'hl';
-    else if (/^srt:\/\//.test(tok)) cls = 'hl2';
+    else if (URL_RE.test(tok)) cls = 'hl2';
     else if (tok === 'copy' && /^-c(:[va])?$/.test(prev)) cls = 'hl2';
     else if (tok === '-copy_unknown') cls = 'hl2';
-    else if (/^(libx264|aac)$/.test(tok) && /^-c:[va]$/.test(prev)) cls = 'hlg';
+    else if (/^(libx264|aac|libopus)$/.test(tok) && /^-c:[va]$/.test(prev)) cls = 'hlg';
     else if (/^-(b:v|minrate|maxrate|bufsize)$/.test(prev)) cls = 'hlg';
     let sep = html ? ' ' : '';
-    if (html && (CMD_BREAK_BEFORE.has(tok) || /^srt:\/\//.test(tok))) {
-      // In the shared command every destination block starts with -map 0;
-      // keep the first -map on its own line and blank-line the others.
-      sep = (tok === '-map' && !firstMap && prev !== '-i') ? '\n\n' : '\n';
+    if (html && (CMD_BREAK_BEFORE.has(tok) || URL_RE.test(tok))) {
+      // In the shared command every destination block starts with -map right
+      // after the previous destination URL: blank-line those block starts.
+      sep = (tok === '-map' && !firstMap && URL_RE.test(prev)) ? '\n\n' : '\n';
       if (tok === '-map') firstMap = false;
     }
     const t = esc(shellQuote(tok));
@@ -839,9 +1061,10 @@ function renderPreviewResponse(d, multi) {
     if (i < d.cmds.length - 1) html += '\n';
   });
   if (d.mode === 'multi' && d.count > d.cmds.length) {
-    html += `<span style="color:var(--muted)"># … ${d.count - d.cmds.length} more process${d.count - d.cmds.length > 1 ? 'es' : ''} (same command, next ports)</span>\n`;
+    html += `<span style="color:var(--muted)"># … ${d.count - d.cmds.length} more process${d.count - d.cmds.length > 1 ? 'es' : ''} (same command, next destinations)</span>\n`;
   }
-  if (d.note) html += `<span style="color:var(--muted)"># ${esc(d.note)}</span>`;
+  const notes = d.notes || (d.note ? [d.note] : []);
+  notes.forEach(n => { html += `<span style="color:var(--muted)"># ${esc(n)}</span>\n`; });
   return html;
 }
 
@@ -883,7 +1106,7 @@ async function fetchPreview(prefix, body, targetId) {
 
 // The B&T source is not a real file, so it's offered as a plain-text entry
 // in the source picker rather than a path. Matched by exact value.
-const BARS_TONE_LABEL = 'B&T — Colour Bars + 1 kHz Tone (port + UTC clock overlay)';
+const BARS_TONE_LABEL = 'B&T — Colour Bars + 1 kHz Tone (destination + UTC clock overlay)';
 
 function isBarsToneValue(value) {
   return value.trim() === BARS_TONE_LABEL;
@@ -894,7 +1117,7 @@ const MULTI_INDEPENDENT_MAX = 5;  // keep in sync with MULTI_INDEPENDENT_MAX_DES
 // Resolves the effective ingest mode for a card from the selected source and
 // the checkboxes. Defaults: .ts sources (Video Analyser / Recordings) are
 // passthrough unless "Transcode" is ticked; test.mp4 is always transcoded;
-// multi destination is one shared -c copy process unless "Independent
+// multi destination is one shared stream-copy process unless "Independent
 // processes" is ticked; B&T is always one transcode process per destination.
 function resolveMode(prefix) {
   const value = document.getElementById(`${prefix}-input`).value.trim();
@@ -934,7 +1157,7 @@ function syncSourceType(prefix) {
     return;
   }
   if (m.shared) {
-    // Shared mode is always -c copy: transcode/bitrate don't apply.
+    // Shared mode is always stream copy: transcode/bitrate don't apply.
     trRow.style.display = 'none';
     brRow.style.display = 'none';
     return;
@@ -947,12 +1170,10 @@ function syncSourceType(prefix) {
 function updateSinglePreview() {
   syncSourceType('s');
   const m       = resolveMode('s');
-  const host    = document.getElementById('s-host').value.trim();
-  const port    = document.getElementById('s-port').value.trim();
-  const pass    = document.getElementById('s-pass').value.trim();
+  const dest    = destinationPayload('s', false);
   const bitrate = parseFloat(document.getElementById('s-bitrate').value) || 8;
   const el      = document.getElementById('s-preview');
-  if (!host || !port || !m.value) {
+  if (!dest || !m.value) {
     cancelPreview('s');
     el.innerHTML = '<span style="color:var(--muted)">Fill the fields above to preview the command.</span>';
     return;
@@ -960,8 +1181,8 @@ function updateSinglePreview() {
   // Same payload startSingle() sends, plus the mode selector.
   schedulePreview('s', {
     mode: 'single',
-    input_file: m.value, host, port: parseInt(port),
-    passphrase: pass,
+    ...dest,
+    input_file: m.value,
     source_mode: m.isBarsTone ? 'bars_tone' : 'file',
     bitrate_mbps: m.isBarsTone ? 1 : bitrate,
     passthrough: m.passthrough,
@@ -971,16 +1192,14 @@ function updateSinglePreview() {
 function updateMultiPreview() {
   syncSourceType('m');
   const m    = resolveMode('m');
-  const host = document.getElementById('m-host').value.trim();
-  const ps   = parseInt(document.getElementById('m-port-start').value) || 0;
-  const pe   = parseInt(document.getElementById('m-port-end').value)   || 0;
+  const dest = destinationPayload('m', true);
   const el   = document.getElementById('m-preview');
-  if (!host || !ps || !pe || ps > pe) {
+  if (!dest) {
     cancelPreview('m');
     el.innerHTML = '<span style="color:var(--muted)">Fill the fields above to preview destinations.</span>';
     return;
   }
-  const count = pe - ps + 1;
+  const count = destinationCount(dest);
   const br    = parseFloat(document.getElementById('m-bitrate').value) || 8;
   const modeLabel = m.isBarsTone
     ? '<span class="hlg">B&T · 1080p25 · AVC · 1 Mbps · GOP 1 s · no B-frames · 1 process per destination</span>'
@@ -989,52 +1208,59 @@ function updateMultiPreview() {
     : m.passthrough
     ? '<span class="hl2">passthrough · 1 process per destination</span>'
     : `<span class="hlg">${br} Mbps CBR transcode · 1 process per destination</span>`;
-  let html = `<span class="hl">${count} destination${count>1?'s':''}</span> @ ${modeLabel} → <span class="hl2">${esc(host)}</span>:\n`;
-  for (let p = ps; p <= Math.min(pe, ps + 4); p++) {
-    html += `  srt://${esc(host)}:<span class="hl2">${p}</span>\n`;
+  const first = dest.protocol === 'srt' ? dest.port_start : dest.index_start;
+  const last  = dest.protocol === 'srt' ? dest.port_end   : dest.index_end;
+  let html = `<span class="hl">${count} destination${count>1?'s':''}</span> @ ${modeLabel} via <span class="hl2">${dest.protocol.toUpperCase()}</span>:\n`;
+  for (let n = first; n <= Math.min(last, first + 4); n++) {
+    html += `  ${destinationDisplay(dest, n)}\n`;
   }
-  if (count > 5) html += `  <span style="color:var(--muted)">… and ${count - 5} more</span>`;
+  if (count > 5) html += `  <span style="color:var(--muted)">… and ${count - 5} more</span>\n`;
+  if (dest.reason) {
+    html += `<span style="color:var(--red)">⚠ ${esc(dest.reason)}</span>`;
+    cancelPreview('m');
+    el.innerHTML = html;
+    return;
+  }
   if (m.shared) {
-    html += `\n<span style="color:var(--muted)">All destinations share a single demux — no per-destination re-encode.</span>`;
+    html += `<span style="color:var(--muted)">All destinations share a single demux — no per-destination video re-encode.</span>`;
   } else if (count > MULTI_INDEPENDENT_MAX) {
-    html += `\n<span style="color:var(--red)">⚠ Independent mode is limited to ${MULTI_INDEPENDENT_MAX} destinations (${count} requested). Reduce the port range or use the shared single process.</span>`;
+    html += `<span style="color:var(--red)">⚠ Independent mode is limited to ${MULTI_INDEPENDENT_MAX} destinations (${count} requested). Reduce the range or use the shared single process.</span>`;
   }
   // Exact command(s) as built by the route, fetched from the server.
   html += `\n\n<span style="color:var(--muted)">ffmpeg command (as the route will launch it):</span>\n<div id="m-preview-cmd"><span style="color:var(--muted)">loading…</span></div>`;
   el.innerHTML = html;
   const base = {
     mode: m.shared ? 'multi-shared' : 'multi',
-    input_file: m.value, host, port_start: ps, port_end: pe,
-    passphrase: document.getElementById('m-pass').value.trim(),
+    ...dest,
+    input_file: m.value,
     source_mode: m.isBarsTone ? 'bars_tone' : 'file',
   };
   const body = m.shared ? base : { ...base, bitrate_mbps: m.isBarsTone ? 1 : br, passthrough: m.passthrough };
   schedulePreview('m', body, 'm-preview-cmd');
 }
 
-['s-host','s-port','s-pass','s-bitrate'].forEach(id =>
+['s-host','s-port','s-pass','s-bitrate','s-url','s-key','s-token'].forEach(id =>
   document.getElementById(id).addEventListener('input', updateSinglePreview));
-['m-host','m-port-start','m-port-end','m-pass','m-bitrate'].forEach(id =>
+['m-host','m-range-start','m-range-end','m-pass','m-bitrate','m-url','m-key','m-token'].forEach(id =>
   document.getElementById(id).addEventListener('input', updateMultiPreview));
 
 // ── API calls ────────────────────────────────────────────────────────────────
 async function startSingle() {
   const m = resolveMode('s');
+  const dest = destinationPayload('s', false);
+  if (!dest) { toast('Destination fields are required.','err'); return; }
   const body = {
+    ...dest,
     input_file:   m.value,
-    host:         document.getElementById('s-host').value.trim(),
-    port:         parseInt(document.getElementById('s-port').value),
-    passphrase:   document.getElementById('s-pass').value.trim(),
     source_mode:  m.isBarsTone ? 'bars_tone' : 'file',
     bitrate_mbps: m.isBarsTone ? 1 : (parseFloat(document.getElementById('s-bitrate').value) || 8),
     passthrough:  m.passthrough,
   };
-  if (!body.host || !body.port) { toast('Host and port are required.','err'); return; }
   try {
     const r = await fetch(`${BASE}/ingest/single`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
     const d = await r.json();
     if (!r.ok) { toast(d.error || 'Error','err'); return; }
-    toast(`Job #${d.job.id} started → ${d.job.host}:${d.job.port}`,'ok');
+    toast(`Job #${d.job.id} started → ${esc(d.job.label)}`,'ok');
     await refreshJobs();
     // Auto-select new job in chart
     document.getElementById('job-select').value = d.job.id;
@@ -1045,19 +1271,19 @@ async function startSingle() {
 async function startMulti() {
   const m = resolveMode('m');
   const shared = m.shared;
-  const base = {
-    input_file:   m.value,
-    host:         document.getElementById('m-host').value.trim(),
-    port_start:   parseInt(document.getElementById('m-port-start').value),
-    port_end:     parseInt(document.getElementById('m-port-end').value),
-    passphrase:   document.getElementById('m-pass').value.trim(),
-    source_mode:  m.isBarsTone ? 'bars_tone' : 'file',
-  };
-  if (!base.host || !base.port_start || !base.port_end) { toast('Host and port range are required.','err'); return; }
-  if (!shared && (base.port_end - base.port_start + 1) > MULTI_INDEPENDENT_MAX) {
+  const dest = destinationPayload('m', true);
+  if (!dest) { toast('Destination fields and range are required.','err'); return; }
+  if (dest.reason) { toast(dest.reason,'err'); return; }
+  const count = destinationCount(dest);
+  if (!shared && count > MULTI_INDEPENDENT_MAX) {
     toast(`Independent mode is limited to ${MULTI_INDEPENDENT_MAX} destinations — use the shared single process for larger fan-outs.`,'err');
     return;
   }
+  const base = {
+    ...dest,
+    input_file:   m.value,
+    source_mode:  m.isBarsTone ? 'bars_tone' : 'file',
+  };
 
   const endpoint = shared ? '/ingest/multi-shared' : '/ingest/multi';
   const body = shared ? base : {
@@ -1070,7 +1296,7 @@ async function startMulti() {
     const d = await r.json();
     if (!r.ok) { toast(d.error || 'Error','err'); return; }
     if (shared) {
-      toast(`Shared job #${d.job.id} started (1 process → ${d.job.destinations.length} destinations)`,'ok');
+      toast(`Shared job #${d.job.id} started (1 process → ${d.job.destination_count} destinations)`,'ok');
       await refreshJobs();
       document.getElementById('job-select').value = d.job.id;
       switchJob();
@@ -1132,6 +1358,12 @@ async function refreshJobs() {
   } catch(e) { console.warn('Could not fetch jobs'); }
 }
 
+// Operator-facing destination label of a job (server-side, secrets masked).
+function jobLabel(j) {
+  const base = j.label || (j.host ? `${j.host}:${j.port}` : '—');
+  return j.type === 'shared' ? `${base} (${j.destination_count} dests, shared)` : base;
+}
+
 function renderJobs(jobs) {
   const list  = document.getElementById('jobs-list');
   const sel   = document.getElementById('job-select');
@@ -1154,10 +1386,7 @@ function renderJobs(jobs) {
     o.dataset.target = j.bitrate_mbps;
     o.dataset.passthrough = j.passthrough ? 'true' : 'false';
     o.dataset.cmd = j.cmd || '';
-    const destLabel = j.type === 'shared'
-      ? `${j.destinations[0].host}:${j.destinations[0].port}-${j.destinations[j.destinations.length-1].port} (${j.destinations.length} dests, shared)`
-      : `${j.host}:${j.port}`;
-    o.textContent = `#${j.id} ${destLabel} [${j.mode||j.status}]`;
+    o.textContent = `#${j.id} ${(j.protocol || 'srt').toUpperCase()} ${jobLabel(j)} [${j.mode||j.status}]`;
     if (j.status !== 'running') o.style.color = 'var(--muted)';
     sel.appendChild(o);
   });
@@ -1181,16 +1410,15 @@ function renderJobs(jobs) {
       : `<button class="btn-restart-job" onclick="restartJob(${j.id})">↻ RESTART</button>`;
     const errorLine = (j.last_error && (j.status === 'error' || j.status === 'reconnecting'))
       ? `<div class="job-error-line">⚠ ${esc(j.last_error)}</div>` : '';
+    const protoTag = `<span class="job-tag proto">${esc(j.protocol || 'srt')}</span>`;
     const modeTag = j.type === 'shared'
-      ? `<span style="font-size:9px;padding:2px 5px;border-radius:2px;background:rgba(255,107,53,.15);color:var(--accent2)">shared·1proc</span>`
-      : `<span style="font-size:9px;padding:2px 5px;border-radius:2px;background:${j.mode==="passthrough"?"rgba(255,107,53,.15)":"rgba(0,212,255,.1)"};color:${j.mode==="passthrough"?"var(--accent2)":"var(--accent)"}">${j.mode||"transcode"}</span>`;
-    const destText = j.type === 'shared'
-      ? `${esc(j.destinations[0].host)}:<b>${j.destinations[0].port}-${j.destinations[j.destinations.length-1].port}</b> <span style="color:var(--muted);font-size:10px">(${j.destinations.length} dests) pid:${j.pid ?? '—'}</span>`
-      : `${esc(j.host)}:<b>${j.port}</b> <span style="color:var(--muted);font-size:10px">pid:${j.pid ?? '—'}</span>`;
+      ? `<span class="job-tag shared">shared·1proc</span>`
+      : `<span class="job-tag ${j.mode === 'passthrough' ? 'passthrough' : j.mode === 'bars-tone' ? 'barstone' : 'transcode'}">${esc(j.mode || 'transcode')}</span>`;
+    const destText = `<b>${esc(jobLabel(j))}</b> <span style="color:var(--muted);font-size:10px">pid:${j.pid ?? '—'}</span>`;
     return `
       <div class="job-item">
         <span class="job-id">#${j.id}</span>
-        <span class="job-dest">${destText} ${modeTag}${br}</span>
+        <span class="job-dest">${destText} ${protoTag}${modeTag}${br}</span>
         <span class="job-status status-${j.status}">${statusLabel}</span>
         <div class="job-actions">${actions}</div>
         ${errorLine}
@@ -1515,7 +1743,7 @@ function onTranscodeChange(prefix) {
 
 function onIndependentChange() {
   // Switching back to shared mode also drops any transcode request, since
-  // shared mode is always -c copy.
+  // shared mode is always stream copy.
   if (!document.getElementById('m-independent').checked) {
     document.getElementById('m-transcode').checked = false;
   }
@@ -1523,6 +1751,8 @@ function onIndependentChange() {
 }
 
 ['s', 'm'].forEach(initSourcePicker);
+['s', 'm'].forEach(onProtocolChange);
+loadCapabilities();
 loadSources();
 setInterval(loadSources, SOURCE_REFRESH_MS);
 

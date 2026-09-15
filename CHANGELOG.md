@@ -9,6 +9,29 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 `SRT Ingest:`, `General Tool Admin:`) so entries can be filtered per tool.
 
 ---
+## [3.64.1] - 2026-09-14
+
+### Added
+- Video Ingest: `GET /capabilities` reporting which output protocols the installed ffmpeg binaries support (probed via `-muxers`, cached 60 s), including the ffmpeg version strings and the reason WHIP is unavailable.
+- Video Ingest: `VIDEO_INGEST_FFMPEG` and `VIDEO_INGEST_WHIP_FFMPEG` environment variables to select the ffmpeg binary per protocol (WHIP needs ffmpeg >= 8.0 with DTLS support).
+### Changed
+- Video Ingest: the UI disables unsupported protocols in the protocol selector and shows the server-side reason; a selected unsupported protocol falls back to SRT.
+### Fixed
+- Video Ingest: WHIP requests against an ffmpeg without the whip muxer are rejected up front (HTTP 400) instead of launching a job that fails on "Unrecognized option 'authorization'" and reconnects forever.
+
+## [3.64.0] - 2026-09-14
+
+### Added
+- Video Ingest: RTMP (FLV) and WHIP (WebRTC, ffmpeg >= 8.0 whip muxer) output protocols alongside SRT, in single, independent-multi and shared-multi modes.
+- Video Ingest: protocol selector, PhenixRTS destination presets (rtmp://ingest.phenixrts.com:80/ingest/ and https://pcast.phenixrts.com/pcast/performgroup.com/whip), stream key / Bearer token fields and `{n}` URL templates for multi-destination RTMP/WHIP.
+- Video Ingest: per-protocol caveats in the command preview (`notes`).
+### Changed
+- Video Ingest: tool renamed from "SRT Ingest" to "Video Ingest" (UI title, header, docstrings). Blueprint, file names and `/srt` route prefix unchanged.
+- Video Ingest: Bars & Tone burns `STREAM n` for RTMP/WHIP destinations instead of the SRT port.
+- Video Ingest: job records carry `protocol`, `label`, `destination_count`; `host`/`port` remain for SRT only.
+### Security
+- Video Ingest: running command lines (`/jobs` → `cmd`) and ffmpeg stderr lines are masked (SRT passphrase, RTMP stream key, WHIP token) before being returned to the UI.
+
 ## [3.63.2] - 2026-09-14
 
 ### Fixed
