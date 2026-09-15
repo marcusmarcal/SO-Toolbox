@@ -9,6 +9,15 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 `SRT Ingest:`, `General Tool Admin:`) so entries can be filtered per tool.
 
 ---
+## [3.64.1] - 2026-09-14
+
+### Added
+- Video Ingest: `GET /capabilities` reporting which output protocols the installed ffmpeg binaries support (probed via `-muxers`, cached 60 s), including the ffmpeg version strings and the reason WHIP is unavailable.
+- Video Ingest: `VIDEO_INGEST_FFMPEG` and `VIDEO_INGEST_WHIP_FFMPEG` environment variables to select the ffmpeg binary per protocol (WHIP needs ffmpeg >= 8.0 with DTLS support).
+### Changed
+- Video Ingest: the UI disables unsupported protocols in the protocol selector and shows the server-side reason; a selected unsupported protocol falls back to SRT.
+### Fixed
+- Video Ingest: WHIP requests against an ffmpeg without the whip muxer are rejected up front (HTTP 400) instead of launching a job that fails on "Unrecognized option 'authorization'" and reconnects forever.
 
 ## [3.64.0] - 2026-09-14
 

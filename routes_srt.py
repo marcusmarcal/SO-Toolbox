@@ -263,6 +263,81 @@ PROTOCOLS = ("srt", "rtmp", "whip")
 # URL / stream-key templates, e.g. "live-{n}" -> live-1, live-2, ...
 INDEX_PLACEHOLDER = "{n}"
 
+# ffmpeg binaries. The distro ffmpeg (RPM Fusion 5.1.x at the time of
+# writing) has no "whip" muxer — that only exists from ffmpeg 8.0, built with
+# DTLS support. Rather than replacing the system ffmpeg (also used by the
+# Video Analyser), WHIP jobs can be pointed at a separate, newer binary:
+#   VIDEO_INGEST_WHIP_FFMPEG=/opt/ffmpeg8/bin/ffmpeg
+# When the binary used for WHIP does not list the whip muxer, WHIP is
+# reported as unavailable by /capabilities and rejected by the ingest routes.
+FFMPEG_BIN = os.environ.get("VIDEO_INGEST_FFMPEG", "ffmpeg")
+WHIP_FFMPEG_BIN = os.environ.get("VIDEO_INGEST_WHIP_FFMPEG", FFMPEG_BIN)
+CAPABILITIES_TTL_SECONDS = 60
+
+_caps_cache: dict = {"ts": 0.0, "caps": None}
+_caps_lock = threading.Lock()
+_MUXER_LINE_RE = re.compile(r"^\s*[DE.]+\s+(\S+)")
+
+
+def _ffmpeg_bin(protocol: str) -> str:
+    return WHIP_FFMPEG_BIN if protocol == "whip" else FFMPEG_BIN
+
+
+def _ffmpeg_version(binary: str) -> Optional[str]:
+    """First line of `<binary> -version` ("ffmpeg version 5.1.10 ..."), or None."""
+    try:
+        out = subprocess.run([binary, "-hide_banner", "-version"],
+                             capture_output=True, text=True, timeout=10).stdout
+        return (out.splitlines() or [None])[0]
+    except (subprocess.TimeoutExpired, OSError):
+        return None
+
+
+def _ffmpeg_muxers(binary: str) -> set:
+    """Names of the muxers compiled into `binary` (empty set if it can't run)."""
+    try:
+        out = subprocess.run([binary, "-hide_banner", "-muxers"],
+                             capture_output=True, text=True, timeout=10).stdout
+    except (subprocess.TimeoutExpired, OSError):
+        return set()
+    names = set()
+    for line in out.splitlines():
+        m = _MUXER_LINE_RE.match(line)
+        if m:
+            names.add(m.group(1))
+    return names
+
+
+def _capabilities() -> dict:
+    """Which output protocols the installed ffmpeg binaries support. Probed by
+    running the binaries, cached for CAPABILITIES_TTL_SECONDS."""
+    with _caps_lock:
+        now = time.time()
+        if _caps_cache["caps"] is not None and now - _caps_cache["ts"] < CAPABILITIES_TTL_SECONDS:
+            return _caps_cache["caps"]
+        main_muxers = _ffmpeg_muxers(FFMPEG_BIN)
+        whip_muxers = main_muxers if WHIP_FFMPEG_BIN == FFMPEG_BIN else _ffmpeg_muxers(WHIP_FFMPEG_BIN)
+        whip_ok = "whip" in whip_muxers
+        whip_version = _ffmpeg_version(WHIP_FFMPEG_BIN)
+        caps = {
+            "ffmpeg": FFMPEG_BIN,
+            "ffmpeg_version": _ffmpeg_version(FFMPEG_BIN),
+            "whip_ffmpeg": WHIP_FFMPEG_BIN,
+            "whip_ffmpeg_version": whip_version,
+            "protocols": {
+                "srt": "mpegts" in main_muxers,
+                "rtmp": "flv" in main_muxers,
+                "whip": whip_ok,
+            },
+            "whip_reason": None if whip_ok else (
+                f"WHIP unavailable: '{WHIP_FFMPEG_BIN}' has no whip muxer "
+                f"({whip_version or 'binary not found'}). Needs ffmpeg >= 8.0 built with DTLS "
+                "support; set VIDEO_INGEST_WHIP_FFMPEG to such a binary."
+            ),
+        }
+        _caps_cache.update(ts=now, caps=caps)
+        return caps
+
 # ffmpeg's own logger collapses a repeated line into "Last message repeated
 # N times" instead of reprinting it — if that happens to be the very last
 # stderr line before the process exits, naively using it as last_error hides
@@ -341,6 +416,10 @@ def _parse_destinations(data: dict, multi: bool) -> tuple:
     protocol = str(data.get("protocol", "srt") or "srt").strip().lower()
     if protocol not in PROTOCOLS:
         raise ValueError("Invalid protocol (use srt, rtmp or whip)")
+    if protocol == "whip":
+        caps = _capabilities()
+        if not caps["protocols"]["whip"]:
+            raise ValueError(caps["whip_reason"])
     secret = str(data.get("passphrase") or data.get("token") or "").strip()
 
     def _int(name) -> int:
@@ -520,7 +599,7 @@ def _looped_source_path(input_file: str) -> str:
 
         os.makedirs(LOOP_CACHE_DIR, exist_ok=True)
         tmp_path = os.path.join(LOOP_CACHE_DIR, f"{key}.tmp{ext}")
-        trim_cmd = ["ffmpeg", "-y", "-i", input_file, "-t", str(trimmed_duration)]
+        trim_cmd = [FFMPEG_BIN, "-y", "-i", input_file, "-t", str(trimmed_duration)]
         if ext.lower() == ".ts":
             # Recordings: carry every stream through untouched, including
             # streams ffmpeg does not recognise (private data / SCTE-35 ...).
@@ -670,7 +749,7 @@ def _bars_tone_cmd(dest: dict, secret: str) -> list:
     # (stream key / token) ever ends up in the picture.
     burn = f"PORT {dest['port']}" if protocol == "srt" else f"STREAM {dest['index']}"
     return [
-        "ffmpeg", "-re",
+        _ffmpeg_bin(protocol), "-re",
         "-f", "lavfi", "-i", "smptebars=size=1920x1080:rate=25",
         "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=48000",
         "-filter:v", (
@@ -723,10 +802,11 @@ def _build_ffmpeg_cmd(
         return _bars_tone_cmd(dest, secret)
 
     loop_input = _looped_source_path(input_file) if resolve_loop else input_file
+    ffmpeg = _ffmpeg_bin(dest["protocol"])
     if passthrough:
-        return (["ffmpeg", "-stream_loop", "-1", "-fflags", "+genpts", "-re", "-i", loop_input]
+        return ([ffmpeg, "-stream_loop", "-1", "-fflags", "+genpts", "-re", "-i", loop_input]
                 + _copy_output_args(dest, secret))
-    return (["ffmpeg", "-stream_loop", "-1", "-re", "-fflags", "+genpts", "-i", loop_input]
+    return ([ffmpeg, "-stream_loop", "-1", "-re", "-fflags", "+genpts", "-i", loop_input]
             + _transcode_output_args(dest, secret, bitrate_mbps))
 
 
@@ -748,7 +828,8 @@ def _build_ffmpeg_cmd_shared(
     resolve_loop=False keeps the original path in "-i" (preview only).
     """
     loop_input = _looped_source_path(input_file) if resolve_loop else input_file
-    cmd = ["ffmpeg", "-stream_loop", "-1", "-fflags", "+genpts", "-re", "-i", loop_input]
+    cmd = [_ffmpeg_bin(destinations[0]["protocol"]),
+           "-stream_loop", "-1", "-fflags", "+genpts", "-re", "-i", loop_input]
     for dest in destinations:
         cmd += _copy_output_args(dest, secret)
     return cmd
@@ -1208,6 +1289,13 @@ def ingest_preview():
         # Backward compatibility with the previous single-note response shape.
         "note": " ".join(notes) if notes else None,
     })
+
+
+@srt_bp.route("/capabilities", methods=["GET"])
+def capabilities():
+    """Output protocols supported by the installed ffmpeg binaries (probed and
+    cached). The UI disables unsupported protocols and shows the reason."""
+    return jsonify(_capabilities())
 
 
 @srt_bp.route("/jobs", methods=["GET"])

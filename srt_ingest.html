@@ -871,6 +871,33 @@ function getProtocol(prefix) {
   return document.getElementById(`${prefix}-protocol`).value;
 }
 
+// Protocols the server's ffmpeg binaries actually support (GET /capabilities).
+// Unsupported ones are disabled in both selectors with the server's reason,
+// so a WHIP job is never launched against an ffmpeg without the whip muxer.
+let capabilities = null;
+async function loadCapabilities() {
+  try {
+    const r = await fetch(`${BASE}/capabilities`);
+    if (!r.ok) return;
+    capabilities = await r.json();
+  } catch (e) { console.warn('Could not load capabilities:', e); return; }
+  const supported = capabilities.protocols || {};
+  ['s', 'm'].forEach(prefix => {
+    const sel = document.getElementById(`${prefix}-protocol`);
+    let changed = false;
+    [...sel.options].forEach(o => {
+      const ok = supported[o.value] !== false;
+      o.disabled = !ok;
+      if (!ok && !o.textContent.includes('unavailable')) o.textContent += ' — unavailable';
+      if (!ok && sel.value === o.value) { sel.value = 'srt'; changed = true; }
+    });
+    if (changed) onProtocolChange(prefix);
+  });
+  if (supported.whip === false && capabilities.whip_reason) {
+    PROTOCOL_NOTES.whip = capabilities.whip_reason;
+  }
+}
+
 function populateUrlPresets(prefix, protocol) {
   const sel = document.getElementById(`${prefix}-url-preset`);
   while (sel.options.length > 1) sel.remove(1);
@@ -1725,6 +1752,7 @@ function onIndependentChange() {
 
 ['s', 'm'].forEach(initSourcePicker);
 ['s', 'm'].forEach(onProtocolChange);
+loadCapabilities();
 loadSources();
 setInterval(loadSources, SOURCE_REFRESH_MS);
 
