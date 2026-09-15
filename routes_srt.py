@@ -1,7 +1,21 @@
 """
-SRT Ingest Router Blueprint
-Handles SRT ingest routes: single destination and multi-destination (port range).
-Streams ffmpeg stderr stats (bitrate, speed, time) via SSE per job.
+Video Ingest Router Blueprint
+Pushes a looped local file (or generated colour bars) to one or more
+destinations over SRT, RTMP or WHIP (WebRTC-HTTP ingestion), in single or
+multi-destination form. Streams ffmpeg stderr stats (bitrate, speed, time)
+via SSE per job.
+
+Output protocols
+  srt   mpegts over SRT (optional passphrase). Passthrough keeps every
+        elementary stream of the recording (-map 0 -c copy -copy_unknown).
+  rtmp  FLV over RTMP (e.g. PhenixRTS rtmp://ingest.phenixrts.com:80/ingest/
+        + stream key). FLV carries one H.264 video + one AAC audio stream, so
+        passthrough maps the first video/audio pair and requires H.264/AAC.
+  whip  WebRTC via the ffmpeg "whip" muxer (ffmpeg >= 8.0 built with OpenSSL).
+        Requires H.264 without B-frames + Opus 48 kHz stereo: passthrough
+        copies the H.264 video and always re-encodes audio to Opus; transcode
+        uses libx264 (bf=0, yuv420p, zerolatency) + libopus. Optional Bearer
+        token is passed with -authorization.
 
 Jobs are persistent: unless the user explicitly stops a job, the reader
 thread keeps relaunching ffmpeg after a short delay whenever the process
@@ -17,6 +31,10 @@ every time the source file "ends".
 
 Also handles SRT Push Control routes: monitoring and controlling the
 srt-push systemd service (Xvfb + Chromium + ffmpeg screen-to-SRT pipeline).
+
+NOTE: the module/blueprint name, file name and URL prefix ("/srt") are kept
+unchanged on purpose — renaming them would require changes to the app
+registration and the reverse-proxy path the UI is served from.
 """
 
 import re
@@ -226,6 +244,24 @@ RETRY_DELAY_SECONDS = 3
 # server CPU with large fan-outs. Cap it; /ingest/multi-shared (1 process,
 # -c copy) has no such cost and keeps the 100-destination limit.
 MULTI_INDEPENDENT_MAX_DESTINATIONS = 5
+MULTI_SHARED_MAX_DESTINATIONS = 100
+
+# ---------------------------------------------------------------------------
+# Output protocols / destinations
+# ---------------------------------------------------------------------------
+# A destination is a dict:
+#   {"protocol": "srt",  "host": str, "port": int, "index": int, "label": str}
+#   {"protocol": "rtmp", "url": str,               "index": int, "label": str}
+#   {"protocol": "whip", "url": str,               "index": int, "label": str}
+# "index" is the 1-based position in a multi-destination range (1 for a single
+# destination) and is what B&T burns into the picture for non-SRT outputs.
+# "label" is the operator-facing name of the destination with any secret
+# (stream key) already masked, safe to log and to return to the UI.
+PROTOCOLS = ("srt", "rtmp", "whip")
+
+# Placeholder expanded to the destination index in multi-destination RTMP/WHIP
+# URL / stream-key templates, e.g. "live-{n}" -> live-1, live-2, ...
+INDEX_PLACEHOLDER = "{n}"
 
 # ffmpeg's own logger collapses a repeated line into "Last message repeated
 # N times" instead of reprinting it — if that happens to be the very last
@@ -248,6 +284,142 @@ def _pick_last_error(error_log) -> Optional[str]:
         if line and not _NOISE_LINE_RE.match(line.strip()):
             return line
     return lines[-1] if lines else None
+
+
+# Secrets must never leave the server in clear text (preview, job list, logs):
+#   - SRT passphrase in the URL query,
+#   - RTMP stream key (last path segment of rtmp://host/app/<key>),
+#   - WHIP Bearer token (value following -authorization).
+_PASSPHRASE_RE = re.compile(r"(passphrase=)[^&\s]+")
+_RTMP_KEY_RE = re.compile(r"^(rtmps?://[^/\s]+/(?:[^/\s]+/)*)[^/\s]+$", re.IGNORECASE)
+
+
+def _mask_url(url: str) -> str:
+    """Mask the secret part of a destination URL (SRT passphrase / RTMP stream
+    key). Non-URL strings are returned unchanged."""
+    url = _PASSPHRASE_RE.sub(r"\1***", url)
+    m = _RTMP_KEY_RE.match(url)
+    if m:
+        return m.group(1) + "***"
+    return url
+
+
+def _mask_cmd(cmd: list) -> list:
+    """Return a copy of an ffmpeg argv with every secret replaced by ***."""
+    out, mask_next = [], False
+    for tok in cmd:
+        if mask_next:
+            out.append("***")
+            mask_next = False
+            continue
+        if tok == "-authorization":
+            mask_next = True
+            out.append(tok)
+            continue
+        out.append(_mask_url(tok))
+    return out
+
+
+def _parse_destinations(data: dict, multi: bool) -> tuple:
+    """Validate the destination part of an ingest/preview request body and
+    return (protocol, destinations, secret).
+
+    Body fields by protocol:
+      srt   host, port                     (single)
+            host, port_start, port_end     (multi)
+            passphrase (optional)
+      rtmp  url (base or full), stream_key (optional, appended to url)
+            index_start, index_end         (multi; url/key must contain {n})
+      whip  url (WHIP endpoint), passphrase|token (optional Bearer token)
+            index_start, index_end         (multi; url must contain {n})
+
+    `secret` is the SRT passphrase or the WHIP Bearer token (unused for RTMP,
+    where the secret is the stream key embedded in the URL).
+    Raises ValueError with a user-facing message on invalid input. Range caps
+    are NOT applied here — each route applies its own.
+    """
+    protocol = str(data.get("protocol", "srt") or "srt").strip().lower()
+    if protocol not in PROTOCOLS:
+        raise ValueError("Invalid protocol (use srt, rtmp or whip)")
+    secret = str(data.get("passphrase") or data.get("token") or "").strip()
+
+    def _int(name) -> int:
+        try:
+            return int(data.get(name, 0) or 0)
+        except (TypeError, ValueError):
+            raise ValueError(f"Invalid numeric field: {name}")
+
+    dests = []
+    if protocol == "srt":
+        host = str(data.get("host", "")).strip()
+        if not host:
+            raise ValueError("host is required")
+        if multi:
+            port_start, port_end = _int("port_start"), _int("port_end")
+            if not port_start or not port_end:
+                raise ValueError("port_start and port_end are required")
+            if port_start > port_end:
+                raise ValueError("port_start must be <= port_end")
+            ports = range(port_start, port_end + 1)
+        else:
+            port = _int("port")
+            if not port:
+                raise ValueError("port is required")
+            ports = [port]
+        for i, p in enumerate(ports, start=1):
+            if not (1 <= p <= 65535):
+                raise ValueError(f"Invalid port: {p}")
+            dests.append({"protocol": "srt", "host": host, "port": p,
+                          "index": i, "label": f"{host}:{p}"})
+        return protocol, dests, secret
+
+    # rtmp / whip ---------------------------------------------------------
+    url = str(data.get("url", "")).strip()
+    if not url:
+        raise ValueError("url is required")
+    if protocol == "rtmp":
+        key = str(data.get("stream_key", "")).strip()
+        if key:
+            url = url.rstrip("/") + "/" + key.lstrip("/")
+        if not re.match(r"^rtmps?://[^/\s]+/", url, re.IGNORECASE):
+            raise ValueError("RTMP url must look like rtmp://host[:port]/app/<stream key>")
+        secret = ""  # the stream key travels inside the URL
+    else:
+        if not re.match(r"^https?://[^/\s]+", url, re.IGNORECASE):
+            raise ValueError("WHIP url must be an http(s):// endpoint")
+    if re.search(r"\s", url):
+        raise ValueError("url must not contain whitespace")
+
+    if multi:
+        idx_start, idx_end = _int("index_start"), _int("index_end")
+        if not idx_start or not idx_end:
+            raise ValueError("index_start and index_end are required")
+        if idx_start > idx_end:
+            raise ValueError("index_start must be <= index_end")
+        if idx_end > idx_start and INDEX_PLACEHOLDER not in url:
+            raise ValueError(
+                f"Multi-destination {protocol.upper()} needs the {INDEX_PLACEHOLDER} placeholder "
+                "in the url or stream key so every destination is distinct"
+            )
+        indexes = range(idx_start, idx_end + 1)
+    else:
+        indexes = [1]
+    for i, n in enumerate(indexes, start=1):
+        u = url.replace(INDEX_PLACEHOLDER, str(n))
+        dests.append({"protocol": protocol, "url": u, "index": n, "label": _mask_url(u)})
+    return protocol, dests, secret
+
+
+def _destinations_label(destinations: list) -> str:
+    """Compact operator-facing label for a set of destinations (secrets masked)."""
+    if not destinations:
+        return ""
+    first, last = destinations[0], destinations[-1]
+    if len(destinations) == 1:
+        return first["label"]
+    if first["protocol"] == "srt" and all(d["host"] == first["host"] for d in destinations):
+        return f"{first['host']}:{first['port']}-{last['port']}"
+    return f"{first['label']} … {last['label']}"
 
 # -stream_loop reopens the input file from scratch on every iteration. Looping
 # all the way to the real end of file — and whatever low-complexity/fade-out
@@ -390,104 +562,75 @@ def _next_job_id() -> int:
     return _job_counter
 
 
-def _build_ffmpeg_cmd(
-    input_file: str,
-    host: str,
-    port: int,
-    passphrase: str,
-    bitrate_mbps: float = CBR_DEFAULT_MBPS,
-    passthrough: bool = False,
-    source_mode: str = "file",
-    resolve_loop: bool = True,
-) -> list:
-    """Build ffmpeg command for a single SRT destination.
+# ---------------------------------------------------------------------------
+# ffmpeg command builders
+# ---------------------------------------------------------------------------
+# Every command is "<input options> -i <source> <output block>+" where each
+# output block ends with the destination URL. The blocks below are shared by
+# the single, independent-multi (one block per process) and shared-multi
+# (several blocks in one process) commands so the three can never drift.
 
-    passthrough=True: copy streams without re-encoding (for .ts sources).
-    passthrough=False: full CBR transcode with libx264/aac.
-    resolve_loop=False: keep the original input path in "-i" instead of
-    generating/looking up the cached pre-trimmed loop copy (used by the
-    /ingest/preview route, which must never touch the filesystem).
+def _dest_output_url(dest: dict, secret: str) -> str:
+    """Final URL token for a destination (SRT passphrase appended here)."""
+    if dest["protocol"] == "srt":
+        base = f"srt://{dest['host']}:{dest['port']}"
+        return f"{base}?passphrase={secret}" if secret else base
+    return dest["url"]
+
+
+def _container_args(protocol: str, secret: str) -> list:
+    """Muxer selection + muxer options for a protocol."""
+    if protocol == "srt":
+        return ["-f", "mpegts", "-muxdelay", "0", "-muxpreload", "0"]
+    if protocol == "rtmp":
+        # Live FLV: don't try to write duration/filesize metadata.
+        return ["-f", "flv", "-flvflags", "no_duration_filesize"]
+    args = ["-f", "whip"]
+    if secret:
+        args += ["-authorization", secret]  # Bearer token (masked in previews)
+    return args
+
+
+def _audio_encode_args(protocol: str, audio_bitrate: Optional[str] = None) -> list:
+    """Audio encoder for a protocol: Opus for WHIP (WebRTC), AAC otherwise."""
+    codec = "libopus" if protocol == "whip" else "aac"
+    args = ["-c:a", codec]
+    if audio_bitrate:
+        args += ["-b:a", audio_bitrate]
+    return args + ["-ar", "48000", "-ac", "2"]
+
+
+def _copy_output_args(dest: dict, secret: str) -> list:
+    """Passthrough output block (no video re-encode).
+
+    srt   every elementary stream of the recording is mapped and stream
+          copied; -copy_unknown keeps streams ffmpeg cannot identify.
+    rtmp  FLV holds one video + one audio stream: first pair, stream copied
+          (source must be H.264 + AAC; the flv muxer converts ADTS itself).
+    whip  H.264 video copied; audio always re-encoded to Opus (WebRTC).
+    NOTE: no +discardcorrupt anywhere. The mpegts demuxer flags a whole PES
+    as corrupt on a continuity-counter error, which is common in recorded
+    network streams; with +discardcorrupt those PES (IDR frames included)
+    are dropped entirely and the receiver may never get a decodable keyframe.
     """
-    srt_url = f"srt://{host}:{port}?passphrase={passphrase}" if passphrase else f"srt://{host}:{port}"
+    protocol = dest["protocol"]
+    if protocol == "srt":
+        args = ["-map", "0", "-c", "copy", "-copy_unknown"]
+    elif protocol == "rtmp":
+        args = ["-map", "0:v:0", "-map", "0:a:0", "-c", "copy"]
+    else:
+        args = ["-map", "0:v:0", "-map", "0:a:0", "-c:v", "copy"] + _audio_encode_args("whip")
+    args += ["-avoid_negative_ts", "make_zero"]
+    return args + _container_args(protocol, secret) + [_dest_output_url(dest, secret)]
 
-    if source_mode == "bars_tone":
-        # A dedicated source is required per destination because the port is
-        # burned into the video.  The signal is 1080p25 SMPTE colour bars with
-        # a continuous 1 kHz tone, encoded as AVC/H.264 at 1 Mbps. A live UTC
-        # clock is also burned in (top of frame) so an operator can compare it
-        # against wall-clock time at the receiving end to estimate latency.
-        return [
-            "ffmpeg", "-re",
-            "-f", "lavfi", "-i", "smptebars=size=1920x1080:rate=25",
-            "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=48000",
-            "-filter:v", (
-                "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:"
-                f"text='PORT {port}':fontcolor=white:fontsize=72:"
-                "box=1:boxcolor=black@0.70:boxborderw=20:x=(w-text_w)/2:y=h-140,"
-                "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:"
-                "text='UTC %{gmtime\\:%X}.%{eif\\:mod(n\\,25)*40\\:d\\:3}':fontcolor=#00ff88:fontsize=56:"
-                "box=1:boxcolor=black@0.70:boxborderw=16:x=(w-text_w)/2:y=40"
-            ),
-            "-map", "0:v:0",
-            "-map", "1:a:0",
-            "-c:v", "libx264",
-            "-profile:v", "high",
-            "-pix_fmt", "yuv420p",
-            "-x264-params", "force-cfr=1:pic-struct=1:scenecut=0",
-            "-tune", "zerolatency",  
-            "-bf", "0",
-            "-flags", "+cgop",
-            "-r", "25",
-            "-g", "25",
-            "-keyint_min", "25",
-            "-sc_threshold", "0",
-            "-b:v", "1M",
-            "-minrate", "1M",
-            "-maxrate", "1M",
-            "-bufsize", "2M",
-            "-c:a", "aac",
-            "-b:a", "128k",
-            "-ar", "48000",
-            "-ac", "2",
-            "-f", "mpegts",
-            "-muxdelay", "0",
-            "-muxpreload", "0",
-            srt_url,
-        ]
 
-    if passthrough:
-        # Send the recording as it was captured: every elementary stream
-        # (all audio PIDs, subtitles, private data) is mapped and stream
-        # copied; -copy_unknown keeps streams ffmpeg cannot identify.
-        # NOTE: no +discardcorrupt here. The mpegts demuxer flags a whole PES
-        # as corrupt on a continuity-counter error, which is common in
-        # recorded network streams; with +discardcorrupt those PES (IDR
-        # frames included) are dropped entirely and the receiver may never
-        # get a decodable keyframe.
-        loop_input = _looped_source_path(input_file) if resolve_loop else input_file
-        return [
-            "ffmpeg",
-            "-stream_loop", "-1",
-            "-fflags", "+genpts",
-            "-re",
-            "-i", loop_input,
-            "-map", "0",
-            "-c", "copy",
-            "-copy_unknown",
-            "-avoid_negative_ts", "make_zero",
-            "-f", "mpegts",
-            "-muxdelay", "0",
-            "-muxpreload", "0",
-            srt_url,
-        ]
-
+def _transcode_output_args(dest: dict, secret: str, bitrate_mbps: float) -> list:
+    """Strict-CBR libx264 transcode output block (1080p25, closed GOP, no
+    B-frames) + AAC/Opus audio, for one destination."""
+    protocol = dest["protocol"]
     vbr = f"{bitrate_mbps}M"
     bufsize = f"{bitrate_mbps * CBR_BUFSIZE_FACTOR}M"
-    loop_input = _looped_source_path(input_file) if resolve_loop else input_file
-    return [
-        "ffmpeg", "-stream_loop", "-1", "-re",
-        "-fflags", "+genpts",
-        "-i", loop_input,
+    args = [
         "-map", "0:v:0",
         "-map", "0:a:0",
         # Video — strict CBR
@@ -503,57 +646,111 @@ def _build_ffmpeg_cmd(
         "-minrate", vbr,
         "-maxrate", vbr,
         "-bufsize", bufsize,
-        # Audio
-        "-c:a", "aac",
-        "-ar", "48000",
-        "-ac", "2",
-        # Scale + container
-        "-vf", "scale=1920:1080",
-        "-f", "mpegts",
-        "-muxdelay", "0",
-        "-muxpreload", "0",
-        srt_url,
     ]
+    if protocol == "whip":
+        # WebRTC receivers expect 4:2:0 H.264 and benefit from low-latency
+        # encoder settings (no lookahead / frame threading delay).
+        args += ["-pix_fmt", "yuv420p", "-tune", "zerolatency"]
+    args += _audio_encode_args(protocol)
+    args += ["-vf", "scale=1920:1080"]
+    return args + _container_args(protocol, secret) + [_dest_output_url(dest, secret)]
+
+
+def _bars_tone_cmd(dest: dict, secret: str) -> list:
+    """Full command for the generated Bars & Tone source, one destination.
+
+    A dedicated process is required per destination because the destination
+    is burned into the video. The signal is 1080p25 SMPTE colour bars with a
+    continuous 1 kHz tone, encoded as AVC/H.264 at 1 Mbps. A live UTC clock
+    is also burned in (top of frame) so an operator can compare it against
+    wall-clock time at the receiving end to estimate latency.
+    """
+    protocol = dest["protocol"]
+    # Digits/letters only: nothing to escape for drawtext, and no secret
+    # (stream key / token) ever ends up in the picture.
+    burn = f"PORT {dest['port']}" if protocol == "srt" else f"STREAM {dest['index']}"
+    return [
+        "ffmpeg", "-re",
+        "-f", "lavfi", "-i", "smptebars=size=1920x1080:rate=25",
+        "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=48000",
+        "-filter:v", (
+            "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:"
+            f"text='{burn}':fontcolor=white:fontsize=72:"
+            "box=1:boxcolor=black@0.70:boxborderw=20:x=(w-text_w)/2:y=h-140,"
+            "drawtext=fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf:"
+            "text='UTC %{gmtime\\:%X}.%{eif\\:mod(n\\,25)*40\\:d\\:3}':fontcolor=#00ff88:fontsize=56:"
+            "box=1:boxcolor=black@0.70:boxborderw=16:x=(w-text_w)/2:y=40"
+        ),
+        "-map", "0:v:0",
+        "-map", "1:a:0",
+        "-c:v", "libx264",
+        "-profile:v", "high",
+        "-pix_fmt", "yuv420p",
+        "-x264-params", "force-cfr=1:pic-struct=1:scenecut=0",
+        "-tune", "zerolatency",
+        "-bf", "0",
+        "-flags", "+cgop",
+        "-r", "25",
+        "-g", "25",
+        "-keyint_min", "25",
+        "-sc_threshold", "0",
+        "-b:v", "1M",
+        "-minrate", "1M",
+        "-maxrate", "1M",
+        "-bufsize", "2M",
+    ] + _audio_encode_args(protocol, "128k") \
+      + _container_args(protocol, secret) + [_dest_output_url(dest, secret)]
+
+
+def _build_ffmpeg_cmd(
+    input_file: str,
+    dest: dict,
+    secret: str,
+    bitrate_mbps: float = CBR_DEFAULT_MBPS,
+    passthrough: bool = False,
+    source_mode: str = "file",
+    resolve_loop: bool = True,
+) -> list:
+    """Build the ffmpeg command for ONE destination (any protocol).
+
+    passthrough=True: copy streams without video re-encoding (for .ts sources).
+    passthrough=False: full CBR transcode with libx264 + aac/libopus.
+    resolve_loop=False: keep the original input path in "-i" instead of
+    generating/looking up the cached pre-trimmed loop copy (used by the
+    /ingest/preview route, which must never touch the filesystem).
+    """
+    if source_mode == "bars_tone":
+        return _bars_tone_cmd(dest, secret)
+
+    loop_input = _looped_source_path(input_file) if resolve_loop else input_file
+    if passthrough:
+        return (["ffmpeg", "-stream_loop", "-1", "-fflags", "+genpts", "-re", "-i", loop_input]
+                + _copy_output_args(dest, secret))
+    return (["ffmpeg", "-stream_loop", "-1", "-re", "-fflags", "+genpts", "-i", loop_input]
+            + _transcode_output_args(dest, secret, bitrate_mbps))
 
 
 def _build_ffmpeg_cmd_shared(
-    input_file: str, destinations: list, passphrase: str, resolve_loop: bool = True
+    input_file: str, destinations: list, secret: str, resolve_loop: bool = True
 ) -> list:
     """Build a SINGLE ffmpeg command that reads input_file once and pushes an
-    unmodified copy (-c copy) to every destination in `destinations`.
+    unmodified copy to every destination in `destinations`.
 
-    This is the fix for CPU spiking to 100% when fanning out to many SRT
+    This is the fix for CPU spiking to 100% when fanning out to many
     targets: the previous approach spawned one whole ffmpeg process (one
-    decode, and for transcode mode one libx264 encode) PER destination. With
-    10 destinations in transcode mode that is 10 simultaneous libx264
-    encodes of the same source. Here there is one demux and zero re-encode
-    (stream copy), shared across all destinations, in a single process.
+    decode, and for transcode mode one libx264 encode) PER destination. Here
+    there is one demux and zero video re-encode, shared across all
+    destinations, in a single process (WHIP outputs still carry their own
+    cheap Opus audio encode each — WebRTC mandates Opus).
 
     Passthrough/copy only — sharing a single re-encode across destinations
     would need the ffmpeg 'tee' muxer, which is not implemented here.
-
-    Every elementary stream of the recording is mapped to every output
-    (-map 0 -c copy -copy_unknown) so all audio PIDs / data streams reach the
-    destinations, same as the single-destination passthrough command.
     resolve_loop=False keeps the original path in "-i" (preview only).
     """
     loop_input = _looped_source_path(input_file) if resolve_loop else input_file
     cmd = ["ffmpeg", "-stream_loop", "-1", "-fflags", "+genpts", "-re", "-i", loop_input]
     for dest in destinations:
-        srt_url = (
-            f"srt://{dest['host']}:{dest['port']}?passphrase={passphrase}"
-            if passphrase else f"srt://{dest['host']}:{dest['port']}"
-        )
-        cmd += [
-            "-map", "0",
-            "-c", "copy",
-            "-copy_unknown",
-            "-avoid_negative_ts", "make_zero",
-            "-f", "mpegts",
-            "-muxdelay", "0",
-            "-muxpreload", "0",
-            srt_url,
-        ]
+        cmd += _copy_output_args(dest, secret)
     return cmd
 
 
@@ -589,10 +786,10 @@ def _launch_process(job: dict) -> None:
     Raises OSError if the process cannot be spawned at all.
     """
     if job.get("type") == "shared":
-        cmd = _build_ffmpeg_cmd_shared(job["input_file"], job["destinations"], job["passphrase"])
+        cmd = _build_ffmpeg_cmd_shared(job["input_file"], job["destinations"], job["secret"])
     else:
         cmd = _build_ffmpeg_cmd(
-            job["input_file"], job["host"], job["port"], job["passphrase"],
+            job["input_file"], job["dest"], job["secret"],
             job["bitrate_mbps"], job["passthrough"], job.get("source_mode", "file"),
         )
     process = subprocess.Popen(
@@ -604,7 +801,9 @@ def _launch_process(job: dict) -> None:
     )
     job["process"] = process
     job["pid"] = process.pid
-    job["cmd"] = " ".join(cmd)
+    # Only the masked command line is kept: it is returned to the UI by
+    # /jobs and must never expose passphrases, stream keys or tokens.
+    job["cmd"] = " ".join(_mask_cmd(cmd))
     job["status"] = "running"
     job["stats_buf"].clear()
     job["last_stat"] = None
@@ -656,7 +855,9 @@ def _job_reader_thread(job_id: int) -> None:
                         j["stats_buf"].append(stat)
                         j["last_stat"] = stat
                     elif line.strip():
-                        j["error_log"].append(line.strip())
+                        # ffmpeg may echo the output URL (with secrets) in
+                        # its diagnostics; error_log is shown in the UI.
+                        j["error_log"].append(_mask_url(line.strip()))
         proc.wait()
 
         with _jobs_lock:
@@ -678,28 +879,11 @@ def _job_reader_thread(job_id: int) -> None:
         time.sleep(RETRY_DELAY_SECONDS)
 
 
-def _launch_job(
-    input_file: str,
-    host: str,
-    port: int,
-    passphrase: str,
-    bitrate_mbps: float = CBR_DEFAULT_MBPS,
-    passthrough: bool = False,
-    source_mode: str = "file",
-) -> dict:
-    """Create a job record and launch its ffmpeg process for the first time."""
-    job_id = _next_job_id()
-
+def _new_job_record(job_id: int, **fields) -> dict:
+    """Common job skeleton (status, buffers, counters) merged with `fields`."""
     job = {
         "id": job_id,
-        "host": host,
-        "port": port,
-        "passphrase": passphrase,
-        "input_file": input_file,
-        "bitrate_mbps": bitrate_mbps,
-        "passthrough": passthrough,
-        "source_mode": source_mode,
-        "mode": "bars-tone" if source_mode == "bars_tone" else ("passthrough" if passthrough else "transcode"),
+        "type": "single",
         "status": "starting",
         "process": None,
         "pid": None,
@@ -713,70 +897,84 @@ def _launch_job(
         "stop_requested": False,
         "retry_count": 0,
     }
+    job.update(fields)
+    return job
 
+
+def _start_job(job: dict) -> dict:
+    """Register a job, launch its ffmpeg process for the first time and start
+    its reader thread."""
     with _jobs_lock:
-        _running_jobs[job_id] = job
-
+        _running_jobs[job["id"]] = job
     try:
         _launch_process(job)
     except OSError as e:
         job["status"] = "error"
         job["last_error"] = f"Failed to launch ffmpeg: {e}"
-
-    threading.Thread(target=_job_reader_thread, args=(job_id,), daemon=True).start()
+    threading.Thread(target=_job_reader_thread, args=(job["id"],), daemon=True).start()
     return job
 
 
-def _launch_shared_job(input_file: str, destinations: list, passphrase: str) -> dict:
+def _launch_job(
+    input_file: str,
+    dest: dict,
+    secret: str,
+    bitrate_mbps: float = CBR_DEFAULT_MBPS,
+    passthrough: bool = False,
+    source_mode: str = "file",
+) -> dict:
+    """Create a single-destination job record and launch it."""
+    job = _new_job_record(
+        _next_job_id(),
+        type="single",
+        protocol=dest["protocol"],
+        dest=dest,
+        destinations=[dest],
+        secret=secret,
+        input_file=input_file,
+        bitrate_mbps=bitrate_mbps,
+        passthrough=passthrough,
+        source_mode=source_mode,
+        mode="bars-tone" if source_mode == "bars_tone" else ("passthrough" if passthrough else "transcode"),
+    )
+    return _start_job(job)
+
+
+def _launch_shared_job(input_file: str, destinations: list, secret: str) -> dict:
     """Create and launch a SHARED job: one ffmpeg process, one decode, fanning
     out an unmodified copy to every destination in `destinations`. Reuses the
     same reader-thread/reconnect/stop/restart machinery as a single job.
     """
-    job_id = _next_job_id()
-
-    job = {
-        "id": job_id,
-        "type": "shared",
-        "destinations": destinations,  # [{"host": ..., "port": ...}, ...]
-        "host": None,
-        "port": None,
-        "passphrase": passphrase,
-        "input_file": input_file,
-        "bitrate_mbps": None,
-        "passthrough": True,
-        "mode": "passthrough-shared",
-        "status": "starting",
-        "process": None,
-        "pid": None,
-        "cmd": "",
-        "stats_buf": deque(maxlen=300),
-        "last_stat": None,
-        "error_log": deque(maxlen=40),
-        "last_error": None,
-        "stop_requested": False,
-        "retry_count": 0,
-    }
-
-    with _jobs_lock:
-        _running_jobs[job_id] = job
-
-    try:
-        _launch_process(job)
-    except OSError as e:
-        job["status"] = "error"
-        job["last_error"] = f"Failed to launch ffmpeg: {e}"
-
-    threading.Thread(target=_job_reader_thread, args=(job_id,), daemon=True).start()
-    return job
+    job = _new_job_record(
+        _next_job_id(),
+        type="shared",
+        protocol=destinations[0]["protocol"],
+        dest=None,
+        destinations=destinations,
+        secret=secret,
+        input_file=input_file,
+        bitrate_mbps=None,
+        passthrough=True,
+        source_mode="file",
+        mode="passthrough-shared",
+    )
+    return _start_job(job)
 
 
 def _job_info(job: dict) -> dict:
-    """Serialisable snapshot of a job (no subprocess object)."""
-    info = {
+    """Serialisable snapshot of a job (no subprocess object, no secrets)."""
+    dest = job.get("dest") or {}
+    dests = job.get("destinations") or []
+    return {
         "id": job["id"],
         "type": job.get("type", "single"),
-        "host": job["host"],
-        "port": job["port"],
+        "protocol": job.get("protocol", "srt"),
+        # Operator-facing destination name(s), secrets masked.
+        "label": _destinations_label(dests),
+        "destination_count": len(dests),
+        # SRT-only convenience fields kept for existing consumers.
+        "host": dest.get("host"),
+        "port": dest.get("port"),
         "pid": job["pid"],
         "bitrate_mbps": job["bitrate_mbps"],
         "passthrough": job["passthrough"],
@@ -788,10 +986,49 @@ def _job_info(job: dict) -> dict:
         "last_error": job.get("last_error"),
         "error_detail": list(job.get("error_log", []))[-12:],
         "cmd": job.get("cmd", ""),
+        "destinations": [
+            {k: d.get(k) for k in ("protocol", "host", "port", "index", "label")} for d in dests
+        ],
     }
-    if job.get("type") == "shared":
-        info["destinations"] = job["destinations"]
-    return info
+
+
+def _read_common_ingest_fields(data: dict) -> tuple:
+    """Source-related fields shared by every ingest/preview request:
+    (input_file, bitrate_mbps, passthrough, source_mode). Raises ValueError."""
+    input_file = str(data.get("input_file", "test.mp4")).strip()
+    try:
+        bitrate_mbps = float(data.get("bitrate_mbps", CBR_DEFAULT_MBPS))
+    except (TypeError, ValueError):
+        raise ValueError("Invalid bitrate_mbps")
+    passthrough = bool(data.get("passthrough", False))
+    source_mode = data.get("source_mode", "file")
+    if source_mode not in ("file", "bars_tone"):
+        raise ValueError("Invalid source_mode")
+    if source_mode == "bars_tone":
+        # B&T has a fixed compliance profile; do not inherit the UI bitrate
+        # or passthrough choice.
+        bitrate_mbps = 1.0
+        passthrough = False
+    return input_file, bitrate_mbps, passthrough, source_mode
+
+
+def _protocol_notes(protocol: str, passthrough: bool, source_mode: str) -> list:
+    """Operator-facing caveats for the chosen protocol/mode (shown in previews)."""
+    notes = []
+    if protocol == "rtmp" and passthrough and source_mode == "file":
+        notes.append(
+            "RTMP/FLV carries a single video + audio pair: passthrough maps the first "
+            "video and first audio stream only and requires them to be H.264 + AAC "
+            "(tick Transcode otherwise)."
+        )
+    if protocol == "whip":
+        notes.append(
+            "WHIP needs ffmpeg >= 8.0 built with the whip muxer (OpenSSL). WebRTC mandates "
+            "H.264 without B-frames + Opus: audio is always re-encoded to Opus"
+            + (", video H.264 is stream-copied (tick Transcode if the receiver rejects it)."
+               if passthrough and source_mode == "file" else ".")
+        )
+    return notes
 
 
 # ---------------------------------------------------------------------------
@@ -800,68 +1037,50 @@ def _job_info(job: dict) -> dict:
 
 @srt_bp.route("/")
 def srt_tool():
-    """Serve the SRT ingest HTML tool."""
+    """Serve the Video Ingest HTML tool."""
     return render_template("srt_tool.html")
 
 
 @srt_bp.route("/ingest/single", methods=["POST"])
 def ingest_single():
     """
-    Start a single SRT ingest.
-    Body JSON: { host, port, passphrase, input_file?, bitrate_mbps? }
+    Start a single-destination ingest (SRT, RTMP or WHIP).
+    Body JSON: { protocol?, host, port, passphrase? | url, stream_key? | url,
+                 token?, input_file?, bitrate_mbps?, passthrough?, source_mode? }
     The job keeps retrying to connect automatically until stopped.
     """
-    data = request.get_json(force=True)
-    host = data.get("host", "").strip()
-    port = int(data.get("port", 0))
-    passphrase = data.get("passphrase", "").strip()
-    input_file = data.get("input_file", "test.mp4").strip()
-    bitrate_mbps = float(data.get("bitrate_mbps", CBR_DEFAULT_MBPS))
-    passthrough = bool(data.get("passthrough", False))
-    source_mode = data.get("source_mode", "file")
-    if source_mode not in ("file", "bars_tone"):
-        return jsonify({"error": "Invalid source_mode"}), 400
-
-    if not host or not port:
-        return jsonify({"error": "host and port are required"}), 400
-    if source_mode == "bars_tone":
-        # B&T has a fixed compliance profile; do not inherit the UI bitrate
-        # or passthrough choice.
-        bitrate_mbps = 1.0
-        passthrough = False
-    elif not os.path.isfile(input_file):
+    data = request.get_json(force=True) or {}
+    try:
+        input_file, bitrate_mbps, passthrough, source_mode = _read_common_ingest_fields(data)
+        protocol, dests, secret = _parse_destinations(data, multi=False)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    if source_mode != "bars_tone" and not os.path.isfile(input_file):
         return jsonify({"error": f"Input file not found: {input_file}"}), 400
 
-    job = _launch_job(input_file, host, port, passphrase, bitrate_mbps, passthrough, source_mode=source_mode)
+    job = _launch_job(input_file, dests[0], secret, bitrate_mbps, passthrough, source_mode=source_mode)
     return jsonify({"message": "Ingest started", "job": _job_info(job)}), 201
 
 
 @srt_bp.route("/ingest/multi", methods=["POST"])
 def ingest_multi():
     """
-    Start ingest to multiple SRT destinations (port range), one independent
-    ffmpeg process per destination. Limited to MULTI_INDEPENDENT_MAX_DESTINATIONS
-    to protect the server CPU — use /ingest/multi-shared for large fan-outs.
-    Body JSON: { host, port_start, port_end, passphrase, input_file?, bitrate_mbps? }
+    Start ingest to multiple destinations, one independent ffmpeg process per
+    destination. Limited to MULTI_INDEPENDENT_MAX_DESTINATIONS to protect the
+    server CPU — use /ingest/multi-shared for large fan-outs.
+    Body JSON: { protocol?, host, port_start, port_end, passphrase? |
+                 url (with {n}), stream_key?, index_start, index_end |
+                 url (with {n}), token?, index_start, index_end,
+                 input_file?, bitrate_mbps?, passthrough?, source_mode? }
     Each destination job keeps retrying to connect automatically until stopped.
     """
-    data = request.get_json(force=True)
-    host = data.get("host", "").strip()
-    port_start = int(data.get("port_start", 0))
-    port_end = int(data.get("port_end", 0))
-    passphrase = data.get("passphrase", "").strip()
-    input_file = data.get("input_file", "test.mp4").strip()
-    bitrate_mbps = float(data.get("bitrate_mbps", CBR_DEFAULT_MBPS))
-    passthrough = bool(data.get("passthrough", False))
-    source_mode = data.get("source_mode", "file")
-    if source_mode not in ("file", "bars_tone"):
-        return jsonify({"error": "Invalid source_mode"}), 400
-
-    if not host or not port_start or not port_end:
-        return jsonify({"error": "host, port_start and port_end are required"}), 400
-    if port_start > port_end:
-        return jsonify({"error": "port_start must be <= port_end"}), 400
-    if (port_end - port_start) >= MULTI_INDEPENDENT_MAX_DESTINATIONS:
+    data = request.get_json(force=True) or {}
+    try:
+        input_file, bitrate_mbps, passthrough, source_mode = _read_common_ingest_fields(data)
+        protocol, dests, secret = _parse_destinations(data, multi=True)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    if len(dests) > MULTI_INDEPENDENT_MAX_DESTINATIONS:
         return jsonify({
             "error": (
                 f"Independent multi-ingest is limited to {MULTI_INDEPENDENT_MAX_DESTINATIONS} "
@@ -869,20 +1088,12 @@ def ingest_multi():
                 "for larger fan-outs."
             )
         }), 400
-    if source_mode == "bars_tone":
-        # B&T has a fixed compliance profile; do not inherit the UI bitrate
-        # or passthrough choice.
-        bitrate_mbps = 1.0
-        passthrough = False
-    elif not os.path.isfile(input_file):
+    if source_mode != "bars_tone" and not os.path.isfile(input_file):
         return jsonify({"error": f"Input file not found: {input_file}"}), 400
 
     jobs = []
-    for port in range(port_start, port_end + 1):
-        job = _launch_job(
-            input_file, host, port, passphrase, bitrate_mbps, passthrough,
-            source_mode=source_mode,
-        )
+    for dest in dests:
+        job = _launch_job(input_file, dest, secret, bitrate_mbps, passthrough, source_mode=source_mode)
         jobs.append(_job_info(job))
 
     return jsonify({
@@ -894,45 +1105,32 @@ def ingest_multi():
 @srt_bp.route("/ingest/multi-shared", methods=["POST"])
 def ingest_multi_shared():
     """
-    Start ONE ffmpeg process (passthrough / -c copy only) that reads the
-    input file a single time and fans it out, unmodified, to every
-    destination in the port range. Use this instead of /ingest/multi when
-    pushing to many destinations at once — it avoids one decode (and, in
-    transcode mode, one libx264 encode) per destination, which is what
-    causes CPU to spike with large fan-outs.
-    Body JSON: { host, port_start, port_end, passphrase, input_file? }
+    Start ONE ffmpeg process (passthrough / copy only) that reads the input
+    file a single time and fans it out, unmodified, to every destination in
+    the range. Use this instead of /ingest/multi when pushing to many
+    destinations at once — it avoids one decode (and, in transcode mode, one
+    libx264 encode) per destination, which is what causes CPU to spike with
+    large fan-outs.
+    Body JSON: { protocol?, host, port_start, port_end, passphrase? |
+                 url (with {n}), stream_key? | token?, index_start, index_end,
+                 input_file? }
     """
-    data = request.get_json(force=True)
-    host = data.get("host", "").strip()
-    port_start = int(data.get("port_start", 0))
-    port_end = int(data.get("port_end", 0))
-    passphrase = data.get("passphrase", "").strip()
-    input_file = data.get("input_file", "test.mp4").strip()
-
-    if not host or not port_start or not port_end:
-        return jsonify({"error": "host, port_start and port_end are required"}), 400
-    if port_start > port_end:
-        return jsonify({"error": "port_start must be <= port_end"}), 400
-    if (port_end - port_start) > 99:
-        return jsonify({"error": "Port range limited to 100 destinations"}), 400
+    data = request.get_json(force=True) or {}
+    input_file = str(data.get("input_file", "test.mp4")).strip()
+    try:
+        protocol, dests, secret = _parse_destinations(data, multi=True)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    if len(dests) > MULTI_SHARED_MAX_DESTINATIONS:
+        return jsonify({"error": f"Range limited to {MULTI_SHARED_MAX_DESTINATIONS} destinations"}), 400
     if not os.path.isfile(input_file):
         return jsonify({"error": f"Input file not found: {input_file}"}), 400
 
-    destinations = [{"host": host, "port": port} for port in range(port_start, port_end + 1)]
-    job = _launch_shared_job(input_file, destinations, passphrase)
+    job = _launch_shared_job(input_file, dests, secret)
     return jsonify({
-        "message": f"Shared ingest started to {len(destinations)} destinations (1 ffmpeg process)",
+        "message": f"Shared ingest started to {len(dests)} destinations (1 ffmpeg process)",
         "job": _job_info(job),
     }), 201
-
-
-# Passphrases must never leave the server in clear text via the preview.
-_PASSPHRASE_RE = re.compile(r"(passphrase=)[^&\s]+")
-
-
-def _mask_cmd(cmd: list) -> list:
-    """Return a copy of an ffmpeg argv with SRT passphrases replaced by ***."""
-    return [_PASSPHRASE_RE.sub(r"\1***", tok) for tok in cmd]
 
 
 @srt_bp.route("/ingest/preview", methods=["POST"])
@@ -943,13 +1141,12 @@ def ingest_preview():
     instead of re-implementing the command builders in JavaScript, so the
     preview can never drift from what the server actually runs.
 
-    Body JSON: { mode: "single" | "multi" | "multi-shared", host, port |
-                 port_start/port_end, passphrase?, input_file?, bitrate_mbps?,
-                 passthrough?, source_mode? }
-    Response:  { mode, count, cmds: [{label, argv, text}], warnings: [...],
-                 note }
-    Passphrases are masked. "-i" shows the selected source path; at launch
-    the job substitutes the cached pre-trimmed loop copy of that file (see
+    Body JSON: { mode: "single" | "multi" | "multi-shared", plus the same
+                 destination / source fields as the matching ingest route }
+    Response:  { mode, protocol, count, cmds: [{label, argv, text}],
+                 warnings: [...], notes: [...] }
+    Secrets are masked. "-i" shows the selected source path; at launch the
+    job substitutes the cached pre-trimmed loop copy of that file (see
     _looped_source_path), which is the only difference to the real argv.
     Independent multi mode returns at most MULTI_INDEPENDENT_MAX_DESTINATIONS
     commands (the same cap /ingest/multi enforces).
@@ -959,77 +1156,58 @@ def ingest_preview():
     if mode not in ("single", "multi", "multi-shared"):
         return jsonify({"error": "Invalid mode"}), 400
     try:
-        host = str(data.get("host", "")).strip()
-        passphrase = str(data.get("passphrase", "")).strip()
-        input_file = str(data.get("input_file", "test.mp4")).strip()
-        bitrate_mbps = float(data.get("bitrate_mbps", CBR_DEFAULT_MBPS))
-        passthrough = bool(data.get("passthrough", False))
-        source_mode = data.get("source_mode", "file")
-        port = int(data.get("port", 0) or 0)
-        port_start = int(data.get("port_start", 0) or 0)
-        port_end = int(data.get("port_end", 0) or 0)
-    except (TypeError, ValueError):
-        return jsonify({"error": "Invalid numeric field"}), 400
-    if source_mode not in ("file", "bars_tone"):
-        return jsonify({"error": "Invalid source_mode"}), 400
-    if not host:
-        return jsonify({"error": "host is required"}), 400
+        input_file, bitrate_mbps, passthrough, source_mode = _read_common_ingest_fields(data)
+        protocol, dests, secret = _parse_destinations(data, multi=(mode != "single"))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
     warnings = []
-    if source_mode == "bars_tone":
-        # Same fixed profile as the ingest routes.
-        bitrate_mbps = 1.0
-        passthrough = False
-    elif not os.path.isfile(input_file):
+    if source_mode == "file" and not os.path.isfile(input_file):
         warnings.append(f"Input file not found: {input_file}")
 
     cmds = []
     if mode == "single":
-        if not port:
-            return jsonify({"error": "port is required"}), 400
-        cmd = _build_ffmpeg_cmd(input_file, host, port, passphrase, bitrate_mbps,
+        cmd = _build_ffmpeg_cmd(input_file, dests[0], secret, bitrate_mbps,
                                 passthrough, source_mode, resolve_loop=False)
-        cmds.append({"label": f"{host}:{port}", "argv": _mask_cmd(cmd)})
+        cmds.append({"label": dests[0]["label"], "argv": _mask_cmd(cmd)})
+        count = 1
+    elif mode == "multi-shared":
+        if source_mode == "bars_tone":
+            return jsonify({"error": "Bars & tone cannot use the shared process"}), 400
+        if len(dests) > MULTI_SHARED_MAX_DESTINATIONS:
+            warnings.append(f"Range limited to {MULTI_SHARED_MAX_DESTINATIONS} destinations")
+        cmd = _build_ffmpeg_cmd_shared(input_file, dests, secret, resolve_loop=False)
+        cmds.append({"label": f"{_destinations_label(dests)} ({len(dests)} destinations, 1 process)",
+                     "argv": _mask_cmd(cmd)})
         count = 1
     else:
-        if not port_start or not port_end:
-            return jsonify({"error": "port_start and port_end are required"}), 400
-        if port_start > port_end:
-            return jsonify({"error": "port_start must be <= port_end"}), 400
-        ports = list(range(port_start, port_end + 1))
-        if mode == "multi-shared":
-            if source_mode == "bars_tone":
-                return jsonify({"error": "Bars & tone cannot use the shared process"}), 400
-            if len(ports) > 100:
-                warnings.append("Port range limited to 100 destinations")
-            destinations = [{"host": host, "port": p} for p in ports]
-            cmd = _build_ffmpeg_cmd_shared(input_file, destinations, passphrase, resolve_loop=False)
-            cmds.append({"label": f"{host}:{port_start}-{port_end} ({len(ports)} destinations, 1 process)",
-                         "argv": _mask_cmd(cmd)})
-            count = 1
-        else:
-            if len(ports) > MULTI_INDEPENDENT_MAX_DESTINATIONS:
-                warnings.append(
-                    f"Independent multi-ingest is limited to {MULTI_INDEPENDENT_MAX_DESTINATIONS} "
-                    f"destinations ({len(ports)} requested) — the route will reject this request."
-                )
-            for p in ports[:MULTI_INDEPENDENT_MAX_DESTINATIONS]:
-                cmd = _build_ffmpeg_cmd(input_file, host, p, passphrase, bitrate_mbps,
-                                        passthrough, source_mode, resolve_loop=False)
-                cmds.append({"label": f"{host}:{p}", "argv": _mask_cmd(cmd)})
-            count = len(ports)
+        if len(dests) > MULTI_INDEPENDENT_MAX_DESTINATIONS:
+            warnings.append(
+                f"Independent multi-ingest is limited to {MULTI_INDEPENDENT_MAX_DESTINATIONS} "
+                f"destinations ({len(dests)} requested) — the route will reject this request."
+            )
+        for dest in dests[:MULTI_INDEPENDENT_MAX_DESTINATIONS]:
+            cmd = _build_ffmpeg_cmd(input_file, dest, secret, bitrate_mbps,
+                                    passthrough, source_mode, resolve_loop=False)
+            cmds.append({"label": dest["label"], "argv": _mask_cmd(cmd)})
+        count = len(dests)
 
     for c in cmds:
         c["text"] = " ".join(c["argv"])
 
-    note = None
+    notes = _protocol_notes(protocol, passthrough or mode == "multi-shared", source_mode)
     if source_mode == "file":
-        note = (
+        notes.append(
             f"At launch, -i is replaced by the cached loop copy of this file "
             f"({LOOP_CACHE_DIR}/<sha1>.ext, pre-trimmed {LOOP_TRIM_SECONDS:g}s short of "
-            "the real end so the loop restart never hits the file tail). All streams are kept."
+            "the real end so the loop restart never hits the file tail)."
         )
-    return jsonify({"mode": mode, "count": count, "cmds": cmds, "warnings": warnings, "note": note})
+    return jsonify({
+        "mode": mode, "protocol": protocol, "count": count, "cmds": cmds,
+        "warnings": warnings, "notes": notes,
+        # Backward compatibility with the previous single-note response shape.
+        "note": " ".join(notes) if notes else None,
+    })
 
 
 @srt_bp.route("/jobs", methods=["GET"])
@@ -1079,8 +1257,8 @@ def stop_job(job_id: int):
 @srt_bp.route("/jobs/<int:job_id>/restart", methods=["POST"])
 def restart_job(job_id: int):
     """
-    Restart a single job using its stored configuration (host, port,
-    passphrase, bitrate, source file). Works whether the job is currently
+    Restart a single job using its stored configuration (destination(s),
+    secret, bitrate, source file). Works whether the job is currently
     running (forces a fresh reconnect) or stopped/errored (relaunches it).
     """
     with _jobs_lock:
