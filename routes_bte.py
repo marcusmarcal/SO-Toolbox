@@ -472,7 +472,7 @@ def post_refresh():
     """Force a snapshot refresh now (runs synchronously; ~seconds)."""
     if _get_role() not in ALLOWED_ROLES:
         return _forbidden()
-        if not _configured():
+    if not _configured():
         missing = [n for n, v in (('DATAMINER_API_URL', DATAMINER_URL),
                                   ('DATAMINER_BEARER_TOKEN', DATAMINER_TOKEN)) if not v]
         return jsonify({
