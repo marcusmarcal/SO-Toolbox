@@ -378,7 +378,7 @@ def _matches(item, q):
 def _pool_response(key):
     snapshot = _current_snapshot()
     pool = (snapshot or {}).get('pools', {}).get(key)
-        if not pool:
+    if not pool:
         # No snapshot yet: not an error, the UI shows the hint and offers a refresh.
         return jsonify({
             'key': key,
@@ -390,7 +390,7 @@ def _pool_response(key):
             'returned': 0,
             'error': ((snapshot or {}).get('errors') or {}).get(key),
             'items': [],
-        })
+    })
 
     q = (request.args.get('q') or '').strip()
     mode = (request.args.get('mode') or '').strip().lower()
