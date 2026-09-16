@@ -378,11 +378,19 @@ def _matches(item, q):
 def _pool_response(key):
     snapshot = _current_snapshot()
     pool = (snapshot or {}).get('pools', {}).get(key)
-    if not pool:
+        if not pool:
+        # No snapshot yet: not an error, the UI shows the hint and offers a refresh.
         return jsonify({
-            'error': f"No snapshot available for pool '{key}' yet",
-            'hint': 'Trigger POST /api/bte/refresh or wait for the scheduled refresh',
-        }), 404
+            'key': key,
+            'pool': None,
+            'available': False,
+            'hint': 'No snapshot yet — use "Refresh snapshot now" or wait for the hourly refresh',
+            'fetched_at': None,
+            'count': 0,
+            'returned': 0,
+            'error': ((snapshot or {}).get('errors') or {}).get(key),
+            'items': [],
+        })
 
     q = (request.args.get('q') or '').strip()
     mode = (request.args.get('mode') or '').strip().lower()
@@ -464,9 +472,20 @@ def post_refresh():
     """Force a snapshot refresh now (runs synchronously; ~seconds)."""
     if _get_role() not in ALLOWED_ROLES:
         return _forbidden()
-    if not _configured():
-        return jsonify({'error': 'Dataminer API is not configured on the server'}), 500
-    result = refresh_snapshot('manual')
+        if not _configured():
+        missing = [n for n, v in (('DATAMINER_API_URL', DATAMINER_URL),
+                                  ('DATAMINER_BEARER_TOKEN', DATAMINER_TOKEN)) if not v]
+        return jsonify({
+            'error': 'Dataminer API is not configured on the server — missing: ' + ', '.join(missing),
+        }), 500
+    try:
+        result = refresh_snapshot('manual')
+    except OSError as exc:
+        log.exception('BTE snapshot refresh failed (filesystem)')
+        return jsonify({
+            'error': f'Cannot write the snapshot under {DATA_DIR}: {exc.strerror or exc}',
+            'hint': 'Check ownership/permissions of the data directory for the toolbox process user',
+        }), 500
     if not result.get('ok') and not result.get('partial'):
         status = 409 if 'already in progress' in (result.get('error') or '') else 502
         return jsonify(result), status

@@ -2283,7 +2283,8 @@
           $("bte-resource-count").textContent =
             list.length + " of " + bte.resources.length + " channels";
           if (!bte.resources.length) {
-            select.innerHTML = '<option value="">— no resources in snapshot —</option>';
+            var hint = (bte.resourcesMeta && bte.resourcesMeta.hint) || "no resources in snapshot";
+            select.innerHTML = '<option value="">— ' + escapeHtml(hint) + " —</option>";
             return;
           }
           var keep = bte.selectedId;
@@ -2408,8 +2409,9 @@
           if (bte.destinationsMeta) $("bte-dest-tag").textContent = bte.destinationsMeta.pool;
           $("bte-dest-count").textContent =
             list.length + " of " + bte.destinations.length + " destinations";
-          if (!bte.destinations.length) {
-            container.innerHTML = '<div class="empty-state">No destinations in the snapshot.</div>';
+                    if (!bte.destinations.length) {
+            var hint = (bte.destinationsMeta && bte.destinationsMeta.hint) || "No destinations in the snapshot.";
+            container.innerHTML = '<div class="empty-state">' + escapeHtml(hint) + "</div>";
             return;
           }
           if (!list.length) {
@@ -2468,9 +2470,9 @@
             bte.loaded = true;
             renderBteStatus();
             renderStatusBadge();
-            if (bte.resources.length) renderBteSelect();
+            renderBteSelect();
             renderBteDetail();
-            if (bte.destinations.length) renderBteDestinations();
+            renderBteDestinations();
           });
         }
 
