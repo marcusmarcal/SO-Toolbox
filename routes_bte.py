@@ -23,6 +23,14 @@ Snapshot file: /opt/web/data/dataminer.resources.json
 A pool that fails to refresh keeps its previous items (the last good copy is
 never thrown away because of a transient API error).
 
+Two Dataminer response shapes are accepted and normalised to {pool, count, items}:
+    {"pool": "...", "count": N, "items": [...]}                  (original)
+    {"pools": {"<pool name>": {"count": N, "items": [...]}}}   (current)
+
+Each item may carry ``capabilities`` (e.g. Type = supplier name, interface
+capabilities) next to ``properties``. The supplier is ``capabilities.Type``;
+the TXEdge is ``properties["DC MWEdge"]``.
+
 Environment variables (.env):
     DATAMINER_API_URL            Base URL, no trailing slash
                                  e.g. https://dataminer-stage.statsperform.technology
@@ -225,10 +233,27 @@ def _fetch_pool(pool):
     params = {'pool': pool} if pool else None
     resp = _session.get(f'{DATAMINER_URL}{RESOURCES_PATH}', params=params, timeout=REQUEST_TIMEOUT)
     resp.raise_for_status()
-    payload = resp.json()
-    if not isinstance(payload, dict) or not isinstance(payload.get('items'), list):
-        raise ValueError('Unexpected response shape from Dataminer (expected {pool, count, items[]})')
-    return payload
+    return _normalise_payload(resp.json(), pool)
+
+
+def _normalise_payload(payload, pool):
+    """Accept both Dataminer response shapes and return {pool, count, items}."""
+    if isinstance(payload, dict) and isinstance(payload.get('items'), list):
+        return {
+            'pool': payload.get('pool') or pool or DEFAULT_POOL_LABEL,
+            'count': payload.get('count', len(payload['items'])),
+            'items': payload['items'],
+        }
+    if isinstance(payload, dict) and isinstance(payload.get('pools'), dict):
+        pools = payload['pools']
+        wanted = pool or DEFAULT_POOL_LABEL
+        name, entry = wanted, pools.get(wanted)
+        if entry is None and len(pools) == 1:
+            name, entry = next(iter(pools.items()))
+        if isinstance(entry, dict) and isinstance(entry.get('items'), list):
+            return {'pool': name, 'count': entry.get('count', len(entry['items'])), 'items': entry['items']}
+        raise ValueError(f"Dataminer response has no pool '{wanted}' (got: {', '.join(pools) or 'none'})")
+    raise ValueError('Unexpected response shape from Dataminer (expected {pool,count,items} or {pools:{...}})')
 
 
 def refresh_snapshot(reason='scheduled'):
@@ -267,7 +292,7 @@ def refresh_snapshot(reason='scheduled'):
                 payload = _fetch_pool(pool)
                 items = payload['items']
                 snapshot['pools'][key] = {
-                    'pool': payload.get('pool') or pool or DEFAULT_POOL_LABEL,
+                    'pool': payload['pool'],
                     'count': payload.get('count', len(items)),
                     'fetched_at': now,
                     'items': items,
@@ -355,13 +380,38 @@ def _forbidden():
     return jsonify({'error': 'Permission denied — admin or engineer role required'}), 403
 
 
+NO_TYPE = '(no type)'
+EDGE_GROUP_INX0123 = ('INX01', 'INX02', 'INX03')
+
+
+def _item_type(item):
+    caps = item.get('capabilities') or {}
+    return str(caps.get('Type') or '').strip() or NO_TYPE
+
+
+def _item_edge(item):
+    props = item.get('properties') or {}
+    return str(props.get('DC MWEdge') or '').strip()
+
+
+def _edge_matches(item, edge):
+    """``edge`` is '', a TXEdge name, or the group keyword 'inx0123'."""
+    if not edge:
+        return True
+    actual = _item_edge(item).upper()
+    if edge.lower() == 'inx0123':
+        return actual in EDGE_GROUP_INX0123
+    return actual == edge.upper()
+
+
 def _redact_item(item):
     redacted = copy.deepcopy(item)
-    props = redacted.get('properties')
-    if isinstance(props, dict):
-        for key, value in props.items():
-            if _SECRET_KEY_RE.search(str(key)) and value not in (None, ''):
-                props[key] = REDACTED
+    for section in ('properties', 'capabilities'):
+        block = redacted.get(section)
+        if isinstance(block, dict):
+            for key, value in block.items():
+                if _SECRET_KEY_RE.search(str(key)) and value not in (None, ''):
+                    block[key] = REDACTED
     return redacted
 
 
@@ -371,8 +421,11 @@ def _matches(item, q):
     q = q.lower()
     if q in str(item.get('name', '')).lower() or q in str(item.get('id', '')).lower():
         return True
-    props = item.get('properties') or {}
-    return any(q in str(k).lower() or q in str(v).lower() for k, v in props.items())
+    for section in ('properties', 'capabilities'):
+        block = item.get(section) or {}
+        if any(q in str(k).lower() or q in str(v).lower() for k, v in block.items()):
+            return True
+    return False
 
 
 def _pool_response(key):
@@ -390,16 +443,21 @@ def _pool_response(key):
             'returned': 0,
             'error': ((snapshot or {}).get('errors') or {}).get(key),
             'items': [],
-    })
+        })
 
     q = (request.args.get('q') or '').strip()
     mode = (request.args.get('mode') or '').strip().lower()
+    rtype = (request.args.get('type') or '').strip()
+    edge = (request.args.get('edge') or '').strip()
 
     items = pool['items']
-    if q or mode:
+    if q or mode or rtype or edge:
         items = [
             i for i in items
-            if _matches(i, q) and (not mode or str(i.get('mode', '')).lower() == mode)
+            if _matches(i, q)
+            and (not mode or str(i.get('mode', '')).lower() == mode)
+            and (not rtype or _item_type(i) == rtype)
+            and _edge_matches(i, edge)
         ]
     items = sorted((_redact_item(i) for i in items), key=lambda i: str(i.get('name', '')).lower())
 
@@ -495,10 +553,52 @@ def post_refresh():
 
 @bte_bp.route('/resources', methods=['GET'])
 def list_resources():
-    """Supplier Dynamic resources from the snapshot. Filters: ?q=, ?mode=."""
+    """Supplier Dynamic resources from the snapshot.
+
+    Filters: ?q= (text), ?mode= (Available/Unavailable), ?type= (supplier,
+    i.e. capabilities.Type), ?edge= (TXEdge name or 'inx0123' for INX01-03).
+    """
     if _get_role() not in ALLOWED_ROLES:
         return _forbidden()
     return _pool_response('resources')
+
+
+@bte_bp.route('/suppliers', methods=['GET'])
+def list_suppliers():
+    """Suppliers (capabilities.Type) present in the Supplier Dynamic pool.
+
+    Returns per supplier: channel count, count per TXEdge and per mode.
+    Optional ?edge= narrows the counts to that TXEdge (or 'inx0123').
+    """
+    if _get_role() not in ALLOWED_ROLES:
+        return _forbidden()
+    snapshot = _current_snapshot() or {}
+    pool = (snapshot.get('pools') or {}).get('resources')
+    if not pool:
+        return jsonify({'available': False, 'suppliers': [], 'count': 0,
+                        'hint': 'No snapshot yet — refresh first'})
+
+    edge = (request.args.get('edge') or '').strip()
+    suppliers = {}
+    for item in pool['items']:
+        if not _edge_matches(item, edge):
+            continue
+        entry = suppliers.setdefault(_item_type(item), {'type': _item_type(item), 'count': 0, 'edges': {}, 'modes': {}})
+        entry['count'] += 1
+        e = _item_edge(item) or '(none)'
+        entry['edges'][e] = entry['edges'].get(e, 0) + 1
+        m = str(item.get('mode') or '?')
+        entry['modes'][m] = entry['modes'].get(m, 0) + 1
+
+    ordered = sorted(suppliers.values(), key=lambda s: (s['type'] == NO_TYPE, s['type'].lower()))
+    return jsonify({
+        'available': True,
+        'pool': pool['pool'],
+        'fetched_at': pool.get('fetched_at'),
+        'edge': edge or None,
+        'count': len(ordered),
+        'suppliers': ordered,
+    })
 
 
 @bte_bp.route('/resources/<resource_id>', methods=['GET'])

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TXCore Provisioning — SO-Toolbox</title>
-    <!-- TXCore Manager frontend v1.2.0 — STB (multicast) + MAIN (SRT) clusters + BTE (Dataminer snapshot) -->
+    <!-- TXCore Manager frontend v1.3.0 — STB (multicast) + MAIN (SRT) clusters + BTE (supplier / channel browser) -->
     <style>
       :root {
         --bg: #0f1216;
@@ -655,6 +655,129 @@
         margin-top: 6px;
       }
 
+      .chan-list {
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius);
+        background: var(--panel);
+        max-height: 44vh;
+        overflow-y: auto;
+      }
+      .chan-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 10px 7px 12px;
+        border-bottom: 1px solid var(--border-soft);
+        border-left: 3px solid transparent;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        cursor: pointer;
+      }
+      .chan-row:last-child {
+        border-bottom: none;
+      }
+      .chan-row:hover {
+        background: var(--panel-alt);
+      }
+      .chan-row.selected {
+        background: rgba(255, 209, 102, 0.07);
+        border-left-color: var(--bte);
+      }
+      .chan-row .chan-name {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .chan-row .chan-meta {
+        color: var(--text-faint);
+        font-size: 11px;
+        white-space: nowrap;
+      }
+      .chan-row .pill {
+        font-size: 9px;
+        padding: 0 6px;
+      }
+
+      .snap-line {
+        margin-top: 18px;
+        padding-top: 12px;
+        border-top: 1px solid var(--border-soft);
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--text-faint);
+      }
+      .snap-line summary {
+        cursor: pointer;
+        list-style: none;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .snap-line summary::-webkit-details-marker {
+        display: none;
+      }
+      .snap-line summary:hover {
+        color: var(--text-dim);
+      }
+      .snap-line summary .snap-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--text-faint);
+        flex-shrink: 0;
+      }
+      .snap-line summary .snap-dot.ok {
+        background: var(--success);
+      }
+      .snap-line summary .snap-dot.warn {
+        background: var(--warn);
+      }
+      .snap-line summary .snap-dot.bad {
+        background: var(--error);
+      }
+      .snap-line .snap-body {
+        margin-top: 10px;
+      }
+
+      dialog#bte-dest-dialog {
+        background: var(--bg);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 0;
+        width: min(1100px, 94vw);
+        max-height: 88vh;
+        font-family: var(--font-sans);
+        font-size: 14px;
+      }
+      dialog#bte-dest-dialog::backdrop {
+        background: rgba(0, 0, 0, 0.65);
+      }
+      .dialog-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--border);
+      }
+      .dialog-head h2 {
+        margin: 0;
+      }
+      .dialog-head h2::after {
+        display: none;
+      }
+      .dialog-body {
+        padding: 16px 18px 18px;
+        overflow: auto;
+        max-height: calc(88vh - 62px);
+      }
+      .dialog-body .table-wrap {
+        max-height: calc(88vh - 190px);
+      }
+
       ::-webkit-scrollbar {
         width: 8px;
         height: 8px;
@@ -693,10 +816,6 @@
     </header>
 
     <nav class="tabs" role="tablist">
-      <button class="tab" data-cluster="bte" role="tab">
-        <span class="cfg-dot" id="bte-cfg-dot"></span>
-        BTE <span class="tab-mode">· Better Than EMO · Dataminer → MAIN</span>
-      </button>
       <button class="tab active" data-cluster="stb" role="tab">
         <span class="cfg-dot" id="stb-cfg-dot"></span>
         STB <span class="tab-mode">· multicast · AVE / LMK / YER</span>
@@ -705,7 +824,10 @@
         <span class="cfg-dot" id="main-cfg-dot"></span>
         MAIN <span class="tab-mode">· SRT · primary + backup edge</span>
       </button>
-      
+      <button class="tab" data-cluster="bte" role="tab">
+        <span class="cfg-dot" id="bte-cfg-dot"></span>
+        BTE <span class="tab-mode">· Better Than EMO · Dataminer → MAIN</span>
+      </button>
     </nav>
 
     <main>
@@ -1168,53 +1290,74 @@
 
         <!-- ------------------------------ BTE ------------------------------ -->
         <div class="tab-pane" id="pane-bte" data-cluster="bte">
-          <h2>Dataminer snapshot <span class="h2-tag">BTE</span></h2>
+          <h2>Supplier <span class="h2-tag">BTE</span></h2>
           <fieldset>
-            <div class="progress-wrap">
-              <div class="meta-grid" id="bte-snapshot-meta">
-                <span class="k">Status</span><span class="v">loading…</span>
+            <div class="field-row">
+              <div class="field">
+                <label for="bte-supplier-select">Supplier</label>
+                <select id="bte-supplier-select">
+                  <option value="">— loading… —</option>
+                </select>
+              </div>
+              <div class="field" style="flex: 0 0 168px">
+                <label for="bte-edge-filter">TXEdge</label>
+                <select id="bte-edge-filter">
+                  <option value="">all edges</option>
+                  <option value="inx0123">INX01 · INX02 · INX03</option>
+                  <option value="INX01">INX01</option>
+                  <option value="INX02">INX02</option>
+                  <option value="INX03">INX03</option>
+                </select>
               </div>
             </div>
-            <div class="notice bad" id="bte-notice" style="display: none; margin-top: 10px"></div>
-            <div class="btn-row" style="margin-top: 10px">
-              <button id="bte-btn-refresh">Refresh snapshot now</button>
-              <button id="bte-btn-reload">Reload from server</button>
-            </div>
-            <div class="hint">
-              Snapshots are taken automatically every hour and stored on the
-              server. "Refresh snapshot now" calls the Dataminer API immediately.
-            </div>
+            <div class="list-count" id="bte-supplier-count"></div>
           </fieldset>
 
-          <h2>Channel <span class="h2-tag" id="bte-resource-pool-tag">Supplier Dynamic</span></h2>
+          <h2>Channels <span class="h2-tag" id="bte-channels-tag">—</span></h2>
           <fieldset>
-            <div class="field">
-              <label for="bte-resource-filter">Filter</label>
-              <input
-                type="text"
-                id="bte-resource-filter"
-                placeholder="name, GVN channel, multicast, edge…"
-                autocomplete="off"
-              />
-            </div>
             <div class="field-row">
-              <div class="field" style="flex: 0 0 140px">
-                <label for="bte-mode-filter">Mode</label>
+              <div class="field">
+                <input
+                  type="text"
+                  id="bte-channel-filter"
+                  placeholder="filter — name, GVN, multicast, input…"
+                  autocomplete="off"
+                />
+              </div>
+              <div class="field" style="flex: 0 0 130px">
                 <select id="bte-mode-filter">
-                  <option value="">all</option>
+                  <option value="">any mode</option>
                   <option value="available">Available</option>
                   <option value="unavailable">Unavailable</option>
                 </select>
               </div>
-              <div class="field">
-                <label for="bte-resource-select">Channel name</label>
-                <select id="bte-resource-select">
-                  <option value="">— loading… —</option>
-                </select>
-              </div>
             </div>
-            <div class="list-count" id="bte-resource-count"></div>
+            <div class="chan-list" id="bte-channel-list">
+              <div class="empty-state">Select a supplier first.</div>
+            </div>
+            <div class="list-count" id="bte-channel-count"></div>
           </fieldset>
+
+          <div class="btn-row">
+            <button id="bte-btn-destinations">Destinations…</button>
+          </div>
+
+          <div class="snap-line">
+            <details id="bte-snap-details">
+              <summary>
+                <span class="snap-dot" id="bte-snap-dot"></span>
+                <span id="bte-snap-summary">loading snapshot info…</span>
+              </summary>
+              <div class="snap-body">
+                <div class="meta-grid" id="bte-snapshot-meta"></div>
+                <div class="notice bad" id="bte-notice" style="display: none; margin-top: 10px"></div>
+                <div class="btn-row" style="margin-top: 10px">
+                  <button id="bte-btn-refresh">Refresh snapshot now</button>
+                  <button id="bte-btn-reload">Reload from server</button>
+                </div>
+              </div>
+            </details>
+          </div>
         </div>
       </div>
 
@@ -1247,32 +1390,37 @@
 
         <div id="results-bte" class="results-panel" style="display: none">
           <div>
-            <h2>Resource <span class="h2-tag" id="bte-detail-tag">—</span></h2>
+            <h2>Channel <span class="h2-tag" id="bte-detail-tag">—</span></h2>
             <div id="bte-resource-detail">
               <div class="empty-state">
-                Pick a channel on the left to see its Dataminer resource.
+                Pick a supplier, then a channel, to see its Dataminer resource.
               </div>
             </div>
-          </div>
-
-          <div>
-            <h2>Destinations <span class="h2-tag" id="bte-dest-tag">Destination</span></h2>
-            <div class="field">
-              <input
-                type="text"
-                id="bte-dest-filter"
-                placeholder="filter destinations — name, IP / host, port, protocol…"
-                autocomplete="off"
-              />
-            </div>
-            <div id="bte-dest-container">
-              <div class="empty-state">No destinations loaded yet.</div>
-            </div>
-            <div class="list-count" id="bte-dest-count"></div>
           </div>
         </div>
       </div>
     </main>
+
+    <dialog id="bte-dest-dialog">
+      <div class="dialog-head">
+        <h2>Destinations <span class="h2-tag" id="bte-dest-tag">Destination</span></h2>
+        <button id="bte-dest-close">Close</button>
+      </div>
+      <div class="dialog-body">
+        <div class="field">
+          <input
+            type="text"
+            id="bte-dest-filter"
+            placeholder="filter destinations — name, IP / host, port, protocol…"
+            autocomplete="off"
+          />
+        </div>
+        <div id="bte-dest-container">
+          <div class="empty-state">No destinations loaded yet.</div>
+        </div>
+        <div class="list-count" id="bte-dest-count"></div>
+      </div>
+    </dialog>
 
     <script>
       (function () {
@@ -2100,8 +2248,12 @@
 
 
         // ---------------------------------------------------------------------
-        // BTE — Dataminer resource snapshot viewer
+        // BTE — supplier / channel browser over the Dataminer snapshot
         // ---------------------------------------------------------------------
+        var BTE_SUPPLIER_KEY = "txcore-manager-bte-supplier";
+        var NO_TYPE = "(no type)";
+        var EDGE_GROUP = ["INX01", "INX02", "INX03"];
+
         var bte = {
           loaded: false,
           loading: false,
@@ -2111,10 +2263,11 @@
           resourcesMeta: null,
           destinations: [],
           destinationsMeta: null,
-          selectedId: null,
+          supplier: null, // selected capabilities.Type
+          selectedId: null, // selected resource id
         };
 
-        // Property display order for the resource card; anything else follows
+        // Property display order for the channel card; anything else follows
         // alphabetically.
         var BTE_PROP_ORDER = [
           "GVN Channel",
@@ -2125,6 +2278,7 @@
           "Encryption",
           "Encryption Main",
           "Passphrase",
+          "Passphrase Main",
           "Latency",
           "Output",
           "Aveiro Multicast",
@@ -2136,6 +2290,21 @@
           return apiFetch(path, options, BTE_API_BASE);
         }
 
+        function itemType(r) {
+          var t = r.capabilities && r.capabilities.Type;
+          return (t && String(t).trim()) || NO_TYPE;
+        }
+        function itemEdge(r) {
+          var e = r.properties && r.properties["DC MWEdge"];
+          return e ? String(e).trim() : "";
+        }
+        function edgeMatches(r, edge) {
+          if (!edge) return true;
+          var actual = itemEdge(r).toUpperCase();
+          if (edge === "inx0123") return EDGE_GROUP.indexOf(actual) !== -1;
+          return actual === edge.toUpperCase();
+        }
+
         function fmtAge(seconds) {
           if (seconds === null || seconds === undefined) return "—";
           if (seconds < 60) return seconds + "s ago";
@@ -2144,26 +2313,24 @@
           var m = Math.round((seconds % 3600) / 60);
           return h + "h" + (m ? " " + m + "m" : "") + " ago";
         }
-
         function fmtIn(seconds) {
           if (seconds === null || seconds === undefined) return "scheduler off";
           if (seconds <= 0) return "due now";
           if (seconds < 60) return "in " + seconds + "s";
           return "in " + Math.round(seconds / 60) + " min";
         }
-
         function fmtTime(iso) {
           if (!iso) return "—";
           var d = new Date(iso);
           return isNaN(d) ? iso : d.toLocaleString();
         }
-
         function modePill(mode) {
           var m = String(mode || "").toLowerCase();
           var cls = m === "available" ? "available" : m === "unavailable" ? "unavailable" : "other";
           return '<span class="pill ' + cls + '">' + escapeHtml(mode || "?") + "</span>";
         }
 
+        // ---- status / snapshot info (kept discreet) ------------------------
         function bteMissing(st) {
           if (!st) return ["status unavailable"];
           var missing = [];
@@ -2171,6 +2338,15 @@
           if (!st.api_url_set) missing.push("api url");
           if (!st.snapshot || !st.snapshot.exists) missing.push("snapshot");
           return missing;
+        }
+
+        function bteHealth() {
+          var st = bte.status;
+          if (!st || bteMissing(st).length) return "bad";
+          var snap = st.snapshot;
+          if (snap.errors && Object.keys(snap.errors).length) return "warn";
+          if (snap.age_seconds > st.interval_seconds * 2) return "warn";
+          return "ok";
         }
 
         function renderBteBadge(badge) {
@@ -2191,11 +2367,8 @@
             badge.className = "bad";
             return;
           }
-          var snap = st.snapshot;
-          var stale = snap.age_seconds > st.interval_seconds * 2;
-          badge.textContent =
-            "Dataminer snapshot " + fmtAge(snap.age_seconds) + " — " + st.api_url;
-          badge.className = stale ? "bad" : "ok";
+          badge.textContent = "Dataminer snapshot " + fmtAge(st.snapshot.age_seconds) + " — " + st.api_url;
+          badge.className = bteHealth() === "ok" ? "ok" : "bad";
         }
 
         function renderBteStatus() {
@@ -2206,41 +2379,37 @@
           var missing = bteMissing(st);
           dot.className = "cfg-dot " + (missing.length ? "bad" : "ok");
           dot.title = missing.length ? "Missing: " + missing.join(", ") : "Snapshot OK";
+          $("bte-snap-dot").className = "snap-dot " + bteHealth();
 
           if (!st) {
-            grid.innerHTML =
-              '<span class="k">Status</span><span class="v bad">' +
-              escapeHtml(bte.statusError || "unavailable") +
-              "</span>";
+            $("bte-snap-summary").textContent = "snapshot: " + (bte.statusError || "unavailable");
+            grid.innerHTML = "";
+            notice.style.display = "none";
             return;
           }
           var snap = st.snapshot || {};
+          var pools = snap.pools || {};
+          var res = pools.resources, dst = pools.destinations;
+          $("bte-snap-summary").textContent = snap.exists
+            ? "snapshot " + fmtAge(snap.age_seconds) +
+              " · " + (res ? res.count : 0) + " resources · " + (dst ? dst.count : 0) + " destinations"
+            : "no snapshot yet — open to refresh";
+
           var rows = [];
           function row(k, v, cls) {
-            rows.push(
-              '<span class="k">' + escapeHtml(k) + '</span><span class="v ' + (cls || "") + '">' + v + "</span>"
-            );
+            rows.push('<span class="k">' + escapeHtml(k) + '</span><span class="v ' + (cls || "") + '">' + v + "</span>");
           }
           row("Source", escapeHtml(st.api_url || "not set"), st.api_url_set ? "" : "bad");
           row("Token", st.bearer_token_set ? "configured" : "missing", st.bearer_token_set ? "ok" : "bad");
           if (st.verify_ssl === false) row("TLS", "verification disabled", "warn");
-          if (!snap.exists) {
-            row("Snapshot", "none yet", "bad");
-          } else {
+          if (snap.exists) {
             row("Last fetch", escapeHtml(fmtTime(snap.fetched_at)) + " · " + escapeHtml(fmtAge(snap.age_seconds)));
             row("Next refresh", escapeHtml(fmtIn(snap.next_refresh_in_seconds)), st.refreshing ? "warn" : "");
-            var pools = snap.pools || {};
             Object.keys(pools).forEach(function (k) {
-              var p = pools[k];
               var err = snap.errors && snap.errors[k];
-              row(
-                p.pool || k,
-                p.count + " items" + (err ? " (last refresh failed — showing previous copy)" : ""),
-                err ? "warn" : ""
-              );
+              row(pools[k].pool || k, pools[k].count + " items" + (err ? " (last refresh failed — previous copy)" : ""), err ? "warn" : "");
             });
-            if (snap.duration_ms !== undefined && snap.duration_ms !== null)
-              row("Fetch time", snap.duration_ms + " ms");
+            if (snap.duration_ms !== undefined && snap.duration_ms !== null) row("Fetch time", snap.duration_ms + " ms");
           }
           grid.innerHTML = rows.join("");
 
@@ -2248,152 +2417,181 @@
           var errKeys = Object.keys(errs);
           if (errKeys.length) {
             notice.style.display = "";
-            notice.textContent = errKeys
-              .map(function (k) {
-                return k + ": " + errs[k];
-              })
-              .join(" | ");
+            notice.textContent = errKeys.map(function (k) { return k + ": " + errs[k]; }).join(" | ");
           } else if (st.last_error) {
             notice.style.display = "";
             notice.textContent = st.last_error;
           } else {
             notice.style.display = "none";
           }
+          if (!snap.exists || errKeys.length) $("bte-snap-details").open = true;
         }
 
-        function bteFilteredResources() {
-          var q = $("bte-resource-filter").value.trim().toLowerCase();
+        // ---- suppliers ------------------------------------------------------
+        function renderBteSuppliers() {
+          var select = $("bte-supplier-select");
+          var edge = $("bte-edge-filter").value;
+          var counts = {};
+          bte.resources.forEach(function (r) {
+            if (!edgeMatches(r, edge)) return;
+            var t = itemType(r);
+            counts[t] = (counts[t] || 0) + 1;
+          });
+          var types = Object.keys(counts).sort(function (a, b) {
+            if (a === NO_TYPE) return 1;
+            if (b === NO_TYPE) return -1;
+            return a.toLowerCase() < b.toLowerCase() ? -1 : 1;
+          });
+
+          if (!bte.resources.length) {
+            var hint = (bte.resourcesMeta && bte.resourcesMeta.hint) || "no resources in snapshot";
+            select.innerHTML = '<option value="">— ' + escapeHtml(hint) + " —</option>";
+            $("bte-supplier-count").textContent = "";
+            return;
+          }
+          select.innerHTML =
+            '<option value="">— select a supplier —</option>' +
+            types.map(function (t) {
+              return '<option value="' + escapeHtml(t) + '">' + escapeHtml(t) + " (" + counts[t] + ")</option>";
+            }).join("");
+          select.value = counts[bte.supplier] ? bte.supplier : "";
+          if (!select.value) bte.supplier = null;
+          $("bte-supplier-count").textContent =
+            types.length + " suppliers" + (edge ? " on " + (edge === "inx0123" ? "INX01–03" : edge) : "");
+        }
+
+        // ---- channels -------------------------------------------------------
+        function bteChannels() {
+          if (!bte.supplier) return [];
+          var q = $("bte-channel-filter").value.trim().toLowerCase();
           var mode = $("bte-mode-filter").value;
+          var edge = $("bte-edge-filter").value;
           return bte.resources.filter(function (r) {
+            if (itemType(r) !== bte.supplier) return false;
+            if (!edgeMatches(r, edge)) return false;
             if (mode && String(r.mode || "").toLowerCase() !== mode) return false;
             if (!q) return true;
             if (String(r.name || "").toLowerCase().indexOf(q) !== -1) return true;
             var props = r.properties || {};
             return Object.keys(props).some(function (k) {
-              return (
-                String(props[k]).toLowerCase().indexOf(q) !== -1 ||
-                k.toLowerCase().indexOf(q) !== -1
-              );
+              return String(props[k]).toLowerCase().indexOf(q) !== -1;
             });
           });
         }
 
-        function renderBteSelect() {
-          var select = $("bte-resource-select");
-          var list = bteFilteredResources();
-          $("bte-resource-count").textContent =
-            list.length + " of " + bte.resources.length + " channels";
-          if (!bte.resources.length) {
-            var hint = (bte.resourcesMeta && bte.resourcesMeta.hint) || "no resources in snapshot";
-            select.innerHTML = '<option value="">— ' + escapeHtml(hint) + " —</option>";
+        function renderBteChannels() {
+          var list = $("bte-channel-list");
+          $("bte-channels-tag").textContent = bte.supplier || "—";
+          if (!bte.supplier) {
+            list.innerHTML = '<div class="empty-state">Select a supplier first.</div>';
+            $("bte-channel-count").textContent = "";
             return;
           }
-          var keep = bte.selectedId;
-          var present = list.some(function (r) {
-            return r.id === keep;
-          });
-          select.innerHTML =
-            '<option value="">— select a channel —</option>' +
-            list
-              .map(function (r) {
-                var gvn = r.properties && r.properties["GVN Channel"];
-                return (
-                  '<option value="' + escapeHtml(r.id) + '">' +
-                  escapeHtml(r.name) +
-                  (gvn ? " · GVN " + escapeHtml(gvn) : "") +
-                  " · " + escapeHtml(r.mode || "?") +
-                  "</option>"
-                );
-              })
-              .join("");
-          select.value = present ? keep : "";
+          var rows = bteChannels();
+          var total = bte.resources.filter(function (r) { return itemType(r) === bte.supplier; }).length;
+          $("bte-channel-count").textContent = rows.length + " of " + total + " channels";
+          if (!rows.length) {
+            list.innerHTML = '<div class="empty-state">No channel matches the filters.</div>';
+            return;
+          }
+          if (bte.selectedId && !rows.some(function (r) { return r.id === bte.selectedId; })) {
+            // keep the selection only if it belongs to this supplier
+            var sel = bteFindResource(bte.selectedId);
+            if (!sel || itemType(sel) !== bte.supplier) bte.selectedId = null;
+          }
+          list.innerHTML = rows.map(function (r) {
+            var p = r.properties || {};
+            return (
+              '<div class="chan-row' + (r.id === bte.selectedId ? " selected" : "") +
+              '" data-id="' + escapeHtml(r.id) + '">' +
+              '<span class="chan-name">' + escapeHtml(r.name) + "</span>" +
+              '<span class="chan-meta">' +
+              (p["GVN Channel"] ? "GVN " + escapeHtml(p["GVN Channel"]) + " · " : "") +
+              escapeHtml(itemEdge(r) || "—") + "</span>" +
+              modePill(r.mode) +
+              "</div>"
+            );
+          }).join("");
         }
 
         function bteFindResource(id) {
-          for (var i = 0; i < bte.resources.length; i++) {
-            if (bte.resources[i].id === id) return bte.resources[i];
-          }
+          for (var i = 0; i < bte.resources.length; i++) if (bte.resources[i].id === id) return bte.resources[i];
           return null;
         }
 
+        function selectBteChannel(id) {
+          bte.selectedId = id || null;
+          try {
+            if (id) localStorage.setItem(BTE_SELECTED_KEY, id);
+            else localStorage.removeItem(BTE_SELECTED_KEY);
+          } catch (e) {}
+          var rows = $("bte-channel-list").querySelectorAll(".chan-row");
+          for (var i = 0; i < rows.length; i++) {
+            rows[i].classList.toggle("selected", rows[i].getAttribute("data-id") === id);
+          }
+          renderBteDetail();
+        }
+
+        // ---- channel detail -------------------------------------------------
         function orderedPropKeys(props) {
           var keys = Object.keys(props || {});
-          var known = BTE_PROP_ORDER.filter(function (k) {
-            return keys.indexOf(k) !== -1;
-          });
-          var rest = keys
-            .filter(function (k) {
-              return BTE_PROP_ORDER.indexOf(k) === -1;
-            })
-            .sort();
+          var known = BTE_PROP_ORDER.filter(function (k) { return keys.indexOf(k) !== -1; });
+          var rest = keys.filter(function (k) { return BTE_PROP_ORDER.indexOf(k) === -1; }).sort();
           return known.concat(rest);
+        }
+
+        function kvRows(obj) {
+          return orderedPropKeys(obj).map(function (k) {
+            var v = obj[k];
+            var cls = v === "********" ? "redacted" : v === "" || v === null || v === undefined ? "empty" : "";
+            return "<tr><th>" + escapeHtml(k) + '</th><td class="' + cls + '">' +
+              escapeHtml(cls === "empty" ? "(empty)" : String(v)) + "</td></tr>";
+          }).join("");
         }
 
         function renderBteDetail() {
           var container = $("bte-resource-detail");
           var r = bte.selectedId ? bteFindResource(bte.selectedId) : null;
-          $("bte-detail-tag").textContent = r ? (bte.resourcesMeta ? bte.resourcesMeta.pool : "resource") : "—";
+          $("bte-detail-tag").textContent = r ? itemType(r) : "—";
           if (!r) {
-            container.innerHTML =
-              '<div class="empty-state">Pick a channel on the left to see its Dataminer resource.</div>';
+            container.innerHTML = '<div class="empty-state">' +
+              (bte.supplier ? "Pick a channel on the left." : "Pick a supplier, then a channel, to see its Dataminer resource.") +
+              "</div>";
             return;
           }
-          var props = r.properties || {};
-          var rows = orderedPropKeys(props)
-            .map(function (k) {
-              var v = props[k];
-              var cls = "";
-              if (v === "********") cls = "redacted";
-              else if (v === "" || v === null || v === undefined) cls = "empty";
-              var shown = cls === "empty" ? "(empty)" : String(v);
-              return (
-                "<tr><th>" + escapeHtml(k) + '</th><td class="' + cls + '">' + escapeHtml(shown) + "</td></tr>"
-              );
-            })
-            .join("");
+          var caps = Object.assign({}, r.capabilities || {});
+          delete caps.Type;
+          var capRows = kvRows(caps);
           container.innerHTML =
-            '<div class="res-head"><span class="res-name">' +
-            escapeHtml(r.name) +
-            "</span>" +
+            '<div class="res-head"><span class="res-name">' + escapeHtml(r.name) + "</span>" +
             modePill(r.mode) +
-            '<span class="pill">concurrency ' +
-            escapeHtml(r.concurrency) +
-            "</span></div>" +
-            '<div class="res-id">' +
-            escapeHtml(r.id) +
-            "</div>" +
+            '<span class="pill">' + escapeHtml(itemType(r)) + "</span>" +
+            (itemEdge(r) ? '<span class="pill">' + escapeHtml(itemEdge(r)) + "</span>" : "") +
+            '<span class="pill">concurrency ' + escapeHtml(r.concurrency) + "</span></div>" +
+            '<div class="res-id">' + escapeHtml(r.id) + "</div>" +
             '<table class="kv"><tbody>' +
-            (rows || '<tr><td class="empty" colspan="2">No properties</td></tr>') +
+            (kvRows(r.properties || {}) || '<tr><td class="empty" colspan="2">No properties</td></tr>') +
+            (capRows ? '<tr><th style="color: var(--text-faint); padding-top: 14px" colspan="2">Capabilities</th></tr>' + capRows : "") +
             "</tbody></table>";
         }
 
+        // ---- destinations (separate window) ---------------------------------
         function destRows(list) {
           var STD = ["Protocol", "IP", "Port", "Type", "Output Port"];
-          return list
-            .map(function (d) {
-              var p = d.properties || {};
-              var extra = Object.keys(p)
-                .filter(function (k) {
-                  return STD.indexOf(k) === -1;
-                })
-                .sort()
-                .map(function (k) {
-                  return escapeHtml(k) + "=" + escapeHtml(p[k]);
-                })
-                .join(" ");
-              return (
-                "<tr><td>" + escapeHtml(d.name) +
-                "</td><td>" + modePill(d.mode) +
-                "</td><td>" + escapeHtml(p.Protocol || "") +
-                (p.Type ? " " + escapeHtml(p.Type) : "") +
-                "</td><td>" + escapeHtml(p.IP || "") +
-                "</td><td>" + escapeHtml(p.Port || "") +
-                (p["Output Port"] ? " <span style=\"color: var(--text-faint)\">/ out " + escapeHtml(p["Output Port"]) + "</span>" : "") +
-                '</td><td style="color: var(--text-dim)">' + extra +
-                "</td></tr>"
-              );
-            })
-            .join("");
+          return list.map(function (d) {
+            var p = d.properties || {};
+            var extra = Object.keys(p).filter(function (k) { return STD.indexOf(k) === -1; }).sort()
+              .map(function (k) { return escapeHtml(k) + "=" + escapeHtml(p[k]); }).join(" ");
+            return (
+              "<tr><td>" + escapeHtml(d.name) +
+              "</td><td>" + modePill(d.mode) +
+              "</td><td>" + escapeHtml(p.Protocol || "") + (p.Type ? " " + escapeHtml(p.Type) : "") +
+              "</td><td>" + escapeHtml(p.IP || "") +
+              "</td><td>" + escapeHtml(p.Port || "") +
+              (p["Output Port"] ? ' <span style="color: var(--text-faint)">/ out ' + escapeHtml(p["Output Port"]) + "</span>" : "") +
+              '</td><td style="color: var(--text-dim)">' + extra + "</td></tr>"
+            );
+          }).join("");
         }
 
         function renderBteDestinations() {
@@ -2403,14 +2601,11 @@
             if (!q) return true;
             if (String(d.name || "").toLowerCase().indexOf(q) !== -1) return true;
             var p = d.properties || {};
-            return Object.keys(p).some(function (k) {
-              return String(p[k]).toLowerCase().indexOf(q) !== -1;
-            });
+            return Object.keys(p).some(function (k) { return String(p[k]).toLowerCase().indexOf(q) !== -1; });
           });
-          if (bte.destinationsMeta) $("bte-dest-tag").textContent = bte.destinationsMeta.pool;
-          $("bte-dest-count").textContent =
-            list.length + " of " + bte.destinations.length + " destinations";
-                    if (!bte.destinations.length) {
+          if (bte.destinationsMeta && bte.destinationsMeta.pool) $("bte-dest-tag").textContent = bte.destinationsMeta.pool;
+          $("bte-dest-count").textContent = list.length + " of " + bte.destinations.length + " destinations";
+          if (!bte.destinations.length) {
             var hint = (bte.destinationsMeta && bte.destinationsMeta.hint) || "No destinations in the snapshot.";
             container.innerHTML = '<div class="empty-state">' + escapeHtml(hint) + "</div>";
             return;
@@ -2422,82 +2617,89 @@
           container.innerHTML =
             '<div class="table-wrap"><table><thead><tr>' +
             "<th>Name</th><th>Mode</th><th>Protocol</th><th>IP / host</th><th>Port</th><th>Other</th>" +
-            "</tr></thead><tbody>" +
-            destRows(list) +
-            "</tbody></table></div>";
+            "</tr></thead><tbody>" + destRows(list) + "</tbody></table></div>";
+        }
+
+        function openDestinations() {
+          var dlg = $("bte-dest-dialog");
+          renderBteDestinations();
+          if (typeof dlg.showModal === "function") dlg.showModal();
+          else dlg.setAttribute("open", "");
+          $("bte-dest-filter").focus();
+        }
+
+        // ---- loading --------------------------------------------------------
+        function renderBteAll() {
+          renderBteStatus();
+          renderStatusBadge();
+          renderBteSuppliers();
+          renderBteChannels();
+          renderBteDetail();
+          if ($("bte-dest-dialog").open) renderBteDestinations();
         }
 
         function loadBte() {
           bte.loading = true;
-          $("bte-resource-select").innerHTML = '<option value="">— loading… —</option>';
+          $("bte-supplier-select").innerHTML = '<option value="">— loading… —</option>';
 
           var statusReq = bteFetch("/status")
-            .then(function (st) {
-              bte.status = st;
-              bte.statusError = null;
-            })
-            .catch(function (err) {
-              bte.status = null;
-              bte.statusError = err.message;
-            });
+            .then(function (st) { bte.status = st; bte.statusError = null; })
+            .catch(function (err) { bte.status = null; bte.statusError = err.message; });
 
           var resReq = bteFetch("/resources")
-            .then(function (data) {
-              bte.resources = data.items || [];
-              bte.resourcesMeta = data;
-              if (data.pool) $("bte-resource-pool-tag").textContent = data.pool;
-            })
+            .then(function (data) { bte.resources = data.items || []; bte.resourcesMeta = data; })
             .catch(function (err) {
               bte.resources = [];
-              bte.resourcesMeta = null;
-              $("bte-resource-select").innerHTML =
-                '<option value="">— ' + escapeHtml(err.message) + " —</option>";
+              bte.resourcesMeta = { hint: err.message };
             });
 
           var destReq = bteFetch("/destinations")
-            .then(function (data) {
-              bte.destinations = data.items || [];
-              bte.destinationsMeta = data;
-            })
+            .then(function (data) { bte.destinations = data.items || []; bte.destinationsMeta = data; })
             .catch(function (err) {
               bte.destinations = [];
-              bte.destinationsMeta = null;
-              $("bte-dest-container").innerHTML =
-                '<div class="empty-state">' + escapeHtml(err.message) + "</div>";
+              bte.destinationsMeta = { hint: err.message };
             });
 
           Promise.all([statusReq, resReq, destReq]).then(function () {
             bte.loading = false;
             bte.loaded = true;
-            renderBteStatus();
-            renderStatusBadge();
-            renderBteSelect();
-            renderBteDetail();
-            renderBteDestinations();
+            renderBteAll();
           });
         }
 
         function wireBte() {
           try {
+            bte.supplier = localStorage.getItem(BTE_SUPPLIER_KEY) || null;
             bte.selectedId = localStorage.getItem(BTE_SELECTED_KEY) || null;
           } catch (e) {}
 
-          $("bte-resource-select").addEventListener("change", function () {
-            bte.selectedId = this.value || null;
+          $("bte-supplier-select").addEventListener("change", function () {
+            bte.supplier = this.value || null;
             try {
-              if (bte.selectedId) localStorage.setItem(BTE_SELECTED_KEY, bte.selectedId);
-              else localStorage.removeItem(BTE_SELECTED_KEY);
+              if (bte.supplier) localStorage.setItem(BTE_SUPPLIER_KEY, bte.supplier);
+              else localStorage.removeItem(BTE_SUPPLIER_KEY);
             } catch (e) {}
+            bte.selectedId = null;
+            renderBteChannels();
             renderBteDetail();
           });
-          $("bte-resource-filter").addEventListener("input", renderBteSelect);
-          $("bte-mode-filter").addEventListener("change", renderBteSelect);
-          $("bte-dest-filter").addEventListener("input", renderBteDestinations);
-
-          $("bte-btn-reload").addEventListener("click", function () {
-            loadBte();
+          $("bte-edge-filter").addEventListener("change", function () {
+            renderBteSuppliers();
+            renderBteChannels();
+            renderBteDetail();
+          });
+          $("bte-channel-filter").addEventListener("input", renderBteChannels);
+          $("bte-mode-filter").addEventListener("change", renderBteChannels);
+          $("bte-channel-list").addEventListener("click", function (ev) {
+            var row = ev.target.closest ? ev.target.closest(".chan-row") : null;
+            if (row) selectBteChannel(row.getAttribute("data-id"));
           });
 
+          $("bte-btn-destinations").addEventListener("click", openDestinations);
+          $("bte-dest-close").addEventListener("click", function () { $("bte-dest-dialog").close(); });
+          $("bte-dest-filter").addEventListener("input", renderBteDestinations);
+
+          $("bte-btn-reload").addEventListener("click", function () { loadBte(); });
           $("bte-btn-refresh").addEventListener("click", function () {
             var btn = this;
             btn.disabled = true;
@@ -2505,20 +2707,12 @@
             bteFetch("/refresh", { method: "POST", body: "{}" })
               .then(function (result) {
                 if (result.partial) {
-                  alert(
-                    "Snapshot partially refreshed — some pools failed:\n" +
-                      Object.keys(result.errors || {})
-                        .map(function (k) {
-                          return k + ": " + result.errors[k];
-                        })
-                        .join("\n")
-                  );
+                  alert("Snapshot partially refreshed — some pools failed:\n" +
+                    Object.keys(result.errors || {}).map(function (k) { return k + ": " + result.errors[k]; }).join("\n"));
                 }
                 loadBte();
               })
-              .catch(function (err) {
-                alert("Snapshot refresh failed: " + err.message);
-              })
+              .catch(function (err) { alert("Snapshot refresh failed: " + err.message); })
               .finally(function () {
                 btn.disabled = false;
                 btn.textContent = "Refresh snapshot now";

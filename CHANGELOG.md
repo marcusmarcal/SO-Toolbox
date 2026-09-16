@@ -9,6 +9,23 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 `SRT Ingest:`, `General Tool Admin:`) so entries can be filtered per tool.
 
 ---
+## [4.0.1] - 2026-09-16
+
+### Added
+- **TXCore Provisioning**: BTE tab now starts with a **Supplier** selector (Dataminer `capabilities.Type`) and a **TXEdge** filter (all / INX01 · INX02 · INX03 / individual edge); selecting a supplier lists its channels, and selecting a channel shows the Dataminer resource details.
+- **TXCore Provisioning**: new `GET /api/bte/suppliers` endpoint (channel counts per supplier, TXEdge and mode) and `type=` / `edge=` filters on `GET /api/bte/resources`.
+
+### Changed
+- **TXCore Provisioning**: BTE Destinations moved to a separate modal window with its own filter.
+- **TXCore Provisioning**: BTE snapshot information reduced to a one-line collapsed summary; refresh controls and error details live inside it.
+- **TXCore Provisioning**: BTE backend accepts both Dataminer response shapes (`{pool, count, items}` and `{pools: {...}}`).
+
+### Fixed
+- **TXCore Provisioning**: BTE resource and destination endpoints return an empty list with a hint instead of 404 before the first snapshot; manual refresh reports the missing `DATAMINER_*` variable or filesystem error explicitly.
+
+### Security
+- **TXCore Provisioning**: BTE redaction now also covers `capabilities` and multi-word secret keys such as "Passphrase Main".
+
 ## [4.0.0] - 2026-09-16
 
 ### Added
