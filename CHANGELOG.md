@@ -9,6 +9,20 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 `SRT Ingest:`, `General Tool Admin:`) so entries can be filtered per tool.
 
 ---
+## [4.0.0] - 2026-09-16
+
+### Added
+- **TXCore Provisioning**: new **BTE ("Better Than EMO")** tab, next to the existing STB and MAIN tabs. BTE targets the MAIN core and is backed by a local Dataminer snapshot.
+- **TXCore Provisioning**: new `routes_bte.py` blueprint that snapshots the Dataminer custom resources API every hour (pools *Supplier Dynamic* and *Destination*) into `/opt/web/data/dataminer.resources.json` and exposes it on the internal API (`/api/bte/status`, `/refresh`, `/resources`, `/resources/<id>`, `/destinations`, with `q` / `mode` filters). Admin/engineer roles only.
+- **TXCore Provisioning**: BTE UI — snapshot status card (source, age, next refresh, per-pool counts, refresh errors), manual refresh, channel dropdown with text/mode filters, resource detail card, and a separate Destinations table with its own filter.
+- **TXCore Provisioning**: new environment variables `DATAMINER_API_URL`, `DATAMINER_BEARER_TOKEN`, `DATAMINER_SNAPSHOT_INTERVAL`, `DATAMINER_CA_BUNDLE`, `DATAMINER_VERIFY_SSL`, `DATAMINER_SNAPSHOT_DISABLED`.
+
+### Changed
+- **TXCore Provisioning**: frontend bumped to v1.2.0; the results panel is now switched per tab (TXCore preview/job vs. BTE resource/destinations).
+
+### Security
+- **TXCore Provisioning**: Dataminer bearer token is never sent to the browser; secret-like resource properties (passphrase, password, secret, token, API key) are redacted in all BTE API responses. Snapshot file is written atomically with mode 0600. TLS verification is enabled by default, with optional CA bundle; disabling verification is logged and shown as a warning in the UI.
+
 
 ## [3.64.2] - 2026-09-14
 

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TXCore Provisioning — SO-Toolbox</title>
-    <!-- TXCore Manager frontend v1.1.0 — STB (multicast) + MAIN (SRT) clusters -->
+    <!-- TXCore Manager frontend v1.2.0 — STB (multicast) + MAIN (SRT) clusters + BTE (Dataminer snapshot) -->
     <style>
       :root {
         --bg: #0f1216;
@@ -20,6 +20,7 @@
         --yer: #c792ea;
         --srt-pri: #7fb3ff;
         --srt-bkp: #f0a868;
+        --bte: #ffd166;
         --success: #6bcf7f;
         --error: #e5626b;
         --warn: #f0a868;
@@ -95,6 +96,9 @@
       .dot.bkp {
         background: var(--srt-bkp);
       }
+      .dot.bte {
+        background: var(--bte);
+      }
 
       #status-badge {
         font-family: var(--font-mono);
@@ -148,6 +152,9 @@
       .tab.active {
         color: var(--text);
         border-bottom-color: var(--ave);
+      }
+      .tab.active[data-cluster="bte"] {
+        border-bottom-color: var(--bte);
       }
       .tab .tab-mode {
         font-weight: 400;
@@ -538,6 +545,116 @@
         color: var(--text-faint);
       }
 
+
+      /* ---- BTE ---- */
+      .meta-grid {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 5px 14px;
+        font-family: var(--font-mono);
+        font-size: 12px;
+      }
+      .meta-grid .k {
+        color: var(--text-dim);
+        white-space: nowrap;
+      }
+      .meta-grid .v {
+        color: var(--text);
+        word-break: break-all;
+      }
+      .meta-grid .v.ok {
+        color: var(--success);
+      }
+      .meta-grid .v.warn {
+        color: var(--warn);
+      }
+      .meta-grid .v.bad {
+        color: var(--error);
+      }
+
+      .pill {
+        display: inline-block;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        letter-spacing: 0.04em;
+        padding: 1px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        color: var(--text-dim);
+        vertical-align: middle;
+      }
+      .pill.available {
+        color: var(--success);
+        border-color: rgba(107, 207, 127, 0.5);
+      }
+      .pill.unavailable {
+        color: var(--error);
+        border-color: rgba(229, 98, 107, 0.5);
+      }
+      .pill.other {
+        color: var(--warn);
+        border-color: rgba(240, 168, 104, 0.5);
+      }
+
+      .res-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 4px;
+      }
+      .res-head .res-name {
+        font-family: var(--font-mono);
+        font-size: 15px;
+        font-weight: 600;
+      }
+      .res-id {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--text-faint);
+        word-break: break-all;
+        margin-bottom: 12px;
+      }
+
+      table.kv th {
+        width: 36%;
+        text-transform: none;
+        letter-spacing: 0;
+        font-size: 12px;
+        color: var(--text-dim);
+        border-bottom: 1px solid var(--border-soft);
+        padding: 6px 10px;
+      }
+      table.kv td {
+        word-break: break-all;
+      }
+      table.kv td.redacted {
+        color: var(--warn);
+      }
+      table.kv td.empty {
+        color: var(--text-faint);
+      }
+
+      .table-wrap {
+        max-height: 460px;
+        overflow: auto;
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius);
+      }
+      .table-wrap thead th {
+        position: sticky;
+        top: 0;
+        background: var(--bg);
+        z-index: 1;
+      }
+
+      .list-count {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--text-faint);
+        margin-top: 6px;
+      }
+
       ::-webkit-scrollbar {
         width: 8px;
         height: 8px;
@@ -583,6 +700,10 @@
       <button class="tab" data-cluster="main" role="tab">
         <span class="cfg-dot" id="main-cfg-dot"></span>
         MAIN <span class="tab-mode">· SRT · primary + backup edge</span>
+      </button>
+      <button class="tab" data-cluster="bte" role="tab">
+        <span class="cfg-dot" id="bte-cfg-dot"></span>
+        BTE <span class="tab-mode">· Better Than EMO · Dataminer → MAIN</span>
       </button>
     </nav>
 
@@ -1043,10 +1164,62 @@
             </div>
           </fieldset>
         </div>
+
+        <!-- ------------------------------ BTE ------------------------------ -->
+        <div class="tab-pane" id="pane-bte" data-cluster="bte">
+          <h2>Dataminer snapshot <span class="h2-tag">BTE</span></h2>
+          <fieldset>
+            <div class="progress-wrap">
+              <div class="meta-grid" id="bte-snapshot-meta">
+                <span class="k">Status</span><span class="v">loading…</span>
+              </div>
+            </div>
+            <div class="notice bad" id="bte-notice" style="display: none; margin-top: 10px"></div>
+            <div class="btn-row" style="margin-top: 10px">
+              <button id="bte-btn-refresh">Refresh snapshot now</button>
+              <button id="bte-btn-reload">Reload from server</button>
+            </div>
+            <div class="hint">
+              Snapshots are taken automatically every hour and stored on the
+              server. "Refresh snapshot now" calls the Dataminer API immediately.
+            </div>
+          </fieldset>
+
+          <h2>Channel <span class="h2-tag" id="bte-resource-pool-tag">Supplier Dynamic</span></h2>
+          <fieldset>
+            <div class="field">
+              <label for="bte-resource-filter">Filter</label>
+              <input
+                type="text"
+                id="bte-resource-filter"
+                placeholder="name, GVN channel, multicast, edge…"
+                autocomplete="off"
+              />
+            </div>
+            <div class="field-row">
+              <div class="field" style="flex: 0 0 140px">
+                <label for="bte-mode-filter">Mode</label>
+                <select id="bte-mode-filter">
+                  <option value="">all</option>
+                  <option value="available">Available</option>
+                  <option value="unavailable">Unavailable</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="bte-resource-select">Channel name</label>
+                <select id="bte-resource-select">
+                  <option value="">— loading… —</option>
+                </select>
+              </div>
+            </div>
+            <div class="list-count" id="bte-resource-count"></div>
+          </fieldset>
+        </div>
       </div>
 
       <!-- ===================== RESULTS PANEL ===================== -->
       <div class="panel results-panel">
+        <div id="results-txcore" class="results-panel">
         <div>
           <h2>Preview <span class="h2-tag" id="preview-cluster-tag">—</span></h2>
           <div id="preview-container">
@@ -1069,6 +1242,34 @@
           </div>
           <div id="job-log" style="margin-top: 10px"></div>
         </div>
+        </div>
+
+        <div id="results-bte" class="results-panel" style="display: none">
+          <div>
+            <h2>Resource <span class="h2-tag" id="bte-detail-tag">—</span></h2>
+            <div id="bte-resource-detail">
+              <div class="empty-state">
+                Pick a channel on the left to see its Dataminer resource.
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h2>Destinations <span class="h2-tag" id="bte-dest-tag">Destination</span></h2>
+            <div class="field">
+              <input
+                type="text"
+                id="bte-dest-filter"
+                placeholder="filter destinations — name, IP / host, port, protocol…"
+                autocomplete="off"
+              />
+            </div>
+            <div id="bte-dest-container">
+              <div class="empty-state">No destinations loaded yet.</div>
+            </div>
+            <div class="list-count" id="bte-dest-count"></div>
+          </div>
+        </div>
       </div>
     </main>
 
@@ -1078,6 +1279,8 @@
 
         // Adjust this if the nginx reverse proxy path differs from /so-proxy/
         var API_BASE = "/so-proxy/api/txcore";
+        var BTE_API_BASE = "/so-proxy/api/bte";
+        var BTE_SELECTED_KEY = "txcore-manager-bte-selected";
         // v3: form state is now stored per cluster (stb / main).
         var STORAGE_KEY = "txcore-manager-form-v3";
         var ACTIVE_KEY = "txcore-manager-active-cluster";
@@ -1102,7 +1305,17 @@
             status: null,
             categoriesLoaded: false,
           },
+          bte: {
+            key: "bte",
+            label: "BTE",
+            mode: "bte",
+            subtitle: "Better Than EMO — Dataminer resources for the MAIN core",
+            status: null,
+            categoriesLoaded: true, // no TXCore categories on this tab
+          },
         };
+        // Tabs backed by the TXCore provisioning API (have categories/status).
+        var TXCORE_CLUSTERS = ["stb", "main"];
 
         // Common per-cluster field ids (prefixed with "<cluster>-").
         var COMMON_FIELDS = [
@@ -1374,9 +1587,9 @@
           return params;
         }
 
-        function apiFetch(path, options) {
+        function apiFetch(path, options, base) {
           return fetch(
-            API_BASE + path,
+            (base || API_BASE) + path,
             Object.assign(
               {
                 headers: { "Content-Type": "application/json" },
@@ -1412,11 +1625,18 @@
             p.classList.toggle("active", p.getAttribute("data-cluster") === cluster);
           });
           $("header-subtitle").textContent = CLUSTERS[cluster].subtitle;
+          var isBte = cluster === "bte";
+          $("results-txcore").style.display = isBte ? "none" : "";
+          $("results-bte").style.display = isBte ? "" : "none";
           renderStatusBadge();
           try {
             localStorage.setItem(ACTIVE_KEY, cluster);
           } catch (e) {}
-          if (!CLUSTERS[cluster].categoriesLoaded) loadCategories(cluster);
+          if (isBte) {
+            if (!bte.loaded && !bte.loading) loadBte();
+          } else if (!CLUSTERS[cluster].categoriesLoaded) {
+            loadCategories(cluster);
+          }
         }
 
         document.querySelectorAll(".tab").forEach(function (tab) {
@@ -1444,6 +1664,10 @@
         function renderStatusBadge() {
           var badge = $("status-badge");
           var c = CLUSTERS[activeCluster];
+          if (activeCluster === "bte") {
+            renderBteBadge(badge);
+            return;
+          }
           if (c.statusError) {
             badge.textContent = "Status unavailable — " + c.statusError;
             badge.className = "bad";
@@ -1468,7 +1692,7 @@
           apiFetch("/status")
             .then(function (data) {
               var clusters = data.clusters || {};
-              Object.keys(CLUSTERS).forEach(function (key) {
+              TXCORE_CLUSTERS.forEach(function (key) {
                 var st = clusters[key] || null;
                 // Legacy backend (pre-3.58) reports STB fields at top level.
                 if (!st && key === "stb" && data.bearer_token_set !== undefined) {
@@ -1489,7 +1713,7 @@
               updateSrtPreviews();
             })
             .catch(function (err) {
-              Object.keys(CLUSTERS).forEach(function (key) {
+              TXCORE_CLUSTERS.forEach(function (key) {
                 CLUSTERS[key].statusError = err.message;
                 $(key + "-cfg-dot").className = "cfg-dot bad";
               });
@@ -1873,10 +2097,437 @@
           });
         }
 
+
+        // ---------------------------------------------------------------------
+        // BTE — Dataminer resource snapshot viewer
+        // ---------------------------------------------------------------------
+        var bte = {
+          loaded: false,
+          loading: false,
+          status: null,
+          statusError: null,
+          resources: [],
+          resourcesMeta: null,
+          destinations: [],
+          destinationsMeta: null,
+          selectedId: null,
+        };
+
+        // Property display order for the resource card; anything else follows
+        // alphabetically.
+        var BTE_PROP_ORDER = [
+          "GVN Channel",
+          "DC MWEdge",
+          "Input",
+          "Input Main",
+          "Input Backup",
+          "Encryption",
+          "Encryption Main",
+          "Passphrase",
+          "Latency",
+          "Output",
+          "Aveiro Multicast",
+          "Limerick Multicast",
+          "Yerevan Multicast",
+        ];
+
+        function bteFetch(path, options) {
+          return apiFetch(path, options, BTE_API_BASE);
+        }
+
+        function fmtAge(seconds) {
+          if (seconds === null || seconds === undefined) return "—";
+          if (seconds < 60) return seconds + "s ago";
+          if (seconds < 3600) return Math.round(seconds / 60) + " min ago";
+          var h = Math.floor(seconds / 3600);
+          var m = Math.round((seconds % 3600) / 60);
+          return h + "h" + (m ? " " + m + "m" : "") + " ago";
+        }
+
+        function fmtIn(seconds) {
+          if (seconds === null || seconds === undefined) return "scheduler off";
+          if (seconds <= 0) return "due now";
+          if (seconds < 60) return "in " + seconds + "s";
+          return "in " + Math.round(seconds / 60) + " min";
+        }
+
+        function fmtTime(iso) {
+          if (!iso) return "—";
+          var d = new Date(iso);
+          return isNaN(d) ? iso : d.toLocaleString();
+        }
+
+        function modePill(mode) {
+          var m = String(mode || "").toLowerCase();
+          var cls = m === "available" ? "available" : m === "unavailable" ? "unavailable" : "other";
+          return '<span class="pill ' + cls + '">' + escapeHtml(mode || "?") + "</span>";
+        }
+
+        function bteMissing(st) {
+          if (!st) return ["status unavailable"];
+          var missing = [];
+          if (!st.bearer_token_set) missing.push("token");
+          if (!st.api_url_set) missing.push("api url");
+          if (!st.snapshot || !st.snapshot.exists) missing.push("snapshot");
+          return missing;
+        }
+
+        function renderBteBadge(badge) {
+          if (bte.statusError) {
+            badge.textContent = "BTE status unavailable — " + bte.statusError;
+            badge.className = "bad";
+            return;
+          }
+          var st = bte.status;
+          if (!st) {
+            badge.textContent = "checking Dataminer snapshot…";
+            badge.className = "";
+            return;
+          }
+          var missing = bteMissing(st);
+          if (missing.length) {
+            badge.textContent = "BTE missing: " + missing.join(", ");
+            badge.className = "bad";
+            return;
+          }
+          var snap = st.snapshot;
+          var stale = snap.age_seconds > st.interval_seconds * 2;
+          badge.textContent =
+            "Dataminer snapshot " + fmtAge(snap.age_seconds) + " — " + st.api_url;
+          badge.className = stale ? "bad" : "ok";
+        }
+
+        function renderBteStatus() {
+          var st = bte.status;
+          var grid = $("bte-snapshot-meta");
+          var notice = $("bte-notice");
+          var dot = $("bte-cfg-dot");
+          var missing = bteMissing(st);
+          dot.className = "cfg-dot " + (missing.length ? "bad" : "ok");
+          dot.title = missing.length ? "Missing: " + missing.join(", ") : "Snapshot OK";
+
+          if (!st) {
+            grid.innerHTML =
+              '<span class="k">Status</span><span class="v bad">' +
+              escapeHtml(bte.statusError || "unavailable") +
+              "</span>";
+            return;
+          }
+          var snap = st.snapshot || {};
+          var rows = [];
+          function row(k, v, cls) {
+            rows.push(
+              '<span class="k">' + escapeHtml(k) + '</span><span class="v ' + (cls || "") + '">' + v + "</span>"
+            );
+          }
+          row("Source", escapeHtml(st.api_url || "not set"), st.api_url_set ? "" : "bad");
+          row("Token", st.bearer_token_set ? "configured" : "missing", st.bearer_token_set ? "ok" : "bad");
+          if (st.verify_ssl === false) row("TLS", "verification disabled", "warn");
+          if (!snap.exists) {
+            row("Snapshot", "none yet", "bad");
+          } else {
+            row("Last fetch", escapeHtml(fmtTime(snap.fetched_at)) + " · " + escapeHtml(fmtAge(snap.age_seconds)));
+            row("Next refresh", escapeHtml(fmtIn(snap.next_refresh_in_seconds)), st.refreshing ? "warn" : "");
+            var pools = snap.pools || {};
+            Object.keys(pools).forEach(function (k) {
+              var p = pools[k];
+              var err = snap.errors && snap.errors[k];
+              row(
+                p.pool || k,
+                p.count + " items" + (err ? " (last refresh failed — showing previous copy)" : ""),
+                err ? "warn" : ""
+              );
+            });
+            if (snap.duration_ms !== undefined && snap.duration_ms !== null)
+              row("Fetch time", snap.duration_ms + " ms");
+          }
+          grid.innerHTML = rows.join("");
+
+          var errs = snap.errors || {};
+          var errKeys = Object.keys(errs);
+          if (errKeys.length) {
+            notice.style.display = "";
+            notice.textContent = errKeys
+              .map(function (k) {
+                return k + ": " + errs[k];
+              })
+              .join(" | ");
+          } else if (st.last_error) {
+            notice.style.display = "";
+            notice.textContent = st.last_error;
+          } else {
+            notice.style.display = "none";
+          }
+        }
+
+        function bteFilteredResources() {
+          var q = $("bte-resource-filter").value.trim().toLowerCase();
+          var mode = $("bte-mode-filter").value;
+          return bte.resources.filter(function (r) {
+            if (mode && String(r.mode || "").toLowerCase() !== mode) return false;
+            if (!q) return true;
+            if (String(r.name || "").toLowerCase().indexOf(q) !== -1) return true;
+            var props = r.properties || {};
+            return Object.keys(props).some(function (k) {
+              return (
+                String(props[k]).toLowerCase().indexOf(q) !== -1 ||
+                k.toLowerCase().indexOf(q) !== -1
+              );
+            });
+          });
+        }
+
+        function renderBteSelect() {
+          var select = $("bte-resource-select");
+          var list = bteFilteredResources();
+          $("bte-resource-count").textContent =
+            list.length + " of " + bte.resources.length + " channels";
+          if (!bte.resources.length) {
+            select.innerHTML = '<option value="">— no resources in snapshot —</option>';
+            return;
+          }
+          var keep = bte.selectedId;
+          var present = list.some(function (r) {
+            return r.id === keep;
+          });
+          select.innerHTML =
+            '<option value="">— select a channel —</option>' +
+            list
+              .map(function (r) {
+                var gvn = r.properties && r.properties["GVN Channel"];
+                return (
+                  '<option value="' + escapeHtml(r.id) + '">' +
+                  escapeHtml(r.name) +
+                  (gvn ? " · GVN " + escapeHtml(gvn) : "") +
+                  " · " + escapeHtml(r.mode || "?") +
+                  "</option>"
+                );
+              })
+              .join("");
+          select.value = present ? keep : "";
+        }
+
+        function bteFindResource(id) {
+          for (var i = 0; i < bte.resources.length; i++) {
+            if (bte.resources[i].id === id) return bte.resources[i];
+          }
+          return null;
+        }
+
+        function orderedPropKeys(props) {
+          var keys = Object.keys(props || {});
+          var known = BTE_PROP_ORDER.filter(function (k) {
+            return keys.indexOf(k) !== -1;
+          });
+          var rest = keys
+            .filter(function (k) {
+              return BTE_PROP_ORDER.indexOf(k) === -1;
+            })
+            .sort();
+          return known.concat(rest);
+        }
+
+        function renderBteDetail() {
+          var container = $("bte-resource-detail");
+          var r = bte.selectedId ? bteFindResource(bte.selectedId) : null;
+          $("bte-detail-tag").textContent = r ? (bte.resourcesMeta ? bte.resourcesMeta.pool : "resource") : "—";
+          if (!r) {
+            container.innerHTML =
+              '<div class="empty-state">Pick a channel on the left to see its Dataminer resource.</div>';
+            return;
+          }
+          var props = r.properties || {};
+          var rows = orderedPropKeys(props)
+            .map(function (k) {
+              var v = props[k];
+              var cls = "";
+              if (v === "********") cls = "redacted";
+              else if (v === "" || v === null || v === undefined) cls = "empty";
+              var shown = cls === "empty" ? "(empty)" : String(v);
+              return (
+                "<tr><th>" + escapeHtml(k) + '</th><td class="' + cls + '">' + escapeHtml(shown) + "</td></tr>"
+              );
+            })
+            .join("");
+          container.innerHTML =
+            '<div class="res-head"><span class="res-name">' +
+            escapeHtml(r.name) +
+            "</span>" +
+            modePill(r.mode) +
+            '<span class="pill">concurrency ' +
+            escapeHtml(r.concurrency) +
+            "</span></div>" +
+            '<div class="res-id">' +
+            escapeHtml(r.id) +
+            "</div>" +
+            '<table class="kv"><tbody>' +
+            (rows || '<tr><td class="empty" colspan="2">No properties</td></tr>') +
+            "</tbody></table>";
+        }
+
+        function destRows(list) {
+          var STD = ["Protocol", "IP", "Port", "Type", "Output Port"];
+          return list
+            .map(function (d) {
+              var p = d.properties || {};
+              var extra = Object.keys(p)
+                .filter(function (k) {
+                  return STD.indexOf(k) === -1;
+                })
+                .sort()
+                .map(function (k) {
+                  return escapeHtml(k) + "=" + escapeHtml(p[k]);
+                })
+                .join(" ");
+              return (
+                "<tr><td>" + escapeHtml(d.name) +
+                "</td><td>" + modePill(d.mode) +
+                "</td><td>" + escapeHtml(p.Protocol || "") +
+                (p.Type ? " " + escapeHtml(p.Type) : "") +
+                "</td><td>" + escapeHtml(p.IP || "") +
+                "</td><td>" + escapeHtml(p.Port || "") +
+                (p["Output Port"] ? " <span style=\"color: var(--text-faint)\">/ out " + escapeHtml(p["Output Port"]) + "</span>" : "") +
+                '</td><td style="color: var(--text-dim)">' + extra +
+                "</td></tr>"
+              );
+            })
+            .join("");
+        }
+
+        function renderBteDestinations() {
+          var container = $("bte-dest-container");
+          var q = $("bte-dest-filter").value.trim().toLowerCase();
+          var list = bte.destinations.filter(function (d) {
+            if (!q) return true;
+            if (String(d.name || "").toLowerCase().indexOf(q) !== -1) return true;
+            var p = d.properties || {};
+            return Object.keys(p).some(function (k) {
+              return String(p[k]).toLowerCase().indexOf(q) !== -1;
+            });
+          });
+          if (bte.destinationsMeta) $("bte-dest-tag").textContent = bte.destinationsMeta.pool;
+          $("bte-dest-count").textContent =
+            list.length + " of " + bte.destinations.length + " destinations";
+          if (!bte.destinations.length) {
+            container.innerHTML = '<div class="empty-state">No destinations in the snapshot.</div>';
+            return;
+          }
+          if (!list.length) {
+            container.innerHTML = '<div class="empty-state">No destination matches the filter.</div>';
+            return;
+          }
+          container.innerHTML =
+            '<div class="table-wrap"><table><thead><tr>' +
+            "<th>Name</th><th>Mode</th><th>Protocol</th><th>IP / host</th><th>Port</th><th>Other</th>" +
+            "</tr></thead><tbody>" +
+            destRows(list) +
+            "</tbody></table></div>";
+        }
+
+        function loadBte() {
+          bte.loading = true;
+          $("bte-resource-select").innerHTML = '<option value="">— loading… —</option>';
+
+          var statusReq = bteFetch("/status")
+            .then(function (st) {
+              bte.status = st;
+              bte.statusError = null;
+            })
+            .catch(function (err) {
+              bte.status = null;
+              bte.statusError = err.message;
+            });
+
+          var resReq = bteFetch("/resources")
+            .then(function (data) {
+              bte.resources = data.items || [];
+              bte.resourcesMeta = data;
+              if (data.pool) $("bte-resource-pool-tag").textContent = data.pool;
+            })
+            .catch(function (err) {
+              bte.resources = [];
+              bte.resourcesMeta = null;
+              $("bte-resource-select").innerHTML =
+                '<option value="">— ' + escapeHtml(err.message) + " —</option>";
+            });
+
+          var destReq = bteFetch("/destinations")
+            .then(function (data) {
+              bte.destinations = data.items || [];
+              bte.destinationsMeta = data;
+            })
+            .catch(function (err) {
+              bte.destinations = [];
+              bte.destinationsMeta = null;
+              $("bte-dest-container").innerHTML =
+                '<div class="empty-state">' + escapeHtml(err.message) + "</div>";
+            });
+
+          Promise.all([statusReq, resReq, destReq]).then(function () {
+            bte.loading = false;
+            bte.loaded = true;
+            renderBteStatus();
+            renderStatusBadge();
+            if (bte.resources.length) renderBteSelect();
+            renderBteDetail();
+            if (bte.destinations.length) renderBteDestinations();
+          });
+        }
+
+        function wireBte() {
+          try {
+            bte.selectedId = localStorage.getItem(BTE_SELECTED_KEY) || null;
+          } catch (e) {}
+
+          $("bte-resource-select").addEventListener("change", function () {
+            bte.selectedId = this.value || null;
+            try {
+              if (bte.selectedId) localStorage.setItem(BTE_SELECTED_KEY, bte.selectedId);
+              else localStorage.removeItem(BTE_SELECTED_KEY);
+            } catch (e) {}
+            renderBteDetail();
+          });
+          $("bte-resource-filter").addEventListener("input", renderBteSelect);
+          $("bte-mode-filter").addEventListener("change", renderBteSelect);
+          $("bte-dest-filter").addEventListener("input", renderBteDestinations);
+
+          $("bte-btn-reload").addEventListener("click", function () {
+            loadBte();
+          });
+
+          $("bte-btn-refresh").addEventListener("click", function () {
+            var btn = this;
+            btn.disabled = true;
+            btn.textContent = "Refreshing…";
+            bteFetch("/refresh", { method: "POST", body: "{}" })
+              .then(function (result) {
+                if (result.partial) {
+                  alert(
+                    "Snapshot partially refreshed — some pools failed:\n" +
+                      Object.keys(result.errors || {})
+                        .map(function (k) {
+                          return k + ": " + result.errors[k];
+                        })
+                        .join("\n")
+                  );
+                }
+                loadBte();
+              })
+              .catch(function (err) {
+                alert("Snapshot refresh failed: " + err.message);
+              })
+              .finally(function () {
+                btn.disabled = false;
+                btn.textContent = "Refresh snapshot now";
+              });
+          });
+        }
+
         // ---------------------------------------------------------------------
         // Init
         // ---------------------------------------------------------------------
         loadFormState();
+        wireBte();
 
         ["stb", "main"].forEach(function (cluster) {
           wireCategory(cluster);
@@ -1934,6 +2585,17 @@
         var hashCluster = (location.hash || "").replace("#", "").toLowerCase();
         setActiveCluster(CLUSTERS[hashCluster] ? hashCluster : savedCluster || "stb");
         loadStatus();
+        if (activeCluster !== "bte") {
+          bteFetch("/status")
+            .then(function (st) {
+              bte.status = st;
+              bte.statusError = null;
+            })
+            .catch(function (err) {
+              bte.statusError = err.message;
+            })
+            .then(renderBteStatus);
+        }
       })();
     </script>
   </body>
