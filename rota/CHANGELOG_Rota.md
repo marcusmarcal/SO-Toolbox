@@ -2,6 +2,48 @@
 
 # Rota Changelog
 
+## [Unreleased] — UI overhaul PR1: sidebar shell + light theme
+
+### Changed 16-09-2026
+- Replaced top horizontal `#topbar` + `#tab-bar` with a fixed 220px left
+  sidebar (`#sidebar`), macOS Finder-style: logo/app-name header, nested
+  nav (parent items expand/collapse only, no content change on parent
+  click), user identity + Feedback/Sign out moved to sidebar footer.
+- Retokenized `:root` to a macOS-light palette, grouped and labeled by
+  purpose (NEUTRALS / BRAND / STATUS / TEAM BADGES / SPRINKLE / TYPE) for
+  future tweaking without re-reading the whole stylesheet. Accent is
+  `#3F1568` (deep purple).
+- Draft banner now sits at the top of `#content-pane`, full width of the
+  content area (not sidebar-embedded) — unchanged behaviour, new position.
+- Reduced body noise-grain overlay opacity 0.35 → 0.08 (was tuned for dark
+  bg, overpowered the light theme).
+- Recalibrated `#rota-wrap` max-height (`calc(100vh - 230px)` →
+  `calc(100vh - 140px)`) now that ~120px of sticky top chrome no longer
+  sits above the content pane.
+- Logo is now an `<img>` slot at `/assets/logo-placeholder.png` — shows
+  broken-image icon until a PNG is supplied; deliberate placeholder.
+
+### Not yet done (PR2, scoped separately)
+- Sub-panel content splitting: Leave Approvals (Pending/History), Night &
+  PH Hours (Compute/POT Consultation), My Overview (AL Allowance/SOE
+  Weekend Coverage), Admin (People/Annual Leave/Feedback) all currently
+  still render as one combined panel regardless of which child nav item
+  was clicked — child clicks load the parent's full existing content.
+  Actual show/hide-per-sub-item logic is the next pass.
+- A handful of hardcoded dark-theme rgba/hex values remain in
+  `.data-table`, `.pot-table`, and history-row border colors (e.g.
+  `#252525`, `rgba(255,255,255,0.15)`) — not yet swept to light-theme
+  equivalents. Cosmetic only, doesn't affect function.
+- Mobile static-screenshot view — explicitly deferred, separate spec.
+
+### Verification performed
+- Div open/close tag balance confirmed equal (379/379).
+- Full inline `<script>` block confirmed to parse as valid JS syntax
+  (`new Function()` on extracted source — syntax check only, not a
+  runtime/click-through test; UAT in-browser still required).
+- No stray references to removed `.tab-btn` / `#topbar` / `#tab-bar`
+  selectors remain anywhere in CSS, HTML, or JS.
+
 ### Fixed 10-09-2026
 - Shift registry table: implicit shifts and entries saved with the grey
   placeholder color now display their correct default colors in the admin UI.
