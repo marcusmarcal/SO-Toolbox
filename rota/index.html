@@ -292,15 +292,20 @@
 
     .shift-cell {
       display: block; width: 100%; height: 26px; line-height: 26px;
-      font-weight: 700; font-size: inherit; letter-spacing: 0.03em;
+      font-weight: 500; font-size: inherit; letter-spacing: 0.03em;
     }
     .shift-cell.dotted {
-      background-image: radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px);
-      background-size: 4px 4px;
+      /* Sparse dark dots, tuned to read like Excel's ~6.25% dot fill
+         pattern — dot size/spacing here is the one knob to adjust if the
+         density needs tweaking later. */
+      background-image: radial-gradient(circle, rgba(0,0,0,0.16) 1px, transparent 1px);
+      background-size: 7px 7px;
     }
     .shift-cell.absent-overlay {
+      /* Intermediate gray between the OFF cell bg (#ececec) and its
+         label color (#949292) — see SHIFT_COLORS['ABSENT'] below. */
       background-image: repeating-linear-gradient(
-        45deg, rgba(80,80,80,0.55) 0px, rgba(80,80,80,0.55) 2px,
+        45deg, rgba(148,148,148,0.55) 0px, rgba(148,148,148,0.55) 2px,
         transparent 2px, transparent 6px
       );
     }
@@ -1113,13 +1118,13 @@
       <div class="legend-item"><div class="legend-swatch" style="background:#95D6FC;"></div>0900-1800</div>
       <div class="legend-item"><div class="legend-swatch" style="background:#4A91BA;"></div>1000-2000</div>
       <div class="legend-item"><div class="legend-swatch" style="background:#ABD1AD;"></div>Management</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#9ee6a6;"></div>Confirmed AL</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#FFEB3B;"></div>Confirmed AL</div>
       <div class="legend-item"><div class="legend-swatch" style="background:#F48FB1;"></div>Pending AL</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#00BCD4;"></div>Parental</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#3a3a3a;border:1px solid #555;"></div>Marital</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#71efde;"></div>Parental</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#71efde;border:1px solid #3fb0a0;"></div>Marital</div>
       <div class="legend-item"><div class="legend-swatch" style="background:#FF5722;"></div>Public Holiday</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#2a2a2a;background-image:repeating-linear-gradient(45deg,rgba(150,150,150,0.5) 0px,rgba(150,150,150,0.5) 1px,transparent 1px,transparent 3px);"></div>Absent</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#2a2a2a;position:relative;"><span style="position:absolute;top:0;right:0;width:0;height:0;border-style:solid;border-width:0 8px 8px 0;border-color:transparent #E2725B transparent transparent;"></span></div>Has note</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#ececec;background-image:repeating-linear-gradient(45deg,rgba(148,148,148,0.55) 0px,rgba(148,148,148,0.55) 2px,transparent 2px,transparent 6px);"></div>Absent</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#ececec;position:relative;"><span style="position:absolute;top:0;right:0;width:0;height:0;border-style:solid;border-width:0 8px 8px 0;border-color:transparent #E2725B transparent transparent;"></span></div>Has note</div>
     </div>
   </div>
 
@@ -1777,12 +1782,12 @@
     '0800-1630': { bg:'#ABD1AD', fg:'#000' },
     '0930-1800': { bg:'#ABD1AD', fg:'#000' },
     '0900-1730': { bg:'#ABD1AD', fg:'#000' },
-    'OFF':         { bg:'#2a2a2a', fg:'#555' },
+    'OFF':         { bg:'#ececec', fg:'#949292' },
     'AL_APPROVED': { bg:'#FFEB3B', fg:'#5D4037' },
     'AL_PENDING':  { bg:'#F48FB1', fg:'#5D4037' },
-    'PARENTAL':    { bg:'#00BCD4', fg:'#fff', dotted: true },
-    'MARITAL':     { bg:'#3a3a3a', fg:'#999', dotted: true },
-    'ABSENT':      { bg:'#2a2a2a', fg:'#777', absent: true },
+    'PARENTAL':    { bg:'#71efde', fg:'#0f5c52', dotted: true },
+    'MARITAL':     { bg:'#71efde', fg:'#0f5c52', dotted: true },
+    'ABSENT':      { bg:'#ececec', fg:'#949292', absent: true },
   };
 
   const VALID_ROLES = new Set(['admin', 'engineer', 'specialist']);

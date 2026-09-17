@@ -90,6 +90,128 @@
 - data-table / pot-table hardcoded dark border colors (#252525 etc.)
   not yet swept -- cosmetic only, still pending.
 
+---
+
+## [Unreleased] — UI overhaul PR1 (cont.): OFF/ABSENT/PARENTAL/MARITAL relight + type hierarchy
+
+### Changed
+- SHIFT_COLORS: OFF -> bg #ececec / fg #949292 (matches weekend date-col
+  styling exactly). ABSENT -> same base + diagonal texture recolored to
+  an intermediate gray (rgba(148,148,148,0.55)) so it reads between the
+  light bg and dark label on a light table. PARENTAL and MARITAL both
+  unified to bg #71efde with a dotted overlay; dotted pattern itself
+  reworked (sparser, dark dots on transparent, ~7px grid) to read closer
+  to Excel's light dot-fill pattern instead of the old faint white dots.
+- .shift-cell font-weight 700 -> 500, to sit visually lighter than the
+  bold header row (700) and bold date column (700) — this is the single
+  line to touch if hierarchy needs further adjustment (index.html, rule
+  `.shift-cell { font-weight: ... }`).
+- Legend swatches (Rota tab, bottom) synced to match the above so the
+  legend doesn't contradict the table.
+- Unrelated pre-existing bug fixed opportunistically: legend's
+  "Confirmed AL" swatch was #9ee6a6 (green) but SHIFT_COLORS['AL_APPROVED']
+  is #FFEB3B (yellow) — legend never matched the actual cell color. Now
+  synced.
+
+### Flag — real functional consequence, not just cosmetic
+- PARENTAL and MARITAL cells render as text-blank in the grid (existing
+  behaviour, unchanged) — with both now sharing the identical bg color
+  and dotted pattern, **they are visually indistinguishable in the rota
+  table itself**. The legend has a thin border added to Marital's swatch
+  to tell them apart there, but that border isn't applied to actual grid
+  cells. If distinguishing Parental from Marital at a glance in the live
+  table matters, this needs a follow-up (e.g. a border, different dot
+  density, or a tiny corner mark) — not resolved by this change, executed
+  literally per instruction as given.
+
+## [Unreleased] — UI overhaul PR1: sidebar shell + light theme
+
+### Changed 17-09-2026
+- Replaced top horizontal `#topbar` + `#tab-bar` with a fixed 220px left
+  sidebar (`#sidebar`), macOS Finder-style: logo/app-name header, nested
+  nav (parent items expand/collapse only, no content change on parent
+  click), user identity + Feedback/Sign out moved to sidebar footer.
+- Retokenized `:root` to a macOS-light palette, grouped and labeled by
+  purpose (NEUTRALS / BRAND / STATUS / TEAM BADGES / SPRINKLE / TYPE) for
+  future tweaking without re-reading the whole stylesheet. Accent is
+  `#3F1568` (deep purple).
+- Draft banner now sits at the top of `#content-pane`, full width of the
+  content area (not sidebar-embedded) — unchanged behaviour, new position.
+- Reduced body noise-grain overlay opacity 0.35 → 0.08 (was tuned for dark
+  bg, overpowered the light theme).
+- Recalibrated `#rota-wrap` max-height (`calc(100vh - 230px)` →
+  `calc(100vh - 140px)`) now that ~120px of sticky top chrome no longer
+  sits above the content pane.
+- Logo is now an `<img>` slot at `/assets/logo-placeholder.png` — shows
+  broken-image icon until a PNG is supplied; deliberate placeholder.
+
+### Not yet done (PR2, scoped separately)
+- Sub-panel content splitting: Leave Approvals (Pending/History), Night &
+  PH Hours (Compute/POT Consultation), My Overview (AL Allowance/SOE
+  Weekend Coverage), Admin (People/Annual Leave/Feedback) all currently
+  still render as one combined panel regardless of which child nav item
+  was clicked — child clicks load the parent's full existing content.
+  Actual show/hide-per-sub-item logic is the next pass.
+- A handful of hardcoded dark-theme rgba/hex values remain in
+  `.data-table`, `.pot-table`, and history-row border colors (e.g.
+  `#252525`, `rgba(255,255,255,0.15)`) — not yet swept to light-theme
+  equivalents. Cosmetic only, doesn't affect function.
+- Mobile static-screenshot view — explicitly deferred, separate spec.
+
+### Verification performed
+- Div open/close tag balance confirmed equal (379/379).
+- Full inline `<script>` block confirmed to parse as valid JS syntax
+  (`new Function()` on extracted source — syntax check only, not a
+  runtime/click-through test; UAT in-browser still required).
+- No stray references to removed `.tab-btn` / `#topbar` / `#tab-bar`
+  selectors remain anywhere in CSS, HTML, or JS.
+
+---
+
+## [Unreleased] — UI overhaul PR1 (cont.): rota table retheme + fonts
+
+### Changed
+- Rota table chrome (headers, date column, weekend/PH/today shading, gap
+  flags, draft-mode header tint, borders) retheme dark → light. Scope
+  was deliberately narrow: SHIFT_COLORS (the JS map driving actual shift
+  code colors, plus OFF/ABSENT/PARENTAL/MARITAL) was left untouched per
+  explicit "shift colors remain untouched" instruction — flag if
+  OFF/ABSENT/PARENTAL/MARITAL should also be relit for light theme, since
+  those aren't work-shift legend colors and the instruction's scope on
+  them was ambiguous.
+- Type system unified: --mono / --display / --numfont all now resolve to
+  Inter; hierarchy comes from weight/size only, not family. Variable
+  names kept as-is (legacy — "mono" doesn't mean monospace) with an
+  explanatory comment rather than renaming ~106 call sites for a
+  cosmetic-only gain.
+- New --font-title token + @font-face for Resolve Sans (title only),
+  falling back to Inter until licensed .woff2 files are supplied at
+  /assets/fonts/ResolveSans-{Regular,Bold}.woff2. Resolve Sans is
+  Blackmagic Design's proprietary font — NOT on any public CDN. Requires
+  license confirmation for web-embed use before those files are hosted.
+  Flagged explicitly; not resolved by this change.
+- Google Fonts import trimmed: dropped Syne and Space Mono (both fully
+  unused after the Inter consolidation — Space Mono was already dead
+  weight before this pass, Syne was --display's old value). Kept Aptos
+  Narrow + Roboto — both used exclusively by the print-export CSS
+  (.print-title / table.print-rota), which is intentionally out of scope
+  for this theme pass.
+- Sidebar header text "SP SO Rota" -> "Streaming Ops Rota" (the <title>
+  tag already read correctly -- only the visible sidebar label was stale).
+
+### Verification performed
+- Div balance (379/379), inline <script> syntax parse -- both hold post-edit.
+- Confirmed no remaining "SP SO" string anywhere in the file.
+- Confirmed print-export font-family declarations (Roboto/Aptos Narrow)
+  untouched and still bypass the --mono/--display vars as designed.
+
+### Still open
+- Resolve Sans font files not supplied -- title currently renders in
+  Inter (fallback) until sourced + licensed.
+- Sub-panel content splitting (PR2, unchanged from prior entry).
+- data-table / pot-table hardcoded dark border colors (#252525 etc.)
+  not yet swept -- cosmetic only, still pending.
+
 ## [Unreleased] — UI overhaul PR1: sidebar shell + light theme
 
 ### Changed 16-09-2026
