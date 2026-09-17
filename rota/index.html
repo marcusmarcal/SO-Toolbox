@@ -318,7 +318,8 @@
       background-color: rgba(230,168,80,0.24) !important;
     }
     table.rota.draft-selectable tbody td.selected-cell .shift-cell {
-      color: #fff !important;
+      color: var(--warn) !important;   /* matches .selection-box border exactly (rgba(230,168,80,.9) = #e6a850) */
+      font-weight: 700 !important;      /* selection needs to win the hierarchy fight against the normal 500 */
     }
     #selection-overlay {
       position: absolute; pointer-events: none; z-index: 50;
@@ -1109,6 +1110,10 @@
     <div id="rota-wrap">
       <div class="loading-row"><div class="spinner"></div> Loading rota…</div>
     </div>
+    <!-- Legend hidden per request — users already know the color scheme
+         from the existing Excel-format rota, and it was costing vertical
+         space. Uncomment to restore; swatches are kept in sync with
+         SHIFT_COLORS above so this won't be stale if re-enabled later.
     <div id="legend">
       <div class="legend-item"><div class="legend-swatch" style="background:#49B1E8;"></div>0700-1800</div>
       <div class="legend-item"><div class="legend-swatch" style="background:#8474E3;"></div>0900-2000</div>
@@ -1121,11 +1126,12 @@
       <div class="legend-item"><div class="legend-swatch" style="background:#FFEB3B;"></div>Confirmed AL</div>
       <div class="legend-item"><div class="legend-swatch" style="background:#F48FB1;"></div>Pending AL</div>
       <div class="legend-item"><div class="legend-swatch" style="background:#71efde;"></div>Parental</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#71efde;border:1px solid #3fb0a0;"></div>Marital</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#ffffff;border:1px solid #71efde;background-image:radial-gradient(circle, rgba(0,0,0,0.16) 1px, transparent 1px);background-size:7px 7px;"></div>Marital</div>
       <div class="legend-item"><div class="legend-swatch" style="background:#FF5722;"></div>Public Holiday</div>
       <div class="legend-item"><div class="legend-swatch" style="background:#ececec;background-image:repeating-linear-gradient(45deg,rgba(148,148,148,0.55) 0px,rgba(148,148,148,0.55) 2px,transparent 2px,transparent 6px);"></div>Absent</div>
       <div class="legend-item"><div class="legend-swatch" style="background:#ececec;position:relative;"><span style="position:absolute;top:0;right:0;width:0;height:0;border-style:solid;border-width:0 8px 8px 0;border-color:transparent #E2725B transparent transparent;"></span></div>Has note</div>
     </div>
+    -->
   </div>
 
   <!-- ══ TAB: REQUEST LEAVE ══ -->
@@ -1786,7 +1792,7 @@
     'AL_APPROVED': { bg:'#FFEB3B', fg:'#5D4037' },
     'AL_PENDING':  { bg:'#F48FB1', fg:'#5D4037' },
     'PARENTAL':    { bg:'#71efde', fg:'#0f5c52', dotted: true },
-    'MARITAL':     { bg:'#71efde', fg:'#0f5c52', dotted: true },
+    'MARITAL':     { bg:'#ffffff', fg:'#0f5c52', dotted: true },
     'ABSENT':      { bg:'#ececec', fg:'#949292', absent: true },
   };
 
