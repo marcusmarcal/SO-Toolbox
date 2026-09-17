@@ -17,6 +17,10 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
   Regional edges are resolved per site by key prefix (AVE02 → AVE, LMK01 → LMK,
   YER01 → YER) and pull from the DC edge `out=SRT@<host>`.
 
+  - TXCore Provisioning / BTE: when a resource has no "Output", the DC output port is
+  inferred as Input port + 1000 (Dataminer "+1000 rule"); the plan preview flags the
+  inferred value.
+
 
 ## [4.2.1] - 2026-09-17
 

@@ -85,6 +85,8 @@ REQUEST_TIMEOUT = (10, 30)
 HISTORY_KEEP = 200          # finished leases kept for the UI history
 REAPER_INTERVAL = 60        # seconds
 
+OUTPUT_PORT_OFFSET = 1000   # Output port = Input port + 1000 when the resource has no "Output"
+
 os.makedirs(DATA_DIR, exist_ok=True)
 
 
@@ -365,6 +367,10 @@ def build_plan(item, edges=None):
         errors.append(f'"Input Main" is missing or unparsable: {props.get("Input Main")!r}')
     backup_in = parse_input(props.get('Input Backup'))
     out_port = _int_or_none(props.get('Output'))
+    if _blank(props.get('Output')) and main_in:
+        # "+1000 rule": no Output on the resource -> Input port + 1000 (as the Dataminer script does).
+        out_port = main_in['port'] + OUTPUT_PORT_OFFSET
+        warnings.append(f'"Output" missing — inferred as Input port + {OUTPUT_PORT_OFFSET} = {out_port}')
     if not out_port or not 1 <= out_port <= 65535:
         errors.append(f'"Output" port is missing or invalid: {props.get("Output")!r}')
     if not INTERNAL_PASSPHRASE:
