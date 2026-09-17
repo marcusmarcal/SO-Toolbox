@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TXCore Provisioning — SO-Toolbox</title>
-    <!-- TXCore Manager frontend v1.4.0 — STB (multicast) + MAIN (SRT) clusters + BTE (supplier / channel browser, TXEdge topology) -->
+    <!-- TXCore Manager frontend v1.4.0 — STB (multicast) + MAIN (SRT) clusters + BTE (supplier / channel browser + timed resource provisioning) -->
     <style>
       :root {
         --bg: #0f1216;
@@ -741,7 +741,131 @@
         margin-top: 10px;
       }
 
-      dialog.bte-dialog {
+      /* ---- BTE provisioning ---- */
+      .prov-box {
+        border: 1px solid var(--border-soft);
+        border-left: 3px solid var(--bte);
+        border-radius: var(--radius);
+        padding: 12px 14px;
+        margin-top: 16px;
+        background: var(--panel);
+      }
+      .prov-box .prov-row {
+        display: flex;
+        align-items: flex-end;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .prov-box .prov-row .field {
+        margin: 0;
+      }
+      .prov-box .field.short {
+        flex: 0 0 110px;
+      }
+      .prov-box .toggle-row {
+        margin: 0;
+        padding: 6px 10px;
+        flex: 1 1 220px;
+      }
+      .prov-box .btn-row {
+        margin-left: auto;
+      }
+      button.bte {
+        background: var(--bte);
+        border-color: var(--bte);
+        color: #1a1500;
+      }
+      button.bte:hover {
+        background: #ffe08a;
+        color: #1a1500;
+      }
+      button.danger {
+        border-color: rgba(229, 98, 107, 0.6);
+        color: var(--error);
+      }
+      button.danger:hover {
+        border-color: var(--error);
+        background: rgba(229, 98, 107, 0.08);
+        color: var(--error);
+      }
+      button.small {
+        font-size: 11px;
+        padding: 4px 9px;
+        font-weight: 500;
+      }
+      input.inline-min {
+        width: 58px;
+        padding: 3px 6px;
+        font-size: 11px;
+      }
+
+      table.leases td {
+        vertical-align: middle;
+      }
+      table.leases .lease-name {
+        font-weight: 600;
+      }
+      table.leases .lease-sub {
+        color: var(--text-faint);
+        font-size: 11px;
+      }
+      table.leases .remain {
+        font-variant-numeric: tabular-nums;
+      }
+      table.leases .remain.soon {
+        color: var(--warn);
+      }
+      table.leases .remain.over {
+        color: var(--error);
+      }
+      table.leases .actions {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        justify-content: flex-end;
+        white-space: nowrap;
+      }
+      table.leases tr.final td {
+        color: var(--text-faint);
+      }
+      table.leases tr.final .lease-name {
+        color: var(--text-dim);
+      }
+      .pill.creating,
+      .pill.deleting {
+        color: var(--bte);
+        border-color: rgba(255, 209, 102, 0.5);
+      }
+      .pill.active {
+        color: var(--success);
+        border-color: rgba(107, 207, 127, 0.5);
+      }
+      .pill.failed,
+      .pill.delete_failed {
+        color: var(--error);
+        border-color: rgba(229, 98, 107, 0.5);
+      }
+      .pill.dry {
+        color: var(--text-faint);
+        border-style: dashed;
+      }
+
+      .plan-step .plan-body {
+        font-size: 11px;
+        color: var(--text-dim);
+        white-space: pre-wrap;
+        word-break: break-all;
+        margin: 0;
+      }
+      .plan-edge {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--bte);
+        padding: 12px 10px 4px;
+      }
+
+      dialog#bte-dest-dialog,
+      dialog#bte-plan-dialog {
         background: var(--bg);
         color: var(--text);
         border: 1px solid var(--border);
@@ -752,7 +876,8 @@
         font-family: var(--font-sans);
         font-size: 14px;
       }
-      dialog.bte-dialog::backdrop {
+      dialog#bte-dest-dialog::backdrop,
+      dialog#bte-plan-dialog::backdrop {
         background: rgba(0, 0, 0, 0.65);
       }
       .dialog-head {
@@ -1303,7 +1428,7 @@
                 <label for="bte-edge-filter">TXEdge</label>
                 <select id="bte-edge-filter">
                   <option value="">all edges</option>
-                  <option value="dc">INX01 · INX02 · INX03</option>
+                  <option value="inx0123">INX01 · INX02 · INX03</option>
                   <option value="INX01">INX01</option>
                   <option value="INX02">INX02</option>
                   <option value="INX03">INX03</option>
@@ -1340,7 +1465,6 @@
 
           <div class="btn-row">
             <button id="bte-btn-destinations">Destinations…</button>
-            <button id="bte-btn-edges">TXEdges…</button>
           </div>
 
           <div class="snap-line">
@@ -1397,12 +1521,50 @@
                 Pick a supplier, then a channel, to see its Dataminer resource.
               </div>
             </div>
+
+            <div class="prov-box" id="bte-prov-box" style="display: none">
+              <div class="prov-row">
+                <div class="field short">
+                  <label for="bte-prov-duration">Duration (min)</label>
+                  <input type="number" id="bte-prov-duration" min="1" step="5" value="60" />
+                </div>
+                <div class="toggle-row">
+                  <label for="bte-prov-dry-run">Dry run (no TXCore calls)</label>
+                  <label class="switch">
+                    <input type="checkbox" id="bte-prov-dry-run" checked />
+                    <span class="track"></span>
+                  </label>
+                </div>
+                <div class="btn-row">
+                  <button id="bte-btn-plan">Preview plan</button>
+                  <button id="bte-btn-create" class="bte">Create resources</button>
+                </div>
+              </div>
+              <div class="hint" id="bte-prov-hint" style="margin-top: 8px"></div>
+            </div>
+          </div>
+
+          <div>
+            <h2>
+              BTE streams
+              <span class="h2-tag" id="bte-lease-tag">0 active</span>
+            </h2>
+            <div id="bte-lease-container">
+              <div class="empty-state">No streams created by BTE yet.</div>
+            </div>
+            <div class="btn-row" style="margin-top: 10px; justify-content: space-between">
+              <span class="list-count" id="bte-lease-count" style="margin: 0; align-self: center"></span>
+              <span style="display: flex; gap: 8px">
+                <button id="bte-btn-leases-reload" class="small">Reload</button>
+                <button id="bte-btn-delete-all" class="small danger">Delete all BTE resources</button>
+              </span>
+            </div>
           </div>
         </div>
       </div>
     </main>
 
-    <dialog id="bte-dest-dialog" class="bte-dialog">
+    <dialog id="bte-dest-dialog">
       <div class="dialog-head">
         <h2>Destinations <span class="h2-tag" id="bte-dest-tag">Destination</span></h2>
         <button id="bte-dest-close">Close</button>
@@ -1423,21 +1585,17 @@
       </div>
     </dialog>
 
-    <dialog id="bte-edge-dialog" class="bte-dialog">
+    <dialog id="bte-plan-dialog">
       <div class="dialog-head">
-        <h2>TXEdges <span class="h2-tag">MAIN</span></h2>
-        <button id="bte-edge-close">Close</button>
+        <h2>Plan <span class="h2-tag" id="bte-plan-tag">—</span></h2>
+        <span style="display: flex; gap: 8px">
+          <button id="bte-plan-create" class="bte">Create resources</button>
+          <button id="bte-plan-close">Close</button>
+        </span>
       </div>
       <div class="dialog-body">
-        <div class="notice warn" id="bte-edge-notice" style="display: none"></div>
-        <div id="bte-edge-container">
-          <div class="empty-state">No TXEdge topology loaded yet.</div>
-        </div>
-        <div class="list-count" id="bte-edge-count"></div>
-        <div class="hint" style="margin-top: 8px">
-          Topology comes from the server .env (BTE_EDGE_&lt;NAME&gt;). DC edges
-          receive the stream, sources and outputs of each channel; regional edges
-          receive the multicast source and output.
+        <div id="bte-plan-container">
+          <div class="empty-state">No plan loaded.</div>
         </div>
       </div>
     </dialog>
@@ -2272,7 +2430,6 @@
         // ---------------------------------------------------------------------
         var BTE_SUPPLIER_KEY = "txcore-manager-bte-supplier";
         var NO_TYPE = "(no type)";
-        // DC edges — replaced by the server topology once /edges is loaded.
         var EDGE_GROUP = ["INX01", "INX02", "INX03"];
 
         var bte = {
@@ -2284,8 +2441,6 @@
           resourcesMeta: null,
           destinations: [],
           destinationsMeta: null,
-          edges: null, // MAIN TXEdge topology from the server .env
-          edgesMeta: null,
           supplier: null, // selected capabilities.Type
           selectedId: null, // selected resource id
         };
@@ -2324,7 +2479,7 @@
         function edgeMatches(r, edge) {
           if (!edge) return true;
           var actual = itemEdge(r).toUpperCase();
-          if (edge === "dc" || edge === "inx0123") return EDGE_GROUP.indexOf(actual) !== -1;
+          if (edge === "inx0123") return EDGE_GROUP.indexOf(actual) !== -1;
           return actual === edge.toUpperCase();
         }
 
@@ -2360,15 +2515,7 @@
           if (!st.bearer_token_set) missing.push("token");
           if (!st.api_url_set) missing.push("api url");
           if (!st.snapshot || !st.snapshot.exists) missing.push("snapshot");
-          if (st.edges && !st.edges.count) missing.push("txedge topology");
-          if (st.txcore_main && !(st.txcore_main.api_url_set && st.txcore_main.bearer_token_set))
-            missing.push("txcore main api");
           return missing;
-        }
-
-        function edgeIssues(st) {
-          var ed = (st && st.edges) || {};
-          return ((ed.errors || []).length) + ((ed.unmapped_in_snapshot || []).length);
         }
 
         function bteHealth() {
@@ -2376,7 +2523,6 @@
           if (!st || bteMissing(st).length) return "bad";
           var snap = st.snapshot;
           if (snap.errors && Object.keys(snap.errors).length) return "warn";
-          if (edgeIssues(st)) return "warn";
           if (snap.age_seconds > st.interval_seconds * 2) return "warn";
           return "ok";
         }
@@ -2434,20 +2580,6 @@
           row("Source", escapeHtml(st.api_url || "not set"), st.api_url_set ? "" : "bad");
           row("Token", st.bearer_token_set ? "configured" : "missing", st.bearer_token_set ? "ok" : "bad");
           if (st.verify_ssl === false) row("TLS", "verification disabled", "warn");
-          var ed = st.edges;
-          if (ed) {
-            row(
-              "TXEdges",
-              ed.count
-                ? ed.count + " configured (" + (ed.dc || []).length + " DC, " + (ed.regional || []).length + " regional)"
-                : "none configured — set BTE_EDGE_&lt;NAME&gt; in .env",
-              ed.count ? (edgeIssues(st) ? "warn" : "ok") : "bad"
-            );
-          }
-          if (st.txcore_main) {
-            var mainOk = st.txcore_main.api_url_set && st.txcore_main.bearer_token_set;
-            row("TXCore MAIN", mainOk ? "configured — " + escapeHtml(st.txcore_main.api_url) : "not configured (APIURLMAIN / BEARER_TOKEN_MAIN)", mainOk ? "ok" : "bad");
-          }
           if (snap.exists) {
             row("Last fetch", escapeHtml(fmtTime(snap.fetched_at)) + " · " + escapeHtml(fmtAge(snap.age_seconds)));
             row("Next refresh", escapeHtml(fmtIn(snap.next_refresh_in_seconds)), st.refreshing ? "warn" : "");
@@ -2461,15 +2593,16 @@
 
           var errs = snap.errors || {};
           var errKeys = Object.keys(errs);
-          var msgs = errKeys.map(function (k) { return k + ": " + errs[k]; });
-          if (!msgs.length && st.last_error) msgs.push(st.last_error);
-          var ed2 = st.edges || {};
-          (ed2.errors || []).forEach(function (e) { msgs.push("edge " + e); });
-          if ((ed2.unmapped_in_snapshot || []).length)
-            msgs.push("Dataminer channels reference TXEdges missing from .env: " + ed2.unmapped_in_snapshot.join(", "));
-          notice.style.display = msgs.length ? "" : "none";
-          notice.textContent = msgs.join(" | ");
-          if (!snap.exists || msgs.length) $("bte-snap-details").open = true;
+          if (errKeys.length) {
+            notice.style.display = "";
+            notice.textContent = errKeys.map(function (k) { return k + ": " + errs[k]; }).join(" | ");
+          } else if (st.last_error) {
+            notice.style.display = "";
+            notice.textContent = st.last_error;
+          } else {
+            notice.style.display = "none";
+          }
+          if (!snap.exists || errKeys.length) $("bte-snap-details").open = true;
         }
 
         // ---- suppliers ------------------------------------------------------
@@ -2502,7 +2635,7 @@
           select.value = counts[bte.supplier] ? bte.supplier : "";
           if (!select.value) bte.supplier = null;
           $("bte-supplier-count").textContent =
-            types.length + " suppliers" + (edge ? " on " + (edge === "dc" || edge === "inx0123" ? "DC edges" : edge) : "");
+            types.length + " suppliers" + (edge ? " on " + (edge === "inx0123" ? "INX01–03" : edge) : "");
         }
 
         // ---- channels -------------------------------------------------------
@@ -2594,25 +2727,12 @@
           }).join("");
         }
 
-        function edgeKnown(name) {
-          if (!name || !bte.edges) return true; // topology not loaded yet: no verdict
-          return bte.edges.some(function (e) { return e.name === name.toUpperCase(); });
-        }
-
-        function edgePill(name) {
-          if (!name) return "";
-          if (edgeKnown(name)) return '<span class="pill">' + escapeHtml(name) + "</span>";
-          return (
-            '<span class="pill other" title="This TXEdge is not configured in the server .env (BTE_EDGE_' +
-            escapeHtml(name.toUpperCase()) + ') — provisioning cannot target it">' +
-            escapeHtml(name) + " · not configured</span>"
-          );
-        }
-
         function renderBteDetail() {
           var container = $("bte-resource-detail");
           var r = bte.selectedId ? bteFindResource(bte.selectedId) : null;
           $("bte-detail-tag").textContent = r ? itemType(r) : "—";
+          $("bte-prov-box").style.display = r ? "" : "none";
+          if (r) renderProvHint();
           if (!r) {
             container.innerHTML = '<div class="empty-state">' +
               (bte.supplier ? "Pick a channel on the left." : "Pick a supplier, then a channel, to see its Dataminer resource.") +
@@ -2626,7 +2746,7 @@
             '<div class="res-head"><span class="res-name">' + escapeHtml(r.name) + "</span>" +
             modePill(r.mode) +
             '<span class="pill">' + escapeHtml(itemType(r)) + "</span>" +
-            edgePill(itemEdge(r)) +
+            (itemEdge(r) ? '<span class="pill">' + escapeHtml(itemEdge(r)) + "</span>" : "") +
             '<span class="pill">concurrency ' + escapeHtml(r.concurrency) + "</span></div>" +
             '<div class="res-id">' + escapeHtml(r.id) + "</div>" +
             '<table class="kv"><tbody>' +
@@ -2688,82 +2808,335 @@
           $("bte-dest-filter").focus();
         }
 
-        // ---- TXEdge topology (separate window) ------------------------------
-        function ifaceCell(edge, direction) {
-          var list = (edge.interfaces || []).filter(function (i) { return i.direction === direction; });
-          if (!list.length) return '<span style="color: var(--text-faint)">—</span>';
-          return list.map(function (i) {
-            return "<div>" + escapeHtml(i.protocol) + ' <span style="color: var(--text-dim)">' + escapeHtml(i.ip) + "</span></div>";
-          }).join("");
+        // ---- provisioning: create resources + leases ------------------------
+        var prov = {
+          status: null,
+          leases: [],
+          leasesMeta: null,
+          plan: null,
+          pollTimer: null,
+          tickTimer: null,
+          loadedAt: 0,
+        };
+
+        function provStatusMissing(st) {
+          if (!st) return ["status unavailable"];
+          var missing = [];
+          if (!st.txcore_api_url_set) missing.push("MAIN api url");
+          if (!st.txcore_token_set) missing.push("MAIN token");
+          if (!st.internal_passphrase_set) missing.push("internal SRT passphrase");
+          (st.missing_edges || []).forEach(function (e) { missing.push("edge " + e); });
+          return missing;
         }
 
-        function renderBteEdges() {
-          var container = $("bte-edge-container");
-          var notice = $("bte-edge-notice");
-          var meta = bte.edgesMeta || {};
-          var edges = bte.edges || [];
-          var msgs = (meta.errors || []).slice();
-          if ((meta.unmapped_in_snapshot || []).length)
-            msgs.push("Dataminer channels reference TXEdges missing from .env: " + meta.unmapped_in_snapshot.join(", "));
-          notice.style.display = msgs.length ? "" : "none";
-          notice.textContent = msgs.join(" | ");
-          $("bte-edge-count").textContent = edges.length
-            ? edges.length + " edges (" + (meta.dc || []).length + " DC, " + (meta.regional || []).length + " regional)"
-            : "";
-          if (!edges.length) {
-            container.innerHTML = '<div class="empty-state">' +
-              escapeHtml(meta.hint || "No TXEdge configured — add BTE_EDGE_<NAME> entries to the server .env.") + "</div>";
+        function renderProvHint() {
+          var st = prov.status;
+          var hint = $("bte-prov-hint");
+          var dry = $("bte-prov-dry-run");
+          if (!st) {
+            hint.textContent = "Provisioning status not loaded yet.";
             return;
           }
+          if (st.default_duration_minutes && !$("bte-prov-duration").dataset.touched) {
+            $("bte-prov-duration").value = st.default_duration_minutes;
+          }
+          $("bte-prov-duration").max = st.max_duration_minutes || "";
+          var missing = provStatusMissing(st);
+          if (!st.live_writes_allowed) {
+            dry.checked = true;
+            dry.disabled = true;
+            hint.textContent = "Live writes are disabled on the server (BTE_PROVISIONING_ENABLED) — every run is a dry run.";
+          } else if (missing.length) {
+            dry.disabled = false;
+            hint.textContent = "Server configuration incomplete: " + missing.join(", ") + ". Live runs may fail for the affected edges.";
+          } else {
+            dry.disabled = false;
+            hint.textContent = dry.checked
+              ? "Dry run: the lease is tracked but nothing is sent to TXCore."
+              : "Live: creates the DC + AVE / LMK / YER objects on TXCore MAIN, tagged " + (st.tag || "[BTE]") + ", removed automatically when the lease ends.";
+          }
+        }
+
+        function loadProvStatus() {
+          return bteFetch("/provisioning/status")
+            .then(function (st) { prov.status = st; })
+            .catch(function () { prov.status = null; })
+            .then(renderProvHint);
+        }
+
+        function fmtRemain(seconds) {
+          if (seconds === null || seconds === undefined) return "—";
+          var neg = seconds < 0;
+          var s = Math.abs(seconds);
+          var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+          var txt = h ? h + "h " + String(m).padStart(2, "0") + "m" : m + "m " + String(sec).padStart(2, "0") + "s";
+          return neg ? "expired " + txt + " ago" : txt;
+        }
+
+        function leaseStatusPill(l) {
+          var cls = l.status === "active" || l.status === "creating" || l.status === "deleting" || l.status === "failed" || l.status === "delete_failed" ? l.status : "";
+          var label = l.status.replace("_", " ");
+          return '<span class="pill ' + cls + '">' + escapeHtml(label) + "</span>" +
+            (l.dry_run ? ' <span class="pill dry">dry run</span>' : "");
+        }
+
+        function isFinal(l) {
+          return l.status === "deleted" || l.status === "failed" || l.status === "dry_run_expired";
+        }
+
+        function renderLeases() {
+          var container = $("bte-lease-container");
+          var leases = prov.leases;
+          var active = leases.filter(function (l) { return !isFinal(l); });
+          $("bte-lease-tag").textContent = active.length + " active";
+          $("bte-lease-count").textContent = leases.length
+            ? active.length + " active · " + (leases.length - active.length) + " finished (history kept on the server)"
+            : "";
+          $("bte-btn-delete-all").disabled = !active.length;
+          if (!leases.length) {
+            container.innerHTML = '<div class="empty-state">No streams created by BTE yet — pick a channel and use "Create resources".</div>';
+            return;
+          }
+          var extendDefault = (prov.leasesMeta && prov.leasesMeta.default_extend_minutes) || 30;
           container.innerHTML =
-            '<div class="table-wrap"><table><thead><tr>' +
-            "<th>Edge</th><th>Role</th><th>Location</th><th>MWEdge ID</th><th>Incoming</th><th>Outgoing</th><th>Channels</th>" +
+            '<div class="table-wrap"><table class="leases"><thead><tr>' +
+            "<th>Stream</th><th>Edges</th><th>Status</th><th>Time left</th><th>Objects</th><th></th>" +
             "</tr></thead><tbody>" +
-            edges.map(function (e) {
+            leases.map(function (l) {
+              var objs = l.objects || [];
+              var created = objs.filter(function (o) { return o.status === "created"; }).length;
+              var problems = objs.filter(function (o) { return o.status === "error" || o.status === "refused" || o.status === "delete_error"; }).length;
+              var final = isFinal(l);
+              var errs = (l.errors || []).concat(objs.filter(function (o) { return o.error; }).map(function (o) { return o.edge + " " + o.kind + ": " + o.error; }));
               return (
-                "<tr><td>" + escapeHtml(e.name) +
-                '</td><td><span class="pill' + (e.dc ? " available" : "") + '">' + (e.dc ? "DC" : "regional") + "</span>" +
-                "</td><td>" + escapeHtml(e.location || "") +
-                '</td><td style="color: var(--text-faint)">' + escapeHtml(e.id || "") +
-                "</td><td>" + ifaceCell(e, "in") +
-                "</td><td>" + ifaceCell(e, "out") +
-                "</td><td>" + (e.channels || 0) + "</td></tr>"
+                '<tr class="' + (final ? "final" : "") + '" data-lease="' + escapeHtml(l.lease_id) + '" data-expires="' + escapeHtml(l.expires_at || "") + '">' +
+                '<td><div class="lease-name">' + escapeHtml(l.resource_name || "?") + "</div>" +
+                '<div class="lease-sub">' + escapeHtml(l.supplier || "") + " · by " + escapeHtml(l.created_by || "?") + " · " + escapeHtml(fmtTime(l.created_at)) +
+                (l.extensions && l.extensions.length ? " · +" + l.extensions.reduce(function (a, e) { return a + (e.minutes || 0); }, 0) + " min" : "") + "</div>" +
+                (errs.length ? '<div class="lease-sub" style="color: var(--error)" title="' + escapeHtml(errs.join("\n")) + '">' + escapeHtml(errs[0]) + (errs.length > 1 ? " (+" + (errs.length - 1) + ")" : "") + "</div>" : "") +
+                "</td>" +
+                "<td>" + escapeHtml(l.dc_edge || "?") + '<div class="lease-sub">' + (l.sites || 0) + " site" + (l.sites === 1 ? "" : "s") + "</div></td>" +
+                "<td>" + leaseStatusPill(l) + "</td>" +
+                '<td class="remain">' + (final ? escapeHtml(l.status === "deleted" ? "ended " + fmtTime(l.finished_at) : "—") : escapeHtml(fmtRemain(l.remaining_seconds))) + "</td>" +
+                "<td>" + (l.dry_run ? objs.length + " planned" : created + " / " + objs.length) + (problems ? ' <span style="color: var(--error)">' + problems + " ⚠</span>" : "") + "</td>" +
+                '<td><div class="actions">' +
+                (final ? "" :
+                  '<input class="inline-min" type="number" min="1" value="' + extendDefault + '" title="minutes to add" data-act="min" />' +
+                  '<button class="small" data-act="extend">Extend</button>' +
+                  '<button class="small danger" data-act="delete">Delete</button>') +
+                "</div></td></tr>"
               );
             }).join("") +
             "</tbody></table></div>";
         }
 
-        function openEdges() {
-          var dlg = $("bte-edge-dialog");
-          renderBteEdges();
-          if (typeof dlg.showModal === "function") dlg.showModal();
-          else dlg.setAttribute("open", "");
+        function tickLeases() {
+          var now = Date.now();
+          var rows = $("bte-lease-container").querySelectorAll("tr[data-lease]");
+          for (var i = 0; i < rows.length; i++) {
+            var row = rows[i];
+            if (row.classList.contains("final")) continue;
+            var exp = new Date(row.getAttribute("data-expires")).getTime();
+            if (isNaN(exp)) continue;
+            var cell = row.querySelector(".remain");
+            var sec = Math.round((exp - now) / 1000);
+            cell.textContent = fmtRemain(sec);
+            cell.className = "remain" + (sec < 0 ? " over" : sec < 300 ? " soon" : "");
+          }
         }
 
-        // Rebuild the TXEdge filter from the DC edges of the server topology.
-        function renderBteEdgeOptions() {
-          var select = $("bte-edge-filter");
-          var current = select.value;
-          var dc = (bte.edgesMeta && (bte.edgesMeta.dc || []).length) ? bte.edgesMeta.dc : EDGE_GROUP;
-          EDGE_GROUP = dc.slice();
-          select.innerHTML =
-            '<option value="">all edges</option>' +
-            (dc.length > 1 ? '<option value="dc">' + escapeHtml(dc.join(" · ")) + "</option>" : "") +
-            dc.map(function (n) { return '<option value="' + escapeHtml(n) + '">' + escapeHtml(n) + "</option>"; }).join("");
-          select.value = current;
-          if (select.value !== current) select.value = "";
+        function loadLeases() {
+          return bteFetch("/leases")
+            .then(function (data) {
+              prov.leases = data.leases || [];
+              prov.leasesMeta = data;
+              prov.loadedAt = Date.now();
+              renderLeases();
+            })
+            .catch(function (err) {
+              $("bte-lease-container").innerHTML = '<div class="empty-state">Could not load BTE streams — ' + escapeHtml(err.message) + "</div>";
+            });
+        }
+
+        function startLeasePolling() {
+          if (!prov.pollTimer) prov.pollTimer = setInterval(function () {
+            if (activeCluster !== "bte" || document.hidden) return;
+            var busy = prov.leases.some(function (l) { return l.status === "creating" || l.status === "deleting"; });
+            if (busy || Date.now() - prov.loadedAt > 30000) loadLeases();
+          }, 3000);
+          if (!prov.tickTimer) prov.tickTimer = setInterval(tickLeases, 1000);
+        }
+
+        function renderPlan(plan) {
+          var container = $("bte-plan-container");
+          $("bte-plan-tag").textContent = plan.resource_name || "—";
+          $("bte-plan-create").disabled = !plan.ok;
+          var html = "";
+          if (plan.errors && plan.errors.length) {
+            html += '<div class="notice bad">' + plan.errors.map(escapeHtml).join("<br>") + "</div>";
+          }
+          if (plan.warnings && plan.warnings.length) {
+            html += '<div class="notice warn">' + plan.warnings.map(escapeHtml).join("<br>") + "</div>";
+          }
+          if (plan.ok) {
+            var s = plan.summary || {};
+            html += '<div class="notice">' +
+              escapeHtml(s.objects + " objects on " + s.dc_edge + " + " + s.sites + " regional site" + (s.sites === 1 ? "" : "s") +
+                " · DC output port " + s.output_port + " · " + (plan.dry_run ? "dry run — nothing is sent" : "LIVE — will be sent to TXCore MAIN")) +
+              "</div>";
+            var lastEdge = null;
+            html += '<div class="table-wrap"><table><thead><tr><th>#</th><th>Kind</th><th>Name</th><th>Request body</th></tr></thead><tbody>';
+            plan.steps.forEach(function (st) {
+              if (st.edge !== lastEdge) {
+                html += '<tr><td colspan="4" class="plan-edge">' + escapeHtml(st.edge) + " — POST " + escapeHtml((plan.paths && plan.paths[st.kind]) || "…/" + st.kind + "/") + "</td></tr>";
+                lastEdge = st.edge;
+              }
+              html += '<tr class="plan-step"><td>' + st.seq + "</td><td>" + escapeHtml(st.kind) + "</td><td>" + escapeHtml(st.name) +
+                '</td><td><pre class="plan-body">' + escapeHtml(JSON.stringify(st.body)) + "</pre></td></tr>";
+            });
+            html += "</tbody></table></div>";
+          }
+          container.innerHTML = html || '<div class="empty-state">Nothing to show.</div>';
+        }
+
+        function provPayload() {
+          return {
+            resource_id: bte.selectedId,
+            duration_minutes: Number($("bte-prov-duration").value) || undefined,
+            dry_run: $("bte-prov-dry-run").checked,
+          };
+        }
+
+        function previewPlan() {
+          if (!bte.selectedId) return;
+          var btn = $("bte-btn-plan");
+          btn.disabled = true;
+          fetch(BTE_API_BASE + "/provision/plan", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            body: JSON.stringify(provPayload()),
+          })
+            .then(function (resp) { return resp.json(); })
+            .then(function (plan) {
+              if (plan.error && !plan.steps) throw new Error(plan.error);
+              prov.plan = plan;
+              if (prov.status && prov.status.paths) plan.paths = prov.status.paths;
+              renderPlan(plan);
+              var dlg = $("bte-plan-dialog");
+              if (typeof dlg.showModal === "function") dlg.showModal();
+              else dlg.setAttribute("open", "");
+            })
+            .catch(function (err) { alert("Plan failed: " + err.message); })
+            .finally(function () { btn.disabled = false; });
+        }
+
+        function createResources() {
+          if (!bte.selectedId) return;
+          var r = bteFindResource(bte.selectedId);
+          var payload = provPayload();
+          if (!payload.dry_run) {
+            var ok = confirm(
+              "Create the [BTE] resources for " + (r ? r.name : bte.selectedId) +
+              " on TXCore MAIN (DC edge + AVE / LMK / YER) for " + (payload.duration_minutes || "the default") +
+              " minutes?\n\nThey are deleted automatically when the lease ends unless you extend it."
+            );
+            if (!ok) return;
+          }
+          ["bte-btn-create", "bte-plan-create"].forEach(function (id) { $(id).disabled = true; });
+          bteFetch("/provision", { method: "POST", body: JSON.stringify(payload) })
+            .then(function (res) {
+              if ($("bte-plan-dialog").open) $("bte-plan-dialog").close();
+              if (res.warnings && res.warnings.length) {
+                alert("Resources are being created with warnings:\n" + res.warnings.join("\n"));
+              }
+              return loadLeases();
+            })
+            .catch(function (err) { alert("Create resources failed: " + err.message); })
+            .finally(function () {
+              ["bte-btn-create", "bte-plan-create"].forEach(function (id) { $(id).disabled = false; });
+            });
+        }
+
+        function extendLease(leaseId, minutes) {
+          return bteFetch("/leases/" + encodeURIComponent(leaseId) + "/extend", {
+            method: "POST",
+            body: JSON.stringify({ minutes: minutes }),
+          })
+            .then(function (res) {
+              if (res.note) alert(res.note);
+              return loadLeases();
+            })
+            .catch(function (err) { alert("Extend failed: " + err.message); });
+        }
+
+        function deleteLease(leaseId, name) {
+          if (!confirm("Delete the [BTE] resources of " + name + " now?")) return;
+          return bteFetch("/leases/" + encodeURIComponent(leaseId), { method: "DELETE" })
+            .then(function (res) {
+              if (res.status !== "deleted") alert("Delete finished with problems (" + res.status + "):\n" + (res.errors || []).join("\n"));
+              return loadLeases();
+            })
+            .catch(function (err) { alert("Delete failed: " + err.message); });
+        }
+
+        function deleteAllLeases() {
+          var active = prov.leases.filter(function (l) { return !isFinal(l); });
+          if (!active.length) return;
+          var typed = prompt(
+            "This deletes every resource created by BTE (" + active.length + " stream" + (active.length === 1 ? "" : "s") +
+            "). Only objects whose name still carries [BTE] are touched.\n\nType BTE to confirm:"
+          );
+          if (typed !== "BTE") return;
+          var btn = $("bte-btn-delete-all");
+          btn.disabled = true;
+          btn.textContent = "Deleting…";
+          bteFetch("/leases?confirm=BTE", { method: "DELETE" })
+            .then(function (res) {
+              var failed = (res.results || []).filter(function (x) { return x.status !== "deleted"; });
+              if (failed.length) alert("Some streams could not be fully deleted:\n" + failed.map(function (x) { return x.resource_name + " — " + x.status; }).join("\n"));
+              return loadLeases();
+            })
+            .catch(function (err) { alert("Delete all failed: " + err.message); })
+            .finally(function () {
+              btn.disabled = false;
+              btn.textContent = "Delete all BTE resources";
+            });
+        }
+
+        function wireProvisioning() {
+          $("bte-btn-plan").addEventListener("click", previewPlan);
+          $("bte-btn-create").addEventListener("click", createResources);
+          $("bte-plan-create").addEventListener("click", createResources);
+          $("bte-plan-close").addEventListener("click", function () { $("bte-plan-dialog").close(); });
+          $("bte-prov-dry-run").addEventListener("change", renderProvHint);
+          $("bte-prov-duration").addEventListener("input", function () { this.dataset.touched = "1"; });
+          $("bte-btn-leases-reload").addEventListener("click", loadLeases);
+          $("bte-btn-delete-all").addEventListener("click", deleteAllLeases);
+          $("bte-lease-container").addEventListener("click", function (ev) {
+            var btn = ev.target.closest ? ev.target.closest("button[data-act]") : null;
+            if (!btn) return;
+            var row = btn.closest("tr[data-lease]");
+            var id = row.getAttribute("data-lease");
+            var lease = prov.leases.filter(function (l) { return l.lease_id === id; })[0] || {};
+            if (btn.getAttribute("data-act") === "extend") {
+              var minutes = Number(row.querySelector('input[data-act="min"]').value) || 30;
+              btn.disabled = true;
+              extendLease(id, minutes).then(function () { btn.disabled = false; });
+            } else if (btn.getAttribute("data-act") === "delete") {
+              deleteLease(id, lease.resource_name || id);
+            }
+          });
         }
 
         // ---- loading --------------------------------------------------------
         function renderBteAll() {
           renderBteStatus();
           renderStatusBadge();
-          renderBteEdgeOptions();
           renderBteSuppliers();
           renderBteChannels();
           renderBteDetail();
           if ($("bte-dest-dialog").open) renderBteDestinations();
-          if ($("bte-edge-dialog").open) renderBteEdges();
         }
 
         function loadBte() {
@@ -2788,17 +3161,11 @@
               bte.destinationsMeta = { hint: err.message };
             });
 
-          var edgeReq = bteFetch("/edges")
-            .then(function (data) { bte.edges = data.edges || []; bte.edgesMeta = data; })
-            .catch(function (err) {
-              bte.edges = null;
-              bte.edgesMeta = { hint: err.message };
-            });
-
-          Promise.all([statusReq, resReq, destReq, edgeReq]).then(function () {
+          Promise.all([statusReq, resReq, destReq, loadProvStatus(), loadLeases()]).then(function () {
             bte.loading = false;
             bte.loaded = true;
             renderBteAll();
+            startLeasePolling();
           });
         }
 
@@ -2833,8 +3200,6 @@
           $("bte-btn-destinations").addEventListener("click", openDestinations);
           $("bte-dest-close").addEventListener("click", function () { $("bte-dest-dialog").close(); });
           $("bte-dest-filter").addEventListener("input", renderBteDestinations);
-          $("bte-btn-edges").addEventListener("click", openEdges);
-          $("bte-edge-close").addEventListener("click", function () { $("bte-edge-dialog").close(); });
 
           $("bte-btn-reload").addEventListener("click", function () { loadBte(); });
           $("bte-btn-refresh").addEventListener("click", function () {
@@ -2862,6 +3227,7 @@
         // ---------------------------------------------------------------------
         loadFormState();
         wireBte();
+        wireProvisioning();
 
         ["stb", "main"].forEach(function (cluster) {
           wireCategory(cluster);

@@ -9,6 +9,31 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 `SRT Ingest:`, `General Tool Admin:`) so entries can be filtered per tool.
 
 ---
+
+## [4.2.1] - 2026-09-17
+
+### Added
+- TXCore Provisioning / BTE: "Create resources" for a selected channel creates the
+  TXCore MWEdge objects (source, stream, output) on the DC edge and on AVE, LMK and
+  YER, derived from the Dataminer resource properties (Input Main/Backup, Output,
+  site multicast addresses, DC MWEdge). New module `bte_provisioning.py`.
+- TXCore Provisioning / BTE: every created object is named with the `[BTE]` tag and
+  tracked in a lease with a user-chosen duration; a background reaper deletes
+  expired leases. Leases can be extended (30 min default, adjustable), deleted one
+  by one or all at once (typed confirmation). Delete refuses any object whose live
+  TXCore name no longer carries `[BTE]`; a failed creation rolls back.
+- TXCore Provisioning / BTE: plan preview showing the exact requests (secrets masked)
+  and a "BTE streams" panel with per-second countdown, status and object counts.
+- TXCore Provisioning / BTE: endpoints `/api/bte/provisioning/status`,
+  `/provision/plan`, `/provision`, `/leases`, `/leases/<id>/extend`,
+  `DELETE /leases/<id>`, `DELETE /leases?confirm=BTE`.
+
+### Security
+- TXCore Provisioning / BTE: live TXCore writes are disabled unless
+  `BTE_PROVISIONING_ENABLED=true`; lease registry stored with mode 0600 and
+  passphrases redacted in every HTTP response.
+
+
 ## [4.1.1] - 2026-09-17
 ### Added
 - TXCore Provisioning (BTE): MAIN TXEdge topology loaded from `.env`
