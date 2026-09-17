@@ -9,6 +9,14 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 `SRT Ingest:`, `General Tool Admin:`) so entries can be filtered per tool.
 
 ---
+## [4.2.2] - 2026-09-17
+
+### Changed
+- TXCore Provisioning / BTE: `BTE_EDGE_<KEY>` now uses the structured
+  `id=…;location=…;dc=yes|no;in=SRT@host;out=SRT@host,UDP@host` format.
+  Regional edges are resolved per site by key prefix (AVE02 → AVE, LMK01 → LMK,
+  YER01 → YER) and pull from the DC edge `out=SRT@<host>`.
+
 
 ## [4.2.1] - 2026-09-17
 

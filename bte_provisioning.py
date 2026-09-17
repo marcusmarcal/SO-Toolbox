@@ -31,9 +31,14 @@ Environment variables (.env):
     INTERNALSRTPASSPHRASE               Passphrase for edge-to-edge / edge-to-core SRT hops
     BTE_PROVISIONING_ENABLED            "true" to allow live TXCore writes (default false:
                                         every request is forced to dry-run)
-    BTE_EDGE_<KEY>=<txcore id>|<host>   One entry per edge: INX01, INX02, INX03, AVE, LMK, YER
-                                        e.g. BTE_EDGE_INX01=64ab...|194.76.59.22
-                                             BTE_EDGE_AVE=64ac...|10.20.30.40
+    BTE_EDGE_<KEY>                      One entry per TXEdge, ``;``-separated key=value fields:
+        id=<txcore edge id>;location=<label>;dc=yes|no;in=SRT@<host>;out=SRT@<host>,UDP@<host>
+                                        e.g. BTE_EDGE_INX01=id=611d…;location=DC1 (INX);dc=yes;
+                                             in=SRT@10.138.38.25;out=SRT@10.138.38.25,UDP@10.138.38.25
+                                        The key must match properties["DC MWEdge"] for DC edges
+                                        (INX01…) and start with the site prefix AVE / LMK / YER
+                                        for regional edges (AVE02, LMK01, YER01…). Regional
+                                        edges pull from the DC edge's out=SRT@<host>.
     BTE_TXCORE_SOURCE_PATH              Default /mwedge/{edge}/source/
     BTE_TXCORE_STREAM_PATH              Default /mwedge/{edge}/stream/
     BTE_TXCORE_OUTPUT_PATH              Default /mwedge/{edge}/output/
@@ -126,31 +131,83 @@ PATHS = {
     'output': _env('BTE_TXCORE_OUTPUT_PATH') or '/mwedge/{edge}/output/',
 }
 
-# Regional edges: edge key -> Dataminer multicast property.
-REGIONAL_EDGES = (
+# Regional sites: site prefix (edge keys AVE02, LMK01, ... start with it) -> Dataminer multicast property.
+REGIONAL_SITES = (
     ('AVE', 'Aveiro Multicast'),
     ('LMK', 'Limerick Multicast'),
     ('YER', 'Yerevan Multicast'),
 )
-REQUIRED_EDGES = ('INX01', 'INX02', 'INX03', 'AVE', 'LMK', 'YER')
+_EDGE_KEY_RE = re.compile(r'BTE_EDGE_([A-Za-z0-9]+)')
+_HOST_LIST_RE = re.compile(r'\s*([A-Za-z]+)@([^,;\s]+)')
+
+
+def _parse_host_list(value):
+    """'SRT@10.0.0.1,UDP@10.0.0.2' -> {'SRT': '10.0.0.1', 'UDP': '10.0.0.2'}."""
+    return {m.group(1).upper(): m.group(2) for m in _HOST_LIST_RE.finditer(value or '')}
+
+
+def parse_edge(key, raw):
+    """Parse one BTE_EDGE_<KEY> value. Returns the edge dict or None when it has no id."""
+    fields = {}
+    for part in str(raw).split(';'):
+        name, sep, value = part.partition('=')
+        if sep:
+            fields[name.strip().lower()] = value.strip()
+    edge_id = fields.get('id')
+    if not edge_id:
+        return None
+    key = key.upper()
+    return {
+        'key': key,
+        'id': edge_id,
+        'location': fields.get('location') or key,
+        'dc': fields.get('dc', '').lower() in ('yes', 'true', '1'),
+        'in': _parse_host_list(fields.get('in')),
+        'out': _parse_host_list(fields.get('out')),
+        'site': next((s for s, _ in REGIONAL_SITES if key.startswith(s)), None),
+    }
 
 
 def _load_edges():
-    """BTE_EDGE_<KEY>=<txcore id>|<host> -> {KEY: {id, host}}."""
     edges = {}
     for name, raw in os.environ.items():
-        m = re.fullmatch(r'BTE_EDGE_([A-Z0-9]+)', name)
+        m = _EDGE_KEY_RE.fullmatch(name)
         if not m or not raw.strip():
             continue
-        edge_id, _, host = raw.partition('|')
-        edge_id, host = edge_id.strip(), host.strip()
-        if not edge_id:
+        edge = parse_edge(m.group(1), raw)
+        if edge is None:
+            log.warning('BTE: %s ignored — no id= field', name)
             continue
-        edges[m.group(1).upper()] = {'key': m.group(1).upper(), 'id': edge_id, 'host': host or None}
+        edges[edge['key']] = edge
     return edges
 
 
 EDGES = _load_edges()
+
+
+def site_edge(site, edges=None):
+    """First configured non-DC edge whose key starts with the site prefix (AVE02 for AVE, ...)."""
+    edges = EDGES if edges is None else edges
+    for key in sorted(edges):
+        edge = edges[key]
+        if edge.get('site') == site and not edge.get('dc'):
+            return edge
+    return None
+
+
+def missing_edges(edges=None):
+    """Human-readable list of what the edge configuration still lacks."""
+    edges = EDGES if edges is None else edges
+    missing = []
+    if not any(e.get('dc') for e in edges.values()):
+        missing.append('a DC edge (dc=yes)')
+    for e in edges.values():
+        if e.get('dc') and not e['out'].get('SRT'):
+            missing.append(f"{e['key']} out=SRT@<host>")
+    for site, _ in REGIONAL_SITES:
+        if site_edge(site, edges) is None:
+            missing.append(f'site {site}')
+    return missing
 
 
 def configured():
@@ -159,7 +216,6 @@ def configured():
 
 def config_status():
     """Configuration report for /provisioning/status. Never leaks secrets."""
-    missing_edges = [k for k in REQUIRED_EDGES if k not in EDGES]
     return {
         'enabled': PROVISIONING_ENABLED and configured(),
         'live_writes_allowed': PROVISIONING_ENABLED,
@@ -167,8 +223,9 @@ def config_status():
         'txcore_api_url': TXCORE_URL,
         'txcore_token_set': bool(TXCORE_TOKEN),
         'internal_passphrase_set': bool(INTERNAL_PASSPHRASE),
-        'edges': {k: {'id': v['id'], 'host': v['host']} for k, v in sorted(EDGES.items())},
-        'missing_edges': missing_edges,
+        'edges': {k: {'id': v['id'], 'location': v['location'], 'dc': v['dc'], 'site': v['site'],
+                      'in': v['in'], 'out': v['out']} for k, v in sorted(EDGES.items())},
+        'missing_edges': missing_edges(),
         'paths': PATHS,
         'tag': BTE_TAG,
         'default_duration_minutes': DEFAULT_DURATION_MIN,
@@ -298,8 +355,10 @@ def build_plan(item, edges=None):
     dc = edges.get(dc_key)
     if dc_key and not dc:
         errors.append(f'Edge {dc_key} is not configured on the server (BTE_EDGE_{dc_key})')
-    elif dc and not dc.get('host'):
-        errors.append(f'BTE_EDGE_{dc_key} has no host — regional edges cannot pull from it')
+    elif dc and not dc.get('dc'):
+        errors.append(f'BTE_EDGE_{dc_key} is not flagged dc=yes')
+    elif dc and not dc['out'].get('SRT'):
+        errors.append(f'BTE_EDGE_{dc_key} has no out=SRT@<host> — regional edges cannot pull from it')
 
     main_in = parse_input(props.get('Input Main'))
     if not main_in:
@@ -368,22 +427,23 @@ def build_plan(item, edges=None):
 
     # ---- regional edges ---------------------------------------------------
     sites = 0
-    for edge_key, prop in REGIONAL_EDGES:
+    for site, prop in REGIONAL_SITES:
         mcast = parse_multicast(props.get(prop))
-        edge = edges.get(edge_key)
+        edge = site_edge(site, edges)
         if not mcast:
-            warnings.append(f'{edge_key}: no "{prop}" on the resource — site skipped')
+            warnings.append(f'{site}: no "{prop}" on the resource — site skipped')
             continue
         if not edge:
-            warnings.append(f'{edge_key}: edge not configured on the server (BTE_EDGE_{edge_key}) — site skipped')
+            warnings.append(f'{site}: no regional edge configured for this site (BTE_EDGE_{site}xx) — site skipped')
             continue
+        edge_key = edge['key']
         sites += 1
         name = bte_name(base, edge_key, 'source')
         src = add(edge_key, edge['id'], 'source', name, {
             'name': name,
             'type': 'srt',
             'mode': 'caller',
-            'address': dc['host'],
+            'address': dc['out']['SRT'],
             'port': out_port,
             'latency': latency or 500,
             'encryption': 'AES-256',
