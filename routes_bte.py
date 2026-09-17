@@ -44,6 +44,23 @@ Environment variables (.env):
     DATAMINER_SNAPSHOT_DISABLED  "true" to disable the background refresher
                                  (manual POST /refresh still works).
 
+    # TXEdge topology of the MAIN cluster (never hard-coded in the source)
+    BTE_EDGES                    Optional display order, e.g.
+                                 INX01,INX02,INX03,AVE02,LMK01,YER01
+    BTE_EDGE_<NAME>              One entry per TXEdge, semicolon-separated
+                                 key=value fields:
+                                   id=<24-hex MWEdge id>
+                                   location=<free text>
+                                   dc=yes|no        (yes = DC edge, no = regional)
+                                   in=PROTO@ip[,PROTO@ip...]   incoming interfaces
+                                   out=PROTO@ip[,PROTO@ip...]  outgoing interfaces
+                                 PROTO is one of SRT, UDP, RTP. Example:
+                                 BTE_EDGE_INX01=id=69a5...;location=INX (DC1);dc=yes;
+                                   in=SRT@10.11.203.1,UDP@10.11.235.1;out=SRT@10.11.203.1
+
+    The TXCore MAIN API itself is configured through BEARER_TOKEN_MAIN /
+    APIURLMAIN (shared with the TXCore bulk-creation blueprint).
+
 Security notes
     * The bearer token is never returned to the browser; /status only reports
       whether it is set.
@@ -58,6 +75,7 @@ Security notes
 
 import copy
 import fcntl
+import ipaddress
 import json
 import logging
 import os
@@ -71,6 +89,7 @@ from dotenv import load_dotenv
 from flask import Blueprint, jsonify, request
 
 from routes_auth import _get_session, _token_from_request
+from routes_txcore import CLUSTERS as TXCORE_CLUSTERS
 
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
 
@@ -115,6 +134,110 @@ DATAMINER_VERIFY_SSL = _env_bool('DATAMINER_VERIFY_SSL', True)
 DATAMINER_CA_BUNDLE = _env('DATAMINER_CA_BUNDLE')
 SNAPSHOT_INTERVAL = _env_int('DATAMINER_SNAPSHOT_INTERVAL', 3600)
 SNAPSHOT_DISABLED = _env_bool('DATAMINER_SNAPSHOT_DISABLED', False)
+
+# ---------------------------------------------------------------------------
+# TXEdge topology (MAIN cluster), loaded from .env — see module docstring
+# ---------------------------------------------------------------------------
+
+_EDGE_ID_RE = re.compile(r'^[0-9a-f]{24}$')
+_EDGE_VAR_RE = re.compile(r'^BTE_EDGE_([A-Z0-9]{2,16})$')
+EDGE_PROTOCOLS = ('SRT', 'UDP', 'RTP')
+
+
+def _parse_interfaces(spec, direction, edge_name):
+    """Parse ``PROTO@ip,PROTO@ip`` into interface dicts. Returns (interfaces, errors)."""
+    interfaces, errors = [], []
+    for token in (t.strip() for t in (spec or '').split(',')):
+        if not token:
+            continue
+        proto, sep, ip = token.partition('@')
+        proto, ip = proto.strip().upper(), ip.strip()
+        if not sep or proto not in EDGE_PROTOCOLS:
+            errors.append(f'{edge_name}: invalid {direction} interface "{token}" (expected PROTO@ip)')
+            continue
+        try:
+            ipaddress.ip_address(ip)
+        except ValueError:
+            errors.append(f'{edge_name}: invalid IP "{ip}" on {direction} {proto} interface')
+            continue
+        interfaces.append({'direction': direction, 'protocol': proto, 'ip': ip})
+    return interfaces, errors
+
+
+def _parse_edge(name, raw):
+    """Parse one BTE_EDGE_<NAME> value. Returns (edge, errors); edge is None on error."""
+    fields = {}
+    for part in raw.split(';'):
+        key, _, value = part.partition('=')
+        if key.strip():
+            fields[key.strip().lower()] = value.strip()
+
+    errors = []
+    edge_id = fields.get('id', '').lower()
+    if not _EDGE_ID_RE.match(edge_id):
+        errors.append(f'{name}: id must be a 24-character hex MWEdge id')
+    dc = fields.get('dc', 'no').lower() in ('1', 'y', 'yes', 'true', 'on')
+    inbound, in_errors = _parse_interfaces(fields.get('in'), 'in', name)
+    outbound, out_errors = _parse_interfaces(fields.get('out'), 'out', name)
+    errors.extend(in_errors + out_errors)
+    if not inbound and not outbound:
+        errors.append(f'{name}: no interfaces defined (in=/out=)')
+    if errors:
+        return None, errors
+    return {
+        'name': name,
+        'id': edge_id,
+        'location': fields.get('location') or name,
+        'dc': dc,
+        'interfaces': inbound + outbound,
+    }, []
+
+
+def _load_edges():
+    """Read every BTE_EDGE_* variable. Invalid edges are dropped and reported (fail closed)."""
+    order = [n.strip().upper() for n in (_env('BTE_EDGES') or '').split(',') if n.strip()]
+    edges, errors = {}, []
+    for key, raw in os.environ.items():
+        match = _EDGE_VAR_RE.match(key)
+        if not match or not raw.strip():
+            continue
+        edge, edge_errors = _parse_edge(match.group(1), raw)
+        if edge_errors:
+            errors.extend(edge_errors)
+            log.error('BTE edge %s ignored: %s', match.group(1), '; '.join(edge_errors))
+        else:
+            edges[edge['name']] = edge
+    for name in order:
+        if name not in edges and not any(e.startswith(name + ':') for e in errors):
+            errors.append(f'{name}: listed in BTE_EDGES but BTE_EDGE_{name} is not set')
+    ordered = [edges[n] for n in order if n in edges]
+    ordered += [edges[n] for n in sorted(edges) if n not in order]
+    return ordered, errors
+
+
+EDGES, EDGE_ERRORS = _load_edges()
+EDGES_BY_NAME = {e['name']: e for e in EDGES}
+DC_EDGES = [e['name'] for e in EDGES if e['dc']]
+REGIONAL_EDGES = [e['name'] for e in EDGES if not e['dc']]
+
+
+def edge_interface(edge_name, direction, protocol):
+    """IP of the ``direction`` (in/out) ``protocol`` interface of a TXEdge, or None."""
+    edge = EDGES_BY_NAME.get(str(edge_name or '').upper())
+    for iface in (edge or {}).get('interfaces', []):
+        if iface['direction'] == direction and iface['protocol'] == protocol.upper():
+            return iface['ip']
+    return None
+
+
+def _txcore_main_meta():
+    """Whether the TXCore MAIN API (target of BTE provisioning) is configured. No secrets."""
+    main = TXCORE_CLUSTERS.get('main') or {}
+    return {
+        'api_url_set': bool(main.get('url')),
+        'api_url': main.get('url'),
+        'bearer_token_set': bool(main.get('token')),
+    }
 
 RESOURCES_PATH = '/api/custom/resources'
 
@@ -381,7 +504,10 @@ def _forbidden():
 
 
 NO_TYPE = '(no type)'
-EDGE_GROUP_INX0123 = ('INX01', 'INX02', 'INX03')
+# Group keyword accepted by ?edge= : 'dc' (or legacy 'inx0123') = every DC edge
+# from .env; falls back to INX01-03 when no topology is configured.
+EDGE_GROUP_KEYWORDS = ('dc', 'inx0123')
+EDGE_GROUP_DC = tuple(DC_EDGES) or ('INX01', 'INX02', 'INX03')
 
 
 def _item_type(item):
@@ -395,12 +521,12 @@ def _item_edge(item):
 
 
 def _edge_matches(item, edge):
-    """``edge`` is '', a TXEdge name, or the group keyword 'inx0123'."""
+    """``edge`` is '', a TXEdge name, or a group keyword ('dc' / 'inx0123')."""
     if not edge:
         return True
     actual = _item_edge(item).upper()
-    if edge.lower() == 'inx0123':
-        return actual in EDGE_GROUP_INX0123
+    if edge.lower() in EDGE_GROUP_KEYWORDS:
+        return actual in EDGE_GROUP_DC
     return actual == edge.upper()
 
 
@@ -472,6 +598,31 @@ def _pool_response(key):
     })
 
 
+def _snapshot_edge_counts(snapshot):
+    """Channels per ``DC MWEdge`` value (upper-cased) in the Supplier Dynamic pool."""
+    counts = {}
+    pool = ((snapshot or {}).get('pools') or {}).get('resources') or {}
+    for item in pool.get('items') or []:
+        name = _item_edge(item).upper() or '(none)'
+        counts[name] = counts.get(name, 0) + 1
+    return counts
+
+
+def _edges_meta(snapshot):
+    counts = _snapshot_edge_counts(snapshot)
+    return {
+        'count': len(EDGES),
+        'dc': DC_EDGES,
+        'regional': REGIONAL_EDGES,
+        'errors': EDGE_ERRORS,
+        # TXEdges referenced by Dataminer channels but absent from .env:
+        # provisioning for those channels would have nowhere to go.
+        'unmapped_in_snapshot': sorted(
+            n for n in counts if n != '(none)' and n not in EDGES_BY_NAME
+        ),
+    }
+
+
 def _snapshot_meta(snapshot):
     if not snapshot:
         return {'exists': False}
@@ -522,6 +673,8 @@ def get_status():
         'last_attempt': last_attempt,
         'last_error': last_error,
         'snapshot': _snapshot_meta(_current_snapshot()),
+        'edges': _edges_meta(_current_snapshot()),
+        'txcore_main': _txcore_main_meta(),
     })
 
 
@@ -556,7 +709,7 @@ def list_resources():
     """Supplier Dynamic resources from the snapshot.
 
     Filters: ?q= (text), ?mode= (Available/Unavailable), ?type= (supplier,
-    i.e. capabilities.Type), ?edge= (TXEdge name or 'inx0123' for INX01-03).
+    i.e. capabilities.Type), ?edge= (TXEdge name, or 'dc' for every DC edge).
     """
     if _get_role() not in ALLOWED_ROLES:
         return _forbidden()
@@ -568,7 +721,7 @@ def list_suppliers():
     """Suppliers (capabilities.Type) present in the Supplier Dynamic pool.
 
     Returns per supplier: channel count, count per TXEdge and per mode.
-    Optional ?edge= narrows the counts to that TXEdge (or 'inx0123').
+    Optional ?edge= narrows the counts to that TXEdge (or 'dc' for every DC edge).
     """
     if _get_role() not in ALLOWED_ROLES:
         return _forbidden()
@@ -616,6 +769,29 @@ def get_resource(resource_id):
                 out['_pool_key'] = key
                 return jsonify(out)
     return jsonify({'error': 'Resource not found'}), 404
+
+
+@bte_bp.route('/edges', methods=['GET'])
+def list_edges():
+    """MAIN TXEdge topology from .env, with the Dataminer channel count per edge.
+
+    Interface IPs are internal infrastructure data and are only returned to
+    admin/engineer sessions (same audience as the SRT presets of the MAIN tab).
+    """
+    if _get_role() not in ALLOWED_ROLES:
+        return _forbidden()
+    snapshot = _current_snapshot()
+    counts = _snapshot_edge_counts(snapshot)
+    edges = []
+    for edge in EDGES:
+        out = copy.deepcopy(edge)
+        out['channels'] = counts.get(edge['name'], 0)
+        edges.append(out)
+    meta = _edges_meta(snapshot)
+    meta['edges'] = edges
+    if not edges:
+        meta['hint'] = 'No TXEdge configured — add BTE_EDGE_<NAME> entries to the server .env'
+    return jsonify(meta)
 
 
 @bte_bp.route('/destinations', methods=['GET'])

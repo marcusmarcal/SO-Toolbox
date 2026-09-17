@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TXCore Provisioning — SO-Toolbox</title>
-    <!-- TXCore Manager frontend v1.3.0 — STB (multicast) + MAIN (SRT) clusters + BTE (supplier / channel browser) -->
+    <!-- TXCore Manager frontend v1.4.0 — STB (multicast) + MAIN (SRT) clusters + BTE (supplier / channel browser, TXEdge topology) -->
     <style>
       :root {
         --bg: #0f1216;
@@ -741,7 +741,7 @@
         margin-top: 10px;
       }
 
-      dialog#bte-dest-dialog {
+      dialog.bte-dialog {
         background: var(--bg);
         color: var(--text);
         border: 1px solid var(--border);
@@ -752,7 +752,7 @@
         font-family: var(--font-sans);
         font-size: 14px;
       }
-      dialog#bte-dest-dialog::backdrop {
+      dialog.bte-dialog::backdrop {
         background: rgba(0, 0, 0, 0.65);
       }
       .dialog-head {
@@ -1303,7 +1303,7 @@
                 <label for="bte-edge-filter">TXEdge</label>
                 <select id="bte-edge-filter">
                   <option value="">all edges</option>
-                  <option value="inx0123">INX01 · INX02 · INX03</option>
+                  <option value="dc">INX01 · INX02 · INX03</option>
                   <option value="INX01">INX01</option>
                   <option value="INX02">INX02</option>
                   <option value="INX03">INX03</option>
@@ -1340,6 +1340,7 @@
 
           <div class="btn-row">
             <button id="bte-btn-destinations">Destinations…</button>
+            <button id="bte-btn-edges">TXEdges…</button>
           </div>
 
           <div class="snap-line">
@@ -1401,7 +1402,7 @@
       </div>
     </main>
 
-    <dialog id="bte-dest-dialog">
+    <dialog id="bte-dest-dialog" class="bte-dialog">
       <div class="dialog-head">
         <h2>Destinations <span class="h2-tag" id="bte-dest-tag">Destination</span></h2>
         <button id="bte-dest-close">Close</button>
@@ -1419,6 +1420,25 @@
           <div class="empty-state">No destinations loaded yet.</div>
         </div>
         <div class="list-count" id="bte-dest-count"></div>
+      </div>
+    </dialog>
+
+    <dialog id="bte-edge-dialog" class="bte-dialog">
+      <div class="dialog-head">
+        <h2>TXEdges <span class="h2-tag">MAIN</span></h2>
+        <button id="bte-edge-close">Close</button>
+      </div>
+      <div class="dialog-body">
+        <div class="notice warn" id="bte-edge-notice" style="display: none"></div>
+        <div id="bte-edge-container">
+          <div class="empty-state">No TXEdge topology loaded yet.</div>
+        </div>
+        <div class="list-count" id="bte-edge-count"></div>
+        <div class="hint" style="margin-top: 8px">
+          Topology comes from the server .env (BTE_EDGE_&lt;NAME&gt;). DC edges
+          receive the stream, sources and outputs of each channel; regional edges
+          receive the multicast source and output.
+        </div>
       </div>
     </dialog>
 
@@ -2252,6 +2272,7 @@
         // ---------------------------------------------------------------------
         var BTE_SUPPLIER_KEY = "txcore-manager-bte-supplier";
         var NO_TYPE = "(no type)";
+        // DC edges — replaced by the server topology once /edges is loaded.
         var EDGE_GROUP = ["INX01", "INX02", "INX03"];
 
         var bte = {
@@ -2263,6 +2284,8 @@
           resourcesMeta: null,
           destinations: [],
           destinationsMeta: null,
+          edges: null, // MAIN TXEdge topology from the server .env
+          edgesMeta: null,
           supplier: null, // selected capabilities.Type
           selectedId: null, // selected resource id
         };
@@ -2301,7 +2324,7 @@
         function edgeMatches(r, edge) {
           if (!edge) return true;
           var actual = itemEdge(r).toUpperCase();
-          if (edge === "inx0123") return EDGE_GROUP.indexOf(actual) !== -1;
+          if (edge === "dc" || edge === "inx0123") return EDGE_GROUP.indexOf(actual) !== -1;
           return actual === edge.toUpperCase();
         }
 
@@ -2337,7 +2360,15 @@
           if (!st.bearer_token_set) missing.push("token");
           if (!st.api_url_set) missing.push("api url");
           if (!st.snapshot || !st.snapshot.exists) missing.push("snapshot");
+          if (st.edges && !st.edges.count) missing.push("txedge topology");
+          if (st.txcore_main && !(st.txcore_main.api_url_set && st.txcore_main.bearer_token_set))
+            missing.push("txcore main api");
           return missing;
+        }
+
+        function edgeIssues(st) {
+          var ed = (st && st.edges) || {};
+          return ((ed.errors || []).length) + ((ed.unmapped_in_snapshot || []).length);
         }
 
         function bteHealth() {
@@ -2345,6 +2376,7 @@
           if (!st || bteMissing(st).length) return "bad";
           var snap = st.snapshot;
           if (snap.errors && Object.keys(snap.errors).length) return "warn";
+          if (edgeIssues(st)) return "warn";
           if (snap.age_seconds > st.interval_seconds * 2) return "warn";
           return "ok";
         }
@@ -2402,6 +2434,20 @@
           row("Source", escapeHtml(st.api_url || "not set"), st.api_url_set ? "" : "bad");
           row("Token", st.bearer_token_set ? "configured" : "missing", st.bearer_token_set ? "ok" : "bad");
           if (st.verify_ssl === false) row("TLS", "verification disabled", "warn");
+          var ed = st.edges;
+          if (ed) {
+            row(
+              "TXEdges",
+              ed.count
+                ? ed.count + " configured (" + (ed.dc || []).length + " DC, " + (ed.regional || []).length + " regional)"
+                : "none configured — set BTE_EDGE_&lt;NAME&gt; in .env",
+              ed.count ? (edgeIssues(st) ? "warn" : "ok") : "bad"
+            );
+          }
+          if (st.txcore_main) {
+            var mainOk = st.txcore_main.api_url_set && st.txcore_main.bearer_token_set;
+            row("TXCore MAIN", mainOk ? "configured — " + escapeHtml(st.txcore_main.api_url) : "not configured (APIURLMAIN / BEARER_TOKEN_MAIN)", mainOk ? "ok" : "bad");
+          }
           if (snap.exists) {
             row("Last fetch", escapeHtml(fmtTime(snap.fetched_at)) + " · " + escapeHtml(fmtAge(snap.age_seconds)));
             row("Next refresh", escapeHtml(fmtIn(snap.next_refresh_in_seconds)), st.refreshing ? "warn" : "");
@@ -2415,16 +2461,15 @@
 
           var errs = snap.errors || {};
           var errKeys = Object.keys(errs);
-          if (errKeys.length) {
-            notice.style.display = "";
-            notice.textContent = errKeys.map(function (k) { return k + ": " + errs[k]; }).join(" | ");
-          } else if (st.last_error) {
-            notice.style.display = "";
-            notice.textContent = st.last_error;
-          } else {
-            notice.style.display = "none";
-          }
-          if (!snap.exists || errKeys.length) $("bte-snap-details").open = true;
+          var msgs = errKeys.map(function (k) { return k + ": " + errs[k]; });
+          if (!msgs.length && st.last_error) msgs.push(st.last_error);
+          var ed2 = st.edges || {};
+          (ed2.errors || []).forEach(function (e) { msgs.push("edge " + e); });
+          if ((ed2.unmapped_in_snapshot || []).length)
+            msgs.push("Dataminer channels reference TXEdges missing from .env: " + ed2.unmapped_in_snapshot.join(", "));
+          notice.style.display = msgs.length ? "" : "none";
+          notice.textContent = msgs.join(" | ");
+          if (!snap.exists || msgs.length) $("bte-snap-details").open = true;
         }
 
         // ---- suppliers ------------------------------------------------------
@@ -2457,7 +2502,7 @@
           select.value = counts[bte.supplier] ? bte.supplier : "";
           if (!select.value) bte.supplier = null;
           $("bte-supplier-count").textContent =
-            types.length + " suppliers" + (edge ? " on " + (edge === "inx0123" ? "INX01–03" : edge) : "");
+            types.length + " suppliers" + (edge ? " on " + (edge === "dc" || edge === "inx0123" ? "DC edges" : edge) : "");
         }
 
         // ---- channels -------------------------------------------------------
@@ -2549,6 +2594,21 @@
           }).join("");
         }
 
+        function edgeKnown(name) {
+          if (!name || !bte.edges) return true; // topology not loaded yet: no verdict
+          return bte.edges.some(function (e) { return e.name === name.toUpperCase(); });
+        }
+
+        function edgePill(name) {
+          if (!name) return "";
+          if (edgeKnown(name)) return '<span class="pill">' + escapeHtml(name) + "</span>";
+          return (
+            '<span class="pill other" title="This TXEdge is not configured in the server .env (BTE_EDGE_' +
+            escapeHtml(name.toUpperCase()) + ') — provisioning cannot target it">' +
+            escapeHtml(name) + " · not configured</span>"
+          );
+        }
+
         function renderBteDetail() {
           var container = $("bte-resource-detail");
           var r = bte.selectedId ? bteFindResource(bte.selectedId) : null;
@@ -2566,7 +2626,7 @@
             '<div class="res-head"><span class="res-name">' + escapeHtml(r.name) + "</span>" +
             modePill(r.mode) +
             '<span class="pill">' + escapeHtml(itemType(r)) + "</span>" +
-            (itemEdge(r) ? '<span class="pill">' + escapeHtml(itemEdge(r)) + "</span>" : "") +
+            edgePill(itemEdge(r)) +
             '<span class="pill">concurrency ' + escapeHtml(r.concurrency) + "</span></div>" +
             '<div class="res-id">' + escapeHtml(r.id) + "</div>" +
             '<table class="kv"><tbody>' +
@@ -2628,14 +2688,82 @@
           $("bte-dest-filter").focus();
         }
 
+        // ---- TXEdge topology (separate window) ------------------------------
+        function ifaceCell(edge, direction) {
+          var list = (edge.interfaces || []).filter(function (i) { return i.direction === direction; });
+          if (!list.length) return '<span style="color: var(--text-faint)">—</span>';
+          return list.map(function (i) {
+            return "<div>" + escapeHtml(i.protocol) + ' <span style="color: var(--text-dim)">' + escapeHtml(i.ip) + "</span></div>";
+          }).join("");
+        }
+
+        function renderBteEdges() {
+          var container = $("bte-edge-container");
+          var notice = $("bte-edge-notice");
+          var meta = bte.edgesMeta || {};
+          var edges = bte.edges || [];
+          var msgs = (meta.errors || []).slice();
+          if ((meta.unmapped_in_snapshot || []).length)
+            msgs.push("Dataminer channels reference TXEdges missing from .env: " + meta.unmapped_in_snapshot.join(", "));
+          notice.style.display = msgs.length ? "" : "none";
+          notice.textContent = msgs.join(" | ");
+          $("bte-edge-count").textContent = edges.length
+            ? edges.length + " edges (" + (meta.dc || []).length + " DC, " + (meta.regional || []).length + " regional)"
+            : "";
+          if (!edges.length) {
+            container.innerHTML = '<div class="empty-state">' +
+              escapeHtml(meta.hint || "No TXEdge configured — add BTE_EDGE_<NAME> entries to the server .env.") + "</div>";
+            return;
+          }
+          container.innerHTML =
+            '<div class="table-wrap"><table><thead><tr>' +
+            "<th>Edge</th><th>Role</th><th>Location</th><th>MWEdge ID</th><th>Incoming</th><th>Outgoing</th><th>Channels</th>" +
+            "</tr></thead><tbody>" +
+            edges.map(function (e) {
+              return (
+                "<tr><td>" + escapeHtml(e.name) +
+                '</td><td><span class="pill' + (e.dc ? " available" : "") + '">' + (e.dc ? "DC" : "regional") + "</span>" +
+                "</td><td>" + escapeHtml(e.location || "") +
+                '</td><td style="color: var(--text-faint)">' + escapeHtml(e.id || "") +
+                "</td><td>" + ifaceCell(e, "in") +
+                "</td><td>" + ifaceCell(e, "out") +
+                "</td><td>" + (e.channels || 0) + "</td></tr>"
+              );
+            }).join("") +
+            "</tbody></table></div>";
+        }
+
+        function openEdges() {
+          var dlg = $("bte-edge-dialog");
+          renderBteEdges();
+          if (typeof dlg.showModal === "function") dlg.showModal();
+          else dlg.setAttribute("open", "");
+        }
+
+        // Rebuild the TXEdge filter from the DC edges of the server topology.
+        function renderBteEdgeOptions() {
+          var select = $("bte-edge-filter");
+          var current = select.value;
+          var dc = (bte.edgesMeta && (bte.edgesMeta.dc || []).length) ? bte.edgesMeta.dc : EDGE_GROUP;
+          EDGE_GROUP = dc.slice();
+          select.innerHTML =
+            '<option value="">all edges</option>' +
+            (dc.length > 1 ? '<option value="dc">' + escapeHtml(dc.join(" · ")) + "</option>" : "") +
+            dc.map(function (n) { return '<option value="' + escapeHtml(n) + '">' + escapeHtml(n) + "</option>"; }).join("");
+          select.value = current;
+          if (select.value !== current) select.value = "";
+        }
+
         // ---- loading --------------------------------------------------------
         function renderBteAll() {
           renderBteStatus();
           renderStatusBadge();
+          renderBteEdgeOptions();
           renderBteSuppliers();
           renderBteChannels();
           renderBteDetail();
           if ($("bte-dest-dialog").open) renderBteDestinations();
+          if ($("bte-edge-dialog").open) renderBteEdges();
         }
 
         function loadBte() {
@@ -2660,7 +2788,14 @@
               bte.destinationsMeta = { hint: err.message };
             });
 
-          Promise.all([statusReq, resReq, destReq]).then(function () {
+          var edgeReq = bteFetch("/edges")
+            .then(function (data) { bte.edges = data.edges || []; bte.edgesMeta = data; })
+            .catch(function (err) {
+              bte.edges = null;
+              bte.edgesMeta = { hint: err.message };
+            });
+
+          Promise.all([statusReq, resReq, destReq, edgeReq]).then(function () {
             bte.loading = false;
             bte.loaded = true;
             renderBteAll();
@@ -2698,6 +2833,8 @@
           $("bte-btn-destinations").addEventListener("click", openDestinations);
           $("bte-dest-close").addEventListener("click", function () { $("bte-dest-dialog").close(); });
           $("bte-dest-filter").addEventListener("input", renderBteDestinations);
+          $("bte-btn-edges").addEventListener("click", openEdges);
+          $("bte-edge-close").addEventListener("click", function () { $("bte-edge-dialog").close(); });
 
           $("bte-btn-reload").addEventListener("click", function () { loadBte(); });
           $("bte-btn-refresh").addEventListener("click", function () {

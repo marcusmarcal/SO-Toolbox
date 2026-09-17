@@ -9,6 +9,21 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 `SRT Ingest:`, `General Tool Admin:`) so entries can be filtered per tool.
 
 ---
+## [4.1.1] - 2026-09-17
+### Added
+- TXCore Provisioning (BTE): MAIN TXEdge topology loaded from `.env`
+  (`BTE_EDGE_<NAME>`, `BTE_EDGES`) with validation; new `GET /api/bte/edges`.
+- TXCore Provisioning (BTE): "TXEdges…" window listing role, location,
+  MWEdge ID, interfaces and Dataminer channel count per edge.
+- TXCore Provisioning (BTE): `/status` reports edge topology health
+  (errors, edges referenced by Dataminer but missing from `.env`) and
+  TXCore MAIN API readiness.
+### Changed
+- TXCore Provisioning (BTE): TXEdge filter is built from the configured DC
+  edges; `?edge=dc` group keyword (legacy `inx0123` still accepted).
+- TXCore Provisioning (BTE): channel detail flags a `DC MWEdge` that is not
+  configured on the server.
+
 ## [4.0.1] - 2026-09-16
 
 ### Added
