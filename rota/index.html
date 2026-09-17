@@ -100,6 +100,8 @@
       position: sticky; top: 0; height: 100vh; overflow-y: auto;
       flex-shrink: 0;
     }
+
+    /* OLD SIDEBAR HEADER STYLES (Disabled):
     #sidebar-header {
       display: flex; align-items: center; gap: 10px;
       padding: 16px 18px; border-bottom: 1px solid var(--border);
@@ -110,8 +112,23 @@
       border-radius: 6px; object-fit: contain;
       background: var(--card); border: 0px solid var(--border);
     }
-    #sidebar-app-name { font-family: var(--font-title); font-size: 2rem; font-weight: 800; letter-spacing: -0.08em; color: var(--text); }
+    #sidebar-app-name { font-family: var(--font-title); font-size: 0.92rem; font-weight: 800; letter-spacing: 0.04em; color: var(--text); }
     #sidebar-app-name span { color: var(--accent); }
+    */
+
+    /* NEW SIDEBAR HEADER BANNER STYLES: */
+    #sidebar-header {
+      padding: 0;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .sidebar-header-banner {
+      width: 100%;
+      height: auto;
+      display: block;
+      object-fit: cover;
+    }
 
     #sidebar-nav { flex: 1; overflow-y: auto; padding: 10px 8px; }
     .nav-item { display: flex; flex-direction: column; }
@@ -1013,9 +1030,16 @@
 
   <!-- ── SIDEBAR ── -->
   <aside id="sidebar">
+  <!-- OLD SIDEBAR HEADER (Disabled):
     <div id="sidebar-header">
       <img class="logo-mark" src="/rota/assets/SPlogo.png" alt="" />
-      <span id="sidebar-app-name">STREAMING OPS <span>ROTA</span></span>
+      <span id="sidebar-app-name">Streaming Ops <span>Rota</span></span>
+    </div>
+    -->
+
+    <!-- NEW SIDEBAR HEADER BANNER: -->
+    <div id="sidebar-header">
+      <img class="sidebar-header-banner" src="/rota/assets/SP_top_sidebar.png" alt="Streaming Ops Rota" />
     </div>
 
     <nav id="sidebar-nav">
