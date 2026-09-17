@@ -7,16 +7,18 @@ so it can be removed again — on demand or automatically when the lease
 expires.
 
 Topology created per channel ("Create resources" in the BTE tab), mirroring
-the property model of the Dataminer StreamResourceCreation script:
+the property model of the Dataminer StreamResourceCreation script. One
+TXCore call per edge: POST /api/mwedge/<edge id> with {streams, sources, outputs}
+(the stream id is chosen by BTE, sources/outputs reference it):
 
     DC edge (properties["DC MWEdge"], e.g. INX01)
-        source  SRT   from properties["Input Main"]   (+ "Input Backup" if different)
         stream
+        source  SRT   from properties["Input Main"]   (+ "Input Backup" if different)
         output  SRT listener on properties["Output"]  (internal passphrase)
 
     AVE / LMK / YER edges (always, one per site with a multicast address)
-        source  SRT caller  <DC edge host>:<Output port> (internal passphrase)
         stream
+        source  SRT caller  <DC edge out=SRT host>:<Output port> (internal passphrase)
         output  UDP multicast from properties["<Site> Multicast"]
 
 Every object name carries BTE_TAG ("[BTE]"). The tag is the primary guard:
@@ -39,20 +41,18 @@ Environment variables (.env):
                                         (INX01…) and start with the site prefix AVE / LMK / YER
                                         for regional edges (AVE02, LMK01, YER01…). Regional
                                         edges pull from the DC edge's out=SRT@<host>.
-    BTE_TXCORE_SOURCE_PATH              Default /mwedge/{edge}/source/
-    BTE_TXCORE_STREAM_PATH              Default /mwedge/{edge}/stream/
-    BTE_TXCORE_OUTPUT_PATH              Default /mwedge/{edge}/output/
-                                        {edge} is replaced by the TXCore edge id. A single
-                                        object is addressed as <path><object id>.
+    BTE_TXCORE_EDGE_PATH                Batch create endpoint, default /mwedge/{edge}
+    BTE_TXCORE_OBJECT_PATH              Single object (GET/DELETE), default /mwedge/{edge}/{kind}/{id}
+                                        {kind} is stream | source | output
     BTE_DEFAULT_DURATION_MINUTES        Lease length offered by default (60)
     BTE_DEFAULT_EXTEND_MINUTES          Extension offered by default (30)
     BTE_MAX_DURATION_MINUTES            Hard cap for a lease, including extensions (1440)
     BTE_REAPER_DISABLED                 "true" to disable automatic deletion of expired leases
 
-!! The MWEdge endpoint paths and request-body field names below are the
-!! integration contract with TXCore and must be confirmed against the TXCore
-!! API reference of the MAIN cluster before BTE_PROVISIONING_ENABLED is set.
-!! Until then the plan preview shows exactly what would be sent.
+!! Confirmed against the TXCore API reference: POST /mwedge/<id> with
+!! {streams, sources, outputs} and its response shape. Still assumed and to be
+!! confirmed on stage: the SRT-specific option names, the single-object
+!! GET/DELETE path (BTE_TXCORE_OBJECT_PATH) used for the tag check and removal.
 """
 
 import copy
@@ -74,6 +74,7 @@ load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
 log = logging.getLogger('so-toolbox.bte.provisioning')
 
 BTE_TAG = '[BTE]'
+OUTPUT_PORT_OFFSET = 1000   # Output port = Input port + 1000 when the resource has no "Output"
 REDACTED = '********'
 
 DATA_DIR = '/opt/web/data'
@@ -84,8 +85,6 @@ REAPER_LOCK_FILE = os.path.join(DATA_DIR, 'bte_reaper.lock')
 REQUEST_TIMEOUT = (10, 30)
 HISTORY_KEEP = 200          # finished leases kept for the UI history
 REAPER_INTERVAL = 60        # seconds
-
-OUTPUT_PORT_OFFSET = 1000   # Output port = Input port + 1000 when the resource has no "Output"
 
 os.makedirs(DATA_DIR, exist_ok=True)
 
@@ -127,11 +126,10 @@ DEFAULT_DURATION_MIN = _env_int('BTE_DEFAULT_DURATION_MINUTES', 60)
 DEFAULT_EXTEND_MIN = _env_int('BTE_DEFAULT_EXTEND_MINUTES', 30)
 MAX_DURATION_MIN = _env_int('BTE_MAX_DURATION_MINUTES', 24 * 60)
 
-PATHS = {
-    'source': _env('BTE_TXCORE_SOURCE_PATH') or '/mwedge/{edge}/source/',
-    'stream': _env('BTE_TXCORE_STREAM_PATH') or '/mwedge/{edge}/stream/',
-    'output': _env('BTE_TXCORE_OUTPUT_PATH') or '/mwedge/{edge}/output/',
-}
+EDGE_PATH = _env('BTE_TXCORE_EDGE_PATH') or '/mwedge/{edge}'
+OBJECT_PATH = _env('BTE_TXCORE_OBJECT_PATH') or '/mwedge/{edge}/{kind}/{id}'
+KINDS = ('stream', 'source', 'output')          # creation order inside a batch
+DELETE_ORDER = ('output', 'source', 'stream')   # outputs first, the stream last
 
 # Regional sites: site prefix (edge keys AVE02, LMK01, ... start with it) -> Dataminer multicast property.
 REGIONAL_SITES = (
@@ -228,7 +226,8 @@ def config_status():
         'edges': {k: {'id': v['id'], 'location': v['location'], 'dc': v['dc'], 'site': v['site'],
                       'in': v['in'], 'out': v['out']} for k, v in sorted(EDGES.items())},
         'missing_edges': missing_edges(),
-        'paths': PATHS,
+        'edge_path': EDGE_PATH,
+        'object_path': OBJECT_PATH,
         'tag': BTE_TAG,
         'default_duration_minutes': DEFAULT_DURATION_MIN,
         'default_extend_minutes': DEFAULT_EXTEND_MIN,
@@ -314,35 +313,47 @@ def has_tag(name):
     return BTE_TAG in str(name or '')
 
 
-def _srt_source_body(name, inp, latency, passphrase, encryption):
-    body = {
-        'name': name,
-        'type': 'srt',
-        'mode': 'listener' if inp['mode'] == 'listener' else 'caller',
+def _stream_id(base, edge_key):
+    """Client-chosen TXCore stream id: unique per lease, still readable in TXCore."""
+    slug = re.sub(r'[^A-Za-z0-9]+', '_', base).strip('_')[:40]
+    return f'BTE_{slug}_{edge_key}_{uuid.uuid4().hex[:8]}'
+
+
+def _srt_options(inp, latency, passphrase, encryption):
+    """SRT option block. Field names beyond port/address are TO BE CONFIRMED on stage."""
+    opts = {
         'port': inp['port'],
+        'address': inp['host'] if inp['mode'] != 'listener' else None,
+        'mode': 'listener' if inp['mode'] == 'listener' else 'caller',
+        'latency': latency or 500,
+        'networkInterface': None,
     }
-    if body['mode'] == 'caller':
-        body['address'] = inp['host']
-    if latency:
-        body['latency'] = latency
     if passphrase:
-        body['encryption'] = encryption or 'AES-256'
-        body['passphrase'] = passphrase
-    return body
+        opts['encryption'] = encryption or 'AES-256'
+        opts['passphrase'] = passphrase
+    return opts
 
 
-def _udp_source_body(name, inp):
-    body = {'name': name, 'type': inp['protocol'], 'port': inp['port']}
-    if inp['host']:
-        body['address'] = inp['host']
-    return body
+def _udp_options(host, port):
+    return {'port': port, 'address': host, 'networkInterface': None}
+
+
+def _stream_obj(stream_id, name, failover):
+    return {'id': stream_id, 'name': name, 'options': {'failoverMode': failover}}
+
+
+def _endpoint_obj(stream_id, name, protocol, options, priority=None):
+    obj = {'stream': stream_id, 'name': name, 'tags': 'bte', 'protocol': protocol, 'active': True, 'options': options}
+    if priority is not None:
+        obj['priority'] = priority
+    return obj
 
 
 def build_plan(item, edges=None):
     """Return {'ok', 'steps', 'warnings', 'errors', 'summary'} for a snapshot item.
 
-    Each step: {seq, edge, edge_id, kind, name, body}. A body value of
-    {'$ref': <seq>} is replaced at run time by the TXCore id of that step.
+    One step per edge = one POST /mwedge/<edge id>. Each step lists the objects
+    it creates (kind, name, body); the request body is assembled at run time.
     """
     edges = EDGES if edges is None else edges
     props = item.get('properties') or {}
@@ -386,50 +397,39 @@ def build_plan(item, edges=None):
     backup_passphrase = None if _blank(props.get('Passphrase Backup')) else str(props['Passphrase Backup'])
     backup_encryption = None if _blank(props.get('Encryption Backup')) else str(props['Encryption Backup']).strip()
 
-    seq = [0]
-
-    def add(edge_key, edge_id, kind, name, body):
-        seq[0] += 1
-        steps.append({'seq': seq[0], 'edge': edge_key, 'edge_id': edge_id, 'kind': kind, 'name': name, 'body': body})
-        return seq[0]
+    def step(edge, objects):
+        steps.append({'seq': len(steps) + 1, 'edge': edge['key'], 'edge_id': edge['id'],
+                      'location': edge.get('location'), 'objects': objects})
 
     # ---- DC edge ----------------------------------------------------------
-    src_refs = []
+    sid = _stream_id(base, dc_key)
+    objects = []
+    use_backup = bool(backup_in and backup_in != main_in)
+    objects.append({'kind': 'stream', 'name': bte_name(base, dc_key, 'stream'),
+                    'body': _stream_obj(sid, bte_name(base, dc_key, 'stream'), 'none')})
     name = bte_name(base, dc_key, 'source')
     if main_in['protocol'] == 'srt':
-        src_refs.append(add(dc_key, dc['id'], 'source', name, _srt_source_body(name, main_in, latency, passphrase, encryption)))
+        opts = _srt_options(main_in, latency, passphrase, encryption)
     else:
-        src_refs.append(add(dc_key, dc['id'], 'source', name, _udp_source_body(name, main_in)))
-
-    if backup_in and backup_in != main_in:
+        opts = _udp_options(main_in['host'], main_in['port'])
+    objects.append({'kind': 'source', 'name': name,
+                    'body': _endpoint_obj(sid, name, main_in['protocol'].upper(), opts, 0 if use_backup else None)})
+    if use_backup:
         name = bte_name(base, dc_key, 'source-backup')
         if backup_in['protocol'] == 'srt':
-            body = _srt_source_body(name, backup_in, latency, backup_passphrase or passphrase, backup_encryption or encryption)
+            opts = _srt_options(backup_in, latency, backup_passphrase or passphrase, backup_encryption or encryption)
         else:
-            body = _udp_source_body(name, backup_in)
-        if backup_in.get('state'):
-            body['state'] = backup_in['state'].lower()
-        src_refs.append(add(dc_key, dc['id'], 'source-backup', name, body))
+            opts = _udp_options(backup_in['host'], backup_in['port'])
+        objects.append({'kind': 'source', 'name': name,
+                        'body': _endpoint_obj(sid, name, backup_in['protocol'].upper(), opts, 1)})
     elif backup_in is None and not _blank(props.get('Input Backup')):
         warnings.append(f'"Input Backup" could not be parsed and was ignored: {props.get("Input Backup")!r}')
-
-    name = bte_name(base, dc_key, 'stream')
-    dc_stream = add(dc_key, dc['id'], 'stream', name, {
-        'name': name,
-        'sources': [{'$ref': r} for r in src_refs],
-        'enabled': True,
-    })
     name = bte_name(base, dc_key, 'output')
-    add(dc_key, dc['id'], 'output', name, {
-        'name': name,
-        'type': 'srt',
-        'mode': 'listener',
-        'port': out_port,
-        'latency': latency or 500,
-        'encryption': 'AES-256',
-        'passphrase': INTERNAL_PASSPHRASE,
-        'stream': {'$ref': dc_stream},
-    })
+    objects.append({'kind': 'output', 'name': name, 'body': _endpoint_obj(sid, name, 'SRT', {
+        'port': out_port, 'address': None, 'mode': 'listener', 'latency': latency or 500,
+        'encryption': 'AES-256', 'passphrase': INTERNAL_PASSPHRASE, 'networkInterface': None,
+    })})
+    step(dc, objects)
 
     # ---- regional edges ---------------------------------------------------
     sites = 0
@@ -442,31 +442,18 @@ def build_plan(item, edges=None):
         if not edge:
             warnings.append(f'{site}: no regional edge configured for this site (BTE_EDGE_{site}xx) — site skipped')
             continue
-        edge_key = edge['key']
         sites += 1
-        name = bte_name(base, edge_key, 'source')
-        src = add(edge_key, edge['id'], 'source', name, {
-            'name': name,
-            'type': 'srt',
-            'mode': 'caller',
-            'address': dc['out']['SRT'],
-            'port': out_port,
-            'latency': latency or 500,
-            'encryption': 'AES-256',
-            'passphrase': INTERNAL_PASSPHRASE,
-        })
-        name = bte_name(base, edge_key, 'stream')
-        stream = add(edge_key, edge['id'], 'stream', name, {
-            'name': name, 'sources': [{'$ref': src}], 'enabled': True,
-        })
-        name = bte_name(base, edge_key, 'output')
-        add(edge_key, edge['id'], 'output', name, {
-            'name': name,
-            'type': 'udp',
-            'address': mcast['host'],
-            'port': mcast['port'],
-            'stream': {'$ref': stream},
-        })
+        key = edge['key']
+        sid = _stream_id(base, key)
+        n_stream, n_src, n_out = bte_name(base, key, 'stream'), bte_name(base, key, 'source'), bte_name(base, key, 'output')
+        step(edge, [
+            {'kind': 'stream', 'name': n_stream, 'body': _stream_obj(sid, n_stream, 'none')},
+            {'kind': 'source', 'name': n_src, 'body': _endpoint_obj(sid, n_src, 'SRT', {
+                'port': out_port, 'address': dc['out']['SRT'], 'mode': 'caller', 'latency': latency or 500,
+                'encryption': 'AES-256', 'passphrase': INTERNAL_PASSPHRASE, 'networkInterface': None,
+            })},
+            {'kind': 'output', 'name': n_out, 'body': _endpoint_obj(sid, n_out, 'UDP', _udp_options(mcast['host'], mcast['port']))},
+        ])
 
     if sites == 0:
         warnings.append('No regional site will be provisioned (no multicast address / edge available)')
@@ -481,23 +468,35 @@ def build_plan(item, edges=None):
             'dc_edge': dc_key,
             'output_port': out_port,
             'sites': sites,
-            'objects': len(steps),
+            'edges': len(steps),
+            'objects': sum(len(s['objects']) for s in steps),
         },
     }
 
 
+def batch_body(objects):
+    """{streams, sources, outputs} for one POST /mwedge/<edge id>."""
+    body = {'streams': [], 'sources': [], 'outputs': []}
+    for obj in objects:
+        body[obj['kind'] + 's'].append(obj['body'])
+    return body
+
+
 def redact_body(body):
-    out = copy.deepcopy(body)
-    for key in list(out):
-        if re.search(r'passphrase|password|secret|token', key, re.I) and out[key] not in (None, ''):
-            out[key] = REDACTED
-    return out
+    """Mask secret-looking keys anywhere in a (nested) object."""
+    if isinstance(body, dict):
+        return {k: (REDACTED if re.search(r'passphrase|password|secret|token|key$', k, re.I) and v not in (None, '')
+                    else redact_body(v)) for k, v in body.items()}
+    if isinstance(body, list):
+        return [redact_body(v) for v in body]
+    return body
 
 
 def redact_plan(plan):
     out = copy.deepcopy(plan)
     for step in out.get('steps', []):
-        step['body'] = redact_body(step['body'])
+        for obj in step.get('objects', []):
+            obj['body'] = redact_body(obj['body'])
     return out
 
 
@@ -512,9 +511,8 @@ class TXCoreError(Exception):
 class TXCoreClient:
     """Thin wrapper over the TXCore MAIN REST API for MWEdge objects."""
 
-    def __init__(self, url=None, token=None, paths=None, session=None):
+    def __init__(self, url=None, token=None, session=None):
         self.url = (url or TXCORE_URL or '').rstrip('/')
-        self.paths = paths or PATHS
         if session is not None:
             self.session = session
         else:
@@ -525,12 +523,11 @@ class TXCoreClient:
                 'Accept': 'application/json',
             })
 
-    def _collection(self, kind, edge_id):
-        kind = 'source' if kind.startswith('source') else kind
-        return self.url + self.paths[kind].replace('{edge}', str(edge_id))
+    def edge_url(self, edge_id):
+        return self.url + EDGE_PATH.replace('{edge}', str(edge_id))
 
-    def _object(self, kind, edge_id, obj_id):
-        return self._collection(kind, edge_id) + str(obj_id)
+    def object_url(self, kind, edge_id, obj_id):
+        return self.url + OBJECT_PATH.replace('{edge}', str(edge_id)).replace('{kind}', kind).replace('{id}', str(obj_id))
 
     @staticmethod
     def _json(resp):
@@ -539,37 +536,60 @@ class TXCoreClient:
         except ValueError:
             return {'raw': resp.text[:1000]}
 
-    def create(self, kind, edge_id, body):
-        """POST and return (object id, response payload)."""
+    def create_batch(self, edge_id, body):
+        """POST {streams, sources, outputs}. Returns [(kind, requested_name, id, name)] for every
+        entry; raises TXCoreError (carrying the ids already created) on any failure."""
         try:
-            resp = self.session.post(self._collection(kind, edge_id), json=body, timeout=REQUEST_TIMEOUT)
+            resp = self.session.post(self.edge_url(edge_id), json=body, timeout=REQUEST_TIMEOUT)
         except requests.RequestException as exc:
-            raise TXCoreError(f'{kind} POST failed: {exc}') from exc
+            raise TXCoreError(f'POST {self.edge_url(edge_id)} failed: {exc}') from exc
         payload = self._json(resp)
         if not resp.ok:
-            raise TXCoreError(f'{kind} POST returned HTTP {resp.status_code}: {json.dumps(payload)[:400]}')
-        obj_id = None
-        if isinstance(payload, dict):
-            obj_id = payload.get('_id') or payload.get('id')
-        if not obj_id:
-            raise TXCoreError(f'{kind} POST succeeded but no id was returned: {json.dumps(payload)[:400]}')
-        return str(obj_id), payload
+            raise TXCoreError(f'POST returned HTTP {resp.status_code}: {json.dumps(payload)[:400]}')
+        if not isinstance(payload, dict):
+            raise TXCoreError(f'Unexpected response: {json.dumps(payload)[:400]}')
 
-    def get(self, kind, edge_id, obj_id):
+        created, failures = [], []
+        for kind in KINDS:
+            requested = body.get(kind + 's') or []
+            results = payload.get(kind + 's') or []
+            if len(results) != len(requested):
+                failures.append(f'{kind}s: sent {len(requested)}, TXCore answered for {len(results)}')
+            for req, res in zip(requested, results):
+                data = (res or {}).get('data') or {}
+                if not (res or {}).get('success'):
+                    failures.append(f"{kind} {req.get('name')!r}: {json.dumps(res)[:300]}")
+                    continue
+                obj_id = data.get('id') or req.get('id')
+                if not obj_id:
+                    failures.append(f"{kind} {req.get('name')!r}: no id in response")
+                    continue
+                created.append((kind, req.get('name'), str(obj_id), data.get('name')))
+        if failures:
+            err = TXCoreError('; '.join(failures))
+            err.created = created
+            raise err
+        return created
+
+    def get_object(self, kind, edge_id, obj_id):
         """Return the live object, or None when TXCore reports 404."""
         try:
-            resp = self.session.get(self._object(kind, edge_id, obj_id), timeout=REQUEST_TIMEOUT)
+            resp = self.session.get(self.object_url(kind, edge_id, obj_id), timeout=REQUEST_TIMEOUT)
         except requests.RequestException as exc:
             raise TXCoreError(f'{kind} GET failed: {exc}') from exc
         if resp.status_code == 404:
             return None
         if not resp.ok:
             raise TXCoreError(f'{kind} GET returned HTTP {resp.status_code}')
-        return self._json(resp) or {}
+        payload = self._json(resp) or {}
+        # Tolerate {"success": true, "data": {...}} envelopes.
+        if isinstance(payload, dict) and isinstance(payload.get('data'), dict):
+            payload = payload['data']
+        return payload
 
-    def delete(self, kind, edge_id, obj_id):
+    def delete_object(self, kind, edge_id, obj_id):
         try:
-            resp = self.session.delete(self._object(kind, edge_id, obj_id), timeout=REQUEST_TIMEOUT)
+            resp = self.session.delete(self.object_url(kind, edge_id, obj_id), timeout=REQUEST_TIMEOUT)
         except requests.RequestException as exc:
             raise TXCoreError(f'{kind} DELETE failed: {exc}') from exc
         if resp.status_code == 404:
@@ -697,10 +717,17 @@ def create_lease(item, plan, duration_minutes, username, dry_run):
         'status': 'creating',
         'warnings': list(plan.get('warnings') or []),
         'errors': [],
-        'objects': [
-            {'seq': s['seq'], 'edge': s['edge'], 'edge_id': s['edge_id'], 'kind': s['kind'],
-             'name': s['name'], 'body': s['body'], 'id': None, 'status': 'pending', 'error': None}
+        'steps': [
+            {'seq': s['seq'], 'edge': s['edge'], 'edge_id': s['edge_id'], 'location': s.get('location'),
+             'status': 'pending', 'error': None}
             for s in plan['steps']
+        ],
+        # Objects created in TXCore (filled in while the plan runs). Every entry
+        # must carry the [BTE] tag in its name to be deletable.
+        'objects': [
+            {'seq': s['seq'], 'edge': s['edge'], 'edge_id': s['edge_id'], 'kind': o['kind'],
+             'name': o['name'], 'body': o['body'], 'id': None, 'status': 'pending', 'error': None}
+            for s in plan['steps'] for o in s['objects']
         ],
         'finished_at': None,
     }
@@ -722,21 +749,12 @@ def _update_lease(lease_id, fn):
     return _mutate(_apply)
 
 
-def _resolve_refs(body, ids):
-    if isinstance(body, dict):
-        if set(body) == {'$ref'}:
-            return ids[body['$ref']]
-        return {k: _resolve_refs(v, ids) for k, v in body.items()}
-    if isinstance(body, list):
-        return [_resolve_refs(v, ids) for v in body]
-    return body
-
-
 def run_lease(lease_id, client=None):
-    """Execute the lease plan against TXCore (or mark objects skipped on dry run).
+    """Execute the lease plan: one POST per edge (or mark everything skipped on dry run).
 
-    Creation is sequential; on the first failure everything created so far
-    is rolled back and the lease ends as 'failed'.
+    On the first failing edge everything created so far — including objects
+    TXCore reported as created in the failing batch — is rolled back and the
+    lease ends as 'failed'.
     """
     lease = get_lease(lease_id)
     if lease is None:
@@ -745,46 +763,63 @@ def run_lease(lease_id, client=None):
         def _skip(l):
             for obj in l['objects']:
                 obj['status'] = 'skipped'
+            for st in l['steps']:
+                st['status'] = 'skipped'
             l['status'] = 'active'
         return _update_lease(lease_id, _skip)
 
     client = client or TXCoreClient()
-    ids = {}
-    for obj in lease['objects']:
-        if not has_tag(obj['name']):
+    for step in lease['steps']:
+        objs = [o for o in lease['objects'] if o['seq'] == step['seq']]
+        untagged = [o['name'] for o in objs if not has_tag(o['name'])]
+        if untagged:
             # Defensive: never create an untagged object; it could not be cleaned up.
-            err = f'refused: object name lacks {BTE_TAG}'
-            _update_lease(lease_id, lambda l, s=obj['seq'], e=err: _mark(l, s, 'error', error=e))
-            return _rollback(lease_id, ids, client, f'step {obj["seq"]}: {err}')
+            reason = f"step {step['seq']} ({step['edge']}): refused, names lack {BTE_TAG}: {untagged}"
+            _update_lease(lease_id, lambda l, s=step['seq'], e=reason: _mark_step(l, s, 'error', e))
+            return _rollback(lease_id, client, reason)
         try:
-            body = _resolve_refs(obj['body'], ids)
-            obj_id, _ = client.create(obj['kind'], obj['edge_id'], body)
-        except (TXCoreError, KeyError) as exc:
-            _update_lease(lease_id, lambda l, s=obj['seq'], e=str(exc): _mark(l, s, 'error', error=e))
-            return _rollback(lease_id, ids, client, f'step {obj["seq"]} ({obj["edge"]} {obj["kind"]}): {exc}')
-        ids[obj['seq']] = obj_id
-        _update_lease(lease_id, lambda l, s=obj['seq'], i=obj_id: _mark(l, s, 'created', obj_id=i))
+            created = client.create_batch(step['edge_id'], batch_body(
+                [{'kind': o['kind'], 'body': o['body']} for o in objs]))
+        except TXCoreError as exc:
+            partial = getattr(exc, 'created', [])
+            _update_lease(lease_id, lambda l, s=step['seq'], c=partial, e=str(exc): (
+                _record_created(l, s, c), _mark_step(l, s, 'error', e)))
+            return _rollback(lease_id, client, f"step {step['seq']} ({step['edge']}): {exc}")
+        _update_lease(lease_id, lambda l, s=step['seq'], c=created: (
+            _record_created(l, s, c), _mark_step(l, s, 'created')))
 
     def _done(l):
         l['status'] = 'active'
-    log.info('BTE lease %s active: %s (%d objects)', lease_id, lease['resource_name'], len(ids))
+    log.info('BTE lease %s active: %s (%d edges)', lease_id, lease['resource_name'], len(lease['steps']))
     return _update_lease(lease_id, _done)
 
 
-def _mark(lease, seq, status, obj_id=None, error=None):
-    for obj in lease['objects']:
-        if obj['seq'] == seq:
-            obj['status'] = status
-            if obj_id is not None:
-                obj['id'] = obj_id
+def _mark_step(lease, seq, status, error=None):
+    for st in lease['steps']:
+        if st['seq'] == seq:
+            st['status'] = status
             if error is not None:
-                obj['error'] = error
+                st['error'] = error
 
 
-def _rollback(lease_id, ids, client, reason):
-    log.error('BTE lease %s failed, rolling back %d objects: %s', lease_id, len(ids), reason)
+def _record_created(lease, seq, created):
+    """Attach TXCore ids to the lease objects of one step (matched by kind + requested name)."""
+    for kind, requested_name, obj_id, live_name in created:
+        for obj in lease['objects']:
+            if obj['seq'] == seq and obj['kind'] == kind and obj['name'] == requested_name and obj['id'] is None:
+                obj['id'] = obj_id
+                obj['status'] = 'created'
+                if live_name and live_name != requested_name:
+                    obj['error'] = f'TXCore stored the name as {live_name!r}'
+                break
+
+
+def _rollback(lease_id, client, reason):
+    lease = get_lease(lease_id)
+    n = sum(1 for o in lease['objects'] if o.get('id'))
+    log.error('BTE lease %s failed, rolling back %d objects: %s', lease_id, n, reason)
     _update_lease(lease_id, lambda l: l['errors'].append(reason))
-    _delete_objects(lease_id, client, only_ids=set(ids.values()))
+    _delete_objects(lease_id, client)
 
     def _fail(l):
         l['status'] = 'failed'
@@ -792,41 +827,50 @@ def _rollback(lease_id, ids, client, reason):
     return _update_lease(lease_id, _fail)
 
 
-def _delete_objects(lease_id, client, only_ids=None):
-    """Delete a lease's objects in reverse order. Returns (deleted, refused, failed)."""
+def _delete_objects(lease_id, client):
+    """Delete a lease's objects: outputs, then sources, then streams; last edge first.
+
+    Returns (deleted, refused, failed)."""
     lease = get_lease(lease_id)
     deleted = refused = failed = 0
-    for obj in reversed(lease['objects']):
-        if not obj.get('id') or obj['status'] in ('deleted', 'gone'):
-            continue
-        if only_ids is not None and obj['id'] not in only_ids:
-            continue
+    order = {k: i for i, k in enumerate(DELETE_ORDER)}
+    objs = sorted((o for o in lease['objects'] if o.get('id') and o['status'] not in ('deleted', 'gone')),
+                  key=lambda o: (-o['seq'], order.get(o['kind'], 9)))
+    for obj in objs:
         # Guard 1: the registry itself must say this is a BTE object.
         if not has_tag(obj['name']):
             refused += 1
-            _update_lease(lease_id, lambda l, s=obj['seq']: _mark(l, s, 'refused', error=f'registry name lacks {BTE_TAG}'))
+            _update_lease(lease_id, lambda l, s=obj: _mark_obj(l, s, 'refused', f'registry name lacks {BTE_TAG}'))
             continue
         try:
-            live = client.get(obj['kind'], obj['edge_id'], obj['id'])
+            live = client.get_object(obj['kind'], obj['edge_id'], obj['id'])
             if live is None:
-                _update_lease(lease_id, lambda l, s=obj['seq']: _mark(l, s, 'gone'))
+                _update_lease(lease_id, lambda l, s=obj: _mark_obj(l, s, 'gone'))
                 deleted += 1
                 continue
             # Guard 2: the object as it exists in TXCore right now must still carry the tag.
             live_name = live.get('name') if isinstance(live, dict) else None
             if not has_tag(live_name):
                 refused += 1
-                _update_lease(lease_id, lambda l, s=obj['seq'], n=live_name: _mark(
-                    l, s, 'refused', error=f'live name {n!r} lacks {BTE_TAG} — not deleted'))
+                _update_lease(lease_id, lambda l, s=obj, n=live_name: _mark_obj(
+                    l, s, 'refused', f'live name {n!r} lacks {BTE_TAG} — not deleted'))
                 log.warning('BTE lease %s: refused to delete %s %s (name %r)', lease_id, obj['kind'], obj['id'], live_name)
                 continue
-            result = client.delete(obj['kind'], obj['edge_id'], obj['id'])
-            _update_lease(lease_id, lambda l, s=obj['seq'], r=result: _mark(l, s, r))
+            result = client.delete_object(obj['kind'], obj['edge_id'], obj['id'])
+            _update_lease(lease_id, lambda l, s=obj, r=result: _mark_obj(l, s, r))
             deleted += 1
         except TXCoreError as exc:
             failed += 1
-            _update_lease(lease_id, lambda l, s=obj['seq'], e=str(exc): _mark(l, s, 'delete_error', error=e))
+            _update_lease(lease_id, lambda l, s=obj, e=str(exc): _mark_obj(l, s, 'delete_error', e))
     return deleted, refused, failed
+
+
+def _mark_obj(lease, ref, status, error=None):
+    for obj in lease['objects']:
+        if obj['seq'] == ref['seq'] and obj['kind'] == ref['kind'] and obj['name'] == ref['name']:
+            obj['status'] = status
+            if error is not None:
+                obj['error'] = error
 
 
 def delete_lease(lease_id, reason, username, client=None):

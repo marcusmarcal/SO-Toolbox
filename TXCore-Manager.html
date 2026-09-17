@@ -2981,18 +2981,19 @@
           if (plan.ok) {
             var s = plan.summary || {};
             html += '<div class="notice">' +
-              escapeHtml(s.objects + " objects on " + s.dc_edge + " + " + s.sites + " regional site" + (s.sites === 1 ? "" : "s") +
+              escapeHtml(s.objects + " objects on " + s.edges + " edge" + (s.edges === 1 ? "" : "s") + " (" + s.dc_edge + " + " + s.sites + " regional site" + (s.sites === 1 ? "" : "s") + ")" +
                 " · DC output port " + s.output_port + " · " + (plan.dry_run ? "dry run — nothing is sent" : "LIVE — will be sent to TXCore MAIN")) +
               "</div>";
-            var lastEdge = null;
-            html += '<div class="table-wrap"><table><thead><tr><th>#</th><th>Kind</th><th>Name</th><th>Request body</th></tr></thead><tbody>';
+            var edgePath = (prov.status && prov.status.edge_path) || "/mwedge/{edge}";
+            html += '<div class="table-wrap"><table><thead><tr><th>#</th><th>Kind</th><th>Name</th><th>Object</th></tr></thead><tbody>';
             plan.steps.forEach(function (st) {
-              if (st.edge !== lastEdge) {
-                html += '<tr><td colspan="4" class="plan-edge">' + escapeHtml(st.edge) + " — POST " + escapeHtml((plan.paths && plan.paths[st.kind]) || "…/" + st.kind + "/") + "</td></tr>";
-                lastEdge = st.edge;
-              }
-              html += '<tr class="plan-step"><td>' + st.seq + "</td><td>" + escapeHtml(st.kind) + "</td><td>" + escapeHtml(st.name) +
-                '</td><td><pre class="plan-body">' + escapeHtml(JSON.stringify(st.body)) + "</pre></td></tr>";
+              html += '<tr><td colspan="4" class="plan-edge">' + escapeHtml(st.edge) +
+                (st.location ? " — " + escapeHtml(st.location) : "") +
+                " — POST " + escapeHtml(edgePath.replace("{edge}", st.edge_id)) + "</td></tr>";
+              (st.objects || []).forEach(function (o, i) {
+                html += '<tr class="plan-step"><td>' + st.seq + "." + (i + 1) + "</td><td>" + escapeHtml(o.kind) + "</td><td>" + escapeHtml(o.name) +
+                  '</td><td><pre class="plan-body">' + escapeHtml(JSON.stringify(o.body)) + "</pre></td></tr>";
+              });
             });
             html += "</tbody></table></div>";
           }
@@ -3021,7 +3022,6 @@
             .then(function (plan) {
               if (plan.error && !plan.steps) throw new Error(plan.error);
               prov.plan = plan;
-              if (prov.status && prov.status.paths) plan.paths = prov.status.paths;
               renderPlan(plan);
               var dlg = $("bte-plan-dialog");
               if (typeof dlg.showModal === "function") dlg.showModal();

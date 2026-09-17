@@ -12,6 +12,13 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 ## [4.2.2] - 2026-09-17
 
 ### Changed
+- TXCore Provisioning / BTE: resources are created with one batch call per edge
+  (`POST /mwedge/<edge id>` with streams, sources and outputs; BTE-chosen stream id),
+  matching the TXCore API reference. Per-entry `success` flags are checked and a
+  partially successful batch is rolled back. `BTE_TXCORE_SOURCE/STREAM/OUTPUT_PATH`
+  replaced by `BTE_TXCORE_EDGE_PATH` and `BTE_TXCORE_OBJECT_PATH`.
+
+### Changed
 - TXCore Provisioning / BTE: `BTE_EDGE_<KEY>` now uses the structured
   `id=…;location=…;dc=yes|no;in=SRT@host;out=SRT@host,UDP@host` format.
   Regional edges are resolved per site by key prefix (AVE02 → AVE, LMK01 → LMK,
