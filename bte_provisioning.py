@@ -140,7 +140,9 @@ KINDS = ('stream', 'source', 'output')          # creation order inside a batch
 STREAM_ID_PREFIX = 'BTE_'
 
 # TXCore SRT option field names, confirmed against the API reference example
-# for /mwedge/<id>/source/: {type, hostAddress, port, latency, pbkeylen, passphrase}.
+# for /mwedge/<id>/source/: {type, hostAddress, port, latency, encrypted, pbkeylen, passphrase}.
+# "encrypted": true is required alongside pbkeylen/passphrase — without it TXCore
+# appears to accept the call but leave transport encryption off.
 # Unlike UDP, SRT has no separate "networkInterface": the local bind address is
 # "hostAddress"; the remote target (pull source, caller mode only) is "address" —
 # same key as UDP's target field. Regional edges pulling from the DC edge's
@@ -406,6 +408,7 @@ def _srt_options(mode, target_address, port, latency, passphrase, encryption, in
         k['latency']: latency or 500,
     }
     if passphrase:
+        opts['encrypted'] = True
         opts[k['passphrase']] = passphrase
         opts[k['keylen']] = ENCRYPTION_KEYLEN.get(str(encryption or 'AES-256').upper(), 32)
     return opts
