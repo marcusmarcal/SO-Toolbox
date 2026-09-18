@@ -141,18 +141,23 @@ STREAM_ID_PREFIX = 'BTE_'
 
 # TXCore SRT option field names, confirmed against the API reference example
 # for /mwedge/<id>/source/: {type, hostAddress, port, latency, pbkeylen, passphrase}.
+# Unlike UDP, SRT has no separate "networkInterface": the local bind address is
+# "hostAddress"; the remote target (pull source, caller mode only) is "address" —
+# same key as UDP's target field. Regional edges pulling from the DC edge's
+# public SRT address rely on this "address" field.
 SRT_OPTION_KEYS = {
-    'host': 'hostAddress',
+    'host': 'hostAddress',     # local interface IP — always present
+    'target': 'address',       # remote IP to pull from — caller mode only
     'latency': 'latency',      # ms
     'passphrase': 'passphrase',
     'keylen': 'pbkeylen',      # 16 | 24 | 32  (AES-128 / 192 / 256)
 }
 ENCRYPTION_KEYLEN = {'AES-128': 16, 'AES-192': 24, 'AES-256': 32}
-# "type": 1 = listener, confirmed by the API reference. The caller value is not
-# shown in the reference example; 0 is assumed by elimination — confirm with
-# "Inspect live TXEdge" against a real caller source/output on stage if a call
-# is rejected.
+# "type" on a SOURCE: 1 = listener (confirmed by the API reference), 0 = caller
+# (assumed by elimination — confirm with "Inspect live TXEdge" if a caller
+# source is rejected). On an OUTPUT, type is always 0 regardless of mode.
 SRT_TYPE = {'listener': 1, 'caller': 0}
+SRT_OUTPUT_TYPE = 0
 DELETE_ORDER = ('output', 'source', 'stream')   # outputs first, the stream last
 
 # Regional sites: site prefix (edge keys AVE02, LMK01, ... start with it) -> Dataminer multicast property.
@@ -383,15 +388,22 @@ def _stream_id(base, edge_key):
     return f'{STREAM_ID_PREFIX}{_slug(base)[:40]}_{edge_key}_{uuid.uuid4().hex[:8]}'
 
 
-def _srt_options(mode, port, address, latency, passphrase, encryption, interface):
-    """SRT option block: {type, hostAddress, port, latency, networkInterface, pbkeylen, passphrase}."""
+def _srt_options(mode, target_address, port, latency, passphrase, encryption, interface, is_output=False):
+    """SRT option block: {type, hostAddress, address, port, latency, pbkeylen, passphrase}.
+
+    ``interface`` (local bind IP) always goes to ``hostAddress``. ``target_address``
+    (the remote host to pull from) goes to ``address`` and only applies to callers —
+    e.g. a regional edge pulling from the DC edge's public SRT IP.
+    ``is_output`` forces type=0 (SRT_OUTPUT_TYPE) — outputs use a different
+    type numbering than sources, where 1 means listener.
+    """
     k = SRT_OPTION_KEYS
     opts = {
-        'type': SRT_TYPE[mode],
-        k['host']: address if mode == 'caller' else None,
+        'type': SRT_OUTPUT_TYPE if is_output else SRT_TYPE[mode],
+        k['host']: interface,
+        k['target']: target_address if mode == 'caller' else None,
         'port': port,
         k['latency']: latency or 500,
-        'networkInterface': interface,
     }
     if passphrase:
         opts[k['passphrase']] = passphrase
@@ -492,7 +504,7 @@ def build_plan(item, edges=None, passphrase_override=None):
     n_out = output_name(base, dc_key, 'SRT')
     if proto == 'SRT':
         mode = 'listener' if main_in['mode'] == 'listener' else 'caller'
-        src_opts = _srt_options(mode, main_in['port'], main_in['host'], latency,
+        src_opts = _srt_options(mode, main_in['host'], main_in['port'], latency,
                                 passphrase if encrypted else None, encryption, dc['in'].get('SRT'))
     else:
         src_opts = _udp_options(main_in['host'], main_in['port'], dc['in'].get(proto) or dc['in'].get('UDP'))
@@ -500,7 +512,7 @@ def build_plan(item, edges=None, passphrase_override=None):
         {'kind': 'stream', 'name': n_stream, 'body': _stream_obj(sid, n_stream, 'none')},
         {'kind': 'source', 'name': n_src, 'body': _endpoint_obj(sid, n_src, proto, src_opts)},
         {'kind': 'output', 'name': n_out, 'body': _endpoint_obj(sid, n_out, 'SRT', _srt_options(
-            'listener', out_port, None, latency, INTERNAL_PASSPHRASE, 'AES-256', dc['out'].get('SRT')))},
+            'listener', None, out_port, latency, INTERNAL_PASSPHRASE, 'AES-256', dc['out'].get('SRT'), is_output=True))},
     ])
 
     # ---- regional edges ---------------------------------------------------
@@ -521,7 +533,7 @@ def build_plan(item, edges=None, passphrase_override=None):
         step(edge, [
             {'kind': 'stream', 'name': n_stream, 'body': _stream_obj(sid, n_stream, 'none')},
             {'kind': 'source', 'name': n_src, 'body': _endpoint_obj(sid, n_src, 'SRT', _srt_options(
-                'caller', out_port, dc['pub']['SRT'], latency, INTERNAL_PASSPHRASE, 'AES-256', edge['in'].get('SRT')))},
+                'caller', dc['pub']['SRT'], out_port, latency, INTERNAL_PASSPHRASE, 'AES-256', edge['in'].get('SRT')))},
             {'kind': 'output', 'name': n_out, 'body': _endpoint_obj(sid, n_out, 'UDP', _udp_options(
                 mcast['host'], mcast['port'], edge['out'].get('UDP')))},
         ])
