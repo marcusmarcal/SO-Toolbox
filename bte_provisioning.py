@@ -139,17 +139,20 @@ OBJECT_PATH = _env('BTE_TXCORE_OBJECT_PATH') or '/mwedge/{edge}/{kind}/{id}'
 KINDS = ('stream', 'source', 'output')          # creation order inside a batch
 STREAM_ID_PREFIX = 'BTE_'
 
-# TXCore SRT option field names. ``port``/``address``/``networkInterface`` are
-# confirmed by the UDP example in the API reference; the SRT-specific ones below
-# are ASSUMED and must be checked against a real SRT source/output on stage
-# (BTE tab -> "Inspect edge" shows the live objects). Rename here if they differ.
+# TXCore SRT option field names, confirmed against the API reference example
+# for /mwedge/<id>/source/: {type, hostAddress, port, latency, pbkeylen, passphrase}.
 SRT_OPTION_KEYS = {
-    'mode': 'mode',            # 'listener' | 'caller'
+    'host': 'hostAddress',
     'latency': 'latency',      # ms
     'passphrase': 'passphrase',
     'keylen': 'pbkeylen',      # 16 | 24 | 32  (AES-128 / 192 / 256)
 }
 ENCRYPTION_KEYLEN = {'AES-128': 16, 'AES-192': 24, 'AES-256': 32}
+# "type": 1 = listener, confirmed by the API reference. The caller value is not
+# shown in the reference example; 0 is assumed by elimination — confirm with
+# "Inspect live TXEdge" against a real caller source/output on stage if a call
+# is rejected.
+SRT_TYPE = {'listener': 1, 'caller': 0}
 DELETE_ORDER = ('output', 'source', 'stream')   # outputs first, the stream last
 
 # Regional sites: site prefix (edge keys AVE02, LMK01, ... start with it) -> Dataminer multicast property.
@@ -381,14 +384,14 @@ def _stream_id(base, edge_key):
 
 
 def _srt_options(mode, port, address, latency, passphrase, encryption, interface):
-    """SRT option block (see SRT_OPTION_KEYS for the assumed field names)."""
+    """SRT option block: {type, hostAddress, port, latency, networkInterface, pbkeylen, passphrase}."""
     k = SRT_OPTION_KEYS
     opts = {
+        'type': SRT_TYPE[mode],
+        k['host']: address if mode == 'caller' else None,
         'port': port,
-        'address': address if mode == 'caller' else None,
-        'networkInterface': interface,
-        k['mode']: mode,
         k['latency']: latency or 500,
+        'networkInterface': interface,
     }
     if passphrase:
         opts[k['passphrase']] = passphrase

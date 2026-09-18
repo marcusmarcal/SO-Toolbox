@@ -3061,13 +3061,16 @@
           var active = leases.filter(function (l) { return !isFinal(l); });
           $("bte-lease-tag").textContent = active.length + " active";
           $("bte-lease-count").textContent = leases.length
-            ? active.length + " active · " + (leases.length - active.length) + " finished (history kept on the server)"
+            ? active.length + " active · " + (leases.length - active.length) + " finished — see the provisioning log"
             : "";
           $("bte-btn-delete-all").disabled = !active.length;
-          if (!leases.length) {
-            container.innerHTML = '<div class="empty-state">No streams created by BTE yet — pick a channel and use "Create resources".</div>';
+          if (!active.length) {
+            container.innerHTML = '<div class="empty-state">' +
+              (leases.length ? "No active BTE streams — finished ones are kept in the provisioning log." : 'No streams created by BTE yet — pick a channel and use "Create resources".') +
+              "</div>";
             return;
           }
+          leases = active;
           var extendDefault = (prov.leasesMeta && prov.leasesMeta.default_extend_minutes) || 30;
           container.innerHTML =
             '<div class="table-wrap"><table class="leases"><thead><tr>' +
@@ -3080,7 +3083,7 @@
               var final = isFinal(l);
               var errs = (l.errors || []).concat(objs.filter(function (o) { return o.error; }).map(function (o) { return o.edge + " " + o.kind + ": " + o.error; }));
               return (
-                '<tr class="' + (final ? "final" : "") + '" data-lease="' + escapeHtml(l.lease_id) + '" data-expires="' + escapeHtml(l.expires_at || "") + '">' +
+                '<tr data-lease="' + escapeHtml(l.lease_id) + '" data-expires="' + escapeHtml(l.expires_at || "") + '">' +
                 '<td><div class="lease-name">' + escapeHtml(l.resource_name || "?") + "</div>" +
                 '<div class="lease-sub">' + escapeHtml(l.supplier || "") + " · by " + escapeHtml(l.created_by || "?") + " · " + escapeHtml(fmtTime(l.created_at)) +
                 (l.extensions && l.extensions.length ? " · +" + l.extensions.reduce(function (a, e) { return a + (e.minutes || 0); }, 0) + " min" : "") + "</div>" +
@@ -3088,13 +3091,12 @@
                 "</td>" +
                 "<td>" + escapeHtml(l.dc_edge || "?") + '<div class="lease-sub">' + (l.sites || 0) + " site" + (l.sites === 1 ? "" : "s") + "</div></td>" +
                 "<td>" + leaseStatusPill(l) + "</td>" +
-                '<td class="remain">' + (final ? escapeHtml(l.status === "deleted" ? "ended " + fmtTime(l.finished_at) : "—") : escapeHtml(fmtRemain(l.remaining_seconds))) + "</td>" +
+                '<td class="remain">' + escapeHtml(fmtRemain(l.remaining_seconds)) + "</td>" +
                 "<td>" + (l.dry_run ? objs.length + " planned" : created + " / " + objs.length) + (problems ? ' <span style="color: var(--error)">' + problems + " ⚠</span>" : "") + "</td>" +
                 '<td><div class="actions">' +
-                (final ? "" :
                   '<input class="inline-min" type="number" min="1" value="' + extendDefault + '" title="minutes to add" data-act="min" />' +
                   '<button class="small" data-act="extend">Extend</button>' +
-                  '<button class="small danger" data-act="delete">Delete</button>') +
+                  '<button class="small danger" data-act="delete">Delete</button>' +
                 "</div></td></tr>"
               );
             }).join("") +
