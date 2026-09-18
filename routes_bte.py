@@ -394,14 +394,48 @@ def _get_user_and_role():
     return session.get('username', 'anonymous'), session.get('role')
 
 
-def _find_snapshot_item(resource_id):
-    """Raw (un-redacted) Supplier Dynamic item from the snapshot, or None."""
+def _find_pool_item(pool_key, item_id):
+    """Raw (un-redacted) item from a snapshot pool ('resources' or 'destinations'), or None."""
     snapshot = _current_snapshot() or {}
-    pool = (snapshot.get('pools') or {}).get('resources') or {}
+    pool = (snapshot.get('pools') or {}).get(pool_key) or {}
     for item in pool.get('items') or []:
-        if item.get('id') == resource_id:
+        if item.get('id') == item_id:
             return item
     return None
+
+
+def _find_snapshot_item(resource_id):
+    """Raw (un-redacted) Supplier Dynamic item from the snapshot, or None."""
+    return _find_pool_item('resources', resource_id)
+
+
+def _resolve_destinations(data):
+    """Resolve requested destination_ids to raw snapshot items.
+
+    Returns (items, error). Rejects unknown ids and ids already attached to
+    another (non-final) lease, without partially applying the request.
+    """
+    ids = data.get('destination_ids') or []
+    if not isinstance(ids, list):
+        return None, '"destination_ids" must be a list'
+    ids = [str(i).strip() for i in ids if str(i).strip()]
+    if not ids:
+        return [], None
+    used = prov.used_destination_ids()
+    items, missing, taken = [], [], []
+    for dest_id in ids:
+        item = _find_pool_item('destinations', dest_id)
+        if item is None:
+            missing.append(dest_id)
+        elif dest_id in used:
+            taken.append(item.get('name') or dest_id)
+        else:
+            items.append(item)
+    if missing:
+        return None, f'Destination(s) not found in the snapshot: {", ".join(missing)}'
+    if taken:
+        return None, f'Destination(s) already in use: {", ".join(taken)}'
+    return items, None
 
 
 def _forbidden():
@@ -648,10 +682,20 @@ def get_resource(resource_id):
 
 @bte_bp.route('/destinations', methods=['GET'])
 def list_destinations():
-    """Destination pool resources from the snapshot. Filters: ?q=, ?mode=."""
+    """Destination pool resources from the snapshot. Filters: ?q=, ?mode=.
+
+    Each item is annotated with ``in_use`` — attached to some non-final BTE
+    lease already, so it cannot be selected again until freed.
+    """
     if _get_role() not in ALLOWED_ROLES:
         return _forbidden()
-    return _pool_response('destinations')
+    resp = _pool_response('destinations')
+    payload = resp.get_json()
+    if isinstance(payload, dict) and isinstance(payload.get('items'), list):
+        used = prov.used_destination_ids()
+        for item in payload['items']:
+            item['in_use'] = item.get('id') in used
+    return jsonify(payload)
 
 
 # ---------------------------------------------------------------------------
@@ -696,11 +740,17 @@ def provision_plan():
     item = _find_snapshot_item(resource_id)
     if item is None:
         return jsonify({'error': 'Resource not found in the snapshot'}), 404
-    plan = prov.redact_plan(prov.build_plan(item, passphrase_override=_passphrase_override(data)))
+    destinations, error = _resolve_destinations(data)
+    if error:
+        return jsonify({'error': error}), 400
+    plan = prov.redact_plan(prov.build_plan(item, passphrase_override=_passphrase_override(data), destinations=destinations))
     plan['resource_id'] = resource_id
     plan['resource_name'] = item.get('name')
     plan['dry_run'] = _dry_run_forced(data.get('dry_run', True))
     plan['live_writes_allowed'] = prov.PROVISIONING_ENABLED and prov.configured()
+    existing = prov.active_lease_for_resource(resource_id)
+    if existing:
+        plan['already_active'] = {'lease_id': existing['lease_id'], 'status': existing['status']}
     return jsonify(plan), (200 if plan['ok'] else 422)
 
 
@@ -718,7 +768,16 @@ def provision_create():
     if item is None:
         return jsonify({'error': 'Resource not found in the snapshot'}), 404
 
-    plan = prov.build_plan(item, passphrase_override=_passphrase_override(data))
+    existing = prov.active_lease_for_resource(resource_id)
+    if existing:
+        return jsonify({'error': f"This channel already has an active BTE lease ({existing['status']})",
+                        'lease_id': existing['lease_id']}), 409
+
+    destinations, error = _resolve_destinations(data)
+    if error:
+        return jsonify({'error': error}), 400
+
+    plan = prov.build_plan(item, passphrase_override=_passphrase_override(data), destinations=destinations)
     if not plan['ok']:
         return jsonify({'error': 'Cannot build a plan for this resource', 'errors': plan['errors'],
                         'warnings': plan['warnings']}), 422
@@ -784,6 +843,39 @@ def lease_extend(lease_id):
         return jsonify({'error': error, 'lease_id': lease_id}), 409
     return jsonify({'lease_id': lease_id, 'expires_at': lease['expires_at'],
                     'extensions': lease['extensions'], 'note': note})
+
+
+@bte_bp.route('/leases/<lease_id>/destinations', methods=['POST'])
+def lease_add_destination(lease_id):
+    """Attach one Destination pool item as an extra output on this lease's DC edge.
+
+    Body: {"destination_id": "..."}. Works for an already-active (live)
+    lease and for destinations selected before "Create resources" runs —
+    the frontend's "+ Destination" button covers both. A destination cannot
+    be attached to more than one BTE stream at a time.
+    """
+    username, role = _get_user_and_role()
+    if role not in ALLOWED_ROLES:
+        return _forbidden()
+    if not _LEASE_ID_RE.fullmatch(lease_id):
+        return jsonify({'error': 'Lease not found'}), 404
+    data = request.get_json(force=True, silent=True) or {}
+    dest_id = str(data.get('destination_id') or '').strip()
+    if not dest_id:
+        return jsonify({'error': 'Missing destination_id'}), 400
+    item = _find_pool_item('destinations', dest_id)
+    if item is None:
+        return jsonify({'error': 'Destination not found in the snapshot'}), 404
+    try:
+        lease, error = prov.add_destination(lease_id, item, username)
+    except prov.TXCoreError as exc:
+        return jsonify({'error': str(exc)}), 502
+    if lease is None:
+        return jsonify({'error': error}), 404
+    if error:
+        return jsonify({'error': error, 'lease_id': lease_id}), 409
+    return jsonify({'lease_id': lease_id, 'destination_id': dest_id, 'destination_name': item.get('name'),
+                    'objects': len(lease['objects'])}), 201
 
 
 @bte_bp.route('/leases/<lease_id>', methods=['DELETE'])

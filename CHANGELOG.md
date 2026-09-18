@@ -9,6 +9,21 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 `SRT Ingest:`, `General Tool Admin:`) so entries can be filtered per tool.
 
 ---
+## [4.4.1] - 2026-09-18
+
+### Added
+- TXCore Provisioning / BTE: a channel with an active BTE lease is greyed out in
+  the channel list and "Preview plan" / "Create resources" are disabled;
+  `POST /provision` returns 409 if the resource already has an active lease.
+- TXCore Provisioning / BTE: optional Destination-pool outputs, created only on the
+  DC edge, selectable via a single "+ Destination" button both before creation and
+  on an already-active stream (`POST /leases/<id>/destinations`). A destination
+  cannot be attached to more than one stream at a time (`GET /destinations` now
+  reports `in_use`); no limit on how many can be added to one stream. Destinations
+  appear as badges under each active lease.
+
+### Changed
+- TXCore Provisioning / BTE: user-facing "snapshot" labels renamed to "DM Snapshot".
 
 ## [4.3.1] - 2026-09-18
 

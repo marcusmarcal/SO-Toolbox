@@ -159,9 +159,14 @@ SRT_OPTION_KEYS = {
 ENCRYPTION_KEYLEN = {'AES-128': 16, 'AES-192': 24, 'AES-256': 32}  # -> "encryption" field value
 # "type" on a SOURCE: 1 = listener (confirmed by the API reference), 0 = caller
 # (assumed by elimination — confirm with "Inspect live TXEdge" if a caller
-# source is rejected). On an OUTPUT, type is always 0 regardless of mode.
+# source is rejected).
 SRT_TYPE = {'listener': 1, 'caller': 0}
-SRT_OUTPUT_TYPE = 0
+# "type" on an OUTPUT uses a different enum (Skyline's TXCore automation script:
+# StreamModeOutput — Listener=0, Push=1). BTE's own internal DC output (the one
+# regional edges pull from) is always a listener (0). A destination output can
+# be either: "listen" (0, the destination pulls from us) or "push" (1, we send
+# to the destination's address) depending on the Destination pool item.
+SRT_OUTPUT_TYPE = {'listen': 0, 'push': 1}
 DELETE_ORDER = ('output', 'source', 'stream')   # outputs first, the stream last
 
 # Regional sites: site prefix (edge keys AVE02, LMK01, ... start with it) -> Dataminer multicast property.
@@ -363,12 +368,65 @@ def output_name(base, edge_key, protocol):
     return f'OUT_{_slug(base)}_{protocol}_{edge_key}'    # OUT_VET_CH01_SRT_INX01
 
 
+def destination_output_name(base, edge_key, protocol, destination):
+    return f'OUT_{_slug(base)}_{protocol}_{edge_key}_DEST_{_slug(destination)}'
+
+
 def has_tag(name):
     return BTE_TAG in str(name or '')
 
 
 def is_bte_stream_id(value):
     return str(value or '').startswith(STREAM_ID_PREFIX)
+
+
+def parse_destination(dest):
+    """Best-effort parse of a Destination pool item into an output spec.
+
+    Property names (Protocol / IP / Port / Type / "Output Port") are ASSUMED
+    from the existing read-only Destinations viewer -- adjust here if the live
+    schema differs. Returns None when Protocol/IP/Port cannot be determined.
+    "listen" True means the destination pulls from us (output type "listen");
+    False means we push to the destination's address (output type "push"),
+    inferred from the "Type" property containing the word "listen".
+    """
+    props = dest.get('properties') or {}
+    protocol = str(props.get('Protocol') or '').strip().upper()
+    ip = str(props.get('IP') or '').strip()
+    port = _int_or_none(props.get('Output Port')) or _int_or_none(props.get('Port'))
+    listen = 'listen' in str(props.get('Type') or '').lower()
+    if protocol not in ('UDP', 'SRT') or not port:
+        return None
+    # UDP and SRT "push" (we send to the destination) need a target address;
+    # SRT "listen" (the destination pulls from us) does not.
+    if not ip and not (protocol == 'SRT' and listen):
+        return None
+    return {'protocol': protocol, 'address': ip, 'port': port, 'listen': listen}
+
+
+def destination_object(base, edge_key, edge, dest, sid):
+    """Build the {kind, name, body, destination_id, destination_name} output
+    object for one Destination pool item. Only used on DC edges, per BTE's
+    design: destinations are additional outputs alongside the DC edge's
+    primary output, never on regional edges. Returns None when the
+    destination cannot be parsed (caller should warn instead of failing).
+    """
+    spec = parse_destination(dest)
+    if spec is None:
+        return None
+    label = dest.get('name') or dest.get('id') or 'dest'
+    name = destination_output_name(base, edge_key, spec['protocol'], label)
+    if spec['protocol'] == 'UDP':
+        interface = edge['out'].get('UDP') or edge['out'].get('SRT')
+        body = _endpoint_obj(sid, name, 'UDP', _udp_options(spec['address'], spec['port'], interface))
+    else:
+        interface = edge['out'].get('SRT')
+        mode = 'listener' if spec['listen'] else 'caller'
+        srt_type = SRT_OUTPUT_TYPE['listen'] if spec['listen'] else SRT_OUTPUT_TYPE['push']
+        target = None if spec['listen'] else spec['address']
+        body = _endpoint_obj(sid, name, 'SRT', _srt_options(mode, target, spec['port'], None, None, None, interface, srt_type=srt_type))
+    return {'kind': 'output', 'name': name, 'body': body,
+            'destination_id': dest.get('id'), 'destination_name': dest.get('name')}
 
 
 def registry_is_bte(obj):
@@ -392,21 +450,23 @@ def _stream_id(base, edge_key):
     return f'{STREAM_ID_PREFIX}{_slug(base)[:40]}_{edge_key}_{uuid.uuid4().hex[:8]}'
 
 
-def _srt_options(mode, target_address, port, latency, passphrase, encryption, interface, is_output=False):
+def _srt_options(mode, target_address, port, latency, passphrase, encryption, interface, srt_type=None):
     """SRT option block: {type, hostAddress, address, port, latency, encryption, passphrase}.
 
     ``interface`` (local bind IP) always goes to ``hostAddress``. ``target_address``
-    (the remote host to pull from) goes to ``address`` and only applies to callers —
-    e.g. a regional edge pulling from the DC edge's public SRT IP.
-    ``is_output`` forces type=0 (SRT_OUTPUT_TYPE) — outputs use a different
-    type numbering than sources, where 1 means listener.
+    (the remote host to pull from / push to) goes to ``address`` and only applies
+    when ``mode == 'caller'``.
+    ``srt_type`` overrides the numeric "type" field directly — used for outputs,
+    which have their own enum (see SRT_OUTPUT_TYPE) distinct from a source's
+    listener/caller. When omitted, "type" is derived from ``mode`` via SRT_TYPE
+    (source semantics: 1 = listener, 0 = caller).
     ``encryption``/``passphrase`` are always present: encryption=0 and
     passphrase=null when there is no passphrase to send.
     """
     k = SRT_OPTION_KEYS
     keylen = ENCRYPTION_KEYLEN.get(str(encryption or 'AES-256').upper(), 32) if passphrase else 0
     return {
-        'type': SRT_OUTPUT_TYPE if is_output else SRT_TYPE[mode],
+        'type': SRT_TYPE[mode] if srt_type is None else srt_type,
         k['host']: interface,
         k['target']: target_address if mode == 'caller' else None,
         'port': port,
@@ -428,13 +488,15 @@ def _endpoint_obj(stream_id, name, protocol, options):
     return {'stream': stream_id, 'name': name, 'tags': 'bte', 'protocol': protocol, 'active': True, 'options': options}
 
 
-def build_plan(item, edges=None, passphrase_override=None):
+def build_plan(item, edges=None, passphrase_override=None, destinations=None):
     """Return {'ok', 'steps', 'warnings', 'errors', 'summary'} for a snapshot item.
 
     One step per edge = one POST /mwedge/<edge id>. Each step lists the objects
     it creates (kind, name, body); the request body is assembled at run time.
     ``passphrase_override`` replaces the supplier passphrase of the resource
     (used while the Dataminer API does not expose the real value).
+    ``destinations`` is an optional list of Destination pool items: each
+    becomes an extra output on the DC edge only, alongside the primary output.
     """
     edges = EDGES if edges is None else edges
     props = item.get('properties') or {}
@@ -513,12 +575,26 @@ def build_plan(item, edges=None, passphrase_override=None):
                                 passphrase if encrypted else None, encryption, dc['in'].get('SRT'))
     else:
         src_opts = _udp_options(main_in['host'], main_in['port'], dc['in'].get(proto) or dc['in'].get('UDP'))
-    step(dc, [
+    dc_objects = [
         {'kind': 'stream', 'name': n_stream, 'body': _stream_obj(sid, n_stream, 'none')},
         {'kind': 'source', 'name': n_src, 'body': _endpoint_obj(sid, n_src, proto, src_opts)},
         {'kind': 'output', 'name': n_out, 'body': _endpoint_obj(sid, n_out, 'SRT', _srt_options(
-            'listener', None, out_port, latency, INTERNAL_PASSPHRASE, 'AES-256', dc['out'].get('SRT'), is_output=True))},
-    ])
+            'listener', None, out_port, latency, INTERNAL_PASSPHRASE, 'AES-256', dc['out'].get('SRT'), srt_type=SRT_OUTPUT_TYPE['listen']))},
+    ]
+    seen_dest_ids = set()
+    for dest in (destinations or []):
+        dest_id = dest.get('id')
+        label = dest.get('name') or dest_id or 'destination'
+        if dest_id and dest_id in seen_dest_ids:
+            warnings.append(f'Destination {label}: selected twice — added only once')
+            continue
+        obj = destination_object(base, dc_key, dc, dest, sid)
+        if obj is None:
+            warnings.append(f'Destination {label}: could not parse Protocol/IP/Port — skipped')
+            continue
+        seen_dest_ids.add(dest_id)
+        dc_objects.append(obj)
+    step(dc, dc_objects)
 
     # ---- regional edges ---------------------------------------------------
     sites = 0
@@ -561,6 +637,7 @@ def build_plan(item, edges=None, passphrase_override=None):
             'sites': sites,
             'edges': len(steps),
             'objects': sum(len(s['objects']) for s in steps),
+            'destinations': len(seen_dest_ids),
         },
     }
 
@@ -765,6 +842,38 @@ ACTIVE_STATUSES = ('creating', 'active', 'delete_failed', 'deleting')
 FINAL_STATUSES = ('deleted', 'failed', 'dry_run_expired')
 
 
+def active_lease_for_resource(resource_id):
+    """The active (non-final) lease for a snapshot resource, if any. Used to
+    stop a channel from being provisioned twice at once."""
+    with _Locked(LEASES_LOCK_FILE):
+        leases = _read_registry()['leases']
+    for lease in leases.values():
+        if lease.get('resource_id') == resource_id and lease['status'] in ACTIVE_STATUSES:
+            return copy.deepcopy(lease)
+    return None
+
+
+def used_destination_ids(exclude_lease=None):
+    """Destination ids currently attached to any non-final lease.
+
+    A destination cannot be attached twice system-wide; ``exclude_lease``
+    lets a lease check against everyone else's usage (its own entries don't
+    count against itself).
+    """
+    with _Locked(LEASES_LOCK_FILE):
+        leases = _read_registry()['leases']
+    used = set()
+    for lease_id, lease in leases.items():
+        if exclude_lease and lease_id == exclude_lease:
+            continue
+        if lease['status'] in FINAL_STATUSES:
+            continue
+        for obj in lease.get('objects', []):
+            if obj.get('destination_id') and obj.get('status') != 'refused':
+                used.add(obj['destination_id'])
+    return used
+
+
 def get_lease(lease_id):
     with _Locked(LEASES_LOCK_FILE):
         return _read_registry()['leases'].get(lease_id)
@@ -827,7 +936,8 @@ def create_lease(item, plan, duration_minutes, username, dry_run):
         # must carry the [BTE] tag in its name to be deletable.
         'objects': [
             {'seq': s['seq'], 'edge': s['edge'], 'edge_id': s['edge_id'], 'kind': o['kind'],
-             'name': o['name'], 'body': o['body'], 'id': None, 'status': 'pending', 'error': None}
+             'name': o['name'], 'body': o['body'], 'id': None, 'status': 'pending', 'error': None,
+             'destination_id': o.get('destination_id'), 'destination_name': o.get('destination_name')}
             for s in plan['steps'] for o in s['objects']
         ],
         'finished_at': None,
@@ -1041,6 +1151,69 @@ def extend_lease(lease_id, minutes, username):
     if lease is None:
         return None, 'Lease not found', None
     return lease, outcome['error'], outcome['note']
+
+
+def add_destination(lease_id, destination_item, username, client=None):
+    """Attach one Destination pool item as an extra output on a lease's DC edge.
+
+    Reuses the DC edge's already-created stream id, so this is a single
+    outputs-only POST — no new stream. Works for an already-active lease
+    (the "already live" case) or a dry-run lease (marked skipped, like the
+    rest of that lease's objects). Returns (lease, error); on error nothing
+    is created and no object is added.
+    """
+    lease = get_lease(lease_id)
+    if lease is None:
+        return None, 'Lease not found'
+    if lease['status'] != 'active':
+        return lease, f"Lease is {lease['status']} — destinations can only be added to an active lease"
+
+    dest_id = destination_item.get('id')
+    if not dest_id:
+        return lease, 'Destination has no id'
+    if dest_id in used_destination_ids(exclude_lease=lease_id):
+        return lease, 'This destination is already attached to another BTE stream'
+    if any(o.get('destination_id') == dest_id and o['status'] != 'refused' for o in lease['objects']):
+        return lease, 'This destination is already attached to this stream'
+
+    dc_key = lease['dc_edge']
+    edge = EDGES.get(dc_key)
+    if edge is None:
+        return lease, f'Edge {dc_key} is not configured on the server'
+    stream_obj = next((o for o in lease['objects'] if o['kind'] == 'stream' and o['edge'] == dc_key), None)
+    if stream_obj is None:
+        return lease, 'DC edge stream not found on this lease'
+    sid = stream_obj.get('id') or (stream_obj.get('body') or {}).get('id')
+    if not sid:
+        return lease, 'DC edge stream has no id yet — try again shortly'
+
+    obj = destination_object(lease['resource_name'] or 'STREAM', dc_key, edge, destination_item, sid)
+    if obj is None:
+        return lease, 'Could not parse this destination (missing Protocol/IP/Port)'
+
+    seq = max((o['seq'] for o in lease['objects']), default=0) + 1
+    new_obj = {'seq': seq, 'edge': dc_key, 'edge_id': edge['id'], 'kind': obj['kind'], 'name': obj['name'],
+               'body': obj['body'], 'id': None, 'status': 'pending', 'error': None,
+               'destination_id': obj['destination_id'], 'destination_name': obj['destination_name']}
+
+    def _append(l):
+        l['objects'].append(dict(new_obj))
+    lease = _update_lease(lease_id, _append)
+
+    if lease['dry_run']:
+        def _skip(l):
+            _mark_obj(l, new_obj, 'skipped')
+        return _update_lease(lease_id, _skip), None
+
+    client = client or TXCoreClient()
+    try:
+        created = client.create_batch(edge['id'], batch_body([{'kind': new_obj['kind'], 'body': new_obj['body']}]))
+    except TXCoreError as exc:
+        lease = _update_lease(lease_id, lambda l: _mark_obj(l, new_obj, 'error', str(exc)))
+        return lease, str(exc)
+    lease = _update_lease(lease_id, lambda l: _record_created(l, seq, created))
+    log.info('BTE lease %s: added destination %s (%s)', lease_id, obj['destination_name'] or dest_id, username)
+    return lease, None
 
 
 def delete_all_leases(reason, username, client=None):
