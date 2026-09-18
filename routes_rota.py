@@ -4018,20 +4018,37 @@ def rota_feedback_put(feedback_id):
 # ════════════════════════════════════════════════════════════════════════════
 
 # ── Constants ────────────────────────────────────────────────────────────────
+PRINT_FOOTER_FILE    = os.path.join(ROTA_DIR, 'assets', 'print-footer.json')
+DRAFT_LOCK_FILE_PATH = DRAFT_LOCK_FILE   # already defined above as DRAFT_LOCK_FILE
+
 MANAGED_FILES = {
-    'leave_requests':        LEAVE_FILE,
-    'published_overrides':   PUBLISHED_OVERRIDES_FILE,
-    'draft_overrides':       DRAFT_FILE,
-    'cell_notes':            CELL_NOTES_FILE,
-    'person_directory':      PERSON_DIRECTORY_FILE,
-    'al_allowance':          AL_ALLOWANCE_FILE,
-    'hours_pot':             HOURS_POT_FILE,
-    'shift_registry':        SHIFT_REGISTRY_FILE,
-    'config':                CONFIG_FILE,
-    'feedback':              FEEDBACK_FILE,
+    'leave_requests':      LEAVE_FILE,
+    'published_overrides': PUBLISHED_OVERRIDES_FILE,
+    'draft_overrides':     DRAFT_FILE,
+    'draft_lock':          DRAFT_LOCK_FILE,
+    'cell_notes':          CELL_NOTES_FILE,
+    'person_directory':    PERSON_DIRECTORY_FILE,
+    'al_allowance':        AL_ALLOWANCE_FILE,
+    'hours_pot':           HOURS_POT_FILE,
+    'shift_registry':      SHIFT_REGISTRY_FILE,
+    'config':              CONFIG_FILE,
+    'feedback':            FEEDBACK_FILE,
+    'print_footer':        PRINT_FOOTER_FILE,
+    'directory_audit_log': DIRECTORY_AUDIT_FILE,
 }
 
-BACKUP_DIR = os.path.join(ROTA_DIR, 'backups')
+# Files that are download-only — no upload or restore allowed.
+# directory_audit_log: append-only history; restoring it would roll back
+#   the audit trail.
+# draft_lock:          transient runtime state; uploading it makes no sense
+#   and could strand users in a phantom lock.
+DOWNLOAD_ONLY_FILES = {'directory_audit_log', 'draft_lock'}
+
+# Canonical backup directory for all rota JSON backups.
+# Intentionally outside ./rota/ so a wipe of that subdirectory
+# doesn't take the backups with it. The existing person_directory.backup.json
+# at _BASE_DIR is kept for legacy self-heal; new timestamped backups all go here.
+BACKUP_DIR = os.path.join(_BASE_DIR, 'rota_backup_json_files')
 
 # Validators called after upload before the file is written.
 # Return (ok: bool, error_message_or_None).
@@ -4086,8 +4103,18 @@ def _validate_managed_json(key: str, data) -> tuple[bool, str | None]:
             return False, 'config must be a JSON object'
         return True, None
 
+    if key == 'print_footer':
+        if not isinstance(data, dict):
+            return False, 'print_footer must be a JSON object'
+        return True, None
+
+    if key == 'directory_audit_log':
+        if not isinstance(data, list):
+            return False, 'directory_audit_log must be a JSON array'
+        return True, None
+
     # For remaining files: just require the correct container type
-    if key in ('cell_notes', 'hours_pot', 'draft_overrides', 'feedback'):
+    if key in ('cell_notes', 'hours_pot', 'draft_overrides', 'feedback', 'draft_lock'):
         if key in ('cell_notes', 'hours_pot', 'draft_overrides') and not isinstance(data, list):
             return False, f'{key} must be a JSON array'
         if key == 'feedback' and not isinstance(data, dict):
@@ -4217,6 +4244,8 @@ def rota_datafiles_upload(key):
 
     if key not in MANAGED_FILES:
         return jsonify({'ok': False, 'error': 'Unknown file key'}), 404
+    if key in DOWNLOAD_ONLY_FILES:
+        return jsonify({'ok': False, 'error': f'{key} is read-only and cannot be replaced via upload'}), 403
 
     session  = request.session
     raw_body = request.get_data(limit=20 * 1024 * 1024)  # 20 MB hard cap
@@ -4267,6 +4296,8 @@ def rota_datafiles_restore(key, backup_filename):
 
     if key not in MANAGED_FILES:
         return jsonify({'ok': False, 'error': 'Unknown file key'}), 404
+    if key in DOWNLOAD_ONLY_FILES:
+        return jsonify({'ok': False, 'error': f'{key} is read-only and cannot be restored'}), 403
 
     if not backup_filename.startswith(key + '_BU_') or '/' in backup_filename or '\\' in backup_filename:
         return jsonify({'ok': False, 'error': 'Invalid backup filename'}), 400

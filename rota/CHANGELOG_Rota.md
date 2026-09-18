@@ -2,7 +2,18 @@
 
 # Rota Changelog
 
-# CHANGELOG — Rota App
+### Changed
+- Data Files card now covers all 13 rota-related JSON files, including
+  draft_lock, print_footer, and directory_audit_log.
+- Backup directory moved from ./rota/backups/ to ./rota_backup_json_files/
+  (one level above ./rota/ so a rota/ wipe doesn't take backups with it).
+  The legacy person_directory.backup.json self-heal file at _BASE_DIR is
+  unchanged and continues to work alongside the new timestamped backups.
+- directory_audit_log and draft_lock are marked download-only: upload and
+  restore are blocked at both the backend (403) and hidden in the UI.
+  Rationale: restoring the audit log rolls back history; restoring a draft
+  lock can strand users in a phantom-locked state.
+- print_footer (rota/assets/print-footer.json) added to managed files.
 
 ## [Unreleased] — Data File Management (Admin)
 

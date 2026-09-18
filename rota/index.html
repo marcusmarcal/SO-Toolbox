@@ -1354,13 +1354,6 @@
       <div class="admin-card-header">
         <span class="admin-card-title">📅 Annual Leave</span>
       </div>
-<!-- ═══════════════════════════════════════════════════════════════════════
-     DATA FILES CARD — paste this inside #panel-admin, after the existing
-     admin-card divs and before the closing </div> of #panel-admin.
-     ═══════════════════════════════════════════════════════════════════════ -->
- 
-    <!-- CARD: Data Files -->
-    <div class="admin-card" id="admin-card-datafiles">
       <div class="admin-card-header">
         <span class="admin-card-title">🗄 Data Files</span>
         <button class="btn" id="btn-datafiles-refresh" style="font-size:0.65rem;padding:4px 10px;">⟳ Refresh</button>
@@ -1419,6 +1412,20 @@
             <div class="empty-state">No misc entries for this member.</div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- CARD: Data Files -->
+    <div class="admin-card" id="admin-card-datafiles">
+      <div class="admin-card-header">
+        <span class="admin-card-title">🗄 Data Files</span>
+        <button class="btn" id="btn-datafiles-refresh" style="font-size:0.65rem;padding:4px 10px;">⟳ Refresh</button>
+      </div>
+      <div style="font-family:var(--mono);font-size:0.65rem;color:var(--muted);margin-bottom:14px;line-height:1.6;">
+        Download any live data file for inspection or off-server backup. Upload a replacement to overwrite — the current file is always snapshotted first. Restore a backup to roll back; the live file at restore time is itself snapshotted before being overwritten.
+      </div>
+      <div id="datafiles-wrap">
+        <div class="loading-row"><div class="spinner"></div> Loading…</div>
       </div>
     </div>
 
@@ -6741,22 +6748,29 @@ function _removeCellFromBoxes(ri, ci) {
   // ════════════════════════════════════════════════════════════════
   //  DATA FILES ADMIN
   // ════════════════════════════════════════════════════════════════
-  const DATAFILE_LABELS = {
-    leave_requests:      'Leave Requests',
-    published_overrides: 'Published Overrides',
-    draft_overrides:     'Draft Overrides',
-    cell_notes:          'Cell Notes',
-    person_directory:    'Person Directory',
-    al_allowance:        'AL Allowance',
-    hours_pot:           'Hours POT',
-    shift_registry:      'Shift Registry',
-    config:              'Config',
-    feedback:            'Feedback',
-  };
-  
-  const DATAFILE_WARN = new Set([
-    'leave_requests', 'published_overrides', 'person_directory', 'al_allowance', 'hours_pot',
-  ]);
+const DATAFILE_LABELS = {
+  leave_requests:      'Leave Requests',
+  published_overrides: 'Published Overrides',
+  draft_overrides:     'Draft Overrides',
+  draft_lock:          'Draft Lock',
+  cell_notes:          'Cell Notes',
+  person_directory:    'Person Directory',
+  al_allowance:        'AL Allowance',
+  hours_pot:           'Hours POT',
+  shift_registry:      'Shift Registry',
+  config:              'Config',
+  feedback:            'Feedback',
+  print_footer:        'Print Footer',
+  directory_audit_log: 'Directory Audit Log',
+};
+
+// Files with high data-loss risk if an old snapshot is restored
+const DATAFILE_WARN = new Set([
+  'leave_requests', 'published_overrides', 'person_directory', 'al_allowance', 'hours_pot',
+]);
+
+// Files that backend only allows download on — no upload or restore buttons shown
+const DATAFILE_READONLY = new Set(['directory_audit_log', 'draft_lock']);
   
   let _restorePending = null;
   
@@ -6823,8 +6837,8 @@ function _removeCellFromBoxes(ri, ci) {
           <td style="padding:4px 8px;white-space:nowrap;">
             <a href="${PROXY}/rota/admin/datafiles/${key}/backup/${encodeURIComponent(b.filename)}/download"
               class="btn" style="font-size:0.55rem;padding:2px 7px;text-decoration:none;" download>⬇</a>
-            <button class="btn warn" data-restore-key="${key}" data-restore-file="${b.filename}"
-                    style="font-size:0.55rem;padding:2px 7px;">↩ Restore</button>
+            ${!DATAFILE_READONLY.has(key) ? `<button class="btn warn" data-restore-key="${key}" data-restore-file="${b.filename}"
+                    style="font-size:0.55rem;padding:2px 7px;">↩ Restore</button>` : ''}
           </td>
         </tr>`).join('');
   
@@ -6850,17 +6864,18 @@ function _removeCellFromBoxes(ri, ci) {
             ${modStr}
           </td>
           <td style="padding:8px 8px;white-space:nowrap;">
-            ${f.exists
-              ? `<a href="${PROXY}/rota/admin/datafiles/${key}/download"
-                    class="btn primary" style="font-size:0.6rem;padding:3px 9px;text-decoration:none;" download>⬇ Download</a>`
-              : '<span style="font-family:var(--mono);font-size:0.6rem;color:var(--muted);">—</span>'
-            }
-            <label class="btn" style="font-size:0.6rem;padding:3px 9px;cursor:pointer;margin-left:4px;"
-                  title="Upload a replacement — the current file will be backed up first">
-              ⬆ Upload
-              <input type="file" accept=".json,application/json" style="display:none;"
-                    data-upload-key="${key}" onchange="_handleDatafileUpload(event,'${key}')" />
-            </label>
+          ${f.exists
+            ? `<a href="${PROXY}/rota/admin/datafiles/${key}/download"
+                  class="btn primary" style="font-size:0.6rem;padding:3px 9px;text-decoration:none;" download>⬇ Download</a>`
+            : '<span style="font-family:var(--mono);font-size:0.6rem;color:var(--muted);">—</span>'
+          }
+          ${!DATAFILE_READONLY.has(key) ? `
+          <label class="btn" style="font-size:0.6rem;padding:3px 9px;cursor:pointer;margin-left:4px;"
+                 title="Upload a replacement — the current file will be backed up first">
+            ⬆ Upload
+            <input type="file" accept=".json,application/json" style="display:none;"
+                   data-upload-key="${key}" onchange="_handleDatafileUpload(event,'${key}')" />
+          </label>` : `<span style="font-family:var(--mono);font-size:0.58rem;color:var(--muted);margin-left:8px;">Download only</span>`}
           </td>
         </tr>
         ${backupRows}
