@@ -13,7 +13,7 @@ TXCore call per edge: POST /api/mwedge/<edge id> with {streams, sources, outputs
 
     DC edge (properties["DC MWEdge"], e.g. INX01)
         stream
-        source  SRT   from properties["Input Main"]   (+ "Input Backup" if different)
+        source  SRT   from properties["Input Main"] (or "Input") — primary only, no backup
         output  SRT listener on properties["Output"]  (internal passphrase)
 
     AVE / LMK / YER edges (always, one per site with a multicast address)
@@ -293,6 +293,14 @@ def parse_multicast(value):
     return {'host': m.group('host'), 'port': int(m.group('port'))}
 
 
+def _prop(props, *names):
+    """First non-blank property among synonyms (e.g. "Input Main" / "Input")."""
+    for name in names:
+        if not _blank(props.get(name)):
+            return props[name]
+    return None
+
+
 def _int_or_none(value):
     try:
         return int(str(value).strip())
@@ -342,11 +350,8 @@ def _stream_obj(stream_id, name, failover):
     return {'id': stream_id, 'name': name, 'options': {'failoverMode': failover}}
 
 
-def _endpoint_obj(stream_id, name, protocol, options, priority=None):
-    obj = {'stream': stream_id, 'name': name, 'tags': 'bte', 'protocol': protocol, 'active': True, 'options': options}
-    if priority is not None:
-        obj['priority'] = priority
-    return obj
+def _endpoint_obj(stream_id, name, protocol, options):
+    return {'stream': stream_id, 'name': name, 'tags': 'bte', 'protocol': protocol, 'active': True, 'options': options}
 
 
 def build_plan(item, edges=None):
@@ -373,10 +378,13 @@ def build_plan(item, edges=None):
     elif dc and not dc['out'].get('SRT'):
         errors.append(f'BTE_EDGE_{dc_key} has no out=SRT@<host> — regional edges cannot pull from it')
 
-    main_in = parse_input(props.get('Input Main'))
+    # "Input Main" and "Input" are synonyms on Dataminer resources. Only the
+    # primary input is provisioned: BTE creates streams on the primary DC (INX)
+    # edge only, so backup inputs are ignored by design.
+    raw_input = _prop(props, 'Input Main', 'Input')
+    main_in = parse_input(raw_input)
     if not main_in:
-        errors.append(f'"Input Main" is missing or unparsable: {props.get("Input Main")!r}')
-    backup_in = parse_input(props.get('Input Backup'))
+        errors.append(f'"Input Main" / "Input" is missing or unparsable: {raw_input!r}')
     out_port = _int_or_none(props.get('Output'))
     if _blank(props.get('Output')) and main_in:
         # "+1000 rule": no Output on the resource -> Input port + 1000 (as the Dataminer script does).
@@ -392,10 +400,10 @@ def build_plan(item, edges=None):
 
     latency = _int_or_none(props.get('Latency'))
     latency = latency if latency and latency > 0 else None
-    encryption = None if _blank(props.get('Encryption Main')) else str(props['Encryption Main']).strip()
-    passphrase = None if _blank(props.get('Passphrase Main')) else str(props['Passphrase Main'])
-    backup_passphrase = None if _blank(props.get('Passphrase Backup')) else str(props['Passphrase Backup'])
-    backup_encryption = None if _blank(props.get('Encryption Backup')) else str(props['Encryption Backup']).strip()
+    encryption = _prop(props, 'Encryption Main', 'Encryption')
+    encryption = str(encryption).strip() if encryption else None
+    passphrase = _prop(props, 'Passphrase Main', 'Passphrase')
+    passphrase = str(passphrase) if passphrase else None
 
     def step(edge, objects):
         steps.append({'seq': len(steps) + 1, 'edge': edge['key'], 'edge_id': edge['id'],
@@ -404,7 +412,6 @@ def build_plan(item, edges=None):
     # ---- DC edge ----------------------------------------------------------
     sid = _stream_id(base, dc_key)
     objects = []
-    use_backup = bool(backup_in and backup_in != main_in)
     objects.append({'kind': 'stream', 'name': bte_name(base, dc_key, 'stream'),
                     'body': _stream_obj(sid, bte_name(base, dc_key, 'stream'), 'none')})
     name = bte_name(base, dc_key, 'source')
@@ -413,17 +420,7 @@ def build_plan(item, edges=None):
     else:
         opts = _udp_options(main_in['host'], main_in['port'])
     objects.append({'kind': 'source', 'name': name,
-                    'body': _endpoint_obj(sid, name, main_in['protocol'].upper(), opts, 0 if use_backup else None)})
-    if use_backup:
-        name = bte_name(base, dc_key, 'source-backup')
-        if backup_in['protocol'] == 'srt':
-            opts = _srt_options(backup_in, latency, backup_passphrase or passphrase, backup_encryption or encryption)
-        else:
-            opts = _udp_options(backup_in['host'], backup_in['port'])
-        objects.append({'kind': 'source', 'name': name,
-                        'body': _endpoint_obj(sid, name, backup_in['protocol'].upper(), opts, 1)})
-    elif backup_in is None and not _blank(props.get('Input Backup')):
-        warnings.append(f'"Input Backup" could not be parsed and was ignored: {props.get("Input Backup")!r}')
+                    'body': _endpoint_obj(sid, name, main_in['protocol'].upper(), opts)})
     name = bte_name(base, dc_key, 'output')
     objects.append({'kind': 'output', 'name': name, 'body': _endpoint_obj(sid, name, 'SRT', {
         'port': out_port, 'address': None, 'mode': 'listener', 'latency': latency or 500,
