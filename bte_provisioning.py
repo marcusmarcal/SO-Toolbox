@@ -139,10 +139,13 @@ OBJECT_PATH = _env('BTE_TXCORE_OBJECT_PATH') or '/mwedge/{edge}/{kind}/{id}'
 KINDS = ('stream', 'source', 'output')          # creation order inside a batch
 STREAM_ID_PREFIX = 'BTE_'
 
-# TXCore SRT option field names, confirmed against the API reference example
-# for /mwedge/<id>/source/: {type, hostAddress, port, latency, encrypted, pbkeylen, passphrase}.
-# "encrypted": true is required alongside pbkeylen/passphrase — without it TXCore
-# appears to accept the call but leave transport encryption off.
+# TXCore SRT option field names. Confirmed against Skyline's own Dataminer ->
+# TXCore automation script (StreamResourceCreation / SRM PLS E2E OptionsSrt /
+# OutputsRequest.Options): {type, hostAddress, address, port, latency,
+# encryption, passphrase}. "encryption" is a single INTEGER field, not a
+# boolean + key-length pair: 0 = no encryption, 16/24/32 = AES-128/192/256
+# (the same numbers as the key length in bytes). "passphrase" is always
+# present and is null when encryption is 0.
 # Unlike UDP, SRT has no separate "networkInterface": the local bind address is
 # "hostAddress"; the remote target (pull source, caller mode only) is "address" —
 # same key as UDP's target field. Regional edges pulling from the DC edge's
@@ -152,9 +155,8 @@ SRT_OPTION_KEYS = {
     'target': 'address',       # remote IP to pull from — caller mode only
     'latency': 'latency',      # ms
     'passphrase': 'passphrase',
-    'keylen': 'pbkeylen',      # 16 | 24 | 32  (AES-128 / 192 / 256)
 }
-ENCRYPTION_KEYLEN = {'AES-128': 16, 'AES-192': 24, 'AES-256': 32}
+ENCRYPTION_KEYLEN = {'AES-128': 16, 'AES-192': 24, 'AES-256': 32}  # -> "encryption" field value
 # "type" on a SOURCE: 1 = listener (confirmed by the API reference), 0 = caller
 # (assumed by elimination — confirm with "Inspect live TXEdge" if a caller
 # source is rejected). On an OUTPUT, type is always 0 regardless of mode.
@@ -391,27 +393,27 @@ def _stream_id(base, edge_key):
 
 
 def _srt_options(mode, target_address, port, latency, passphrase, encryption, interface, is_output=False):
-    """SRT option block: {type, hostAddress, address, port, latency, pbkeylen, passphrase}.
+    """SRT option block: {type, hostAddress, address, port, latency, encryption, passphrase}.
 
     ``interface`` (local bind IP) always goes to ``hostAddress``. ``target_address``
     (the remote host to pull from) goes to ``address`` and only applies to callers —
     e.g. a regional edge pulling from the DC edge's public SRT IP.
     ``is_output`` forces type=0 (SRT_OUTPUT_TYPE) — outputs use a different
     type numbering than sources, where 1 means listener.
+    ``encryption``/``passphrase`` are always present: encryption=0 and
+    passphrase=null when there is no passphrase to send.
     """
     k = SRT_OPTION_KEYS
-    opts = {
+    keylen = ENCRYPTION_KEYLEN.get(str(encryption or 'AES-256').upper(), 32) if passphrase else 0
+    return {
         'type': SRT_OUTPUT_TYPE if is_output else SRT_TYPE[mode],
         k['host']: interface,
         k['target']: target_address if mode == 'caller' else None,
         'port': port,
         k['latency']: latency or 500,
+        'encryption': keylen,
+        k['passphrase']: passphrase if keylen else None,
     }
-    if passphrase:
-        opts['encrypted'] = True
-        opts[k['passphrase']] = passphrase
-        opts[k['keylen']] = ENCRYPTION_KEYLEN.get(str(encryption or 'AES-256').upper(), 32)
-    return opts
 
 
 def _udp_options(host, port, interface):
