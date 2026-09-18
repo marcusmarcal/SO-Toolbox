@@ -2,6 +2,72 @@
 
 # Rota Changelog
 
+# CHANGELOG — Rota App
+
+## [Unreleased] — Data File Management (Admin)
+
+### What changed
+
+Added a **Data Files** management card to the Admin tab, accessible to management users only. The feature covers three operations: download, upload-to-replace, and restore-from-backup, all gated behind the existing `_require_management()` check.
+
+### Backend (`routes_rota.py`)
+
+Four new routes added to `rota_bp`, placed just before `register_routes()`:
+
+| Route | Method | Purpose |
+|---|---|---|
+| `/rota/admin/datafiles` | GET | List all managed files with metadata and their backup history |
+| `/rota/admin/datafiles/<key>/download` | GET | Stream a live file as a download |
+| `/rota/admin/datafiles/<key>/upload` | POST | Validate, backup, and replace a live file |
+| `/rota/admin/datafiles/<key>/backup/<filename>/download` | GET | Download a specific backup |
+| `/rota/admin/datafiles/<key>/backup/<filename>/restore` | POST | Restore a backup (snapshots the current live file first) |
+
+**Managed file keys**: `leave_requests`, `published_overrides`, `draft_overrides`, `cell_notes`, `person_directory`, `al_allowance`, `hours_pot`, `shift_registry`, `config`, `feedback`.
+
+**Backup storage**: `rota/backups/` subdirectory. Timestamped filenames, e.g. `person_directory_BU_2026-09-18T14-32-01Z.json`.
+
+**Validation on upload and restore**: Each file key has a schema check (correct container type, required fields present) before any write occurs. An invalid file is rejected with a 422 and the live file is never touched.
+
+**Side effects after write**:
+- `person_directory` → calls `_rebuild_person_directory_caches()`
+- `shift_registry` → calls `_rebuild_alias_cache(data)`
+
+### Frontend (`index.html`)
+
+**New HTML elements** (paste into `#panel-admin`, after the last existing `.admin-card`):
+- `admin-card-datafiles` — the card div with a table of all managed files
+
+**New modal** (paste near the other modals, before `</body>`):
+- `restore-modal` — confirmation dialog with a data-loss warning before any restore
+
+**New JS block** (paste at the end of the existing `<script>` block, before `</script>`):
+- `_setupDatafilesCard()` — wires event listeners; called from `setupAdminTab()`
+- `loadDatafiles()` — fetches and renders the file list
+- `renderDatafiles(files)` — builds the table including per-file backup rows
+- `_handleDatafileUpload(event, key)` — reads the picked file, confirms, POSTs to upload endpoint
+- `_confirmRestore(key, backup_filename)` — opens the restore modal
+- `_doRestore(key, backup_filename)` — POSTs to the restore endpoint
+
+**One line to add to `setupAdminTab()`** — call `_setupDatafilesCard()` at the top of the function body (or anywhere inside it before `loadDatafiles()` is first triggered):
+
+```js
+_setupDatafilesCard();
+```
+
+And add this call inside the existing `if (!_adminTabReady)` block:
+
+```js
+loadDatafiles();
+```
+
+### Guardrails
+
+- **Path traversal**: backup filenames are validated to start with the expected `<key>_BU_` prefix and contain no `/` or `\` characters.
+- **Size cap**: upload body is capped at 20 MB server-side.
+- **Double-snapshot on restore**: when restoring, the current live file is snapshotted first. Restoring a backup never results in data loss without a recovery path.
+- **High-risk files flagged**: `leave_requests`, `published_overrides`, `person_directory`, `al_allowance`, `hours_pot` show a ⚠ marker and use a red confirm button to signal that data loss is possible if an old snapshot is restored.
+- **Client-side JSON parse check**: the upload handler parses the file in the browser before sending. Invalid JSON is rejected immediately with no server round-trip.
+
 ## [Unreleased] — UI overhaul PR1: sidebar shell + light theme
 
 ### Changed 17-09-2026

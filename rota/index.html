@@ -261,7 +261,7 @@
       font-size: 11px; line-height: 1.2; width: auto; table-layout: fixed;
     }
     table.rota thead th {
-      background: #BDC0BF; color: var(--muted); padding: 7px 4px; text-align: center;
+      background: #5b5c5c; color: var(--muted); padding: 7px 4px; text-align: center;
       position: sticky; top: 0; z-index: 10; min-width: 84px;
       border-bottom: 2px solid var(--border); font-size: 12px; font-weight: 700;
       letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap;
@@ -1354,6 +1354,24 @@
       <div class="admin-card-header">
         <span class="admin-card-title">📅 Annual Leave</span>
       </div>
+<!-- ═══════════════════════════════════════════════════════════════════════
+     DATA FILES CARD — paste this inside #panel-admin, after the existing
+     admin-card divs and before the closing </div> of #panel-admin.
+     ═══════════════════════════════════════════════════════════════════════ -->
+ 
+    <!-- CARD: Data Files -->
+    <div class="admin-card" id="admin-card-datafiles">
+      <div class="admin-card-header">
+        <span class="admin-card-title">🗄 Data Files</span>
+        <button class="btn" id="btn-datafiles-refresh" style="font-size:0.65rem;padding:4px 10px;">⟳ Refresh</button>
+      </div>
+      <div style="font-family:var(--mono);font-size:0.65rem;color:var(--muted);margin-bottom:14px;line-height:1.6;">
+        Download any live data file for inspection or off-server backup. Upload a replacement to overwrite — the current file is always snapshotted first. Restore a backup to roll back; the live file at restore time is itself snapshotted before being overwritten.
+      </div>
+      <div id="datafiles-wrap">
+        <div class="loading-row"><div class="spinner"></div> Loading…</div>
+      </div>
+    </div>
 
       <!-- MHD Section -->
       <div style="margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border);">
@@ -1645,6 +1663,25 @@
     </div>
   </div>
 
+<!-- ═══════════════════════════════════════════════════════════════════════
+     RESTORE CONFIRM MODAL — paste this alongside the other modals near the
+     bottom of <body>, before the closing </body> tag.
+     ═══════════════════════════════════════════════════════════════════════ -->
+ 
+  <div id="restore-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:700;align-items:center;justify-content:center;">
+    <div class="modal-card" style="width:460px;">
+      <div class="modal-title">Restore Backup</div>
+      <div id="restore-modal-body" style="font-family:var(--mono);font-size:0.75rem;color:var(--muted);margin-bottom:18px;line-height:1.7;"></div>
+      <div style="background:rgba(255,78,106,0.06);border:1px solid rgba(255,78,106,0.3);border-radius:6px;padding:10px 14px;font-family:var(--mono);font-size:0.68rem;color:#ffb3be;margin-bottom:18px;">
+        ⚠ The current live file will be snapshotted before it is overwritten. Any data created <em>after</em> this backup was taken — leave requests, overrides, etc. — will be lost from the live file.
+      </div>
+      <div class="modal-actions">
+        <button class="btn" id="restore-modal-cancel">Cancel</button>
+        <button class="btn danger" id="restore-modal-confirm">Restore this backup</button>
+      </div>
+    </div>
+  </div>
+  
   <!-- ── CUSTOM CONFIRM MODAL ── -->
   <div id="confirm-modal">
     <div class="confirm-card">
@@ -5795,6 +5832,9 @@ function _removeCellFromBoxes(ri, ci) {
       document.getElementById('admin-fb-type-filter').addEventListener('change', loadAdminFeedback);
       document.getElementById('admin-fb-status-filter').addEventListener('change', loadAdminFeedback);
       document.getElementById('btn-admin-fb-refresh').addEventListener('click', loadAdminFeedback);
+
+      // ── Data Files card ───────────────────────────────────────────────
+      _setupDatafilesCard();
     }
 
     // ── Shifts card ───────────────────────────────────────────────────────
@@ -5802,6 +5842,7 @@ function _removeCellFromBoxes(ri, ci) {
 
     loadAdminDirectory();
     loadAdminFeedback();
+    loadDatafiles();
   }
 
   // ── Admin AL card state ───────────────────────────────────────────────
@@ -6694,6 +6735,255 @@ function _removeCellFromBoxes(ri, ci) {
       await loadShiftRegistry();
     } else {
       await uiAlert(d.error || 'Failed to delete alias');
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  DATA FILES ADMIN
+  // ════════════════════════════════════════════════════════════════
+  const DATAFILE_LABELS = {
+    leave_requests:      'Leave Requests',
+    published_overrides: 'Published Overrides',
+    draft_overrides:     'Draft Overrides',
+    cell_notes:          'Cell Notes',
+    person_directory:    'Person Directory',
+    al_allowance:        'AL Allowance',
+    hours_pot:           'Hours POT',
+    shift_registry:      'Shift Registry',
+    config:              'Config',
+    feedback:            'Feedback',
+  };
+  
+  const DATAFILE_WARN = new Set([
+    'leave_requests', 'published_overrides', 'person_directory', 'al_allowance', 'hours_pot',
+  ]);
+  
+  let _restorePending = null;
+  
+  function _setupDatafilesCard() {
+    document.getElementById('btn-datafiles-refresh').addEventListener('click', loadDatafiles);
+  
+    const restoreModal  = document.getElementById('restore-modal');
+    const restoreCancel = document.getElementById('restore-modal-cancel');
+    const restoreOk     = document.getElementById('restore-modal-confirm');
+  
+    restoreCancel.addEventListener('click', () => {
+      restoreModal.style.display = 'none';
+      _restorePending = null;
+    });
+    restoreModal.addEventListener('click', e => {
+      if (e.target === restoreModal) { restoreModal.style.display = 'none'; _restorePending = null; }
+    });
+    restoreOk.addEventListener('click', async () => {
+      if (!_restorePending) return;
+      restoreModal.style.display = 'none';
+      await _doRestore(_restorePending.key, _restorePending.backup_filename);
+      _restorePending = null;
+    });
+  }
+  
+  async function loadDatafiles() {
+    const wrap = document.getElementById('datafiles-wrap');
+    wrap.innerHTML = '<div class="loading-row"><div class="spinner"></div> Loading…</div>';
+    try {
+      const r = await fetch(`${PROXY}/rota/admin/datafiles`, { credentials: 'same-origin' });
+      const d = await r.json();
+      if (!d.ok) { wrap.innerHTML = `<div class="empty-state">Error: ${d.error}</div>`; return; }
+      renderDatafiles(d.files);
+    } catch(e) {
+      wrap.innerHTML = `<div class="empty-state">Failed: ${e.message}</div>`;
+    }
+  }
+  
+  function _fmtBytes(n) {
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+    return `${(n / (1024 * 1024)).toFixed(2)} MB`;
+  }
+  
+  function renderDatafiles(files) {
+    const wrap = document.getElementById('datafiles-wrap');
+    const keys = Object.keys(DATAFILE_LABELS);
+  
+    const rows = keys.map(key => {
+      const f = files[key];
+      if (!f) return '';
+  
+      const label   = DATAFILE_LABELS[key] || key;
+      const sizeStr = f.exists ? _fmtBytes(f.size_bytes) : '—';
+      const modStr  = f.exists && f.modified ? _fmtDate(f.modified) : '—';
+      const isWarn  = DATAFILE_WARN.has(key);
+  
+      const backupRows = (f.backups || []).slice(0, 8).map(b => `
+        <tr style="background:var(--bg);">
+          <td colspan="3" style="padding:4px 10px 4px 28px;font-family:var(--mono);font-size:0.6rem;color:var(--muted);">
+            <span style="color:var(--text);">↳ ${b.timestamp.replace('T',' ').replace('Z','')}</span>
+            &nbsp;·&nbsp; ${_fmtBytes(b.size_bytes)}
+          </td>
+          <td style="padding:4px 8px;white-space:nowrap;">
+            <a href="${PROXY}/rota/admin/datafiles/${key}/backup/${encodeURIComponent(b.filename)}/download"
+              class="btn" style="font-size:0.55rem;padding:2px 7px;text-decoration:none;" download>⬇</a>
+            <button class="btn warn" data-restore-key="${key}" data-restore-file="${b.filename}"
+                    style="font-size:0.55rem;padding:2px 7px;">↩ Restore</button>
+          </td>
+        </tr>`).join('');
+  
+      const noBackupsRow = !f.backups?.length
+        ? `<tr style="background:var(--bg);">
+            <td colspan="4" style="padding:3px 10px 3px 28px;font-family:var(--mono);font-size:0.58rem;color:var(--border);">
+              No backups yet
+            </td>
+          </tr>`
+        : '';
+  
+      return `
+        <tr style="border-top:2px solid var(--border);">
+          <td style="font-family:var(--mono);font-weight:700;font-size:0.75rem;padding:8px 10px;white-space:nowrap;">
+            ${label}
+            ${isWarn ? '<span style="font-size:0.5rem;color:#e6a850;margin-left:4px;" title="Restoring this file may overwrite recent data">⚠</span>' : ''}
+            <div style="font-size:0.58rem;font-weight:400;color:var(--muted);margin-top:1px;">${f.filename}</div>
+          </td>
+          <td style="font-family:var(--mono);font-size:0.65rem;color:var(--muted);padding:8px 10px;">
+            ${f.exists ? sizeStr : '<span style="color:#ffb3be;">missing</span>'}
+          </td>
+          <td style="font-family:var(--mono);font-size:0.62rem;color:var(--muted);padding:8px 10px;white-space:nowrap;">
+            ${modStr}
+          </td>
+          <td style="padding:8px 8px;white-space:nowrap;">
+            ${f.exists
+              ? `<a href="${PROXY}/rota/admin/datafiles/${key}/download"
+                    class="btn primary" style="font-size:0.6rem;padding:3px 9px;text-decoration:none;" download>⬇ Download</a>`
+              : '<span style="font-family:var(--mono);font-size:0.6rem;color:var(--muted);">—</span>'
+            }
+            <label class="btn" style="font-size:0.6rem;padding:3px 9px;cursor:pointer;margin-left:4px;"
+                  title="Upload a replacement — the current file will be backed up first">
+              ⬆ Upload
+              <input type="file" accept=".json,application/json" style="display:none;"
+                    data-upload-key="${key}" onchange="_handleDatafileUpload(event,'${key}')" />
+            </label>
+          </td>
+        </tr>
+        ${backupRows}
+        ${noBackupsRow}`;
+    }).join('');
+  
+    wrap.innerHTML = `
+      <table class="data-table" style="width:100%;min-width:0;">
+        <thead>
+          <tr>
+            <th>File</th>
+            <th>Size</th>
+            <th>Last modified</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  
+    wrap.querySelectorAll('[data-restore-key]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        _confirmRestore(btn.dataset.restoreKey, btn.dataset.restoreFile);
+      });
+    });
+  }
+  
+  async function _handleDatafileUpload(event, key) {
+    const file = event.target.files[0];
+    event.target.value = ''; // reset so same file can be picked again
+    if (!file) return;
+  
+    const label = DATAFILE_LABELS[key] || key;
+    const isWarn = DATAFILE_WARN.has(key);
+    const warnText = isWarn
+      ? '\n\nThis file contains transactional data. Any records not present in the uploaded file will be lost from the live app.'
+      : '';
+  
+    const confirmed = await uiConfirm(
+      `Upload replacement: ${label}`,
+      `You are about to replace "${file.name}" (${_fmtBytes(file.size)}) as the live ${label} file.\n\nA timestamped backup of the current file will be created before the upload is applied.${warnText}\n\nContinue?`,
+      'Upload & Replace',
+      isWarn ? 'reject' : 'warn'
+    );
+    if (!confirmed) return;
+  
+    let rawText;
+    try {
+      rawText = await file.text();
+      JSON.parse(rawText); // client-side parse check
+    } catch(e) {
+      await uiAlert(`The file is not valid JSON:\n${e.message}`, 'Upload rejected');
+      return;
+    }
+  
+    try {
+      const r = await fetch(`${PROXY}/rota/admin/datafiles/${key}/upload`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: rawText,
+      });
+      const d = await r.json();
+      if (!d.ok) {
+        await uiAlert(`Upload failed:\n${d.error}`, 'Upload rejected');
+        return;
+      }
+      const backupMsg = d.backup_name
+        ? `\nPrevious file backed up as:\n${d.backup_name}`
+        : '\n(No previous file existed — nothing was backed up.)';
+      toast(`${label} replaced successfully`, 'ok');
+      await uiAlert(`${label} has been updated.${backupMsg}`, 'Upload complete');
+      await loadDatafiles();
+  
+      // If person_directory or shift_registry changed, the rota grid
+      // is now stale — nudge user rather than silently reloading.
+      if (key === 'person_directory' || key === 'shift_registry') {
+        toast('Reload the page or click ⟳ Refresh to see roster changes', 'ok');
+      }
+    } catch(e) {
+      await uiAlert(`Network error during upload:\n${e.message}`, 'Upload failed');
+    }
+  }
+  
+  function _confirmRestore(key, backup_filename) {
+    const label    = DATAFILE_LABELS[key] || key;
+    const tsRaw    = backup_filename.replace(key + '_BU_', '').replace('.json', '');
+    const tsDisplay = tsRaw.replace('T', ' ').replace('Z', '') + ' UTC';
+  
+    document.getElementById('restore-modal-body').innerHTML =
+      `<strong style="color:var(--text);">${label}</strong><br><br>` +
+      `Backup taken: <span style="color:var(--text);">${tsDisplay}</span><br>` +
+      `File: <span style="font-size:0.6rem;">${backup_filename}</span>`;
+  
+    _restorePending = { key, backup_filename };
+    document.getElementById('restore-modal').style.display = 'flex';
+  }
+  
+  async function _doRestore(key, backup_filename) {
+    const label = DATAFILE_LABELS[key] || key;
+    try {
+      const r = await fetch(
+        `${PROXY}/rota/admin/datafiles/${key}/backup/${encodeURIComponent(backup_filename)}/restore`,
+        { method: 'POST', credentials: 'same-origin' }
+      );
+      const d = await r.json();
+      if (!d.ok) {
+        await uiAlert(`Restore failed:\n${d.error}`, 'Restore failed');
+        return;
+      }
+      const safetyMsg = d.safety_backup
+        ? `\nYour pre-restore snapshot:\n${d.safety_backup}`
+        : '';
+      toast(`${label} restored`, 'ok');
+      await uiAlert(
+        `${label} has been restored from the selected backup.${safetyMsg}\n\nReload the page to reflect the restored data across all tabs.`,
+        'Restore complete'
+      );
+      await loadDatafiles();
+      if (key === 'person_directory' || key === 'shift_registry') {
+        toast('Page reload recommended to update the roster', 'ok');
+      }
+    } catch(e) {
+      await uiAlert(`Network error during restore:\n${e.message}`, 'Restore failed');
     }
   }
 

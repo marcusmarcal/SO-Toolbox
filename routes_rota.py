@@ -4011,5 +4011,304 @@ def rota_feedback_put(feedback_id):
 
     return jsonify({'ok': False, 'error': 'Feedback entry not found'}), 404
 
+# ════════════════════════════════════════════════════════════════════════════
+#  DATA FILE MANAGEMENT ROUTES
+#  Add these routes to routes_rota.py, inside rota_bp
+#  Place them just before the register_routes() function at the bottom.
+# ════════════════════════════════════════════════════════════════════════════
+
+# ── Constants ────────────────────────────────────────────────────────────────
+MANAGED_FILES = {
+    'leave_requests':        LEAVE_FILE,
+    'published_overrides':   PUBLISHED_OVERRIDES_FILE,
+    'draft_overrides':       DRAFT_FILE,
+    'cell_notes':            CELL_NOTES_FILE,
+    'person_directory':      PERSON_DIRECTORY_FILE,
+    'al_allowance':          AL_ALLOWANCE_FILE,
+    'hours_pot':             HOURS_POT_FILE,
+    'shift_registry':        SHIFT_REGISTRY_FILE,
+    'config':                CONFIG_FILE,
+    'feedback':              FEEDBACK_FILE,
+}
+
+BACKUP_DIR = os.path.join(ROTA_DIR, 'backups')
+
+# Validators called after upload before the file is written.
+# Return (ok: bool, error_message_or_None).
+def _validate_managed_json(key: str, data) -> tuple[bool, str | None]:
+    if key == 'person_directory':
+        if not isinstance(data, dict):
+            return False, 'person_directory must be a JSON object'
+        for rid, v in data.items():
+            if not isinstance(v, dict):
+                return False, f'entry {rid} is not an object'
+            for req in ('full_name', 'rota_label', 'rotation_group'):
+                if not v.get(req):
+                    return False, f'entry {rid} missing required field: {req}'
+        return True, None
+
+    if key == 'leave_requests':
+        if not isinstance(data, list):
+            return False, 'leave_requests must be a JSON array'
+        for i, e in enumerate(data):
+            if not isinstance(e, dict):
+                return False, f'element {i} is not an object'
+            for req in ('id', 'name', 'date_start', 'date_end', 'status'):
+                if req not in e:
+                    return False, f'element {i} missing field: {req}'
+        return True, None
+
+    if key == 'published_overrides':
+        if not isinstance(data, list):
+            return False, 'published_overrides must be a JSON array'
+        for i, e in enumerate(data):
+            if not isinstance(e, dict):
+                return False, f'element {i} is not an object'
+        return True, None
+
+    if key == 'al_allowance':
+        if not isinstance(data, dict):
+            return False, 'al_allowance must be a JSON object'
+        if 'members' not in data or 'yearly' not in data:
+            return False, 'al_allowance must have "members" and "yearly" keys'
+        return True, None
+
+    if key == 'shift_registry':
+        if not isinstance(data, dict):
+            return False, 'shift_registry must be a JSON object'
+        for code, v in data.items():
+            if not isinstance(v, dict):
+                return False, f'shift {code} is not an object'
+        return True, None
+
+    if key == 'config':
+        if not isinstance(data, dict):
+            return False, 'config must be a JSON object'
+        return True, None
+
+    # For remaining files: just require the correct container type
+    if key in ('cell_notes', 'hours_pot', 'draft_overrides', 'feedback'):
+        if key in ('cell_notes', 'hours_pot', 'draft_overrides') and not isinstance(data, list):
+            return False, f'{key} must be a JSON array'
+        if key == 'feedback' and not isinstance(data, dict):
+            return False, 'feedback must be a JSON object'
+        return True, None
+
+    return True, None
+
+
+def _list_backups(key: str) -> list[dict]:
+    """Return list of backup metadata dicts for a given file key, newest first."""
+    if not os.path.exists(BACKUP_DIR):
+        return []
+    prefix = key + '_BU_'
+    entries = []
+    for fname in os.listdir(BACKUP_DIR):
+        if fname.startswith(prefix) and fname.endswith('.json'):
+            fpath = os.path.join(BACKUP_DIR, fname)
+            try:
+                stat  = os.stat(fpath)
+                ts_raw = fname[len(prefix):-5]  # strip prefix and .json
+                entries.append({
+                    'filename':   fname,
+                    'key':        key,
+                    'timestamp':  ts_raw,
+                    'size_bytes': stat.st_size,
+                })
+            except OSError:
+                continue
+    entries.sort(key=lambda x: x['timestamp'], reverse=True)
+    return entries
+
+
+def _write_backup(key: str, source_path: str) -> str | None:
+    """Write a timestamped backup of source_path into BACKUP_DIR.
+    Returns the backup filename, or None if source_path doesn't exist."""
+    if not os.path.exists(source_path):
+        return None
+    os.makedirs(BACKUP_DIR, exist_ok=True)
+    ts = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H-%M-%S') + 'Z'
+    backup_name = f'{key}_BU_{ts}.json'
+    backup_path = os.path.join(BACKUP_DIR, backup_name)
+    import shutil
+    shutil.copy2(source_path, backup_path)
+    return backup_name
+
+
+# ── Routes ────────────────────────────────────────────────────────────────────
+
+@rota_bp.route('/rota/admin/datafiles', methods=['GET'])
+@require_auth
+def rota_datafiles_list():
+    """Return metadata for all managed JSON files plus their backup lists."""
+    err = _require_management()
+    if err: return err
+
+    files = {}
+    for key, path in MANAGED_FILES.items():
+        exists    = os.path.exists(path)
+        size      = os.path.getsize(path) if exists else 0
+        backups   = _list_backups(key)
+        try:
+            mtime = os.path.getmtime(path) if exists else None
+            mtime_iso = (datetime.datetime.utcfromtimestamp(mtime).isoformat(timespec='seconds') + 'Z') if mtime else None
+        except OSError:
+            mtime_iso = None
+        files[key] = {
+            'key':        key,
+            'filename':   os.path.basename(path),
+            'exists':     exists,
+            'size_bytes': size,
+            'modified':   mtime_iso,
+            'backups':    backups,
+        }
+    return jsonify({'ok': True, 'files': files})
+
+
+@rota_bp.route('/rota/admin/datafiles/<key>/download', methods=['GET'])
+@require_auth
+def rota_datafiles_download(key):
+    """Download the live JSON file."""
+    err = _require_management()
+    if err: return err
+
+    if key not in MANAGED_FILES:
+        return jsonify({'ok': False, 'error': 'Unknown file key'}), 404
+    path = MANAGED_FILES[key]
+    if not os.path.exists(path):
+        return jsonify({'ok': False, 'error': 'File does not exist on disk'}), 404
+
+    return send_file(path, as_attachment=True,
+                     download_name=os.path.basename(path),
+                     mimetype='application/json')
+
+
+@rota_bp.route('/rota/admin/datafiles/<key>/backup/<backup_filename>/download', methods=['GET'])
+@require_auth
+def rota_datafiles_backup_download(key, backup_filename):
+    """Download a specific backup file."""
+    err = _require_management()
+    if err: return err
+
+    if key not in MANAGED_FILES:
+        return jsonify({'ok': False, 'error': 'Unknown file key'}), 404
+
+    # Safety: ensure the filename belongs to this key and has no path traversal
+    if not backup_filename.startswith(key + '_BU_') or '/' in backup_filename or '\\' in backup_filename:
+        return jsonify({'ok': False, 'error': 'Invalid backup filename'}), 400
+
+    backup_path = os.path.join(BACKUP_DIR, backup_filename)
+    if not os.path.exists(backup_path):
+        return jsonify({'ok': False, 'error': 'Backup not found'}), 404
+
+    return send_file(backup_path, as_attachment=True,
+                     download_name=backup_filename,
+                     mimetype='application/json')
+
+
+@rota_bp.route('/rota/admin/datafiles/<key>/upload', methods=['POST'])
+@require_auth
+def rota_datafiles_upload(key):
+    """Upload a new JSON to replace an existing managed file.
+    Validates content, backs up the current file, then writes the new one.
+    For person_directory, also rebuilds the in-memory caches."""
+    err = _require_management()
+    if err: return err
+
+    if key not in MANAGED_FILES:
+        return jsonify({'ok': False, 'error': 'Unknown file key'}), 404
+
+    session  = request.session
+    raw_body = request.get_data(limit=20 * 1024 * 1024)  # 20 MB hard cap
+    if not raw_body:
+        return jsonify({'ok': False, 'error': 'Empty request body'}), 400
+
+    try:
+        data = json.loads(raw_body)
+    except (json.JSONDecodeError, ValueError) as e:
+        return jsonify({'ok': False, 'error': f'Invalid JSON: {e}'}), 400
+
+    ok, err_msg = _validate_managed_json(key, data)
+    if not ok:
+        return jsonify({'ok': False, 'error': f'Validation failed: {err_msg}'}), 422
+
+    path        = MANAGED_FILES[key]
+    backup_name = _write_backup(key, path)
+
+    # Write new file
+    _save_json(path, data)
+
+    # Post-write side effects
+    if key == 'person_directory':
+        _rebuild_person_directory_caches()
+    if key == 'shift_registry':
+        _rebuild_alias_cache(data)
+    if key == 'config':
+        # Re-read config — no global cache to invalidate, routes load on demand
+        pass
+
+    return jsonify({
+        'ok':          True,
+        'key':         key,
+        'backup_name': backup_name,
+        'uploaded_by': session['username'],
+        'uploaded_at': _now_iso(),
+        'size_bytes':  len(raw_body),
+    })
+
+
+@rota_bp.route('/rota/admin/datafiles/<key>/backup/<backup_filename>/restore', methods=['POST'])
+@require_auth
+def rota_datafiles_restore(key, backup_filename):
+    """Restore a backup to the live file.
+    Backs up the CURRENT live file first, then copies the backup over it."""
+    err = _require_management()
+    if err: return err
+
+    if key not in MANAGED_FILES:
+        return jsonify({'ok': False, 'error': 'Unknown file key'}), 404
+
+    if not backup_filename.startswith(key + '_BU_') or '/' in backup_filename or '\\' in backup_filename:
+        return jsonify({'ok': False, 'error': 'Invalid backup filename'}), 400
+
+    backup_path = os.path.join(BACKUP_DIR, backup_filename)
+    if not os.path.exists(backup_path):
+        return jsonify({'ok': False, 'error': 'Backup not found'}), 404
+
+    session = request.session
+    path    = MANAGED_FILES[key]
+
+    # Validate the backup before we touch anything live
+    try:
+        with open(backup_path, 'r') as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError) as e:
+        return jsonify({'ok': False, 'error': f'Backup file is unreadable: {e}'}), 500
+
+    ok, err_msg = _validate_managed_json(key, data)
+    if not ok:
+        return jsonify({'ok': False, 'error': f'Backup validation failed: {err_msg}'}), 422
+
+    # Snapshot the current live file before overwriting
+    safety_backup = _write_backup(key, path)
+
+    import shutil
+    shutil.copy2(backup_path, path)
+
+    # Post-restore side effects
+    if key == 'person_directory':
+        _rebuild_person_directory_caches()
+    if key == 'shift_registry':
+        _rebuild_alias_cache(data)
+
+    return jsonify({
+        'ok':            True,
+        'key':           key,
+        'restored_from': backup_filename,
+        'safety_backup': safety_backup,
+        'restored_by':   session['username'],
+        'restored_at':   _now_iso(),
+    })
+
 def register_routes(app) -> None:
     app.register_blueprint(rota_bp)
