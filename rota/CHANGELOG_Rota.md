@@ -137,6 +137,23 @@ Amber selection text against the lightest cells (OFF
 #ececec, Marital white) may still be low-contrast since the selection overlay itself is amber-tinted — same hue family as the text. Needs an actual in-browser check; if still weak, drop to a darker amber (
 #8a5a00, already used for the today-row text) instead of the exact border-match color.
 
+[Unreleased] — UI overhaul PR1 (cont.): draft-mode header contrast, layout scroll fix, toast relocation
+Changed
+Draft-mode header background/text: was pale amber bg (
+#fff3d6/
+#ffe9b8) with var(--muted) text — low contrast. Now 
+#f0c876/
+#e8b85c bg with an explicit dark brown text color (
+#5c3d00), independent of whatever the base header's text-color token resolves to.
+Layout: replaced the hardcoded #rota-wrap max-height (calc(100vh - 140px)) with proper flex distribution. Root cause of the "minor extra scroll" in draft mode: that magic number only accounted for chrome height without the draft banner, so it went stale whenever the banner appeared. Now #content-pane is a fixed-height (100vh) flex column, #panel-rota (when active) is itself a flex column filling all remaining space, #rota-toolbar/#draft-banner are flex-shrink:0, and #rota-wrap is flex:1 + min-height:0 — it now always fills exactly whatever space is actually left, banner shown or not, with no recalculation needed if chrome height changes again in future. content-pane keeps its own overflow-y:auto as a safety net for other (non-Rota) tabs whose content might exceed one viewport — untouched, not something you flagged as a problem.
+Toast notifications: moved from a fixed, viewport-centered overlay (z-index 9000, sitting on top of content) into the sidebar itself — now the last child of #sidebar-nav, pinned to the bottom of the nav column via margin-top:auto (so it sits just above the footer divider regardless of exact nav-item count, no pixel-math needed). #sidebar-nav is now display:flex/flex-direction:column to make that possible. Switched white-space:nowrap -> normal since it's now width-constrained to the sidebar rather than free-floating over full page width.
+Verification performed
+Confirmed exactly one #toast element in the DOM (caught and fixed a duplicate-insertion mistake during editing — old fixed-position toast wasn't removed on first pass, corrected before shipping).
+Div/nav tag balance, JS syntax parse — both hold.
+Still outstanding, not part of this pass
+The three items from the previous message (header bg 
+#BDC0BF + text color, header/week-separator line, today-highlight dark-gray-bold text for working shifts) were given as instructions only, not applied to this file yet. Confirm if you want those folded in now.
+
 ## [Unreleased] — UI overhaul PR1: sidebar shell + light theme
 
 ### Changed 16-09-2026
