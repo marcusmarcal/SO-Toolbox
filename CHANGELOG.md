@@ -9,6 +9,28 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 `SRT Ingest:`, `General Tool Admin:`) so entries can be filtered per tool.
 
 ---
+
+## [4.3.1] - 2026-09-18
+
+### Added
+- TXCore Provisioning / BTE: `pub=SRT@<ip>` field on DC edges; regional edges pull
+  from the public address. `in`/`out` edge addresses are applied as `networkInterface`
+  of the created sources / outputs.
+- TXCore Provisioning / BTE: supplier passphrase override on "Create resources";
+  the plan reports whether the resource passphrase is real, redacted or missing.
+- TXCore Provisioning / BTE: "Inspect live TXEdge" viewer (`GET /api/bte/txcore/edges/<KEY>`,
+  secrets masked) to verify how TXCore stores SRT options.
+- TXCore Provisioning / BTE: dismissible failure notices plus a collapsed provisioning log.
+
+### Changed
+- TXCore Provisioning / BTE: object naming follows the TXCore convention
+  (`<CH>_<EDGE>_[BTE]`, `SRC_<CH>_A_<PROTO>_<EDGE>`, `OUT_<CH>_<PROTO>_<EDGE>`); delete
+  guard checks the tagged stream and the source/output → BTE stream link.
+- TXCore Provisioning / BTE: active streams moved to the top of the panel; Dataminer
+  resource details collapsed; INX01·02·03 edge filter option removed.
+- TXCore Provisioning / BTE: SRT encryption sent as passphrase + key length
+  (`pbkeylen`), field names centralised in `SRT_OPTION_KEYS`.
+
 ## [4.2.2] - 2026-09-17
 
 ### Changed

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TXCore Provisioning — SO-Toolbox</title>
-    <!-- TXCore Manager frontend v1.4.0 — STB (multicast) + MAIN (SRT) clusters + BTE (supplier / channel browser + timed resource provisioning) -->
+    <!-- TXCore Manager frontend v1.5.0 — STB (multicast) + MAIN (SRT) clusters + BTE (timed TXEdge resource provisioning over the Dataminer snapshot) -->
     <style>
       :root {
         --bg: #0f1216;
@@ -864,8 +864,78 @@
         padding: 12px 10px 4px;
       }
 
+      .bte-notice-stack .notice {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: flex-start;
+      }
+      .bte-notice-stack .notice button {
+        flex-shrink: 0;
+      }
+      details.bte-fold {
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius);
+        background: var(--panel);
+      }
+      details.bte-fold > summary {
+        cursor: pointer;
+        list-style: none;
+        padding: 9px 12px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-dim);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      details.bte-fold > summary::-webkit-details-marker {
+        display: none;
+      }
+      details.bte-fold > summary::before {
+        content: "▸";
+        color: var(--text-faint);
+        font-size: 10px;
+      }
+      details.bte-fold[open] > summary::before {
+        content: "▾";
+      }
+      details.bte-fold > summary:hover {
+        color: var(--text);
+      }
+      details.bte-fold > .fold-body {
+        padding: 6px 12px 12px;
+        border-top: 1px solid var(--border-soft);
+      }
+      #bte-prov-log {
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        background: #0a0c0f;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 10px 12px;
+        max-height: 220px;
+        overflow-y: auto;
+      }
+      #bte-prov-log .log-err {
+        color: var(--error);
+      }
+      #bte-prov-log .log-ok {
+        color: var(--success);
+      }
+      #bte-prov-log .log-dim {
+        color: var(--text-faint);
+      }
+      #bte-prov-log .log-ts {
+        color: var(--text-faint);
+        margin-right: 8px;
+      }
+
       dialog#bte-dest-dialog,
-      dialog#bte-plan-dialog {
+      dialog#bte-plan-dialog,
+      dialog#bte-edge-dialog {
         background: var(--bg);
         color: var(--text);
         border: 1px solid var(--border);
@@ -877,7 +947,8 @@
         font-size: 14px;
       }
       dialog#bte-dest-dialog::backdrop,
-      dialog#bte-plan-dialog::backdrop {
+      dialog#bte-plan-dialog::backdrop,
+      dialog#bte-edge-dialog::backdrop {
         background: rgba(0, 0, 0, 0.65);
       }
       .dialog-head {
@@ -1428,7 +1499,6 @@
                 <label for="bte-edge-filter">TXEdge</label>
                 <select id="bte-edge-filter">
                   <option value="">all edges</option>
-                  <option value="inx0123">INX01 · INX02 · INX03</option>
                   <option value="INX01">INX01</option>
                   <option value="INX02">INX02</option>
                   <option value="INX03">INX03</option>
@@ -1515,21 +1585,49 @@
 
         <div id="results-bte" class="results-panel" style="display: none">
           <div>
-            <h2>Channel <span class="h2-tag" id="bte-detail-tag">—</span></h2>
-            <div id="bte-resource-detail">
-              <div class="empty-state">
-                Pick a supplier, then a channel, to see its Dataminer resource.
-              </div>
+            <h2>
+              BTE active streams
+              <span class="h2-tag" id="bte-lease-tag">0 active</span>
+            </h2>
+            <div class="bte-notice-stack" id="bte-notices"></div>
+            <div id="bte-lease-container">
+              <div class="empty-state">No streams created by BTE yet.</div>
             </div>
+            <div class="btn-row" style="margin-top: 10px; justify-content: space-between">
+              <span class="list-count" id="bte-lease-count" style="margin: 0; align-self: center"></span>
+              <span style="display: flex; gap: 8px">
+                <button id="bte-btn-leases-reload" class="small">Reload</button>
+                <button id="bte-btn-delete-all" class="small danger">Delete all BTE resources</button>
+              </span>
+            </div>
+          </div>
 
-            <div class="prov-box" id="bte-prov-box" style="display: none">
-              <div class="prov-row">
+          <div>
+            <h2>Create resources <span class="h2-tag" id="bte-detail-tag">—</span></h2>
+            <div id="bte-prov-empty" class="empty-state">
+              Pick a supplier, then a channel on the left.
+            </div>
+            <div class="prov-box" id="bte-prov-box" style="display: none; margin-top: 0">
+              <div class="res-head" id="bte-prov-head"></div>
+              <div class="prov-row" style="margin-top: 10px">
                 <div class="field short">
                   <label for="bte-prov-duration">Duration (min)</label>
                   <input type="number" id="bte-prov-duration" min="1" step="5" value="60" />
                 </div>
-                <div class="toggle-row">
-                  <label for="bte-prov-dry-run">Dry run (no TXCore calls)</label>
+                <div class="field" style="flex: 1 1 200px">
+                  <label for="bte-prov-passphrase"
+                    >Supplier passphrase override
+                    <span style="color: var(--text-faint)">(optional)</span></label
+                  >
+                  <input
+                    type="password"
+                    id="bte-prov-passphrase"
+                    autocomplete="new-password"
+                    placeholder="uses the resource value"
+                  />
+                </div>
+                <div class="toggle-row" style="flex: 0 1 190px">
+                  <label for="bte-prov-dry-run">Dry run</label>
                   <label class="switch">
                     <input type="checkbox" id="bte-prov-dry-run" checked />
                     <span class="track"></span>
@@ -1542,24 +1640,26 @@
               </div>
               <div class="hint" id="bte-prov-hint" style="margin-top: 8px"></div>
             </div>
+
+            <details class="bte-fold" id="bte-detail-fold" style="margin-top: 12px">
+              <summary>Dataminer resource details</summary>
+              <div class="fold-body" id="bte-resource-detail">
+                <div class="empty-state">No channel selected.</div>
+              </div>
+            </details>
           </div>
 
-          <div>
-            <h2>
-              BTE streams
-              <span class="h2-tag" id="bte-lease-tag">0 active</span>
-            </h2>
-            <div id="bte-lease-container">
-              <div class="empty-state">No streams created by BTE yet.</div>
+          <details class="bte-fold" id="bte-log-fold">
+            <summary>Provisioning log <span class="h2-tag" id="bte-log-tag">empty</span></summary>
+            <div class="fold-body">
+              <div class="btn-row" style="justify-content: flex-end; margin-bottom: 8px">
+                <select id="bte-inspect-edge" style="width: auto; padding: 3px 6px; font-size: 11px">
+                  <option value="">inspect live TXEdge…</option>
+                </select>
+              </div>
+              <div id="bte-prov-log"><div class="log-dim">Nothing yet.</div></div>
             </div>
-            <div class="btn-row" style="margin-top: 10px; justify-content: space-between">
-              <span class="list-count" id="bte-lease-count" style="margin: 0; align-self: center"></span>
-              <span style="display: flex; gap: 8px">
-                <button id="bte-btn-leases-reload" class="small">Reload</button>
-                <button id="bte-btn-delete-all" class="small danger">Delete all BTE resources</button>
-              </span>
-            </div>
-          </div>
+          </details>
         </div>
       </div>
     </main>
@@ -1582,6 +1682,22 @@
           <div class="empty-state">No destinations loaded yet.</div>
         </div>
         <div class="list-count" id="bte-dest-count"></div>
+      </div>
+    </dialog>
+
+    <dialog id="bte-edge-dialog">
+      <div class="dialog-head">
+        <h2>TXEdge <span class="h2-tag" id="bte-edge-tag">—</span></h2>
+        <button id="bte-edge-close">Close</button>
+      </div>
+      <div class="dialog-body">
+        <div class="field">
+          <input type="text" id="bte-edge-filter" placeholder="filter objects — name, protocol, port, stream id…" autocomplete="off" />
+        </div>
+        <div class="hint" style="margin-bottom: 8px">
+          Live document from TXCore MAIN (secrets masked). Use it to confirm how an SRT listener / encryption is stored.
+        </div>
+        <pre id="bte-edge-doc" class="plan-body" style="font-size: 11px; max-height: 60vh; overflow: auto"></pre>
       </div>
     </dialog>
 
@@ -2730,25 +2846,29 @@
         function renderBteDetail() {
           var container = $("bte-resource-detail");
           var r = bte.selectedId ? bteFindResource(bte.selectedId) : null;
-          $("bte-detail-tag").textContent = r ? itemType(r) : "—";
+          $("bte-detail-tag").textContent = r ? r.name : "—";
           $("bte-prov-box").style.display = r ? "" : "none";
+          $("bte-prov-empty").style.display = r ? "none" : "";
           if (r) renderProvHint();
           if (!r) {
-            container.innerHTML = '<div class="empty-state">' +
-              (bte.supplier ? "Pick a channel on the left." : "Pick a supplier, then a channel, to see its Dataminer resource.") +
-              "</div>";
+            container.innerHTML = '<div class="empty-state">No channel selected.</div>';
+            $("bte-prov-head").innerHTML = "";
             return;
           }
+          var p = r.properties || {};
+          $("bte-prov-head").innerHTML =
+            '<span class="res-name">' + escapeHtml(r.name) + "</span>" +
+            modePill(r.mode) +
+            '<span class="pill">' + escapeHtml(itemType(r)) + "</span>" +
+            (itemEdge(r) ? '<span class="pill">' + escapeHtml(itemEdge(r)) + "</span>" : "") +
+            (p["Input Main"] || p["Input"] ? '<span class="pill">' + escapeHtml(p["Input Main"] || p["Input"]) + "</span>" : "") +
+            (p["Output"] ? '<span class="pill">out ' + escapeHtml(p["Output"]) + "</span>" : '<span class="pill">out = in + 1000</span>') +
+            (p["Encryption Main"] || p["Encryption"] ? '<span class="pill">' + escapeHtml(p["Encryption Main"] || p["Encryption"]) + "</span>" : "");
           var caps = Object.assign({}, r.capabilities || {});
           delete caps.Type;
           var capRows = kvRows(caps);
           container.innerHTML =
-            '<div class="res-head"><span class="res-name">' + escapeHtml(r.name) + "</span>" +
-            modePill(r.mode) +
-            '<span class="pill">' + escapeHtml(itemType(r)) + "</span>" +
-            (itemEdge(r) ? '<span class="pill">' + escapeHtml(itemEdge(r)) + "</span>" : "") +
-            '<span class="pill">concurrency ' + escapeHtml(r.concurrency) + "</span></div>" +
-            '<div class="res-id">' + escapeHtml(r.id) + "</div>" +
+            '<div class="res-id">' + escapeHtml(r.id) + " · concurrency " + escapeHtml(r.concurrency) + "</div>" +
             '<table class="kv"><tbody>' +
             (kvRows(r.properties || {}) || '<tr><td class="empty" colspan="2">No properties</td></tr>') +
             (capRows ? '<tr><th style="color: var(--text-faint); padding-top: 14px" colspan="2">Capabilities</th></tr>' + capRows : "") +
@@ -2811,6 +2931,8 @@
         // ---- provisioning: create resources + leases ------------------------
         var prov = {
           status: null,
+          log: [],
+          seen: {}, // lease_id -> last status observed (to log transitions once)
           leases: [],
           leasesMeta: null,
           plan: null,
@@ -2829,6 +2951,46 @@
           return missing;
         }
 
+        function provLog(text, cls) {
+          prov.log.push({ ts: new Date(), text: text, cls: cls || "" });
+          if (prov.log.length > 300) prov.log.shift();
+          var box = $("bte-prov-log");
+          box.innerHTML = prov.log.map(function (e) {
+            return '<div class="' + e.cls + '"><span class="log-ts">' + escapeHtml(e.ts.toLocaleTimeString()) + "</span>" + escapeHtml(e.text) + "</div>";
+          }).join("");
+          box.scrollTop = box.scrollHeight;
+          var errs = prov.log.filter(function (e) { return e.cls === "log-err"; }).length;
+          $("bte-log-tag").textContent = prov.log.length + " entries" + (errs ? " · " + errs + " errors" : "");
+        }
+
+        // Failures are shown up front once (dismissible) and always kept in the log.
+        function provNotice(text, cls) {
+          provLog(text, cls === "bad" ? "log-err" : cls === "warn" ? "" : "log-ok");
+          if (cls !== "bad" && cls !== "warn") return;
+          var stack = $("bte-notices");
+          var el = document.createElement("div");
+          el.className = "notice " + cls;
+          el.innerHTML = "<span>" + escapeHtml(text) + '</span><button class="small">Dismiss</button>';
+          el.querySelector("button").addEventListener("click", function () { el.remove(); });
+          stack.appendChild(el);
+          while (stack.children.length > 4) stack.removeChild(stack.firstChild);
+        }
+
+        function trackLeaseTransitions() {
+          prov.leases.forEach(function (l) {
+            var prev = prov.seen[l.lease_id];
+            if (prev === l.status) return;
+            prov.seen[l.lease_id] = l.status;
+            if (prev === undefined && (l.status === "deleted" || l.status === "failed")) return; // history
+            var label = l.resource_name + " (" + l.dc_edge + ")";
+            var detail = (l.errors || []).slice(-1)[0] || "";
+            if (l.status === "failed") provNotice("Create failed — " + label + (detail ? ": " + detail : ""), "bad");
+            else if (l.status === "delete_failed") provNotice("Delete incomplete — " + label + (detail ? ": " + detail : ""), "bad");
+            else if (l.status === "active" && prev === "creating") provLog("Active — " + label + (l.dry_run ? " (dry run)" : ""), "log-ok");
+            else if (l.status === "deleted") provLog("Deleted — " + label + (l.delete_reason ? " (" + l.delete_reason + ")" : ""), "log-dim");
+          });
+        }
+
         function renderProvHint() {
           var st = prov.status;
           var hint = $("bte-prov-hint");
@@ -2841,6 +3003,15 @@
             $("bte-prov-duration").value = st.default_duration_minutes;
           }
           $("bte-prov-duration").max = st.max_duration_minutes || "";
+          var sel = $("bte-inspect-edge");
+          if (sel.options.length <= 1 && st.edges) {
+            Object.keys(st.edges).forEach(function (k) {
+              var o = document.createElement("option");
+              o.value = k;
+              o.textContent = k + (st.edges[k].location ? " — " + st.edges[k].location : "");
+              sel.appendChild(o);
+            });
+          }
           var missing = provStatusMissing(st);
           if (!st.live_writes_allowed) {
             dry.checked = true;
@@ -2952,6 +3123,7 @@
               prov.leasesMeta = data;
               prov.loadedAt = Date.now();
               renderLeases();
+              trackLeaseTransitions();
             })
             .catch(function (err) {
               $("bte-lease-container").innerHTML = '<div class="empty-state">Could not load BTE streams — ' + escapeHtml(err.message) + "</div>";
@@ -2982,7 +3154,9 @@
             var s = plan.summary || {};
             html += '<div class="notice">' +
               escapeHtml(s.objects + " objects on " + s.edges + " edge" + (s.edges === 1 ? "" : "s") + " (" + s.dc_edge + " + " + s.sites + " regional site" + (s.sites === 1 ? "" : "s") + ")" +
-                " · DC output port " + s.output_port + " · " + (plan.dry_run ? "dry run — nothing is sent" : "LIVE — will be sent to TXCore MAIN")) +
+                " · input " + (s.input || "?") + " · DC output port " + s.output_port +
+                " · encryption " + (s.encryption ? s.encryption + " (passphrase: " + s.passphrase_status + ")" : "none") +
+                " · " + (plan.dry_run ? "dry run — nothing is sent" : "LIVE — will be sent to TXCore MAIN")) +
               "</div>";
             var edgePath = (prov.status && prov.status.edge_path) || "/mwedge/{edge}";
             html += '<div class="table-wrap"><table><thead><tr><th>#</th><th>Kind</th><th>Name</th><th>Object</th></tr></thead><tbody>';
@@ -3001,11 +3175,14 @@
         }
 
         function provPayload() {
-          return {
+          var payload = {
             resource_id: bte.selectedId,
             duration_minutes: Number($("bte-prov-duration").value) || undefined,
             dry_run: $("bte-prov-dry-run").checked,
           };
+          var pp = $("bte-prov-passphrase").value;
+          if (pp) payload.passphrase = pp;
+          return payload;
         }
 
         function previewPlan() {
@@ -3027,7 +3204,7 @@
               if (typeof dlg.showModal === "function") dlg.showModal();
               else dlg.setAttribute("open", "");
             })
-            .catch(function (err) { alert("Plan failed: " + err.message); })
+            .catch(function (err) { provNotice("Plan failed: " + err.message, "bad"); })
             .finally(function () { btn.disabled = false; });
         }
 
@@ -3047,12 +3224,11 @@
           bteFetch("/provision", { method: "POST", body: JSON.stringify(payload) })
             .then(function (res) {
               if ($("bte-plan-dialog").open) $("bte-plan-dialog").close();
-              if (res.warnings && res.warnings.length) {
-                alert("Resources are being created with warnings:\n" + res.warnings.join("\n"));
-              }
+              provLog("Create requested — " + (r ? r.name : bte.selectedId) + (res.dry_run ? " (dry run)" : "") + ", " + res.objects + " objects", "log-dim");
+              (res.warnings || []).forEach(function (w) { provNotice(w, "warn"); });
               return loadLeases();
             })
-            .catch(function (err) { alert("Create resources failed: " + err.message); })
+            .catch(function (err) { provNotice("Create resources failed: " + err.message, "bad"); })
             .finally(function () {
               ["bte-btn-create", "bte-plan-create"].forEach(function (id) { $(id).disabled = false; });
             });
@@ -3064,20 +3240,21 @@
             body: JSON.stringify({ minutes: minutes }),
           })
             .then(function (res) {
-              if (res.note) alert(res.note);
+              if (res.note) provNotice(res.note, "warn");
+              provLog("Extended lease " + leaseId.slice(0, 8) + " by " + minutes + " min", "log-dim");
               return loadLeases();
             })
-            .catch(function (err) { alert("Extend failed: " + err.message); });
+            .catch(function (err) { provNotice("Extend failed: " + err.message, "bad"); });
         }
 
         function deleteLease(leaseId, name) {
           if (!confirm("Delete the [BTE] resources of " + name + " now?")) return;
           return bteFetch("/leases/" + encodeURIComponent(leaseId), { method: "DELETE" })
             .then(function (res) {
-              if (res.status !== "deleted") alert("Delete finished with problems (" + res.status + "):\n" + (res.errors || []).join("\n"));
+              if (res.status !== "deleted") provNotice("Delete of " + name + " finished with problems (" + res.status + "): " + (res.errors || []).join(" | "), "bad");
               return loadLeases();
             })
-            .catch(function (err) { alert("Delete failed: " + err.message); });
+            .catch(function (err) { provNotice("Delete failed: " + err.message, "bad"); });
         }
 
         function deleteAllLeases() {
@@ -3094,17 +3271,59 @@
           bteFetch("/leases?confirm=BTE", { method: "DELETE" })
             .then(function (res) {
               var failed = (res.results || []).filter(function (x) { return x.status !== "deleted"; });
-              if (failed.length) alert("Some streams could not be fully deleted:\n" + failed.map(function (x) { return x.resource_name + " — " + x.status; }).join("\n"));
+              provLog("Delete all — " + (res.deleted || 0) + " of " + (res.count || 0) + " streams removed", failed.length ? "log-err" : "log-ok");
+              if (failed.length) provNotice("Some streams could not be fully deleted: " + failed.map(function (x) { return x.resource_name + " — " + x.status; }).join(", "), "bad");
               return loadLeases();
             })
-            .catch(function (err) { alert("Delete all failed: " + err.message); })
+            .catch(function (err) { provNotice("Delete all failed: " + err.message, "bad"); })
             .finally(function () {
               btn.disabled = false;
               btn.textContent = "Delete all BTE resources";
             });
         }
 
+        function inspectEdge(key) {
+          if (!key) return;
+          var dlg = $("bte-edge-dialog");
+          $("bte-edge-tag").textContent = key;
+          $("bte-edge-doc").textContent = "loading…";
+          $("bte-edge-filter").value = "";
+          if (typeof dlg.showModal === "function") dlg.showModal();
+          else dlg.setAttribute("open", "");
+          bteFetch("/txcore/edges/" + encodeURIComponent(key))
+            .then(function (res) {
+              prov.edgeDoc = res.document;
+              renderEdgeDoc();
+            })
+            .catch(function (err) {
+              $("bte-edge-doc").textContent = "Failed: " + err.message;
+              provNotice("Inspect edge " + key + " failed: " + err.message, "bad");
+            });
+        }
+
+        function renderEdgeDoc() {
+          var doc = prov.edgeDoc;
+          if (!doc) return;
+          var q = $("bte-edge-filter").value.trim().toLowerCase();
+          if (q && typeof doc === "object") {
+            var narrowed = {};
+            Object.keys(doc).forEach(function (k) {
+              if (Array.isArray(doc[k])) {
+                narrowed[k] = doc[k].filter(function (o) { return JSON.stringify(o).toLowerCase().indexOf(q) !== -1; });
+              }
+            });
+            doc = narrowed;
+          }
+          $("bte-edge-doc").textContent = JSON.stringify(doc, null, 2);
+        }
+
         function wireProvisioning() {
+          $("bte-inspect-edge").addEventListener("change", function () {
+            inspectEdge(this.value);
+            this.value = "";
+          });
+          $("bte-edge-close").addEventListener("click", function () { $("bte-edge-dialog").close(); });
+          $("bte-edge-filter").addEventListener("input", renderEdgeDoc);
           $("bte-btn-plan").addEventListener("click", previewPlan);
           $("bte-btn-create").addEventListener("click", createResources);
           $("bte-plan-create").addEventListener("click", createResources);

@@ -662,6 +662,12 @@ _RESOURCE_ID_RE = re.compile(r'[0-9a-fA-F-]{8,64}')
 _LEASE_ID_RE = re.compile(r'[0-9a-f]{32}')
 
 
+def _passphrase_override(data):
+    """Optional supplier passphrase typed in the UI; used for the call, never echoed back."""
+    value = str(data.get('passphrase') or '').strip()
+    return value or None
+
+
 def _dry_run_forced(requested):
     """Live writes need BTE_PROVISIONING_ENABLED and a configured TXCore MAIN API."""
     return bool(requested) or not prov.PROVISIONING_ENABLED or not prov.configured()
@@ -690,7 +696,7 @@ def provision_plan():
     item = _find_snapshot_item(resource_id)
     if item is None:
         return jsonify({'error': 'Resource not found in the snapshot'}), 404
-    plan = prov.redact_plan(prov.build_plan(item))
+    plan = prov.redact_plan(prov.build_plan(item, passphrase_override=_passphrase_override(data)))
     plan['resource_id'] = resource_id
     plan['resource_name'] = item.get('name')
     plan['dry_run'] = _dry_run_forced(data.get('dry_run', True))
@@ -712,7 +718,7 @@ def provision_create():
     if item is None:
         return jsonify({'error': 'Resource not found in the snapshot'}), 404
 
-    plan = prov.build_plan(item)
+    plan = prov.build_plan(item, passphrase_override=_passphrase_override(data))
     if not plan['ok']:
         return jsonify({'error': 'Cannot build a plan for this resource', 'errors': plan['errors'],
                         'warnings': plan['warnings']}), 422
@@ -812,3 +818,36 @@ def leases_delete_all():
         'deleted': sum(1 for r in results if r['status'] == 'deleted'),
         'results': results,
     })
+
+
+_EDGE_KEY_RE = re.compile(r'[A-Za-z0-9]{2,16}')
+
+
+@bte_bp.route('/txcore/edges/<edge_key>', methods=['GET'])
+def txcore_edge_inspect(edge_key):
+    """Live MWEdge document from TXCore MAIN (streams/sources/outputs) with secrets masked.
+
+    Used to confirm option field names (e.g. how an SRT listener is stored)
+    against real objects on the edge.
+    """
+    if _get_role() not in ALLOWED_ROLES:
+        return _forbidden()
+    if not _EDGE_KEY_RE.fullmatch(edge_key):
+        return jsonify({'error': 'Edge not found'}), 404
+    edge = prov.EDGES.get(edge_key.upper())
+    if edge is None:
+        return jsonify({'error': f'Edge {edge_key} is not configured (BTE_EDGE_{edge_key.upper()})'}), 404
+    if not prov.configured():
+        return jsonify({'error': 'TXCore MAIN API is not configured (APIURLMAIN / BEARER_TOKEN_MAIN)'}), 500
+    try:
+        doc = prov.TXCoreClient().get_edge(edge['id'])
+    except prov.TXCoreError as exc:
+        return jsonify({'error': str(exc)}), 502
+    q = (request.args.get('q') or '').strip().lower()
+    if q and isinstance(doc, dict):
+        # Narrow the (large) document to the objects whose JSON mentions the filter.
+        for key in ('streams', 'sources', 'outputs'):
+            if isinstance(doc.get(key), list):
+                doc[key] = [o for o in doc[key] if q in json.dumps(o).lower()]
+    return jsonify({'edge': edge['key'], 'edge_id': edge['id'], 'location': edge.get('location'),
+                    'document': prov.redact_body(doc)})

@@ -18,12 +18,18 @@ TXCore call per edge: POST /api/mwedge/<edge id> with {streams, sources, outputs
 
     AVE / LMK / YER edges (always, one per site with a multicast address)
         stream
-        source  SRT caller  <DC edge out=SRT host>:<Output port> (internal passphrase)
+        source  SRT caller  <DC edge pub=SRT ip>:<Output port> (internal passphrase)
         output  UDP multicast from properties["<Site> Multicast"]
 
-Every object name carries BTE_TAG ("[BTE]"). The tag is the primary guard:
-nothing is ever deleted unless (a) it is recorded in the lease registry AND
-(b) the live object name fetched from TXCore still contains the tag.
+Naming (mirrors the existing TXCore conventions):
+    stream  <channel>_<edge>_[BTE]          e.g. VET_CH01_INX01_[BTE]
+    source  SRC_<channel>_A_<proto>_<edge>  e.g. SRC_VET_CH01_A_SRT_INX01
+    output  OUT_<channel>_<proto>_<edge>    e.g. OUT_VET_CH01_SRT_INX01
+The stream carries BTE_TAG in its name and its id starts with "BTE_"; sources
+and outputs belong to that stream. Nothing is ever deleted unless (a) it is
+recorded in the lease registry AND (b) the live object fetched from TXCore is
+still a BTE object: a stream whose name carries the tag, or a source/output
+whose ``stream`` still points at a "BTE_…" stream id.
 
 Lease registry: /opt/web/data/bte_leases.json (mode 0600, atomic replace,
 fcntl lock shared by all gunicorn workers).
@@ -34,13 +40,15 @@ Environment variables (.env):
     BTE_PROVISIONING_ENABLED            "true" to allow live TXCore writes (default false:
                                         every request is forced to dry-run)
     BTE_EDGE_<KEY>                      One entry per TXEdge, ``;``-separated key=value fields:
-        id=<txcore edge id>;location=<label>;dc=yes|no;in=SRT@<host>;out=SRT@<host>,UDP@<host>
-                                        e.g. BTE_EDGE_INX01=id=611d…;location=DC1 (INX);dc=yes;
-                                             in=SRT@10.138.38.25;out=SRT@10.138.38.25,UDP@10.138.38.25
+        id=<txcore edge id>;location=<label>;dc=yes|no;
+        in=SRT@<ip>;out=SRT@<ip>,UDP@<ip>;pub=SRT@<public ip>
+                                        in/out  local interface IPs -> ``networkInterface`` of the
+                                                sources (in) and outputs (out) created on that edge
+                                        pub     public IPs of a DC edge; regional edges pull SRT
+                                                from pub=SRT@<ip> (never from the internal ``out``)
                                         The key must match properties["DC MWEdge"] for DC edges
                                         (INX01…) and start with the site prefix AVE / LMK / YER
-                                        for regional edges (AVE02, LMK01, YER01…). Regional
-                                        edges pull from the DC edge's out=SRT@<host>.
+                                        for regional edges (AVE02, LMK01, YER01…).
     BTE_TXCORE_EDGE_PATH                Batch create endpoint, default /mwedge/{edge}
     BTE_TXCORE_OBJECT_PATH              Single object (GET/DELETE), default /mwedge/{edge}/{kind}/{id}
                                         {kind} is stream | source | output
@@ -129,6 +137,19 @@ MAX_DURATION_MIN = _env_int('BTE_MAX_DURATION_MINUTES', 24 * 60)
 EDGE_PATH = _env('BTE_TXCORE_EDGE_PATH') or '/mwedge/{edge}'
 OBJECT_PATH = _env('BTE_TXCORE_OBJECT_PATH') or '/mwedge/{edge}/{kind}/{id}'
 KINDS = ('stream', 'source', 'output')          # creation order inside a batch
+STREAM_ID_PREFIX = 'BTE_'
+
+# TXCore SRT option field names. ``port``/``address``/``networkInterface`` are
+# confirmed by the UDP example in the API reference; the SRT-specific ones below
+# are ASSUMED and must be checked against a real SRT source/output on stage
+# (BTE tab -> "Inspect edge" shows the live objects). Rename here if they differ.
+SRT_OPTION_KEYS = {
+    'mode': 'mode',            # 'listener' | 'caller'
+    'latency': 'latency',      # ms
+    'passphrase': 'passphrase',
+    'keylen': 'pbkeylen',      # 16 | 24 | 32  (AES-128 / 192 / 256)
+}
+ENCRYPTION_KEYLEN = {'AES-128': 16, 'AES-192': 24, 'AES-256': 32}
 DELETE_ORDER = ('output', 'source', 'stream')   # outputs first, the stream last
 
 # Regional sites: site prefix (edge keys AVE02, LMK01, ... start with it) -> Dataminer multicast property.
@@ -164,6 +185,7 @@ def parse_edge(key, raw):
         'dc': fields.get('dc', '').lower() in ('yes', 'true', '1'),
         'in': _parse_host_list(fields.get('in')),
         'out': _parse_host_list(fields.get('out')),
+        'pub': _parse_host_list(fields.get('pub')),
         'site': next((s for s, _ in REGIONAL_SITES if key.startswith(s)), None),
     }
 
@@ -202,8 +224,8 @@ def missing_edges(edges=None):
     if not any(e.get('dc') for e in edges.values()):
         missing.append('a DC edge (dc=yes)')
     for e in edges.values():
-        if e.get('dc') and not e['out'].get('SRT'):
-            missing.append(f"{e['key']} out=SRT@<host>")
+        if e.get('dc') and not e['pub'].get('SRT'):
+            missing.append(f"{e['key']} pub=SRT@<public ip>")
     for site, _ in REGIONAL_SITES:
         if site_edge(site, edges) is None:
             missing.append(f'site {site}')
@@ -224,7 +246,8 @@ def config_status():
         'txcore_token_set': bool(TXCORE_TOKEN),
         'internal_passphrase_set': bool(INTERNAL_PASSPHRASE),
         'edges': {k: {'id': v['id'], 'location': v['location'], 'dc': v['dc'], 'site': v['site'],
-                      'in': v['in'], 'out': v['out']} for k, v in sorted(EDGES.items())},
+                      'in': v['in'], 'out': v['out'], 'pub': v['pub']} for k, v in sorted(EDGES.items())},
+        'srt_option_keys': SRT_OPTION_KEYS,
         'missing_edges': missing_edges(),
         'edge_path': EDGE_PATH,
         'object_path': OBJECT_PATH,
@@ -312,38 +335,69 @@ def _int_or_none(value):
 # Plan builder
 # ---------------------------------------------------------------------------
 
-def bte_name(base, edge_key, kind):
-    """Object name convention. The tag is mandatory and checked on delete."""
-    return f'{base} {BTE_TAG} {edge_key} {kind}'
+def _slug(value):
+    return re.sub(r'[^A-Za-z0-9]+', '_', str(value)).strip('_')
+
+
+def stream_name(base, edge_key):
+    return f'{_slug(base)}_{edge_key}_{BTE_TAG}'          # VET_CH01_INX01_[BTE]
+
+
+def source_name(base, edge_key, protocol):
+    return f'SRC_{_slug(base)}_A_{protocol}_{edge_key}'  # SRC_VET_CH01_A_SRT_INX01
+
+
+def output_name(base, edge_key, protocol):
+    return f'OUT_{_slug(base)}_{protocol}_{edge_key}'    # OUT_VET_CH01_SRT_INX01
 
 
 def has_tag(name):
     return BTE_TAG in str(name or '')
 
 
+def is_bte_stream_id(value):
+    return str(value or '').startswith(STREAM_ID_PREFIX)
+
+
+def registry_is_bte(obj):
+    """Guard 1 — what the registry says about an object we created."""
+    if obj['kind'] == 'stream':
+        return has_tag(obj['name']) and is_bte_stream_id((obj.get('body') or {}).get('id'))
+    return is_bte_stream_id((obj.get('body') or {}).get('stream'))
+
+
+def live_is_bte(obj, live):
+    """Guard 2 — what TXCore says about the object right now."""
+    if not isinstance(live, dict):
+        return False
+    if obj['kind'] == 'stream':
+        return has_tag(live.get('name')) and is_bte_stream_id(live.get('id') or obj.get('id'))
+    return is_bte_stream_id(live.get('stream'))
+
+
 def _stream_id(base, edge_key):
     """Client-chosen TXCore stream id: unique per lease, still readable in TXCore."""
-    slug = re.sub(r'[^A-Za-z0-9]+', '_', base).strip('_')[:40]
-    return f'BTE_{slug}_{edge_key}_{uuid.uuid4().hex[:8]}'
+    return f'{STREAM_ID_PREFIX}{_slug(base)[:40]}_{edge_key}_{uuid.uuid4().hex[:8]}'
 
 
-def _srt_options(inp, latency, passphrase, encryption):
-    """SRT option block. Field names beyond port/address are TO BE CONFIRMED on stage."""
+def _srt_options(mode, port, address, latency, passphrase, encryption, interface):
+    """SRT option block (see SRT_OPTION_KEYS for the assumed field names)."""
+    k = SRT_OPTION_KEYS
     opts = {
-        'port': inp['port'],
-        'address': inp['host'] if inp['mode'] != 'listener' else None,
-        'mode': 'listener' if inp['mode'] == 'listener' else 'caller',
-        'latency': latency or 500,
-        'networkInterface': None,
+        'port': port,
+        'address': address if mode == 'caller' else None,
+        'networkInterface': interface,
+        k['mode']: mode,
+        k['latency']: latency or 500,
     }
     if passphrase:
-        opts['encryption'] = encryption or 'AES-256'
-        opts['passphrase'] = passphrase
+        opts[k['passphrase']] = passphrase
+        opts[k['keylen']] = ENCRYPTION_KEYLEN.get(str(encryption or 'AES-256').upper(), 32)
     return opts
 
 
-def _udp_options(host, port):
-    return {'port': port, 'address': host, 'networkInterface': None}
+def _udp_options(host, port, interface):
+    return {'port': port, 'address': host, 'networkInterface': interface}
 
 
 def _stream_obj(stream_id, name, failover):
@@ -354,11 +408,13 @@ def _endpoint_obj(stream_id, name, protocol, options):
     return {'stream': stream_id, 'name': name, 'tags': 'bte', 'protocol': protocol, 'active': True, 'options': options}
 
 
-def build_plan(item, edges=None):
+def build_plan(item, edges=None, passphrase_override=None):
     """Return {'ok', 'steps', 'warnings', 'errors', 'summary'} for a snapshot item.
 
     One step per edge = one POST /mwedge/<edge id>. Each step lists the objects
     it creates (kind, name, body); the request body is assembled at run time.
+    ``passphrase_override`` replaces the supplier passphrase of the resource
+    (used while the Dataminer API does not expose the real value).
     """
     edges = EDGES if edges is None else edges
     props = item.get('properties') or {}
@@ -375,8 +431,8 @@ def build_plan(item, edges=None):
         errors.append(f'Edge {dc_key} is not configured on the server (BTE_EDGE_{dc_key})')
     elif dc and not dc.get('dc'):
         errors.append(f'BTE_EDGE_{dc_key} is not flagged dc=yes')
-    elif dc and not dc['out'].get('SRT'):
-        errors.append(f'BTE_EDGE_{dc_key} has no out=SRT@<host> — regional edges cannot pull from it')
+    elif dc and not dc['pub'].get('SRT'):
+        errors.append(f'BTE_EDGE_{dc_key} has no pub=SRT@<public ip> — regional edges cannot pull from it')
 
     # "Input Main" and "Input" are synonyms on Dataminer resources. Only the
     # primary input is provisioned: BTE creates streams on the primary DC (INX)
@@ -402,8 +458,24 @@ def build_plan(item, edges=None):
     latency = latency if latency and latency > 0 else None
     encryption = _prop(props, 'Encryption Main', 'Encryption')
     encryption = str(encryption).strip() if encryption else None
-    passphrase = _prop(props, 'Passphrase Main', 'Passphrase')
-    passphrase = str(passphrase) if passphrase else None
+    encrypted = bool(encryption) and encryption.upper() != 'NONE'
+
+    # Supplier passphrase: override > resource value. A redacted value ("********")
+    # means the Dataminer API did not hand out the real secret.
+    raw_pass = _prop(props, 'Passphrase Main', 'Passphrase')
+    raw_pass = str(raw_pass) if raw_pass else None
+    if passphrase_override:
+        passphrase, passphrase_status = str(passphrase_override), 'override'
+    elif raw_pass and raw_pass.strip('*') == '':
+        passphrase, passphrase_status = None, 'redacted'
+    else:
+        passphrase, passphrase_status = raw_pass, ('resource' if raw_pass else 'missing')
+    if encrypted and not passphrase:
+        warnings.append(f'Encryption {encryption} requested but the resource passphrase is {passphrase_status} — '
+                        f'the {dc_key} source will be created WITHOUT encryption (use the passphrase override)')
+    elif not encrypted and passphrase:
+        warnings.append('A passphrase is present but Encryption is None — the source is created without encryption')
+        passphrase = None
 
     def step(edge, objects):
         steps.append({'seq': len(steps) + 1, 'edge': edge['key'], 'edge_id': edge['id'],
@@ -411,22 +483,22 @@ def build_plan(item, edges=None):
 
     # ---- DC edge ----------------------------------------------------------
     sid = _stream_id(base, dc_key)
-    objects = []
-    objects.append({'kind': 'stream', 'name': bte_name(base, dc_key, 'stream'),
-                    'body': _stream_obj(sid, bte_name(base, dc_key, 'stream'), 'none')})
-    name = bte_name(base, dc_key, 'source')
-    if main_in['protocol'] == 'srt':
-        opts = _srt_options(main_in, latency, passphrase, encryption)
+    proto = main_in['protocol'].upper()
+    n_stream = stream_name(base, dc_key)
+    n_src = source_name(base, dc_key, proto)
+    n_out = output_name(base, dc_key, 'SRT')
+    if proto == 'SRT':
+        mode = 'listener' if main_in['mode'] == 'listener' else 'caller'
+        src_opts = _srt_options(mode, main_in['port'], main_in['host'], latency,
+                                passphrase if encrypted else None, encryption, dc['in'].get('SRT'))
     else:
-        opts = _udp_options(main_in['host'], main_in['port'])
-    objects.append({'kind': 'source', 'name': name,
-                    'body': _endpoint_obj(sid, name, main_in['protocol'].upper(), opts)})
-    name = bte_name(base, dc_key, 'output')
-    objects.append({'kind': 'output', 'name': name, 'body': _endpoint_obj(sid, name, 'SRT', {
-        'port': out_port, 'address': None, 'mode': 'listener', 'latency': latency or 500,
-        'encryption': 'AES-256', 'passphrase': INTERNAL_PASSPHRASE, 'networkInterface': None,
-    })})
-    step(dc, objects)
+        src_opts = _udp_options(main_in['host'], main_in['port'], dc['in'].get(proto) or dc['in'].get('UDP'))
+    step(dc, [
+        {'kind': 'stream', 'name': n_stream, 'body': _stream_obj(sid, n_stream, 'none')},
+        {'kind': 'source', 'name': n_src, 'body': _endpoint_obj(sid, n_src, proto, src_opts)},
+        {'kind': 'output', 'name': n_out, 'body': _endpoint_obj(sid, n_out, 'SRT', _srt_options(
+            'listener', out_port, None, latency, INTERNAL_PASSPHRASE, 'AES-256', dc['out'].get('SRT')))},
+    ])
 
     # ---- regional edges ---------------------------------------------------
     sites = 0
@@ -442,14 +514,13 @@ def build_plan(item, edges=None):
         sites += 1
         key = edge['key']
         sid = _stream_id(base, key)
-        n_stream, n_src, n_out = bte_name(base, key, 'stream'), bte_name(base, key, 'source'), bte_name(base, key, 'output')
+        n_stream, n_src, n_out = stream_name(base, key), source_name(base, key, 'SRT'), output_name(base, key, 'UDP')
         step(edge, [
             {'kind': 'stream', 'name': n_stream, 'body': _stream_obj(sid, n_stream, 'none')},
-            {'kind': 'source', 'name': n_src, 'body': _endpoint_obj(sid, n_src, 'SRT', {
-                'port': out_port, 'address': dc['out']['SRT'], 'mode': 'caller', 'latency': latency or 500,
-                'encryption': 'AES-256', 'passphrase': INTERNAL_PASSPHRASE, 'networkInterface': None,
-            })},
-            {'kind': 'output', 'name': n_out, 'body': _endpoint_obj(sid, n_out, 'UDP', _udp_options(mcast['host'], mcast['port']))},
+            {'kind': 'source', 'name': n_src, 'body': _endpoint_obj(sid, n_src, 'SRT', _srt_options(
+                'caller', out_port, dc['pub']['SRT'], latency, INTERNAL_PASSPHRASE, 'AES-256', edge['in'].get('SRT')))},
+            {'kind': 'output', 'name': n_out, 'body': _endpoint_obj(sid, n_out, 'UDP', _udp_options(
+                mcast['host'], mcast['port'], edge['out'].get('UDP')))},
         ])
 
     if sites == 0:
@@ -463,7 +534,10 @@ def build_plan(item, edges=None):
         'summary': {
             'resource': base,
             'dc_edge': dc_key,
+            'input': raw_input,
             'output_port': out_port,
+            'encryption': encryption if encrypted else None,
+            'passphrase_status': passphrase_status,
             'sites': sites,
             'edges': len(steps),
             'objects': sum(len(s['objects']) for s in steps),
@@ -567,6 +641,16 @@ class TXCoreClient:
             err.created = created
             raise err
         return created
+
+    def get_edge(self, edge_id):
+        """GET the whole MWEdge document (streams, sources, outputs as TXCore stores them)."""
+        try:
+            resp = self.session.get(self.edge_url(edge_id), timeout=REQUEST_TIMEOUT)
+        except requests.RequestException as exc:
+            raise TXCoreError(f'edge GET failed: {exc}') from exc
+        if not resp.ok:
+            raise TXCoreError(f'edge GET returned HTTP {resp.status_code}: {resp.text[:300]}')
+        return self._json(resp)
 
     def get_object(self, kind, edge_id, obj_id):
         """Return the live object, or None when TXCore reports 404."""
@@ -768,10 +852,10 @@ def run_lease(lease_id, client=None):
     client = client or TXCoreClient()
     for step in lease['steps']:
         objs = [o for o in lease['objects'] if o['seq'] == step['seq']]
-        untagged = [o['name'] for o in objs if not has_tag(o['name'])]
+        untagged = [o['name'] for o in objs if not registry_is_bte(o)]
         if untagged:
-            # Defensive: never create an untagged object; it could not be cleaned up.
-            reason = f"step {step['seq']} ({step['edge']}): refused, names lack {BTE_TAG}: {untagged}"
+            # Defensive: never create an object we could not recognise as ours later.
+            reason = f"step {step['seq']} ({step['edge']}): refused, not identifiable as BTE objects: {untagged}"
             _update_lease(lease_id, lambda l, s=step['seq'], e=reason: _mark_step(l, s, 'error', e))
             return _rollback(lease_id, client, reason)
         try:
@@ -835,9 +919,9 @@ def _delete_objects(lease_id, client):
                   key=lambda o: (-o['seq'], order.get(o['kind'], 9)))
     for obj in objs:
         # Guard 1: the registry itself must say this is a BTE object.
-        if not has_tag(obj['name']):
+        if not registry_is_bte(obj):
             refused += 1
-            _update_lease(lease_id, lambda l, s=obj: _mark_obj(l, s, 'refused', f'registry name lacks {BTE_TAG}'))
+            _update_lease(lease_id, lambda l, s=obj: _mark_obj(l, s, 'refused', 'registry entry is not a BTE object'))
             continue
         try:
             live = client.get_object(obj['kind'], obj['edge_id'], obj['id'])
@@ -845,13 +929,14 @@ def _delete_objects(lease_id, client):
                 _update_lease(lease_id, lambda l, s=obj: _mark_obj(l, s, 'gone'))
                 deleted += 1
                 continue
-            # Guard 2: the object as it exists in TXCore right now must still carry the tag.
-            live_name = live.get('name') if isinstance(live, dict) else None
-            if not has_tag(live_name):
+            # Guard 2: the object as it exists in TXCore right now must still be ours
+            # (tagged stream, or source/output still attached to a BTE_ stream).
+            if not live_is_bte(obj, live):
                 refused += 1
-                _update_lease(lease_id, lambda l, s=obj, n=live_name: _mark_obj(
-                    l, s, 'refused', f'live name {n!r} lacks {BTE_TAG} — not deleted'))
-                log.warning('BTE lease %s: refused to delete %s %s (name %r)', lease_id, obj['kind'], obj['id'], live_name)
+                desc = f"name={live.get('name')!r} stream={live.get('stream')!r}" if isinstance(live, dict) else repr(live)
+                _update_lease(lease_id, lambda l, s=obj, d=desc: _mark_obj(
+                    l, s, 'refused', f'live object is no longer a BTE object ({d}) — not deleted'))
+                log.warning('BTE lease %s: refused to delete %s %s (%s)', lease_id, obj['kind'], obj['id'], desc)
                 continue
             result = client.delete_object(obj['kind'], obj['edge_id'], obj['id'])
             _update_lease(lease_id, lambda l, s=obj, r=result: _mark_obj(l, s, r))
