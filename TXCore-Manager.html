@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TXCore Provisioning — SO-Toolbox</title>
-    <!-- TXCore Manager frontend v1.6.0 — STB (multicast) + MAIN (SRT) clusters + BTE (timed TXEdge resource provisioning, channel reuse guard, destination outputs) -->
+    <!-- TXCore Manager frontend v1.7.0 — STB (multicast) + MAIN (SRT) clusters + BTE (timed TXEdge resource provisioning, channel reuse guard, destination outputs, legacy TXEdge support, partial creation kept) -->
     <style>
       :root {
         --bg: #0f1216;
@@ -3079,6 +3079,9 @@
             var detail = (l.errors || []).slice(-1)[0] || "";
             if (l.status === "failed") provNotice("Create failed — " + label + (detail ? ": " + detail : ""), "bad");
             else if (l.status === "delete_failed") provNotice("Delete incomplete — " + label + (detail ? ": " + detail : ""), "bad");
+            else if (l.status === "active" && prev === "creating" && l.partial)
+              provNotice("Partially created — " + label + ": " + ((l.errors || []).join(" | ") || "some objects failed") +
+                ". What was created is kept in BTE active streams (delete it from there).", "bad");
             else if (l.status === "active" && prev === "creating") provLog("Active — " + label + (l.dry_run ? " (dry run)" : ""), "log-ok");
             else if (l.status === "deleted") provLog("Deleted — " + label + (l.delete_reason ? " (" + l.delete_reason + ")" : ""), "log-dim");
           });
@@ -3228,6 +3231,7 @@
           var cls = l.status === "active" || l.status === "creating" || l.status === "deleting" || l.status === "failed" || l.status === "delete_failed" ? l.status : "";
           var label = l.status.replace("_", " ");
           return '<span class="pill ' + cls + '">' + escapeHtml(label) + "</span>" +
+            (l.partial ? ' <span class="pill other" title="Some edges/objects could not be created">partial</span>' : "") +
             (l.dry_run ? ' <span class="pill dry">dry run</span>' : "");
         }
 
@@ -3358,7 +3362,9 @@
             plan.steps.forEach(function (st) {
               html += '<tr><td colspan="4" class="plan-edge">' + escapeHtml(st.edge) +
                 (st.location ? " — " + escapeHtml(st.location) : "") +
-                " — POST " + escapeHtml(edgePath.replace("{edge}", st.edge_id)) + "</td></tr>";
+                (st.legacy
+                  ? " — legacy TXEdge: one POST per object " + escapeHtml(edgePath.replace("{edge}", st.edge_id)) + "/{stream|source|output}"
+                  : " — POST " + escapeHtml(edgePath.replace("{edge}", st.edge_id))) + "</td></tr>";
               (st.objects || []).forEach(function (o, i) {
                 html += '<tr class="plan-step"><td>' + st.seq + "." + (i + 1) + "</td><td>" + escapeHtml(o.kind) + "</td><td>" + escapeHtml(o.name) +
                   '</td><td><pre class="plan-body">' + escapeHtml(JSON.stringify(o.body)) + "</pre></td></tr>";

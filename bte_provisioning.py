@@ -49,9 +49,18 @@ Environment variables (.env):
                                         The key must match properties["DC MWEdge"] for DC edges
                                         (INX01…) and start with the site prefix AVE / LMK / YER
                                         for regional edges (AVE02, LMK01, YER01…).
+                                        legacy=yes   TXEdge older than 1.46.0: it has no batch endpoint, so
+                                                     objects are created one by one
+                                                     (POST /mwedge/<id>/stream | source | output)
+                                        version=1.24.1  alternative to legacy=: the edge is legacy when the
+                                                     version is below BTE_LEGACY_BELOW (an explicit
+                                                     legacy= always wins)
     BTE_TXCORE_EDGE_PATH                Batch create endpoint, default /mwedge/{edge}
     BTE_TXCORE_OBJECT_PATH              Single object (GET/DELETE), default /mwedge/{edge}/{kind}/{id}
                                         {kind} is stream | source | output
+    BTE_TXCORE_LEGACY_CREATE_PATH       Per-object create endpoint for legacy edges,
+                                        default /mwedge/{edge}/{kind}
+    BTE_LEGACY_BELOW                    First TXEdge version with the batch endpoint (1.46.0)
     BTE_DEFAULT_DURATION_MINUTES        Lease length offered by default (60)
     BTE_DEFAULT_EXTEND_MINUTES          Extension offered by default (30)
     BTE_MAX_DURATION_MINUTES            Hard cap for a lease, including extensions (1440)
@@ -136,6 +145,7 @@ MAX_DURATION_MIN = _env_int('BTE_MAX_DURATION_MINUTES', 24 * 60)
 
 EDGE_PATH = _env('BTE_TXCORE_EDGE_PATH') or '/mwedge/{edge}'
 OBJECT_PATH = _env('BTE_TXCORE_OBJECT_PATH') or '/mwedge/{edge}/{kind}/{id}'
+LEGACY_CREATE_PATH = _env('BTE_TXCORE_LEGACY_CREATE_PATH') or '/mwedge/{edge}/{kind}'
 KINDS = ('stream', 'source', 'output')          # creation order inside a batch
 STREAM_ID_PREFIX = 'BTE_'
 
@@ -179,6 +189,25 @@ _EDGE_KEY_RE = re.compile(r'BTE_EDGE_([A-Za-z0-9]+)')
 _HOST_LIST_RE = re.compile(r'\s*([A-Za-z]+)@([^,;\s]+)')
 
 
+def _version_tuple(value):
+    """'1.24.1' -> (1, 24, 1); '1.46' -> (1, 46, 0); unparsable -> None."""
+    nums = [int(n) for n in re.findall(r'\d+', str(value or ''))[:3]]
+    return tuple((nums + [0, 0, 0])[:3]) if nums else None
+
+
+# TXEdges older than this have no {streams, sources, outputs} batch endpoint.
+LEGACY_BELOW = _version_tuple(_env('BTE_LEGACY_BELOW')) or (1, 46, 0)
+
+
+def _is_legacy(fields):
+    """legacy=yes|no wins; otherwise version=<x.y.z> below LEGACY_BELOW means legacy."""
+    flag = fields.get('legacy')
+    if flag:
+        return flag.lower() in ('yes', 'true', '1')
+    version = _version_tuple(fields.get('version'))
+    return bool(version and version < LEGACY_BELOW)
+
+
 def _parse_host_list(value):
     """'SRT@10.0.0.1,UDP@10.0.0.2' -> {'SRT': '10.0.0.1', 'UDP': '10.0.0.2'}."""
     return {m.group(1).upper(): m.group(2) for m in _HOST_LIST_RE.finditer(value or '')}
@@ -203,6 +232,8 @@ def parse_edge(key, raw):
         'in': _parse_host_list(fields.get('in')),
         'out': _parse_host_list(fields.get('out')),
         'pub': _parse_host_list(fields.get('pub')),
+        'legacy': _is_legacy(fields),
+        'version': fields.get('version') or None,
         'site': next((s for s, _ in REGIONAL_SITES if key.startswith(s)), None),
     }
 
@@ -263,7 +294,9 @@ def config_status():
         'txcore_token_set': bool(TXCORE_TOKEN),
         'internal_passphrase_set': bool(INTERNAL_PASSPHRASE),
         'edges': {k: {'id': v['id'], 'location': v['location'], 'dc': v['dc'], 'site': v['site'],
-                      'in': v['in'], 'out': v['out'], 'pub': v['pub']} for k, v in sorted(EDGES.items())},
+                      'in': v['in'], 'out': v['out'], 'pub': v['pub'],
+                      'legacy': v['legacy'], 'version': v['version']} for k, v in sorted(EDGES.items())},
+        'legacy_below': '.'.join(str(n) for n in LEGACY_BELOW),
         'srt_option_keys': SRT_OPTION_KEYS,
         'missing_edges': missing_edges(),
         'edge_path': EDGE_PATH,
@@ -429,20 +462,38 @@ def destination_object(base, edge_key, edge, dest, sid):
             'destination_id': dest.get('id'), 'destination_name': dest.get('name')}
 
 
-def registry_is_bte(obj):
-    """Guard 1 — what the registry says about an object we created."""
+def _own_stream_ids(lease):
+    """TXCore ids of the tagged streams of a lease (server-assigned on legacy edges)."""
+    return {o['id'] for o in lease['objects']
+            if o['kind'] == 'stream' and o.get('id') and has_tag(o['name'])}
+
+
+def registry_is_bte(obj, stream_ids=()):
+    """Guard 1 — what the registry says about an object we created.
+
+    On a legacy edge TXCore assigns the stream id itself (no "BTE_" prefix), so
+    the tag in the stream name is the marker there and sources/outputs are
+    recognised by pointing at one of the lease's own tagged streams.
+    """
+    body = obj.get('body') or {}
+    legacy = bool(obj.get('legacy'))
     if obj['kind'] == 'stream':
-        return has_tag(obj['name']) and is_bte_stream_id((obj.get('body') or {}).get('id'))
-    return is_bte_stream_id((obj.get('body') or {}).get('stream'))
+        return has_tag(obj['name']) and (is_bte_stream_id(body.get('id')) or legacy)
+    stream = body.get('stream')
+    return is_bte_stream_id(stream) or (legacy and stream in stream_ids)
 
 
-def live_is_bte(obj, live):
+def live_is_bte(obj, live, stream_ids=()):
     """Guard 2 — what TXCore says about the object right now."""
     if not isinstance(live, dict):
         return False
+    legacy = bool(obj.get('legacy'))
+    live_id = live.get('id') or live.get('_id') or obj.get('id')
     if obj['kind'] == 'stream':
-        return has_tag(live.get('name')) and is_bte_stream_id(live.get('id') or obj.get('id'))
-    return is_bte_stream_id(live.get('stream'))
+        return has_tag(live.get('name')) and (
+            is_bte_stream_id(live_id) or (legacy and live_id == obj.get('id')))
+    stream = live.get('stream')
+    return is_bte_stream_id(stream) or (legacy and stream in stream_ids)
 
 
 def _stream_id(base, edge_key):
@@ -561,7 +612,8 @@ def build_plan(item, edges=None, passphrase_override=None, destinations=None):
 
     def step(edge, objects):
         steps.append({'seq': len(steps) + 1, 'edge': edge['key'], 'edge_id': edge['id'],
-                      'location': edge.get('location'), 'objects': objects})
+                      'location': edge.get('location'), 'legacy': bool(edge.get('legacy')),
+                      'objects': objects})
 
     # ---- DC edge ----------------------------------------------------------
     sid = _stream_id(base, dc_key)
@@ -676,6 +728,16 @@ class TXCoreError(Exception):
     pass
 
 
+def _legacy_body(kind, body):
+    """Body for the per-object endpoints of TXEdge < 1.46.0 (documented fields only)."""
+    if kind == 'stream':
+        return {'name': body.get('name')}          # id is assigned by TXCore
+    out = dict(body)
+    if kind == 'output':
+        out.pop('active', None)                     # "active" only exists on sources
+    return out
+
+
 class TXCoreClient:
     """Thin wrapper over the TXCore MAIN REST API for MWEdge objects."""
 
@@ -738,6 +800,95 @@ class TXCoreClient:
             err.created = created
             raise err
         return created
+
+    def legacy_url(self, kind, edge_id):
+        return self.url + LEGACY_CREATE_PATH.replace('{edge}', str(edge_id)).replace('{kind}', kind)
+
+    def create_objects(self, edge_id, objects, legacy=False):
+        """Create ``objects`` ([{'kind', 'body'}]) on one edge.
+
+        Modern edges take one batch POST; legacy edges (< 1.46.0) one POST per
+        object. Returns [(kind, requested_name, id, name)]; on any failure raises
+        TXCoreError whose ``created`` attribute lists what already exists.
+        """
+        if legacy:
+            return self.create_sequential(edge_id, objects)
+        return self.create_batch(edge_id, batch_body(objects))
+
+    def create_sequential(self, edge_id, objects):
+        """Legacy create: stream first, then sources/outputs against the id TXCore assigned.
+
+        A failing object never stops the others (except those that depend on a
+        stream that could not be created); everything that was created is
+        reported in the exception so the caller can keep tracking it.
+        """
+        created, failures = [], []
+        stream_map = {}          # planned stream id -> id assigned by TXCore
+        failed_streams = set()
+        for kind in KINDS:
+            for obj in objects:
+                if obj['kind'] != kind:
+                    continue
+                body = _legacy_body(kind, obj['body'])
+                name = body.get('name')
+                planned = (obj['body'] or {}).get('id' if kind == 'stream' else 'stream')
+                if kind != 'stream':
+                    if planned in failed_streams:
+                        failures.append(f'{kind} {name!r}: skipped, its stream was not created')
+                        continue
+                    body['stream'] = stream_map.get(planned, planned)
+                try:
+                    obj_id, live_name = self._post_object(edge_id, kind, body)
+                except TXCoreError as exc:
+                    failures.append(f'{kind} {name!r}: {exc}')
+                    if kind == 'stream':
+                        failed_streams.add(planned)
+                    continue
+                if kind == 'stream':
+                    stream_map[planned] = obj_id
+                created.append((kind, name, obj_id, live_name))
+        if failures:
+            err = TXCoreError('; '.join(failures))
+            err.created = created
+            raise err
+        return created
+
+    def _post_object(self, edge_id, kind, body):
+        """POST one object to a legacy edge. Returns (id, name)."""
+        url = self.legacy_url(kind, edge_id)
+        try:
+            resp = self.session.post(url, json=body, timeout=REQUEST_TIMEOUT)
+        except requests.RequestException as exc:
+            raise TXCoreError(f'POST {url} failed: {exc}') from exc
+        payload = self._json(resp)
+        if not resp.ok:
+            raise TXCoreError(f'POST {kind} returned HTTP {resp.status_code}: {json.dumps(payload)[:300]}')
+        if isinstance(payload, dict) and payload.get('success') is False:
+            raise TXCoreError(f'POST {kind} refused: {json.dumps(payload)[:300]}')
+        data = payload.get('data') if isinstance(payload, dict) and isinstance(payload.get('data'), dict) else payload
+        obj_id = live_name = None
+        if isinstance(data, dict):
+            obj_id = data.get('id') or data.get('_id')
+            live_name = data.get('name')
+        if not obj_id:
+            # The object may exist even though the answer carried no id: look it up by name
+            # so it is never left behind untracked.
+            obj_id = self._find_created(edge_id, kind, body)
+        if not obj_id:
+            raise TXCoreError(f'{kind} {body.get("name")!r} may exist on the edge but TXCore returned no id '
+                              f'(check the TXEdge for an orphan)')
+        return str(obj_id), live_name
+
+    def _find_created(self, edge_id, kind, body):
+        try:
+            doc = self.get_edge(edge_id)
+        except TXCoreError:
+            return None
+        candidates = (doc.get(kind + 's') or []) if isinstance(doc, dict) else []
+        for cand in candidates:
+            if cand.get('name') == body.get('name') and (kind == 'stream' or cand.get('stream') == body.get('stream')):
+                return cand.get('id') or cand.get('_id')
+        return None
 
     def get_edge(self, edge_id):
         """GET the whole MWEdge document (streams, sources, outputs as TXCore stores them)."""
@@ -869,7 +1020,7 @@ def used_destination_ids(exclude_lease=None):
         if lease['status'] in FINAL_STATUSES:
             continue
         for obj in lease.get('objects', []):
-            if obj.get('destination_id') and obj.get('status') != 'refused':
+            if obj.get('destination_id') and obj.get('status') not in ('refused', 'error'):
                 used.add(obj['destination_id'])
     return used
 
@@ -929,7 +1080,7 @@ def create_lease(item, plan, duration_minutes, username, dry_run):
         'errors': [],
         'steps': [
             {'seq': s['seq'], 'edge': s['edge'], 'edge_id': s['edge_id'], 'location': s.get('location'),
-             'status': 'pending', 'error': None}
+             'status': 'pending', 'error': None, 'legacy': bool(s.get('legacy'))}
             for s in plan['steps']
         ],
         # Objects created in TXCore (filled in while the plan runs). Every entry
@@ -937,9 +1088,11 @@ def create_lease(item, plan, duration_minutes, username, dry_run):
         'objects': [
             {'seq': s['seq'], 'edge': s['edge'], 'edge_id': s['edge_id'], 'kind': o['kind'],
              'name': o['name'], 'body': o['body'], 'id': None, 'status': 'pending', 'error': None,
-             'destination_id': o.get('destination_id'), 'destination_name': o.get('destination_name')}
+             'destination_id': o.get('destination_id'), 'destination_name': o.get('destination_name'),
+             'legacy': bool(s.get('legacy'))}
             for s in plan['steps'] for o in s['objects']
         ],
+        'partial': False,
         'finished_at': None,
     }
 
@@ -961,11 +1114,12 @@ def _update_lease(lease_id, fn):
 
 
 def run_lease(lease_id, client=None):
-    """Execute the lease plan: one POST per edge (or mark everything skipped on dry run).
+    """Execute the lease plan: one call (batch) or one call per object (legacy) per edge.
 
-    On the first failing edge everything created so far — including objects
-    TXCore reported as created in the failing batch — is rolled back and the
-    lease ends as 'failed'.
+    A failing edge never aborts the others, and nothing is rolled back:
+    everything TXCore reports as created stays in the lease (visible in the UI,
+    deletable, reaped on expiry). The lease ends 'active' with ``partial`` set
+    when some edge is incomplete, or 'failed' when nothing at all was created.
     """
     lease = get_lease(lease_id)
     if lease is None:
@@ -981,28 +1135,49 @@ def run_lease(lease_id, client=None):
 
     client = client or TXCoreClient()
     for step in lease['steps']:
-        objs = [o for o in lease['objects'] if o['seq'] == step['seq']]
+        seq = step['seq']
+        label = f"step {seq} ({step['edge']})"
+        objs = [o for o in lease['objects'] if o['seq'] == seq]
         untagged = [o['name'] for o in objs if not registry_is_bte(o)]
         if untagged:
             # Defensive: never create an object we could not recognise as ours later.
-            reason = f"step {step['seq']} ({step['edge']}): refused, not identifiable as BTE objects: {untagged}"
-            _update_lease(lease_id, lambda l, s=step['seq'], e=reason: _mark_step(l, s, 'error', e))
-            return _rollback(lease_id, client, reason)
+            reason = f"{label}: refused, not identifiable as BTE objects: {untagged}"
+            log.error('BTE lease %s: %s', lease_id, reason)
+            _update_lease(lease_id, lambda l, s=seq, e=reason: (l['errors'].append(e), _mark_step(l, s, 'error', e)))
+            continue
         try:
-            created = client.create_batch(step['edge_id'], batch_body(
-                [{'kind': o['kind'], 'body': o['body']} for o in objs]))
-        except TXCoreError as exc:
+            created = client.create_objects(
+                step['edge_id'], [{'kind': o['kind'], 'body': o['body']} for o in objs],
+                legacy=bool(step.get('legacy')))
+        except Exception as exc:  # noqa: BLE001 — one edge failing must not stop the others
+            if not isinstance(exc, TXCoreError):
+                log.exception('BTE lease %s: unexpected error on %s', lease_id, label)
             partial = getattr(exc, 'created', [])
-            _update_lease(lease_id, lambda l, s=step['seq'], c=partial, e=str(exc): (
-                _record_created(l, s, c), _mark_step(l, s, 'error', e)))
-            return _rollback(lease_id, client, f"step {step['seq']} ({step['edge']}): {exc}")
-        _update_lease(lease_id, lambda l, s=step['seq'], c=created: (
+            reason = f'{label}: {exc}'
+            log.error('BTE lease %s: %s (%d objects were created and are kept)', lease_id, reason, len(partial))
+            _update_lease(lease_id, lambda l, s=seq, c=partial, e=reason: (
+                _record_created(l, s, c), l['errors'].append(e), _mark_step(l, s, 'error', e)))
+            continue
+        _update_lease(lease_id, lambda l, s=seq, c=created: (
             _record_created(l, s, c), _mark_step(l, s, 'created')))
 
-    def _done(l):
+    def _finish(l):
+        made = sum(1 for o in l['objects'] if o.get('id'))
+        bad = [st for st in l['steps'] if st['status'] == 'error']
+        if not made:
+            l['status'] = 'failed'
+            l['finished_at'] = _iso(_now())
+            return
         l['status'] = 'active'
-    log.info('BTE lease %s active: %s (%d edges)', lease_id, lease['resource_name'], len(lease['steps']))
-    return _update_lease(lease_id, _done)
+        l['partial'] = bool(bad)
+        if bad:
+            l['warnings'].append(
+                f"Partial: {len(bad)} of {len(l['steps'])} edges incomplete ({', '.join(st['edge'] for st in bad)}) "
+                f"— what was created is kept and can be deleted from the stream list")
+    result = _update_lease(lease_id, _finish)
+    log.info('BTE lease %s %s%s: %s (%d edges)', lease_id, result['status'],
+             ' (partial)' if result.get('partial') else '', lease['resource_name'], len(lease['steps']))
+    return result
 
 
 def _mark_step(lease, seq, status, error=None):
@@ -1011,6 +1186,12 @@ def _mark_step(lease, seq, status, error=None):
             st['status'] = status
             if error is not None:
                 st['error'] = error
+    if status == 'error':
+        # What never got an id was not created: flag it so the UI counts it as a problem.
+        for obj in lease['objects']:
+            if obj['seq'] == seq and obj.get('id') is None and obj['status'] == 'pending':
+                obj['status'] = 'error'
+                obj['error'] = 'not created'
 
 
 def _record_created(lease, seq, created):
@@ -1023,19 +1204,15 @@ def _record_created(lease, seq, created):
                 if live_name and live_name != requested_name:
                     obj['error'] = f'TXCore stored the name as {live_name!r}'
                 break
-
-
-def _rollback(lease_id, client, reason):
-    lease = get_lease(lease_id)
-    n = sum(1 for o in lease['objects'] if o.get('id'))
-    log.error('BTE lease %s failed, rolling back %d objects: %s', lease_id, n, reason)
-    _update_lease(lease_id, lambda l: l['errors'].append(reason))
-    _delete_objects(lease_id, client)
-
-    def _fail(l):
-        l['status'] = 'failed'
-        l['finished_at'] = _iso(_now())
-    return _update_lease(lease_id, _fail)
+    # Legacy edges assign the stream id themselves: point the step's sources/outputs at it.
+    stream_obj = next((o for o in lease['objects']
+                       if o['seq'] == seq and o['kind'] == 'stream' and o.get('id')), None)
+    if stream_obj:
+        for obj in lease['objects']:
+            body = obj.get('body')
+            if obj['seq'] == seq and obj['kind'] != 'stream' and isinstance(body, dict) \
+                    and body.get('stream') != stream_obj['id']:
+                body['stream'] = stream_obj['id']
 
 
 def _delete_objects(lease_id, client):
@@ -1043,13 +1220,14 @@ def _delete_objects(lease_id, client):
 
     Returns (deleted, refused, failed)."""
     lease = get_lease(lease_id)
+    own_streams = _own_stream_ids(lease)
     deleted = refused = failed = 0
     order = {k: i for i, k in enumerate(DELETE_ORDER)}
     objs = sorted((o for o in lease['objects'] if o.get('id') and o['status'] not in ('deleted', 'gone')),
                   key=lambda o: (-o['seq'], order.get(o['kind'], 9)))
     for obj in objs:
         # Guard 1: the registry itself must say this is a BTE object.
-        if not registry_is_bte(obj):
+        if not registry_is_bte(obj, own_streams):
             refused += 1
             _update_lease(lease_id, lambda l, s=obj: _mark_obj(l, s, 'refused', 'registry entry is not a BTE object'))
             continue
@@ -1061,7 +1239,7 @@ def _delete_objects(lease_id, client):
                 continue
             # Guard 2: the object as it exists in TXCore right now must still be ours
             # (tagged stream, or source/output still attached to a BTE_ stream).
-            if not live_is_bte(obj, live):
+            if not live_is_bte(obj, live, own_streams):
                 refused += 1
                 desc = f"name={live.get('name')!r} stream={live.get('stream')!r}" if isinstance(live, dict) else repr(live)
                 _update_lease(lease_id, lambda l, s=obj, d=desc: _mark_obj(
@@ -1173,7 +1351,7 @@ def add_destination(lease_id, destination_item, username, client=None):
         return lease, 'Destination has no id'
     if dest_id in used_destination_ids(exclude_lease=lease_id):
         return lease, 'This destination is already attached to another BTE stream'
-    if any(o.get('destination_id') == dest_id and o['status'] != 'refused' for o in lease['objects']):
+    if any(o.get('destination_id') == dest_id and o['status'] not in ('refused', 'error') for o in lease['objects']):
         return lease, 'This destination is already attached to this stream'
 
     dc_key = lease['dc_edge']
@@ -1194,7 +1372,8 @@ def add_destination(lease_id, destination_item, username, client=None):
     seq = max((o['seq'] for o in lease['objects']), default=0) + 1
     new_obj = {'seq': seq, 'edge': dc_key, 'edge_id': edge['id'], 'kind': obj['kind'], 'name': obj['name'],
                'body': obj['body'], 'id': None, 'status': 'pending', 'error': None,
-               'destination_id': obj['destination_id'], 'destination_name': obj['destination_name']}
+               'destination_id': obj['destination_id'], 'destination_name': obj['destination_name'],
+               'legacy': bool(edge.get('legacy'))}
 
     def _append(l):
         l['objects'].append(dict(new_obj))
@@ -1207,7 +1386,8 @@ def add_destination(lease_id, destination_item, username, client=None):
 
     client = client or TXCoreClient()
     try:
-        created = client.create_batch(edge['id'], batch_body([{'kind': new_obj['kind'], 'body': new_obj['body']}]))
+        created = client.create_objects(edge['id'], [{'kind': new_obj['kind'], 'body': new_obj['body']}],
+                                        legacy=bool(edge.get('legacy')))
     except TXCoreError as exc:
         lease = _update_lease(lease_id, lambda l: _mark_obj(l, new_obj, 'error', str(exc)))
         return lease, str(exc)
