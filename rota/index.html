@@ -2488,7 +2488,7 @@
 
           const noteCls = note ? ' has-note' : '';
           const safeNote = note.replace(/"/g, '&quot;');
-          
+
           const displayFg =
             (day.is_today && shift === 'OFF')
               ? '#b8b8b8'
@@ -2592,7 +2592,7 @@
       td.classList.toggle('has-note', !!displayNote);
 
       // Rebuild inner span only
-      td.innerHTML = `<span class="shift-cell${extra}" style="color:${fg};">${text}</span>`;
+      td.innerHTML = `<span class="shift-cell${extra}" style="color:${displayFg};">${text}</span>`;
 
       // Re-attach event listeners for this cell
       td.addEventListener('mouseenter', _onCellHoverEnter);
