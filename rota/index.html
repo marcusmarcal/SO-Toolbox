@@ -7119,7 +7119,7 @@ const DATAFILE_READONLY = new Set(['directory_audit_log', 'draft_lock']);
 
     // Timeline: 06:00 → 32:00 (i.e. next-day 08:00) to catch overnight shifts
     const TIMELINE_START = 6 * 60;   // 06:00
-    const TIMELINE_END   = 28 * 60;  // 08:00 next day (expressed as 32h for arithmetic)
+    const TIMELINE_END   = 34 * 60;  // 08:00 next day (expressed as 32h for arithmetic)
     const TIMELINE_SPAN  = TIMELINE_END - TIMELINE_START;
 
     function parseShiftMinutes(code) {
