@@ -1749,7 +1749,7 @@
 <!-- ── DAY EPG MODAL ── -->
 <div id="epg-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:600;align-items:center;justify-content:center;">
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;
-              padding:0;width:min(1300px,95vw);max-height:90vh;overflow:hidden;
+              padding:0;width:min(1000px,95vw);max-height:90vh;overflow:hidden;
               display:flex;flex-direction:column;box-shadow:0 0 40px rgba(0,0,0,0.7);">
     <div style="display:flex;align-items:center;justify-content:space-between;
                 padding:14px 20px;border-bottom:1px solid var(--border);flex-shrink:0;">
@@ -1758,7 +1758,7 @@
       <button onclick="document.getElementById('epg-modal').style.display='none';"
               style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.1rem;">✕</button>
     </div>
-    <div id="epg-body" style="overflow-y:auto;overflow-x:auto;padding:16px 20px 20px;flex:1;min-height:0;">
+    <div id="epg-body" style="overflow-y:auto;overflow-x:hidden;padding:16px 20px 20px;flex:1;min-height:0;">
   </div>
 </div>
 
@@ -7119,7 +7119,7 @@ const DATAFILE_READONLY = new Set(['directory_audit_log', 'draft_lock']);
 
     // Timeline: 06:00 → 32:00 (i.e. next-day 08:00) to catch overnight shifts
     const TIMELINE_START = 6 * 60;   // 06:00
-    const TIMELINE_END   = 32 * 60;  // 08:00 next day (expressed as 32h for arithmetic)
+    const TIMELINE_END   = 28 * 60;  // 08:00 next day (expressed as 32h for arithmetic)
     const TIMELINE_SPAN  = TIMELINE_END - TIMELINE_START;
 
     function parseShiftMinutes(code) {
