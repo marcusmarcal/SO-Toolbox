@@ -1746,6 +1746,22 @@
   </div>
 </div>
 
+<!-- ── DAY EPG MODAL ── -->
+<div id="epg-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:600;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;
+              padding:0;width:min(920px,95vw);max-height:90vh;overflow:hidden;
+              display:flex;flex-direction:column;box-shadow:0 0 40px rgba(0,0,0,0.7);">
+    <div style="display:flex;align-items:center;justify-content:space-between;
+                padding:14px 20px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <span id="epg-modal-title" style="font-family:var(--mono);font-size:0.78rem;font-weight:700;
+                                        text-transform:uppercase;letter-spacing:0.1em;color:var(--accent);"></span>
+      <button onclick="document.getElementById('epg-modal').style.display='none';"
+              style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.1rem;">✕</button>
+    </div>
+    <div id="epg-body" style="overflow-y:auto;padding:16px 20px 20px;flex:1;min-height:0;"></div>
+  </div>
+</div>
+
   <!-- ── PRINT-ONLY ROTA (populated on demand, only visible via print CSS) ── -->
   <div id="print-rota-root"></div>
 
@@ -2518,6 +2534,21 @@
     table.querySelectorAll('tbody td[data-person]').forEach(td => {
       td.addEventListener('mouseenter', _onCellHoverEnter);
       td.addEventListener('mouseleave', _onCellHoverLeave);
+    });
+
+    // Day EPG click — clicking the date column opens the day view
+    table.querySelectorAll('tbody td.date-col').forEach(td => {
+      td.style.cursor = 'pointer';
+      td.addEventListener('click', () => {
+        const dateStr = state.rotaData &&
+          state.rotaData.find(d => {
+            const row = td.parentElement;
+            return row && d.date === td.closest('tr')?.querySelector('td[data-date]')?.dataset?.date;
+          });
+        // date-col doesn't have data-date; read from first shift cell in the row
+        const firstShiftCell = td.parentElement?.querySelector('td[data-date]');
+        if (firstShiftCell) openDayEpg(firstShiftCell.dataset.date);
+      });
     });
 
     if (state.draft.active) {
@@ -7073,6 +7104,166 @@ const DATAFILE_READONLY = new Set(['directory_audit_log', 'draft_lock']);
       await uiAlert(`Network error during restore:\n${e.message}`, 'Restore failed');
     }
   }
+
+  // ════════════════════════════════════════════════════════════════
+  //  DAY EPG POPUP
+  // ════════════════════════════════════════════════════════════════
+  function openDayEpg(dateStr) {
+    const day = state.rotaData && state.rotaData.find(d => d.date === dateStr);
+    if (!day) return;
+
+    const d = new Date(dateStr + 'T00:00:00');
+    const label = d.toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+    document.getElementById('epg-modal-title').textContent = label
+      + (day.is_public_holiday ? '  🎉 Public Holiday' : '');
+
+    // Timeline: 06:00 → 32:00 (i.e. next-day 08:00) to catch overnight shifts
+    const TIMELINE_START = 6 * 60;   // 06:00
+    const TIMELINE_END   = 32 * 60;  // 08:00 next day (expressed as 32h for arithmetic)
+    const TIMELINE_SPAN  = TIMELINE_END - TIMELINE_START;
+
+    function parseShiftMinutes(code) {
+      const m = /^(\d{2})(\d{2})-(\d{2})(\d{2})$/.exec(code);
+      if (!m) return null;
+      let start = +m[1] * 60 + +m[2];
+      let end   = +m[3] * 60 + +m[4];
+      if (end <= start) end += 1440;   // overnight wrap
+      return { start, end };
+    }
+
+    function cleanCode(shift) {
+      if (!shift || shift === 'OFF') return null;
+      if (['PARENTAL','MARITAL'].includes(shift)) return shift;
+      if (shift.startsWith('AL_') || shift.startsWith('ABSENT')) return shift;
+      if (shift.includes('|')) {
+        const pfx = shift.split('|')[0];
+        if (['AL_APPROVED','AL_PENDING','ABSENT'].includes(pfx)) return shift;
+        return shift.split('|')[1];
+      }
+      return shift;
+    }
+
+    function pct(minutes) {
+      return ((minutes - TIMELINE_START) / TIMELINE_SPAN * 100).toFixed(3) + '%';
+    }
+
+    // Build hour tick marks
+    const ticks = [];
+    for (let h = 6; h <= 32; h += 2) {
+      const hDisplay = h >= 24 ? String(h - 24).padStart(2,'0') + ':00' : String(h).padStart(2,'0') + ':00';
+      ticks.push({ min: h * 60, label: hDisplay });
+    }
+
+    const ticksHtml = ticks.map(t => `
+      <div style="position:absolute;left:${pct(t.min)};top:0;bottom:0;
+                  border-left:1px solid var(--border);pointer-events:none;">
+        <span style="position:absolute;top:2px;left:3px;font-family:var(--mono);
+                     font-size:0.48rem;color:var(--muted);white-space:nowrap;">${t.label}</span>
+      </div>`).join('');
+
+    // Now marker
+    const nowD = new Date();
+    let nowMin = nowD.getHours() * 60 + nowD.getMinutes();
+    // If before 06:00, treat as "next day" (add 1440) for overnight context
+    if (nowMin < TIMELINE_START) nowMin += 1440;
+    const nowInRange = nowMin >= TIMELINE_START && nowMin <= TIMELINE_END;
+    const nowMarker = (nowInRange && dateStr === new Date().toISOString().split('T')[0])
+      ? `<div style="position:absolute;left:${pct(nowMin)};top:0;bottom:0;
+                     border-left:2px solid #e6a850;pointer-events:none;z-index:2;">
+           <span style="position:absolute;top:2px;left:3px;font-family:var(--mono);
+                        font-size:0.48rem;color:#e6a850;white-space:nowrap;">NOW</span>
+         </div>` : '';
+
+    const teams = [
+      { name: 'Management',  members: state.roster.management },
+      { name: 'Engineering', members: state.roster.engineering },
+      { name: 'Specialists', members: state.roster.specialists },
+    ];
+
+    let rowsHtml = '';
+    let anyWorking = false;
+
+    teams.forEach(team => {
+      const workingMembers = team.members.filter(name => {
+        const sh = cleanCode((day.shifts[name] || {}).shift || 'OFF');
+        if (!sh) return false;
+        if (['AL_APPROVED','AL_PENDING','PARENTAL','MARITAL'].includes(sh)) return true;
+        if (sh.startsWith('AL_') || sh.startsWith('ABSENT')) return false;
+        return parseShiftMinutes(sh) !== null;
+      });
+
+      if (!workingMembers.length) return;
+      anyWorking = true;
+
+      rowsHtml += `<div style="font-family:var(--mono);font-size:0.58rem;font-weight:700;
+                               color:var(--accent);text-transform:uppercase;letter-spacing:0.1em;
+                               margin:14px 0 6px;">${team.name}</div>`;
+
+      workingMembers.forEach(name => {
+        const rawShift = (day.shifts[name] || {}).shift || 'OFF';
+        const note     = (day.shifts[name] || {}).note  || '';
+        const code     = cleanCode(rawShift);
+
+        let barHtml = '';
+
+        if (['PARENTAL','MARITAL'].includes(code) || (code && code.startsWith('AL_'))) {
+          const c = SHIFT_COLORS[code] || SHIFT_COLORS['AL_APPROVED'];
+          const label = code === 'PARENTAL' ? 'Parental Leave'
+                      : code === 'MARITAL'  ? 'Marital Leave'
+                      : code === 'AL_APPROVED' || (rawShift.startsWith('AL_APPROVED')) ? 'Annual Leave (Confirmed)'
+                      : 'Annual Leave (Pending)';
+          barHtml = `<div style="position:absolute;left:0;right:0;top:4px;bottom:4px;
+                                 background:${c.bg};border-radius:4px;display:flex;align-items:center;
+                                 padding:0 8px;overflow:hidden;">
+                       <span style="font-family:var(--mono);font-size:0.6rem;font-weight:700;
+                                    color:${c.fg};white-space:nowrap;">${label}</span>
+                     </div>`;
+        } else {
+          const parsed = parseShiftMinutes(code);
+          if (parsed) {
+            const clipStart = Math.max(parsed.start, TIMELINE_START);
+            const clipEnd   = Math.min(parsed.end,   TIMELINE_END);
+            if (clipEnd > clipStart) {
+              const c = SHIFT_COLORS[code] || { bg: '#7a7a7a', fg: '#fff' };
+              barHtml = `<div style="position:absolute;left:${pct(clipStart)};width:${((clipEnd-clipStart)/TIMELINE_SPAN*100).toFixed(3)}%;
+                                     top:4px;bottom:4px;background:${c.bg};border-radius:4px;
+                                     display:flex;align-items:center;padding:0 6px;overflow:hidden;
+                                     box-shadow:0 1px 3px rgba(0,0,0,0.3);">
+                           <span style="font-family:var(--mono);font-size:0.6rem;font-weight:700;
+                                        color:${c.fg};white-space:nowrap;">${code}</span>
+                         </div>`;
+            }
+          }
+        }
+
+        const noteTag = note
+          ? `<span title="${note.replace(/"/g,'&quot;')}"
+                   style="font-size:0.5rem;color:#E2725B;margin-left:4px;cursor:help;">📝</span>` : '';
+
+        rowsHtml += `
+          <div style="display:flex;align-items:center;margin-bottom:4px;">
+            <div style="width:90px;flex-shrink:0;font-family:var(--mono);font-size:0.65rem;
+                        font-weight:600;color:var(--text);padding-right:8px;text-align:right;
+                        white-space:nowrap;">${name}${noteTag}</div>
+            <div style="flex:1;position:relative;height:28px;">${ticksHtml}${nowMarker}${barHtml}</div>
+          </div>`;
+      });
+    });
+
+    if (!anyWorking) {
+      rowsHtml = '<div class="empty-state">No one scheduled for this day.</div>';
+    }
+
+    document.getElementById('epg-body').innerHTML = rowsHtml;
+    document.getElementById('epg-modal').style.display = 'flex';
+  }
+
+  document.getElementById('epg-modal').addEventListener('click', e => {
+    if (e.target.id === 'epg-modal') document.getElementById('epg-modal').style.display = 'none';
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') document.getElementById('epg-modal').style.display = 'none';
+  });
 
   </script>
 </body>

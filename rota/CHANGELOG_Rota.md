@@ -2,6 +2,18 @@
 
 # Rota Changelog
 
+## [Unreleased]
+
+### Added 22-09-2026
+- **Day EPG popup**: clicking any date cell in the rota grid opens a modal
+  showing all scheduled team members as time-accurate horizontal bars on a
+  24h+ timeline (06:00 to 08:00 next day). Overnight shifts display
+  correctly across midnight. A "NOW" marker appears on the current day.
+  Leave states (confirmed AL, pending AL, parental, marital) render as
+  full-width labelled bars. Cell notes are flagged with a 📝 icon and
+  visible on hover. No additional API requests — data sourced from the
+  already-loaded schedule in memory.
+
 ### Changed
 - Data Files card now covers all 13 rota-related JSON files, including
   draft_lock, print_footer, and directory_audit_log.
