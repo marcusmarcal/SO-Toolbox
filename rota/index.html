@@ -1988,6 +1988,22 @@
         };
       }
 
+      // Management-only: alias data for the weekend-swap pre-check (see
+      // _resolveAliasClient below). Fetched eagerly here, not lazily inside
+      // the popover, so that flow stays fully synchronous — the same
+      // reasoning that justified this fix in the first place: duplicated
+      // logic across client/server is what broke weekend-swap matching
+      // when a shift got renamed via Admin > Shifts. This is still a
+      // second copy of alias-resolution logic; see _resolveAliasClient's
+      // comment for the follow-up recommendation to remove it.
+      if (state.me.rota_role === 'management') {
+        try {
+          const sr = await fetch(`${PROXY}/rota/shifts`, { credentials: 'same-origin' });
+          const sd = await sr.json();
+          if (sd.ok) _rebuildClientAliasCache(sd.shifts);
+        } catch(e) { /* non-fatal — weekend-swap pre-check just won't fire */ }
+      }
+
       await _loadShiftColorMap();
 
       renderTopbar();
@@ -2057,6 +2073,51 @@
     const parentBtn = document.querySelector(`.nav-item-btn[data-tab="${tabName}"]`);
     if (parentBtn) parentBtn.classList.add('active');
     _loadTabContent(tabName);
+  }
+
+  // ── Client-side alias resolution (weekend-swap pre-check only) ────────
+  // Mirrors the backend's _ALIAS_CACHE / _resolve_alias() so the popover's
+  // client-side pattern match stays in sync with what _base_shift() returns
+  // server-side after a shift gets renamed via Admin > Shifts. Without this,
+  // a rename silently breaks the "is this window swappable?" check because
+  // the hardcoded _WS_BEFORE/_WS_AFTER patterns were written with old codes.
+  //
+  // Longer-term, the right fix is for the backend's weekend-swap route to
+  // return a "is_match / direction" flag alongside the window so the client
+  // doesn't need this logic at all — but that's a backend API change outside
+  // this PR's scope and not a safe mid-UAT refactor. Flag for PR2/3.
+  let _clientAliasCache = [];  // sorted ascending by effective_from
+
+  function _rebuildClientAliasCache(shifts) {
+    const cache = [];
+    Object.entries(shifts).forEach(([code, entry]) => {
+      (entry.aliases || []).forEach(alias => {
+        const eff = new Date(alias.effective_from + 'T00:00:00');
+        if (!isNaN(eff)) {
+          cache.push({
+            from_code:      code,
+            to_code:        alias.new_code,
+            effective_from: eff,
+          });
+        }
+      });
+    });
+    _clientAliasCache = cache.sort((a, b) => a.effective_from - b.effective_from);
+  }
+
+  function _resolveAliasClient(code, dateStr) {
+    // Returns the currently-active shift code for a given (code, date),
+    // applying the latest alias whose effective_from <= date. Same logic
+    // as backend _resolve_alias(). OFF is never aliased — fast-path.
+    if (code === 'OFF') return code;
+    const d = new Date(dateStr + 'T00:00:00');
+    let result = code;
+    for (const entry of _clientAliasCache) {
+      if (entry.from_code === code && entry.effective_from <= d) {
+        result = entry.to_code;
+      }
+    }
+    return result;
   }
 
   function setupTabs() {
@@ -4367,7 +4428,11 @@ function _removeCellFromBoxes(ri, ci) {
       const friD    = new Date(friDate + 'T00:00:00');
       const wedD    = new Date(friD); wedD.setDate(friD.getDate() - 2);
 
-      // Client-side pattern tables for toggle-state detection only
+      // Client-side pattern tables for toggle-state detection only.
+      // These codes are resolved through _resolveAliasClient() before
+      // comparison so a shift rename (Admin > Shifts) doesn't silently
+      // break the pre-check — same fix applied to the backend's
+      // _match_weekend_pattern() in this same pass.
       const _WS_BEFORE = [
         // Pattern 1 — Case B: Fri(A)+Mon(A) working, Sat+Sun OFF
         ['0900-1800','0900-1800','0900-1800','OFF','OFF','0900-1800','1000-2000','OFF','OFF','1000-2000'],
@@ -4381,10 +4446,13 @@ function _removeCellFromBoxes(ri, ci) {
         ['OFF','OFF','1000-2000','1000-2000','0900-1800','0900-1800','OFF','0900-1800','0900-1800','OFF'],
       ];
 
+      // Build per-cell dates for the 10-cell window (needed for alias resolution)
+      const window10Dates = [];
       const window10 = [];
       for (let i = 0; i < 10; i++) {
         const d = new Date(wedD); d.setDate(wedD.getDate() + i);
         const ds  = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        window10Dates.push(ds);
         const day = state.rotaData && state.rotaData.find(dd => dd.date === ds);
         let sh = (day && day.shifts[person] && day.shifts[person].shift) || 'OFF';
         // Normalise: strip AL overlay, treat leave as OFF for pattern matching
@@ -4393,8 +4461,12 @@ function _removeCellFromBoxes(ri, ci) {
         window10.push(sh);
       }
 
-      const isSwapped   = _WS_AFTER.some(p   => p.every((s,i) => s === window10[i]));
-      const isSwappable = _WS_BEFORE.some(p => p.every((s,i) => s === window10[i]));
+      // Resolve each pattern through the live alias chain per calendar date
+      const _resolvePattern = (seq) =>
+        seq.map((code, i) => _resolveAliasClient(code, window10Dates[i]));
+
+      const isSwapped   = _WS_AFTER.some(p  => _resolvePattern(p).every((s,i) => s === window10[i]));
+      const isSwappable = _WS_BEFORE.some(p => _resolvePattern(p).every((s,i) => s === window10[i]));
 
       if (isSwapped || isSwappable) {
         wswapSection.style.display = '';

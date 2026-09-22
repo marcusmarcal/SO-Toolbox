@@ -2063,13 +2063,34 @@ def _get_window_shifts(person: str, fri_date: date,
     )
 
 
-def _match_weekend_pattern(window: tuple):
+def _match_weekend_pattern(window: tuple, fri_date: date):
     """Return (pattern_idx, direction) where direction is 'swap' or 'revert',
-    or None if no pattern matches."""
+    or None if no pattern matches.
+
+    WEEKEND_SWAP_PATTERNS is a small set of hand-tuned shift-time sequences
+    (not derivable from a plain work/off template — different days in the
+    "after" state get different shift times, e.g. Fri/Sat get one block,
+    Sun/Mon another). Those literal codes go stale the moment an admin
+    renames a shift via the registry's alias feature (Admin > Shifts >
+    rename), because `window` here already comes through _resolve_shift ->
+    _base_shift -> _resolve_alias and reflects the CURRENT code, while the
+    hardcoded patterns don't. Resolve each pattern element through the same
+    alias chain, per its actual calendar date, before comparing — so a
+    rename doesn't silently break matching just because the literal string
+    it was written with no longer appears anywhere in live data."""
+    wed   = fri_date - timedelta(days=2)
+    dates = [wed + timedelta(days=i) for i in range(10)]
+
+    def _resolved(seq):
+        return tuple(
+            code if code == 'OFF' else _resolve_alias(code, d)
+            for code, d in zip(seq, dates)
+        )
+
     for idx, (before, after) in enumerate(WEEKEND_SWAP_PATTERNS):
-        if window == before:
+        if window == _resolved(before):
             return idx, 'swap'
-        if window == after:
+        if window == _resolved(after):
             return idx, 'revert'
     return None
 
@@ -2116,7 +2137,7 @@ def rota_draft_weekend_swap():
 
     # Read current 10-cell window
     window = _get_window_shifts(person, fri_date, leave_map, combined_map)
-    match  = _match_weekend_pattern(window)
+    match  = _match_weekend_pattern(window, fri_date)
 
     if match is None:
         return jsonify({
@@ -2127,7 +2148,7 @@ def rota_draft_weekend_swap():
 
     pattern_idx, direction = match
     before_seq, after_seq  = WEEKEND_SWAP_PATTERNS[pattern_idx]
-    target_seq = after_seq if direction == 'swap' else before_seq
+    raw_target_seq = after_seq if direction == 'swap' else before_seq
 
     # Infer absent engineer for note
     absent = _infer_absent_engineer(fri_date, leave_map)
@@ -2139,6 +2160,15 @@ def rota_draft_weekend_swap():
     # Apply the 10 overrides
     wed = fri_date - timedelta(days=2)
     now = _now_iso()
+
+    # Resolve the hardcoded pattern's codes through the live alias chain,
+    # per calendar date, so the actual write reflects today's active shift
+    # code rather than whatever it was literally named when this pattern
+    # table was authored — same reasoning as _match_weekend_pattern above.
+    target_seq = [
+        code if code == 'OFF' else _resolve_alias(code, wed + timedelta(days=i))
+        for i, code in enumerate(raw_target_seq)
+    ]
 
     notes = _load_notes()
 
