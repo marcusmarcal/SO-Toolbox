@@ -2486,6 +2486,9 @@
           const sep   = mi === 0 ? ' team-sep' : '';
           const { bg, fg, text, extra } = _computeCellDisplay(shift);
 
+          const noteCls = note ? ' has-note' : '';
+          const safeNote = note.replace(/"/g, '&quot;');
+          
           const displayFg =
             (day.is_today && shift === 'OFF')
               ? '#b8b8b8'
