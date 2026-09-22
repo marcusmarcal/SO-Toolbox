@@ -2485,11 +2485,15 @@
           const note  = (day.shifts[name] || {}).note  || '';
           const sep   = mi === 0 ? ' team-sep' : '';
           const { bg, fg, text, extra } = _computeCellDisplay(shift);
-          const noteCls  = note ? ' has-note' : '';
-          const safeNote = note.replace(/"/g, '&quot;');
+
+          const displayFg =
+            (day.is_today && shift === 'OFF')
+              ? '#b8b8b8'
+              : fg;
+
           tbody += `<td class="${sep}${noteCls}" style="background:${bg};" data-person="${name}" data-date="${day.date}" data-note="${safeNote}">`
-                 + `<span class="shift-cell${extra}" style="color:${fg};">${text}</span>`
-                 + `</td>`;
+                + `<span class="shift-cell${extra}" style="color:${displayFg};">${text}</span>`
+                + `</td>`;
         });
       });
       tbody += '</tr>';
