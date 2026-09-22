@@ -302,7 +302,7 @@
     table.rota tbody tr.today-row td.date-col {
       box-shadow: inset 3px 1px 0 rgba(230,168,80,0.6), inset 0 -1px 0 rgba(230,168,80,0.6);
     }
-    table.rota tbody tr.today-row td:not(.date-col) .shift-cell { filter: brightness(0.5); }
+    table.rota tbody tr.today-row td:not(.date-col) .shift-cell:not(.today-off) { filter: brightness(0.5); }
 
     table.rota tbody tr.week-start td {
       border-top: 2px solid var(--border);
@@ -2493,9 +2493,13 @@
             (day.is_today && shift === 'OFF')
               ? '#ffffff'
               : fg;
+          const todayOffClass =
+            (day.is_today && shift === 'OFF')
+              ? ' today-off'
+              : '';
 
           tbody += `<td class="${sep}${noteCls}" style="background:${bg};" data-person="${name}" data-date="${day.date}" data-note="${safeNote}">`
-                + `<span class="shift-cell${extra}" style="color:${displayFg};">${text}</span>`
+                + `<span class="shift-cell${extra}${todayOffClass}" style="color:${displayFg};">${text}</span>`
                 + `</td>`;
         });
       });
