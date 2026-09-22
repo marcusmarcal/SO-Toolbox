@@ -2488,7 +2488,7 @@
           const noteCls  = note ? ' has-note' : '';
           const safeNote = note.replace(/"/g, '&quot;');
           tbody += `<td class="${sep}${noteCls}" style="background:${bg};" data-person="${name}" data-date="${day.date}" data-note="${safeNote}">`
-                 + `<span class="shift-cell${extra}" style="color:${day.is_today && shift !== 'OFF' ? '#fff' : fg};">${text}</span>`
+                 + `<span class="shift-cell${extra}" style="color:${fg};">${text}</span>`
                  + `</td>`;
         });
       });
@@ -2585,7 +2585,7 @@
       td.classList.toggle('has-note', !!displayNote);
 
       // Rebuild inner span only
-      td.innerHTML = `<span class="shift-cell${extra}" style="color:${day.is_today && displayShift !== 'OFF' ? '#fff' : fg};">${text}</span>`;
+      td.innerHTML = `<span class="shift-cell${extra}" style="color:${fg};">${text}</span>`;
 
       // Re-attach event listeners for this cell
       td.addEventListener('mouseenter', _onCellHoverEnter);
