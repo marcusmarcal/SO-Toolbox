@@ -43,6 +43,7 @@ Environment variables (.env):
     DATAMINER_SNAPSHOT_INTERVAL  Seconds between refreshes (default 3600).
     DATAMINER_SNAPSHOT_DISABLED  "true" to disable the background refresher
                                  (manual POST /refresh still works).
+    DATAMINER_BACKUP_RETENTION_DAYS  Days of daily snapshot backups to keep (default 90).
 
 Provisioning (v1.4.0)
     The write side lives in bte_provisioning.py: "Create resources" turns a
@@ -72,7 +73,7 @@ import os
 import re
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import requests
 from dotenv import load_dotenv
@@ -140,11 +141,16 @@ DATA_DIR = '/opt/web/data'
 SNAPSHOT_FILE = os.path.join(DATA_DIR, 'dataminer.resources.json')
 LOCK_FILE = SNAPSHOT_FILE + '.lock'
 
+BACKUP_DIR = os.path.join(DATA_DIR, 'dataminer_backups')
+BACKUP_RETENTION_DAYS = _env_int('DATAMINER_BACKUP_RETENTION_DAYS', 90, minimum=1)
+BACKUP_NAME_RE = re.compile(r'dataminer\.resources\.(\d{4}-\d{2}-\d{2})\.json')
+
 REQUEST_TIMEOUT = (10, 90)  # (connect, read) seconds — the default pool is >1k items
 REDACTED = '********'
 _SECRET_KEY_RE = re.compile(r'passphrase|password|secret|token|api[-_ ]?key', re.IGNORECASE)
 
 os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(BACKUP_DIR, exist_ok=True)
 
 
 def _verify_option():
@@ -238,6 +244,83 @@ def _write_snapshot(snapshot):
         pass
 
 
+def _backup_path(date_str):
+    return os.path.join(BACKUP_DIR, f'dataminer.resources.{date_str}.json')
+
+
+def _write_daily_backup(snapshot, now_dt):
+    """Copy ``snapshot`` to today's backup file — a no-op once one already exists
+    for this UTC day, so the first successful refresh of the day wins."""
+    date_str = now_dt.strftime('%Y-%m-%d')
+    path = _backup_path(date_str)
+    if os.path.exists(path):
+        return
+    tmp_path = path + '.tmp'
+    fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, 'w') as f:
+        json.dump(snapshot, f, indent=1)
+    os.replace(tmp_path, path)
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
+    _prune_backups()
+
+
+def _prune_backups():
+    cutoff = datetime.now(timezone.utc) - timedelta(days=BACKUP_RETENTION_DAYS)
+    try:
+        names = os.listdir(BACKUP_DIR)
+    except OSError:
+        return
+    for name in names:
+        m = BACKUP_NAME_RE.fullmatch(name)
+        if not m:
+            continue
+        try:
+            day = datetime.strptime(m.group(1), '%Y-%m-%d').replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+        if day < cutoff:
+            try:
+                os.remove(os.path.join(BACKUP_DIR, name))
+            except OSError:
+                pass
+
+
+def _list_backups():
+    try:
+        names = os.listdir(BACKUP_DIR)
+    except OSError:
+        return []
+    out = []
+    for name in names:
+        m = BACKUP_NAME_RE.fullmatch(name)
+        if not m:
+            continue
+        try:
+            st = os.stat(os.path.join(BACKUP_DIR, name))
+        except OSError:
+            continue
+        out.append({
+            'date': m.group(1),
+            'size': st.st_size,
+            'modified_at': datetime.fromtimestamp(st.st_mtime, tz=timezone.utc).isoformat(),
+        })
+    out.sort(key=lambda b: b['date'], reverse=True)
+    return out
+
+
+def _load_backup(date_str):
+    if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', date_str or ''):
+        return None
+    try:
+        with open(_backup_path(date_str), 'r') as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
 def _fetch_pool(pool):
     """GET /api/custom/resources[?pool=...] and validate the envelope."""
     params = {'pool': pool} if pool else None
@@ -319,6 +402,11 @@ def refresh_snapshot(reason='scheduled'):
 
         _write_snapshot(snapshot)
         _load_from_disk(force=True)
+        if any_ok:
+            try:
+                _write_daily_backup(snapshot, datetime.now(timezone.utc))
+            except OSError:
+                log.exception('BTE: failed to write the daily DM Snapshot backup')
 
         with _STATE_LOCK:
             _state['last_error'] = '; '.join(f'{k}: {v}' for k, v in snapshot['errors'].items()) or None
@@ -706,12 +794,6 @@ _RESOURCE_ID_RE = re.compile(r'[0-9a-fA-F-]{8,64}')
 _LEASE_ID_RE = re.compile(r'[0-9a-f]{32}')
 
 
-def _passphrase_override(data):
-    """Optional supplier passphrase typed in the UI; used for the call, never echoed back."""
-    value = str(data.get('passphrase') or '').strip()
-    return value or None
-
-
 def _dry_run_forced(requested):
     """Live writes need BTE_PROVISIONING_ENABLED and a configured TXCore MAIN API."""
     return bool(requested) or not prov.PROVISIONING_ENABLED or not prov.configured()
@@ -743,7 +825,7 @@ def provision_plan():
     destinations, error = _resolve_destinations(data)
     if error:
         return jsonify({'error': error}), 400
-    plan = prov.redact_plan(prov.build_plan(item, passphrase_override=_passphrase_override(data), destinations=destinations))
+    plan = prov.redact_plan(prov.build_plan(item, destinations=destinations))
     plan['resource_id'] = resource_id
     plan['resource_name'] = item.get('name')
     plan['dry_run'] = _dry_run_forced(data.get('dry_run', True))
@@ -777,7 +859,7 @@ def provision_create():
     if error:
         return jsonify({'error': error}), 400
 
-    plan = prov.build_plan(item, passphrase_override=_passphrase_override(data), destinations=destinations)
+    plan = prov.build_plan(item, destinations=destinations)
     if not plan['ok']:
         return jsonify({'error': 'Cannot build a plan for this resource', 'errors': plan['errors'],
                         'warnings': plan['warnings']}), 422
@@ -910,6 +992,85 @@ def leases_delete_all():
         'deleted': sum(1 for r in results if r['status'] == 'deleted'),
         'results': results,
     })
+
+
+@bte_bp.route('/audit', methods=['GET'])
+def audit_log():
+    """Persistent audit trail: created / deleted / extended / destination_added events,
+    UTC timestamps. Optional ?lease_id=, ?resource_id=, ?limit= (default 200, max 1000)."""
+    if _get_role() not in ALLOWED_ROLES:
+        return _forbidden()
+    try:
+        limit = int(request.args.get('limit', 200) or 200)
+    except ValueError:
+        limit = 200
+    limit = max(1, min(limit, 1000))
+    lease_id = (request.args.get('lease_id') or '').strip() or None
+    resource_id = (request.args.get('resource_id') or '').strip() or None
+    events = prov.read_audit(limit=limit, lease_id=lease_id, resource_id=resource_id)
+    return jsonify({'count': len(events), 'events': events})
+
+
+@bte_bp.route('/backups', methods=['GET'])
+def list_backups():
+    """Daily DM Snapshot backups available for browsing (newest first)."""
+    if _get_role() not in ALLOWED_ROLES:
+        return _forbidden()
+    return jsonify({'backups': _list_backups(), 'retention_days': BACKUP_RETENTION_DAYS})
+
+
+def _pool_response_from_snapshot(snapshot, key):
+    """Same {pool, items, ...} shape as _pool_response(), against an arbitrary
+    (e.g. backed-up) snapshot dict instead of the live one."""
+    pool = (snapshot or {}).get('pools', {}).get(key)
+    if not pool:
+        return {'key': key, 'pool': None, 'fetched_at': None, 'count': 0, 'returned': 0, 'items': []}
+
+    q = (request.args.get('q') or '').strip()
+    mode = (request.args.get('mode') or '').strip().lower()
+    rtype = (request.args.get('type') or '').strip()
+    edge = (request.args.get('edge') or '').strip()
+
+    items = pool['items']
+    if q or mode or rtype or edge:
+        items = [
+            i for i in items
+            if _matches(i, q)
+            and (not mode or str(i.get('mode', '')).lower() == mode)
+            and (not rtype or _item_type(i) == rtype)
+            and _edge_matches(i, edge)
+        ]
+    items = sorted((_redact_item(i) for i in items), key=lambda i: str(i.get('name', '')).lower())
+    return {
+        'key': key,
+        'pool': pool['pool'],
+        'fetched_at': pool.get('fetched_at'),
+        'count': pool.get('count', len(pool['items'])),
+        'returned': len(items),
+        'items': items,
+    }
+
+
+@bte_bp.route('/backups/<date>/<pool_key>', methods=['GET'])
+def get_backup_pool(date, pool_key):
+    """One pool ('resources' or 'destinations') from a daily backup — same shape and
+    filters (?q=, ?mode=, ?type=, ?edge=) as /resources and /destinations, read-only.
+    The live snapshot stays the default for provisioning; this is for browsing only.
+    """
+    if _get_role() not in ALLOWED_ROLES:
+        return _forbidden()
+    if pool_key not in POOLS:
+        return jsonify({'error': f"Unknown pool '{pool_key}'"}), 404
+    snapshot = _load_backup(date)
+    if snapshot is None:
+        return jsonify({'error': f'No backup found for {date}'}), 404
+    payload = _pool_response_from_snapshot(snapshot, pool_key)
+    payload['backup_date'] = date
+    if pool_key == 'destinations':
+        used = prov.used_destination_ids()
+        for item in payload['items']:
+            item['in_use'] = item.get('id') in used
+    return jsonify(payload)
 
 
 _EDGE_KEY_RE = re.compile(r'[A-Za-z0-9]{2,16}')

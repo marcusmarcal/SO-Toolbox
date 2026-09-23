@@ -9,6 +9,29 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 `SRT Ingest:`, `General Tool Admin:`) so entries can be filtered per tool.
 
 ---
+## [4.5.1] - 2026-09-23
+
+### Added
+#### v1.8.0 — BTE audit log, DM Snapshot backups, UX improvements
+- Persistent, UTC-timestamped audit log for BTE: records who created,
+  deleted (manual or automatic), extended, or added a destination to each
+  stream, and when.
+- Daily DM Snapshot backups (one per UTC day, configurable retention),
+  browsable read-only from the UI without affecting the live snapshot used
+  for provisioning.
+- Duration field accepts minutes, "1h30m", or "H:MM", with a live end-time
+  preview in UTC.
+- Absolute UTC end time shown alongside the countdown for each active
+  stream.
+- Dedicated "History" view per stream and a filterable audit log panel.
+
+### Changed
+- Destinations are now visually prominent: their own accented section in
+  the create panel and a dedicated, counted column in the streams table.
+
+### Removed
+- Supplier passphrase override field (no longer needed).
+
 ## [4.4.1] - 2026-09-18
 
 ### Added

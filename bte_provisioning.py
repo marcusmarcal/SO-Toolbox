@@ -65,6 +65,11 @@ Environment variables (.env):
     BTE_DEFAULT_EXTEND_MINUTES          Extension offered by default (30)
     BTE_MAX_DURATION_MINUTES            Hard cap for a lease, including extensions (1440)
     BTE_REAPER_DISABLED                 "true" to disable automatic deletion of expired leases
+    BTE_AUDIT_MAX_LINES                 Audit log is trimmed to this many most-recent lines (50000)
+
+Audit log: /opt/web/data/bte_audit.jsonl (append-only, mode 0600, one UTC-timestamped
+JSON event per line: created, deleted, extended, destination_added). Independent of the
+lease registry above so history survives lease history trimming (HISTORY_KEEP).
 
 !! Confirmed against the TXCore API reference: POST /mwedge/<id> with
 !! {streams, sources, outputs} and its response shape. Still assumed and to be
@@ -98,6 +103,8 @@ DATA_DIR = '/opt/web/data'
 LEASES_FILE = os.path.join(DATA_DIR, 'bte_leases.json')
 LEASES_LOCK_FILE = LEASES_FILE + '.lock'
 REAPER_LOCK_FILE = os.path.join(DATA_DIR, 'bte_reaper.lock')
+AUDIT_FILE = os.path.join(DATA_DIR, 'bte_audit.jsonl')      # append-only, one JSON object per line, UTC timestamps
+AUDIT_LOCK_FILE = AUDIT_FILE + '.lock'
 
 REQUEST_TIMEOUT = (10, 30)
 HISTORY_KEEP = 200          # finished leases kept for the UI history
@@ -142,6 +149,7 @@ REAPER_DISABLED = _env_bool('BTE_REAPER_DISABLED', False)
 DEFAULT_DURATION_MIN = _env_int('BTE_DEFAULT_DURATION_MINUTES', 60)
 DEFAULT_EXTEND_MIN = _env_int('BTE_DEFAULT_EXTEND_MINUTES', 30)
 MAX_DURATION_MIN = _env_int('BTE_MAX_DURATION_MINUTES', 24 * 60)
+AUDIT_MAX_LINES = _env_int('BTE_AUDIT_MAX_LINES', 50000, minimum=1000)
 
 EDGE_PATH = _env('BTE_TXCORE_EDGE_PATH') or '/mwedge/{edge}'
 OBJECT_PATH = _env('BTE_TXCORE_OBJECT_PATH') or '/mwedge/{edge}/{kind}/{id}'
@@ -947,6 +955,69 @@ class _Locked:
         self.fd.close()
 
 
+def _append_audit(event):
+    """Append one UTC-timestamped event to the audit log. Best-effort: a failure
+    here must never break lease creation/deletion, only get logged."""
+    event = dict(event)
+    event.setdefault('ts', _iso(_now()))
+    line = json.dumps(event, separators=(',', ':'), default=str)
+    try:
+        with _Locked(AUDIT_LOCK_FILE):
+            with open(AUDIT_FILE, 'a') as f:
+                f.write(line + '\n')
+            try:
+                os.chmod(AUDIT_FILE, 0o600)
+            except OSError:
+                pass
+            _trim_audit()
+    except OSError:
+        log.exception('BTE audit: failed to append %s event', event.get('event'))
+
+
+def _trim_audit():
+    """Keep the audit log bounded: drop the oldest lines once it grows past the cap."""
+    try:
+        with open(AUDIT_FILE, 'r') as f:
+            lines = f.readlines()
+    except OSError:
+        return
+    if len(lines) <= AUDIT_MAX_LINES:
+        return
+    keep = lines[-AUDIT_MAX_LINES:]
+    tmp = AUDIT_FILE + '.tmp'
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, 'w') as f:
+        f.writelines(keep)
+    os.replace(tmp, AUDIT_FILE)
+
+
+def read_audit(limit=200, lease_id=None, resource_id=None):
+    """Most-recent-first audit events, optionally filtered by lease_id / resource_id."""
+    try:
+        with _Locked(AUDIT_LOCK_FILE):
+            with open(AUDIT_FILE, 'r') as f:
+                lines = f.readlines()
+    except OSError:
+        return []
+    out = []
+    for line in reversed(lines):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        if lease_id and event.get('lease_id') != lease_id:
+            continue
+        if resource_id and event.get('resource_id') != resource_id:
+            continue
+        out.append(event)
+        if len(out) >= limit:
+            break
+    return out
+
+
 def _read_registry():
     try:
         with open(LEASES_FILE, 'r') as f:
@@ -1100,7 +1171,22 @@ def create_lease(item, plan, duration_minutes, username, dry_run):
         data['leases'][lease['lease_id']] = lease
         return lease
 
-    return _mutate(_add)
+    lease = _mutate(_add)
+    dests = [{'id': o['destination_id'], 'name': o['destination_name']}
+             for s in plan['steps'] for o in s['objects'] if o.get('destination_id')]
+    _append_audit({
+        'event': 'created',
+        'lease_id': lease['lease_id'],
+        'resource_id': lease['resource_id'],
+        'resource_name': lease['resource_name'],
+        'dc_edge': lease['dc_edge'],
+        'user': username,
+        'dry_run': lease['dry_run'],
+        'duration_minutes': lease['duration_minutes'],
+        'expires_at': lease['expires_at'],
+        'destinations': dests,
+    })
+    return lease
 
 
 def _update_lease(lease_id, fn):
@@ -1264,7 +1350,12 @@ def _mark_obj(lease, ref, status, error=None):
 
 
 def delete_lease(lease_id, reason, username, client=None):
-    """Remove everything a lease created. Returns the updated lease or None."""
+    """Remove everything a lease created. Returns the updated lease or None.
+
+    ``reason`` 'expired' marks the deletion as automatic (reaper); any other
+    reason ('manual', 'manual-all', ...) is logged with ``username`` as the
+    person who deleted it.
+    """
     lease = get_lease(lease_id)
     if lease is None:
         return None
@@ -1281,20 +1372,32 @@ def delete_lease(lease_id, reason, username, client=None):
         def _finish_dry(l):
             l['status'] = 'deleted'
             l['finished_at'] = _iso(_now())
-        return _update_lease(lease_id, _finish_dry)
+        result = _update_lease(lease_id, _finish_dry)
+    else:
+        client = client or TXCoreClient()
+        deleted, refused, failed = _delete_objects(lease_id, client)
 
-    client = client or TXCoreClient()
-    deleted, refused, failed = _delete_objects(lease_id, client)
+        def _finish(l):
+            if failed or refused:
+                l['status'] = 'delete_failed'
+                l['errors'].append(f'delete: {deleted} removed, {refused} refused (tag check), {failed} failed')
+            else:
+                l['status'] = 'deleted'
+                l['finished_at'] = _iso(_now())
+        result = _update_lease(lease_id, _finish)
+        log.info('BTE lease %s delete (%s): %d removed, %d refused, %d failed', lease_id, reason, deleted, refused, failed)
 
-    def _finish(l):
-        if failed or refused:
-            l['status'] = 'delete_failed'
-            l['errors'].append(f'delete: {deleted} removed, {refused} refused (tag check), {failed} failed')
-        else:
-            l['status'] = 'deleted'
-            l['finished_at'] = _iso(_now())
-    result = _update_lease(lease_id, _finish)
-    log.info('BTE lease %s delete (%s): %d removed, %d refused, %d failed', lease_id, reason, deleted, refused, failed)
+    _append_audit({
+        'event': 'deleted',
+        'lease_id': lease_id,
+        'resource_id': lease.get('resource_id'),
+        'resource_name': lease.get('resource_name'),
+        'dc_edge': lease.get('dc_edge'),
+        'user': username,
+        'auto': reason == 'expired',
+        'reason': reason,
+        'status': result['status'],
+    })
     return result
 
 
@@ -1328,6 +1431,19 @@ def extend_lease(lease_id, minutes, username):
     lease = _update_lease(lease_id, _extend)
     if lease is None:
         return None, 'Lease not found', None
+    if outcome['error'] is None:
+        granted = (lease['extensions'][-1] or {}).get('minutes') if lease['extensions'] else None
+        _append_audit({
+            'event': 'extended',
+            'lease_id': lease_id,
+            'resource_id': lease.get('resource_id'),
+            'resource_name': lease.get('resource_name'),
+            'user': username,
+            'minutes_requested': minutes,
+            'minutes_granted': granted,
+            'expires_at': lease['expires_at'],
+            'note': outcome['note'],
+        })
     return lease, outcome['error'], outcome['note']
 
 
@@ -1379,10 +1495,25 @@ def add_destination(lease_id, destination_item, username, client=None):
         l['objects'].append(dict(new_obj))
     lease = _update_lease(lease_id, _append)
 
+    def _audit_added(dry_run):
+        _append_audit({
+            'event': 'destination_added',
+            'lease_id': lease_id,
+            'resource_id': lease.get('resource_id'),
+            'resource_name': lease.get('resource_name'),
+            'user': username,
+            'at_creation': False,
+            'destination_id': obj['destination_id'],
+            'destination_name': obj['destination_name'],
+            'dry_run': dry_run,
+        })
+
     if lease['dry_run']:
         def _skip(l):
             _mark_obj(l, new_obj, 'skipped')
-        return _update_lease(lease_id, _skip), None
+        lease = _update_lease(lease_id, _skip)
+        _audit_added(True)
+        return lease, None
 
     client = client or TXCoreClient()
     try:
@@ -1392,6 +1523,7 @@ def add_destination(lease_id, destination_item, username, client=None):
         lease = _update_lease(lease_id, lambda l: _mark_obj(l, new_obj, 'error', str(exc)))
         return lease, str(exc)
     lease = _update_lease(lease_id, lambda l: _record_created(l, seq, created))
+    _audit_added(False)
     log.info('BTE lease %s: added destination %s (%s)', lease_id, obj['destination_name'] or dest_id, username)
     return lease, None
 
