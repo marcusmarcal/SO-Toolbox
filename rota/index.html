@@ -5531,6 +5531,14 @@ function _removeCellFromBoxes(ri, ci) {
             opt.value = name; opt.textContent = name;
             memberSel.appendChild(opt);
           });
+
+          // Pre-select the logged-in user if they exist in the dropdown
+          const myName = state.me ? state.me.name : null;
+          if (myName) {
+            const matchOpt = Array.from(memberSel.options).find(o => o.value === myName);
+            if (matchOpt) memberSel.value = myName;
+          }
+
           memberSel.addEventListener('change', renderOverview);
         }
       }
