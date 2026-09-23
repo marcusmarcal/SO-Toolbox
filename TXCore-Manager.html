@@ -676,15 +676,15 @@
         font-weight: 600;
         padding: 3px 6px 3px 10px;
         border-radius: 999px;
-        border: 1px solid rgba(255, 111, 145, 0.5);
-        color: var(--dest);
-        background: rgba(255, 111, 145, 0.08);
+        border: 1px solid var(--border);
+        color: var(--text);
+        background: var(--panel-alt);
       }
       .dest-pill button {
         border: none;
         background: none;
-        color: var(--dest);
-        opacity: 0.65;
+        color: var(--text-dim);
+        opacity: 0.75;
         padding: 0 4px;
         font-size: 13px;
         line-height: 1;
@@ -695,7 +695,6 @@
       }
       .dest-block {
         border: 1px solid var(--border-soft);
-        border-left: 3px solid var(--dest);
         border-radius: var(--radius);
         padding: 10px 12px;
         margin-top: 12px;
@@ -710,23 +709,23 @@
         font-size: 11px;
         text-transform: uppercase;
         letter-spacing: 0.06em;
-        color: var(--dest);
+        color: var(--text-dim);
       }
       .dest-block .dest-count {
         font-size: 10px;
         padding: 1px 7px;
         border-radius: 999px;
-        border: 1px solid var(--dest);
-        color: var(--dest);
+        border: 1px solid var(--border);
+        color: var(--text-dim);
       }
       button.dest {
-        background: var(--dest);
-        border-color: var(--dest);
-        color: #2b0011;
+        background: var(--panel-alt);
+        border-color: var(--border);
+        color: var(--text);
       }
       button.dest:hover {
-        background: #ff8fac;
-        color: #2b0011;
+        border-color: var(--ave);
+        color: var(--ave);
       }
       table.leases .dest-col {
         min-width: 140px;
@@ -846,6 +845,49 @@
       }
       .snap-line .snap-body {
         margin-top: 10px;
+      }
+
+      .backup-flag {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 10px 20px;
+        background: var(--warn);
+        color: #1a1500;
+        font-family: var(--font-mono);
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.25);
+      }
+      .backup-flag button {
+        background: rgba(0, 0, 0, 0.15);
+        border: 1px solid rgba(0, 0, 0, 0.35);
+        color: #1a1500;
+        font-weight: 700;
+        padding: 4px 10px;
+      }
+      .backup-flag button:hover {
+        background: rgba(0, 0, 0, 0.28);
+        border-color: rgba(0, 0, 0, 0.45);
+        color: #1a1500;
+      }
+
+      /* Field-style wrapper so a toggle can share the label+control baseline
+         of a text .field in the same flex row (see .prov-row). */
+      .field-toggle {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin: 0;
+      }
+      .field-toggle label {
+        font-size: 12px;
+        color: var(--text-dim);
+      }
+      .field-toggle .switch {
+        margin-top: 3px;
       }
 
       /* ---- BTE provisioning ---- */
@@ -1042,7 +1084,10 @@
 
       dialog#bte-dest-dialog,
       dialog#bte-plan-dialog,
-      dialog#bte-edge-dialog {
+      dialog#bte-edge-dialog,
+      dialog#bte-dest-picker-dialog,
+      dialog#bte-backup-dialog,
+      dialog#bte-history-dialog {
         background: var(--bg);
         color: var(--text);
         border: 1px solid var(--border);
@@ -1055,7 +1100,10 @@
       }
       dialog#bte-dest-dialog::backdrop,
       dialog#bte-plan-dialog::backdrop,
-      dialog#bte-edge-dialog::backdrop {
+      dialog#bte-edge-dialog::backdrop,
+      dialog#bte-dest-picker-dialog::backdrop,
+      dialog#bte-backup-dialog::backdrop,
+      dialog#bte-history-dialog::backdrop {
         background: rgba(0, 0, 0, 0.65);
       }
       .dialog-head {
@@ -1132,6 +1180,8 @@
         Create BS Channels - MAIN <span class="tab-mode">· SRT · primary + backup edge</span>
       </button>
     </nav>
+
+    <div id="bte-backup-banner" class="backup-flag" style="display: none"></div>
 
     <main>
       <!-- ===================== FORM PANEL ===================== -->
@@ -1658,7 +1708,6 @@
                   <button id="bte-btn-reload">Reload from server</button>
                   <button id="bte-btn-backups">Browse backups…</button>
                 </div>
-                <div class="notice warn" id="bte-backup-banner" style="display: none; margin-top: 10px"></div>
               </div>
             </details>
           </div>
@@ -1718,33 +1767,30 @@
             </div>
             <div class="prov-box" id="bte-prov-box" style="display: none; margin-top: 0">
               <div class="res-head" id="bte-prov-head"></div>
-              <div class="prov-row" style="margin-top: 10px">
+              <div class="prov-row" style="margin-top: 10px; align-items: flex-start">
                 <div class="field short">
                   <label for="bte-prov-duration">Duration <span style="color: var(--text-faint)">(min or 1h30m)</span></label>
                   <input type="text" id="bte-prov-duration" placeholder="60 or 1h30m" value="60" autocomplete="off" />
                   <div class="hint" id="bte-prov-duration-preview"></div>
                 </div>
-                <div class="toggle-row" style="flex: 0 1 190px">
+                <div class="field-toggle" style="flex: 0 0 90px">
                   <label for="bte-prov-dry-run">Dry run</label>
                   <label class="switch">
                     <input type="checkbox" id="bte-prov-dry-run" checked />
                     <span class="track"></span>
                   </label>
                 </div>
-                <div class="btn-row">
+                <div class="field" style="flex: 1 1 220px; margin: 0">
+                  <label>Destinations <span class="dest-count" id="bte-prov-dest-count">0</span>
+                    <span style="color: var(--text-faint)">(DC edge only)</span></label>
+                  <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center">
+                    <div id="bte-prov-dest-list" style="display: flex; gap: 6px; flex-wrap: wrap"></div>
+                    <button id="bte-btn-add-dest" class="small dest">+ Destination</button>
+                  </div>
+                </div>
+                <div class="btn-row" style="margin-left: auto">
                   <button id="bte-btn-plan">Preview plan</button>
                   <button id="bte-btn-create" class="bte">Create resources</button>
-                </div>
-              </div>
-              <div class="dest-block">
-                <div class="dest-head">
-                  <span class="snap-dot" style="background: var(--dest)"></span>
-                  Destinations <span class="dest-count" id="bte-prov-dest-count">0</span>
-                  <span style="margin-left: auto; font-weight: 400; color: var(--text-faint); text-transform: none; letter-spacing: 0">DC edge only</span>
-                </div>
-                <div id="bte-prov-dest-list" style="display: flex; gap: 6px; flex-wrap: wrap"></div>
-                <div class="btn-row" style="margin-top: 8px">
-                  <button id="bte-btn-add-dest" class="small dest">+ Destination</button>
                 </div>
               </div>
               <div class="hint" id="bte-prov-hint" style="margin-top: 8px"></div>
@@ -2251,6 +2297,7 @@
           try {
             localStorage.setItem(ACTIVE_KEY, cluster);
           } catch (e) {}
+          renderBackupBanner();
           if (isBte) {
             if (!bte.loaded && !bte.loading) loadBte();
           } else if (!CLUSTERS[cluster].categoriesLoaded) {
@@ -3278,13 +3325,14 @@
 
         function renderBackupBanner() {
           var el = $("bte-backup-banner");
-          if (!backupView.active) {
+          if (activeCluster !== "bte" || !backupView.active) {
             el.style.display = "none";
             return;
           }
           el.style.display = "";
-          el.innerHTML = "Viewing DM Snapshot backup from " + escapeHtml(backupView.date) +
-            ' (read-only) — <button class="small" id="bte-backup-back">Back to live</button>';
+          el.innerHTML = "⚠ Viewing DM Snapshot BACKUP from <strong>" + escapeHtml(backupView.date) +
+            "</strong> — read-only, provisioning is disabled &nbsp;" +
+            '<button class="small" id="bte-backup-back">Back to live snapshot</button>';
           $("bte-backup-back").addEventListener("click", function () {
             backupView.active = false;
             backupView.date = null;
