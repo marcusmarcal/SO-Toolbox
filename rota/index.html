@@ -1074,7 +1074,7 @@
         <button class="nav-item-btn" data-tab="overview"><span class="nav-icon-slot"></span>MY OVERVIEW<span class="nav-disclosure">▶</span></button>
         <div class="nav-children">
           <button class="nav-child-btn" data-tab="overview" data-sub="allowance">AL Allowance</button>
-          <button class="nav-child-btn" data-tab="overview" data-sub="soe">SOE Weekend Coverage</button>
+          <button class="nav-child-btn" data-tab="overview" data-sub="soe" id="tab-overview-soe" style="display:none;">SOE Weekend Coverage</button>
         </div>
       </div>
       <div class="nav-item" data-nav="admin" id="tab-admin" style="display:none;">
@@ -2064,6 +2064,10 @@
     }
     if (m.rota_role === 'management' || m.rota_role === 'staff') {
       document.getElementById('tab-overview').style.display = '';
+    }
+    if (m.rota_role === 'management' || m.team === 'Engineering') {
+      const soeTab = document.getElementById('tab-overview-soe');
+      if (soeTab) soeTab.style.display = '';
     }
     if (m.rota_role === 'management') {
       document.getElementById('overview-mgmt-toggle').style.display = 'flex';
