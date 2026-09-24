@@ -5501,7 +5501,7 @@ function _removeCellFromBoxes(ri, ci) {
     document.getElementById('btn-overview-refresh').addEventListener('click', loadOverview);
 
     if (state.me && state.me.rota_role === 'management') {
-      document.getElementById('overview-mgmt-toggle').style.display = '';
+      document.getElementById('overview-mgmt-toggle').style.display = 'flex';
       document.getElementById('overview-all-toggle').addEventListener('click', () => {
         _overviewShowAll = !_overviewShowAll;
         document.getElementById('overview-all-toggle').classList.toggle('active', _overviewShowAll);
