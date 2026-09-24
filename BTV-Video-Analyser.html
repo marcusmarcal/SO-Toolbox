@@ -2569,6 +2569,14 @@
               <button class="btn-bulk-del" onclick="openBulkDeleteModal()">
                 🗑 Delete
               </button>
+                            <button
+                class="btn-bulk-act"
+                id="btn-bulk-copy-ids"
+                onclick="copySelectedIdsHtml()"
+                title="Copy the selected test IDs to the clipboard as an HTML table (with test date and user)"
+              >
+                📋 IDs
+              </button>
             </div>
           </div>
         </div>
@@ -3466,6 +3474,8 @@
     </div>
 
     <!-- Bulk tag edit modal -->
+
+
     <div class="modal-overlay" id="bulk-tag-modal">
       <div class="modal-card" style="width: 480px">
         <div class="modal-title" style="color: var(--purple)">
@@ -6944,7 +6954,101 @@
         loadHistory();
       }
 
+      // ── Copy selected test IDs as HTML table ──────────────────────────
+      // Columns: Test ID | Test Date (UTC) | Tested by.
+      // Uses inline styles so the table survives pasting into Jira / email.
+      function _buildIdsHtmlTable(rows) {
+        const th =
+          "border:1px solid #999;padding:4px 8px;background:#eee;color:#000;text-align:left;font-family:monospace;font-size:12px";
+        const td =
+          "border:1px solid #999;padding:4px 8px;background:#fff;color:#000;font-family:monospace;font-size:12px";
+        const body = rows
+          .map(
+            (r) =>
+              `<tr><td style="${td}">${_escHtml(r.id)}</td><td style="${td}">${_escHtml(
+                r.date
+              )}</td><td style="${td}">${_escHtml(r.user)}</td></tr>`
+          )
+          .join("");
+        return `<table style="border-collapse:collapse"><thead><tr><th style="${th}">Test ID</th><th style="${th}">Test Date</th><th style="${th}">Tested by</th></tr></thead><tbody>${body}</tbody></table>`;
+      }
+
+      async function copySelectedIdsHtml() {
+        const files = [..._checkedFiles];
+        if (!files.length) return;
+        const btn = document.getElementById("btn-bulk-copy-ids");
+        const prevLabel = btn.textContent;
+
+        // Use cached metadata when available; fetch the result JSON otherwise
+        const rowsPromise = Promise.all(
+          files.map(async (file) => {
+            let meta = _checkedItemsMeta.get(file);
+            if (!meta || !meta.test_id) {
+              try {
+                const res = await fetch(
+                  `${PROXY}/gop/result/${encodeURIComponent(file)}`
+                );
+                if (res.ok) meta = await res.json();
+              } catch (e) {}
+            }
+            meta = meta || {};
+            return {
+              id: meta.test_id || file,
+              date: meta.started_at
+                ? meta.started_at.replace("T", " ").slice(0, 19) + " UTC"
+                : "—",
+              user: meta.username || "anonymous",
+            };
+          })
+        );
+
+        try {
+          if (!(navigator.clipboard && window.ClipboardItem))
+            throw new Error("ClipboardItem not supported");
+          // Promises inside ClipboardItem keep the user-gesture context
+          // valid while the async fetches above are still running.
+          const item = new ClipboardItem({
+            "text/html": rowsPromise.then(
+              (rows) => new Blob([_buildIdsHtmlTable(rows)], { type: "text/html" })
+            ),
+            "text/plain": rowsPromise.then(
+              (rows) =>
+                new Blob(
+                  [
+                    ["Test ID", "Test Date", "Tested by"].join("\t") +
+                      "\n" +
+                      rows.map((r) => [r.id, r.date, r.user].join("\t")).join("\n"),
+                  ],
+                  { type: "text/plain" }
+                )
+            ),
+          });
+          await navigator.clipboard.write([item]);
+        } catch (e) {
+          // Fallback: select a rendered off-screen table and copy it
+          const rows = await rowsPromise;
+          const wrap = document.createElement("div");
+          wrap.style.cssText =
+            "position:fixed;top:0;left:0;background:#fff;opacity:0;pointer-events:none;z-index:-9999";
+          wrap.innerHTML = _buildIdsHtmlTable(rows);
+          document.body.appendChild(wrap);
+          const range = document.createRange();
+          range.selectNodeContents(wrap);
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+          document.execCommand("copy");
+          sel.removeAllRanges();
+          document.body.removeChild(wrap);
+        }
+
+        btn.textContent = "✓ Copied";
+        setTimeout(() => (btn.textContent = prevLabel), 2000);
+      }
+
       // ── Bulk tag edit ─────────────────────────────────────────────────
+
+
       let _bulkTagAddChips = [];
       let _bulkTagRemoveChips = [];
       let _bulkTagSelectedTags = []; // tags present on the currently-selected results
