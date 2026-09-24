@@ -1312,7 +1312,7 @@
       </div>
       <button class="btn primary" id="btn-overview-refresh">⟳ Refresh</button>
       <div class="sep"></div>
-      <div id="overview-mgmt-toggle" style="display:none;align-items:center;gap:10px;">
+      <div id="overview-mgmt-toggle" style="display:none;flex-direction:row;align-items:center;gap:10px;">
         <div id="overview-member-row" style="display:flex;align-items:center;gap:8px;">
           <span class="toolbar-label">Member</span>
           <select class="toolbar-select" id="overview-member-select" style="font-size:0.72rem;"></select>
@@ -2066,7 +2066,7 @@
       document.getElementById('tab-overview').style.display = '';
     }
     if (m.rota_role === 'management') {
-      document.getElementById('overview-mgmt-toggle').style.display = '';
+      document.getElementById('overview-mgmt-toggle').style.display = 'flex';
     }
   }
 
