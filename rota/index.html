@@ -1083,14 +1083,16 @@
         <button class="nav-item-btn" data-tab="overview"><span class="nav-icon-slot"></span>MY OVERVIEW<span class="nav-disclosure">▶</span></button>
         <div class="nav-children">
           <button class="nav-child-btn" data-tab="overview" data-sub="allowance">AL Allowance</button>
-          <button class="nav-child-btn" data-tab="overview" data-sub="soe" id="tab-overview-soe" style="display:none;">SOE Weekend Coverage</button>
+          <button class="nav-child-btn" data-tab="overview" data-sub="soe">SOE Weekend Coverage</button>
         </div>
       </div>
       <div class="nav-item" data-nav="admin" id="tab-admin" style="display:none;">
         <button class="nav-item-btn" data-tab="admin"><span class="nav-icon-slot"></span>ADMIN<span class="nav-disclosure">▶</span></button>
         <div class="nav-children">
           <button class="nav-child-btn" data-tab="admin" data-sub="people">People</button>
+          <button class="nav-child-btn" data-tab="admin" data-sub="shifts">Shifts</button>
           <button class="nav-child-btn" data-tab="admin" data-sub="al">Annual Leave</button>
+          <button class="nav-child-btn" data-tab="admin" data-sub="datafiles">Data Files</button>
           <button class="nav-child-btn" data-tab="admin" data-sub="feedback">Feedback</button>
         </div>
       </div>
@@ -1235,112 +1237,115 @@
 
   <!-- ══ TAB: LEAVE APPROVALS ══ -->
   <div class="tab-panel" id="panel-approvals">
-    <p class="section-title">Pending Actions</p>
-    <div id="approvals-pending">
-      <div class="loading-row"><div class="spinner"></div> Loading…</div>
-    </div>
-    <hr class="section-divider" />
-    <p class="section-title">Leave History</p>
-    <div class="history-controls">
-      <div class="toolbar-group">
-        <span class="toolbar-label">User</span>
-        <select class="toolbar-select" id="history-user-select">
-          <option value="">— select user —</option>
-        </select>
-      </div>
-      <div class="toolbar-group">
-        <span class="toolbar-label">Year</span>
-        <select class="toolbar-select" id="history-year-select"></select>
+    <div data-subpanel="pending">
+      <p class="section-title">Pending Actions</p>
+      <div id="approvals-pending">
+        <div class="loading-row"><div class="spinner"></div> Loading…</div>
       </div>
     </div>
-    <div id="approvals-history">
-      <div class="empty-state">Select a user to view their history.</div>
+    <div data-subpanel="history">
+      <p class="section-title">Leave History</p>
+      <div class="history-controls">
+        <div class="toolbar-group">
+          <span class="toolbar-label">User</span>
+          <select class="toolbar-select" id="history-user-select">
+            <option value="">— select user —</option>
+          </select>
+        </div>
+        <div class="toolbar-group">
+          <span class="toolbar-label">Year</span>
+          <select class="toolbar-select" id="history-year-select"></select>
+        </div>
+      </div>
+      <div id="approvals-history">
+        <div class="empty-state">Select a user to view their history.</div>
+      </div>
     </div>
   </div>
 
   <!-- ══ TAB: NIGHT & PH HOURS ══ -->
   <div class="tab-panel" id="panel-hours">
+    <div data-subpanel="compute">
+      <div id="hours-toolbar" style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;">
+        <div class="toolbar-group">
+          <span class="toolbar-label">Period</span>
+          <select class="toolbar-select" id="hours-period">
+            <option value="month">Calendar Month</option>
+            <option value="custom">Custom Range</option>
+          </select>
+        </div>
+        <div class="toolbar-group" id="hours-month-group">
+          <input type="month" class="toolbar-select" id="hours-month" />
+        </div>
+        <div class="toolbar-group" id="hours-custom-group" style="display:none;">
+          <input type="date" class="toolbar-select" id="hours-from" />
+          <span style="color:var(--muted);font-family:var(--mono);font-size:0.6rem;">→</span>
+          <input type="date" class="toolbar-select" id="hours-to" />
+        </div>
+        <button class="btn primary" id="btn-hours-compute" style="margin-left:4px;">▶ Compute</button>
+        <div class="sep"></div>
+        <div id="hours-mgmt-actions" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;">
+          <button class="btn draft-enter" id="btn-commit-soe" disabled title="Compute first">⬆ Commit SOE to POT</button>
+          <button class="btn draft-enter" id="btn-commit-sos" disabled title="Compute first">⬆ Commit SOS to POT</button>
+          <button class="btn" id="btn-export-soe" title="Export requires a committed POT record">⬇ SOE Sheet</button>
+          <button class="btn" id="btn-export-sos" title="Export requires a committed POT record">⬇ SOS Sheet</button>
+        </div>
+      </div>
+      <div id="hours-result">
+        <div class="empty-state">Select a period and click Compute.</div>
+      </div>
+    </div>
 
-    <!-- Compute section (management + staff) -->
-    <div id="hours-toolbar" style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;">
-      <div class="toolbar-group">
-        <span class="toolbar-label">Period</span>
-        <select class="toolbar-select" id="hours-period">
-          <option value="month">Calendar Month</option>
-          <option value="custom">Custom Range</option>
-        </select>
+    <div data-subpanel="pot">
+      <div class="pot-consult-toolbar">
+        <span class="toolbar-label">POT Consultation</span>
+        <div class="toolbar-group">
+          <span class="toolbar-label">Team</span>
+          <select class="toolbar-select" id="pot-team-select">
+            <option value="">— team —</option>
+            <option value="SOE">SOE</option>
+            <option value="SOS">SOS</option>
+          </select>
+        </div>
+        <div class="toolbar-group">
+          <span class="toolbar-label">Month</span>
+          <input type="month" class="toolbar-select" id="pot-month-select" />
+        </div>
+        <button class="btn" id="btn-pot-view">🔍 View POT</button>
       </div>
-      <div class="toolbar-group" id="hours-month-group">
-        <input type="month" class="toolbar-select" id="hours-month" />
-      </div>
-      <div class="toolbar-group" id="hours-custom-group" style="display:none;">
-        <input type="date" class="toolbar-select" id="hours-from" />
-        <span style="color:var(--muted);font-family:var(--mono);font-size:0.6rem;">→</span>
-        <input type="date" class="toolbar-select" id="hours-to" />
-      </div>
-      <button class="btn primary" id="btn-hours-compute" style="margin-left:4px;">▶ Compute</button>
-      <!-- Management-only: commit + export -->
-      <div class="sep"></div>
-      <div id="hours-mgmt-actions" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;">
-        <button class="btn draft-enter" id="btn-commit-soe" disabled title="Compute first">⬆ Commit SOE to POT</button>
-        <button class="btn draft-enter" id="btn-commit-sos" disabled title="Compute first">⬆ Commit SOS to POT</button>
-        <button class="btn" id="btn-export-soe" title="Export requires a committed POT record">⬇ SOE Sheet</button>
-        <button class="btn" id="btn-export-sos" title="Export requires a committed POT record">⬇ SOS Sheet</button>
-      </div>
+      <div id="pot-result"></div>
     </div>
-    <div id="hours-result">
-      <div class="empty-state">Select a period and click Compute.</div>
-    </div>
-
-    <!-- POT consultation section (all users) -->
-    <div class="pot-consult-toolbar">
-      <span class="toolbar-label">POT Consultation</span>
-      <div class="toolbar-group">
-        <span class="toolbar-label">Team</span>
-        <select class="toolbar-select" id="pot-team-select">
-          <option value="">— team —</option>
-          <option value="SOE">SOE</option>
-          <option value="SOS">SOS</option>
-        </select>
-      </div>
-      <div class="toolbar-group">
-        <span class="toolbar-label">Month</span>
-        <input type="month" class="toolbar-select" id="pot-month-select" />
-      </div>
-      <button class="btn" id="btn-pot-view">🔍 View POT</button>
-    </div>
-    <div id="pot-result"></div>
   </div>
 
   <!-- ══ TAB: MY OVERVIEW ══ -->
   <div class="tab-panel" id="panel-overview">
-    <div id="overview-toolbar" style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;">
-      <div class="toolbar-group">
-        <span class="toolbar-label">Year</span>
-        <select class="toolbar-select" id="overview-year"></select>
-      </div>
-      <button class="btn primary" id="btn-overview-refresh">⟳ Refresh</button>
-      <div class="sep"></div>
-      <div id="overview-mgmt-toggle" style="display:none;flex-direction:row;align-items:center;gap:10px;">
-        <div id="overview-member-row" style="display:flex;align-items:center;gap:8px;">
-          <span class="toolbar-label">Member</span>
-          <select class="toolbar-select" id="overview-member-select" style="font-size:0.72rem;"></select>
+    <div data-subpanel="allowance">
+      <div id="overview-toolbar" style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;">
+        <div class="toolbar-group">
+          <span class="toolbar-label">Year</span>
+          <select class="toolbar-select" id="overview-year"></select>
         </div>
-        <button class="toggle-btn" id="overview-all-toggle">All Members</button>
+        <button class="btn primary" id="btn-overview-refresh">⟳ Refresh</button>
+        <div class="sep"></div>
+        <div id="overview-mgmt-toggle" style="display:none;align-items:center;gap:10px;">
+          <div id="overview-member-row" style="display:flex;align-items:center;gap:8px;">
+            <span class="toolbar-label">Member</span>
+            <select class="toolbar-select" id="overview-member-select" style="font-size:0.72rem;"></select>
+          </div>
+          <button class="toggle-btn" id="overview-all-toggle">All Members</button>
+        </div>
+        <div id="overview-team-toggles" style="display:none;gap:8px;">
+          <button class="team-toggle Management" data-team="Management">Management</button>
+          <button class="team-toggle Engineering" data-team="Engineering">Engineering</button>
+          <button class="team-toggle Specialists" data-team="Specialists">Specialists</button>
+        </div>
       </div>
-      <div id="overview-team-toggles" style="display:none;gap:8px;">
-        <button class="team-toggle Management" data-team="Management">Management</button>
-        <button class="team-toggle Engineering" data-team="Engineering">Engineering</button>
-        <button class="team-toggle Specialists" data-team="Specialists">Specialists</button>
+      <div id="overview-result">
+        <div class="loading-row"><div class="spinner"></div> Loading…</div>
       </div>
     </div>
-    <div id="overview-result">
-      <div class="loading-row"><div class="spinner"></div> Loading…</div>
-        </div>
 
-    <!-- SOE Weekend Coverage -->
-    <div id="soe-weekends-section" style="display:none;margin-top:32px;">
-      <hr class="section-divider" />
+    <div data-subpanel="soe">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
         <p class="section-title" style="margin:0;">SOE Weekend Coverage</p>
         <select class="toolbar-select" id="soe-mode-select" style="font-size:0.68rem;">
@@ -1358,8 +1363,9 @@
   <!-- ══ TAB: ADMIN ══ -->
   <div class="tab-panel" id="panel-admin">
 
-    <!-- CARD: Annual Leave -->
-    <div class="admin-card" id="admin-card-al">
+    <div data-subpanel="al">
+      <!-- CARD: Annual Leave -->
+      <div class="admin-card" id="admin-card-al">
       <div class="admin-card-header">
         <span class="admin-card-title">📅 Annual Leave</span>
       </div>
@@ -1413,6 +1419,9 @@
       </div>
     </div>
 
+    </div><!-- /data-subpanel="al" -->
+
+    <div data-subpanel="datafiles">
     <!-- CARD: Data Files -->
     <div class="admin-card" id="admin-card-datafiles">
       <div class="admin-card-header">
@@ -1427,6 +1436,9 @@
       </div>
     </div>
 
+    </div><!-- /data-subpanel="datafiles" -->
+
+    <div data-subpanel="feedback">
     <!-- CARD: Feedback -->
     <div class="admin-card" id="admin-card-feedback">
       <div class="admin-card-header">
@@ -1451,6 +1463,9 @@
       </div>
     </div>
 
+    </div><!-- /data-subpanel="feedback" -->
+
+    <div data-subpanel="shifts">
     <!-- CARD: Shifts -->
     <div class="admin-card" id="admin-card-shifts">
       <div class="admin-card-header">
@@ -1495,6 +1510,9 @@
       </div>
     </div>
 
+    </div><!-- /data-subpanel="shifts" -->
+
+    <div data-subpanel="people">
     <!-- CARD: People -->
     <div class="admin-card" id="admin-card-people">
       <div class="admin-card-header">
@@ -1566,7 +1584,8 @@
         <div class="loading-row"><div class="spinner"></div> Loading…</div>
       </div>
     </div>
-  </div>
+    </div><!-- /data-subpanel="people" -->
+  </div><!-- /#panel-admin -->
 
   </div><!-- /#content-pane -->
   </div><!-- /#app-shell -->
@@ -2097,13 +2116,16 @@
     if (tabName === 'admin')     setupAdminTab();
   }
 
-  function _activateTab(tabName) {
-    document.querySelectorAll('.nav-item-btn, .nav-child-btn').forEach(b => b.classList.remove('active'));
+  function _activateTab(tabName, subKey) {
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     const panel = document.getElementById('panel-' + tabName);
     if (panel) panel.classList.add('active');
-    const parentBtn = document.querySelector(`.nav-item-btn[data-tab="${tabName}"]`);
-    if (parentBtn) parentBtn.classList.add('active');
+    // Show only the requested sub-panel; hide the rest
+    if (subKey && panel) {
+      panel.querySelectorAll('[data-subpanel]').forEach(el => {
+        el.style.display = (el.dataset.subpanel === subKey) ? '' : 'none';
+      });
+    }
     _loadTabContent(tabName);
   }
 
@@ -2164,19 +2186,21 @@
           navItem.classList.toggle('expanded');
           return;
         }
+        document.querySelectorAll('.nav-item-btn, .nav-child-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
         _activateTab(btn.dataset.tab);
       });
     });
 
-    // Child items: load the parent tab's content (sub-panel filtering
-    // arrives in a later pass) and mark both parent + child as active.
+    // Child items: show only their sub-panel, keep active highlight on
+    // both the child and its parent until another item is clicked.
     document.querySelectorAll('.nav-child-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        document.querySelectorAll('.nav-child-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.nav-item-btn, .nav-child-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        _activateTab(btn.dataset.tab);
         const parentBtn = btn.closest('.nav-item').querySelector('.nav-item-btn');
         if (parentBtn) parentBtn.classList.add('active');
+        _activateTab(btn.dataset.tab, btn.dataset.sub);
       });
     });
 
@@ -5633,7 +5657,6 @@ function _removeCellFromBoxes(ri, ci) {
     const team = state.me && state.me.team;
     if (role === 'management' || team === 'Engineering') {
       loadSoeWeekends();
-      document.getElementById('soe-weekends-section').style.display = '';
       const soeYearSel = document.getElementById('soe-year-select');
       if (soeYearSel) {
         soeYearSel.addEventListener('change', () => {

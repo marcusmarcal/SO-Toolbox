@@ -17,6 +17,273 @@
 - `notifications.json` added to the Data Files admin panel for
   download/backup/restore.
 
+## [Unreleased] — UI overhaul PR1: sidebar shell + light theme
+
+### Changed
+- Replaced top horizontal `#topbar` + `#tab-bar` with a fixed 220px left
+  sidebar (`#sidebar`), macOS Finder-style: logo/app-name header, nested
+  nav (parent items expand/collapse only, no content change on parent
+  click), user identity + Feedback/Sign out moved to sidebar footer.
+- Retokenized `:root` to a macOS-light palette, grouped and labeled by
+  purpose (NEUTRALS / BRAND / STATUS / TEAM BADGES / SPRINKLE / TYPE) for
+  future tweaking without re-reading the whole stylesheet. Accent is
+  `#3F1568` (deep purple).
+- Draft banner now sits at the top of `#content-pane`, full width of the
+  content area (not sidebar-embedded) — unchanged behaviour, new position.
+- Reduced body noise-grain overlay opacity 0.35 → 0.08 (was tuned for dark
+  bg, overpowered the light theme).
+- Recalibrated `#rota-wrap` max-height (`calc(100vh - 230px)` →
+  `calc(100vh - 140px)`) now that ~120px of sticky top chrome no longer
+  sits above the content pane.
+- Logo is now an `<img>` slot at `/assets/logo-placeholder.png` — shows
+  broken-image icon until a PNG is supplied; deliberate placeholder.
+
+### Not yet done (PR2, scoped separately)
+- Sub-panel content splitting: Leave Approvals (Pending/History), Night &
+  PH Hours (Compute/POT Consultation), My Overview (AL Allowance/SOE
+  Weekend Coverage), Admin (People/Annual Leave/Feedback) all currently
+  still render as one combined panel regardless of which child nav item
+  was clicked — child clicks load the parent's full existing content.
+  Actual show/hide-per-sub-item logic is the next pass.
+- A handful of hardcoded dark-theme rgba/hex values remain in
+  `.data-table`, `.pot-table`, and history-row border colors (e.g.
+  `#252525`, `rgba(255,255,255,0.15)`) — not yet swept to light-theme
+  equivalents. Cosmetic only, doesn't affect function.
+- Mobile static-screenshot view — explicitly deferred, separate spec.
+
+### Verification performed
+- Div open/close tag balance confirmed equal (379/379).
+- Full inline `<script>` block confirmed to parse as valid JS syntax
+  (`new Function()` on extracted source — syntax check only, not a
+  runtime/click-through test; UAT in-browser still required).
+- No stray references to removed `.tab-btn` / `#topbar` / `#tab-bar`
+  selectors remain anywhere in CSS, HTML, or JS.
+
+---
+
+## [Unreleased] — UI overhaul PR1 (cont.): rota table retheme + fonts
+
+### Changed
+- Rota table chrome (headers, date column, weekend/PH/today shading, gap
+  flags, draft-mode header tint, borders) retheme dark → light. Scope
+  was deliberately narrow: SHIFT_COLORS (the JS map driving actual shift
+  code colors, plus OFF/ABSENT/PARENTAL/MARITAL) was left untouched per
+  explicit "shift colors remain untouched" instruction — flag if
+  OFF/ABSENT/PARENTAL/MARITAL should also be relit for light theme, since
+  those aren't work-shift legend colors and the instruction's scope on
+  them was ambiguous.
+- Type system unified: --mono / --display / --numfont all now resolve to
+  Inter; hierarchy comes from weight/size only, not family. Variable
+  names kept as-is (legacy — "mono" doesn't mean monospace) with an
+  explanatory comment rather than renaming ~106 call sites for a
+  cosmetic-only gain.
+- New --font-title token + @font-face for Resolve Sans (title only),
+  falling back to Inter until licensed .woff2 files are supplied at
+  /assets/fonts/ResolveSans-{Regular,Bold}.woff2. Resolve Sans is
+  Blackmagic Design's proprietary font — NOT on any public CDN. Requires
+  license confirmation for web-embed use before those files are hosted.
+  Flagged explicitly; not resolved by this change.
+- Google Fonts import trimmed: dropped Syne and Space Mono (both fully
+  unused after the Inter consolidation — Space Mono was already dead
+  weight before this pass, Syne was --display's old value). Kept Aptos
+  Narrow + Roboto — both used exclusively by the print-export CSS
+  (.print-title / table.print-rota), which is intentionally out of scope
+  for this theme pass.
+- Sidebar header text "SP SO Rota" -> "Streaming Ops Rota" (the <title>
+  tag already read correctly -- only the visible sidebar label was stale).
+
+### Verification performed
+- Div balance (379/379), inline <script> syntax parse -- both hold post-edit.
+- Confirmed no remaining "SP SO" string anywhere in the file.
+- Confirmed print-export font-family declarations (Roboto/Aptos Narrow)
+  untouched and still bypass the --mono/--display vars as designed.
+
+### Still open
+- Resolve Sans font files not supplied -- title currently renders in
+  Inter (fallback) until sourced + licensed.
+- Sub-panel content splitting (PR2, unchanged from prior entry).
+- data-table / pot-table hardcoded dark border colors (#252525 etc.)
+  not yet swept -- cosmetic only, still pending.
+
+---
+
+## [Unreleased] — UI overhaul PR1 (cont.): OFF/ABSENT/PARENTAL/MARITAL relight + type hierarchy
+
+### Changed
+- SHIFT_COLORS: OFF -> bg #ececec / fg #949292 (matches weekend date-col
+  styling exactly). ABSENT -> same base + diagonal texture recolored to
+  an intermediate gray (rgba(148,148,148,0.55)) so it reads between the
+  light bg and dark label on a light table. PARENTAL and MARITAL both
+  unified to bg #71efde with a dotted overlay; dotted pattern itself
+  reworked (sparser, dark dots on transparent, ~7px grid) to read closer
+  to Excel's light dot-fill pattern instead of the old faint white dots.
+- .shift-cell font-weight 700 -> 500, to sit visually lighter than the
+  bold header row (700) and bold date column (700) — this is the single
+  line to touch if hierarchy needs further adjustment (index.html, rule
+  `.shift-cell { font-weight: ... }`).
+- Legend swatches (Rota tab, bottom) synced to match the above so the
+  legend doesn't contradict the table.
+- Unrelated pre-existing bug fixed opportunistically: legend's
+  "Confirmed AL" swatch was #9ee6a6 (green) but SHIFT_COLORS['AL_APPROVED']
+  is #FFEB3B (yellow) — legend never matched the actual cell color. Now
+  synced.
+
+### Flag — real functional consequence, not just cosmetic
+- PARENTAL and MARITAL cells render as text-blank in the grid (existing
+  behaviour, unchanged) — with both now sharing the identical bg color
+  and dotted pattern, **they are visually indistinguishable in the rota
+  table itself**. The legend has a thin border added to Marital's swatch
+  to tell them apart there, but that border isn't applied to actual grid
+  cells. If distinguishing Parental from Marital at a glance in the live
+  table matters, this needs a follow-up (e.g. a border, different dot
+  density, or a tiny corner mark) — not resolved by this change, executed
+  literally per instruction as given.
+
+---
+
+## [Unreleased] — UI overhaul PR1 (cont.): legend hidden, Marital recolor, draft-selection contrast
+
+### Changed
+- #legend block commented out (not deleted) in the Rota tab — reclaims
+  vertical space; users already know the color scheme from the existing
+  Excel-format rota. Swatches inside were kept in sync with SHIFT_COLORS
+  before commenting out, so uncommenting later won't restore stale colors.
+- SHIFT_COLORS['MARITAL'] bg #71efde -> #ffffff (kept dotted:true) so
+  Parental and Marital are now visually distinct in the actual grid, not
+  just in the (now-hidden) legend.
+- Draft-mode selected-cell text: was forced white (#fff !important),
+  illegible against light-theme shift colors. Changed to var(--warn)
+  (#e6a850) — the exact color of the selection-box border, not an
+  approximation — plus a font-weight bump to 700 (unrequested addition,
+  pairs with the earlier 500-weight base so selected text doesn't go thin
+  and hard to read under the amber overlay).
+
+### Flagged, not resolved
+- Amber selection text against the lightest cells (OFF #ececec, Marital
+  white) may still be low-contrast since the selection overlay itself is
+  amber-tinted — same hue family as the text. Needs an actual in-browser
+  check; if still weak, drop to a darker amber (#8a5a00, already used for
+  the today-row text) instead of the exact border-match color.
+
+---
+
+## [Unreleased] — UI overhaul PR1 (cont.): draft-mode header contrast, layout scroll fix, toast relocation
+
+### Changed
+- Draft-mode header background/text: was pale amber bg (#fff3d6/#ffe9b8)
+  with var(--muted) text — low contrast. Now #f0c876/#e8b85c bg with an
+  explicit dark brown text color (#5c3d00), independent of whatever the
+  base header's text-color token resolves to.
+- Layout: replaced the hardcoded #rota-wrap max-height (calc(100vh -
+  140px)) with proper flex distribution. Root cause of the "minor extra
+  scroll" in draft mode: that magic number only accounted for chrome
+  height *without* the draft banner, so it went stale whenever the
+  banner appeared. Now #content-pane is a fixed-height (100vh) flex
+  column, #panel-rota (when active) is itself a flex column filling all
+  remaining space, #rota-toolbar/#draft-banner are flex-shrink:0, and
+  #rota-wrap is flex:1 + min-height:0 — it now always fills exactly
+  whatever space is actually left, banner shown or not, with no
+  recalculation needed if chrome height changes again in future.
+  content-pane keeps its own overflow-y:auto as a safety net for other
+  (non-Rota) tabs whose content might exceed one viewport — untouched,
+  not something you flagged as a problem.
+- Toast notifications: moved from a fixed, viewport-centered overlay
+  (z-index 9000, sitting on top of content) into the sidebar itself —
+  now the last child of #sidebar-nav, pinned to the bottom of the nav
+  column via margin-top:auto (so it sits just above the footer divider
+  regardless of exact nav-item count, no pixel-math needed). #sidebar-nav
+  is now display:flex/flex-direction:column to make that possible.
+  Switched white-space:nowrap -> normal since it's now width-constrained
+  to the sidebar rather than free-floating over full page width.
+
+### Verification performed
+- Confirmed exactly one #toast element in the DOM (caught and fixed a
+  duplicate-insertion mistake during editing — old fixed-position toast
+  wasn't removed on first pass, corrected before shipping).
+- Div/nav tag balance, JS syntax parse — both hold.
+
+### Still outstanding, not part of this pass
+- The three items from the previous message (header bg #BDC0BF +
+  text color, header/week-separator line, today-highlight dark-gray-bold
+  text for working shifts) were given as instructions only, not applied
+  to this file yet. Confirm if you want those folded in now.
+
+---
+
+## [Unreleased] — Bugfix: weekend-swap alias-blindness (backend + frontend)
+
+### Root cause
+WEEKEND_SWAP_PATTERNS is hand-tuned with specific shift codes (e.g.
+1000-2000). The shift-registry alias feature (Admin > Shifts > rename)
+rewrites what _base_shift() returns for dates on/after the alias's
+effective_from, but the pattern tables were never consulted through
+_resolve_alias. A renamed shift produces a silent "no match" — the button
+never appears, no error, no clue. The rename from 1000-2000 triggered this.
+
+### Backend fix (routes_rota.py)
+- _match_weekend_pattern() now takes fri_date as a new required argument.
+  Each hardcoded pattern code is resolved through _resolve_alias() per its
+  actual calendar date before comparing against the (already
+  alias-resolved) live window. OFF is fast-pathed — never aliased.
+- Write path (rota_draft_weekend_swap): target_seq is now built by
+  resolving each raw_target_seq code through _resolve_alias() per date,
+  so the actual published override always writes the currently-active code
+  rather than a pre-rename literal that may no longer exist in live data.
+- Call site updated: _match_weekend_pattern(window) ->
+  _match_weekend_pattern(window, fri_date).
+
+### Frontend fix (index.html)
+- init(): management users now eagerly fetch /rota/shifts and build a
+  client-side alias cache (_clientAliasCache) via _rebuildClientAliasCache().
+- New helpers: _rebuildClientAliasCache(shifts) and _resolveAliasClient(code,
+  dateStr) — mirror the backend's _ALIAS_CACHE / _resolve_alias() exactly.
+- openShiftPopover(): pattern comparison now builds per-cell dates for the
+  10-cell window and resolves each pattern's codes through _resolveAliasClient
+  before comparing, via a _resolvePattern(seq) helper defined inline.
+
+### Acknowledged design debt (not fixed here)
+The fix still duplicates alias-resolution logic across three locations
+(backend _match_weekend_pattern, backend write path, frontend popover).
+The clean solution is for the backend's /rota/draft/weekend-swap route to
+return a "is_match / direction" flag so the frontend never needs its own
+pattern logic at all. Flagged for PR2/3; out of scope for this pass.
+
+---
+
+## [Unreleased] — UI overhaul PR2: sub-panel content splitting
+
+### Changed
+- Leave Approvals: split into two sub-panels (pending, history). The
+  hr-rule divider between them is removed — nav item click is now the
+  mode switch.
+- Night & PH Hours: split into compute and pot sub-panels. The
+  pot-consult-toolbar was previously stacked below the compute result
+  on the same combined page.
+- My Overview: split into allowance and soe sub-panels. The SOE
+  section was previously shown/hidden with a JS display toggle
+  (getElementById('soe-weekends-section').style.display) — that
+  approach is removed; the router handles visibility now.
+- Admin: split into 5 sub-panels (people, shifts, al, datafiles,
+  feedback). Added Shifts and Data Files as new child nav items in
+  the Admin sidebar group (were previously only reachable by scrolling
+  the combined Admin page with no nav affordance).
+- _activateTab(tabName, subKey): new subKey parameter; when provided,
+  shows only the matching [data-subpanel] div inside the active panel
+  and hides the rest. Leaf tabs (Rota, Request Leave) have no
+  [data-subpanel] children — the router no-ops the show/hide step for
+  them cleanly.
+- setupTabs: child button click now clears all active marks then sets
+  both the child and its parent as active — active highlight now
+  persists correctly after click (was previously lost because
+  _activateTab was clearing all marks including the ones just set).
+
+### Verification performed
+- JS syntax parse: OK.
+- div open/close tag balance: 407/407.
+- data-subpanel attribute count: 16 (8 sub-panels × 2 for opening +
+  data-subpanel= on the div itself — each key appears exactly twice).
+- No remaining references to removed soe-weekends-section ID.
+
 ## [Unreleased]
 
 ### Added 22-09-2026
