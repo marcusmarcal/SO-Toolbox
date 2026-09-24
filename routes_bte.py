@@ -482,9 +482,13 @@ def _get_user_and_role():
     return session.get('username', 'anonymous'), session.get('role')
 
 
-def _find_pool_item(pool_key, item_id):
-    """Raw (un-redacted) item from a snapshot pool ('resources' or 'destinations'), or None."""
-    snapshot = _current_snapshot() or {}
+def _find_pool_item(pool_key, item_id, snapshot=None):
+    """Raw (un-redacted) item from a snapshot pool ('resources' or 'destinations'), or None.
+
+    ``snapshot`` defaults to the live snapshot; pass one from _resolve_snapshot()
+    to look an item up in a specific DM Snapshot backup instead.
+    """
+    snapshot = snapshot if snapshot is not None else (_current_snapshot() or {})
     pool = (snapshot.get('pools') or {}).get(pool_key) or {}
     for item in pool.get('items') or []:
         if item.get('id') == item_id:
@@ -492,12 +496,29 @@ def _find_pool_item(pool_key, item_id):
     return None
 
 
-def _find_snapshot_item(resource_id):
-    """Raw (un-redacted) Supplier Dynamic item from the snapshot, or None."""
-    return _find_pool_item('resources', resource_id)
+def _find_snapshot_item(resource_id, snapshot=None):
+    """Raw (un-redacted) Supplier Dynamic item from a snapshot, or None."""
+    return _find_pool_item('resources', resource_id, snapshot=snapshot)
 
 
-def _resolve_destinations(data):
+def _resolve_snapshot(backup_date):
+    """The snapshot dict to provision from: live by default, or a specific day's
+    backup when ``backup_date`` is given. Returns (snapshot, error).
+
+    BTE deliberately allows building/creating resources straight off a backup:
+    if Dataminer itself is unreachable, the last-known-good entry points are
+    still usable to keep something on air. The live snapshot is always the
+    default everywhere unless a caller explicitly asks for a backup date.
+    """
+    if not backup_date:
+        return _current_snapshot() or {}, None
+    snapshot = _load_backup(backup_date)
+    if snapshot is None:
+        return None, f'No DM Snapshot backup found for {backup_date}'
+    return snapshot, None
+
+
+def _resolve_destinations(data, snapshot=None):
     """Resolve requested destination_ids to raw snapshot items.
 
     Returns (items, error). Rejects unknown ids and ids already attached to
@@ -512,7 +533,7 @@ def _resolve_destinations(data):
     used = prov.used_destination_ids()
     items, missing, taken = [], [], []
     for dest_id in ids:
-        item = _find_pool_item('destinations', dest_id)
+        item = _find_pool_item('destinations', dest_id, snapshot=snapshot)
         if item is None:
             missing.append(dest_id)
         elif dest_id in used:
@@ -812,22 +833,32 @@ def provisioning_status():
 
 @bte_bp.route('/provision/plan', methods=['POST'])
 def provision_plan():
-    """Preview of the TXCore calls "Create resources" would make (passphrases masked)."""
+    """Preview of the TXCore calls "Create resources" would make (passphrases masked).
+
+    Body may include ``backup_date`` ('YYYY-MM-DD') to plan against a DM Snapshot
+    backup instead of the live snapshot — used for emergency provisioning when
+    Dataminer itself is unreachable and the live snapshot is stale/unavailable.
+    """
     if _get_role() not in ALLOWED_ROLES:
         return _forbidden()
     data = request.get_json(force=True, silent=True) or {}
     resource_id = str(data.get('resource_id') or '').strip()
     if not _RESOURCE_ID_RE.fullmatch(resource_id):
         return jsonify({'error': 'Missing or invalid resource_id'}), 400
-    item = _find_snapshot_item(resource_id)
+    backup_date = str(data.get('backup_date') or '').strip() or None
+    snapshot, snap_error = _resolve_snapshot(backup_date)
+    if snap_error:
+        return jsonify({'error': snap_error}), 404
+    item = _find_snapshot_item(resource_id, snapshot=snapshot)
     if item is None:
         return jsonify({'error': 'Resource not found in the snapshot'}), 404
-    destinations, error = _resolve_destinations(data)
+    destinations, error = _resolve_destinations(data, snapshot=snapshot)
     if error:
         return jsonify({'error': error}), 400
     plan = prov.redact_plan(prov.build_plan(item, destinations=destinations))
     plan['resource_id'] = resource_id
     plan['resource_name'] = item.get('name')
+    plan['source_snapshot'] = backup_date or 'live'
     plan['dry_run'] = _dry_run_forced(data.get('dry_run', True))
     plan['live_writes_allowed'] = prov.PROVISIONING_ENABLED and prov.configured()
     existing = prov.active_lease_for_resource(resource_id)
@@ -838,7 +869,12 @@ def provision_plan():
 
 @bte_bp.route('/provision', methods=['POST'])
 def provision_create():
-    """Create the resources for one channel and open a lease. Runs in the background."""
+    """Create the resources for one channel and open a lease. Runs in the background.
+
+    Body may include ``backup_date`` to provision from a DM Snapshot backup instead
+    of the live snapshot (see ``provision_plan``); the lease then remembers that
+    origin (``source_snapshot``) for the audit trail and later actions on it.
+    """
     username, role = _get_user_and_role()
     if role not in ALLOWED_ROLES:
         return _forbidden()
@@ -846,7 +882,11 @@ def provision_create():
     resource_id = str(data.get('resource_id') or '').strip()
     if not _RESOURCE_ID_RE.fullmatch(resource_id):
         return jsonify({'error': 'Missing or invalid resource_id'}), 400
-    item = _find_snapshot_item(resource_id)
+    backup_date = str(data.get('backup_date') or '').strip() or None
+    snapshot, snap_error = _resolve_snapshot(backup_date)
+    if snap_error:
+        return jsonify({'error': snap_error}), 404
+    item = _find_snapshot_item(resource_id, snapshot=snapshot)
     if item is None:
         return jsonify({'error': 'Resource not found in the snapshot'}), 404
 
@@ -855,7 +895,7 @@ def provision_create():
         return jsonify({'error': f"This channel already has an active BTE lease ({existing['status']})",
                         'lease_id': existing['lease_id']}), 409
 
-    destinations, error = _resolve_destinations(data)
+    destinations, error = _resolve_destinations(data, snapshot=snapshot)
     if error:
         return jsonify({'error': error}), 400
 
@@ -868,13 +908,15 @@ def provision_create():
     if not dry_run and prov.EDGES.get(plan['summary']['dc_edge']) is None:
         return jsonify({'error': f"Edge {plan['summary']['dc_edge']} is not configured"}), 422
 
-    lease = prov.create_lease(item, plan, data.get('duration_minutes'), username, dry_run)
+    lease = prov.create_lease(item, plan, data.get('duration_minutes'), username, dry_run,
+                              source_snapshot=backup_date)
     threading.Thread(target=prov.run_lease, args=(lease['lease_id'],),
                      name=f"bte-lease-{lease['lease_id'][:8]}", daemon=True).start()
     return jsonify({
         'lease_id': lease['lease_id'],
         'status': lease['status'],
         'dry_run': dry_run,
+        'source_snapshot': lease.get('source_snapshot'),
         'expires_at': lease['expires_at'],
         'objects': len(lease['objects']),
         'warnings': plan['warnings'],
@@ -934,7 +976,8 @@ def lease_add_destination(lease_id):
     Body: {"destination_id": "..."}. Works for an already-active (live)
     lease and for destinations selected before "Create resources" runs —
     the frontend's "+ Destination" button covers both. A destination cannot
-    be attached to more than one BTE stream at a time.
+    be attached to more than one BTE stream at a time. Looked up in whichever
+    snapshot (live, or a backup date) the lease itself was created from.
     """
     username, role = _get_user_and_role()
     if role not in ALLOWED_ROLES:
@@ -945,7 +988,13 @@ def lease_add_destination(lease_id):
     dest_id = str(data.get('destination_id') or '').strip()
     if not dest_id:
         return jsonify({'error': 'Missing destination_id'}), 400
-    item = _find_pool_item('destinations', dest_id)
+    lease_record = prov.get_lease(lease_id)
+    if lease_record is None:
+        return jsonify({'error': 'Lease not found'}), 404
+    snapshot, snap_error = _resolve_snapshot(lease_record.get('source_snapshot'))
+    if snap_error:
+        return jsonify({'error': snap_error}), 404
+    item = _find_pool_item('destinations', dest_id, snapshot=snapshot)
     if item is None:
         return jsonify({'error': 'Destination not found in the snapshot'}), 404
     try:

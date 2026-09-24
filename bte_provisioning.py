@@ -1129,8 +1129,14 @@ def _clamp_minutes(minutes, default):
 # Lease lifecycle
 # ---------------------------------------------------------------------------
 
-def create_lease(item, plan, duration_minutes, username, dry_run):
-    """Persist a new lease (status 'creating') and return it. Run with run_lease()."""
+def create_lease(item, plan, duration_minutes, username, dry_run, source_snapshot=None):
+    """Persist a new lease (status 'creating') and return it. Run with run_lease().
+
+    ``source_snapshot`` is None for the live DM Snapshot, or a 'YYYY-MM-DD' backup
+    date when the lease was built from an old snapshot (emergency provisioning —
+    see routes_bte._resolve_snapshot). Recorded on the lease so later actions on
+    it (extend, add destination, inspect) know which snapshot it came from.
+    """
     duration = _clamp_minutes(duration_minutes, DEFAULT_DURATION_MIN)
     now = _now()
     lease = {
@@ -1140,6 +1146,7 @@ def create_lease(item, plan, duration_minutes, username, dry_run):
         'supplier': ((item.get('capabilities') or {}).get('Type') or '').strip() or None,
         'dc_edge': plan['summary'].get('dc_edge'),
         'sites': plan['summary'].get('sites'),
+        'source_snapshot': source_snapshot,
         'created_at': _iso(now),
         'created_by': username,
         'duration_minutes': duration,
@@ -1185,6 +1192,7 @@ def create_lease(item, plan, duration_minutes, username, dry_run):
         'duration_minutes': lease['duration_minutes'],
         'expires_at': lease['expires_at'],
         'destinations': dests,
+        'source_snapshot': lease.get('source_snapshot'),
     })
     return lease
 

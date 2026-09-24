@@ -9,6 +9,27 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 `SRT Ingest:`, `General Tool Admin:`) so entries can be filtered per tool.
 
 ---
+
+## [4.5.2] - 2026-09-24
+
+### Added
+
+- Added support for provisioning BTE resources from DM backup snapshots.
+- Added `backup_date` support to `/provision/plan` and `/provision`, allowing resources and destinations to be resolved from a specific snapshot.
+- Added `source_snapshot` metadata to leases and audit events to record the snapshot used during provisioning.
+- Added persistent warnings when a DM backup snapshot is loaded, including the provisioning hint, plan preview, creation confirmation, and lease badges.
+
+### Changed
+
+- Backup snapshots can now be loaded and used for provisioning instead of being view-only.
+- Changed the backup action from **View** to **Load / Loaded**.
+- Resource creation, Plan, Create, and Add Destination actions remain available when a backup snapshot is loaded.
+- The destination picker now uses destinations from the currently loaded snapshot, whether live or backup.
+- Adding destinations to an existing lease now resolves them against the snapshot originally used to create that lease, preventing live and backup data from being mixed.
+- The backup status indicator now displays **Loaded** instead of **Viewing**.
+- Live remains the default snapshot. Reloading, leaving the BTE view, selecting **Back to live snapshot**, or navigating away resets the backup state.
+- Backup snapshot selection is not persisted in `localStorage`, preventing historical data from being unintentionally reused.
+
 ## [4.5.1] - 2026-09-23
 
 ### Added

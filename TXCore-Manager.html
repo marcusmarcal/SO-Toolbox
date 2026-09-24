@@ -1914,8 +1914,12 @@
       </div>
       <div class="dialog-body">
         <div class="hint" style="margin-bottom: 10px">
-          One backup is kept per UTC day. Viewing a backup only affects browsing here — the live
-          DM Snapshot stays the default, and provisioning is disabled while viewing an old one.
+          One backup is kept per UTC day. Loading a backup switches BOTH browsing and
+          provisioning to that snapshot's entry points — useful if Dataminer itself is
+          unreachable and you need to recreate a stream from the last known-good data.
+          A very visible banner stays on screen while a backup is loaded. The live
+          snapshot is always the default again on your next reload — use
+          "Back to live snapshot" to switch back sooner.
         </div>
         <div id="bte-backup-container">
           <div class="empty-state">Loading…</div>
@@ -3200,6 +3204,7 @@
             case "created":
               return (e.duration_minutes ? minutesToLabel(e.duration_minutes) : "") +
                 (e.dc_edge ? " · " + e.dc_edge : "") +
+                (e.source_snapshot ? " · ⚠ backup " + e.source_snapshot : "") +
                 (e.destinations && e.destinations.length
                   ? " · destinations: " + e.destinations.map(function (d) { return d.name; }).join(", ")
                   : "");
@@ -3294,9 +3299,10 @@
             '<div class="table-wrap"><table><thead><tr><th>Date (UTC)</th><th>Size</th><th></th></tr></thead><tbody>' +
             list.map(function (b) {
               return "<tr><td>" + escapeHtml(b.date) +
-                (backupView.active && backupView.date === b.date ? ' <span class="pill">viewing</span>' : "") +
+                (backupView.active && backupView.date === b.date ? ' <span class="pill other">loaded</span>' : "") +
                 "</td><td>" + Math.round(b.size / 1024) + " KB</td>" +
-                '<td><button class="small" data-date="' + escapeHtml(b.date) + '">View</button></td></tr>';
+                '<td><button class="small" data-date="' + escapeHtml(b.date) + '"' + (backupView.active && backupView.date === b.date ? " disabled" : "") + ">" +
+                (backupView.active && backupView.date === b.date ? "Loaded" : "Load") + "</button></td></tr>";
             }).join("") + "</tbody></table></div>";
           container.querySelectorAll("button[data-date]").forEach(function (btn) {
             btn.addEventListener("click", function () { loadBackup(btn.getAttribute("data-date")); });
@@ -3319,6 +3325,7 @@
               $("bte-backup-dialog").close();
               renderBackupBanner();
               renderBteAll();
+              provNotice("Loaded DM Snapshot BACKUP from " + date + " — browsing and provisioning now use this snapshot until you switch back to live.", "warn");
             })
             .catch(function (err) { alert("Failed to load backup: " + err.message); });
         }
@@ -3338,6 +3345,7 @@
             backupView.date = null;
             renderBackupBanner();
             loadBte();
+            provLog("Back to live DM Snapshot.", "log-dim");
           });
         }
 
@@ -3437,19 +3445,17 @@
           var st = prov.status;
           var hint = $("bte-prov-hint");
           var dry = $("bte-prov-dry-run");
-          if (backupView.active) {
-            ["bte-btn-plan", "bte-btn-create", "bte-btn-add-dest"].forEach(function (id) { $(id).disabled = true; });
-            hint.textContent = "Viewing a DM Snapshot backup (" + backupView.date + ") — switch back to live to provision.";
-            return;
-          }
+          var backupPrefix = backupView.active
+            ? "⚠ Using DM Snapshot BACKUP from " + backupView.date + " (not live) — "
+            : "";
           var activeLeaseId = activeResourceIds()[bte.selectedId];
           ["bte-btn-plan", "bte-btn-create", "bte-btn-add-dest"].forEach(function (id) { $(id).disabled = !!activeLeaseId; });
           if (activeLeaseId) {
-            hint.textContent = "This channel already has an active BTE stream — manage it from \"BTE active streams\" above.";
+            hint.textContent = backupPrefix + "This channel already has an active BTE stream — manage it from \"BTE active streams\" above.";
             return;
           }
           if (!st) {
-            hint.textContent = "Provisioning status not loaded yet.";
+            hint.textContent = backupPrefix + "Provisioning status not loaded yet.";
             return;
           }
           if (st.default_duration_minutes && !$("bte-prov-duration").dataset.touched) {
@@ -3469,15 +3475,15 @@
           if (!st.live_writes_allowed) {
             dry.checked = true;
             dry.disabled = true;
-            hint.textContent = "Live writes are disabled on the server (BTE_PROVISIONING_ENABLED) — every run is a dry run.";
+            hint.textContent = backupPrefix + "Live writes are disabled on the server (BTE_PROVISIONING_ENABLED) — every run is a dry run.";
           } else if (missing.length) {
             dry.disabled = false;
-            hint.textContent = "Server configuration incomplete: " + missing.join(", ") + ". Live runs may fail for the affected edges.";
+            hint.textContent = backupPrefix + "Server configuration incomplete: " + missing.join(", ") + ". Live runs may fail for the affected edges.";
           } else {
             dry.disabled = false;
-            hint.textContent = dry.checked
+            hint.textContent = backupPrefix + (dry.checked
               ? "Dry run: the lease is tracked but nothing is sent to TXCore."
-              : "Live: creates the DC + AVE / LMK / YER objects on TXCore MAIN, tagged " + (st.tag || "[BTE]") + ", removed automatically when the lease ends.";
+              : "Live: creates the DC + AVE / LMK / YER objects on TXCore MAIN, tagged " + (st.tag || "[BTE]") + ", removed automatically when the lease ends.");
           }
         }
 
@@ -3523,22 +3529,37 @@
           container.innerHTML = list.map(function (d) { return destPickRow(d, d.in_use); }).join("");
         }
 
+        function usedDestinationIdsClient() {
+          var used = {};
+          prov.leases.forEach(function (l) {
+            if (isFinal(l)) return;
+            (l.objects || []).forEach(function (o) {
+              if (o.destination_id && o.status !== "refused" && o.status !== "error") used[o.destination_id] = true;
+            });
+          });
+          return used;
+        }
+
         function openDestPicker(leaseId) {
           destPicker.leaseId = leaseId || null;
           var dlg = $("bte-dest-picker-dialog");
           $("bte-dest-picker-tag").textContent = leaseId ? "attach now" : "before creating";
           $("bte-dest-picker-filter").value = "";
-          $("bte-dest-picker-container").innerHTML = '<div class="empty-state">Loading destinations…</div>';
+          // Reuse whichever destinations pool is currently loaded (live, or the
+          // DM Snapshot backup in use) instead of a fresh live-only fetch — this
+          // keeps the picker consistent with the snapshot BTE is provisioning from.
+          var used = usedDestinationIdsClient();
+          destPicker.items = bte.destinations.map(function (d) {
+            var c = Object.assign({}, d);
+            c.in_use = !!used[d.id];
+            return c;
+          });
+          $("bte-dest-picker-hint").textContent = (backupView.active
+            ? "⚠ Using destinations from DM Snapshot BACKUP " + backupView.date + ". "
+            : "") + "Additional outputs created only on the DC edge. A destination can be attached to one stream at a time — used ones are greyed out.";
+          renderDestPicker();
           if (typeof dlg.showModal === "function") dlg.showModal();
           else dlg.setAttribute("open", "");
-          bteFetch("/destinations")
-            .then(function (data) {
-              destPicker.items = data.items || [];
-              renderDestPicker();
-            })
-            .catch(function (err) {
-              $("bte-dest-picker-container").innerHTML = '<div class="empty-state">Failed to load: ' + escapeHtml(err.message) + "</div>";
-            });
         }
 
         function pickDestination(id) {
@@ -3625,7 +3646,8 @@
                 '<tr data-lease="' + escapeHtml(l.lease_id) + '" data-expires="' + escapeHtml(l.expires_at || "") + '">' +
                 '<td><div class="lease-name">' + escapeHtml(l.resource_name || "?") + "</div>" +
                 '<div class="lease-sub">' + escapeHtml(l.supplier || "") + " · by " + escapeHtml(l.created_by || "?") + " · " + escapeHtml(fmtTime(l.created_at)) +
-                (l.extensions && l.extensions.length ? " · +" + l.extensions.reduce(function (a, e) { return a + (e.minutes || 0); }, 0) + " min" : "") + "</div>" +
+                (l.extensions && l.extensions.length ? " · +" + l.extensions.reduce(function (a, e) { return a + (e.minutes || 0); }, 0) + " min" : "") +
+                (l.source_snapshot ? ' · <span style="color: var(--warn)">⚠ backup ' + escapeHtml(l.source_snapshot) + "</span>" : "") + "</div>" +
                 (errs.length ? '<div class="lease-sub" style="color: var(--error)" title="' + escapeHtml(errs.join("\n")) + '">' + escapeHtml(errs[0]) + (errs.length > 1 ? " (+" + (errs.length - 1) + ")" : "") + "</div>" : "") +
                 "</td>" +
                 "<td>" + escapeHtml(l.dc_edge || "?") + '<div class="lease-sub">' + (l.sites || 0) + " site" + (l.sites === 1 ? "" : "s") + "</div></td>" +
@@ -3719,11 +3741,12 @@
           }
           if (plan.ok) {
             var s = plan.summary || {};
-            html += '<div class="notice">' +
+            html += '<div class="notice' + (plan.source_snapshot && plan.source_snapshot !== "live" ? " warn" : "") + '">' +
               escapeHtml(s.objects + " objects on " + s.edges + " edge" + (s.edges === 1 ? "" : "s") + " (" + s.dc_edge + " + " + s.sites + " regional site" + (s.sites === 1 ? "" : "s") + ")" +
                 " · input " + (s.input || "?") + " · DC output port " + s.output_port +
                 " · encryption " + (s.encryption ? s.encryption + " (passphrase: " + s.passphrase_status + ")" : "none") +
-                " · " + (plan.dry_run ? "dry run — nothing is sent" : "LIVE — will be sent to TXCore MAIN")) +
+                " · " + (plan.dry_run ? "dry run — nothing is sent" : "LIVE — will be sent to TXCore MAIN") +
+                (plan.source_snapshot && plan.source_snapshot !== "live" ? " · ⚠ snapshot: BACKUP " + plan.source_snapshot : " · snapshot: live")) +
               "</div>";
             var edgePath = (prov.status && prov.status.edge_path) || "/mwedge/{edge}";
             html += '<div class="table-wrap"><table><thead><tr><th>#</th><th>Kind</th><th>Name</th><th>Object</th></tr></thead><tbody>';
@@ -3745,12 +3768,14 @@
 
         function provPayload() {
           var mins = parseDurationMinutes($("bte-prov-duration").value);
-          return {
+          var payload = {
             resource_id: bte.selectedId,
             duration_minutes: isFinite(mins) && mins > 0 ? mins : undefined,
             dry_run: $("bte-prov-dry-run").checked,
             destination_ids: bte.pendingDestinations.map(function (d) { return d.id; }),
           };
+          if (backupView.active) payload.backup_date = backupView.date;
+          return payload;
         }
 
         function durationValid() {
@@ -3794,6 +3819,7 @@
               "Create the [BTE] resources for " + (r ? r.name : bte.selectedId) +
               " on TXCore MAIN (DC edge + AVE / LMK / YER) for " +
               (payload.duration_minutes ? minutesToLabel(payload.duration_minutes) : "the default") +
+              (payload.backup_date ? "\n\n⚠ Using DM Snapshot BACKUP from " + payload.backup_date + " — NOT the live snapshot." : "") +
               "?\n\nThey are deleted automatically when the lease ends unless you extend it."
             );
             if (!ok) return;
