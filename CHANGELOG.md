@@ -10,6 +10,16 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 ---
 
+## [4.7.1] - 2026-09-24
+
+### Added
+- **SO Toolbox - General**: `⊕ Install` button and modal to choose which tools appear in the left sidebar (filter, per-category toggle, select all/clear).
+- **SO Toolbox - General**: `GET /me/tools` and `PUT /me/tools` endpoints storing each user's installed tools in `user_tools.json`.
+
+### Changed
+- **SO Toolbox - General**: sidebar and welcome cards show only the user's installed tools; users with no saved selection still see all tools.
+- **SO Toolbox - General**: `DELETE /users/<username>` now also removes that user's tool selection.
+
 ## [4.6.1] - 2026-09-24
 
 ### Added
