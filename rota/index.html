@@ -4423,6 +4423,15 @@ function _removeCellFromBoxes(ri, ci) {
         _validateApply();
       };
 
+      console.log(
+        'AL check:',
+        sel.map(c => ({
+          person: c.person,
+          date: c.date,
+          shift: _currentShiftOf(c)
+        }))
+      );
+
       const alStates = new Set(sel.map(c => {
         const sh = _currentShiftOf(c);
         if (sh === 'AL_PENDING'  || sh.startsWith('AL_PENDING|'))  return 'provisional';
