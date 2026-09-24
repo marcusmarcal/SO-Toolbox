@@ -42,7 +42,7 @@ VALID_LEAVE_TYPES = {'Annual Leave', 'Parental Leave', 'Marital Leave'}
 
 VALID_TRANSITIONS = {
     'Pending':            {'Confirmed', 'Rejected', 'Cancelled'},
-    'Confirmed':          {'Withdrawal Pending'},
+    'Confirmed':          {'Withdrawal Pending', 'Withdrawn'},
     'Withdrawal Pending': {'Withdrawn', 'Withdrawal Rejected', 'Cancelled'},
 }
 
