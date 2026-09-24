@@ -393,6 +393,7 @@ DRAFT_LOCK_FILE          = os.path.join(ROTA_DIR, 'draft_lock.json')
 PUBLISHED_OVERRIDES_FILE = os.path.join(ROTA_DIR, 'published_overrides.json')
 CELL_NOTES_FILE          = os.path.join(ROTA_DIR, 'cell_notes.json')
 FEEDBACK_FILE            = os.path.join(ROTA_DIR, 'feedback.json')
+NOTIFICATIONS_FILE       = os.path.join(ROTA_DIR, 'notifications.json')
 HOURS_POT_FILE           = os.path.join(ROTA_DIR, 'hours_pot.json')
 AL_ALLOWANCE_FILE        = os.path.join(ROTA_DIR, 'al_allowance.json')
 SHIFT_REGISTRY_FILE      = os.path.join(ROTA_DIR, 'shift_registry.json')
@@ -1488,6 +1489,19 @@ def rota_leave_post():
                      'at': _now_iso()}],
     })
     _save_json(LEAVE_FILE, leave_list)
+
+    # Notify all admins of new leave submission
+    submitter_name = _rota_display_name(username)
+    notif_msg = (f"{submitter_name} requested {leave_type} "
+                 f"{date_start} → {date_end}.")
+    new_id = leave_list[-1]['id']
+    _push_notification_to_all_admins(
+        message=notif_msg,
+        notif_type='leave_request',
+        leave_id=new_id,
+        exclude_username=session['username'] if on_behalf else None,
+    )
+
     return jsonify({'ok': True})
 
 
@@ -1547,6 +1561,38 @@ def rota_leave_put(leave_id):
                              'at': now})
     leave_list[idx] = entry
     _save_json(LEAVE_FILE, leave_list)
+
+    # ── Notifications ─────────────────────────────────────────────────────
+    target_username = entry.get('username', '')
+    leave_type_str  = entry.get('leave_type', 'Leave')
+    date_start_str  = entry.get('date_start', '')
+    date_end_str    = entry.get('date_end', '')
+    date_range      = f"{date_start_str} → {date_end_str}"
+
+    if new_status == 'Confirmed':
+        _push_notification(
+            username=target_username,
+            message=f"Your {leave_type_str} request ({date_range}) has been Confirmed.",
+            notif_type='leave_decision',
+            leave_id=leave_id,
+        )
+    elif new_status == 'Rejected':
+        _push_notification(
+            username=target_username,
+            message=f"Your {leave_type_str} request ({date_range}) has been Rejected.",
+            notif_type='leave_decision',
+            leave_id=leave_id,
+        )
+    elif new_status == 'Withdrawal Pending':
+        submitter_name = entry.get('name', target_username)
+        _push_notification_to_all_admins(
+            message=(f"{submitter_name} requested withdrawal of "
+                     f"{leave_type_str} ({date_range})."),
+            notif_type='leave_withdrawal',
+            leave_id=leave_id,
+            exclude_username=session['username'],
+        )
+
     return jsonify({'ok': True})
 
 
@@ -2415,6 +2461,43 @@ def _effective_shift_for_hours(name: str, d: date,
 
     resolved = _resolve_shift(name, d, leave_map, override_map)
     return _clean(resolved)
+
+# ── Notification helpers ──────────────────────────────────────────────────
+
+def _load_notifications() -> dict:
+    data = _load_json(NOTIFICATIONS_FILE)
+    return data if isinstance(data, dict) else {}
+
+def _save_notifications(data: dict) -> None:
+    _save_json(NOTIFICATIONS_FILE, data)
+
+def _push_notification(username: str, message: str,
+                        notif_type: str, leave_id: str = None) -> None:
+    data = _load_notifications()
+    data.setdefault(username, [])
+    data[username].append({
+        'id':         str(uuid.uuid4())[:8],
+        'message':    message,
+        'type':       notif_type,
+        'leave_id':   leave_id,
+        'created_at': _now_iso(),
+        'read':       False,
+    })
+    _save_notifications(data)
+
+def _push_notification_to_all_admins(message: str,
+                                      notif_type: str,
+                                      leave_id: str = None,
+                                      exclude_username: str = None) -> None:
+    users = _load_json(USERS_FILE)
+    if not isinstance(users, dict):
+        return
+    for email, info in users.items():
+        if info.get('role') != 'admin':
+            continue
+        if exclude_username and email == exclude_username:
+            continue
+        _push_notification(email, message, notif_type, leave_id)
 
 # ── POT helpers ───────────────────────────────────────────────────────────
 
@@ -3963,6 +4046,39 @@ def rota_soe_weekends():
             'members': list(ENGINEERING_OFFSETS.keys()),
         })
 
+# ════════════════════════════════════════════════════════════════════════════
+#  NOTIFICATIONS
+# ════════════════════════════════════════════════════════════════════════════
+
+@rota_bp.route('/rota/notifications/mine', methods=['GET'])
+@require_auth
+def rota_notifications_mine():
+    session  = request.session
+    username = session['username']
+    data     = _load_notifications()
+    unread   = [n for n in data.get(username, []) if not n.get('read')]
+    return jsonify({'ok': True, 'notifications': unread})
+
+
+@rota_bp.route('/rota/notifications/mark-read/<notif_id>', methods=['POST'])
+@require_auth
+def rota_notifications_mark_read(notif_id):
+    session  = request.session
+    username = session['username']
+    data     = _load_notifications()
+    entries  = data.get(username, [])
+    found    = False
+    for n in entries:
+        if n.get('id') == notif_id:
+            n['read'] = True
+            found = True
+            break
+    if not found:
+        return jsonify({'ok': False, 'error': 'Notification not found'}), 404
+    data[username] = entries
+    _save_notifications(data)
+    return jsonify({'ok': True})
+
 @rota_bp.route('/rota/feedback', methods=['POST'])
 @require_auth
 def rota_feedback_post():
@@ -4063,6 +4179,7 @@ MANAGED_FILES = {
     'shift_registry':      SHIFT_REGISTRY_FILE,
     'config':              CONFIG_FILE,
     'feedback':            FEEDBACK_FILE,
+    'notifications':       NOTIFICATIONS_FILE,
     'print_footer':        PRINT_FOOTER_FILE,
     'directory_audit_log': DIRECTORY_AUDIT_FILE,
 }

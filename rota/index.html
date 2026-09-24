@@ -2041,6 +2041,9 @@
       setupPrintExport();
       setupPopoverGlobalHandlers();
       setupNoteTooltip();
+            // Start notification polling (30s interval)
+      _pollNotifications();
+      setInterval(_pollNotifications, 30000);
       loadRota();
     } catch(e) {
       console.error('Init failed', e);
@@ -5361,6 +5364,64 @@ function _removeCellFromBoxes(ri, ci) {
     return `${d}-${m}-${y}`;
   }
 
+  // ════════════════════════════════════════════════════════════════
+  //  NOTIFICATIONS
+  // ════════════════════════════════════════════════════════════════
+  let _notifQueue  = [];
+  let _notifShowing = false;
+
+  async function _pollNotifications() {
+    try {
+      const r = await fetch(`${PROXY}/rota/notifications/mine`,
+                            { credentials: 'same-origin' });
+      const d = await r.json();
+      if (!d.ok || !d.notifications.length) return;
+      d.notifications.forEach(n => {
+        if (!_notifQueue.find(q => q.id === n.id)) _notifQueue.push(n);
+      });
+      _drainNotifQueue();
+    } catch(e) { /* silent — non-critical */ }
+  }
+
+  function _drainNotifQueue() {
+    if (_notifShowing || !_notifQueue.length) return;
+    const notif = _notifQueue.shift();
+    _notifShowing = true;
+
+    const modal   = document.getElementById('confirm-modal');
+    const title   = document.getElementById('confirm-title');
+    const msg     = document.getElementById('confirm-msg');
+    const okBtn   = document.getElementById('confirm-ok-btn');
+    const cancelBtn = document.getElementById('confirm-cancel-btn');
+
+    title.textContent   = '🔔 Notification';
+    msg.textContent     = notif.message;
+    okBtn.textContent   = 'OK';
+    okBtn.className     = 'btn primary';
+    cancelBtn.style.display = 'none';
+    modal.classList.add('open');
+
+    const cleanup = async () => {
+      modal.classList.remove('open');
+      cancelBtn.style.display = '';
+      okBtn.replaceWith(okBtn.cloneNode(true));
+      // Mark read server-side
+      try {
+        await fetch(`${PROXY}/rota/notifications/mark-read/${notif.id}`,
+                    { method: 'POST', credentials: 'same-origin' });
+      } catch(e) { /* silent */ }
+      _notifShowing = false;
+      // Small delay before showing next so modal fully closes
+      setTimeout(_drainNotifQueue, 300);
+    };
+
+    document.getElementById('confirm-ok-btn')
+      .addEventListener('click', cleanup, { once: true });
+    modal.addEventListener('click', e => {
+      if (e.target === modal) cleanup();
+    }, { once: true });
+  }
+
   let _tt;
   function toast(msg, type = '') {
     const el = document.getElementById('toast');
@@ -6885,6 +6946,7 @@ const DATAFILE_LABELS = {
   config:              'Config',
   feedback:            'Feedback',
   print_footer:        'Print Footer',
+  notifications:       'Notifications',
   directory_audit_log: 'Directory Audit Log',
 };
 

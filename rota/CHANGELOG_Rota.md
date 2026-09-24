@@ -4,6 +4,21 @@
 
 ## [Unreleased]
 
+### Added 24-09-2026
+- **In-app notification system**: staff receive a popup notification when
+  management confirms or rejects an Annual Leave request. Management receive
+  notifications for new leave submissions and withdrawal requests. Cancelled
+  requests do not trigger notifications. Draft-mode changes are excluded.
+- Notifications persist in `rota/notifications.json` and survive logout —
+  unread notifications appear on next login.
+- Notifications shown sequentially via modal popup; dismissed permanently
+  on OK click.
+- Frontend polls for unread notifications every 30 seconds.
+- `notifications.json` added to the Data Files admin panel for
+  download/backup/restore.
+
+## [Unreleased]
+
 ### Added 22-09-2026
 - **Day EPG popup**: clicking any date cell in the rota grid opens a modal
   showing all scheduled team members as time-accurate horizontal bars on a
