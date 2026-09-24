@@ -258,19 +258,28 @@
     #rota-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
     table.rota {
-      border-collapse: separate; border-spacing: 0; font-family: var(--mono);
+      border-collapse: collapse; border-spacing: 0; font-family: var(--mono);
       font-size: 11px; line-height: 1.2; width: auto; table-layout: fixed;
     }
     table.rota thead th {
       background: #BDC0BF; color: #555555; padding: 7px 4px; text-align: center;
       position: sticky; top: 0; z-index: 10; min-width: 84px;
-      border-bottom: 2px solid var(--border); box-shadow: 0 4px 8px -4px rgba(0, 0, 0, 0.20); font-size: 12px; font-weight: 700;
+      border-bottom: 2px solid var(--border); /*box-shadow: 0 4px 8px -4px rgba(0, 0, 0, 0.20);*/ font-size: 12px; font-weight: 700;
       letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap;
     }
     table.rota thead th.date-col {
       width: 186px; min-width: 186px; max-width: 186px;
       text-align: left; padding-left: 12px;
       position: sticky; left: 0; z-index: 20; background: #BDC0BF;
+    }
+    table.rota thead tr::after {
+      content: '';
+      position: absolute;
+      left: 0; right: 0; bottom: -8px;
+      height: 8px;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.13), transparent);
+      pointer-events: none;
+      z-index: 10;
     }
     table.rota thead th.team-sep { border-left: 2px solid var(--border); }
     table.rota tbody td {
