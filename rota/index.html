@@ -275,14 +275,10 @@
     table.rota thead tr {
       position: relative;
     }
-    table.rota thead tr::after {
-      content: '';
-      position: absolute;
-      left: 0; right: 0; bottom: -8px;
-      height: 8px;
-      background: linear-gradient(to bottom, rgba(0,0,0,0.13), transparent);
-      pointer-events: none;
+    table.rota thead {
+      position: relative;
       z-index: 10;
+      filter: drop-shadow(0 4px 3px rgba(0,0,0,0.15));
     }
     table.rota thead th.team-sep { border-left: 2px solid var(--border); }
     table.rota tbody td {
