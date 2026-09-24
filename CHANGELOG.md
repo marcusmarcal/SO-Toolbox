@@ -10,6 +10,21 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 ---
 
+## [4.6.1] - 2026-09-24
+
+### Added
+- Video Analyser: "Audio Rate Control" row in Generate Report (visual and text).
+- Video Analyser: "Re-evaluate" button in the result metadata bar.
+
+### Changed
+- Video Analyser: tags and workflow in the result metadata bar are now clickable to edit
+  (workflow change restricted to admin/engineer).
+- Video Analyser: edit tags, re-evaluate and change workflow actions moved from the
+  history list to the result metadata bar.
+
+### Removed
+- Video Analyser: small edit tag, re-evaluate and change workflow buttons in the history list.
+
 ## [4.5.2] - 2026-09-24
 
 ### Added

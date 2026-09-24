@@ -2119,6 +2119,7 @@
               <span id="meta-tags" style="color: var(--yellow)"></span>
               <span id="meta-user" style="color: var(--green)"></span>
               <span id="meta-workflow" style="font-family:var(--mono);font-size:.68rem"></span>
+              <button id="meta-reeval" style="display:none;background:transparent;border:1px solid var(--cyan);border-radius:3px;color:var(--cyan);font-family:var(--mono);font-size:.68rem;padding:1px 8px;cursor:pointer" title="Re-evaluate this result with a different workflow (original is not modified)">⇄ Re-evaluate</button>
               <span id="meta-ts-download" style="margin-left: auto"></span>
             </div>
 
@@ -4647,9 +4648,17 @@
         document.getElementById("meta-server").textContent = "🖥 " + serverName;
         document.getElementById("meta-port").textContent =
           "🔌 :" + (r.url_port || "?");
-        document.getElementById("meta-tags").textContent = tags
+        // Metadata is editable only for stored results (not re-evaluated views)
+        const canEditMeta = !!r.res_file && !(r.reeval_label || r._reeval_label);
+        const metaTagsEl = document.getElementById("meta-tags");
+        metaTagsEl.textContent = tags
           ? "🏷 " + tags
+          : canEditMeta
+          ? "🏷 + add tag"
           : "";
+        _wireMetaEditable(metaTagsEl, canEditMeta, "Click to edit tags", () =>
+          openTagEditModal(r.res_file, r.tag || "")
+        );
         const metaUserEl = document.getElementById("meta-user");
         metaUserEl.textContent = "👨‍🔬 " + r.username;
         _wireAssignUserTrigger(metaUserEl, r.username, r.res_file);
@@ -4659,6 +4668,17 @@
         const wfEl = document.getElementById("meta-workflow");
         wfEl.textContent = "📋 " + wfLabel;
         wfEl.style.color = r.reeval_label ? "var(--cyan)" : "var(--purple)";
+        _wireMetaEditable(
+          wfEl,
+          canEditMeta && ["admin", "engineer"].includes(_currentUserRole),
+          "Click to change workflow (admin/engineer only)",
+          () => openChangeWfModal(r.res_file, r.workflow || "")
+        );
+        const reevalEl = document.getElementById("meta-reeval");
+        if (reevalEl) {
+          reevalEl.style.display = canEditMeta ? "" : "none";
+          reevalEl.onclick = () => openReevalModal(r.res_file);
+        }
         // TS download button
         const tsEl = document.getElementById("meta-ts-download");
         if (r.ts_file && r.res_file) {
@@ -4863,6 +4883,14 @@
 
         // GOP viz
         renderGopViz(r.gops || [], r.gop_patterns || []);
+      }
+
+      // Makes a metadata-bar element clickable (dotted underline = editable)
+      function _wireMetaEditable(el, enabled, title, handler) {
+        el.style.cursor = enabled ? "pointer" : "";
+        el.style.textDecoration = enabled ? "underline dotted" : "";
+        el.title = enabled ? title : "";
+        el.onclick = enabled ? handler : null;
       }
 
       function formatSpecText(s) {
@@ -5159,14 +5187,6 @@
                 /"/g,
                 "&quot;"
               )})" style="background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:${HIST_BTN_SIZE};cursor:pointer;padding:0" title="Re-run this analysis" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">↺</button>`;
-              const editTagBtn = `<button onclick="event.stopPropagation();openTagEditModal('${
-                item.file
-              }',${JSON.stringify(item.tag || "").replace(
-                /"/g,
-                "&quot;"
-              )})" style="background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:${HIST_BTN_SIZE};cursor:pointer;padding:0" title="Edit tags" onmouseover="this.style.color='var(--purple)'" onmouseout="this.style.color='var(--muted)'">✎</button>`;
-              const reevalBtn = !isFailed ? `<button onclick="event.stopPropagation();openReevalModal('${item.file}')" style="background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:${HIST_BTN_SIZE};cursor:pointer;padding:0" title="Re-evaluate with different workflow" onmouseover="this.style.color='var(--cyan)'" onmouseout="this.style.color='var(--muted)'">⇄</button>` : "";
-              const changeWfBtn = (!isFailed && ["admin","engineer"].includes(_currentUserRole)) ? `<button onclick="event.stopPropagation();openChangeWfModal('${item.file}','${(item.workflow||'').replace(/'/g,"\\'")}',${JSON.stringify(item.tag||'').replace(/"/g,'&quot;')})" style="background:transparent;border:none;color:var(--muted);font-family:var(--mono);font-size:${HIST_BTN_SIZE};cursor:pointer;padding:0" title="Change workflow (admin/engineer only)" onmouseover="this.style.color='var(--yellow)'" onmouseout="this.style.color='var(--muted)'">🔀</button>` : "";
               const errorHint =
                 isFailed && item.error
                   ? `<div style="font-family:var(--mono);font-size:.62rem;color:var(--red);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.error}</div>`
@@ -5234,10 +5254,7 @@
                 item.username || "anonymous"
               }">👤 ${(item.username || "anonymous").split("@")[0]}</span>
             ${rerunBtn}
-            ${editTagBtn}
-            ${reevalBtn}
-            ${changeWfBtn}
-          </div>
+            </div>
         </div>
       </div>`;
             })
@@ -6125,6 +6142,10 @@
         const aCodec = r.a_codec_display || (r.a_codec || "?").toUpperCase();
         const fps_eff = r.v_fps_compliance || r.v_fps_val || 0;
         const c = r.compliance || {};
+        const rcArr = c.a_rate_ctrl || [];
+        const aRateCtrl = rcArr[1]
+          ? `${rcArr[1]}${rcArr[2] ? " (" + rcArr[2] + ")" : ""}`
+          : "—";
 
         // Status colours
         const statusCol = overallStat.includes("COMPLIANT")
@@ -6306,6 +6327,12 @@
           "≠ 0 on every LATM track",
           (c.latm_cc || [])[1] || "—",
           "latm_cc"
+        )}
+        ${vrow(
+          "Audio Rate Control",
+          "VBR, CBR (pref. CBR)",
+          aRateCtrl,
+          "a_rate_ctrl"
         )}
         ${vrow(
           "Sample Rate",
@@ -6519,6 +6546,12 @@
             "≠ 0",
             (c.latm_cc || [])[1] || "—",
             "latm_cc"
+          ),
+          tr(
+            "Audio Rate Control",
+            "VBR/CBR (pref. CBR)",
+            aRateCtrl,
+            "a_rate_ctrl"
           ),
           tr(
             "Sample Rate",
@@ -8279,6 +8312,14 @@
           const okEl = document.getElementById("tag-edit-ok");
           okEl.style.display = "";
           const wasRecording = _tagEditIsRecording;
+          if (
+            !wasRecording &&
+            _currentResult &&
+            _currentResult.res_file === _tagEditFile
+          ) {
+            _currentResult.tag = tag;
+            renderResult(_currentResult);
+          }
           setTimeout(() => {
             okEl.style.display = "none";
             closeTagEditModal();
