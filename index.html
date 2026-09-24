@@ -1616,7 +1616,64 @@
         background: rgba(255, 78, 106, 0.08);
       }
 
-      /* ── INSTALL TOOLS MODAL ── */
+
+      /* ── SIDEBAR ACTIONS (Manage Tools / Reset Order) ── */
+      .sidebar-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 14px;
+      }
+      .sb-action {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 7px 10px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.66rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .sb-action:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: rgba(161, 139, 245, 0.08);
+      }
+      #btn-manage-tools {
+        border-color: rgba(161, 139, 245, 0.4);
+        color: var(--accent);
+      }
+      #btn-reset-order:hover {
+        border-color: rgba(240, 165, 0, 0.5);
+        color: #f0c060;
+        background: rgba(240, 165, 0, 0.07);
+      }
+      .sb-action-icon {
+        font-size: 0.85rem;
+        width: 18px;
+        text-align: center;
+        flex-shrink: 0;
+      }
+      #app.sidebar-collapsed .sidebar-actions {
+        width: 100%;
+        margin-bottom: 0;
+      }
+      #app.sidebar-collapsed .sb-action {
+        justify-content: center;
+        padding: 7px 0;
+      }
+      #app.sidebar-collapsed .sb-action-label {
+        display: none;
+      }
+
+      /* ── MANAGE TOOLS MODAL ── */
       #install-modal {
         display: none;
         position: fixed;
@@ -1805,23 +1862,6 @@
         >
           📖 README
         </button>
-        <button
-          class="git-pull-btn"
-          data-tip="Choose which tools appear in the sidebar"
-          onclick="openInstall()"
-          style="border-color: rgba(161, 139, 245, 0.4); color: var(--accent)"
-        >
-          ⊕ Install
-        </button>
-        <button
-          class="reset-order-btn"
-          data-tip="Reset tool order to server default"
-          onclick="resetToolOrder()"
-          id="btn-reset-order"
-          style="display: none"
-        >
-          ↺ Reset Order
-        </button>
         <span
           class="version"
           id="app-version"
@@ -1861,6 +1901,27 @@
 
       <aside id="sidebar">
         <div class="sidebar-header">
+          <div class="sidebar-actions">
+            <button
+              class="sb-action"
+              id="btn-manage-tools"
+              onclick="openInstall()"
+              title="Manage Tools — choose which tools appear in the sidebar"
+            >
+              <span class="sb-action-icon">⊕</span>
+              <span class="sb-action-label">Manage Tools</span>
+            </button>
+            <button
+              class="sb-action"
+              id="btn-reset-order"
+              onclick="resetToolOrder()"
+              title="Reset tool order to server default"
+              style="display: none"
+            >
+              <span class="sb-action-icon">↺</span>
+              <span class="sb-action-label">Reset Order</span>
+            </button>
+          </div>
           <div class="sidebar-label">Search Tools</div>
           <input
             id="search"
@@ -1922,7 +1983,7 @@
     <div id="install-modal">
       <div class="git-card inst-card">
         <div class="inst-head">
-          <div class="git-card-title">⊕ Install Tools</div>
+          <div class="git-card-title">⊕ Manage Tools</div>
           <span class="inst-count" id="inst-count"></span>
           <button class="git-close-btn" onclick="closeInstall()">Close</button>
         </div>
@@ -3207,7 +3268,7 @@
 
           if (!$list.children().length) {
             $list.append(
-              `<div style="text-align:center;padding:30px;font-family:var(--mono);font-size:0.65rem;color:var(--muted)">${allTools.length && !tools.length ? "No tools installed — click ⊕ Install" : "No tools found"}</div>`
+              `<div style="text-align:center;padding:30px;font-family:var(--mono);font-size:0.65rem;color:var(--muted)">${allTools.length && !tools.length ? "No tools installed — click ⊕ Manage Tools" : "No tools found"}</div>`
             );
           }
 
@@ -3230,7 +3291,7 @@
             $wc.append(`
                     <div class="welcome-card" onclick="openInstall()">
                       <div class="wc-icon">⊕</div>
-                      <div class="wc-name">Install tools</div>
+                      <div class="wc-name">Manage tools</div>
                       <div class="wc-desc">Pick what appears in your sidebar</div>
                     </div>
                   `);
