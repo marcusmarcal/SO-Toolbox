@@ -4775,7 +4775,7 @@ function _removeCellFromBoxes(ri, ci) {
       toast('Note saved', 'ok');
       return;
     }
-
+    console.log('Selected cells:', sel.length, sel);
     const sel = state.draft.selection;
     if (!sel.length) { closeShiftPopover(); return; }
 
