@@ -2666,6 +2666,11 @@
       // Toggle note class
       td.classList.toggle('has-note', !!displayNote);
 
+      const displayFg =
+        (day.is_today && shift === 'OFF')
+          ? '#ffffff'
+          : fg;
+
       // Rebuild inner span only
       td.innerHTML = `<span class="shift-cell${extra}" style="color:${displayFg};">${text}</span>`;
 
@@ -4777,7 +4782,6 @@ function _removeCellFromBoxes(ri, ci) {
     }
 
     const sel = state.draft.selection;
-    console.log('Selected cells:', sel.length, sel);
     if (!sel.length) { closeShiftPopover(); return; }
 
     const note        = document.getElementById('popover-note').value.trim();
