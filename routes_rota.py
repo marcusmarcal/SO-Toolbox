@@ -1569,20 +1569,27 @@ def rota_leave_put(leave_id):
     date_end_str    = entry.get('date_end', '')
     date_range      = f"{date_start_str} → {date_end_str}"
 
-    if new_status == 'Confirmed':
-        _push_notification(
-            username=target_username,
-            message=f"Your {leave_type_str} request ({date_range}) has been Confirmed.",
-            notif_type='leave_decision',
-            leave_id=leave_id,
-        )
-    elif new_status == 'Rejected':
-        _push_notification(
-            username=target_username,
-            message=f"Your {leave_type_str} request ({date_range}) has been Rejected.",
-            notif_type='leave_decision',
-            leave_id=leave_id,
-        )
+    # Don't notify management members of their own leave decisions —
+    # they actioned it themselves or were present when it was actioned.
+    users = _load_json(USERS_FILE)
+    target_is_admin = (isinstance(users, dict) and
+                       users.get(target_username, {}).get('role') == 'admin')
+
+    if not target_is_admin:
+        if new_status == 'Confirmed':
+            _push_notification(
+                username=target_username,
+                message=f"Your {leave_type_str} request ({date_range}) has been Confirmed.",
+                notif_type='leave_decision',
+                leave_id=leave_id,
+            )
+        elif new_status == 'Rejected':
+            _push_notification(
+                username=target_username,
+                message=f"Your {leave_type_str} request ({date_range}) has been Rejected.",
+                notif_type='leave_decision',
+                leave_id=leave_id,
+            )
     elif new_status == 'Withdrawal Pending':
         submitter_name = entry.get('name', target_username)
         _push_notification_to_all_admins(
