@@ -3337,8 +3337,8 @@
             return;
           }
           el.style.display = "";
-          el.innerHTML = "⚠ Viewing DM Snapshot BACKUP from <strong>" + escapeHtml(backupView.date) +
-            "</strong> — read-only, provisioning is disabled &nbsp;" +
+          el.innerHTML = "⚠ DM Snapshot BACKUP loaded — <strong>" + escapeHtml(backupView.date) +
+            "</strong> — browsing and provisioning are using this snapshot, not the live one &nbsp;" +
             '<button class="small" id="bte-backup-back">Back to live snapshot</button>';
           $("bte-backup-back").addEventListener("click", function () {
             backupView.active = false;
