@@ -4261,6 +4261,16 @@ function _removeCellFromBoxes(ri, ci) {
   //  POPOVER
   // ════════════════════════════════════════════════════════════════
   function _currentShiftOf(cell) {
+    if (state.draft?.active) {
+      const ov = state.draft.overrides.find(
+        o => o.person === cell.person &&
+            o.date === cell.date &&
+            o.shift
+      );
+
+      if (ov) return ov.shift;
+    }
+
     const day = state.rotaData?.find(d => d.date === cell.date);
     return (day?.shifts[cell.person] || {}).shift || 'OFF';
   }
