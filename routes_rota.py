@@ -1868,11 +1868,16 @@ def rota_draft_override_delete(override_id):
 @require_auth
 def rota_draft_discard():
     err = _require_management()
-    if err: return err
+    if err:
+        return err
+
     session = request.session
-    lock    = _load_draft_lock()
+    lock = _load_draft_lock()
+
     if lock and lock.get('locked_by') == session['username']:
+        _save_draft_overrides([])   # <-- add this
         _clear_draft_lock()
+
     return jsonify({'ok': True})
 
 

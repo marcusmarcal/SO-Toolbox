@@ -5085,7 +5085,7 @@ function _removeCellFromBoxes(ri, ci) {
   async function closeDraft() {
     const confirmed = await uiConfirm(
       'Close Draft',
-      'Exit draft mode? Your saved changes remain in the draft. The lock will be released so others can edit.',
+      'Exit draft mode? All unsaved changes will be lost. The lock will be released so others can edit.',
       'Close Draft', 'reject'
     );
     if (!confirmed) return;
