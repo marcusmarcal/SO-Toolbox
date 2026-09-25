@@ -4155,6 +4155,7 @@ MANAGED_FILES = {
     'notifications':       NOTIFICATIONS_FILE,
     'print_footer':        PRINT_FOOTER_FILE,
     'directory_audit_log': DIRECTORY_AUDIT_FILE,
+    'draft_note_deletions': DRAFT_NOTE_DELETIONS_FILE,
 }
 
 # Files that are download-only — no upload or restore allowed.
