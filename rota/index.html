@@ -4854,8 +4854,6 @@ function _removeCellFromBoxes(ri, ci) {
       if (!_pop.noteDirty) { closeShiftPopover(); return; }
       // Note-only edit within the draft popover
       for (const cell of sel) {
-      // Note-only edit within the draft popover
-      for (const cell of sel) {
         await fetch(`${PROXY}/rota/note`, {
           method: 'PUT', credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
