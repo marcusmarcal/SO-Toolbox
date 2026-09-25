@@ -1499,7 +1499,7 @@ def rota_leave_post():
         message=notif_msg,
         notif_type='leave_request',
         leave_id=new_id,
-        exclude_username=session['username'] if on_behalf else None,
+        exclude_username=session['username'],
     )
 
     return jsonify({'ok': True})
