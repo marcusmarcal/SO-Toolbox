@@ -36,7 +36,7 @@ AL_ALLOWANCE_FILE        = os.path.join(ROTA_DIR, 'al_allowance.json')
 SHIFT_REGISTRY_FILE      = os.path.join(ROTA_DIR, 'shift_registry.json')
 PERSON_DIRECTORY_FILE    = os.path.join(ROTA_DIR, 'person_directory.json')
 PERSON_DIRECTORY_BACKUP_FILE = os.path.join(_BASE_DIR, 'person_directory.backup.json')
-DIRECTORY_AUDIT_FILE  = os.path.join(ROTA_DIR, 'directory_audit_log.json')
+DIRECTORY_AUDIT_FILE     = os.path.join(ROTA_DIR, 'directory_audit_log.json')
 # NOTE: intentionally stored one level above rota/ so a targeted wipe of
 # that subdirectory alone doesn't take the backup down with the original.
 # If you're doing cleanup in /opt/web/ and see this file, it's live —
@@ -1692,9 +1692,19 @@ def rota_note_delete():
     if not person or not date_s:
         return jsonify({'ok': False, 'error': 'person and date required'}), 400
     notes = _load_notes()
+    existing_note = next((n for n in notes
+                          if n['person'] == person and n['date'] == date_s), None)
     notes = [n for n in notes
              if not (n['person'] == person and n['date'] == date_s)]
     _save_notes(notes)
+    # If in draft mode, track this deletion so Close Draft can revert it
+    lock = _load_draft_lock()
+    if lock and existing_note:
+        deletions = _load_draft_note_deletions()
+        deletions = [d for d in deletions
+                     if not (d['person'] == person and d['date'] == date_s)]
+        deletions.append(existing_note)
+        _save_draft_note_deletions(deletions)
     return jsonify({'ok': True})
 
 
