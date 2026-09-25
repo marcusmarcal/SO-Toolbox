@@ -4333,7 +4333,7 @@ function _removeCellFromBoxes(ri, ci) {
     const revertBtn = document.getElementById('popover-revert');
     const deleteBtn = document.getElementById('popover-delete-note');
     revertBtn.style.display = (!noteOnly) ? '' : 'none';
-    deleteBtn.style.display = _currentNoteOf(first) ? '' : 'none';
+    deleteBtn.style.display = sel.some(c => _currentNoteOf(c)) ? '' : 'none';
 
     if (!noteOnly && !isAbsent) {
       const team      = _personTeam(first.person);
@@ -4620,21 +4620,26 @@ function _removeCellFromBoxes(ri, ci) {
     }
 
     document.getElementById('popover-delete-note').onclick = async () => {
-      const confirmed = await uiConfirm('Delete Note', 'Remove this note?', 'Delete', 'reject');
+      const withNotes = sel.filter(c => _currentNoteOf(c));
+      const msg = withNotes.length > 1
+        ? `Remove notes from ${withNotes.length} cells?`
+        : 'Remove this note?';
+      const confirmed = await uiConfirm('Delete Note', msg, 'Delete', 'reject');
       if (!confirmed) return;
-      await fetch(`${PROXY}/rota/note`, {
-        method: 'DELETE', credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ person: first.person, date: first.date }),
-      });
+      for (const cell of withNotes) {
+        await fetch(`${PROXY}/rota/note`, {
+          method: 'DELETE', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ person: cell.person, date: cell.date }),
+        });
+        const day = state.rotaData && state.rotaData.find(d => d.date === cell.date);
+        if (day && day.shifts[cell.person]) day.shifts[cell.person].note = '';
+        const ov = state.draft.overrides.find(o => o.person === cell.person && o.date === cell.date);
+        if (ov) ov.note = '';
+      }
       closeShiftPopover();
-      // Clear note from rotaData so patch renders correctly
-      const day = state.rotaData && state.rotaData.find(d => d.date === first.date);
-      if (day && day.shifts[first.person]) day.shifts[first.person].note = '';
-      const ov = state.draft.overrides.find(o => o.person === first.person && o.date === first.date);
-      if (ov) ov.note = '';
-      _patchRotaCells([{ person: first.person, date: first.date }]);
-      toast('Note deleted', 'ok');
+      _patchRotaCells(withNotes.map(c => ({ person: c.person, date: c.date })));
+      toast(withNotes.length > 1 ? 'Notes deleted' : 'Note deleted', 'ok');
     };
 
     document.getElementById('popover-revert').onclick = async () => {
