@@ -26,6 +26,7 @@ USERS_FILE = os.path.join(_BASE_DIR, 'users.json')
 CONFIG_FILE              = os.path.join(ROTA_DIR, 'config.json')
 DRAFT_FILE               = os.path.join(ROTA_DIR, 'draft_overrides.json')
 DRAFT_LOCK_FILE          = os.path.join(ROTA_DIR, 'draft_lock.json')
+DRAFT_NOTE_DELETIONS_FILE = os.path.join(ROTA_DIR, 'draft_note_deletions.json')
 PUBLISHED_OVERRIDES_FILE = os.path.join(ROTA_DIR, 'published_overrides.json')
 CELL_NOTES_FILE          = os.path.join(ROTA_DIR, 'cell_notes.json')
 FEEDBACK_FILE            = os.path.join(ROTA_DIR, 'feedback.json')
@@ -517,6 +518,16 @@ def _load_draft_overrides() -> list:
 
 def _save_draft_overrides(overrides: list) -> None:
     _save_json(DRAFT_FILE, overrides)
+
+def _load_draft_note_deletions() -> list:
+    data = _load_json(DRAFT_NOTE_DELETIONS_FILE)
+    return data if isinstance(data, list) else []
+
+def _save_draft_note_deletions(deletions: list) -> None:
+    _save_json(DRAFT_NOTE_DELETIONS_FILE, deletions)
+
+def _clear_draft_note_deletions() -> None:
+    _save_json(DRAFT_NOTE_DELETIONS_FILE, [])
 
 def _load_draft_lock():
     data = _load_json(DRAFT_LOCK_FILE)
@@ -1652,8 +1663,19 @@ def rota_note_put():
                           'created_by': session['username'], 'created_at': now})
     else:
         # Empty note = delete
+        existing_note = next((n for n in notes
+                              if n['person'] == person and n['date'] == date_s), None)
         notes = [n for n in notes
                  if not (n['person'] == person and n['date'] == date_s)]
+        # If in draft mode, record this deletion so Close Draft can revert it
+        lock = _load_draft_lock()
+        if lock and existing_note:
+            deletions = _load_draft_note_deletions()
+            # Avoid duplicates — if already tracked, update snapshot
+            deletions = [d for d in deletions
+                         if not (d['person'] == person and d['date'] == date_s)]
+            deletions.append(existing_note)
+            _save_draft_note_deletions(deletions)
 
     _save_notes(notes)
     return jsonify({'ok': True})
@@ -1838,16 +1860,27 @@ def rota_draft_override_delete(override_id):
 @require_auth
 def rota_draft_discard():
     err = _require_management()
-    if err:
-        return err
-
+    if err: return err
     session = request.session
-    lock = _load_draft_lock()
-
+    lock    = _load_draft_lock()
     if lock and lock.get('locked_by') == session['username']:
-        _save_draft_overrides([])   # <-- add this
+        # Restore any notes deleted during this draft session
+        deletions = _load_draft_note_deletions()
+        if deletions:
+            notes = _load_notes()
+            for deleted_note in deletions:
+                person = deleted_note.get('person')
+                date_s = deleted_note.get('date')
+                # Only restore if not re-added by someone else in the meantime
+                already_exists = any(
+                    n['person'] == person and n['date'] == date_s
+                    for n in notes
+                )
+                if not already_exists:
+                    notes.append(deleted_note)
+            _save_notes(notes)
+        _clear_draft_note_deletions()
         _clear_draft_lock()
-
     return jsonify({'ok': True})
 
 
@@ -2029,6 +2062,7 @@ def rota_draft_publish():
     _save_json(LEAVE_FILE, leave_list)
     _save_json(PUBLISHED_OVERRIDES_FILE, published_overrides)
     _save_draft_overrides([])
+    _clear_draft_note_deletions()
     _clear_draft_lock()
 
     return jsonify({
@@ -4128,7 +4162,7 @@ MANAGED_FILES = {
 #   the audit trail.
 # draft_lock:          transient runtime state; uploading it makes no sense
 #   and could strand users in a phantom lock.
-DOWNLOAD_ONLY_FILES = {'directory_audit_log', 'draft_lock'}
+DOWNLOAD_ONLY_FILES = {'directory_audit_log', 'draft_lock', 'draft_note_deletions'}
 
 # Canonical backup directory for all rota JSON backups.
 # Intentionally outside ./rota/ so a wipe of that subdirectory
