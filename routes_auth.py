@@ -11,6 +11,10 @@ Supports roles:
 
 Permissions:
 - admin + engineer → full user management
+
+Per-user tool selection:
+- Each user chooses which tools appear in the sidebar ("Install")
+- Stored per username in user_tools.json
 """
 
 import json
@@ -20,6 +24,7 @@ import bcrypt
 import secrets
 import time
 import os
+import threading
 from functools import wraps
 
 from flask import Blueprint, request, jsonify
@@ -31,6 +36,12 @@ auth_bp = Blueprint('auth', __name__)
 _BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 USERS_FILE  = os.path.join(_BASE_DIR, 'users.json')
 SESSION_TTL = 8 * 3600  # 8 hours
+
+# ✅ Per-user installed tools (sidebar selection)
+USER_TOOLS_FILE      = os.path.join(_BASE_DIR, 'user_tools.json')
+TOOL_ID_MAX_LEN      = 128
+MAX_INSTALLED_TOOLS  = 500
+_user_tools_lock     = threading.Lock()
 
 # ✅ Roles
 ALLOWED_ROLES = ('admin', 'engineer', 'analyst', 'specialist', 'user')
@@ -296,6 +307,99 @@ def me():
 
 
 # ══════════════════════════════════════════════════════════
+# USER TOOLS (per-user installed tools shown in the sidebar)
+# ══════════════════════════════════════════════════════════
+# File format: { "<username>": { "installed": ["tool-id", ...] } }
+# A missing entry means "never customised" → the UI shows every tool.
+
+def _load_user_tools():
+    if not os.path.exists(USER_TOOLS_FILE):
+        return {}
+    try:
+        with open(USER_TOOLS_FILE, 'r') as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _save_user_tools(data):
+    """Atomic write so a crash never leaves a half-written file."""
+    tmp = USER_TOOLS_FILE + '.tmp'
+    with open(tmp, 'w') as f:
+        json.dump(data, f, indent=2)
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, USER_TOOLS_FILE)
+
+
+def _delete_user_tools(username):
+    """Drop a user's tool selection (called when the user is deleted)."""
+    try:
+        with _user_tools_lock:
+            data = _load_user_tools()
+            if data.pop(username, None) is not None:
+                _save_user_tools(data)
+    except Exception:
+        pass  # Cleanup failure must never break user deletion
+
+
+def _validate_tool_ids(value):
+    """Returns (clean_list, error). Dedupes while preserving order."""
+    if not isinstance(value, list):
+        return None, 'installed must be a list'
+    if len(value) > MAX_INSTALLED_TOOLS:
+        return None, f'installed max {MAX_INSTALLED_TOOLS} tools'
+
+    clean, seen = [], set()
+    for item in value:
+        if not isinstance(item, str):
+            return None, 'tool ids must be strings'
+        tool_id = item.strip()
+        if not tool_id or len(tool_id) > TOOL_ID_MAX_LEN or not tool_id.isprintable():
+            return None, 'invalid tool id'
+        if tool_id not in seen:
+            seen.add(tool_id)
+            clean.append(tool_id)
+    return clean, None
+
+
+@auth_bp.route('/me/tools', methods=['GET'])
+@require_auth
+def get_my_tools():
+    entry = _load_user_tools().get(request.session['username'], {})
+    return jsonify({'ok': True, 'installed': entry.get('installed')})
+
+
+@auth_bp.route('/me/tools', methods=['PUT'])
+@require_auth
+def set_my_tools():
+    """Body: {"installed": ["id", ...]} or {"installed": null} to reset."""
+    data = request.get_json(silent=True) or {}
+    if 'installed' not in data:
+        return jsonify({'ok': False, 'error': 'installed required'}), 400
+
+    installed = data['installed']
+    if installed is not None:
+        installed, err = _validate_tool_ids(installed)
+        if err:
+            return jsonify({'ok': False, 'error': err}), 400
+
+    username = request.session['username']
+    try:
+        with _user_tools_lock:
+            store = _load_user_tools()
+            if installed is None:
+                store.pop(username, None)
+            else:
+                store[username] = {'installed': installed}
+            _save_user_tools(store)
+    except Exception:
+        return jsonify({'ok': False, 'error': 'could not save tool selection'}), 500
+
+    return jsonify({'ok': True, 'installed': installed})
+
+
+# ══════════════════════════════════════════════════════════
 # USER MANAGEMENT
 # ══════════════════════════════════════════════════════════
 
@@ -410,6 +514,7 @@ def delete_user(username):
 
     del users[username]
     _save_users(users)
+    _delete_user_tools(username)
 
     # Invalidate sessions
     for token in [t for t, s in _sessions.items() if s['username'] == username]:

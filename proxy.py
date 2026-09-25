@@ -30,6 +30,9 @@ app.register_blueprint(txcore_bp)
 from routes_live_probe import live_probe_bp
 app.register_blueprint(live_probe_bp)
 
+from routes_bte import bte_bp
+app.register_blueprint(bte_bp)
+
 # .env manager (SO Toolbox Admin → Environment tab). Admin-only.
 from routes_env import env_bp
 app.register_blueprint(env_bp)

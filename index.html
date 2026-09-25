@@ -1615,6 +1615,208 @@
         color: var(--danger);
         background: rgba(255, 78, 106, 0.08);
       }
+
+
+      /* ── SIDEBAR ACTIONS (Manage Tools / Reset Order) ── */
+      .sidebar-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 14px;
+      }
+      .sb-action {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 7px 10px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.66rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .sb-action:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: rgba(161, 139, 245, 0.08);
+      }
+      #btn-manage-tools {
+        border-color: rgba(161, 139, 245, 0.4);
+        color: var(--accent);
+      }
+      #btn-reset-order:hover {
+        border-color: rgba(240, 165, 0, 0.5);
+        color: #f0c060;
+        background: rgba(240, 165, 0, 0.07);
+      }
+      .sb-action-icon {
+        font-size: 0.85rem;
+        width: 18px;
+        text-align: center;
+        flex-shrink: 0;
+      }
+      #app.sidebar-collapsed .sidebar-actions {
+        width: 100%;
+        margin-bottom: 0;
+      }
+      #app.sidebar-collapsed .sb-action {
+        justify-content: center;
+        padding: 7px 0;
+      }
+      #app.sidebar-collapsed .sb-action-label {
+        display: none;
+      }
+
+      /* ── MANAGE TOOLS MODAL ── */
+      #install-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 300;
+        align-items: center;
+        justify-content: center;
+      }
+      .git-card.inst-card {
+        width: 720px;
+        max-width: 94vw;
+        height: 82vh;
+        display: flex;
+        flex-direction: column;
+        padding: 1.2rem 1.5rem 1rem;
+      }
+      .inst-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 0.7rem;
+        flex-shrink: 0;
+      }
+      .inst-head .git-card-title {
+        margin: 0;
+      }
+      .inst-count {
+        margin-left: auto;
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        color: var(--muted);
+      }
+      .inst-toolbar {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-shrink: 0;
+      }
+      .inst-toolbar input {
+        flex: 1;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        padding: 7px 10px;
+        outline: none;
+      }
+      .inst-toolbar input:focus {
+        border-color: var(--accent);
+      }
+      .inst-list {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        margin: 0.7rem 0;
+        padding: 6px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg);
+      }
+      .inst-cat {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 8px 4px;
+        font-family: var(--mono);
+        font-size: 0.58rem;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .inst-cat label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+      }
+      .inst-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 7px 10px;
+        border-radius: 6px;
+        border: 1px solid transparent;
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s;
+      }
+      .inst-item:hover {
+        background: var(--card);
+        border-color: var(--border);
+      }
+      .inst-info {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .inst-name {
+        font-size: 0.76rem;
+        font-weight: 600;
+      }
+      .inst-desc {
+        font-family: var(--mono);
+        font-size: 0.58rem;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      #install-modal input[type="checkbox"] {
+        accent-color: var(--accent);
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+      }
+      .inst-foot {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+      .inst-msg {
+        flex: 1;
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        color: var(--muted);
+        min-height: 1em;
+      }
+      .inst-msg.err {
+        color: #ffb3be;
+      }
+      .git-close-btn.inst-save {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: rgba(161, 139, 245, 0.1);
+      }
+      .git-close-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
     </style>
   </head>
   <body>
@@ -1660,15 +1862,6 @@
         >
           📖 README
         </button>
-        <button
-          class="reset-order-btn"
-          data-tip="Reset tool order to server default"
-          onclick="resetToolOrder()"
-          id="btn-reset-order"
-          style="display: none"
-        >
-          ↺ Reset Order
-        </button>
         <span
           class="version"
           id="app-version"
@@ -1708,6 +1901,27 @@
 
       <aside id="sidebar">
         <div class="sidebar-header">
+          <div class="sidebar-actions">
+            <button
+              class="sb-action"
+              id="btn-manage-tools"
+              onclick="openInstall()"
+              title="Manage Tools — choose which tools appear in the sidebar"
+            >
+              <span class="sb-action-icon">⊕</span>
+              <span class="sb-action-label">Manage Tools</span>
+            </button>
+            <button
+              class="sb-action"
+              id="btn-reset-order"
+              onclick="resetToolOrder()"
+              title="Reset tool order to server default"
+              style="display: none"
+            >
+              <span class="sb-action-icon">↺</span>
+              <span class="sb-action-label">Reset Order</span>
+            </button>
+          </div>
           <div class="sidebar-label">Search Tools</div>
           <input
             id="search"
@@ -1764,6 +1978,34 @@
 
     <!-- ── Sidebar collapsed tooltip ── -->
     <div id="sidebar-tooltip"></div>
+
+    <!-- ── Install Tools Modal ────────────────────────────── -->
+    <div id="install-modal">
+      <div class="git-card inst-card">
+        <div class="inst-head">
+          <div class="git-card-title">⊕ Manage Tools</div>
+          <span class="inst-count" id="inst-count"></span>
+          <button class="git-close-btn" onclick="closeInstall()">Close</button>
+        </div>
+        <div class="inst-toolbar">
+          <input
+            id="inst-filter"
+            type="text"
+            placeholder="Filter tools…"
+            autocomplete="off"
+            oninput="renderInstall()"
+          />
+          <button class="git-close-btn" onclick="instSelect(true)">Select all</button>
+          <button class="git-close-btn" onclick="instSelect(false)">Clear</button>
+        </div>
+        <div class="inst-list" id="inst-list"></div>
+        <div class="inst-foot">
+          <span class="inst-msg" id="inst-msg"></span>
+          <button class="git-close-btn" onclick="closeInstall()">Cancel</button>
+          <button class="git-close-btn inst-save" id="inst-save" onclick="saveInstall()">Save</button>
+        </div>
+      </div>
+    </div>
 
     <!-- ── Changelog Modal ──────────────────────────────────── -->
     <div id="changelog-modal">
@@ -2864,6 +3106,7 @@
         closeReadme();
         closeChangelog();
         closeProxyMgmt();
+        window.closeInstall && window.closeInstall();
       });
 
       $(function () {
@@ -2910,7 +3153,9 @@
         // ═══════════════════════════════════════════════════
         //  State
         // ═══════════════════════════════════════════════════
-        let tools = [];
+        let allTools = []; // every tool defined in .env
+        let installedIds = null; // null = never customised → show all
+        let tools = []; // tools installed for the current user
         let tabs = [];
         let activeTab = null;
         // expose for reset
@@ -3023,12 +3268,16 @@
 
           if (!$list.children().length) {
             $list.append(
-              `<div style="text-align:center;padding:30px;font-family:var(--mono);font-size:0.65rem;color:var(--muted)">No tools found</div>`
+              `<div style="text-align:center;padding:30px;font-family:var(--mono);font-size:0.65rem;color:var(--muted)">${allTools.length && !tools.length ? "No tools installed — click ⊕ Manage Tools" : "No tools found"}</div>`
             );
           }
 
           const n = tools.length;
-          $("#status-count").text(`${n} tool${n !== 1 ? "s" : ""} loaded`);
+          $("#status-count").text(
+            installedIds
+              ? `${n} of ${allTools.length} installed`
+              : `${n} tool${n !== 1 ? "s" : ""} loaded`
+          );
           $("#status-count-bar").text(`${n} tool${n !== 1 ? "s" : ""}`);
           window._applyActivityIndicators && window._applyActivityIndicators();
         }
@@ -3038,6 +3287,15 @@
         // ═══════════════════════════════════════════════════
         function renderWelcomeCards() {
           const $wc = $("#welcome-cards").empty();
+          if (!tools.length && allTools.length) {
+            $wc.append(`
+                    <div class="welcome-card" onclick="openInstall()">
+                      <div class="wc-icon">⊕</div>
+                      <div class="wc-name">Manage tools</div>
+                      <div class="wc-desc">Pick what appears in your sidebar</div>
+                    </div>
+                  `);
+          }
           tools.forEach((tool) => {
             $wc.append(`
                     <div class="welcome-card" data-tool-id="${tool.id}">
@@ -3230,25 +3488,180 @@
         // ═══════════════════════════════════════════════════
         //  Boot — load .env then render
         // ═══════════════════════════════════════════════════
-        loadEnv()
-          .then((env) => {
-            tools = parseTools(env);
-            window._tools = tools;
+        // ═══════════════════════════════════════════════════
+        //  Installed tools (per-user, stored server-side)
+        // ═══════════════════════════════════════════════════
+        async function loadInstalledTools() {
+          try {
+            const r = await fetch(`${PROXY_URL}/me/tools`, {
+              credentials: "same-origin",
+              cache: "no-cache",
+            });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const d = await r.json();
+            return Array.isArray(d.installed) ? d.installed : null;
+          } catch {
+            return null; // fall back to showing every tool
+          }
+        }
+
+        // Rebuild `tools` from allTools + installedIds + saved cookie order
+        function applyInstalled() {
+          const set = installedIds ? new Set(installedIds) : null;
+          const list = set
+            ? allTools.filter((t) => set.has(t.id))
+            : allTools.slice();
+          const savedOrder = getToolOrderCookie();
+          if (savedOrder && savedOrder.length) {
+            list.sort((a, b) => {
+              const ia = savedOrder.indexOf(a.id);
+              const ib = savedOrder.indexOf(b.id);
+              // unknown tools go to the end
+              return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+            });
+          }
+          tools = list;
+          window._tools = tools;
+        }
+
+        // ── Install modal ──
+        let _draft = new Set();
+
+        function instMatch(t) {
+          const q = ($("#inst-filter").val() || "").trim().toLowerCase();
+          return (
+            !q ||
+            t.name.toLowerCase().includes(q) ||
+            t.desc.toLowerCase().includes(q) ||
+            (t.badge && t.badge.toLowerCase().includes(q))
+          );
+        }
+
+        function renderInstall() {
+          const box = document.getElementById("inst-list");
+          const scroll = box.scrollTop;
+          const cats = [...new Set(allTools.map((t) => t.category))];
+          let html = "";
+          cats.forEach((cat) => {
+            const list = allTools.filter(
+              (t) => t.category === cat && instMatch(t)
+            );
+            if (!list.length) return;
+            const on = list.filter((t) => _draft.has(t.id)).length;
+            html += `<div class="inst-cat">
+              <label><input type="checkbox" class="inst-cat-cb" data-cat="${_esc(cat)}" ${on === list.length ? "checked" : ""}> ${_esc(cat)}</label>
+              <span>${on}/${list.length}</span>
+            </div>`;
+            list.forEach((t) => {
+              html += `<label class="inst-item">
+                <input type="checkbox" class="inst-cb" data-tool-id="${_esc(t.id)}" ${_draft.has(t.id) ? "checked" : ""}>
+                <span class="tool-icon">${t.icon}</span>
+                <span class="inst-info">
+                  <span class="inst-name">${_esc(t.name)}</span>
+                  <span class="inst-desc">${_esc(t.desc)}</span>
+                </span>
+                ${t.badge ? `<span class="tool-badge" style="${badgeStyle(t.badge)}">${_esc(t.badge)}</span>` : ""}
+              </label>`;
+            });
+          });
+          box.innerHTML =
+            html || `<div class="pm-empty">No tools found</div>`;
+          box.scrollTop = scroll;
+          $("#inst-count").text(`${_draft.size}/${allTools.length} selected`);
+        }
+
+        function openInstall() {
+          const valid = new Set(allTools.map((t) => t.id));
+          _draft = new Set(
+            installedIds
+              ? installedIds.filter((id) => valid.has(id))
+              : allTools.map((t) => t.id)
+          );
+          $("#inst-filter").val("");
+          $("#inst-msg").text("").removeClass("err");
+          renderInstall();
+          $("#install-modal").css("display", "flex");
+        }
+
+        function closeInstall() {
+          $("#install-modal").css("display", "none");
+        }
+
+        // Select / clear every tool currently visible (respects the filter)
+        function instSelect(on) {
+          allTools
+            .filter(instMatch)
+            .forEach((t) => (on ? _draft.add(t.id) : _draft.delete(t.id)));
+          renderInstall();
+        }
+
+        async function saveInstall() {
+          const ids = allTools.map((t) => t.id).filter((id) => _draft.has(id));
+          const $btn = $("#inst-save").prop("disabled", true);
+          const $msg = $("#inst-msg").text("Saving…").removeClass("err");
+          try {
+            const r = await fetch(`${PROXY_URL}/me/tools`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              credentials: "same-origin",
+              body: JSON.stringify({ installed: ids }),
+            });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok || !d.ok) throw new Error(d.error || `HTTP ${r.status}`);
+            installedIds = d.installed;
+            applyInstalled();
+            // Close tabs of tools that were just uninstalled
+            tabs
+              .slice()
+              .forEach((tb) => {
+                if (!tools.some((t) => t.id === tb.toolId)) closeTab(tb.id);
+              });
+            renderSidebar($("#search").val());
+            renderWelcomeCards();
+            setStatus(`Installed ${tools.length} of ${allTools.length} tools`);
+            closeInstall();
+          } catch (e) {
+            $msg.text(`Save failed: ${e.message}`).addClass("err");
+          } finally {
+            $btn.prop("disabled", false);
+          }
+        }
+
+        $(document).on("change", ".inst-cb", function () {
+          const id = $(this).attr("data-tool-id");
+          if (this.checked) _draft.add(id);
+          else _draft.delete(id);
+          renderInstall();
+        });
+        $(document).on("change", ".inst-cat-cb", function () {
+          const cat = $(this).attr("data-cat");
+          const on = this.checked;
+          allTools
+            .filter((t) => t.category === cat && instMatch(t))
+            .forEach((t) => (on ? _draft.add(t.id) : _draft.delete(t.id)));
+          renderInstall();
+        });
+        $("#install-modal").on("click", function (e) {
+          if (e.target === this) closeInstall();
+        });
+
+        window.openInstall = openInstall;
+        window.closeInstall = closeInstall;
+        window.saveInstall = saveInstall;
+        window.instSelect = instSelect;
+        window.renderInstall = renderInstall;
+
+        Promise.all([loadEnv(), loadInstalledTools()])
+          .then(([env, installed]) => {
+            allTools = parseTools(env);
+            installedIds = installed;
 
             // Save server order (original .env order)
-            window._serverToolOrder = tools.map((t) => t.id);
+            window._serverToolOrder = allTools.map((t) => t.id);
 
-            // Apply saved cookie order if exists
+            applyInstalled();
             const savedOrder = getToolOrderCookie();
-            if (savedOrder && savedOrder.length) {
-              tools.sort((a, b) => {
-                const ia = savedOrder.indexOf(a.id);
-                const ib = savedOrder.indexOf(b.id);
-                // unknown tools go to the end
-                return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
-              });
-              updateResetBtn(savedOrder);
-            }
+            if (savedOrder && savedOrder.length) updateResetBtn(savedOrder);
 
             // Update title from env (version now comes from CHANGELOG.md)
             const title = env.APP_TITLE || "SP SO Web Toolbox";
@@ -3265,9 +3678,7 @@
               .removeClass()
               .addClass("ok")
               .html(
-                `<span class="pill-dot"></span><span>.env loaded — ${
-                  tools.length
-                } tool${tools.length !== 1 ? "s" : ""}</span>`
+                `<span class="pill-dot"></span><span>.env loaded — ${allTools.length} tool${allTools.length !== 1 ? "s" : ""}</span>`
               );
           })
           .catch((err) => {

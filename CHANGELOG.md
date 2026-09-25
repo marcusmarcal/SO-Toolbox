@@ -9,8 +9,340 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 `SRT Ingest:`, `General Tool Admin:`) so entries can be filtered per tool.
 
 ---
+## [4.8.1] - 2026-09-23
 
-## [Unreleased]
+### Fixed
+- **Video Analyser**: Stream capture (SRT/RTMP analysis and the Record tab)
+  no longer aborts entirely when the source mux contains PIDs of an
+  unsupported/unknown type (e.g. private data PIDs). ffmpeg now uses
+  `-ignore_unknown` to skip them; the skipped PIDs are logged and shown
+  in the result's Container/File info panel instead of failing the run.
+
+## [4.7.1] - 2026-09-24
+
+### Added
+- **SO Toolbox - General**: `⊕ Install` button and modal to choose which tools appear in the left sidebar (filter, per-category toggle, select all/clear).
+- **SO Toolbox - General**: `GET /me/tools` and `PUT /me/tools` endpoints storing each user's installed tools in `user_tools.json`.
+
+### Changed
+- **SO Toolbox - General**: sidebar and welcome cards show only the user's installed tools; users with no saved selection still see all tools.
+- **SO Toolbox - General**: `DELETE /users/<username>` now also removes that user's tool selection.
+
+## [4.6.1] - 2026-09-24
+
+### Added
+- Video Analyser: "Audio Rate Control" row in Generate Report (visual and text).
+- Video Analyser: "Re-evaluate" button in the result metadata bar.
+
+### Changed
+- Video Analyser: tags and workflow in the result metadata bar are now clickable to edit
+  (workflow change restricted to admin/engineer).
+- Video Analyser: edit tags, re-evaluate and change workflow actions moved from the
+  history list to the result metadata bar.
+
+### Removed
+- Video Analyser: small edit tag, re-evaluate and change workflow buttons in the history list.
+
+## [4.5.2] - 2026-09-24
+
+### Added
+
+- Added support for provisioning BTE resources from DM backup snapshots.
+- Added `backup_date` support to `/provision/plan` and `/provision`, allowing resources and destinations to be resolved from a specific snapshot.
+- Added `source_snapshot` metadata to leases and audit events to record the snapshot used during provisioning.
+- Added persistent warnings when a DM backup snapshot is loaded, including the provisioning hint, plan preview, creation confirmation, and lease badges.
+
+### Changed
+
+- Backup snapshots can now be loaded and used for provisioning instead of being view-only.
+- Changed the backup action from **View** to **Load / Loaded**.
+- Resource creation, Plan, Create, and Add Destination actions remain available when a backup snapshot is loaded.
+- The destination picker now uses destinations from the currently loaded snapshot, whether live or backup.
+- Adding destinations to an existing lease now resolves them against the snapshot originally used to create that lease, preventing live and backup data from being mixed.
+- The backup status indicator now displays **Loaded** instead of **Viewing**.
+- Live remains the default snapshot. Reloading, leaving the BTE view, selecting **Back to live snapshot**, or navigating away resets the backup state.
+- Backup snapshot selection is not persisted in `localStorage`, preventing historical data from being unintentionally reused.
+
+## [4.5.1] - 2026-09-23
+
+### Added
+#### v1.8.0 — BTE audit log, DM Snapshot backups, UX improvements
+- Persistent, UTC-timestamped audit log for BTE: records who created,
+  deleted (manual or automatic), extended, or added a destination to each
+  stream, and when.
+- Daily DM Snapshot backups (one per UTC day, configurable retention),
+  browsable read-only from the UI without affecting the live snapshot used
+  for provisioning.
+- Duration field accepts minutes, "1h30m", or "H:MM", with a live end-time
+  preview in UTC.
+- Absolute UTC end time shown alongside the countdown for each active
+  stream.
+- Dedicated "History" view per stream and a filterable audit log panel.
+
+### Changed
+- Destinations are now visually prominent: their own accented section in
+  the create panel and a dedicated, counted column in the streams table.
+
+### Removed
+- Supplier passphrase override field (no longer needed).
+
+## [4.4.1] - 2026-09-18
+
+### Added
+- TXCore Provisioning / BTE: a channel with an active BTE lease is greyed out in
+  the channel list and "Preview plan" / "Create resources" are disabled;
+  `POST /provision` returns 409 if the resource already has an active lease.
+- TXCore Provisioning / BTE: optional Destination-pool outputs, created only on the
+  DC edge, selectable via a single "+ Destination" button both before creation and
+  on an already-active stream (`POST /leases/<id>/destinations`). A destination
+  cannot be attached to more than one stream at a time (`GET /destinations` now
+  reports `in_use`); no limit on how many can be added to one stream. Destinations
+  appear as badges under each active lease.
+
+### Changed
+- TXCore Provisioning / BTE: user-facing "snapshot" labels renamed to "DM Snapshot".
+
+## [4.3.1] - 2026-09-18
+
+### Added
+- TXCore Provisioning / BTE: `pub=SRT@<ip>` field on DC edges; regional edges pull
+  from the public address. `in`/`out` edge addresses are applied as `networkInterface`
+  of the created sources / outputs.
+- TXCore Provisioning / BTE: supplier passphrase override on "Create resources";
+  the plan reports whether the resource passphrase is real, redacted or missing.
+- TXCore Provisioning / BTE: "Inspect live TXEdge" viewer (`GET /api/bte/txcore/edges/<KEY>`,
+  secrets masked) to verify how TXCore stores SRT options.
+- TXCore Provisioning / BTE: dismissible failure notices plus a collapsed provisioning log.
+
+### Changed
+- TXCore Provisioning / BTE: object naming follows the TXCore convention
+  (`<CH>_<EDGE>_[BTE]`, `SRC_<CH>_A_<PROTO>_<EDGE>`, `OUT_<CH>_<PROTO>_<EDGE>`); delete
+  guard checks the tagged stream and the source/output → BTE stream link.
+- TXCore Provisioning / BTE: active streams moved to the top of the panel; Dataminer
+  resource details collapsed; INX01·02·03 edge filter option removed.
+- TXCore Provisioning / BTE: SRT encryption sent as passphrase + key length
+  (`pbkeylen`), field names centralised in `SRT_OPTION_KEYS`.
+
+## [4.2.2] - 2026-09-17
+
+### Changed
+- TXCore Provisioning / BTE: resources are created with one batch call per edge
+  (`POST /mwedge/<edge id>` with streams, sources and outputs; BTE-chosen stream id),
+  matching the TXCore API reference. Per-entry `success` flags are checked and a
+  partially successful batch is rolled back. `BTE_TXCORE_SOURCE/STREAM/OUTPUT_PATH`
+  replaced by `BTE_TXCORE_EDGE_PATH` and `BTE_TXCORE_OBJECT_PATH`.
+
+### Changed
+- TXCore Provisioning / BTE: `BTE_EDGE_<KEY>` now uses the structured
+  `id=…;location=…;dc=yes|no;in=SRT@host;out=SRT@host,UDP@host` format.
+  Regional edges are resolved per site by key prefix (AVE02 → AVE, LMK01 → LMK,
+  YER01 → YER) and pull from the DC edge `out=SRT@<host>`.
+
+  - TXCore Provisioning / BTE: when a resource has no "Output", the DC output port is
+  inferred as Input port + 1000 (Dataminer "+1000 rule"); the plan preview flags the
+  inferred value.
+
+
+## [4.2.1] - 2026-09-17
+
+### Added
+- TXCore Provisioning / BTE: "Create resources" for a selected channel creates the
+  TXCore MWEdge objects (source, stream, output) on the DC edge and on AVE, LMK and
+  YER, derived from the Dataminer resource properties (Input Main/Backup, Output,
+  site multicast addresses, DC MWEdge). New module `bte_provisioning.py`.
+- TXCore Provisioning / BTE: every created object is named with the `[BTE]` tag and
+  tracked in a lease with a user-chosen duration; a background reaper deletes
+  expired leases. Leases can be extended (30 min default, adjustable), deleted one
+  by one or all at once (typed confirmation). Delete refuses any object whose live
+  TXCore name no longer carries `[BTE]`; a failed creation rolls back.
+- TXCore Provisioning / BTE: plan preview showing the exact requests (secrets masked)
+  and a "BTE streams" panel with per-second countdown, status and object counts.
+- TXCore Provisioning / BTE: endpoints `/api/bte/provisioning/status`,
+  `/provision/plan`, `/provision`, `/leases`, `/leases/<id>/extend`,
+  `DELETE /leases/<id>`, `DELETE /leases?confirm=BTE`.
+
+### Security
+- TXCore Provisioning / BTE: live TXCore writes are disabled unless
+  `BTE_PROVISIONING_ENABLED=true`; lease registry stored with mode 0600 and
+  passphrases redacted in every HTTP response.
+
+
+## [4.1.1] - 2026-09-17
+### Added
+- TXCore Provisioning (BTE): MAIN TXEdge topology loaded from `.env`
+  (`BTE_EDGE_<NAME>`, `BTE_EDGES`) with validation; new `GET /api/bte/edges`.
+- TXCore Provisioning (BTE): "TXEdges…" window listing role, location,
+  MWEdge ID, interfaces and Dataminer channel count per edge.
+- TXCore Provisioning (BTE): `/status` reports edge topology health
+  (errors, edges referenced by Dataminer but missing from `.env`) and
+  TXCore MAIN API readiness.
+### Changed
+- TXCore Provisioning (BTE): TXEdge filter is built from the configured DC
+  edges; `?edge=dc` group keyword (legacy `inx0123` still accepted).
+- TXCore Provisioning (BTE): channel detail flags a `DC MWEdge` that is not
+  configured on the server.
+
+## [4.0.1] - 2026-09-16
+
+### Added
+- **TXCore Provisioning**: BTE tab now starts with a **Supplier** selector (Dataminer `capabilities.Type`) and a **TXEdge** filter (all / INX01 · INX02 · INX03 / individual edge); selecting a supplier lists its channels, and selecting a channel shows the Dataminer resource details.
+- **TXCore Provisioning**: new `GET /api/bte/suppliers` endpoint (channel counts per supplier, TXEdge and mode) and `type=` / `edge=` filters on `GET /api/bte/resources`.
+
+### Changed
+- **TXCore Provisioning**: BTE Destinations moved to a separate modal window with its own filter.
+- **TXCore Provisioning**: BTE snapshot information reduced to a one-line collapsed summary; refresh controls and error details live inside it.
+- **TXCore Provisioning**: BTE backend accepts both Dataminer response shapes (`{pool, count, items}` and `{pools: {...}}`).
+
+### Fixed
+- **TXCore Provisioning**: BTE resource and destination endpoints return an empty list with a hint instead of 404 before the first snapshot; manual refresh reports the missing `DATAMINER_*` variable or filesystem error explicitly.
+
+### Security
+- **TXCore Provisioning**: BTE redaction now also covers `capabilities` and multi-word secret keys such as "Passphrase Main".
+
+## [4.0.0] - 2026-09-16
+
+### Added
+- **TXCore Provisioning**: new **BTE ("Better Than EMO")** tab, next to the existing STB and MAIN tabs. BTE targets the MAIN core and is backed by a local Dataminer snapshot.
+- **TXCore Provisioning**: new `routes_bte.py` blueprint that snapshots the Dataminer custom resources API every hour (pools *Supplier Dynamic* and *Destination*) into `/opt/web/data/dataminer.resources.json` and exposes it on the internal API (`/api/bte/status`, `/refresh`, `/resources`, `/resources/<id>`, `/destinations`, with `q` / `mode` filters). Admin/engineer roles only.
+- **TXCore Provisioning**: BTE UI — snapshot status card (source, age, next refresh, per-pool counts, refresh errors), manual refresh, channel dropdown with text/mode filters, resource detail card, and a separate Destinations table with its own filter.
+- **TXCore Provisioning**: new environment variables `DATAMINER_API_URL`, `DATAMINER_BEARER_TOKEN`, `DATAMINER_SNAPSHOT_INTERVAL`, `DATAMINER_CA_BUNDLE`, `DATAMINER_VERIFY_SSL`, `DATAMINER_SNAPSHOT_DISABLED`.
+
+### Changed
+- **TXCore Provisioning**: frontend bumped to v1.2.0; the results panel is now switched per tab (TXCore preview/job vs. BTE resource/destinations).
+
+### Security
+- **TXCore Provisioning**: Dataminer bearer token is never sent to the browser; secret-like resource properties (passphrase, password, secret, token, API key) are redacted in all BTE API responses. Snapshot file is written atomically with mode 0600. TLS verification is enabled by default, with optional CA bundle; disabling verification is logged and shown as a warning in the UI.
+
+
+## [3.64.2] - 2026-09-14
+
+### Added
+- Video Ingest: multi-destination RTMP via a list of stream keys (`stream_keys` in `/ingest/multi` and `/ingest/multi-shared`), one output per key to the same ingest URL; two key fields in the UI with an "add stream key" button.
+### Changed
+- Video Ingest: RTMP destinations default to passthrough (stream copy) for every file source, with Transcode as an opt-in checkbox; SRT/WHIP behaviour unchanged.
+- Video Ingest: the `{n}` URL template and index range now apply to multi-destination WHIP only.
+- Video Ingest: shared RTMP jobs are labelled `<ingest url>/*** xN`.
+
+## [3.64.1] - 2026-09-14
+
+### Added
+- Video Ingest: `GET /capabilities` reporting which output protocols the installed ffmpeg binaries support (probed via `-muxers`, cached 60 s), including the ffmpeg version strings and the reason WHIP is unavailable.
+- Video Ingest: `VIDEO_INGEST_FFMPEG` and `VIDEO_INGEST_WHIP_FFMPEG` environment variables to select the ffmpeg binary per protocol (WHIP needs ffmpeg >= 8.0 with DTLS support).
+### Changed
+- Video Ingest: the UI disables unsupported protocols in the protocol selector and shows the server-side reason; a selected unsupported protocol falls back to SRT.
+### Fixed
+- Video Ingest: WHIP requests against an ffmpeg without the whip muxer are rejected up front (HTTP 400) instead of launching a job that fails on "Unrecognized option 'authorization'" and reconnects forever.
+
+## [3.64.0] - 2026-09-14
+
+### Added
+- Video Ingest: RTMP (FLV) and WHIP (WebRTC, ffmpeg >= 8.0 whip muxer) output protocols alongside SRT, in single, independent-multi and shared-multi modes.
+- Video Ingest: protocol selector, PhenixRTS destination presets (rtmp://ingest.phenixrts.com:80/ingest/ and https://pcast.phenixrts.com/pcast/performgroup.com/whip), stream key / Bearer token fields and `{n}` URL templates for multi-destination RTMP/WHIP.
+- Video Ingest: per-protocol caveats in the command preview (`notes`).
+### Changed
+- Video Ingest: tool renamed from "SRT Ingest" to "Video Ingest" (UI title, header, docstrings). Blueprint, file names and `/srt` route prefix unchanged.
+- Video Ingest: Bars & Tone burns `STREAM n` for RTMP/WHIP destinations instead of the SRT port.
+- Video Ingest: job records carry `protocol`, `label`, `destination_count`; `host`/`port` remain for SRT only.
+### Security
+- Video Ingest: running command lines (`/jobs` → `cmd`) and ffmpeg stderr lines are masked (SRT passphrase, RTMP stream key, WHIP token) before being returned to the UI.
+
+## [3.63.2] - 2026-09-14
+
+### Fixed
+- RTS Manager: forks created before the dashboard was opened were not shown
+  in "Forked From"; the proxy now backfills the last 24h of fork history in
+  the background on the first request per App ID.
+
+### Changed
+- RTS Manager: `FORK_INITIAL_LOOKBACK_MIN` replaced by
+  `FORK_INITIAL_LOOKBACK_H` (default 24); incremental Phenix requests no
+  longer hold the cache lock.
+
+## [3.63.1] - 2026-09-14
+
+### Added
+- RTS Manager: `/rts/fork-origin` proxy route returning the latest
+  successful fork per destination channel as JSON, cached per App ID and
+  refreshed incrementally.
+
+### Changed
+- RTS Manager: the Channels tab's background "Forked From" refresh now uses
+  `/rts/fork-origin` instead of downloading and parsing the raw fork-history
+  CSV in every open browser tab.
+
+## [3.63.0] - 2026-09-14
+
+### Added
+- RTS Manager: "Streams" button on each base channel opening a modal with
+  member details (screen name, role, state, session ID, last update) and a
+  per-stream table (type, stream ID, region, audio/video track state,
+  capabilities).
+- RTS Manager: `/channel/members/<channel_id>` proxy route for the Phenix
+  channel members endpoint.
+
+### Changed
+- RTS Manager: tool renamed from "RTS Monitor" to "RTS Manager"
+  (RTS-Monitor.html → RTS-Manager.html).
+
+### Fixed
+- RTS Manager: publisher counts were only fetched for the first 100 channels
+  due to an incorrect loop bound.
+- RTS Manager: `.table-message` styling was not applied due to a missing CSS
+  selector.
+
+## [3.62.1] - 2026-09-11
+
+### Changed
+- Video Analyser: the AAC-LATM `channel_configuration` check now inspects
+  every audio track instead of only a:0. Any LATM track signalling cc=0
+  (in-band PCE) fails the field; the measured value lists each track
+  (`a:0=2, a:1=2, a:2=0, a:3=0`) and the note names the offending ones.
+  Re-evaluation and older results remain compatible.
+- Video Analyser: redesigned Compliance Specs Editor — single workflow
+  toolbar, grading legend, per-field descriptions and type badges,
+  explicit "Accepted range" / "Compliant range" groups, colour-coded
+  value chips, field filter, collapsible sections and an unsaved-changes
+  indicator.
+
+### Fixed
+- Video Analyser: renaming a workflow from the Specs Editor threw after a
+  successful rename; delay thresholds (`warn`/`hard`) are now saved as
+  numbers.
+
+## [3.62.0] - 2026-09-11
+
+### Added
+- Video Analyser: AAC-LATM `channel_configuration` compliance check. A
+  built-in LOAS/LATM bitstream parser (ISO 14496-3) samples the first
+  audio packets and rejects LATM streams signalling
+  `channel_configuration=0` (channel layout carried in-band via PCE),
+  while explicit configs (e.g. 2 = direct stereo) and AAC/ADTS remain
+  unaffected. The check is configurable per workflow in the specs editor
+  ("Reject when channel_configuration = 0"), with an option to flag such
+  streams as ACCEPTED instead. The measured value is shown in the audio
+  info panel, compliance table, visual/text reports and the multi-test
+  comparison modal, and is included in workflow re-evaluation.
+
+## [3.61.0] - 2026-09-10
+
+### Fixed
+- SRT Ingest: .ts recordings were pushed with a single audio PID even in passthrough — the cached loop copy was built with ffmpeg's default stream selection. All elementary streams (all audio PIDs, subtitles, private data) are now kept and stream-copied to every destination.
+- SRT Ingest: passthrough no longer uses `+discardcorrupt`, which could drop keyframes from recordings containing continuity-counter errors and leave the stream undecodable.
+
+### Changed
+- SRT Ingest: the ffmpeg command preview in the UI is now generated by the backend (`POST /srt/ingest/preview`) using the same builders as the ingest routes, so it always matches what is actually launched.
+
+### Added
+- SRT Ingest: `POST /srt/ingest/preview` endpoint (single / multi / multi-shared) returning the masked ffmpeg argv without starting a job.
+
+## [3.60.0] - 2026-09-10
+
+### SRT Ingest Tool: Passthrough Improvements
+
+- Passthrough mode now forwards all available source streams instead of only the primary video and audio tracks.
+- Preserves multiple audio tracks, subtitles, and supported data streams.
+- Added support for copying unknown/private streams where supported by FFmpeg.
+- Provides a more complete MPEG-TS passthrough experience for SRT outputs.
 
 ## [3.59.0] - 2026-09-09
 

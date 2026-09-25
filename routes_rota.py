@@ -7,6 +7,7 @@ import json
 import uuid
 import datetime
 import io
+from typing import Optional
 
 from flask import Blueprint, request, jsonify, send_file
 from routes_auth import require_auth, require_admin_role
@@ -452,6 +453,7 @@ def _save_shift_registry(registry: dict) -> None:
     _rebuild_alias_cache(registry)
 
 
+def _rebuild_alias_cache(registry: Optional[dict] = None) -> None:
 def _rebuild_alias_cache(registry: Optional[dict] = None) -> None:
     global _ALIAS_CACHE
     if registry is None:
@@ -2110,7 +2112,7 @@ WEEKEND_SWAP_PATTERNS = [
 COVERAGE_NOTE_INDICES = {2, 3, 4, 5}
 
 
-from typing import Optional
+from typing import Optional, Tuple
 
 def _infer_absent_engineer(fri_date: date, leave_map: dict) -> Optional[str]:
     """Find which engineer has AL on Sat+Sun of the given weekend."""
