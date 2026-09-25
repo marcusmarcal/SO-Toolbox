@@ -4739,6 +4739,13 @@
           ["Num streams", r.num_streams],
           ["Have Video", r.have_video],
           ["Have Audio", r.have_audio],
+          [
+            "Unknown/Skipped PIDs",
+            r.unknown_pids && r.unknown_pids.length
+              ? r.unknown_pids.join(", ")
+              : "None",
+            r.unknown_pids && r.unknown_pids.length ? "yellow" : "green",
+          ],
         ]);
 
         const vfpsCol =

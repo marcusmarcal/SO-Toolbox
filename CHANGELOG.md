@@ -9,6 +9,14 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 `SRT Ingest:`, `General Tool Admin:`) so entries can be filtered per tool.
 
 ---
+## [4.8.1] - 2026-09-23
+
+### Fixed
+- **Video Analyser**: Stream capture (SRT/RTMP analysis and the Record tab)
+  no longer aborts entirely when the source mux contains PIDs of an
+  unsupported/unknown type (e.g. private data PIDs). ffmpeg now uses
+  `-ignore_unknown` to skip them; the skipped PIDs are logged and shown
+  in the result's Container/File info panel instead of failing the run.
 
 ## [4.7.1] - 2026-09-24
 

@@ -657,6 +657,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
 
     ts_path = None
     cap_returncode = 0
+    unknown_pids = []
 
     if _started_at and job_id in _gop_jobs:
         with _gop_lock:
@@ -736,6 +737,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             cap_cmd.extend([
                 "-i", url,
                 "-map", "0",
+                "-ignore_unknown",
                 "-t", str(duration),
                 "-c", "copy",
                 "-f", "mpegts",
@@ -750,6 +752,13 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
                 cap_returncode = cap_result.returncode
                 cap_out = cap_result.stdout.decode(errors="replace")
                 log(f"ffmpeg capture done (exit {cap_returncode})")
+                unknown_pids = re.findall(
+                    r'Stream #0:\d+\[(0x[0-9a-fA-F]+)\][^\n]*:\s*Unknown: none', cap_out
+                )
+                if unknown_pids:
+                    log(f"NOTE: {len(unknown_pids)} unknown-type PID(s) present in the "
+                        f"stream — skipped from capture with -ignore_unknown, not analysed: "
+                        f"{', '.join(unknown_pids)}")
             except subprocess.TimeoutExpired:
                 log("WARNING: ffmpeg timed out — analysing partial capture if available")
                 cap_out = ""
@@ -1266,6 +1275,7 @@ def _run_gop_analysis(job_id, url, duration, passphrase, tag, _started_at=None, 
             "mediainfo_report": mediainfo_result.get("mediainfo_report"),
             "ingest_dir": ingest_result.get("ingest_dir"),
             "ingest_zip": ingest_result.get("ingest_zip"),
+            "unknown_pids": unknown_pids,
         }
 
         ts_str   = datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S")
@@ -1851,6 +1861,7 @@ def _record_stream(job_id, url, duration, tag):
         cap_cmd.extend([
             "-i", url,
             "-map", "0",
+            "-ignore_unknown",
             "-t", str(duration),
             "-c", "copy",
             "-f", "mpegts",
@@ -1866,6 +1877,13 @@ def _record_stream(job_id, url, duration, tag):
             )
             cap_out = cap.stdout.decode(errors="replace")
             log(f"ffmpeg done (exit {cap.returncode})")
+            unknown_pids = re.findall(
+                r'Stream #0:\d+\[(0x[0-9a-fA-F]+)\][^\n]*:\s*Unknown: none', cap_out
+            )
+            if unknown_pids:
+                log(f"NOTE: {len(unknown_pids)} unknown-type PID(s) present in the "
+                    f"stream — skipped from capture with -ignore_unknown, not recorded: "
+                    f"{', '.join(unknown_pids)}")
         except subprocess.TimeoutExpired:
             cap_out = ""
             log("WARNING: ffmpeg timed out — keeping partial capture if any")
