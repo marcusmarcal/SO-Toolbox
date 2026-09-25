@@ -2414,12 +2414,17 @@
     if (!days || !days.length) return {};
     const totalMin    = days.length * 1440;
     const concurrency = new Int16Array(totalMin);
+    const personAtMinute = new Array(totalMin).fill(null);
+    const MULTI = '__MULTI__';
     const soeCov       = new Uint8Array(days.length);
     const mgmtCov       = new Uint8Array(days.length);
 
     _buildCoverageIntervals(days).forEach(iv => {
       const s = Math.max(0, iv.start), e = Math.min(totalMin, iv.end);
-      for (let t = s; t < e; t++) concurrency[t]++;
+      for (let t = s; t < e; t++) {
+        concurrency[t]++;
+        personAtMinute[t] = (personAtMinute[t] === null) ? iv.person : MULTI;
+      }
       const nextDay = iv.dayIdx + 1;
       const spillsOver = iv.end > (iv.dayIdx + 1) * 1440 && nextDay < days.length;
       if (iv.team === 'SOE') { soeCov[iv.dayIdx] = 1; if (spillsOver) soeCov[nextDay] = 1; }
@@ -2452,20 +2457,23 @@
       }
     }
 
-    // 2) Soft: solo >5h stretch (continuous single-person coverage over 300 min)
+    // 2) Soft: solo >5h stretch, per person — resets when the on-duty
+    // person changes even if concurrency stays at 1 (e.g. a clean handover
+    // at shift boundary should not merge two people's solo time into one).
     const SOLO_DURATION_THRESHOLD_MIN = 300; // 5h
-    let soloStart = null;
+    let soloStart = null, soloPerson = null;
     for (let t = 0; t <= totalMin; t++) {
-      const solo = t < totalMin && concurrency[t] === 1;
-      if (solo && soloStart === null) soloStart = t;
-      if (!solo && soloStart !== null) {
+      const solo   = t < totalMin && concurrency[t] === 1;
+      const person = solo ? personAtMinute[t] : null;
+      if (soloStart !== null && (!solo || person !== soloPerson)) {
         const duration = t - soloStart;
         if (duration > SOLO_DURATION_THRESHOLD_MIN) {
           addFlag(dateOfAbsMin(soloStart), 'soft',
-            `Solo coverage for ${(duration / 60).toFixed(1)}h (${fmtHM(soloStart)}–${fmtHM(t)})`);
+            `${soloPerson} solo for ${(duration / 60).toFixed(1)}h (${fmtHM(soloStart)}–${fmtHM(t)})`);
         }
-        soloStart = null;
+        soloStart = null; soloPerson = null;
       }
+      if (solo && soloStart === null) { soloStart = t; soloPerson = person; }
     }
 
     // 3) Hard: night-shift break relief 01:00–02:00 — only if not already a full gap there
@@ -4306,7 +4314,7 @@ function _removeCellFromBoxes(ri, ci) {
     }
     if (!sel.length) return;
 
-    _pop = { alMode: 'none', pendingShift: null, customColor: null, colorChanged: false, noteOnly: !!noteOnly, targetCell: sel[0], noteDirty: false };
+    _pop = { alMode: 'none', pendingShift: null, customColor: null, colorChanged: false, noteOnly: !!noteOnly, targetCell: sel[0] };
 
     const multi = sel.length > 1;
     const first = sel[0];
@@ -4505,7 +4513,6 @@ function _removeCellFromBoxes(ri, ci) {
           : '');
 
     document.getElementById('popover-note').oninput = () => {
-      _pop.noteDirty = true;
       _validateApply();
     };
 
@@ -4831,7 +4838,7 @@ function _removeCellFromBoxes(ri, ci) {
       await _persistShiftColors(colorMap);
 
       // Notes stay untouched unless the user actually typed one in.
-      if (_pop.noteDirty) {
+      if (note) {
         for (const cell of sel) {
           await fetch(`${PROXY}/rota/note`, {
             method: 'PUT', credentials: 'same-origin',
@@ -4851,7 +4858,7 @@ function _removeCellFromBoxes(ri, ci) {
     }
 
     if (noShiftOrAl) {
-      if (!_pop.noteDirty) { closeShiftPopover(); return; }
+      if (!note) { closeShiftPopover(); return; }
       // Note-only edit within the draft popover
       for (const cell of sel) {
         await fetch(`${PROXY}/rota/note`, {
@@ -4898,7 +4905,7 @@ function _removeCellFromBoxes(ri, ci) {
         finalShift = isOffDay ? 'AL_APPROVED' : `AL_APPROVED|${finalShift}`;
       }
 
-      await _saveOverride(cell.person, cell.date, finalShift, note || null, ovType, _pop.noteDirty);
+      await _saveOverride(cell.person, cell.date, finalShift, note || null, ovType, note.trim() !== '');
     }
 
     closeShiftPopover();
