@@ -20,6 +20,27 @@ ROTA_DIR   = os.path.join(_BASE_DIR, 'rota')
 LEAVE_FILE = os.path.join(ROTA_DIR, 'leave_requests.json')
 USERS_FILE = os.path.join(_BASE_DIR, 'users.json')
 
+# ════════════════════════════════════════════════════════════════════════════
+#  FILE PATHS
+# ════════════════════════════════════════════════════════════════════════════
+CONFIG_FILE              = os.path.join(ROTA_DIR, 'config.json')
+DRAFT_FILE               = os.path.join(ROTA_DIR, 'draft_overrides.json')
+DRAFT_LOCK_FILE          = os.path.join(ROTA_DIR, 'draft_lock.json')
+PUBLISHED_OVERRIDES_FILE = os.path.join(ROTA_DIR, 'published_overrides.json')
+CELL_NOTES_FILE          = os.path.join(ROTA_DIR, 'cell_notes.json')
+FEEDBACK_FILE            = os.path.join(ROTA_DIR, 'feedback.json')
+NOTIFICATIONS_FILE       = os.path.join(ROTA_DIR, 'notifications.json')
+HOURS_POT_FILE           = os.path.join(ROTA_DIR, 'hours_pot.json')
+AL_ALLOWANCE_FILE        = os.path.join(ROTA_DIR, 'al_allowance.json')
+SHIFT_REGISTRY_FILE      = os.path.join(ROTA_DIR, 'shift_registry.json')
+PERSON_DIRECTORY_FILE    = os.path.join(ROTA_DIR, 'person_directory.json')
+PERSON_DIRECTORY_BACKUP_FILE = os.path.join(_BASE_DIR, 'person_directory.backup.json')
+DIRECTORY_AUDIT_FILE  = os.path.join(ROTA_DIR, 'directory_audit_log.json')
+# NOTE: intentionally stored one level above rota/ so a targeted wipe of
+# that subdirectory alone doesn't take the backup down with the original.
+# If you're doing cleanup in /opt/web/ and see this file, it's live —
+# don't delete it. Contact: <your name/contact>
+
 # ── Data helpers ──────────────────────────────────────────────────────────
 def _load_json(path: str):
     if not os.path.exists(path):
@@ -373,27 +394,6 @@ def _build_schedule(date_from: date, date_to: date,
         days.append(day)
         d += timedelta(days=1)
     return days
-
-# ════════════════════════════════════════════════════════════════════════════
-#  FILE PATHS
-# ════════════════════════════════════════════════════════════════════════════
-CONFIG_FILE              = os.path.join(ROTA_DIR, 'config.json')
-DRAFT_FILE               = os.path.join(ROTA_DIR, 'draft_overrides.json')
-DRAFT_LOCK_FILE          = os.path.join(ROTA_DIR, 'draft_lock.json')
-PUBLISHED_OVERRIDES_FILE = os.path.join(ROTA_DIR, 'published_overrides.json')
-CELL_NOTES_FILE          = os.path.join(ROTA_DIR, 'cell_notes.json')
-FEEDBACK_FILE            = os.path.join(ROTA_DIR, 'feedback.json')
-NOTIFICATIONS_FILE       = os.path.join(ROTA_DIR, 'notifications.json')
-HOURS_POT_FILE           = os.path.join(ROTA_DIR, 'hours_pot.json')
-AL_ALLOWANCE_FILE        = os.path.join(ROTA_DIR, 'al_allowance.json')
-SHIFT_REGISTRY_FILE      = os.path.join(ROTA_DIR, 'shift_registry.json')
-PERSON_DIRECTORY_FILE    = os.path.join(ROTA_DIR, 'person_directory.json')
-PERSON_DIRECTORY_BACKUP_FILE = os.path.join(_BASE_DIR, 'person_directory.backup.json')
-DIRECTORY_AUDIT_FILE  = os.path.join(ROTA_DIR, 'directory_audit_log.json')
-# NOTE: intentionally stored one level above rota/ so a targeted wipe of
-# that subdirectory alone doesn't take the backup down with the original.
-# If you're doing cleanup in /opt/web/ and see this file, it's live —
-# don't delete it. Contact: <your name/contact>
 
 # ── Config ────────────────────────────────────────────────────────────────
 DEFAULT_CONFIG = {
