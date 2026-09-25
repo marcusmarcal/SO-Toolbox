@@ -4485,7 +4485,11 @@ function _removeCellFromBoxes(ri, ci) {
       const removeBtn = document.createElement('button');
       removeBtn.className = 'shift-btn remove-absent-btn';
       removeBtn.textContent = '✓ Remove Absent';
-        await _saveOverride(cell.person, cell.date, base, null, 'shift_change', false);
+      removeBtn.addEventListener('click', async () => {
+        for (const cell of sel) {
+          const base = _stripAlPrefix(_currentShiftOf(cell));
+          await _saveOverride(cell.person, cell.date, base, null, 'shift_change', false);
+        }
         closeShiftPopover();
         _clearSelection();
         _patchRotaCells(sel.map(c => ({ person: c.person, date: c.date })));
