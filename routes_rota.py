@@ -452,7 +452,7 @@ def _save_shift_registry(registry: dict) -> None:
     _rebuild_alias_cache(registry)
 
 
-def _rebuild_alias_cache(registry: dict | None = None) -> None:
+def _rebuild_alias_cache(registry: Optional[dict] = None) -> None:
     global _ALIAS_CACHE
     if registry is None:
         registry = _load_shift_registry()
@@ -485,7 +485,7 @@ def _resolve_alias(code: str, d: date) -> str:
     return result
 
 
-def _alias_color_for(code: str, d: date) -> tuple[str | None, str | None]:
+def _alias_color_for(...) -> tuple[Optional[str], Optional[str]]:
     """Return (bg_color, fg_color) from the active alias for (code, date),
     or (None, None) if no alias is active."""
     result_color = None
@@ -4183,7 +4183,7 @@ BACKUP_DIR = os.path.join(_BASE_DIR, 'rota_backup_json_files')
 
 # Validators called after upload before the file is written.
 # Return (ok: bool, error_message_or_None).
-def _validate_managed_json(key: str, data) -> tuple[bool, str | None]:
+def _validate_managed_json(key: str, data) -> tuple[bool, Optional[str]]:
     if key == 'person_directory':
         if not isinstance(data, dict):
             return False, 'person_directory must be a JSON object'
@@ -4279,7 +4279,7 @@ def _list_backups(key: str) -> list[dict]:
     return entries
 
 
-def _write_backup(key: str, source_path: str) -> str | None:
+def _write_backup(key: str, source_path: str) -> Optional[str]:
     """Write a timestamped backup of source_path into BACKUP_DIR.
     Returns the backup filename, or None if source_path doesn't exist."""
     if not os.path.exists(source_path):
