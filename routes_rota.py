@@ -104,10 +104,6 @@ ENGINEERING_ROTATION = [
 # gitignored JSON keyed by employee_id — the one mandatory, stable,
 # collision-free identifier every user has from day one. See
 # rota/person_directory.json. Nothing here is committed to source control.
-PERSON_DIRECTORY_FILE = os.path.join(ROTA_DIR, 'person_directory.json')
-PERSON_DIRECTORY_BACKUP_FILE = os.path.join(_BASE_DIR, 'person_directory.backup.json')
-DIRECTORY_AUDIT_FILE  = os.path.join(ROTA_DIR, 'directory_audit_log.json')
-
 VALID_ROTATION_GROUPS = {'management', 'engineering', 'specialist'}
 
 def _load_person_directory() -> dict:
@@ -158,12 +154,6 @@ def _load_person_directory() -> dict:
 # ENGINEERING_OFFSETS/SPECIALIST_OFFSETS (so they drop out of the rota grid
 # and hour computation) but stay in the RID/label/name lookups so historical
 # records under their rota_label still resolve to a name instead of a blank.
-def _rebuild_person_directory_caches() -> None:
-    global _DIR, MANAGEMENT_SHIFTS, ENGINEERING_OFFSETS, SPECIALIST_OFFSETS
-    global _RID_TO_LABEL, _LABEL_TO_RID, _LABEL_TO_FULLNAME, _LABEL_TO_HRTEAM
-
-    _DIR = _load_person_directory()
-
 def _rebuild_person_directory_caches() -> None:
     global _DIR, MANAGEMENT_SHIFTS, ENGINEERING_OFFSETS, SPECIALIST_OFFSETS
     global _RID_TO_LABEL, _LABEL_TO_RID, _LABEL_TO_FULLNAME, _LABEL_TO_HRTEAM
@@ -397,12 +387,13 @@ NOTIFICATIONS_FILE       = os.path.join(ROTA_DIR, 'notifications.json')
 HOURS_POT_FILE           = os.path.join(ROTA_DIR, 'hours_pot.json')
 AL_ALLOWANCE_FILE        = os.path.join(ROTA_DIR, 'al_allowance.json')
 SHIFT_REGISTRY_FILE      = os.path.join(ROTA_DIR, 'shift_registry.json')
-PERSON_DIRECTORY_FILE        = os.path.join(ROTA_DIR, 'person_directory.json')
+PERSON_DIRECTORY_FILE    = os.path.join(ROTA_DIR, 'person_directory.json')
+PERSON_DIRECTORY_BACKUP_FILE = os.path.join(_BASE_DIR, 'person_directory.backup.json')
+DIRECTORY_AUDIT_FILE  = os.path.join(ROTA_DIR, 'directory_audit_log.json')
 # NOTE: intentionally stored one level above rota/ so a targeted wipe of
 # that subdirectory alone doesn't take the backup down with the original.
 # If you're doing cleanup in /opt/web/ and see this file, it's live —
 # don't delete it. Contact: <your name/contact>
-PERSON_DIRECTORY_BACKUP_FILE = os.path.join(_BASE_DIR, 'person_directory.backup.json')
 
 # ── Config ────────────────────────────────────────────────────────────────
 DEFAULT_CONFIG = {
@@ -945,27 +936,6 @@ def rota_directory_audit_get():
 # ════════════════════════════════════════════════════════════════════════════
 #  SHIFT REGISTRY ROUTES
 # ════════════════════════════════════════════════════════════════════════════
-
-def _shift_registry_entry_from_code(code: str) -> dict | None:
-    """Return a registry entry for a code that may not be explicitly stored,
-    deriving sensible defaults from the existing color config."""
-    registry = _load_shift_registry()
-    if code in registry:
-        return registry[code]
-    # Not explicitly registered — synthesise a minimal view entry so the UI
-    # can still display it (e.g. legacy shifts pre-dating the registry).
-    cfg = _load_config()
-    color_map = cfg.get('custom_shift_color_map', {})
-    return {
-        'code':        code,
-        'color':       color_map.get(code, '#7a7a7a'),
-        'fg_color':    '#000',
-        'active':      True,
-        'in_rotation': [],
-        'aliases':     [],
-        'implicit':    True,   # not persisted — just synthesised for display
-    }
-
 
 @rota_bp.route('/rota/shifts', methods=['GET'])
 @require_auth
@@ -3115,8 +3085,6 @@ def rota_hours_export():
 
 # ── PicaPonto (attendance) export ─────────────────────────────────────────
 
-from typing import Optional
-
 _PICAPONTO_ROLE_ORDER = [
     'Technical Operations Manager',
     'Streaming Ops Engineering Lead',
@@ -3610,46 +3578,6 @@ def rota_hours_pot_get():
         'month':   month,
         'records': active + superseded,
     })
-
-
-@rota_bp.route('/rota/hours/debug', methods=['GET'])
-@require_auth
-def rota_hours_debug():
-    if _get_rota_role(request.session) != 'management':
-        return jsonify({'ok': False, 'error': 'Not authorised'}), 403
-
-    hr_teams    = _hr_teams()
-    sos_members = hr_teams.get('SOS', [])
-    soe_members = hr_teams.get('SOE', [])
-
-    known = list(set(MANAGEMENT_SHIFTS) | set(ENGINEERING_OFFSETS) | set(SPECIALIST_OFFSETS))
-
-    leave_list = _load_json(LEAVE_FILE)
-    if not isinstance(leave_list, list): leave_list = []
-    published_overrides = _load_json(PUBLISHED_OVERRIDES_FILE)
-    if not isinstance(published_overrides, list): published_overrides = []
-
-    leave_map    = _build_leave_map(leave_list)
-    override_map = _build_override_map(published_overrides)
-
-    test_month_from = date(2026, 6, 1)
-    test_month_to   = date(2026, 6, 30)
-    all_members = sos_members + soe_members
-    hours = _compute_hours(test_month_from, test_month_to,
-                           all_members, leave_map, override_map)
-
-    # Spot-check the first SOS specialist on 3 days (no name hardcoded here —
-    # picked dynamically so this endpoint never needs a real name in source)
-    spot_name = next((n for n in sos_members if n in SPECIALIST_OFFSETS), None)
-    spot = {}
-    for d_str in ['2026-06-01', '2026-06-02', '2026-06-04']:
-        d = date.fromisoformat(d_str)
-        if spot_name:
-            spot[f'{spot_name}@{d_str}'] = {
-                'effective': _effective_shift_for_hours(spot_name, d, leave_map, override_map),
-                'resolved':  _resolve_shift(spot_name, d, leave_map, override_map),
-                'base':      _base_shift(spot_name, d),
-            }
 
     return jsonify({
         'sos_members':      sos_members,
@@ -4177,7 +4105,6 @@ def rota_feedback_put(feedback_id):
 
 # ── Constants ────────────────────────────────────────────────────────────────
 PRINT_FOOTER_FILE    = os.path.join(ROTA_DIR, 'assets', 'print-footer.json')
-DRAFT_LOCK_FILE_PATH = DRAFT_LOCK_FILE   # already defined above as DRAFT_LOCK_FILE
 
 MANAGED_FILES = {
     'leave_requests':      LEAVE_FILE,

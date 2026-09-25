@@ -2452,7 +2452,21 @@
       }
     }
 
-    // 2) Soft: solo >5h stretch
+    // 2) Soft: solo >5h stretch (continuous single-person coverage over 300 min)
+    const SOLO_DURATION_THRESHOLD_MIN = 300; // 5h
+    let soloStart = null;
+    for (let t = 0; t <= totalMin; t++) {
+      const solo = t < totalMin && concurrency[t] === 1;
+      if (solo && soloStart === null) soloStart = t;
+      if (!solo && soloStart !== null) {
+        const duration = t - soloStart;
+        if (duration > SOLO_DURATION_THRESHOLD_MIN) {
+          addFlag(dateOfAbsMin(soloStart), 'soft',
+            `Solo coverage for ${(duration / 60).toFixed(1)}h (${fmtHM(soloStart)}–${fmtHM(t)})`);
+        }
+        soloStart = null;
+      }
+    }
 
     // 3) Hard: night-shift break relief 01:00–02:00 — only if not already a full gap there
     days.forEach((day, i) => {
@@ -2580,12 +2594,6 @@
     table.querySelectorAll('tbody td.date-col').forEach(td => {
       td.style.cursor = 'pointer';
       td.addEventListener('click', () => {
-        const dateStr = state.rotaData &&
-          state.rotaData.find(d => {
-            const row = td.parentElement;
-            return row && d.date === td.closest('tr')?.querySelector('td[data-date]')?.dataset?.date;
-          });
-        // date-col doesn't have data-date; read from first shift cell in the row
         const firstShiftCell = td.parentElement?.querySelector('td[data-date]');
         if (firstShiftCell) openDayEpg(firstShiftCell.dataset.date);
       });
@@ -4298,7 +4306,7 @@ function _removeCellFromBoxes(ri, ci) {
     }
     if (!sel.length) return;
 
-    _pop = { alMode: 'none', pendingShift: null, customColor: null, colorChanged: false, noteOnly: !!noteOnly, targetCell: sel[0] };
+    _pop = { alMode: 'none', pendingShift: null, customColor: null, colorChanged: false, noteOnly: !!noteOnly, targetCell: sel[0], noteDirty: false };
 
     const multi = sel.length > 1;
     const first = sel[0];
@@ -4433,15 +4441,6 @@ function _removeCellFromBoxes(ri, ci) {
         _validateApply();
       };
 
-      console.log(
-        'AL check:',
-        sel.map(c => ({
-          person: c.person,
-          date: c.date,
-          shift: _currentShiftOf(c)
-        }))
-      );
-
       const alStates = new Set(sel.map(c => {
         const sh = _currentShiftOf(c);
         if (sh === 'AL_PENDING'  || sh.startsWith('AL_PENDING|'))  return 'provisional';
@@ -4486,11 +4485,7 @@ function _removeCellFromBoxes(ri, ci) {
       const removeBtn = document.createElement('button');
       removeBtn.className = 'shift-btn remove-absent-btn';
       removeBtn.textContent = '✓ Remove Absent';
-      removeBtn.addEventListener('click', async () => {
-        for (const cell of sel) {
-          const base = _stripAlPrefix(_currentShiftOf(cell));
-          await _saveOverride(cell.person, cell.date, base, null, 'shift_change');
-        }
+          await _saveOverride(cell.person, cell.date, base, null, 'shift_change', false);
         closeShiftPopover();
         _clearSelection();
         _patchRotaCells(sel.map(c => ({ person: c.person, date: c.date })));
@@ -4505,7 +4500,10 @@ function _removeCellFromBoxes(ri, ci) {
           ? (state.draft.overrides.find(o => o.person === first.person && o.date === first.date)?.note || _currentNoteOf(first))
           : '');
 
-    document.getElementById('popover-note').oninput = _validateApply;
+    document.getElementById('popover-note').oninput = () => {
+      _pop.noteDirty = true;
+      _validateApply();
+    };
 
     // ── Weekend Swap toggle ───────────────────────────────────────────────
     const wswapSection = document.getElementById('popover-weekend-swap-section');
@@ -4829,7 +4827,7 @@ function _removeCellFromBoxes(ri, ci) {
       await _persistShiftColors(colorMap);
 
       // Notes stay untouched unless the user actually typed one in.
-      if (note) {
+      if (_pop.noteDirty) {
         for (const cell of sel) {
           await fetch(`${PROXY}/rota/note`, {
             method: 'PUT', credentials: 'same-origin',
@@ -4849,6 +4847,9 @@ function _removeCellFromBoxes(ri, ci) {
     }
 
     if (noShiftOrAl) {
+      if (!_pop.noteDirty) { closeShiftPopover(); return; }
+      // Note-only edit within the draft popover
+      for (const cell of sel) {
       // Note-only edit within the draft popover
       for (const cell of sel) {
         await fetch(`${PROXY}/rota/note`, {
@@ -4895,14 +4896,14 @@ function _removeCellFromBoxes(ri, ci) {
         finalShift = isOffDay ? 'AL_APPROVED' : `AL_APPROVED|${finalShift}`;
       }
 
-      await _saveOverride(cell.person, cell.date, finalShift, note || null, ovType);
+      await _saveOverride(cell.person, cell.date, finalShift, note || null, ovType, _pop.noteDirty);
     }
 
     closeShiftPopover();
     _patchRotaCells(sel.map(c => ({ person: c.person, date: c.date })));
   }
 
-  async function _saveOverride(person, dateStr, shift, note, ovType) {
+  async function _saveOverride(person, dateStr, shift, note, ovType, touchNote = true) {
     try {
       const r = await fetch(`${PROXY}/rota/draft/override`, {
         method: 'PUT', credentials: 'same-origin',
@@ -4912,11 +4913,13 @@ function _removeCellFromBoxes(ri, ci) {
       const d = await r.json();
       if (d.ok) {
         state.draft.overrides = d.overrides;
-        await fetch(`${PROXY}/rota/note`, {
-        method: 'PUT', credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ person, date: dateStr, note: note || '' }),
-      });
+        if (touchNote) {
+          await fetch(`${PROXY}/rota/note`, {
+            method: 'PUT', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ person, date: dateStr, note: note || '' }),
+          });
+        }
       } else {
         await uiAlert(d.error || 'Failed to save');
       }
