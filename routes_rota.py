@@ -454,7 +454,6 @@ def _save_shift_registry(registry: dict) -> None:
 
 
 def _rebuild_alias_cache(registry: Optional[dict] = None) -> None:
-def _rebuild_alias_cache(registry: Optional[dict] = None) -> None:
     global _ALIAS_CACHE
     if registry is None:
         registry = _load_shift_registry()
