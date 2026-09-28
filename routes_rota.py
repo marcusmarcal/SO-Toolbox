@@ -67,6 +67,7 @@ VALID_TRANSITIONS = {
     'Pending':            {'Confirmed', 'Rejected', 'Cancelled'},
     'Confirmed':          {'Withdrawal Pending', 'Withdrawn'},
     'Withdrawal Pending': {'Withdrawn', 'Withdrawal Rejected', 'Cancelled'},
+    'Withdrawal Rejected': {'Withdrawal Pending', 'Withdrawn'},
 }
 
 def _display_name_from_email(email: str) -> str:
@@ -250,11 +251,12 @@ PUBLIC_HOLIDAYS = {
     date(2026,12,1), date(2026,12,8), date(2026,12,25),
 }
 
-PARENTAL_LEAVE_TYPES    = {"Parental Leave"}
-MARITAL_LEAVE_TYPES     = {"Marital Leave"}
-AL_APPROVED_STATUSES    = {'Confirmed', 'Withdrawal Pending', 'Withdrawal Rejected'}
-AL_PENDING_STATUSES     = {'Pending'}
-AL_CLEAR_STATUSES       = {'Rejected', 'Withdrawn', 'Cancelled'}
+PARENTAL_LEAVE_TYPES     = {"Parental Leave"}
+MARITAL_LEAVE_TYPES      = {"Marital Leave"}
+AL_APPROVED_STATUSES     = {'Confirmed', 'Withdrawal Pending', 'Withdrawal Rejected'}
+AL_PENDING_STATUSES      = {'Pending'}
+AL_CLEAR_STATUSES        = {'Rejected', 'Withdrawn', 'Cancelled'}
+ACTIVE_LEAVE_STATUSES    = AL_APPROVED_STATUSES | AL_PENDING_STATUSES
 COVERAGE_REQUIRED_SHIFTS = {'0700-1800', '1500-0200', '2100-0700'}
 COVERAGE_FREE_SHIFTS     = {'0900-2000', '1300-0000'}
 
@@ -338,10 +340,16 @@ def _build_leave_map(leave_list: list) -> dict:
             ds, de = _flanking_off_range(r["name"], ds, de)
         d = ds
         while d <= de:
-            lmap[(r["name"], d)] = {
-                "leave_type": r["leave_type"],
-                "status":     r["status"],
-            }
+            key  = (r["name"], d)
+            prev = lmap.get(key)
+            # An active entry is never clobbered by a cleared one
+            # (Withdrawn/Rejected/Cancelled), regardless of list order.
+            if not (prev and prev["status"] in ACTIVE_LEAVE_STATUSES
+                    and r["status"] not in ACTIVE_LEAVE_STATUSES):
+                lmap[key] = {
+                    "leave_type": r["leave_type"],
+                    "status":     r["status"],
+                }
             d += timedelta(days=1)
     return lmap
 
@@ -365,6 +373,39 @@ def _build_note_map(notes: list) -> dict:
             continue
         nmap[(n['person'], d)] = n.get('note', '')
     return nmap
+
+def _find_leave_overlap(leave_list: list, name: str, username: str,
+                        ds: date, de: date,
+                        working_days_only: bool = False):
+    """Return the first active leave entry for this person that overlaps
+    [ds, de], or None. working_days_only=True ignores overlaps that only
+    share OFF days (used by draft publish, where bundles are extended over
+    flanking OFF days and would otherwise collide with each other)."""
+    for r in leave_list:
+        if r.get('status') not in ACTIVE_LEAVE_STATUSES:
+            continue
+        if not (r.get('name') == name or
+                (username and r.get('username') == username)):
+            continue
+        try:
+            r_start = date.fromisoformat(r['date_start'])
+            r_end   = date.fromisoformat(r['date_end'])
+        except (KeyError, ValueError):
+            continue
+        lo, hi = max(ds, r_start), min(de, r_end)
+        if lo > hi:
+            continue
+        if working_days_only:
+            d, shared = lo, False
+            while d <= hi:
+                if _base_shift(name, d) != 'OFF':
+                    shared = True
+                    break
+                d += timedelta(days=1)
+            if not shared:
+                continue
+        return r
+    return None
 
 # ── Schedule builder (shared by published + draft routes) ─────────────────
 def _build_schedule(date_from: date, date_to: date,
@@ -1456,6 +1497,24 @@ def rota_leave_post():
     if not isinstance(leave_list, list):
         leave_list = []
 
+    try:
+        req_start = date.fromisoformat(date_start)
+        req_end   = date.fromisoformat(date_end)
+    except ValueError:
+        return jsonify({'ok': False,
+                        'error': 'Invalid date format, use YYYY-MM-DD'}), 400
+
+    clash = _find_leave_overlap(leave_list, name, username, req_start, req_end)
+    if clash:
+        fmt = lambda s: '-'.join(reversed(s.split('-')))
+        return jsonify({
+            'ok': False,
+            'error': (f"{name} already has {clash['leave_type']} "
+                      f"({clash['status']}) from {fmt(clash['date_start'])} "
+                      f"to {fmt(clash['date_end'])} overlapping this request. "
+                      f"Cancel or withdraw it first, or pick non-overlapping dates."),
+        }), 409
+
     leave_list.append({
         'id':          str(uuid.uuid4())[:8],
         'name':        name,
@@ -1974,6 +2033,16 @@ def rota_draft_publish():
                     )
                     continue
 
+                clash = _find_leave_overlap(leave_list, person, email, ds, de,
+                                            working_days_only=True)
+                if clash:
+                    warnings.append(
+                        f"{person}: AL {ds.strftime('%d-%m-%Y')}–{de.strftime('%d-%m-%Y')} "
+                        f"overlaps existing {clash['leave_type']} ({clash['status']}) "
+                        f"{clash['date_start']}–{clash['date_end']} — no new entry created."
+                    )
+                    continue
+                
                 leave_list.append({
                     'id':          str(uuid.uuid4())[:8],
                     'name':        person,
@@ -2663,7 +2732,8 @@ def _ph_al_giveback_hours(name: str, year: int,
         if ph_date.year != year:
             continue
         leave = leave_map.get((name, ph_date))
-        if not leave or leave['status'] not in AL_APPROVED_STATUSES | AL_PENDING_STATUSES:
+        if (not leave or leave.get('leave_type') != 'Annual Leave'
+                or leave['status'] not in ACTIVE_LEAVE_STATUSES):
             continue
         base = _base_shift(name, ph_date)
         if base == 'OFF':
@@ -2677,34 +2747,39 @@ def _ph_al_giveback_hours(name: str, year: int,
 
 def _compute_al_used_hours(name: str, year: int,
                            leave_list: list) -> tuple[float, float]:
-    """Return (confirmed_used_hours, pending_used_hours) for AL leave
-    entries in the given year, using actual scheduled shift duration
-    per day (not flat 8h)."""
-    confirmed_min = 0
-    pending_min   = 0
+    """Return (confirmed_used_hours, pending_used_hours) for AL in the given
+    year, using actual scheduled shift duration per day. Each calendar day is
+    counted once even if legacy overlapping entries exist; confirmed wins."""
+    day_kind = {}   # date -> 'c' | 'p'
     for r in leave_list:
         if r.get('name') != name or r.get('leave_type') != 'Annual Leave':
             continue
         status = r.get('status')
-        if status not in (AL_APPROVED_STATUSES | AL_PENDING_STATUSES):
+        if status not in ACTIVE_LEAVE_STATUSES:
             continue
         try:
             ds = date.fromisoformat(r['date_start'])
             de = date.fromisoformat(r['date_end'])
         except (KeyError, ValueError):
             continue
+        kind = 'c' if status in AL_APPROVED_STATUSES else 'p'
         d = ds
         while d <= de:
-            if d.year == year:
-                base = _base_shift(name, d)
-                if base != 'OFF':
-                    day_min, night_min = _net_minutes(base)
-                    mins = day_min + night_min
-                    if status in AL_APPROVED_STATUSES:
-                        confirmed_min += mins
-                    else:
-                        pending_min += mins
+            if d.year == year and (kind == 'c' or d not in day_kind):
+                day_kind[d] = kind
             d += timedelta(days=1)
+
+    confirmed_min = 0
+    pending_min   = 0
+    for d, kind in day_kind.items():
+        base = _base_shift(name, d)
+        if base == 'OFF':
+            continue
+        day_min, night_min = _net_minutes(base)
+        if kind == 'c':
+            confirmed_min += day_min + night_min
+        else:
+            pending_min += day_min + night_min
     return round(confirmed_min / 60, 2), round(pending_min / 60, 2)
 
 def _compute_al_balance(al: dict, name: str, year: int,
