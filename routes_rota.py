@@ -486,15 +486,17 @@ def _resolve_alias(code: str, d: date) -> str:
     return result
 
 
-def _alias_color_for(...) -> tuple[Optional[str], Optional[str]]:
+def _alias_color_for(code, d) -> tuple[Optional[str], Optional[str]]:
     """Return (bg_color, fg_color) from the active alias for (code, date),
     or (None, None) if no alias is active."""
     result_color = None
-    result_fg    = None
+    result_fg = None
+
     for entry in _ALIAS_CACHE:
         if entry['from_code'] == code and entry['effective_from'] <= d:
             result_color = entry.get('color')
-            result_fg    = entry.get('fg_color')
+            result_fg = entry.get('fg_color')
+
     return result_color, result_fg
 
 
