@@ -94,6 +94,18 @@
   .ri-btn:hover{border-color:var(--cyan);color:var(--cyan)}
   .ri-btn.kill:hover{border-color:var(--red);color:var(--red)}
 
+  /* Data flow */
+  .flow{display:flex;align-items:center;gap:.9rem;flex-shrink:0;padding:.5rem .8rem;background:var(--bg2);border:1px solid var(--border);border-radius:7px}
+  .flow-node{border:1px solid var(--border);background:var(--bg3);border-radius:6px;padding:.4rem .75rem;min-width:200px}
+  .flow-node.src{border-color:var(--green)} .flow-node.dst{border-color:var(--cyan)}
+  .flow-role{font-family:var(--mono);font-size:.55rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .flow-name{font-family:var(--mono);font-size:.8rem;font-weight:700;color:#fff;margin-top:1px}
+  .flow-ip{font-family:var(--mono);font-size:.66rem;color:var(--cyan);margin-top:1px}
+  .flow-ip span{color:var(--text)}
+  .flow-link{flex:0 1 200px;min-width:90px;position:relative;height:2px;background:linear-gradient(90deg,var(--green),var(--cyan))}
+  .flow-link::after{content:"";position:absolute;right:-1px;top:-4px;border-left:8px solid var(--cyan);border-top:5px solid transparent;border-bottom:5px solid transparent}
+  .flow-link span{position:absolute;top:-17px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:.58rem;color:var(--muted);white-space:nowrap}
+
   /* Modals */
   .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:300;align-items:center;justify-content:center}
   .modal-overlay.open{display:flex}
@@ -121,8 +133,22 @@
     </div>
   </div>
 
+  <div class="flow" id="flow" style="display:none">
+    <div class="flow-node src">
+      <div class="flow-role">Source · MTR server</div>
+      <div class="flow-name">SO Toolbox</div>
+      <div class="flow-ip">Local <span id="flow-local">…</span> · Public <span id="flow-public">…</span></div>
+    </div>
+    <div class="flow-link"><span id="flow-proto">ICMP</span></div>
+    <div class="flow-node dst">
+      <div class="flow-role">Destination</div>
+      <div class="flow-name" id="flow-dname"></div>
+      <div class="flow-ip" id="flow-dip"></div>
+    </div>
+  </div>
+
   <div class="form-row">
-    <div class="field" style="width:190px">
+    <div class="field" style="width:320px">
       <label>Saved Destinations</label>
       <select id="sel-dest" onchange="onDestChange()"><option value="">— Custom —</option></select>
       <div class="field-hint"></div>
@@ -188,7 +214,7 @@
     <div class="output-wrap">
       <div class="output-toolbar">
         <div class="status-label"><span class="dot" id="dot"></span><span id="status-text">Ready</span></div>
-        <button class="btn-copy" onclick="copyOutput()">Copy</button>
+        <div style="display:flex;gap:.4rem"><button class="btn-copy" onclick="copyOutput('md',this)">Copy MD</button><button class="btn-copy" onclick="copyOutput('txt',this)">Copy text</button></div>
       </div>
       <div id="progress-bar"><div id="progress-fill"></div></div>
       <textarea id="output" readonly placeholder="MTR output will appear here..."></textarea>
@@ -299,22 +325,55 @@
     syncDestSelect();
   }
 
+  function selectedDestName() {
+    const idx = document.getElementById("sel-dest").value;
+    if (idx === "") return "";
+    const d = _destinations[parseInt(idx)];
+    return d && d.name !== d.ip ? d.name : "";
+  }
+
   function onDestChange() {
     const idx = document.getElementById("sel-dest").value;
-    if (idx === "") return;
+    if (idx === "") { renderFlow(); return; }
     const inp = document.getElementById("inp-host");
     inp.value = _destinations[parseInt(idx)].ip;
     validateHost();
+    renderFlow();
     inp.focus();
   }
 
   // Keep the dropdown in sync when the IP field is edited manually
   function syncDestSelect() {
+    const sel = document.getElementById("sel-dest");
     const val = document.getElementById("inp-host").value.trim();
-    const idx = _destinations.findIndex(d => d.ip === val);
-    document.getElementById("sel-dest").value = idx >= 0 ? String(idx) : "";
+    const cur = sel.value;
+    if (!(cur !== "" && _destinations[parseInt(cur)] && _destinations[parseInt(cur)].ip === val)) {
+      const idx = _destinations.findIndex(d => d.ip === val);
+      sel.value = idx >= 0 ? String(idx) : "";
+    }
+    renderFlow();
   }
   document.getElementById("inp-host").addEventListener("input", syncDestSelect);
+  document.getElementById("chk-udp").addEventListener("change", () => renderFlow());
+
+  // ── Data flow visual (source → destination) ───────────────────────
+  function renderFlow() {
+    const input = document.getElementById("inp-host");
+    const host  = input.value.trim();
+    const flow  = document.getElementById("flow");
+    if (!host || input.classList.contains("invalid")) { flow.style.display = "none"; return; }
+    const name = selectedDestName();
+    document.getElementById("flow-local").textContent  = localIp;
+    document.getElementById("flow-public").textContent = publicIp;
+    document.getElementById("flow-proto").textContent  = document.getElementById("chk-udp").checked ? "UDP 53" : "ICMP";
+    document.getElementById("flow-dname").textContent  = name || "Custom destination";
+    document.getElementById("flow-dip").textContent    = host;
+    flow.style.display = "flex";
+  }
+
+  function escHtml(s) {
+    return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
 
   function setMode(m) {
     curMode = m;
@@ -336,6 +395,7 @@
       document.getElementById("pill-local").textContent  = localIp;
       document.getElementById("pill-public").textContent = publicIp;
       document.getElementById("pill-gw").textContent     = gw ? gw[1] : "—";
+      renderFlow();
     } catch { document.getElementById("pill-local").textContent = "unavailable"; }
   }
 
@@ -382,6 +442,7 @@
     const proto  = document.getElementById("chk-udp").checked ? "udp53" : "icmp";
     const geo    = document.getElementById("chk-asn").checked  ? "asn"   : "country";
     const tags   = parseTags(document.getElementById("inp-tag").value);
+    const destName = selectedDestName();
     let params, totalCycles;
 
     if (curMode === "packets") {
@@ -397,6 +458,7 @@
     params += `&total_cycles=${totalCycles}&src_ip=${encodeURIComponent(localIp)}&pub_ip=${encodeURIComponent(publicIp)}`;
     params += `&proto=${proto}&geo=${geo}`;
     if (tags.length) params += `&tag=${encodeURIComponent(tags.join(", "))}`;
+    if (destName) params += `&dest_name=${encodeURIComponent(destName)}`;
 
     _jobStart = Date.now();
     const now = new Date().toISOString().replace("T"," ").slice(0,19)+" UTC";
@@ -406,7 +468,7 @@
 
     const hdr = [`MTR Network Trace`,`==========================================`,
       `Date Start : ${now}`,`Source     : ${localIp} (public: ${publicIp})`,
-      `Destination: ${host}`, modeStr,
+      `Destination: ${host}${destName ? ` (${destName})` : ""}`, modeStr,
       `Protocol   : ${proto === "udp53" ? "UDP port 53" : "ICMP"}`,
       `Geo info   : ${geo === "asn" ? "ASN" : "Country Code"}`,
       `DNS        : ${no_dns==="1"?"disabled":"enabled"}`,
@@ -572,7 +634,7 @@
       });
 
       const filtered=items.filter(item=>{
-        const dest=(item.destination||"").toLowerCase();
+        const dest=((item.destination||"")+" "+(item.dest_name||"")).toLowerCase();
         if(search&&!dest.includes(search))return false;
         if(date&&!(item.started_at||"").startsWith(date))return false;
         if(tag){const its=parseTags(item.tag||"").map(t=>t.toLowerCase());if(!its.some(t=>t.includes(tag)))return false;}
@@ -594,7 +656,7 @@
         return `<div class="history-item" style="display:flex;gap:.4rem;align-items:flex-start;cursor:default">
           <input type="checkbox" data-file="${item.file}" onchange="updateMtrBulkBar()" onclick="event.stopPropagation()" style="margin-top:3px;flex-shrink:0;cursor:pointer;accent-color:var(--cyan)" />
           <div style="flex:1;min-width:0" onclick="loadResult('${sf}');event.stopPropagation()">
-            <div class="hi-dest">${item.destination}</div>
+            <div class="hi-dest">${item.destination}${item.dest_name?` <span style="color:var(--cyan);font-weight:400">(${escHtml(item.dest_name)})</span>`:""}</div>
             <div class="hi-date">Start: ${s}${e?` · End: ${e}`:""}</div>
             <div class="hi-meta"><span class="hi-badge">${mode}</span>${realDur?`<span class="hi-badge">⏱ ${realDur}</span>`:""}<span class="hi-badge">${item.hops} hops</span><span class="hi-badge">${protoLabel}</span><span class="hi-badge">${geoLabel}</span>${tags.map(t=>`<span class="hi-badge" style="color:var(--cyan)">${t}</span>`).join("")}</div>
             <div class="hi-actions">
@@ -622,7 +684,7 @@
       const hdr=[`MTR Network Trace`,`==========================================`,
         `Date Start : ${s}`,`Date End   : ${e}`,`Duration (actual): ${rd}`,
         `Source     : ${data.source_ip||"—"} (public: ${data.public_ip||"—"})`,
-        `Destination: ${data.destination||"—"}`, modeStr,
+        `Destination: ${data.destination||"—"}${data.dest_name ? ` (${data.dest_name})` : ""}`, modeStr,
         `Protocol   : ${protoLabel}`,
         `Geo info   : ${geoLabel}`,
         `DNS        : ${data.no_dns?"disabled":"enabled"}`,
@@ -649,10 +711,15 @@
     else if(s==="err")f.style.background="var(--red)";
     else{const r=Math.round(227-139*p/100),g=Math.round(179-13*p/100),b=Math.round(65+190*p/100);f.style.background=`rgb(${r},${g},${b})`;}
   }
-  async function copyOutput(){
-    const v=document.getElementById("output").value;if(!v)return;
-    try{await navigator.clipboard.writeText(v);}catch{document.getElementById("output").select();document.execCommand("copy");}
-    const btn=document.querySelector(".btn-copy");btn.textContent="Copied!";setTimeout(()=>btn.textContent="Copy",2000);
+  async function copyOutput(fmt, btn){
+    const v=document.getElementById("output").value; if(!v) return;
+    const txt = fmt==="md" ? "```text\n"+v.trimEnd()+"\n```" : v;
+    try { await navigator.clipboard.writeText(txt); }
+    catch {
+      const ta=document.createElement("textarea"); ta.value=txt;
+      document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove();
+    }
+    const old=btn.textContent; btn.textContent="Copied!"; setTimeout(()=>btn.textContent=old,2000);
   }
 
   // Close modals on backdrop click
