@@ -122,6 +122,11 @@
   </div>
 
   <div class="form-row">
+    <div class="field" style="width:190px">
+      <label>Saved Destinations</label>
+      <select id="sel-dest" onchange="onDestChange()"><option value="">— Custom —</option></select>
+      <div class="field-hint"></div>
+    </div>
     <div class="field grow">
       <label>Destination Host / IP</label>
       <input id="inp-host" type="text" placeholder="e.g. 8.8.8.8 or example.com" autocomplete="off" oninput="validateHost()" />
@@ -274,6 +279,42 @@
       _hasAdminPw = (data.config || {}).HAS_ADMIN_PASSWORD === "true";
     } catch {}
   }
+
+  // ── Saved destinations (.env → MTR_DEST_<n>=name|host) ────────────
+  let _destinations = [];
+
+  async function loadDestinations() {
+    try {
+      const res = await fetch(`${PROXY}/mtr/destinations`);
+      _destinations = await res.json();
+    } catch { _destinations = []; }
+    const sel = document.getElementById("sel-dest");
+    sel.length = 1; // keep the "Custom" option
+    _destinations.forEach((d, i) => {
+      const opt = document.createElement("option");
+      opt.value = String(i);
+      opt.textContent = d.name === d.ip ? d.ip : `${d.name} (${d.ip})`;
+      sel.appendChild(opt);
+    });
+    syncDestSelect();
+  }
+
+  function onDestChange() {
+    const idx = document.getElementById("sel-dest").value;
+    if (idx === "") return;
+    const inp = document.getElementById("inp-host");
+    inp.value = _destinations[parseInt(idx)].ip;
+    validateHost();
+    inp.focus();
+  }
+
+  // Keep the dropdown in sync when the IP field is edited manually
+  function syncDestSelect() {
+    const val = document.getElementById("inp-host").value.trim();
+    const idx = _destinations.findIndex(d => d.ip === val);
+    document.getElementById("sel-dest").value = idx >= 0 ? String(idx) : "";
+  }
+  document.getElementById("inp-host").addEventListener("input", syncDestSelect);
 
   function setMode(m) {
     curMode = m;
@@ -657,7 +698,7 @@
 
   document.getElementById("inp-host").addEventListener("keydown",e=>{if(e.key==="Enter")runMtr();});
 
-  loadConfig(); loadServerInfo(); loadRunning(); loadHistory();
+  loadConfig(); loadDestinations(); loadServerInfo(); loadRunning(); loadHistory();
   setInterval(()=>{loadRunning();if(!es)loadHistory();},10000);
 </script>
 </body>

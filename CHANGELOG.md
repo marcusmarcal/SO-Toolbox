@@ -9,6 +9,19 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 `SRT Ingest:`, `General Tool Admin:`) so entries can be filtered per tool.
 
 ---
+
+## [4.9.1] - 2026-09-28
+
+### Added
+- MTR: saved destinations configured in `.env` (`MTR_DEST_<n>=name|host`), selectable from a dropdown; the IP/host field remains editable.
+- MTR: `GET /mtr/destinations` endpoint.
+
+### Changed
+- MTR: routes moved from `proxy.py` to `routes_mtr.py` as a Flask Blueprint.
+
+### Security
+- MTR: reject hosts starting with `-` or containing whitespace; sanitize filenames on delete, tag and kill endpoints.
+
 ## [4.8.1] - 2026-09-23
 
 ### Fixed
