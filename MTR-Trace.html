@@ -121,15 +121,18 @@
   input[type="date"],input[type="time"]{color-scheme:dark}
   .btn-ghost{background:transparent;color:var(--cyan);border:1px solid var(--cyan);border-radius:5px;padding:0 .8rem;font-family:var(--mono);font-size:.76rem;font-weight:700;cursor:pointer;height:34px;white-space:nowrap;align-self:flex-end;transition:opacity .15s}
   .btn-ghost:hover{opacity:.75}
+  .rm-sub{font-family:var(--mono);font-size:.62rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rm-edit{background:transparent;border:none;padding:0;font-family:var(--mono);font-size:.62rem;color:var(--muted);cursor:pointer}
+  .rm-edit:hover{color:var(--cyan)}
 </style>
 </head>
 <body>
 <div id="app">
   <div class="topbar">
     <h1>MTR <span>//</span> Network Trace</h1>
-    <div class="mode-tabs" style="width:300px;flex-shrink:0">
-      <button class="mode-tab active" id="vtab-remote" onclick="switchView('remote')">Remote (Auto)</button>
-      <button class="mode-tab" id="vtab-manual" onclick="switchView('manual')">Manual from INX</button>
+    <div class="mode-tabs" style="width:230px;flex-shrink:0">
+      <button class="mode-tab active" id="vtab-manual" onclick="switchView('manual')">Manual</button>
+      <button class="mode-tab" id="vtab-remote" onclick="switchView('remote')">Remote (Auto)</button>
     </div>
     <div class="server-info">
       <div class="info-pill">Source: <span id="pill-local">…</span></div>
@@ -138,7 +141,7 @@
     </div>
   </div>
 
-  <div id="view-manual" style="display:none">
+  <div id="view-manual" style="display:contents">
   <div class="form-row">
     <div class="field grow">
       <label>Destination Host / IP</label>
@@ -237,7 +240,7 @@
   </div><!-- /view-manual -->
 
   <!-- Remote (Auto) view -->
-    <div id="view-remote" style="display:flex;flex:1;min-height:0;flex-direction:column;gap:.65rem">
+  <div id="view-remote" style="display:none;flex:1;min-height:0;flex-direction:column;gap:.65rem">
     <div class="form-row">
       <div class="field" style="width:190px">
         <label>Server</label>
@@ -265,8 +268,7 @@
           <option value="30">30 min</option>
         </select>
       </div>
-        <button class="btn-ghost" onclick="setRemoteNow()" title="Fill date and time with the current UTC time">⏱ Now (UTC)</button>
-        <button class="btn-ghost" onclick="clearRemoteFilters()" title="Reset all filters">✕ Clear</button>
+      <button class="btn-ghost" onclick="setRemoteNow()" title="Fill date and time with the current UTC time">⏱ Now (UTC)</button>
       <div class="toggle-wrap">
         <label>View</label>
         <label class="toggle">
@@ -289,6 +291,20 @@
         <div class="history-header"><span>Remote results <span id="rm-count"></span></span><button class="btn-sm-icon" onclick="loadRemote()">↻</button></div>
         <div class="history-list" id="rm-list"><div class="history-empty">No results yet</div></div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Destination label modal -->
+<div class="modal-overlay" id="label-modal">
+  <div class="modal-card">
+    <div class="modal-title" style="color:var(--cyan)">✎ Destination Label</div>
+    <div class="modal-body">IP / host: <strong id="label-target" style="color:var(--cyan)"></strong><br>Visible to all users. Leave empty to remove the label.</div>
+    <div class="modal-actions">
+      <input class="modal-pw" id="label-inp" type="text" maxlength="60" placeholder="e.g. Google DNS" autocomplete="off" style="width:100%" onkeydown="if(event.key==='Enter')saveLabel()" />
+      <button class="btn-danger" style="background:var(--green);color:#000" onclick="saveLabel()">Save</button>
+      <button class="btn-cancel" onclick="closeModal('label-modal')">Cancel</button>
+      <div class="modal-err" id="label-err"></div>
     </div>
   </div>
 </div>
@@ -733,7 +749,7 @@
   document.getElementById("inp-host").addEventListener("keydown",e=>{if(e.key==="Enter")runMtr();});
 
   // ── Remote (Auto) tab ─────────────────────────────────────────────
-    let curView = "remote", _rmSelected = null;
+  let curView = "manual", _rmSelected = null;
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
   function switchView(v) {
@@ -755,17 +771,6 @@
     return l >= 5 ? "bad" : (l > 0 ? "warn" : "ok");
   }
 
-    // Reset all Remote (Auto) filters to their defaults
-  function clearRemoteFilters() {
-    document.getElementById("rm-host").value = "";
-    document.getElementById("rm-target").value = "";
-    document.getElementById("rm-date").value = "";
-    document.getElementById("rm-time").value = "";
-    document.getElementById("rm-window").value = "5";
-    document.getElementById("rm-latest").checked = true;
-    loadRemote();
-  }
-
   // Fill date/time with the current UTC time (never browser-local)
   function setRemoteNow() {
     const iso = new Date().toISOString();
@@ -773,6 +778,42 @@
     document.getElementById("rm-time").value = iso.slice(11, 16);
     loadRemote();
   }
+
+  function rmEndHtml(role, name, sub) {
+    return `<div class="rm-end"><div class="rm-lbl">${role}</div>` +
+      `<div class="rm-name" title="${esc(name)}">${esc(name)}</div>` +
+      `<div class="rm-sub" title="${esc(sub)}">${esc(sub) || "&nbsp;"}</div></div>`;
+  }
+
+  // ── Destination labels ────────────────────────────────────────────
+  let _labelTarget = null;
+  function openLabelModal(target, label) {
+    _labelTarget = target;
+    document.getElementById("label-target").textContent = target;
+    document.getElementById("label-inp").value = label || "";
+    document.getElementById("label-err").textContent = "";
+    openModal("label-modal");
+    document.getElementById("label-inp").focus();
+  }
+  async function saveLabel() {
+    if (!_labelTarget) return;
+    const errEl = document.getElementById("label-err");
+    errEl.textContent = "";
+    try {
+      const res = await fetch(`${PROXY}/mtr/remote/labels`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target: _labelTarget, label: document.getElementById("label-inp").value.trim() })
+      });
+      if (res.redirected || res.status === 401 || res.status === 403) { errEl.textContent = "❌ Login required"; return; }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || res.status);
+      closeModal("label-modal"); _labelTarget = null;
+      loadRemote();
+      if (_rmSelected) loadRemoteResult(_rmSelected);
+    } catch (e) { errEl.textContent = `Error: ${e.message}`; }
+  }
+  document.getElementById("label-modal").addEventListener("click", function (e) { if (e.target === this) closeModal("label-modal"); });
 
   let _rmTimer = null;
   function loadRemoteDebounced() { clearTimeout(_rmTimer); _rmTimer = setTimeout(loadRemote, 250); }
@@ -813,9 +854,13 @@
         sel.dataset.key = hostsKey;
       }
       const dl = document.getElementById("rm-targets");
-      const targetsKey = (data.targets || []).join("|");
+      const targetsKey = (data.targets || []).map(t => t.value + "=" + t.label).join("|");
       if (dl.dataset.key !== targetsKey) {
-        dl.innerHTML = (data.targets || []).map(t => `<option value="${esc(t)}">`).join("");
+        // Suggest both the IP/host (with its label) and the label itself (with its IP/host)
+        dl.innerHTML = (data.targets || []).map(t =>
+          `<option value="${esc(t.value)}" label="${esc(t.label)}"></option>` +
+          (t.label ? `<option value="${esc(t.label)}" label="${esc(t.value)}"></option>` : "")
+        ).join("");
         dl.dataset.key = targetsKey;
       }
 
@@ -832,11 +877,14 @@
         const avgTxt = s.final_avg === null || s.final_avg === undefined ? "" : `<span class="hi-badge">Avg ${s.final_avg} ms</span>`;
         return `<div class="rm-item${it.file === _rmSelected ? " sel" : ""}" data-file="${esc(it.file)}" onclick="loadRemoteResult(this.dataset.file)">
           <div class="rm-flow">
-            <div class="rm-end"><div class="rm-lbl">Source</div><div class="rm-name" title="${esc(it.host)}">${esc(it.host)}</div></div>
+            ${rmEndHtml("Source", it.host, it.source_ip)}
             <div class="rm-arrow">→</div>
-            <div class="rm-end"><div class="rm-lbl">Destination</div><div class="rm-name" title="${esc(it.target)}">${esc(it.target)}</div></div>
+            ${rmEndHtml("Destination", it.label || it.target, it.label ? it.target : "")}
           </div>
-          <div class="hi-date">${st}</div>
+          <div class="hi-date" style="display:flex;justify-content:space-between;align-items:center">
+            <span>${st}</span>
+            <button class="rm-edit" data-target="${esc(it.target)}" data-label="${esc(it.label || "")}" onclick="event.stopPropagation();openLabelModal(this.dataset.target,this.dataset.label)">✎ Label</button>
+          </div>
           <div class="hi-meta"><span class="hi-badge ${cls}">${lossTxt}</span>${avgTxt}<span class="hi-badge">${s.hops || 0} hops</span></div>
         </div>`;
       }).join("");
@@ -852,7 +900,7 @@
       const fmt = t => t ? t.replace("T", " ").slice(0, 19) + " UTC" : "—";
       const hdr = [`MTR Network Trace (remote)`, `==========================================`,
         `Source     : ${d.hostname || "—"} (seen from: ${d.source_ip || "—"})`,
-        `Destination: ${d.target || "—"}`,
+        `Destination: ${d.label ? d.label + " (" + d.target + ")" : (d.target || "—")}`,
         `Date Start : ${fmt(d.started_at)}`, `Date End   : ${fmt(d.ended_at)}`,
         `Received   : ${fmt(d.received_at)}`,
         `Packets    : ${d.count || "—"}   Interval: ${d.interval || "—"}s`,
@@ -871,7 +919,7 @@
     const btn = document.getElementById("rm-copy"); btn.textContent = "Copied!"; setTimeout(() => btn.textContent = "Copy", 2000);
   }
 
-    loadConfig(); loadServerInfo(); loadRunning(); loadHistory(); loadRemote();
+  loadConfig(); loadServerInfo(); loadRunning(); loadHistory();
   setInterval(()=>{loadRunning();if(!es)loadHistory();if(curView==="remote")loadRemote();},10000);
 </script>
 </body>

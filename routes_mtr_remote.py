@@ -6,13 +6,19 @@ import json
 import time
 import hmac
 import datetime
+import threading
 from flask import Blueprint, request, jsonify
+
+from routes_auth import require_auth
 
 mtr_remote_bp = Blueprint("mtr_remote", __name__)
 
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 REMOTE_DIR = os.path.join(BASE_DIR, "store", "mtr-remote")
 os.makedirs(REMOTE_DIR, exist_ok=True)
+
+LABELS_FILE  = os.path.join(BASE_DIR, "store", "mtr-remote-labels.json")
+_labels_lock = threading.Lock()
 
 MAX_BODY_BYTES         = 512 * 1024
 DEFAULT_RETENTION_DAYS = 30
@@ -75,6 +81,16 @@ def _summarize(hops):
         "final_worst": last["worst"],
         "max_loss":    max(h["loss"] for h in hops),
     }
+
+
+def _load_labels():
+    """Destination labels, keyed by the filesystem-safe target name."""
+    try:
+        with open(LABELS_FILE) as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else {}
+    except Exception:
+        return {}
 
 
 def _range_key(v):
@@ -181,6 +197,7 @@ def mtr_remote_ingest():
 def mtr_remote_results():
     """List remote results (newest first).
     Filters: host, target (substring), date (YYYY-MM-DD, UTC), from/to (ISO UTC timeframe), latest=1, limit.
+    `target` matches the IP/host or its label.
     Also returns `hosts` and `targets` (targets already narrowed by host/date/timeframe, not by target)."""
     host_f   = _safe((request.args.get("host") or "").strip())
     target_f = (request.args.get("target") or "").strip().lower()
@@ -193,6 +210,7 @@ def mtr_remote_results():
     except ValueError:
         limit = 200
 
+    lbl_map = _load_labels()
     hosts, entries, all_targets = [], [], set()
     for h in sorted(os.listdir(REMOTE_DIR)):
         hdir = os.path.join(REMOTE_DIR, h)
@@ -215,7 +233,8 @@ def mtr_remote_results():
             if to_f and key > to_f:
                 continue
             all_targets.add(parts[2])
-            if target_f and target_f not in parts[2].lower():
+            lbl = lbl_map.get(parts[2], "")
+            if target_f and target_f not in parts[2].lower() and target_f not in lbl.lower():
                 continue
             entries.append((f, h, parts[2]))
 
@@ -242,12 +261,15 @@ def mtr_remote_results():
             "file":       f"{h}/{f}",
             "host":       d.get("hostname", h),
             "target":     d.get("target", ""),
+            "label":      lbl_map.get(_t, ""),
             "started_at": d.get("started_at"),
             "ended_at":   d.get("ended_at"),
             "source_ip":  d.get("source_ip", ""),
             "summary":    d.get("summary", {}),
         })
-    return jsonify({"hosts": hosts, "targets": sorted(all_targets, key=str.lower), "items": items})
+    return jsonify({"hosts": hosts, "targets": [{"value": t, "label": lbl_map.get(t, "")}
+                                          for t in sorted(all_targets, key=str.lower)],
+                    "items": items})
 
 
 @mtr_remote_bp.route("/mtr/remote/results/<path:relpath>", methods=["GET"])
@@ -259,6 +281,41 @@ def mtr_remote_result_file(relpath):
         return jsonify({"error": "File not found"}), 404
     try:
         with open(full) as f:
-            return jsonify(json.load(f))
+            d = json.load(f)
+        d["label"] = _load_labels().get(_safe(d.get("target", "")), "")
+        return jsonify(d)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@mtr_remote_bp.route("/mtr/remote/labels", methods=["GET"])
+def mtr_remote_labels_get():
+    """All destination labels (keyed by safe target name)."""
+    return jsonify(_load_labels())
+
+
+@mtr_remote_bp.route("/mtr/remote/labels", methods=["POST"])
+@require_auth
+def mtr_remote_labels_set():
+    """Set or remove (empty label) the label of a destination. Body: {"target": "...", "label": "..."}."""
+    data   = request.get_json(silent=True) or {}
+    target = (data.get("target") or "").strip()[:200]
+    label  = re.sub(r"[\r\n\t]+", " ", (data.get("label") or "")).strip()[:60]
+    if not target:
+        return jsonify({"error": "target is required"}), 400
+
+    key = _safe(target)
+    with _labels_lock:
+        labels = _load_labels()
+        if label:
+            labels[key] = label
+        else:
+            labels.pop(key, None)
+        tmp = LABELS_FILE + ".tmp"
+        try:
+            with open(tmp, "w") as f:
+                json.dump(labels, f, indent=2, sort_keys=True)
+            os.replace(tmp, LABELS_FILE)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+    return jsonify({"ok": True, "target": target, "label": label})
