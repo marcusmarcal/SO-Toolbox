@@ -113,6 +113,11 @@
   .hi-badge.bad{color:var(--red);border-color:var(--red)}
   .rm-item{padding:.55rem .75rem;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s}
   .rm-item:hover,.rm-item.sel{background:var(--bg3)}
+  .rm-flow{display:flex;align-items:center;gap:.5rem}
+  .rm-end{flex:1;min-width:0}
+  .rm-lbl{font-family:var(--mono);font-size:.55rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .rm-name{font-family:var(--mono);font-size:.76rem;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rm-arrow{flex-shrink:0;color:var(--cyan);font-family:var(--mono);font-size:1rem;font-weight:700}
 </style>
 </head>
 <body>
@@ -237,11 +242,25 @@
       </div>
       <div class="field grow">
         <label>Target</label>
-        <input id="rm-target" type="text" placeholder="target…" autocomplete="off" oninput="loadRemote()" />
+        <input id="rm-target" type="text" placeholder="target…" autocomplete="off" list="rm-targets" oninput="loadRemoteDebounced()" />
+        <datalist id="rm-targets"></datalist>
       </div>
       <div class="field" style="width:140px">
         <label>Date (UTC)</label>
         <input id="rm-date" type="date" style="color-scheme:dark" onchange="loadRemote()" />
+      </div>
+      <div class="field" style="width:110px">
+        <label>Time (UTC)</label>
+        <input id="rm-time" type="time" style="color-scheme:dark" onchange="loadRemote()" />
+      </div>
+      <div class="field" style="width:110px">
+        <label>Timeframe ±</label>
+        <select id="rm-window" onchange="loadRemote()">
+          <option value="5" selected>5 min</option>
+          <option value="10">10 min</option>
+          <option value="20">20 min</option>
+          <option value="30">30 min</option>
+        </select>
       </div>
       <div class="toggle-wrap">
         <label>View</label>
@@ -731,6 +750,9 @@
     return l >= 5 ? "bad" : (l > 0 ? "warn" : "ok");
   }
 
+  let _rmTimer = null;
+  function loadRemoteDebounced() { clearTimeout(_rmTimer); _rmTimer = setTimeout(loadRemote, 250); }
+
   async function loadRemote() {
     const q = new URLSearchParams();
     const host = document.getElementById("rm-host").value;
@@ -738,18 +760,40 @@
     const date = document.getElementById("rm-date").value;
     if (host) q.set("host", host);
     if (target) q.set("target", target);
-    if (date) q.set("date", date);
+    const time = document.getElementById("rm-time").value;
+    if (time) {
+      // Timeframe centered on the chosen time: [time - N min, time + N min]
+      const win = (parseInt(document.getElementById("rm-window").value) || 5) * 60000;
+      const day = date || new Date().toISOString().slice(0, 10);
+      const c = new Date(`${day}T${time}:00Z`).getTime();
+      const iso = ms => new Date(ms).toISOString().slice(0, 19) + "Z";
+      q.set("from", iso(c - win));
+      q.set("to", iso(c + win));
+    } else if (date) {
+      q.set("date", date);
+    }
     if (document.getElementById("rm-latest").checked) q.set("latest", "1");
     try {
       const res = await fetch(`${PROXY}/mtr/remote/results?${q}`);
       const data = await res.json();
 
       // Refresh server dropdown, keep current selection
+      // Rebuild dropdown/datalist only when their contents change (keeps an open dropdown stable)
       const sel = document.getElementById("rm-host");
-      const cur = sel.value;
-      sel.innerHTML = '<option value="">All servers</option>' +
-        (data.hosts || []).map(h => `<option value="${esc(h)}">${esc(h)}</option>`).join("");
-      sel.value = cur;
+      const hostsKey = (data.hosts || []).join("|");
+      if (sel.dataset.key !== hostsKey) {
+        const cur = sel.value;
+        sel.innerHTML = '<option value="">All servers</option>' +
+          (data.hosts || []).map(h => `<option value="${esc(h)}">${esc(h)}</option>`).join("");
+        sel.value = cur;
+        sel.dataset.key = hostsKey;
+      }
+      const dl = document.getElementById("rm-targets");
+      const targetsKey = (data.targets || []).join("|");
+      if (dl.dataset.key !== targetsKey) {
+        dl.innerHTML = (data.targets || []).map(t => `<option value="${esc(t)}">`).join("");
+        dl.dataset.key = targetsKey;
+      }
 
       const items = data.items || [];
       document.getElementById("rm-count").textContent = items.length ? `(${items.length})` : "";
@@ -763,8 +807,12 @@
         const lossTxt = s.final_loss === null || s.final_loss === undefined ? "no data" : `Loss ${s.final_loss}%`;
         const avgTxt = s.final_avg === null || s.final_avg === undefined ? "" : `<span class="hi-badge">Avg ${s.final_avg} ms</span>`;
         return `<div class="rm-item${it.file === _rmSelected ? " sel" : ""}" data-file="${esc(it.file)}" onclick="loadRemoteResult(this.dataset.file)">
-          <div class="hi-dest">${esc(it.target)}</div>
-          <div class="hi-date">${esc(it.host)} · ${st}</div>
+          <div class="rm-flow">
+            <div class="rm-end"><div class="rm-lbl">Source</div><div class="rm-name" title="${esc(it.host)}">${esc(it.host)}</div></div>
+            <div class="rm-arrow">→</div>
+            <div class="rm-end"><div class="rm-lbl">Destination</div><div class="rm-name" title="${esc(it.target)}">${esc(it.target)}</div></div>
+          </div>
+          <div class="hi-date">${st}</div>
           <div class="hi-meta"><span class="hi-badge ${cls}">${lossTxt}</span>${avgTxt}<span class="hi-badge">${s.hops || 0} hops</span></div>
         </div>`;
       }).join("");
@@ -779,8 +827,8 @@
       if (d.error) throw new Error(d.error);
       const fmt = t => t ? t.replace("T", " ").slice(0, 19) + " UTC" : "—";
       const hdr = [`MTR Network Trace (remote)`, `==========================================`,
-        `Server     : ${d.hostname || "—"} (seen from: ${d.source_ip || "—"})`,
-        `Target     : ${d.target || "—"}`,
+        `Source     : ${d.hostname || "—"} (seen from: ${d.source_ip || "—"})`,
+        `Destination: ${d.target || "—"}`,
         `Date Start : ${fmt(d.started_at)}`, `Date End   : ${fmt(d.ended_at)}`,
         `Received   : ${fmt(d.received_at)}`,
         `Packets    : ${d.count || "—"}   Interval: ${d.interval || "—"}s`,

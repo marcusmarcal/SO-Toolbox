@@ -77,6 +77,14 @@ def _summarize(hops):
     }
 
 
+def _range_key(v):
+    """Convert an ISO UTC timestamp (YYYY-MM-DDTHH:MM:SSZ) to the filename key (YYYY-MM-DD_HH-MM-SS)."""
+    v = (v or "").strip()
+    if not _TS_RE.match(v):
+        return ""
+    return v[:19].replace(":", "-").replace("T", "_")
+
+
 def _cleanup():
     """Remove results older than MTR_REMOTE_RETENTION_DAYS (0 = keep forever). Runs at most hourly."""
     global _last_cleanup
@@ -141,7 +149,7 @@ def mtr_remote_ingest():
         "started_at":  started_at,
         "ended_at":    ended_at,
         "received_at": now_iso,
-        "source_ip":   (request.headers.get("X-Forwarded-For") or request.remote_addr or "").split(",")[0].strip(),
+        "source_ip":   request.remote_addr,
         "count":       request.headers.get("X-MTR-Count", ""),
         "interval":    request.headers.get("X-MTR-Interval", ""),
         "summary":     _summarize(hops),
@@ -171,17 +179,21 @@ def mtr_remote_ingest():
 
 @mtr_remote_bp.route("/mtr/remote/results", methods=["GET"])
 def mtr_remote_results():
-    """List remote results (newest first). Filters: host, target, date (YYYY-MM-DD, UTC), latest=1, limit."""
+    """List remote results (newest first).
+    Filters: host, target (substring), date (YYYY-MM-DD, UTC), from/to (ISO UTC timeframe), latest=1, limit.
+    Also returns `hosts` and `targets` (targets already narrowed by host/date/timeframe, not by target)."""
     host_f   = _safe((request.args.get("host") or "").strip())
     target_f = (request.args.get("target") or "").strip().lower()
     date_f   = (request.args.get("date") or "").strip()
+    from_f   = _range_key(request.args.get("from"))
+    to_f     = _range_key(request.args.get("to"))
     latest   = request.args.get("latest") == "1"
     try:
         limit = max(1, min(int(request.args.get("limit") or 200), 500))
     except ValueError:
         limit = 200
 
-    hosts, entries = [], []
+    hosts, entries, all_targets = [], [], set()
     for h in sorted(os.listdir(REMOTE_DIR)):
         hdir = os.path.join(REMOTE_DIR, h)
         if not os.path.isdir(hdir):
@@ -197,6 +209,12 @@ def mtr_remote_results():
                 continue
             if date_f and parts[0] != date_f:
                 continue
+            key = f[:19]
+            if from_f and key < from_f:
+                continue
+            if to_f and key > to_f:
+                continue
+            all_targets.add(parts[2])
             if target_f and target_f not in parts[2].lower():
                 continue
             entries.append((f, h, parts[2]))
@@ -229,7 +247,7 @@ def mtr_remote_results():
             "source_ip":  d.get("source_ip", ""),
             "summary":    d.get("summary", {}),
         })
-    return jsonify({"hosts": hosts, "items": items})
+    return jsonify({"hosts": hosts, "targets": sorted(all_targets, key=str.lower), "items": items})
 
 
 @mtr_remote_bp.route("/mtr/remote/results/<path:relpath>", methods=["GET"])
