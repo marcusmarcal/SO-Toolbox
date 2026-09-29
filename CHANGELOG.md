@@ -10,6 +10,14 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 ---
 
+## [4.10.1] - 2026-09-29
+
+### Added
+- MTR: "Remote (Auto)" tab showing MTR results pushed automatically by remote servers, with server/target/date filters and a "latest per target" view.
+- MTR: ingest API `POST /mtr/remote/ingest` (token-protected via `MTR_REMOTE_TOKEN`) and read endpoints `GET /mtr/remote/results[/<path>]`.
+- MTR: automatic retention of remote results (`MTR_REMOTE_RETENTION_DAYS`, default 30 days).
+- MTR: `mtr-monitor.sh` now pushes each report to the Toolbox in addition to writing local logs.
+
 ## [4.9.1] - 2026-09-28
 
 ### Added

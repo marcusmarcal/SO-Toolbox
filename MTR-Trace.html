@@ -62,7 +62,7 @@
   .btn-copy:hover{border-color:var(--cyan);color:var(--cyan)}
   #progress-bar{height:3px;background:var(--border);flex-shrink:0;overflow:hidden}
   #progress-fill{height:100%;width:0%;background:var(--yellow);transition:width .8s linear,background .5s}
-  #output{flex:1;width:100%;min-height:0;resize:none;background:transparent;border:none;padding:.75rem .9rem;color:var(--text);font-family:var(--mono);font-size:.76rem;line-height:1.7;outline:none;white-space:pre;overflow:auto}
+  #output,#rm-output{flex:1;width:100%;min-height:0;resize:none;background:transparent;border:none;padding:.75rem .9rem;color:var(--text);font-family:var(--mono);font-size:.76rem;line-height:1.7;outline:none;white-space:pre;overflow:auto}
 
   .history-panel{width:380px;flex-shrink:0;display:flex;flex-direction:column;background:var(--bg2);border:1px solid var(--border);border-radius:7px;overflow:hidden}
   .history-header{padding:.42rem .75rem;background:var(--bg3);border-bottom:1px solid var(--border);font-family:var(--mono);font-size:.66rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);flex-shrink:0;display:flex;justify-content:space-between;align-items:center;gap:.3rem}
@@ -94,18 +94,6 @@
   .ri-btn:hover{border-color:var(--cyan);color:var(--cyan)}
   .ri-btn.kill:hover{border-color:var(--red);color:var(--red)}
 
-  /* Data flow */
-  .flow{display:flex;align-items:center;gap:.9rem;flex-shrink:0;padding:.5rem .8rem;background:var(--bg2);border:1px solid var(--border);border-radius:7px}
-  .flow-node{border:1px solid var(--border);background:var(--bg3);border-radius:6px;padding:.4rem .75rem;min-width:200px}
-  .flow-node.src{border-color:var(--green)} .flow-node.dst{border-color:var(--cyan)}
-  .flow-role{font-family:var(--mono);font-size:.55rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-  .flow-name{font-family:var(--mono);font-size:.8rem;font-weight:700;color:#fff;margin-top:1px}
-  .flow-ip{font-family:var(--mono);font-size:.66rem;color:var(--cyan);margin-top:1px}
-  .flow-ip span{color:var(--text)}
-  .flow-link{flex:0 1 200px;min-width:90px;position:relative;height:2px;background:linear-gradient(90deg,var(--green),var(--cyan))}
-  .flow-link::after{content:"";position:absolute;right:-1px;top:-4px;border-left:8px solid var(--cyan);border-top:5px solid transparent;border-bottom:5px solid transparent}
-  .flow-link span{position:absolute;top:-17px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:.58rem;color:var(--muted);white-space:nowrap}
-
   /* Modals */
   .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:300;align-items:center;justify-content:center}
   .modal-overlay.open{display:flex}
@@ -120,12 +108,21 @@
   .btn-cancel{background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-family:var(--mono);font-size:.7rem;padding:5px 14px;cursor:pointer}
   .btn-cancel:hover{border-color:var(--cyan);color:var(--cyan)}
   .modal-err{font-family:var(--mono);font-size:.65rem;color:var(--red);margin-top:.4rem;min-height:1em;width:100%}
+  .hi-badge.ok{color:var(--green);border-color:var(--green)}
+  .hi-badge.warn{color:var(--yellow);border-color:var(--yellow)}
+  .hi-badge.bad{color:var(--red);border-color:var(--red)}
+  .rm-item{padding:.55rem .75rem;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s}
+  .rm-item:hover,.rm-item.sel{background:var(--bg3)}
 </style>
 </head>
 <body>
 <div id="app">
   <div class="topbar">
     <h1>MTR <span>//</span> Network Trace</h1>
+    <div class="mode-tabs" style="width:230px;flex-shrink:0">
+      <button class="mode-tab active" id="vtab-manual" onclick="switchView('manual')">Manual</button>
+      <button class="mode-tab" id="vtab-remote" onclick="switchView('remote')">Remote (Auto)</button>
+    </div>
     <div class="server-info">
       <div class="info-pill">Source: <span id="pill-local">…</span></div>
       <div class="info-pill">Public: <span id="pill-public">…</span></div>
@@ -133,26 +130,8 @@
     </div>
   </div>
 
-  <div class="flow" id="flow" style="display:none">
-    <div class="flow-node src">
-      <div class="flow-role">Source · MTR server</div>
-      <div class="flow-name">SO Toolbox</div>
-      <div class="flow-ip">Local <span id="flow-local">…</span> · Public <span id="flow-public">…</span></div>
-    </div>
-    <div class="flow-link"><span id="flow-proto">ICMP</span></div>
-    <div class="flow-node dst">
-      <div class="flow-role">Destination</div>
-      <div class="flow-name" id="flow-dname"></div>
-      <div class="flow-ip" id="flow-dip"></div>
-    </div>
-  </div>
-
+  <div id="view-manual" style="display:contents">
   <div class="form-row">
-    <div class="field" style="width:320px">
-      <label>Saved Destinations</label>
-      <select id="sel-dest" onchange="onDestChange()"><option value="">— Custom —</option></select>
-      <div class="field-hint"></div>
-    </div>
     <div class="field grow">
       <label>Destination Host / IP</label>
       <input id="inp-host" type="text" placeholder="e.g. 8.8.8.8 or example.com" autocomplete="off" oninput="validateHost()" />
@@ -214,7 +193,7 @@
     <div class="output-wrap">
       <div class="output-toolbar">
         <div class="status-label"><span class="dot" id="dot"></span><span id="status-text">Ready</span></div>
-        <div style="display:flex;gap:.4rem"><button class="btn-copy" onclick="copyOutput('md',this)">Copy MD</button><button class="btn-copy" onclick="copyOutput('txt',this)">Copy text</button></div>
+        <button class="btn-copy" onclick="copyOutput()">Copy</button>
       </div>
       <div id="progress-bar"><div id="progress-fill"></div></div>
       <textarea id="output" readonly placeholder="MTR output will appear here..."></textarea>
@@ -244,6 +223,47 @@
       <div id="mtr-bulk-bar" style="display:none;padding:.32rem .65rem;background:var(--bg3);border-top:1px solid var(--border);justify-content:space-between;align-items:center;flex-shrink:0">
         <span id="mtr-bulk-count" style="font-family:var(--mono);font-size:.62rem;color:var(--muted)">0 selected</span>
         <button onclick="openMtrBulkDeleteModal()" style="background:transparent;border:1px solid var(--border);border-radius:3px;color:var(--muted);font-family:var(--mono);font-size:.62rem;padding:2px 8px;cursor:pointer" onmouseover="this.style.color='var(--red)';this.style.borderColor='var(--red)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">🗑 Delete selected</button>
+      </div>
+    </div>
+  </div>
+  </div><!-- /view-manual -->
+
+  <!-- Remote (Auto) view -->
+  <div id="view-remote" style="display:none;flex:1;min-height:0;flex-direction:column;gap:.65rem">
+    <div class="form-row">
+      <div class="field" style="width:190px">
+        <label>Server</label>
+        <select id="rm-host" onchange="loadRemote()"><option value="">All servers</option></select>
+      </div>
+      <div class="field grow">
+        <label>Target</label>
+        <input id="rm-target" type="text" placeholder="target…" autocomplete="off" oninput="loadRemote()" />
+      </div>
+      <div class="field" style="width:140px">
+        <label>Date (UTC)</label>
+        <input id="rm-date" type="date" style="color-scheme:dark" onchange="loadRemote()" />
+      </div>
+      <div class="toggle-wrap">
+        <label>View</label>
+        <label class="toggle">
+          <input type="checkbox" id="rm-latest" checked onchange="loadRemote()" />
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+          <span class="toggle-label">Latest per target</span>
+        </label>
+      </div>
+      <button class="btn-run" onclick="loadRemote()">↻ Refresh</button>
+    </div>
+    <div class="main-area">
+      <div class="output-wrap">
+        <div class="output-toolbar">
+          <div class="status-label"><span class="dot" id="rm-dot"></span><span id="rm-status">Select a result</span></div>
+          <button class="btn-copy" id="rm-copy" onclick="copyRemote()">Copy</button>
+        </div>
+        <textarea id="rm-output" readonly placeholder="Remote MTR output will appear here..."></textarea>
+      </div>
+      <div class="history-panel">
+        <div class="history-header"><span>Remote results <span id="rm-count"></span></span><button class="btn-sm-icon" onclick="loadRemote()">↻</button></div>
+        <div class="history-list" id="rm-list"><div class="history-empty">No results yet</div></div>
       </div>
     </div>
   </div>
@@ -306,75 +326,6 @@
     } catch {}
   }
 
-  // ── Saved destinations (.env → MTR_DEST_<n>=name|host) ────────────
-  let _destinations = [];
-
-  async function loadDestinations() {
-    try {
-      const res = await fetch(`${PROXY}/mtr/destinations`);
-      _destinations = await res.json();
-    } catch { _destinations = []; }
-    const sel = document.getElementById("sel-dest");
-    sel.length = 1; // keep the "Custom" option
-    _destinations.forEach((d, i) => {
-      const opt = document.createElement("option");
-      opt.value = String(i);
-      opt.textContent = d.name === d.ip ? d.ip : `${d.name} (${d.ip})`;
-      sel.appendChild(opt);
-    });
-    syncDestSelect();
-  }
-
-  function selectedDestName() {
-    const idx = document.getElementById("sel-dest").value;
-    if (idx === "") return "";
-    const d = _destinations[parseInt(idx)];
-    return d && d.name !== d.ip ? d.name : "";
-  }
-
-  function onDestChange() {
-    const idx = document.getElementById("sel-dest").value;
-    if (idx === "") { renderFlow(); return; }
-    const inp = document.getElementById("inp-host");
-    inp.value = _destinations[parseInt(idx)].ip;
-    validateHost();
-    renderFlow();
-    inp.focus();
-  }
-
-  // Keep the dropdown in sync when the IP field is edited manually
-  function syncDestSelect() {
-    const sel = document.getElementById("sel-dest");
-    const val = document.getElementById("inp-host").value.trim();
-    const cur = sel.value;
-    if (!(cur !== "" && _destinations[parseInt(cur)] && _destinations[parseInt(cur)].ip === val)) {
-      const idx = _destinations.findIndex(d => d.ip === val);
-      sel.value = idx >= 0 ? String(idx) : "";
-    }
-    renderFlow();
-  }
-  document.getElementById("inp-host").addEventListener("input", syncDestSelect);
-  document.getElementById("chk-udp").addEventListener("change", () => renderFlow());
-
-  // ── Data flow visual (source → destination) ───────────────────────
-  function renderFlow() {
-    const input = document.getElementById("inp-host");
-    const host  = input.value.trim();
-    const flow  = document.getElementById("flow");
-    if (!host || input.classList.contains("invalid")) { flow.style.display = "none"; return; }
-    const name = selectedDestName();
-    document.getElementById("flow-local").textContent  = localIp;
-    document.getElementById("flow-public").textContent = publicIp;
-    document.getElementById("flow-proto").textContent  = document.getElementById("chk-udp").checked ? "UDP 53" : "ICMP";
-    document.getElementById("flow-dname").textContent  = name || "Custom destination";
-    document.getElementById("flow-dip").textContent    = host;
-    flow.style.display = "flex";
-  }
-
-  function escHtml(s) {
-    return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-  }
-
   function setMode(m) {
     curMode = m;
     document.getElementById("tab-time").classList.toggle("active",    m === "time");
@@ -395,7 +346,6 @@
       document.getElementById("pill-local").textContent  = localIp;
       document.getElementById("pill-public").textContent = publicIp;
       document.getElementById("pill-gw").textContent     = gw ? gw[1] : "—";
-      renderFlow();
     } catch { document.getElementById("pill-local").textContent = "unavailable"; }
   }
 
@@ -442,7 +392,6 @@
     const proto  = document.getElementById("chk-udp").checked ? "udp53" : "icmp";
     const geo    = document.getElementById("chk-asn").checked  ? "asn"   : "country";
     const tags   = parseTags(document.getElementById("inp-tag").value);
-    const destName = selectedDestName();
     let params, totalCycles;
 
     if (curMode === "packets") {
@@ -458,7 +407,6 @@
     params += `&total_cycles=${totalCycles}&src_ip=${encodeURIComponent(localIp)}&pub_ip=${encodeURIComponent(publicIp)}`;
     params += `&proto=${proto}&geo=${geo}`;
     if (tags.length) params += `&tag=${encodeURIComponent(tags.join(", "))}`;
-    if (destName) params += `&dest_name=${encodeURIComponent(destName)}`;
 
     _jobStart = Date.now();
     const now = new Date().toISOString().replace("T"," ").slice(0,19)+" UTC";
@@ -468,7 +416,7 @@
 
     const hdr = [`MTR Network Trace`,`==========================================`,
       `Date Start : ${now}`,`Source     : ${localIp} (public: ${publicIp})`,
-      `Destination: ${host}${destName ? ` (${destName})` : ""}`, modeStr,
+      `Destination: ${host}`, modeStr,
       `Protocol   : ${proto === "udp53" ? "UDP port 53" : "ICMP"}`,
       `Geo info   : ${geo === "asn" ? "ASN" : "Country Code"}`,
       `DNS        : ${no_dns==="1"?"disabled":"enabled"}`,
@@ -634,7 +582,7 @@
       });
 
       const filtered=items.filter(item=>{
-        const dest=((item.destination||"")+" "+(item.dest_name||"")).toLowerCase();
+        const dest=(item.destination||"").toLowerCase();
         if(search&&!dest.includes(search))return false;
         if(date&&!(item.started_at||"").startsWith(date))return false;
         if(tag){const its=parseTags(item.tag||"").map(t=>t.toLowerCase());if(!its.some(t=>t.includes(tag)))return false;}
@@ -656,7 +604,7 @@
         return `<div class="history-item" style="display:flex;gap:.4rem;align-items:flex-start;cursor:default">
           <input type="checkbox" data-file="${item.file}" onchange="updateMtrBulkBar()" onclick="event.stopPropagation()" style="margin-top:3px;flex-shrink:0;cursor:pointer;accent-color:var(--cyan)" />
           <div style="flex:1;min-width:0" onclick="loadResult('${sf}');event.stopPropagation()">
-            <div class="hi-dest">${item.destination}${item.dest_name?` <span style="color:var(--cyan);font-weight:400">(${escHtml(item.dest_name)})</span>`:""}</div>
+            <div class="hi-dest">${item.destination}</div>
             <div class="hi-date">Start: ${s}${e?` · End: ${e}`:""}</div>
             <div class="hi-meta"><span class="hi-badge">${mode}</span>${realDur?`<span class="hi-badge">⏱ ${realDur}</span>`:""}<span class="hi-badge">${item.hops} hops</span><span class="hi-badge">${protoLabel}</span><span class="hi-badge">${geoLabel}</span>${tags.map(t=>`<span class="hi-badge" style="color:var(--cyan)">${t}</span>`).join("")}</div>
             <div class="hi-actions">
@@ -684,7 +632,7 @@
       const hdr=[`MTR Network Trace`,`==========================================`,
         `Date Start : ${s}`,`Date End   : ${e}`,`Duration (actual): ${rd}`,
         `Source     : ${data.source_ip||"—"} (public: ${data.public_ip||"—"})`,
-        `Destination: ${data.destination||"—"}${data.dest_name ? ` (${data.dest_name})` : ""}`, modeStr,
+        `Destination: ${data.destination||"—"}`, modeStr,
         `Protocol   : ${protoLabel}`,
         `Geo info   : ${geoLabel}`,
         `DNS        : ${data.no_dns?"disabled":"enabled"}`,
@@ -711,15 +659,10 @@
     else if(s==="err")f.style.background="var(--red)";
     else{const r=Math.round(227-139*p/100),g=Math.round(179-13*p/100),b=Math.round(65+190*p/100);f.style.background=`rgb(${r},${g},${b})`;}
   }
-  async function copyOutput(fmt, btn){
-    const v=document.getElementById("output").value; if(!v) return;
-    const txt = fmt==="md" ? "```text\n"+v.trimEnd()+"\n```" : v;
-    try { await navigator.clipboard.writeText(txt); }
-    catch {
-      const ta=document.createElement("textarea"); ta.value=txt;
-      document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove();
-    }
-    const old=btn.textContent; btn.textContent="Copied!"; setTimeout(()=>btn.textContent=old,2000);
+  async function copyOutput(){
+    const v=document.getElementById("output").value;if(!v)return;
+    try{await navigator.clipboard.writeText(v);}catch{document.getElementById("output").select();document.execCommand("copy");}
+    const btn=document.querySelector(".btn-copy");btn.textContent="Copied!";setTimeout(()=>btn.textContent="Copy",2000);
   }
 
   // Close modals on backdrop click
@@ -765,8 +708,99 @@
 
   document.getElementById("inp-host").addEventListener("keydown",e=>{if(e.key==="Enter")runMtr();});
 
-  loadConfig(); loadDestinations(); loadServerInfo(); loadRunning(); loadHistory();
-  setInterval(()=>{loadRunning();if(!es)loadHistory();},10000);
+  // ── Remote (Auto) tab ─────────────────────────────────────────────
+  let curView = "manual", _rmSelected = null;
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+  function switchView(v) {
+    curView = v;
+    document.getElementById("vtab-manual").classList.toggle("active", v === "manual");
+    document.getElementById("vtab-remote").classList.toggle("active", v === "remote");
+    document.getElementById("view-manual").style.display = v === "manual" ? "contents" : "none";
+    document.getElementById("view-remote").style.display = v === "remote" ? "flex" : "none";
+    if (v === "remote") loadRemote();
+  }
+
+  function setRmStatus(t, m) {
+    document.getElementById("rm-dot").className = "dot " + t;
+    document.getElementById("rm-status").textContent = m;
+  }
+
+  function lossClass(l) {
+    if (l === null || l === undefined) return "bad";
+    return l >= 5 ? "bad" : (l > 0 ? "warn" : "ok");
+  }
+
+  async function loadRemote() {
+    const q = new URLSearchParams();
+    const host = document.getElementById("rm-host").value;
+    const target = document.getElementById("rm-target").value.trim();
+    const date = document.getElementById("rm-date").value;
+    if (host) q.set("host", host);
+    if (target) q.set("target", target);
+    if (date) q.set("date", date);
+    if (document.getElementById("rm-latest").checked) q.set("latest", "1");
+    try {
+      const res = await fetch(`${PROXY}/mtr/remote/results?${q}`);
+      const data = await res.json();
+
+      // Refresh server dropdown, keep current selection
+      const sel = document.getElementById("rm-host");
+      const cur = sel.value;
+      sel.innerHTML = '<option value="">All servers</option>' +
+        (data.hosts || []).map(h => `<option value="${esc(h)}">${esc(h)}</option>`).join("");
+      sel.value = cur;
+
+      const items = data.items || [];
+      document.getElementById("rm-count").textContent = items.length ? `(${items.length})` : "";
+      const list = document.getElementById("rm-list");
+      if (!items.length) { list.innerHTML = '<div class="history-empty">No results found</div>'; return; }
+
+      list.innerHTML = items.map(it => {
+        const s = it.summary || {};
+        const st = it.started_at ? it.started_at.slice(0, 19).replace("T", " ") + " UTC" : "—";
+        const cls = lossClass(s.final_loss);
+        const lossTxt = s.final_loss === null || s.final_loss === undefined ? "no data" : `Loss ${s.final_loss}%`;
+        const avgTxt = s.final_avg === null || s.final_avg === undefined ? "" : `<span class="hi-badge">Avg ${s.final_avg} ms</span>`;
+        return `<div class="rm-item${it.file === _rmSelected ? " sel" : ""}" data-file="${esc(it.file)}" onclick="loadRemoteResult(this.dataset.file)">
+          <div class="hi-dest">${esc(it.target)}</div>
+          <div class="hi-date">${esc(it.host)} · ${st}</div>
+          <div class="hi-meta"><span class="hi-badge ${cls}">${lossTxt}</span>${avgTxt}<span class="hi-badge">${s.hops || 0} hops</span></div>
+        </div>`;
+      }).join("");
+    } catch (e) { console.error(e); }
+  }
+
+  async function loadRemoteResult(file) {
+    try {
+      const path = file.split("/").map(encodeURIComponent).join("/");
+      const res = await fetch(`${PROXY}/mtr/remote/results/${path}`);
+      const d = await res.json();
+      if (d.error) throw new Error(d.error);
+      const fmt = t => t ? t.replace("T", " ").slice(0, 19) + " UTC" : "—";
+      const hdr = [`MTR Network Trace (remote)`, `==========================================`,
+        `Server     : ${d.hostname || "—"} (seen from: ${d.source_ip || "—"})`,
+        `Target     : ${d.target || "—"}`,
+        `Date Start : ${fmt(d.started_at)}`, `Date End   : ${fmt(d.ended_at)}`,
+        `Received   : ${fmt(d.received_at)}`,
+        `Packets    : ${d.count || "—"}   Interval: ${d.interval || "—"}s`,
+        `==========================================`, ``].join("\n");
+      document.getElementById("rm-output").value = hdr + (d.raw || "(no output)");
+      _rmSelected = file;
+      setRmStatus("ok", `Loaded: ${file}`);
+      document.querySelectorAll("#rm-list .rm-item").forEach(el => el.classList.toggle("sel", el.dataset.file === file));
+    } catch (e) { setRmStatus("err", "Failed to load result."); }
+  }
+
+  async function copyRemote() {
+    const el = document.getElementById("rm-output");
+    if (!el.value) return;
+    try { await navigator.clipboard.writeText(el.value); } catch { el.select(); document.execCommand("copy"); }
+    const btn = document.getElementById("rm-copy"); btn.textContent = "Copied!"; setTimeout(() => btn.textContent = "Copy", 2000);
+  }
+
+  loadConfig(); loadServerInfo(); loadRunning(); loadHistory();
+  setInterval(()=>{loadRunning();if(!es)loadHistory();if(curView==="remote")loadRemote();},10000);
 </script>
 </body>
 </html>
