@@ -27,7 +27,7 @@
   .field{display:flex;flex-direction:column;gap:.28rem}
   .field.grow{flex:1;min-width:180px} .field.w90{width:90px} .field.w75{width:75px}
   label{font-family:var(--mono);font-size:.58rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-  input[type="text"],input[type="number"],select{background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:.45rem .65rem;color:#fff;font-family:var(--mono);font-size:.82rem;outline:none;transition:border-color .15s;width:100%}
+  input[type="text"],input[type="number"],input[type="date"],input[type="time"],select{background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:.45rem .65rem;color:#fff;font-family:var(--mono);font-size:.82rem;outline:none;transition:border-color .15s;width:100%}
   input:focus,select:focus{border-color:var(--cyan)}
   input.invalid{border-color:var(--red)!important}
   .field-hint{font-family:var(--mono);font-size:.6rem;color:var(--red);margin-top:2px;min-height:.9em}
@@ -118,6 +118,9 @@
   .rm-lbl{font-family:var(--mono);font-size:.55rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
   .rm-name{font-family:var(--mono);font-size:.76rem;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .rm-arrow{flex-shrink:0;color:var(--cyan);font-family:var(--mono);font-size:1rem;font-weight:700}
+  input[type="date"],input[type="time"]{color-scheme:dark}
+  .btn-ghost{background:transparent;color:var(--cyan);border:1px solid var(--cyan);border-radius:5px;padding:0 .8rem;font-family:var(--mono);font-size:.76rem;font-weight:700;cursor:pointer;height:34px;white-space:nowrap;align-self:flex-end;transition:opacity .15s}
+  .btn-ghost:hover{opacity:.75}
 </style>
 </head>
 <body>
@@ -262,6 +265,7 @@
           <option value="30">30 min</option>
         </select>
       </div>
+      <button class="btn-ghost" onclick="setRemoteNow()" title="Fill date and time with the current UTC time">⏱ Now (UTC)</button>
       <div class="toggle-wrap">
         <label>View</label>
         <label class="toggle">
@@ -748,6 +752,14 @@
   function lossClass(l) {
     if (l === null || l === undefined) return "bad";
     return l >= 5 ? "bad" : (l > 0 ? "warn" : "ok");
+  }
+
+  // Fill date/time with the current UTC time (never browser-local)
+  function setRemoteNow() {
+    const iso = new Date().toISOString();
+    document.getElementById("rm-date").value = iso.slice(0, 10);
+    document.getElementById("rm-time").value = iso.slice(11, 16);
+    loadRemote();
   }
 
   let _rmTimer = null;
