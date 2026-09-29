@@ -141,7 +141,7 @@ def mtr_remote_ingest():
         "started_at":  started_at,
         "ended_at":    ended_at,
         "received_at": now_iso,
-        "source_ip":   request.remote_addr,
+        "source_ip":   (request.headers.get("X-Forwarded-For") or request.remote_addr or "").split(",")[0].strip(),
         "count":       request.headers.get("X-MTR-Count", ""),
         "interval":    request.headers.get("X-MTR-Interval", ""),
         "summary":     _summarize(hops),
