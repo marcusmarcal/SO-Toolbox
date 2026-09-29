@@ -130,9 +130,9 @@
 <div id="app">
   <div class="topbar">
     <h1>MTR <span>//</span> Network Trace</h1>
-    <div class="mode-tabs" style="width:230px;flex-shrink:0">
-      <button class="mode-tab active" id="vtab-manual" onclick="switchView('manual')">Manual</button>
-      <button class="mode-tab" id="vtab-remote" onclick="switchView('remote')">Remote (Auto)</button>
+    <div class="mode-tabs" style="width:300px;flex-shrink:0">
+      <button class="mode-tab active" id="vtab-remote" onclick="switchView('remote')">Remote (Auto)</button>
+      <button class="mode-tab" id="vtab-manual" onclick="switchView('manual')">Manual from INX</button>
     </div>
     <div class="server-info">
       <div class="info-pill">Source: <span id="pill-local">…</span></div>
@@ -141,7 +141,7 @@
     </div>
   </div>
 
-  <div id="view-manual" style="display:contents">
+  <div id="view-manual" style="display:none">
   <div class="form-row">
     <div class="field grow">
       <label>Destination Host / IP</label>
@@ -240,7 +240,7 @@
   </div><!-- /view-manual -->
 
   <!-- Remote (Auto) view -->
-  <div id="view-remote" style="display:none;flex:1;min-height:0;flex-direction:column;gap:.65rem">
+  <div id="view-remote" style="display:flex;flex:1;min-height:0;flex-direction:column;gap:.65rem">
     <div class="form-row">
       <div class="field" style="width:190px">
         <label>Server</label>
@@ -269,6 +269,7 @@
         </select>
       </div>
       <button class="btn-ghost" onclick="setRemoteNow()" title="Fill date and time with the current UTC time">⏱ Now (UTC)</button>
+      <button class="btn-ghost" onclick="clearRemoteFilters()" title="Reset all filters">✕ Clear</button>
       <div class="toggle-wrap">
         <label>View</label>
         <label class="toggle">
@@ -749,7 +750,7 @@
   document.getElementById("inp-host").addEventListener("keydown",e=>{if(e.key==="Enter")runMtr();});
 
   // ── Remote (Auto) tab ─────────────────────────────────────────────
-  let curView = "manual", _rmSelected = null;
+  let curView = "remote", _rmSelected = null;
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
   function switchView(v) {
@@ -769,6 +770,17 @@
   function lossClass(l) {
     if (l === null || l === undefined) return "bad";
     return l >= 5 ? "bad" : (l > 0 ? "warn" : "ok");
+  }
+
+  // Reset all Remote (Auto) filters to their defaults
+  function clearRemoteFilters() {
+    document.getElementById("rm-host").value = "";
+    document.getElementById("rm-target").value = "";
+    document.getElementById("rm-date").value = "";
+    document.getElementById("rm-time").value = "";
+    document.getElementById("rm-window").value = "5";
+    document.getElementById("rm-latest").checked = true;
+    loadRemote();
   }
 
   // Fill date/time with the current UTC time (never browser-local)
@@ -919,7 +931,7 @@
     const btn = document.getElementById("rm-copy"); btn.textContent = "Copied!"; setTimeout(() => btn.textContent = "Copy", 2000);
   }
 
-  loadConfig(); loadServerInfo(); loadRunning(); loadHistory();
+  loadConfig(); loadServerInfo(); loadRunning(); loadHistory(); loadRemote();
   setInterval(()=>{loadRunning();if(!es)loadHistory();if(curView==="remote")loadRemote();},10000);
 </script>
 </body>
