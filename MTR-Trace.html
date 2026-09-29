@@ -265,7 +265,8 @@
           <option value="30">30 min</option>
         </select>
       </div>
-      <button class="btn-ghost" onclick="setRemoteNow()" title="Fill date and time with the current UTC time">⏱ Now (UTC)</button>
+        <button class="btn-ghost" onclick="setRemoteNow()" title="Fill date and time with the current UTC time">⏱ Now (UTC)</button>
+        <button class="btn-ghost" onclick="clearRemoteFilters()" title="Reset all filters">✕ Clear</button>
       <div class="toggle-wrap">
         <label>View</label>
         <label class="toggle">
@@ -752,6 +753,17 @@
   function lossClass(l) {
     if (l === null || l === undefined) return "bad";
     return l >= 5 ? "bad" : (l > 0 ? "warn" : "ok");
+  }
+
+    // Reset all Remote (Auto) filters to their defaults
+  function clearRemoteFilters() {
+    document.getElementById("rm-host").value = "";
+    document.getElementById("rm-target").value = "";
+    document.getElementById("rm-date").value = "";
+    document.getElementById("rm-time").value = "";
+    document.getElementById("rm-window").value = "5";
+    document.getElementById("rm-latest").checked = true;
+    loadRemote();
   }
 
   // Fill date/time with the current UTC time (never browser-local)
