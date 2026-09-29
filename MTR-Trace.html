@@ -243,12 +243,12 @@
   <div id="view-remote" style="display:flex;flex:1;min-height:0;flex-direction:column;gap:.65rem">
     <div class="form-row">
       <div class="field" style="width:190px">
-        <label>Server</label>
-        <select id="rm-host" onchange="loadRemote()"><option value="">All servers</option></select>
+        <label>Source</label>
+        <select id="rm-host" onchange="loadRemote()"><option value="">All sources</option></select>
       </div>
       <div class="field grow">
-        <label>Target</label>
-        <input id="rm-target" type="text" placeholder="target…" autocomplete="off" list="rm-targets" oninput="loadRemoteDebounced()" />
+        <label>Destination</label>
+        <input id="rm-target" type="text" placeholder="destination or label…" autocomplete="off" list="rm-targets" oninput="loadRemoteDebounced()" />
         <datalist id="rm-targets"></datalist>
       </div>
       <div class="field" style="width:140px">
@@ -275,7 +275,7 @@
         <label class="toggle">
           <input type="checkbox" id="rm-latest" checked onchange="loadRemote()" />
           <span class="toggle-track"><span class="toggle-thumb"></span></span>
-          <span class="toggle-label">Latest per target</span>
+          <span class="toggle-label">Latest per destination</span>
         </label>
       </div>
       <button class="btn-run" onclick="loadRemote()">↻ Refresh</button>
@@ -860,7 +860,7 @@
       const hostsKey = (data.hosts || []).join("|");
       if (sel.dataset.key !== hostsKey) {
         const cur = sel.value;
-        sel.innerHTML = '<option value="">All servers</option>' +
+        sel.innerHTML = '<option value="">All sources</option>' +
           (data.hosts || []).map(h => `<option value="${esc(h)}">${esc(h)}</option>`).join("");
         sel.value = cur;
         sel.dataset.key = hostsKey;
@@ -868,10 +868,9 @@
       const dl = document.getElementById("rm-targets");
       const targetsKey = (data.targets || []).map(t => t.value + "=" + t.label).join("|");
       if (dl.dataset.key !== targetsKey) {
-        // Suggest both the IP/host (with its label) and the label itself (with its IP/host)
+        // One suggestion per destination: IP/host as value, label (when set) as its display text
         dl.innerHTML = (data.targets || []).map(t =>
-          `<option value="${esc(t.value)}" label="${esc(t.label)}"></option>` +
-          (t.label ? `<option value="${esc(t.label)}" label="${esc(t.value)}"></option>` : "")
+          `<option value="${esc(t.value)}"${t.label ? ` label="${esc(t.label)}"` : ""}></option>`
         ).join("");
         dl.dataset.key = targetsKey;
       }
