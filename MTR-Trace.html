@@ -872,7 +872,7 @@
       if (sel.dataset.key !== hostsKey) {
         const cur = sel.value;
         sel.innerHTML = '<option value="">All sources</option>' +
-          (data.hosts || []).map(h => `<option value="${esc(h)}">${esc(h)}</option>`).join("");
+          (data.hosts || []).map(h => `<option value="${esc(h)}">${esc(h.toUpperCase())}</option>`).join("");
         sel.value = cur;
         sel.dataset.key = hostsKey;
       }
@@ -899,7 +899,7 @@
         const avgTxt = s.final_avg === null || s.final_avg === undefined ? "" : `<span class="hi-badge">Avg ${s.final_avg} ms</span>`;
         return `<div class="rm-item${it.file === _rmSelected ? " sel" : ""}" data-file="${esc(it.file)}" onclick="loadRemoteResult(this.dataset.file)">
           <div class="rm-flow">
-            ${rmEndHtml("Source", it.host, it.source_ip)}
+            ${rmEndHtml("Source", (it.host || "").toUpperCase(), it.source_ip)}
             <div class="rm-arrow">→</div>
             ${rmEndHtml("Destination", it.label || it.target, it.label ? it.target : "")}
           </div>
@@ -921,13 +921,13 @@
       if (d.error) throw new Error(d.error);
       const fmt = t => t ? t.replace("T", " ").slice(0, 19) + " UTC" : "—";
       const hdr = [`MTR Network Trace (remote)`, `==========================================`,
-        `Source     : ${d.hostname || "—"} (seen from: ${d.source_ip || "—"})`,
+        `Source     : ${(d.hostname || "—").toUpperCase()} (seen from: ${d.source_ip || "—"})`,
         `Destination: ${d.label ? d.label + " (" + d.target + ")" : (d.target || "—")}`,
         `Date Start : ${fmt(d.started_at)}`, `Date End   : ${fmt(d.ended_at)}`,
         `Received   : ${fmt(d.received_at)}`,
         `Packets    : ${d.count || "—"}   Interval: ${d.interval || "—"}s`,
         `==========================================`, ``].join("\n");
-      document.getElementById("rm-output").value = hdr + (d.raw || "(no output)");
+      document.getElementById("rm-output").value = hdr + (d.raw ? d.raw.replace(/^(HOST:\s+)(\S+)/m, (m, a, b) => a + b.toUpperCase()) : "(no output)");
       _rmSelected = file;
       setRmStatus("ok", `Loaded: ${file}`);
       document.querySelectorAll("#rm-list .rm-item").forEach(el => el.classList.toggle("sel", el.dataset.file === file));

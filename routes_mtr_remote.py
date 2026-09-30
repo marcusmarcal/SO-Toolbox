@@ -117,7 +117,7 @@ def _load_item(h, f):
             d = json.load(fh)
         it = {
             "file":       key,
-            "host":       d.get("hostname", h),
+            "host":       (d.get("hostname") or h).upper(),
             "target":     d.get("target", ""),
             "started_at": d.get("started_at"),
             "ended_at":   d.get("ended_at"),
@@ -189,7 +189,7 @@ def mtr_remote_ingest():
         return jsonify({"error": "Payload too large"}), 413
 
     raw      = request.get_data(as_text=True) or ""
-    hostname = (request.headers.get("X-MTR-Hostname") or "").strip()[:200]
+    hostname = (request.headers.get("X-MTR-Hostname") or "").strip()[:200].upper()
     target   = (request.headers.get("X-MTR-Target") or "").strip()[:200]
     if not hostname or not target or not raw.strip():
         return jsonify({"error": "X-MTR-Hostname, X-MTR-Target and body are required"}), 400
@@ -244,7 +244,7 @@ def mtr_remote_results():
     loss=final|any (only reports with loss at the destination hop / on any hop; applied after `latest`).
     `target` matches the IP/host or its label.
     Also returns `hosts` and `targets` (targets already narrowed by host/date/timeframe, not by target)."""
-    host_f   = _safe((request.args.get("host") or "").strip())
+    host_f   = _safe((request.args.get("host") or "").strip()).upper()
     target_f = (request.args.get("target") or "").strip().lower()
     date_f   = (request.args.get("date") or "").strip()
     from_f   = _range_key(request.args.get("from"))
@@ -265,7 +265,7 @@ def mtr_remote_results():
         if not os.path.isdir(hdir):
             continue
         hosts.append(h)
-        if host_f and h != host_f:
+        if host_f and h.upper() != host_f:
             continue
         for f in os.listdir(hdir):
             if not f.endswith(".json"):
@@ -325,6 +325,7 @@ def mtr_remote_result_file(relpath):
         with open(full) as f:
             d = json.load(f)
         d["label"] = _load_labels().get(_safe(d.get("target", "")), "")
+        d["hostname"] = (d.get("hostname") or "").upper()
         return jsonify(d)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -363,6 +364,25 @@ def mtr_remote_labels_set():
     return jsonify({"ok": True, "target": target, "label": label})
 
 
+def _migrate_host_dirs():
+    """Hostnames are stored upper-case; merge any legacy mixed/lower-case host folders into them."""
+    for h in os.listdir(REMOTE_DIR):
+        src = os.path.join(REMOTE_DIR, h)
+        if not os.path.isdir(src) or h == h.upper():
+            continue
+        dst = os.path.join(REMOTE_DIR, h.upper())
+        os.makedirs(dst, exist_ok=True)
+        for f in os.listdir(src):
+            try:
+                os.replace(os.path.join(src, f), os.path.join(dst, f))
+            except OSError:
+                pass
+        try:
+            os.rmdir(src)
+        except OSError:
+            pass
+
+
 def _cleanup_loop():
     """Hourly retention cleanup, independent of incoming ingests."""
     while True:
@@ -373,4 +393,8 @@ def _cleanup_loop():
         time.sleep(3600)
 
 
+try:
+    _migrate_host_dirs()
+except Exception:
+    pass
 threading.Thread(target=_cleanup_loop, daemon=True).start()
