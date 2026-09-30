@@ -21,13 +21,13 @@ LABELS_FILE  = os.path.join(BASE_DIR, "store", "mtr-remote-labels.json")
 _labels_lock = threading.Lock()
 
 MAX_BODY_BYTES         = 512 * 1024
-DEFAULT_RETENTION_DAYS = 30
+DEFAULT_RETENTION_DAYS = 15
 _last_cleanup          = 0.0
 _item_cache            = {}   # 'host/file' -> list item (reports are immutable, so safe to cache)
 
 _HOP_RE = re.compile(
     r'(\d+)\.\s*[|`!\-]+\s+(\S+(?:\s+\([^)]+\))?)\s+'
-    r'([\d.]+)%\s+(\d+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s+([\d.]+))?')
+    r'([\d.]+)%?\s+(\d+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s+([\d.]+))?')
 _TS_RE = re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$')
 
 
@@ -108,7 +108,8 @@ def _load_item(h, f):
             "started_at": d.get("started_at"),
             "ended_at":   d.get("ended_at"),
             "source_ip":  d.get("source_ip", ""),
-            "summary":    d.get("summary", {}),
+            # Re-parsed from raw so reports stored by an older parser are corrected too
+            "summary":    _summarize(_parse_hops(d["raw"])) if d.get("raw") else d.get("summary", {}),
         }
         _item_cache[key] = it
     return it
@@ -346,3 +347,16 @@ def mtr_remote_labels_set():
         except Exception as e:
             return jsonify({"error": str(e)}), 500
     return jsonify({"ok": True, "target": target, "label": label})
+
+
+def _cleanup_loop():
+    """Hourly retention cleanup, independent of incoming ingests."""
+    while True:
+        try:
+            _cleanup()
+        except Exception:
+            pass
+        time.sleep(3600)
+
+
+threading.Thread(target=_cleanup_loop, daemon=True).start()
