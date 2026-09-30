@@ -84,6 +84,20 @@ def _summarize(hops):
     }
 
 
+def _client_ip():
+    """Real client IP. Behind the local nginx reverse proxy remote_addr is 127.0.0.1, so trust
+    X-Real-IP (set by nginx from $remote_addr) only when the request comes from loopback."""
+    addr = request.remote_addr or ""
+    if addr in ("127.0.0.1", "::1"):
+        real = (request.headers.get("X-Real-IP") or "").strip()
+        if real:
+            return real
+        fwd = (request.headers.get("X-Forwarded-For") or "").split(",")[-1].strip()
+        if fwd:
+            return fwd
+    return addr
+
+
 def _load_labels():
     """Destination labels, keyed by the filesystem-safe target name."""
     try:
@@ -195,7 +209,7 @@ def mtr_remote_ingest():
         "started_at":  started_at,
         "ended_at":    ended_at,
         "received_at": now_iso,
-        "source_ip":   request.remote_addr,
+        "source_ip":   _client_ip(),
         "count":       request.headers.get("X-MTR-Count", ""),
         "interval":    request.headers.get("X-MTR-Interval", ""),
         "summary":     _summarize(hops),
