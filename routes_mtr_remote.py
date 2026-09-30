@@ -23,6 +23,7 @@ _labels_lock = threading.Lock()
 MAX_BODY_BYTES         = 512 * 1024
 DEFAULT_RETENTION_DAYS = 30
 _last_cleanup          = 0.0
+_item_cache            = {}   # 'host/file' -> list item (reports are immutable, so safe to cache)
 
 _HOP_RE = re.compile(
     r'(\d+)\.\s*[|`!\-]+\s+(\S+(?:\s+\([^)]+\))?)\s+'
@@ -93,6 +94,33 @@ def _load_labels():
         return {}
 
 
+def _load_item(h, f):
+    """List item for one stored report (without label), cached in memory."""
+    key = f"{h}/{f}"
+    it = _item_cache.get(key)
+    if it is None:
+        with open(os.path.join(REMOTE_DIR, h, f)) as fh:
+            d = json.load(fh)
+        it = {
+            "file":       key,
+            "host":       d.get("hostname", h),
+            "target":     d.get("target", ""),
+            "started_at": d.get("started_at"),
+            "ended_at":   d.get("ended_at"),
+            "source_ip":  d.get("source_ip", ""),
+            "summary":    d.get("summary", {}),
+        }
+        _item_cache[key] = it
+    return it
+
+
+def _has_loss(summary, mode):
+    """mode 'final' = loss at the destination hop; 'any' = loss on any hop.
+    Reports with no parsed hops (mtr failed) count as loss."""
+    v = summary.get("final_loss") if mode == "final" else summary.get("max_loss")
+    return v is None or v > 0
+
+
 def _range_key(v):
     """Convert an ISO UTC timestamp (YYYY-MM-DDTHH:MM:SSZ) to the filename key (YYYY-MM-DD_HH-MM-SS)."""
     v = (v or "").strip()
@@ -124,6 +152,7 @@ def _cleanup():
             try:
                 if f.endswith(".json") and os.path.getmtime(p) < cutoff:
                     os.remove(p)
+                    _item_cache.pop(f"{h}/{f}", None)
             except OSError:
                 pass
         try:
@@ -196,7 +225,8 @@ def mtr_remote_ingest():
 @mtr_remote_bp.route("/mtr/remote/results", methods=["GET"])
 def mtr_remote_results():
     """List remote results (newest first).
-    Filters: host, target (substring), date (YYYY-MM-DD, UTC), from/to (ISO UTC timeframe), latest=1, limit.
+    Filters: host, target (substring), date (YYYY-MM-DD, UTC), from/to (ISO UTC timeframe), latest=1, limit,
+    loss=final|any (only reports with loss at the destination hop / on any hop; applied after `latest`).
     `target` matches the IP/host or its label.
     Also returns `hosts` and `targets` (targets already narrowed by host/date/timeframe, not by target)."""
     host_f   = _safe((request.args.get("host") or "").strip())
@@ -204,6 +234,9 @@ def mtr_remote_results():
     date_f   = (request.args.get("date") or "").strip()
     from_f   = _range_key(request.args.get("from"))
     to_f     = _range_key(request.args.get("to"))
+    loss_f   = (request.args.get("loss") or "").strip()
+    if loss_f not in ("final", "any"):
+        loss_f = ""
     latest   = request.args.get("latest") == "1"
     try:
         limit = max(1, min(int(request.args.get("limit") or 200), 500))
@@ -251,22 +284,16 @@ def mtr_remote_results():
         entries = dedup
 
     items = []
-    for f, h, _t in entries[:limit]:
+    for f, h, _t in entries:
         try:
-            with open(os.path.join(REMOTE_DIR, h, f)) as fh:
-                d = json.load(fh)
+            it = _load_item(h, f)
         except Exception:
             continue
-        items.append({
-            "file":       f"{h}/{f}",
-            "host":       d.get("hostname", h),
-            "target":     d.get("target", ""),
-            "label":      lbl_map.get(_t, ""),
-            "started_at": d.get("started_at"),
-            "ended_at":   d.get("ended_at"),
-            "source_ip":  d.get("source_ip", ""),
-            "summary":    d.get("summary", {}),
-        })
+        if loss_f and not _has_loss(it["summary"], loss_f):
+            continue
+        items.append(dict(it, label=lbl_map.get(_t, "")))
+        if len(items) >= limit:
+            break
     return jsonify({"hosts": hosts, "targets": [{"value": t, "label": lbl_map.get(t, "")}
                                           for t in sorted(all_targets, key=str.lower)],
                     "items": items})

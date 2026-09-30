@@ -270,6 +270,14 @@
       </div>
       <button class="btn-ghost" onclick="setRemoteNow()" title="Fill date and time with the current UTC time">⏱ Now (UTC)</button>
       <button class="btn-ghost" onclick="clearRemoteFilters()" title="Reset all filters">✕ Clear</button>
+      <div class="field" style="width:150px">
+        <label>Loss</label>
+        <select id="rm-loss" onchange="loadRemote()">
+          <option value="" selected>All reports</option>
+          <option value="final">Destination loss</option>
+          <option value="any">Any hop loss</option>
+        </select>
+      </div>
       <div class="toggle-wrap">
         <label>View</label>
         <label class="toggle">
@@ -779,6 +787,7 @@
     document.getElementById("rm-date").value = "";
     document.getElementById("rm-time").value = "";
     document.getElementById("rm-window").value = "5";
+    document.getElementById("rm-loss").value = "";
     document.getElementById("rm-latest").checked = true;
     loadRemote();
   }
@@ -837,6 +846,8 @@
     const date = document.getElementById("rm-date").value;
     if (host) q.set("host", host);
     if (target) q.set("target", target);
+    const loss = document.getElementById("rm-loss").value;
+    if (loss) q.set("loss", loss);
     const time = document.getElementById("rm-time").value;
     if (time) {
       // Timeframe centered on the chosen time: [time - N min, time + N min]
