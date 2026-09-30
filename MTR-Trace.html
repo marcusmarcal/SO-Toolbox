@@ -124,6 +124,20 @@
   .rm-sub{font-family:var(--mono);font-size:.62rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .rm-edit{background:transparent;border:none;padding:0;font-family:var(--mono);font-size:.62rem;color:var(--muted);cursor:pointer}
   .rm-edit:hover{color:var(--cyan)}
+  /* Data flow animation (Remote tab) */
+  .rm-flowbar{display:none;flex-shrink:0;padding:.7rem 1rem .5rem;border-bottom:1px solid var(--border);background:var(--bg)}
+  .rm-flowbar.show{display:block}
+  .rm-fl-row{display:flex;align-items:center;gap:.8rem}
+  .rm-fl-box{flex-shrink:0;width:28%;min-width:0;padding:.35rem .65rem;border:1px solid var(--border);border-radius:6px;background:var(--bg3);display:flex}
+  .rm-fl-box.ok{border-color:var(--green)} .rm-fl-box.warn{border-color:var(--yellow)} .rm-fl-box.bad{border-color:var(--red)}
+  .rm-fl-path{position:relative;flex:1;height:22px;min-width:40px;display:flex;align-items:center;justify-content:space-between}
+  .rm-fl-path::before{content:"";position:absolute;left:0;right:0;top:50%;height:2px;margin-top:-1px;background:var(--border)}
+  .rm-fl-node{position:relative;z-index:1;width:9px;height:9px;border-radius:50%;background:var(--green);border:1px solid var(--bg)}
+  .rm-fl-node.warn{background:var(--yellow)} .rm-fl-node.bad{background:var(--red)}
+  .rm-fl-pkt{position:absolute;z-index:2;top:50%;left:0;width:7px;height:7px;margin:-3.5px 0 0 -3.5px;border-radius:50%;background:var(--cyan);box-shadow:0 0 6px var(--cyan);opacity:0;animation:rm-flow 2.4s linear infinite}
+  @keyframes rm-flow{0%{left:0;opacity:0}8%{opacity:1}92%{opacity:1}100%{left:100%;opacity:0}}
+  .rm-fl-cap{font-family:var(--mono);font-size:.6rem;color:var(--muted);text-align:center;margin-top:.35rem}
+  @media (prefers-reduced-motion:reduce){.rm-fl-pkt{animation:none;display:none}}
 </style>
 </head>
 <body>
@@ -294,6 +308,7 @@
           <div class="status-label"><span class="dot" id="rm-dot"></span><span id="rm-status">Select a result</span></div>
           <button class="btn-copy" id="rm-copy" onclick="copyRemote()">Copy</button>
         </div>
+        <div class="rm-flowbar" id="rm-flowbar"></div>
         <textarea id="rm-output" readonly placeholder="Remote MTR output will appear here..."></textarea>
       </div>
       <div class="history-panel">
@@ -806,6 +821,27 @@
       `<div class="rm-sub" title="${esc(sub)}">${esc(sub) || "&nbsp;"}</div></div>`;
   }
 
+  // ── Data flow animation: Source → hops → Destination ──────────────
+  function renderRemoteFlow(d) {
+    const bar = document.getElementById("rm-flowbar");
+    const hops = d.hops || [];
+    const fin = hops.length ? hops[hops.length - 1] : null;
+    const destCls = fin ? lossClass(fin.loss) : "bad";
+    const nodes = hops.map(h => {
+      const c = lossClass(h.loss);
+      return `<span class="rm-fl-node${c === "ok" ? "" : " " + c}" title="${esc(`#${h.hop} ${h.host} — loss ${h.loss}%, avg ${h.avg} ms`)}"></span>`;
+    }).join("");
+    const pkts = [0, 0.8, 1.6].map(dl => `<span class="rm-fl-pkt" style="animation-delay:${dl}s"></span>`).join("");
+    const cap = fin ? `${hops.length} hops · destination loss ${fin.loss}% · avg ${fin.avg} ms` : "no hop data";
+    bar.innerHTML =
+      `<div class="rm-fl-row">` +
+        `<div class="rm-fl-box">${rmEndHtml("Source", (d.hostname || "—").toUpperCase(), d.source_ip || "")}</div>` +
+        `<div class="rm-fl-path">${nodes}${pkts}</div>` +
+        `<div class="rm-fl-box ${destCls}">${rmEndHtml("Destination", d.label || d.target || "—", d.label ? d.target : "")}</div>` +
+      `</div><div class="rm-fl-cap">${esc(cap)}</div>`;
+    bar.classList.add("show");
+  }
+
   // ── Destination labels ────────────────────────────────────────────
   let _labelTarget = null;
   function openLabelModal(target, label) {
@@ -929,6 +965,7 @@
         `==========================================`, ``].join("\n");
       document.getElementById("rm-output").value = hdr + (d.raw ? d.raw.replace(/^(HOST:\s+)(\S+)/m, (m, a, b) => a + b.toUpperCase()) : "(no output)");
       _rmSelected = file;
+      renderRemoteFlow(d);
       setRmStatus("ok", `Loaded: ${file}`);
       document.querySelectorAll("#rm-list .rm-item").forEach(el => el.classList.toggle("sel", el.dataset.file === file));
     } catch (e) { setRmStatus("err", "Failed to load result."); }

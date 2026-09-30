@@ -326,6 +326,9 @@ def mtr_remote_result_file(relpath):
             d = json.load(f)
         d["label"] = _load_labels().get(_safe(d.get("target", "")), "")
         d["hostname"] = (d.get("hostname") or "").upper()
+        if d.get("raw"):  # re-parse so reports stored by an older parser show all hops
+            d["hops"] = _parse_hops(d["raw"])
+            d["summary"] = _summarize(d["hops"])
         return jsonify(d)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
