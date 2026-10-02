@@ -488,7 +488,12 @@ def parse_destination(dest):
     props = dest.get('properties') or {}
     protocol = str(props.get('Protocol') or '').strip().upper()
     ip = str(props.get('IP') or '').strip()
-    port = _int_or_none(props.get('Output Port')) or _int_or_none(props.get('Port'))
+        # UDP: "Port" is the multicast port; "Output Port" may hold a different (e.g. SRT)
+    # port, so it is only a fallback. SRT: "Output Port" wins, "Port" is the fallback.
+    if protocol == 'UDP':
+        port = _int_or_none(props.get('Port')) or _int_or_none(props.get('Output Port'))
+    else:
+        port = _int_or_none(props.get('Output Port')) or _int_or_none(props.get('Port'))
     listen = 'listen' in str(props.get('Type') or '').lower()
     if protocol not in ('UDP', 'SRT') or not port:
         return None
