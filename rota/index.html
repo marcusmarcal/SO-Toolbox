@@ -1144,6 +1144,11 @@
         <span style="color:var(--muted);font-family:var(--mono);font-size:0.6rem;">→</span>
         <input type="date" class="toolbar-select" id="date-to" />
       </div>
+      <div class="toolbar-group">
+        <span class="toolbar-label">Jump to</span>
+        <input type="month" class="toolbar-select" id="jump-month-input" />
+        <button class="btn" id="btn-jump-month">Go</button>
+      </div>
       <div class="toolbar-group" id="team-toggles">
         <button class="team-toggle Management" data-team="Management">Management</button>
         <button class="team-toggle Engineering" data-team="Engineering">Engineering</button>
@@ -2051,8 +2056,11 @@
       await _loadShiftColorMap();
 
       renderTopbar();
+      state.viewMode = (state.me.rota_role === 'management') ? 'full' : 'published';
+      document.getElementById('view-select').value = state.viewMode;
       setupTabs();
       setupToolbar();
+      document.getElementById('btn-jump-month').addEventListener('click', goToMonth);
       setupLeaveForm();
       setupApprovals();
       setupFeedback();
@@ -2639,6 +2647,33 @@
   function scrollToToday() {
     const wrap = document.getElementById('rota-wrap');
     const row  = wrap.querySelector('tr.today-row');
+    if (row) wrap.scrollTop = row.offsetTop - 44;
+  }
+
+  async function goToMonth() {
+    const val = document.getElementById('jump-month-input').value; // YYYY-MM
+    if (!val) return;
+    if (state.me.rota_role === 'management' && state.viewMode !== 'full') {
+      document.getElementById('view-select').value = 'full';
+      state.viewMode = 'full';
+      document.getElementById('custom-range').style.display = 'none';
+      await (state.draft.active ? loadDraftRota() : loadRota());
+    }
+    _scrollToMonth(val);
+  }
+
+  function _scrollToMonth(ym) {
+    if (!state.rotaData) return;
+    const idx = state.rotaData.findIndex(d => d.date.startsWith(ym));
+    if (idx === -1) {
+      toast(state.me.rota_role === 'management'
+        ? 'No data loaded for that month'
+        : 'Outside your 5-week visible window', 'err');
+      return;
+    }
+    const wrap  = document.getElementById('rota-wrap');
+    const table = wrap.querySelector('table.rota');
+    const row   = table && table.querySelectorAll('tbody tr')[idx];
     if (row) wrap.scrollTop = row.offsetTop - 44;
   }
 
