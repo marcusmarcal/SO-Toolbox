@@ -587,11 +587,15 @@ def id3as_relay_objects(base, relay_edge, dest, channel, latency=None):
     """
     spec = parse_destination(dest)
     key = relay_edge['key']
-    label = f'{base}_ID3AS_CH{channel:02d}'
+    # Everything is named after the destination (e.g. ID3AS_AWS_CH30). Only the stream
+    # carries the BTE_TAG suffix: the delete guards need it to recognise our stream
+    # (the source and output are tied to it through their "stream" id). ``base`` is not
+    # used for naming here; it stays in the signature so callers do not change.
+    label = str(dest.get('name') or '').strip() or f'ID3AS_AWS_CH{channel:02d}'
     sid = _stream_id(label, key)
-    n_stream = stream_name(label, key)
-    n_src = source_name(label, key, 'UDP')
-    n_out = output_name(label, key, 'SRT')
+    n_stream = f'{label}_{BTE_TAG}'          # ID3AS_AWS_CH30_[BTE]
+    n_src = label                            # ID3AS_AWS_CH30
+    n_out = label                            # ID3AS_AWS_CH30
     port = ID3AS_PORT_BASE + channel
     src_iface = relay_edge['in'].get('UDP') or relay_edge['in'].get('SRT')
     out_iface = relay_edge['out'].get('SRT')
