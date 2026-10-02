@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TXCore Provisioning — SO-Toolbox</title>
-    <!-- TXCore Manager frontend v1.7.0 — STB (multicast) + MAIN (SRT) clusters + BTE (timed TXEdge resource provisioning, channel reuse guard, destination outputs, legacy TXEdge support, partial creation kept) -->
+    <!-- TXCore Manager frontend v1.8.0 — STB (multicast) + MAIN (SRT) clusters + BTE (timed TXEdge resource provisioning, channel reuse guard, destination outputs, legacy TXEdge support, partial creation kept, ID3AS relay badges, destination picker closes after adding, self-dismissing info notices) -->
     <style>
       :root {
         --bg: #0f1216;
@@ -993,6 +993,10 @@
       .pill.delete_failed {
         color: var(--error);
         border-color: rgba(229, 98, 107, 0.5);
+      }
+      .pill.relay {
+        color: var(--dest);
+        border-color: rgba(255, 111, 145, 0.5);
       }
       .pill.dry {
         color: var(--text-faint);
@@ -3371,16 +3375,26 @@
           $("bte-log-tag").textContent = prov.log.length + " entries" + (errs ? " · " + errs + " errors" : "");
         }
 
+        // Informational notices ("info") disappear on their own after this delay;
+        // warnings and failures stay until dismissed. All of them are kept in the log.
+        var NOTICE_AUTO_DISMISS_MS = 8000;
+
+        // Plan warnings that are purely informational (not problems): the ID3AS relay summary.
+        function isInfoWarning(text) {
+          return /ID3AS relay on /.test(String(text));
+        }
+
         // Failures are shown up front once (dismissible) and always kept in the log.
         function provNotice(text, cls) {
           provLog(text, cls === "bad" ? "log-err" : cls === "warn" ? "" : "log-ok");
-          if (cls !== "bad" && cls !== "warn") return;
+          if (cls !== "bad" && cls !== "warn" && cls !== "info") return;
           var stack = $("bte-notices");
           var el = document.createElement("div");
-          el.className = "notice " + cls;
+          el.className = "notice" + (cls === "info" ? "" : " " + cls);
           el.innerHTML = "<span>" + escapeHtml(text) + '</span><button class="small">Dismiss</button>';
           el.querySelector("button").addEventListener("click", function () { el.remove(); });
           stack.appendChild(el);
+          if (cls === "info") setTimeout(function () { el.remove(); }, NOTICE_AUTO_DISMISS_MS);
           while (stack.children.length > 4) stack.removeChild(stack.firstChild);
         }
 
@@ -3562,6 +3576,12 @@
           else dlg.setAttribute("open", "");
         }
 
+        function closeDestPicker() {
+          var dlg = $("bte-dest-picker-dialog");
+          if (typeof dlg.close === "function") dlg.close();
+          else dlg.removeAttribute("open");
+        }
+
         function pickDestination(id) {
           var item = destPicker.items.filter(function (d) { return d.id === id; })[0];
           if (!item || item.in_use) return;
@@ -3573,14 +3593,14 @@
               .then(function () {
                 item.in_use = true;
                 provLog("Destination " + item.name + " attached to " + destPicker.leaseId.slice(0, 8), "log-ok");
-                renderDestPicker();
+                closeDestPicker(); // reopen with "+ Destination" to add another
                 return loadLeases();
               })
               .catch(function (err) { provNotice("Add destination failed: " + err.message, "bad"); });
           } else {
             bte.pendingDestinations.push({ id: item.id, name: item.name });
             renderPendingDestinations();
-            renderDestPicker();
+            closeDestPicker(); // reopen with "+ Destination" to add another
           }
         }
 
@@ -3671,9 +3691,15 @@
         function destBadges(objs) {
           var dests = objs.filter(function (o) { return o.destination_id; });
           if (!dests.length) return '<span style="color: var(--text-faint)">—</span>';
+          // Relay objects (ID3AS) are not destinations themselves: they only mark the
+          // destination they relay, so each destination is listed once.
+          var relays = {};
+          objs.forEach(function (o) { if (o.relay && o.relay_destination_id) relays[o.relay_destination_id] = o.edge; });
           return '<div class="dest-badges">' + dests.map(function (o) {
             var cls = o.status === "created" || o.status === "skipped" ? "" : o.status === "error" || o.status === "refused" ? "bad" : "warn";
-            return '<span class="pill ' + cls + '" title="' + escapeHtml(o.status) + '">' + escapeHtml(o.destination_name || o.name) + "</span>";
+            var relayEdge = relays[o.destination_id];
+            return '<span class="pill ' + cls + '" title="' + escapeHtml(o.status + (relayEdge ? " · ID3AS relay on " + relayEdge : "")) + '">' +
+              escapeHtml(o.destination_name || o.name) + (relayEdge ? " · ID3AS" : "") + "</span>";
           }).join("") + "</div>";
         }
 
@@ -3736,14 +3762,20 @@
           if (plan.errors && plan.errors.length) {
             html += '<div class="notice bad">' + plan.errors.map(escapeHtml).join("<br>") + "</div>";
           }
-          if (plan.warnings && plan.warnings.length) {
-            html += '<div class="notice warn">' + plan.warnings.map(escapeHtml).join("<br>") + "</div>";
+          var planWarnings = (plan.warnings || []).filter(function (w) { return !isInfoWarning(w); });
+          var planInfo = (plan.warnings || []).filter(isInfoWarning);
+          if (planWarnings.length) {
+            html += '<div class="notice warn">' + planWarnings.map(escapeHtml).join("<br>") + "</div>";
+          }
+          if (planInfo.length) {
+            html += '<div class="notice">' + planInfo.map(escapeHtml).join("<br>") + "</div>";
           }
           if (plan.ok) {
             var s = plan.summary || {};
             html += '<div class="notice' + (plan.source_snapshot && plan.source_snapshot !== "live" ? " warn" : "") + '">' +
               escapeHtml(s.objects + " objects on " + s.edges + " edge" + (s.edges === 1 ? "" : "s") + " (" + s.dc_edge + " + " + s.sites + " regional site" + (s.sites === 1 ? "" : "s") + ")" +
                 " · input " + (s.input || "?") + " · DC output port " + s.output_port +
+                (s.id3as_relays ? " · ID3AS relay" + (s.id3as_relays === 1 ? "" : "s") + " " + s.id3as_relays : "") +
                 " · encryption " + (s.encryption ? s.encryption + " (passphrase: " + s.passphrase_status + ")" : "none") +
                 " · " + (plan.dry_run ? "dry run — nothing is sent" : "LIVE — will be sent to TXCore MAIN") +
                 (plan.source_snapshot && plan.source_snapshot !== "live" ? " · ⚠ snapshot: BACKUP " + plan.source_snapshot : " · snapshot: live")) +
@@ -3751,13 +3783,15 @@
             var edgePath = (prov.status && prov.status.edge_path) || "/mwedge/{edge}";
             html += '<div class="table-wrap"><table><thead><tr><th>#</th><th>Kind</th><th>Name</th><th>Object</th></tr></thead><tbody>';
             plan.steps.forEach(function (st) {
+              var relayObj = (st.objects || []).filter(function (o) { return o.relay; })[0];
               html += '<tr><td colspan="4" class="plan-edge">' + escapeHtml(st.edge) +
                 (st.location ? " — " + escapeHtml(st.location) : "") +
+                (relayObj ? " — ID3AS relay" + (relayObj.relay_destination_name ? " (" + escapeHtml(relayObj.relay_destination_name) + ")" : "") : "") +
                 (st.legacy
                   ? " — legacy TXEdge: one POST per object " + escapeHtml(edgePath.replace("{edge}", st.edge_id)) + "/{stream|source|output}"
                   : " — POST " + escapeHtml(edgePath.replace("{edge}", st.edge_id))) + "</td></tr>";
               (st.objects || []).forEach(function (o, i) {
-                html += '<tr class="plan-step"><td>' + st.seq + "." + (i + 1) + "</td><td>" + escapeHtml(o.kind) + "</td><td>" + escapeHtml(o.name) +
+                html += '<tr class="plan-step"><td>' + st.seq + "." + (i + 1) + "</td><td>" + escapeHtml(o.kind) + (o.relay ? ' <span class="pill relay">ID3AS relay</span>' : "") + "</td><td>" + escapeHtml(o.name) +
                   '</td><td><pre class="plan-body">' + escapeHtml(JSON.stringify(o.body)) + "</pre></td></tr>";
               });
             });
@@ -3829,7 +3863,7 @@
             .then(function (res) {
               if ($("bte-plan-dialog").open) $("bte-plan-dialog").close();
               provLog("Create requested — " + (r ? r.name : bte.selectedId) + (res.dry_run ? " (dry run)" : "") + ", " + res.objects + " objects", "log-dim");
-              (res.warnings || []).forEach(function (w) { provNotice(w, "warn"); });
+              (res.warnings || []).forEach(function (w) { provNotice(w, isInfoWarning(w) ? "info" : "warn"); });
               bte.pendingDestinations = [];
               renderPendingDestinations();
               return loadLeases();
@@ -3931,7 +3965,7 @@
             renderPendingDestinations();
           });
           $("bte-btn-add-dest").addEventListener("click", function () { openDestPicker(null); });
-          $("bte-dest-picker-close").addEventListener("click", function () { $("bte-dest-picker-dialog").close(); });
+          $("bte-dest-picker-close").addEventListener("click", closeDestPicker);
           $("bte-dest-picker-filter").addEventListener("input", renderDestPicker);
           $("bte-dest-picker-container").addEventListener("click", function (ev) {
             var btn = ev.target.closest ? ev.target.closest('button[data-act="add"]') : null;
