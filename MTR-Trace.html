@@ -303,6 +303,10 @@
       <button class="btn-run" onclick="loadRemote()">↻ Refresh</button>
     </div>
     <div class="main-area">
+      <div class="history-panel">
+        <div class="history-header"><span>Remote results <span id="rm-count"></span></span><button class="btn-sm-icon" onclick="loadRemote()">↻</button></div>
+        <div class="history-list" id="rm-list"><div class="history-empty">No results yet</div></div>
+      </div>
       <div class="output-wrap">
         <div class="output-toolbar">
           <div class="status-label"><span class="dot" id="rm-dot"></span><span id="rm-status">Select a result</span></div>
@@ -310,10 +314,6 @@
         </div>
         <div class="rm-flowbar" id="rm-flowbar"></div>
         <textarea id="rm-output" readonly placeholder="Remote MTR output will appear here..."></textarea>
-      </div>
-      <div class="history-panel">
-        <div class="history-header"><span>Remote results <span id="rm-count"></span></span><button class="btn-sm-icon" onclick="loadRemote()">↻</button></div>
-        <div class="history-list" id="rm-list"><div class="history-empty">No results yet</div></div>
       </div>
     </div>
   </div>

@@ -242,6 +242,7 @@ def mtr_remote_results():
     """List remote results (newest first).
     Filters: host, target (substring), date (YYYY-MM-DD, UTC), from/to (ISO UTC timeframe), latest=1, limit,
     loss=final|any (only reports with loss at the destination hop / on any hop; applied after `latest`).
+    With latest=1 the list is sorted alphabetically by destination (label or target); otherwise newest first.
     `target` matches the IP/host or its label.
     Also returns `hosts` and `targets` (targets already narrowed by host/date/timeframe, not by target)."""
     host_f   = _safe((request.args.get("host") or "").strip()).upper()
@@ -296,7 +297,8 @@ def mtr_remote_results():
                 continue
             seen.add(key)
             dedup.append(e)
-        entries = dedup
+        # Alphabetical by destination (label when set, else target), then by source host
+        entries = sorted(dedup, key=lambda e: ((lbl_map.get(e[2]) or e[2]).lower(), e[1]))
 
     items = []
     for f, h, _t in entries:
