@@ -488,7 +488,7 @@ def parse_destination(dest):
     props = dest.get('properties') or {}
     protocol = str(props.get('Protocol') or '').strip().upper()
     ip = str(props.get('IP') or '').strip()
-        # UDP: "Port" is the multicast port; "Output Port" may hold a different (e.g. SRT)
+    # UDP: "Port" is the multicast port; "Output Port" may hold a different (e.g. SRT)
     # port, so it is only a fallback. SRT: "Output Port" wins, "Port" is the fallback.
     if protocol == 'UDP':
         port = _int_or_none(props.get('Port')) or _int_or_none(props.get('Output Port'))
@@ -595,7 +595,10 @@ def id3as_relay_objects(base, relay_edge, dest, channel, latency=None):
     port = ID3AS_PORT_BASE + channel
     src_iface = relay_edge['in'].get('UDP') or relay_edge['in'].get('SRT')
     out_iface = relay_edge['out'].get('SRT')
-    common = {'destination_id': dest.get('id'), 'destination_name': dest.get('name'), 'relay': 'id3as'}
+    # NOT destination_id/destination_name: those mark the DC-edge destination output, and
+    # the UI lists one destination per object carrying them (relay objects would show it 4x).
+    common = {'relay': 'id3as', 'relay_destination_id': dest.get('id'),
+              'relay_destination_name': dest.get('name')}
     return [
         dict(common, kind='stream', name=n_stream, body=_stream_obj(sid, n_stream, 'none')),
         dict(common, kind='source', name=n_src,
@@ -1272,6 +1275,10 @@ def list_leases():
         lease['remaining_seconds'] = int((exp - now).total_seconds()) if exp and lease['status'] in ACTIVE_STATUSES else None
         for obj in lease.get('objects', []):
             obj['body'] = redact_body(obj.get('body') or {})
+            if obj.get('relay') and obj.get('destination_id'):
+                # Relay objects stored before the relay_destination_* fields existed.
+                obj['relay_destination_id'] = obj.pop('destination_id')
+                obj['relay_destination_name'] = obj.pop('destination_name', None)
         out.append(lease)
     out.sort(key=lambda l: (l['status'] in FINAL_STATUSES, l.get('expires_at') or ''))
     return out
@@ -1327,7 +1334,8 @@ def create_lease(item, plan, duration_minutes, username, dry_run, source_snapsho
             {'seq': s['seq'], 'edge': s['edge'], 'edge_id': s['edge_id'], 'kind': o['kind'],
              'name': o['name'], 'body': o['body'], 'id': None, 'status': 'pending', 'error': None,
              'destination_id': o.get('destination_id'), 'destination_name': o.get('destination_name'),
-             'relay': o.get('relay'), 'legacy': bool(s.get('legacy'))}
+             'relay': o.get('relay'), 'relay_destination_id': o.get('relay_destination_id'),
+             'relay_destination_name': o.get('relay_destination_name'), 'legacy': bool(s.get('legacy'))}
             for s in plan['steps'] for o in s['objects']
         ],
         'partial': False,
@@ -1340,7 +1348,7 @@ def create_lease(item, plan, duration_minutes, username, dry_run, source_snapsho
 
     lease = _mutate(_add)
     plan_objects = [o for s in plan['steps'] for o in s['objects']]
-    relayed = {o['destination_id'] for o in plan_objects if o.get('relay') and o.get('destination_id')}
+    relayed = {o['relay_destination_id'] for o in plan_objects if o.get('relay') and o.get('relay_destination_id')}
     dests, seen = [], set()
     for o in plan_objects:
         dest_id = o.get('destination_id')
@@ -1675,7 +1683,8 @@ def add_destination(lease_id, destination_item, username, client=None):
         return {'seq': seq, 'edge': on_edge['key'], 'edge_id': on_edge['id'], 'kind': o['kind'], 'name': o['name'],
                 'body': o['body'], 'id': None, 'status': 'pending', 'error': None,
                 'destination_id': o.get('destination_id'), 'destination_name': o.get('destination_name'),
-                'relay': o.get('relay'), 'legacy': bool(on_edge.get('legacy'))}
+                'relay': o.get('relay'), 'relay_destination_id': o.get('relay_destination_id'),
+                'relay_destination_name': o.get('relay_destination_name'), 'legacy': bool(on_edge.get('legacy'))}
 
     # One group per TXCore call: [DC output], then [relay stream + source + output].
     next_seq = max((o['seq'] for o in lease['objects']), default=0) + 1
