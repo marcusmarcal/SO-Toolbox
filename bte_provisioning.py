@@ -21,6 +21,15 @@ TXCore call per edge: POST /api/mwedge/<edge id> with {streams, sources, outputs
         source  SRT caller  <DC edge pub=SRT ip>:<Output port> (internal passphrase)
         output  UDP multicast from properties["<Site> Multicast"]
 
+    ID3AS / AWS relay (only when a destination named ID3AS_AWS_CH<nn> is attached)
+        An extra stream on the relay edge (BTE_ID3AS_RELAY_EDGE, INX03) that
+        re-publishes the destination's UDP multicast as an SRT listener for AWS:
+        stream
+        source  UDP   <destination multicast ip>:<port>  (same group the DC-edge
+                      destination output sends to)
+        output  SRT listener on port BTE_ID3AS_SRT_PORT_BASE + <nn> (4001..4099),
+                      passphrase/encryption from the .env (one for every channel)
+
 Naming (mirrors the existing TXCore conventions):
     stream  <channel>_<edge>_[BTE]          e.g. VET_CH01_INX01_[BTE]
     source  SRC_<channel>_A_<proto>_<edge>  e.g. SRC_VET_CH01_A_SRT_INX01
@@ -55,6 +64,17 @@ Environment variables (.env):
                                         version=1.24.1  alternative to legacy=: the edge is legacy when the
                                                      version is below BTE_LEGACY_BELOW (an explicit
                                                      legacy= always wins)
+    BTE_ID3AS_SRT_PASSPHRASE            Passphrase of every ID3AS/AWS relay SRT output. REQUIRED as
+                                        soon as an ID3AS_AWS_CH<nn> destination is selected: without
+                                        it the plan fails (never an unencrypted relay by accident).
+    BTE_ID3AS_SRT_ENCRYPTION            AES-128 (default) | AES-192 | AES-256 for the relay outputs
+    BTE_ID3AS_RELAY_EDGE                Edge key the relay streams are created on (default INX03);
+                                        must be a configured BTE_EDGE_<KEY>
+    BTE_ID3AS_SRT_PORT_BASE             Relay listener port = base + channel number (default 4000,
+                                        so Ch 01 -> 4001 ... Ch 99 -> 4099)
+    BTE_ID3AS_NAME_PATTERN              Regex that recognises an ID3AS destination by its name and
+                                        captures the channel number in group 1
+                                        (default ^ID3AS_AWS_CH(\\d{1,2})$, case-insensitive)
     BTE_TXCORE_EDGE_PATH                Batch create endpoint, default /mwedge/{edge}
     BTE_TXCORE_OBJECT_PATH              Single object (GET/DELETE), default /mwedge/{edge}/{kind}/{id}
                                         {kind} is stream | source | output
@@ -150,6 +170,31 @@ DEFAULT_DURATION_MIN = _env_int('BTE_DEFAULT_DURATION_MINUTES', 60)
 DEFAULT_EXTEND_MIN = _env_int('BTE_DEFAULT_EXTEND_MINUTES', 30)
 MAX_DURATION_MIN = _env_int('BTE_MAX_DURATION_MINUTES', 24 * 60)
 AUDIT_MAX_LINES = _env_int('BTE_AUDIT_MAX_LINES', 50000, minimum=1000)
+
+# ID3AS / AWS relay: a destination whose name matches ID3AS_NAME_RE gets an extra
+# UDP -> SRT listener stream on ID3AS_RELAY_EDGE (see module docstring).
+ID3AS_PASSPHRASE = _env('BTE_ID3AS_SRT_PASSPHRASE')
+ID3AS_ENCRYPTION = (_env('BTE_ID3AS_SRT_ENCRYPTION') or 'AES-128').upper()
+ID3AS_RELAY_EDGE = (_env('BTE_ID3AS_RELAY_EDGE') or 'INX03').upper()
+ID3AS_PORT_BASE = _env_int('BTE_ID3AS_SRT_PORT_BASE', 4000, minimum=1)
+ID3AS_CHANNEL_MIN, ID3AS_CHANNEL_MAX = 1, 99          # -> ports base+1 .. base+99
+
+
+def _compile_id3as_pattern(raw):
+    """Compile BTE_ID3AS_NAME_PATTERN, falling back to the default on an invalid regex."""
+    default = r'^ID3AS_AWS_CH(\d{1,2})$'
+    try:
+        pattern = re.compile(raw or default, re.IGNORECASE)
+    except re.error as exc:
+        log.warning('BTE: BTE_ID3AS_NAME_PATTERN %r is not a valid regex (%s) — using the default', raw, exc)
+        return re.compile(default, re.IGNORECASE)
+    if pattern.groups < 1:
+        log.warning('BTE: BTE_ID3AS_NAME_PATTERN %r has no capture group for the channel number — using the default', raw)
+        return re.compile(default, re.IGNORECASE)
+    return pattern
+
+
+ID3AS_NAME_RE = _compile_id3as_pattern(_env('BTE_ID3AS_NAME_PATTERN'))
 
 EDGE_PATH = _env('BTE_TXCORE_EDGE_PATH') or '/mwedge/{edge}'
 OBJECT_PATH = _env('BTE_TXCORE_OBJECT_PATH') or '/mwedge/{edge}/{kind}/{id}'
@@ -307,6 +352,15 @@ def config_status():
         'legacy_below': '.'.join(str(n) for n in LEGACY_BELOW),
         'srt_option_keys': SRT_OPTION_KEYS,
         'missing_edges': missing_edges(),
+        'id3as_relay': {
+            'edge': ID3AS_RELAY_EDGE,
+            'edge_configured': ID3AS_RELAY_EDGE in EDGES,
+            'port_base': ID3AS_PORT_BASE,
+            'port_range': [ID3AS_PORT_BASE + ID3AS_CHANNEL_MIN, ID3AS_PORT_BASE + ID3AS_CHANNEL_MAX],
+            'encryption': ID3AS_ENCRYPTION,
+            'passphrase_set': bool(ID3AS_PASSPHRASE),
+            'name_pattern': ID3AS_NAME_RE.pattern,
+        },
         'edge_path': EDGE_PATH,
         'object_path': OBJECT_PATH,
         'tag': BTE_TAG,
@@ -470,6 +524,84 @@ def destination_object(base, edge_key, edge, dest, sid):
             'destination_id': dest.get('id'), 'destination_name': dest.get('name')}
 
 
+def id3as_channel(dest):
+    """Channel number (1..99) when ``dest`` is an ID3AS/AWS destination, else None.
+
+    Recognised by name only (BTE_ID3AS_NAME_PATTERN); the channel number drives the
+    relay SRT listener port. Out-of-range numbers are rejected (None) so a stray
+    "CH00" never yields the bare base port.
+    """
+    m = ID3AS_NAME_RE.match(str(dest.get('name') or '').strip())
+    if not m:
+        return None
+    channel = _int_or_none(m.group(1))
+    if channel is None or not ID3AS_CHANNEL_MIN <= channel <= ID3AS_CHANNEL_MAX:
+        return None
+    return channel
+
+
+def id3as_relay_check(dest, edges=None):
+    """Validate that an ID3AS relay can be built for ``dest``. Returns (channel, error).
+
+    channel is None when ``dest`` is not an ID3AS destination (no relay, no error).
+    An error means the destination IS an ID3AS one but the relay cannot be built —
+    callers must fail the request rather than silently provision without the relay.
+    """
+    edges = EDGES if edges is None else edges
+    if ID3AS_NAME_RE.match(str(dest.get('name') or '').strip()) and id3as_channel(dest) is None:
+        return None, (f'ID3AS destination {dest.get("name")!r}: channel number out of range '
+                      f'{ID3AS_CHANNEL_MIN:02d}..{ID3AS_CHANNEL_MAX:02d}')
+    channel = id3as_channel(dest)
+    if channel is None:
+        return None, None
+    label = dest.get('name') or dest.get('id')
+    if not ID3AS_PASSPHRASE:
+        return channel, f'ID3AS destination {label}: BTE_ID3AS_SRT_PASSPHRASE is not set on the server'
+    if ID3AS_ENCRYPTION not in ENCRYPTION_KEYLEN:
+        return channel, (f'ID3AS destination {label}: BTE_ID3AS_SRT_ENCRYPTION={ID3AS_ENCRYPTION!r} is not one of '
+                         f'{", ".join(ENCRYPTION_KEYLEN)}')
+    relay = edges.get(ID3AS_RELAY_EDGE)
+    if relay is None:
+        return channel, f'ID3AS destination {label}: relay edge {ID3AS_RELAY_EDGE} is not configured (BTE_EDGE_{ID3AS_RELAY_EDGE})'
+    if not relay['out'].get('SRT'):
+        return channel, f'ID3AS destination {label}: BTE_EDGE_{ID3AS_RELAY_EDGE} has no out=SRT@<ip> for the relay listener'
+    spec = parse_destination(dest)
+    if spec is None or spec['protocol'] != 'UDP':
+        return channel, f'ID3AS destination {label}: must be a UDP multicast destination (Protocol/IP/Port) to be relayed'
+    return channel, None
+
+
+def id3as_relay_objects(base, relay_edge, dest, channel, latency=None):
+    """Stream + UDP source + SRT listener output that relay an ID3AS destination
+    multicast to AWS. Returns the list of {kind, name, body, destination_id,
+    destination_name, relay} objects for ONE step on the relay edge.
+
+    The source joins the same multicast group the DC-edge destination output
+    sends to; the output listens on ID3AS_PORT_BASE + channel with the shared
+    ID3AS passphrase. Call id3as_relay_check() first — this assumes it passed.
+    """
+    spec = parse_destination(dest)
+    key = relay_edge['key']
+    label = f'{base}_ID3AS_CH{channel:02d}'
+    sid = _stream_id(label, key)
+    n_stream = stream_name(label, key)
+    n_src = source_name(label, key, 'UDP')
+    n_out = output_name(label, key, 'SRT')
+    port = ID3AS_PORT_BASE + channel
+    src_iface = relay_edge['in'].get('UDP') or relay_edge['in'].get('SRT')
+    out_iface = relay_edge['out'].get('SRT')
+    common = {'destination_id': dest.get('id'), 'destination_name': dest.get('name'), 'relay': 'id3as'}
+    return [
+        dict(common, kind='stream', name=n_stream, body=_stream_obj(sid, n_stream, 'none')),
+        dict(common, kind='source', name=n_src,
+             body=_endpoint_obj(sid, n_src, 'UDP', _udp_options(spec['address'], spec['port'], src_iface))),
+        dict(common, kind='output', name=n_out,
+             body=_endpoint_obj(sid, n_out, 'SRT', _srt_options(
+                 'listener', None, port, latency, ID3AS_PASSPHRASE, ID3AS_ENCRYPTION, out_iface,
+                 srt_type=SRT_OUTPUT_TYPE['listen']))),
+    ]
+
+
 def _own_stream_ids(lease):
     """TXCore ids of the tagged streams of a lease (server-assigned on legacy edges)."""
     return {o['id'] for o in lease['objects']
@@ -592,6 +724,16 @@ def build_plan(item, edges=None, passphrase_override=None, destinations=None):
     if not INTERNAL_PASSPHRASE:
         errors.append('INTERNALSRTPASSPHRASE is not set on the server (needed for the edge-to-edge SRT hops)')
 
+    # ID3AS/AWS destinations need a relay stream on the relay edge: a relay that
+    # cannot be built fails the whole plan (fail closed) instead of being skipped.
+    id3as = {}            # destination id -> channel number, for the ones that get a relay
+    for dest in (destinations or []):
+        channel, relay_error = id3as_relay_check(dest, edges)
+        if relay_error:
+            errors.append(relay_error)
+        elif channel is not None and dest.get('id'):
+            id3as[dest['id']] = channel
+
     if errors:
         return {'ok': False, 'steps': [], 'warnings': warnings, 'errors': errors, 'summary': {}}
 
@@ -656,6 +798,18 @@ def build_plan(item, edges=None, passphrase_override=None, destinations=None):
         dc_objects.append(obj)
     step(dc, dc_objects)
 
+    # ---- ID3AS / AWS relays (relay edge, one stream per destination) -----
+    relays = 0
+    relay_edge = edges.get(ID3AS_RELAY_EDGE)
+    for dest in (destinations or []):
+        channel = id3as.get(dest.get('id'))
+        if channel is None or dest.get('id') not in seen_dest_ids or relay_edge is None:
+            continue
+        relays += 1
+        step(relay_edge, id3as_relay_objects(base, relay_edge, dest, channel, latency))
+        warnings.append(f'{dest.get("name")}: ID3AS relay on {relay_edge["key"]} — SRT listener port '
+                        f'{ID3AS_PORT_BASE + channel} ({ID3AS_ENCRYPTION})')
+
     # ---- regional edges ---------------------------------------------------
     sites = 0
     for site, prop in REGIONAL_SITES:
@@ -698,6 +852,7 @@ def build_plan(item, edges=None, passphrase_override=None, destinations=None):
             'edges': len(steps),
             'objects': sum(len(s['objects']) for s in steps),
             'destinations': len(seen_dest_ids),
+            'id3as_relays': relays,
         },
     }
 
@@ -1167,7 +1322,7 @@ def create_lease(item, plan, duration_minutes, username, dry_run, source_snapsho
             {'seq': s['seq'], 'edge': s['edge'], 'edge_id': s['edge_id'], 'kind': o['kind'],
              'name': o['name'], 'body': o['body'], 'id': None, 'status': 'pending', 'error': None,
              'destination_id': o.get('destination_id'), 'destination_name': o.get('destination_name'),
-             'legacy': bool(s.get('legacy'))}
+             'relay': o.get('relay'), 'legacy': bool(s.get('legacy'))}
             for s in plan['steps'] for o in s['objects']
         ],
         'partial': False,
@@ -1179,8 +1334,14 @@ def create_lease(item, plan, duration_minutes, username, dry_run, source_snapsho
         return lease
 
     lease = _mutate(_add)
-    dests = [{'id': o['destination_id'], 'name': o['destination_name']}
-             for s in plan['steps'] for o in s['objects'] if o.get('destination_id')]
+    plan_objects = [o for s in plan['steps'] for o in s['objects']]
+    relayed = {o['destination_id'] for o in plan_objects if o.get('relay') and o.get('destination_id')}
+    dests, seen = [], set()
+    for o in plan_objects:
+        dest_id = o.get('destination_id')
+        if dest_id and dest_id not in seen:
+            seen.add(dest_id)
+            dests.append({'id': dest_id, 'name': o['destination_name'], 'id3as_relay': dest_id in relayed})
     _append_audit({
         'event': 'created',
         'lease_id': lease['lease_id'],
@@ -1281,11 +1442,15 @@ def _mark_step(lease, seq, status, error=None):
             if error is not None:
                 st['error'] = error
     if status == 'error':
-        # What never got an id was not created: flag it so the UI counts it as a problem.
-        for obj in lease['objects']:
-            if obj['seq'] == seq and obj.get('id') is None and obj['status'] == 'pending':
-                obj['status'] = 'error'
-                obj['error'] = 'not created'
+        _mark_step_objects_uncreated(lease, seq)
+
+
+def _mark_step_objects_uncreated(lease, seq, error='not created'):
+    """What never got an id was not created: flag it so the UI counts it as a problem."""
+    for obj in lease['objects']:
+        if obj['seq'] == seq and obj.get('id') is None and obj['status'] == 'pending':
+            obj['status'] = 'error'
+            obj['error'] = error
 
 
 def _record_created(lease, seq, created):
@@ -1489,21 +1654,37 @@ def add_destination(lease_id, destination_item, username, client=None):
     if not sid:
         return lease, 'DC edge stream has no id yet — try again shortly'
 
-    obj = destination_object(lease['resource_name'] or 'STREAM', dc_key, edge, destination_item, sid)
+    base = lease['resource_name'] or 'STREAM'
+    obj = destination_object(base, dc_key, edge, destination_item, sid)
     if obj is None:
         return lease, 'Could not parse this destination (missing Protocol/IP/Port)'
 
-    seq = max((o['seq'] for o in lease['objects']), default=0) + 1
-    new_obj = {'seq': seq, 'edge': dc_key, 'edge_id': edge['id'], 'kind': obj['kind'], 'name': obj['name'],
-               'body': obj['body'], 'id': None, 'status': 'pending', 'error': None,
-               'destination_id': obj['destination_id'], 'destination_name': obj['destination_name'],
-               'legacy': bool(edge.get('legacy'))}
+    # ID3AS/AWS destination: the relay stream on the relay edge is part of the
+    # same operation. Checked up front so nothing is created when it cannot be built.
+    channel, relay_error = id3as_relay_check(destination_item)
+    if relay_error:
+        return lease, relay_error
+    relay_edge = EDGES.get(ID3AS_RELAY_EDGE) if channel is not None else None
+
+    def _entry(seq, on_edge, o):
+        return {'seq': seq, 'edge': on_edge['key'], 'edge_id': on_edge['id'], 'kind': o['kind'], 'name': o['name'],
+                'body': o['body'], 'id': None, 'status': 'pending', 'error': None,
+                'destination_id': o.get('destination_id'), 'destination_name': o.get('destination_name'),
+                'relay': o.get('relay'), 'legacy': bool(on_edge.get('legacy'))}
+
+    # One group per TXCore call: [DC output], then [relay stream + source + output].
+    next_seq = max((o['seq'] for o in lease['objects']), default=0) + 1
+    groups = [(edge, [_entry(next_seq, edge, obj)])]
+    if relay_edge is not None:
+        relay_objs = id3as_relay_objects(base, relay_edge, destination_item, channel)
+        groups.append((relay_edge, [_entry(next_seq + 1, relay_edge, o) for o in relay_objs]))
+    new_objs = [o for _, objs in groups for o in objs]
 
     def _append(l):
-        l['objects'].append(dict(new_obj))
+        l['objects'].extend(dict(o) for o in new_objs)
     lease = _update_lease(lease_id, _append)
 
-    def _audit_added(dry_run):
+    def _audit_added(dry_run, error=None):
         _append_audit({
             'event': 'destination_added',
             'lease_id': lease_id,
@@ -1513,26 +1694,44 @@ def add_destination(lease_id, destination_item, username, client=None):
             'at_creation': False,
             'destination_id': obj['destination_id'],
             'destination_name': obj['destination_name'],
+            'id3as_relay': relay_edge['key'] if relay_edge is not None else None,
             'dry_run': dry_run,
+            'error': error,
         })
 
     if lease['dry_run']:
         def _skip(l):
-            _mark_obj(l, new_obj, 'skipped')
+            for o in new_objs:
+                _mark_obj(l, o, 'skipped')
         lease = _update_lease(lease_id, _skip)
         _audit_added(True)
         return lease, None
 
     client = client or TXCoreClient()
-    try:
-        created = client.create_objects(edge['id'], [{'kind': new_obj['kind'], 'body': new_obj['body']}],
-                                        legacy=bool(edge.get('legacy')))
-    except TXCoreError as exc:
-        lease = _update_lease(lease_id, lambda l: _mark_obj(l, new_obj, 'error', str(exc)))
-        return lease, str(exc)
-    lease = _update_lease(lease_id, lambda l: _record_created(l, seq, created))
+    failures = []
+    for on_edge, objs in groups:
+        seq = objs[0]['seq']
+        try:
+            created = client.create_objects(on_edge['id'], [{'kind': o['kind'], 'body': o['body']} for o in objs],
+                                            legacy=bool(on_edge.get('legacy')))
+        except TXCoreError as exc:
+            # Whatever TXCore did create stays tracked (deletable); the rest is marked.
+            partial = getattr(exc, 'created', [])
+            failures.append(f"{on_edge['key']}: {exc}")
+            def _fail(l, s=seq, c=partial, e=str(exc)):
+                _record_created(l, s, c)
+                _mark_step_objects_uncreated(l, s, e)
+            lease = _update_lease(lease_id, _fail)
+            continue
+        lease = _update_lease(lease_id, lambda l, s=seq, c=created: _record_created(l, s, c))
+
+    if failures:
+        error = '; '.join(failures)
+        _audit_added(False, error=error)
+        return lease, error
     _audit_added(False)
-    log.info('BTE lease %s: added destination %s (%s)', lease_id, obj['destination_name'] or dest_id, username)
+    log.info('BTE lease %s: added destination %s%s (%s)', lease_id, obj['destination_name'] or dest_id,
+             f' + ID3AS relay on {relay_edge["key"]}' if relay_edge is not None else '', username)
     return lease, None
 
 

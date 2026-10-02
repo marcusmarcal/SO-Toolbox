@@ -10,6 +10,14 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 ---
 
+## [4.11.1] - 2026-10-01
+
+### Added
+- TXCore Provisioning: ID3AS/AWS relay workflow — destinations named `ID3AS_AWS_CHxx` additionally create a UDP→SRT listener relay stream on INX03 (port 4000 + channel, shared passphrase from `BTE_ID3AS_SRT_PASSPHRASE`), both on "Create resources" and on "+ Destination" for active leases.
+- TXCore Provisioning: new `.env` settings `BTE_ID3AS_SRT_PASSPHRASE`, `BTE_ID3AS_SRT_ENCRYPTION`, `BTE_ID3AS_RELAY_EDGE`, `BTE_ID3AS_SRT_PORT_BASE`, `BTE_ID3AS_NAME_PATTERN`; `id3as_relay` section on `/api/bte/provisioning/status`; `id3as_relays` in the plan summary.
+### Changed
+- TXCore Provisioning: plans fail closed when an ID3AS destination is selected but the relay passphrase, relay edge or UDP multicast spec is unavailable; relay objects are tagged `relay: "id3as"` on the lease and in the audit log.
+
 ## [4.10.1] - 2026-09-29
 
 ### Added
