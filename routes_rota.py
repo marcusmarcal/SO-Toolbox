@@ -1535,14 +1535,15 @@ def rota_leave_post():
 
     # Notify all admins of new leave submission
     submitter_name = _rota_display_name(username)
-    notif_msg = (f"{submitter_name} requested {leave_type} "
-                 f"{date_start} → {date_end}.")
+
     new_id = leave_list[-1]['id']
+
     _push_notification_to_all_admins(
-        message=notif_msg,
+        message='',
         notif_type='leave_request',
         leave_id=new_id,
         exclude_username=session['username'],
+        submitter_name=submitter_name,
     )
 
     return jsonify({'ok': True})
@@ -2569,6 +2570,46 @@ def _load_notifications() -> dict:
 def _save_notifications(data: dict) -> None:
     _save_json(NOTIFICATIONS_FILE, data)
 
+def _push_bundled_leave_request_notification(
+    admin_username: str,
+    submitter_name: str,
+    leave_id: str = None
+) -> None:
+
+    data = _load_notifications()
+    data.setdefault(admin_username, [])
+
+    existing = next(
+        (
+            n for n in data[admin_username]
+            if not n.get('read')
+            and n.get('type') == 'leave_request'
+            and n.get('submitter_name') == submitter_name
+        ),
+        None
+    )
+
+    if existing:
+        existing['request_count'] = existing.get('request_count', 1) + 1
+        existing['message'] = (
+            f"{submitter_name} has "
+            f"{existing['request_count']} pending leave requests awaiting review."
+        )
+        existing['created_at'] = _now_iso()
+    else:
+        data[admin_username].append({
+            'id': str(uuid.uuid4())[:8],
+            'message': f"{submitter_name} has 1 pending leave request awaiting review.",
+            'type': 'leave_request',
+            'leave_id': leave_id,
+            'submitter_name': submitter_name,
+            'request_count': 1,
+            'created_at': _now_iso(),
+            'read': False,
+        })
+
+    _save_notifications(data)
+
 def _push_notification(username: str, message: str,
                         notif_type: str, leave_id: str = None) -> None:
     data = _load_notifications()
@@ -2583,19 +2624,40 @@ def _push_notification(username: str, message: str,
     })
     _save_notifications(data)
 
-def _push_notification_to_all_admins(message: str,
-                                      notif_type: str,
-                                      leave_id: str = None,
-                                      exclude_username: str = None) -> None:
+def _push_notification_to_all_admins(
+    message: str,
+    notif_type: str,
+    leave_id: str = None,
+    exclude_username: str = None,
+    submitter_name: str = None
+) -> None:
+
     users = _load_json(USERS_FILE)
+
     if not isinstance(users, dict):
         return
+
     for email, info in users.items():
+
         if info.get('role') != 'admin':
             continue
+
         if exclude_username and email == exclude_username:
             continue
-        _push_notification(email, message, notif_type, leave_id)
+
+        if notif_type == 'leave_request' and submitter_name:
+            _push_bundled_leave_request_notification(
+                email,
+                submitter_name,
+                leave_id
+            )
+        else:
+            _push_notification(
+                email,
+                message,
+                notif_type,
+                leave_id
+            )
 
 # ── POT helpers ───────────────────────────────────────────────────────────
 
