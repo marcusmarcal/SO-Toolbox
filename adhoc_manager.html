@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADHOC Manager</title>
+<style>
+  :root {
+    --bg-deep: #12061f;
+    --bg-mid: #1b0a33;
+    --panel: rgba(36, 15, 66, 0.78);
+    --panel-solid: #24103f;
+    --row-alt: rgba(255, 255, 255, 0.025);
+    --line: rgba(196, 170, 255, 0.16);
+    --line-strong: rgba(196, 170, 255, 0.32);
+    --text: #f0eafc;
+    --muted: #a99bcb;
+    --accent: #b794ff;
+    --accent-strong: #8b5cf6;
+    --ok: #5ee0a0;
+    --warn: #ffc857;
+    --bad: #ff7a8a;
+    --info: #7cc4ff;
+    --radius: 8px;
+    --font: Calibri, Carlito, "Segoe UI", Candara, Arial, sans-serif;
+    --mono: Consolas, "Cascadia Mono", "DejaVu Sans Mono", monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { color-scheme: dark; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.4;
+    color: var(--text);
+    background:
+      radial-gradient(1100px 560px at 10% -8%, rgba(124, 58, 237, 0.38), transparent 62%),
+      radial-gradient(900px 520px at 100% 0%, rgba(168, 85, 247, 0.16), transparent 58%),
+      linear-gradient(180deg, var(--bg-mid), var(--bg-deep) 70%);
+    background-attachment: fixed;
+  }
+
+  /* Fine grain gives the dark purple background its textured feel. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.07;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .55 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+
+  .page { position: relative; max-width: 1560px; margin: 0 auto; padding: 22px 24px 48px; }
+
+  /* ---- Header ---- */
+  .masthead { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+  .brand { display: flex; align-items: center; gap: 16px; }
+  .brand-logo { height: 34px; width: auto; display: none; }
+  .brand-logo.has-src { display: block; }
+  h1 { margin: 0; font-size: 34px; font-weight: 700; letter-spacing: -0.01em; }
+  .tagline { margin: 2px 0 0; color: var(--muted); font-size: 15px; }
+  .meta { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 14px; }
+  .meta .stale { color: var(--warn); }
+
+  /* ---- Buttons & inputs ---- */
+  button { font: inherit; color: inherit; cursor: pointer; }
+  button:disabled { cursor: not-allowed; opacity: 0.5; }
+
+  .btn {
+    border: 1px solid var(--line-strong);
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    padding: 6px 12px;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .btn:hover:not(:disabled) { background: rgba(183, 148, 255, 0.18); border-color: var(--accent); }
+  .btn.primary { background: var(--accent-strong); border-color: var(--accent-strong); font-weight: 600; }
+  .btn.primary:hover:not(:disabled) { background: #9d74f7; border-color: #9d74f7; }
+  .btn.danger:hover:not(:disabled) { background: rgba(255, 122, 138, 0.18); border-color: var(--bad); }
+  .btn.tiny { padding: 1px 8px; font-size: 13px; border-radius: 5px; }
+
+  input[type="text"], input[type="search"], input[type="date"], select {
+    font: inherit;
+    color: var(--text);
+    background: rgba(8, 2, 18, 0.55);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 5px 8px;
+    min-width: 0;
+  }
+  input::placeholder { color: rgba(169, 155, 203, 0.6); }
+  input:hover, select:hover { border-color: var(--line-strong); }
+
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent-strong); cursor: pointer; }
+
+  /* ---- Banners ---- */
+  .banner { border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 12px; background: var(--panel); }
+  .banner.warn { border-color: rgba(255, 200, 87, 0.55); }
+  .banner.error { border-color: rgba(255, 122, 138, 0.6); }
+  .banner ul { margin: 0; padding-left: 18px; }
+
+  /* ---- Filters ---- */
+  .filters {
+    display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px 22px;
+    padding: 14px 16px; margin-bottom: 12px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    backdrop-filter: blur(6px);
+  }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field > label, .field > .label { font-size: 13px; color: var(--muted); }
+  .field input[type="search"] { width: 260px; }
+
+  .segmented { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 6px; overflow: hidden; }
+  .segmented button { border: 0; background: transparent; padding: 6px 14px; border-right: 1px solid var(--line); }
+  .segmented button:last-child { border-right: 0; }
+  .segmented button:hover { background: rgba(183, 148, 255, 0.14); }
+  .segmented button[aria-pressed="true"] { background: var(--accent-strong); font-weight: 600; }
+  .segmented .count { margin-left: 6px; opacity: 0.8; font-size: 13px; }
+
+  .date-range { display: flex; align-items: center; gap: 8px; }
+  .result-note { margin-left: auto; color: var(--muted); align-self: center; }
+
+  /* ---- Bulk bar ---- */
+  .bulk {
+    position: sticky; top: 8px; z-index: 5;
+    margin-bottom: 12px; padding: 12px 16px;
+    background: var(--panel-solid); border: 1px solid var(--accent); border-radius: var(--radius);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+  }
+  .bulk[hidden] { display: none; }
+  .bulk-head { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+  .bulk-head strong { font-size: 17px; }
+  .bulk-fields { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; }
+  .bulk-field { display: flex; flex-direction: column; gap: 4px; }
+  .bulk-field .apply { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; }
+  .bulk-field input[type="text"] { width: 190px; }
+  .bulk-field input[type="date"] { width: 150px; }
+  .bulk-field.jira input[type="text"] { width: 260px; }
+  .bulk-actions { display: flex; gap: 8px; margin-left: auto; }
+
+  /* ---- Table ---- */
+  .table-wrap {
+    overflow-x: auto;
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    backdrop-filter: blur(6px);
+  }
+  table { width: 100%; min-width: 1480px; border-collapse: collapse; }
+  thead th {
+    position: sticky; top: 0;
+    text-align: left; font-weight: 600; font-size: 14px; color: var(--muted);
+    padding: 11px 10px; background: rgba(24, 8, 44, 0.96);
+    border-bottom: 1px solid var(--line-strong); white-space: nowrap;
+  }
+  thead th.sortable { cursor: pointer; user-select: none; }
+  thead th.sortable:hover { color: var(--text); }
+  thead th .arrow { margin-left: 4px; color: var(--accent); }
+  tbody td { padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tbody tr:nth-child(even) { background: var(--row-alt); }
+  tbody tr:hover { background: rgba(183, 148, 255, 0.07); }
+  tbody tr.selected { background: rgba(139, 92, 246, 0.2); }
+  td.check, th.check { width: 38px; text-align: center; }
+
+  .name { font-weight: 700; font-size: 16px; }
+  .sub { color: var(--muted); font-size: 13px; }
+
+  .badge {
+    display: inline-block; padding: 2px 10px; border-radius: 999px;
+    font-size: 13px; font-weight: 600; border: 1px solid transparent; white-space: nowrap;
+  }
+  .badge.listener { color: #d8c5ff; background: rgba(139, 92, 246, 0.25); border-color: rgba(183, 148, 255, 0.5); }
+  .badge.pull { color: #bfe3ff; background: rgba(124, 196, 255, 0.16); border-color: rgba(124, 196, 255, 0.45); }
+  .badge.unknown { color: var(--warn); background: rgba(255, 200, 87, 0.1); border-color: rgba(255, 200, 87, 0.45); }
+  .badge.available { color: var(--ok); background: rgba(94, 224, 160, 0.12); border-color: rgba(94, 224, 160, 0.45); }
+  .badge.in_use { color: #ffb4c0; background: rgba(255, 122, 138, 0.13); border-color: rgba(255, 122, 138, 0.45); }
+  .status-note { display: block; margin-top: 3px; color: var(--muted); font-size: 13px; }
+
+  .addr-wrap { display: flex; flex-direction: column; gap: 4px; }
+  .addr { display: flex; align-items: center; gap: 6px; }
+  .addr-label { flex: 0 0 48px; color: var(--muted); font-size: 13px; }
+  .addr-value { font-family: var(--mono); font-size: 13px; word-break: break-all; }
+  .muted { color: var(--muted); }
+
+  .pp { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .pp-value { font-family: var(--mono); font-size: 13px; letter-spacing: 0.04em; white-space: pre-line; word-break: break-all; }
+  .pp-value.revealed { color: var(--warn); letter-spacing: 0; }
+
+  td input[type="text"], td input[type="date"] { width: 100%; }
+  td.competition { min-width: 170px; }
+  td.provider { min-width: 150px; }
+  td.date { min-width: 140px; }
+  td.jira { min-width: 190px; }
+  td input.saved { border-color: var(--ok); box-shadow: 0 0 0 2px rgba(94, 224, 160, 0.25); }
+  td input.saving { opacity: 0.6; }
+
+  .jira-link { display: inline-flex; align-items: center; gap: 8px; }
+  .jira-link a { color: var(--info); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+  .jira-link a:hover { color: #b5deff; }
+
+  .empty { padding: 48px 16px; text-align: center; color: var(--muted); }
+
+  /* ---- Dialog & toast ---- */
+  dialog {
+    width: min(760px, 92vw); max-height: 84vh; padding: 0;
+    color: var(--text); background: var(--panel-solid);
+    border: 1px solid var(--accent); border-radius: 10px;
+  }
+  dialog::backdrop { background: rgba(8, 2, 18, 0.7); }
+  .dlg-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  .dlg-head h2 { margin: 0; font-size: 20px; }
+  .dlg-body { padding: 14px 18px 18px; overflow: auto; max-height: calc(84vh - 60px); }
+  .dlg-body h3 { margin: 16px 0 6px; font-size: 15px; color: var(--accent); }
+  .dlg-body table { min-width: 0; }
+  .dlg-body td { padding: 5px 8px; font-size: 14px; word-break: break-word; }
+  .dlg-body td:first-child { color: var(--muted); width: 38%; }
+
+  .toasts { position: fixed; right: 18px; bottom: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 20; }
+  .toast {
+    max-width: 420px; padding: 10px 14px; border-radius: 8px;
+    background: var(--panel-solid); border: 1px solid var(--line-strong);
+    box-shadow: 0 8px 26px rgba(0, 0, 0, 0.5);
+  }
+  .toast.ok { border-color: var(--ok); }
+  .toast.error { border-color: var(--bad); }
+  .toast.warn { border-color: var(--warn); }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  @media (max-width: 760px) {
+    .field input[type="search"] { width: 100%; }
+    .result-note { margin-left: 0; }
+    h1 { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="masthead">
+    <div class="brand">
+      <!-- Set LOGO_URL in the script below to place the Stats Perform logo here. -->
+      <img id="brandLogo" class="brand-logo" alt="Stats Perform">
+      <div>
+        <h1>ADHOC Manager</h1>
+        <p class="tagline">Ad-hoc SRT channels: connection details and competition assignments</p>
+      </div>
+    </div>
+    <div class="meta">
+      <span id="snapshotInfo"></span>
+      <button class="btn" id="reloadBtn" type="button">Reload</button>
+    </div>
+  </header>
+
+  <div id="banners"></div>
+
+  <section class="filters" aria-label="Filters">
+    <div class="field">
+      <label for="fSearch">Search</label>
+      <input id="fSearch" type="search" placeholder="Channel, competition, provider, Jira">
+    </div>
+    <div class="field">
+      <span class="label" id="statusLabel">Availability</span>
+      <div class="segmented" role="group" aria-labelledby="statusLabel" id="fStatus">
+        <button type="button" data-value="all" aria-pressed="true">All<span class="count" data-count="total"></span></button>
+        <button type="button" data-value="available" aria-pressed="false">Available<span class="count" data-count="available"></span></button>
+        <button type="button" data-value="in_use" aria-pressed="false">In use<span class="count" data-count="in_use"></span></button>
+      </div>
+    </div>
+    <div class="field">
+      <label for="fKind">Type</label>
+      <select id="fKind">
+        <option value="all">All types</option>
+        <option value="listener">Listener</option>
+        <option value="pull">Pull</option>
+        <option value="unknown">Unknown</option>
+      </select>
+    </div>
+    <div class="field">
+      <span class="label">Assigned between</span>
+      <div class="date-range">
+        <input id="fFrom" type="date" aria-label="From date">
+        <span class="muted">to</span>
+        <input id="fTo" type="date" aria-label="To date">
+        <button class="btn tiny" id="fToday" type="button">Today</button>
+        <button class="btn tiny" id="fDateClear" type="button">Clear</button>
+      </div>
+    </div>
+    <div class="result-note" id="resultNote" aria-live="polite"></div>
+  </section>
+
+  <section class="bulk" id="bulkBar" hidden aria-label="Bulk assignment">
+    <div class="bulk-head">
+      <strong id="bulkCount">0 selected</strong>
+      <span class="muted">Tick a field to include it. A ticked empty field clears that value on every selected channel.</span>
+    </div>
+    <div class="bulk-fields">
+      <div class="bulk-field">
+        <label class="apply"><input type="checkbox" data-apply="competition"> Competition</label>
+        <input type="text" data-bulk="competition" maxlength="200">
+      </div>
+      <div class="bulk-field">
+        <label class="apply"><input type="checkbox" data-apply="provider"> Provider</label>
+        <input type="text" data-bulk="provider" maxlength="200">
+      </div>
+      <div class="bulk-field">
+        <label class="apply"><input type="checkbox" data-apply="start_date"> Start date</label>
+        <input type="date" data-bulk="start_date">
+      </div>
+      <div class="bulk-field">
+        <label class="apply"><input type="checkbox" data-apply="end_date"> End date</label>
+        <input type="date" data-bulk="end_date">
+      </div>
+      <div class="bulk-field jira">
+        <label class="apply"><input type="checkbox" data-apply="jira_url"> Jira ticket</label>
+        <input type="text" data-bulk="jira_url" maxlength="500" placeholder="https://...">
+      </div>
+      <div class="bulk-actions">
+        <button class="btn primary" id="bulkApply" type="button">Apply to selected</button>
+        <button class="btn danger" id="bulkFree" type="button">Clear assignments</button>
+        <button class="btn" id="bulkDeselect" type="button">Deselect all</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="check"><input type="checkbox" id="selectAll" aria-label="Select all visible channels"></th>
+          <th class="sortable" data-sort="name">Channel</th>
+          <th class="sortable" data-sort="kind">Type</th>
+          <th class="sortable" data-sort="status">Availability</th>
+          <th>Address</th>
+          <th>Passphrase</th>
+          <th class="sortable" data-sort="competition">Competition</th>
+          <th class="sortable" data-sort="provider">Provider</th>
+          <th class="sortable" data-sort="start_date">Start date</th>
+          <th class="sortable" data-sort="end_date">End date</th>
+          <th>Jira ticket</th>
+          <th><span class="sr-only">Details</span></th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="empty" id="emptyState" hidden></div>
+  </div>
+</div>
+
+<dialog id="details" aria-labelledby="detailsTitle">
+  <div class="dlg-head">
+    <h2 id="detailsTitle">Channel details</h2>
+    <button class="btn tiny" id="detailsClose" type="button">Close</button>
+  </div>
+  <div class="dlg-body" id="detailsBody"></div>
+</dialog>
+
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+<script>
+'use strict';
+
+/* ==========================================================================
+   ADHOC Manager — single-file front end.
+   Reads ADC_CH channels from /api/adhoc/channels (Dataminer data is read-only)
+   and stores competition / provider / dates / Jira link in adhocs.json through
+   the same blueprint. All rendering uses textContent / DOM nodes — never
+   innerHTML with server data.
+   ========================================================================== */
+
+const API_BASE = '/api/adhoc';
+const LOGO_URL = '';                 // Optional: URL of the Stats Perform logo.
+const REVEAL_MS = 30000;             // A revealed passphrase hides itself after 30 s.
+const MASK = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
+const FIELDS = ['competition', 'provider', 'start_date', 'end_date', 'jira_url'];
+const KIND_LABEL = { listener: 'Listener', pull: 'Pull', unknown: 'Unknown' };
+
+/** Adapt this if the toolbox authenticates API calls with a header instead of a session cookie. */
+function authHeaders() { return {}; }
+
+const state = {
+  channels: [],
+  counts: { total: 0, available: 0, in_use: 0 },
+  today: '',
+  selected: new Set(),
+  visible: [],
+  lastIndex: null,
+  filters: { q: '', status: 'all', kind: 'all', from: '', to: '' },
+  sort: { key: 'name', dir: 1 },
+};
+const rowRefs = new Map();          // channel id -> DOM references of its row
+const secretHiders = new Set();     // callbacks that re-mask revealed passphrases
+
+/* ---------- helpers ---------- */
+
+const $ = (sel, root = document) => root.querySelector(sel);
+
+function el(tag, props = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [key, value] of Object.entries(props)) {
+    if (value === null || value === undefined || value === false) continue;
+    if (key === 'class') node.className = value;
+    else if (key === 'text') node.textContent = value;
+    else if (key.startsWith('on') && typeof value === 'function') node.addEventListener(key.slice(2), value);
+    else node.setAttribute(key, value === true ? '' : value);
+  }
+  for (const child of children.flat()) {
+    if (child === null || child === undefined || child === false) continue;
+    node.append(child instanceof Node ? child : document.createTextNode(String(child)));
+  }
+  return node;
+}
+
+async function api(path, { method = 'GET', body } = {}) {
+  const res = await fetch(API_BASE + path, {
+    method,
+    credentials: 'same-origin',
+    headers: {
+      Accept: 'application/json',
+      ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      ...authHeaders(),
+    },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  let data = null;
+  try { data = await res.json(); } catch (_) { /* non-JSON error page */ }
+  if (!res.ok) {
+    const err = new Error((data && data.error) || `Request failed (HTTP ${res.status})`);
+    err.status = res.status;
+    throw err;
+  }
+  return data;
+}
+
+function toast(message, kind = 'ok') {
+  const node = el('div', { class: `toast ${kind}`, text: message });
+  $('#toasts').append(node);
+  setTimeout(() => node.remove(), kind === 'error' ? 7000 : 3500);
+}
+
+function isHttpUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch (_) { return false; }
+}
+
+function jiraLabel(value) {
+  const key = value.match(/[A-Z][A-Z0-9_]+-\d+/);
+  if (key) return key[0];
+  try { return new URL(value).hostname; } catch (_) { return value; }
+}
+
+async function copyText(text, what) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(`${what} copied`);
+  } catch (_) {
+    toast('Copy is not available in this browser context', 'error');
+  }
+}
+
+function copyButton(text, what) {
+  return el('button', { class: 'btn tiny', type: 'button', title: `Copy ${what}`, 'aria-label': `Copy ${what}`,
+    text: 'Copy', onclick: () => copyText(text, what) });
+}
+
+function relativeAge(seconds) {
+  if (seconds === null || seconds === undefined) return 'unknown';
+  if (seconds < 90) return 'just now';
+  if (seconds < 5400) return `${Math.round(seconds / 60)} min ago`;
+  if (seconds < 172800) return `${Math.round(seconds / 3600)} h ago`;
+  return `${Math.round(seconds / 86400)} d ago`;
+}
+
+/* ---------- data loading ---------- */
+
+async function load() {
+  $('#reloadBtn').disabled = true;
+  try {
+    const data = await api('/channels');
+    renderBanners(data);
+    if (!data.available) {
+      state.channels = [];
+      state.counts = { total: 0, available: 0, in_use: 0 };
+      renderSnapshot(null);
+    } else {
+      state.channels = data.channels;
+      state.counts = data.counts;
+      state.today = data.today;
+      renderSnapshot(data.snapshot);
+      const ids = new Set(state.channels.map(c => c.id));
+      state.selected = new Set([...state.selected].filter(id => ids.has(id)));
+    }
+    render();
+  } catch (err) {
+    state.channels = [];
+    renderBanners({ error: err.status === 403
+      ? 'Permission denied — the admin or engineer role is required to use ADHOC Manager.'
+      : err.message });
+    render();
+  } finally {
+    $('#reloadBtn').disabled = false;
+  }
+}
+
+function renderBanners(data) {
+  const box = $('#banners');
+  box.replaceChildren();
+  if (data.error) box.append(el('div', { class: 'banner error', role: 'alert', text: data.error }));
+  if (data.hint) box.append(el('div', { class: 'banner warn', text: data.hint }));
+  if (data.warnings && data.warnings.length) {
+    box.append(el('div', { class: 'banner warn' }, el('ul', {}, data.warnings.map(w => el('li', { text: w })))));
+  }
+}
+
+function renderSnapshot(snapshot) {
+  const node = $('#snapshotInfo');
+  node.replaceChildren();
+  if (!snapshot) return;
+  const stale = snapshot.age_seconds !== null && snapshot.age_seconds > 7200;
+  node.append(el('span', { class: stale ? 'stale' : '',
+    text: `Dataminer snapshot: ${relativeAge(snapshot.age_seconds)}${stale ? ' (stale)' : ''}` }));
+}
+
+/* ---------- filtering & sorting ---------- */
+
+const SORT_VALUE = {
+  name: c => c.name || '',
+  kind: c => c.kind,
+  status: c => c.status,
+  competition: c => c.adhoc.competition.toLowerCase(),
+  provider: c => c.adhoc.provider.toLowerCase(),
+  start_date: c => c.adhoc.start_date,
+  end_date: c => c.adhoc.end_date,
+};
+
+function visibleChannels() {
+  const { q, status, kind, from, to } = state.filters;
+  const needle = q.trim().toLowerCase();
+  const list = state.channels.filter(ch => {
+    if (status !== 'all' && ch.status !== status) return false;
+    if (kind !== 'all' && ch.kind !== kind) return false;
+    if (needle) {
+      const hay = [ch.name, ch.supplier, ch.adhoc.competition, ch.adhoc.provider, ch.adhoc.jira_url]
+        .join(' ').toLowerCase();
+      if (!hay.includes(needle)) return false;
+    }
+    if (from || to) {
+      const s = ch.adhoc.start_date, e = ch.adhoc.end_date;
+      if (!s && !e) return false;                 // never assigned: no dates to compare
+      if (to && s && s > to) return false;         // starts after the range
+      if (from && e && e < from) return false;     // ended before the range
+    }
+    return true;
+  });
+
+  const { key, dir } = state.sort;
+  const valueOf = SORT_VALUE[key];
+  const byName = (a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true });
+  list.sort((a, b) => {
+    if (key === 'name') return byName(a, b) * dir;
+    const va = valueOf(a), vb = valueOf(b);
+    if (va === vb) return byName(a, b);
+    if (va === '') return 1;                       // empty values always last
+    if (vb === '') return -1;
+    return (va < vb ? -1 : 1) * dir;
+  });
+  return list;
+}
+
+/* ---------- rendering ---------- */
+
+function render() {
+  secretHiders.clear();
+  rowRefs.clear();
+  state.visible = visibleChannels();
+  state.lastIndex = null;
+
+  const body = $('#rows');
+  body.replaceChildren();
+  state.visible.forEach((ch, index) => body.append(buildRow(ch, index)));
+
+  const empty = $('#emptyState');
+  empty.hidden = state.visible.length > 0;
+  if (!state.visible.length) {
+    empty.textContent = state.channels.length
+      ? 'No channels match the current filters. Adjust or clear them to see more.'
+      : 'No ADHOC channels to show yet.';
+  }
+
+  $('#resultNote').textContent = state.channels.length
+    ? `Showing ${state.visible.length} of ${state.channels.length} channels` : '';
+  document.querySelectorAll('thead th.sortable').forEach(th => {
+    const active = th.dataset.sort === state.sort.key;
+    th.querySelector('.arrow')?.remove();
+    if (active) th.append(el('span', { class: 'arrow', text: state.sort.dir === 1 ? '\u25B2' : '\u25BC' }));
+    th.setAttribute('aria-sort', active ? (state.sort.dir === 1 ? 'ascending' : 'descending') : 'none');
+  });
+  updateCounts();
+  updateSelectionUI();
+}
+
+function updateCounts() {
+  document.querySelectorAll('[data-count]').forEach(node => {
+    const n = state.channels.length ? state.counts[node.dataset.count] : '';
+    node.textContent = n === '' ? '' : String(n);
+  });
+}
+
+function recount() {
+  state.counts = {
+    total: state.channels.length,
+    available: state.channels.filter(c => c.status === 'available').length,
+    in_use: state.channels.filter(c => c.status === 'in_use').length,
+  };
+  updateCounts();
+}
+
+function buildRow(ch, index) {
+  const refs = {};
+  const checkbox = el('input', { type: 'checkbox', 'aria-label': `Select ${ch.name}`,
+    onclick: ev => onRowCheck(ev, ch, index) });
+  refs.checkbox = checkbox;
+
+  refs.status = el('td');
+  refs.jira = el('td', { class: 'jira' });
+
+  const field = (name, type, placeholder) => {
+    const input = el('input', { type, placeholder, maxlength: type === 'text' ? 200 : null,
+      'aria-label': `${name.replace('_', ' ')} for ${ch.name}` });
+    input.value = ch.adhoc[name] || '';
+    input.addEventListener('change', () => saveField(ch, name, input));
+    input.addEventListener('keydown', ev => { if (ev.key === 'Enter') input.blur(); });
+    refs[name] = input;
+    return input;
+  };
+
+  const row = el('tr', {},
+    el('td', { class: 'check' }, checkbox),
+    el('td', {}, el('div', { class: 'name', text: ch.name }),
+      el('div', { class: 'sub', text: [ch.supplier, ch.edge].filter(Boolean).join(' \u2022 ') })),
+    el('td', {}, el('span', { class: `badge ${ch.kind}`, text: KIND_LABEL[ch.kind] || ch.kind,
+      title: ch.kind === 'unknown' ? 'Connection mode could not be determined from the Dataminer properties — open Details' : null })),
+    refs.status,
+    el('td', {}, addressCell(ch)),
+    el('td', {}, passphraseCell(ch)),
+    el('td', { class: 'competition' }, field('competition', 'text', 'Competition')),
+    el('td', { class: 'provider' }, field('provider', 'text', 'Provider')),
+    el('td', { class: 'date' }, field('start_date', 'date')),
+    el('td', { class: 'date' }, field('end_date', 'date')),
+    refs.jira,
+    el('td', {}, el('button', { class: 'btn tiny', type: 'button', text: 'Details',
+      'aria-label': `Details for ${ch.name}`, onclick: () => showDetails(ch) })),
+  );
+  refs.row = row;
+  rowRefs.set(ch.id, refs);
+  paintStatus(ch);
+  paintJira(ch);
+  checkbox.checked = state.selected.has(ch.id);
+  row.classList.toggle('selected', checkbox.checked);
+  return row;
+}
+
+function paintStatus(ch) {
+  const cell = rowRefs.get(ch.id).status;
+  cell.replaceChildren(el('span', { class: `badge ${ch.status}`, text: ch.status === 'in_use' ? 'In use' : 'Available' }));
+  if (ch.status === 'in_use') {
+    const d = ch.days_left;
+    cell.append(el('span', { class: 'status-note',
+      text: d === 0 ? 'Ends today' : `${d} day${d === 1 ? '' : 's'} left` }));
+  }
+}
+
+function paintJira(ch) {
+  const cell = rowRefs.get(ch.id).jira;
+  const value = ch.adhoc.jira_url || '';
+  cell.replaceChildren();
+  if (value && isHttpUrl(value)) {
+    const link = el('a', { href: value, target: '_blank', rel: 'noopener noreferrer', text: jiraLabel(value), title: value });
+    const edit = el('button', { class: 'btn tiny', type: 'button', text: 'Edit', 'aria-label': `Edit Jira link for ${ch.name}`,
+      onclick: () => { cell.replaceChildren(jiraInput(ch, value)); cell.querySelector('input').focus(); } });
+    cell.append(el('span', { class: 'jira-link' }, link, edit));
+  } else {
+    cell.append(jiraInput(ch, value));
+  }
+}
+
+function jiraInput(ch, value) {
+  const input = el('input', { type: 'text', maxlength: 500, placeholder: 'Paste Jira URL', 'aria-label': `Jira ticket URL for ${ch.name}` });
+  input.value = value;
+  input.addEventListener('change', () => saveJira(ch, input));
+  input.addEventListener('paste', () => setTimeout(() => input.blur(), 0));
+  input.addEventListener('keydown', ev => { if (ev.key === 'Enter') input.blur(); });
+  return input;
+}
+
+function addressCell(ch) {
+  const labels = ch.kind === 'listener' ? ['PRI', 'SEC'] : ['Main', 'Backup'];
+  const line = (label, addr) => el('div', { class: 'addr' },
+    el('span', { class: 'addr-label', text: label }),
+    addr ? el('code', { class: 'addr-value', text: addr }) : el('span', { class: 'muted', text: 'Not available' }),
+    addr ? copyButton(addr, `${label} address`) : null);
+  return el('div', { class: 'addr-wrap' }, line(labels[0], ch.address_main), line(labels[1], ch.address_backup));
+}
+
+function passphraseCell(ch) {
+  const wrap = el('div', { class: 'pp' });
+  if (!ch.passphrase_count) {
+    wrap.append(el('span', { class: 'muted', text: 'None' }));
+    return wrap;
+  }
+  const value = el('span', { class: 'pp-value', text: MASK });
+  const toggle = el('button', { class: 'btn tiny', type: 'button', text: 'Show', 'aria-label': `Show passphrase for ${ch.name}` });
+  const copy = el('button', { class: 'btn tiny', type: 'button', text: 'Copy', hidden: true });
+  let secret = null;
+  let timer = null;
+
+  const hide = () => {
+    secret = null;
+    clearTimeout(timer);
+    value.textContent = MASK;
+    value.classList.remove('revealed');
+    toggle.textContent = 'Show';
+    copy.hidden = true;
+  };
+  secretHiders.add(hide);
+
+  toggle.addEventListener('click', async () => {
+    if (secret) { hide(); return; }
+    toggle.disabled = true;
+    try {
+      const res = await api(`/channels/${encodeURIComponent(ch.id)}/passphrase`, { method: 'POST', body: {} });
+      secret = res.passphrases;
+      value.textContent = secret.length === 1 ? secret[0].value
+        : secret.map(p => `${p.label}: ${p.value}`).join('\n');
+      value.classList.add('revealed');
+      toggle.textContent = 'Hide';
+      copy.hidden = secret.length !== 1;
+      timer = setTimeout(hide, REVEAL_MS);
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      toggle.disabled = false;
+    }
+  });
+  copy.addEventListener('click', () => { if (secret && secret.length === 1) copyText(secret[0].value, 'Passphrase'); });
+
+  wrap.append(value, toggle, copy);
+  return wrap;
+}
+
+/* ---------- saving ---------- */
+
+function applyUpdate(ch, update) {
+  ch.adhoc = update.adhoc;
+  ch.status = update.status;
+  ch.days_left = update.days_left;
+}
+
+function syncRow(ch) {
+  const refs = rowRefs.get(ch.id);
+  if (!refs) return;
+  for (const name of ['competition', 'provider', 'start_date', 'end_date']) {
+    refs[name].value = ch.adhoc[name] || '';
+  }
+  paintStatus(ch);
+  paintJira(ch);
+}
+
+async function saveField(ch, name, input) {
+  const value = input.value.trim();
+  if (value === (ch.adhoc[name] || '')) return;
+  input.classList.add('saving');
+  try {
+    const update = await api(`/channels/${encodeURIComponent(ch.id)}`, { method: 'PATCH', body: { [name]: value } });
+    applyUpdate(ch, update);
+    syncRow(ch);
+    recount();
+    input.classList.add('saved');
+    setTimeout(() => input.classList.remove('saved'), 1200);
+  } catch (err) {
+    input.value = ch.adhoc[name] || '';
+    toast(`${ch.name}: ${err.message}`, 'error');
+  } finally {
+    input.classList.remove('saving');
+  }
+}
+
+async function saveJira(ch, input) {
+  const value = input.value.trim();
+  if (value === (ch.adhoc.jira_url || '')) { paintJira(ch); return; }
+  if (value && !isHttpUrl(value)) {
+    toast('The Jira ticket must be a full http(s) URL', 'error');
+    input.value = ch.adhoc.jira_url || '';
+    return;
+  }
+  try {
+    const update = await api(`/channels/${encodeURIComponent(ch.id)}`, { method: 'PATCH', body: { jira_url: value } });
+    applyUpdate(ch, update);
+    paintJira(ch);
+  } catch (err) {
+    input.value = ch.adhoc.jira_url || '';
+    toast(`${ch.name}: ${err.message}`, 'error');
+  }
+}
+
+/* ---------- selection & bulk editing ---------- */
+
+function onRowCheck(ev, ch, index) {
+  const checked = ev.target.checked;
+  if (ev.shiftKey && state.lastIndex !== null) {
+    const [a, b] = [Math.min(state.lastIndex, index), Math.max(state.lastIndex, index)];
+    for (let i = a; i <= b; i++) setSelected(state.visible[i].id, checked);
+  } else {
+    setSelected(ch.id, checked);
+  }
+  state.lastIndex = index;
+  updateSelectionUI();
+}
+
+function setSelected(id, on) {
+  if (on) state.selected.add(id); else state.selected.delete(id);
+}
+
+function updateSelectionUI() {
+  let visibleSelected = 0;
+  for (const ch of state.visible) {
+    const refs = rowRefs.get(ch.id);
+    const on = state.selected.has(ch.id);
+    if (on) visibleSelected++;
+    refs.checkbox.checked = on;
+    refs.row.classList.toggle('selected', on);
+  }
+  const all = $('#selectAll');
+  all.checked = state.visible.length > 0 && visibleSelected === state.visible.length;
+  all.indeterminate = visibleSelected > 0 && visibleSelected < state.visible.length;
+
+  const n = state.selected.size;
+  $('#bulkBar').hidden = n === 0;
+  $('#bulkCount').textContent = `${n} channel${n === 1 ? '' : 's'} selected`;
+}
+
+async function sendBulk(fields, confirmMessage) {
+  const ids = [...state.selected];
+  if (!ids.length) return;
+  if (!window.confirm(confirmMessage)) return;
+  if ('jira_url' in fields && fields.jira_url && !isHttpUrl(fields.jira_url)) {
+    toast('The Jira ticket must be a full http(s) URL', 'error');
+    return;
+  }
+  const buttons = [$('#bulkApply'), $('#bulkFree')];
+  buttons.forEach(b => { b.disabled = true; });
+  try {
+    const res = await api('/channels/bulk', { method: 'POST', body: { ids, fields } });
+    const byId = new Map(state.channels.map(c => [c.id, c]));
+    for (const [id, update] of Object.entries(res.channels)) {
+      const ch = byId.get(id);
+      if (ch) applyUpdate(ch, update);
+    }
+    recount();
+    toast(`Updated ${res.updated} channel${res.updated === 1 ? '' : 's'}`);
+    render();
+  } catch (err) {
+    toast(err.message, 'error');   // all-or-nothing: nothing was changed
+  } finally {
+    buttons.forEach(b => { b.disabled = false; });
+  }
+}
+
+function applyBulk() {
+  const fields = {};
+  document.querySelectorAll('[data-apply]').forEach(box => {
+    if (box.checked) fields[box.dataset.apply] = $(`[data-bulk="${box.dataset.apply}"]`).value.trim();
+  });
+  const names = Object.keys(fields);
+  if (!names.length) { toast('Tick at least one field to apply', 'warn'); return; }
+  const n = state.selected.size;
+  const clearing = names.filter(f => fields[f] === '');
+  let message = `Apply ${names.length} field${names.length === 1 ? '' : 's'} to ${n} channel${n === 1 ? '' : 's'}?`;
+  if (clearing.length) message += `\n\nThese fields will be CLEARED: ${clearing.join(', ').replace(/_/g, ' ')}.`;
+  sendBulk(fields, message);
+}
+
+function clearAssignments() {
+  const fields = Object.fromEntries(FIELDS.map(f => [f, '']));
+  const n = state.selected.size;
+  sendBulk(fields, `Clear competition, provider, dates and Jira link on ${n} channel${n === 1 ? '' : 's'}?\nThey will become available.`);
+}
+
+/* ---------- details dialog ---------- */
+
+function kvTable(obj) {
+  const entries = Object.entries(obj || {});
+  if (!entries.length) return el('p', { class: 'muted', text: 'Nothing reported.' });
+  return el('table', {}, el('tbody', {}, entries.map(([k, v]) =>
+    el('tr', {}, el('td', { text: k }), el('td', { text: typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v) })))));
+}
+
+function showDetails(ch) {
+  $('#detailsTitle').textContent = ch.name;
+  const body = $('#detailsBody');
+  body.replaceChildren(
+    kvTable({
+      'Detected type': KIND_LABEL[ch.kind] || ch.kind,
+      'Dataminer mode': ch.dm_mode || '',
+      'Supplier': ch.supplier,
+      'TXEdge': ch.edge || '',
+      'Port': ch.port || '',
+      'Resource id': ch.id,
+      'Last edited': ch.adhoc.updated_at ? `${ch.adhoc.updated_at} by ${ch.adhoc.updated_by || 'unknown'}` : 'Never',
+    }),
+    el('h3', { text: 'Dataminer properties (read-only, secrets masked)' }), kvTable(ch.properties),
+    el('h3', { text: 'Dataminer capabilities' }), kvTable(ch.capabilities),
+  );
+  $('#details').showModal();
+}
+
+/* ---------- wiring ---------- */
+
+function setStatusFilter(value) {
+  state.filters.status = value;
+  document.querySelectorAll('#fStatus button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.value === value)));
+  render();
+}
+
+function init() {
+  if (LOGO_URL) {
+    const logo = $('#brandLogo');
+    logo.src = LOGO_URL;
+    logo.classList.add('has-src');
+  }
+
+  let searchTimer = null;
+  $('#fSearch').addEventListener('input', ev => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => { state.filters.q = ev.target.value; render(); }, 150);
+  });
+  document.querySelectorAll('#fStatus button').forEach(b => b.addEventListener('click', () => setStatusFilter(b.dataset.value)));
+  $('#fKind').addEventListener('change', ev => { state.filters.kind = ev.target.value; render(); });
+  $('#fFrom').addEventListener('change', ev => { state.filters.from = ev.target.value; render(); });
+  $('#fTo').addEventListener('change', ev => { state.filters.to = ev.target.value; render(); });
+  $('#fToday').addEventListener('click', () => {
+    const today = state.today || new Date().toISOString().slice(0, 10);
+    state.filters.from = state.filters.to = today;
+    $('#fFrom').value = $('#fTo').value = today;
+    render();
+  });
+  $('#fDateClear').addEventListener('click', () => {
+    state.filters.from = state.filters.to = '';
+    $('#fFrom').value = $('#fTo').value = '';
+    render();
+  });
+
+  document.querySelectorAll('thead th.sortable').forEach(th => th.addEventListener('click', () => {
+    const key = th.dataset.sort;
+    state.sort = { key, dir: state.sort.key === key ? -state.sort.dir : 1 };
+    render();
+  }));
+
+  $('#selectAll').addEventListener('change', ev => {
+    state.visible.forEach(ch => setSelected(ch.id, ev.target.checked));
+    updateSelectionUI();
+  });
+  $('#bulkApply').addEventListener('click', applyBulk);
+  $('#bulkFree').addEventListener('click', clearAssignments);
+  $('#bulkDeselect').addEventListener('click', () => { state.selected.clear(); updateSelectionUI(); });
+  document.querySelectorAll('[data-bulk]').forEach(input => {
+    const tick = () => { $(`[data-apply="${input.dataset.bulk}"]`).checked = true; };
+    input.addEventListener('input', tick);
+    input.addEventListener('change', tick);
+  });
+
+  $('#reloadBtn').addEventListener('click', load);
+  $('#detailsClose').addEventListener('click', () => $('#details').close());
+  $('#details').addEventListener('click', ev => { if (ev.target === $('#details')) $('#details').close(); });
+
+  // Never leave a revealed passphrase on screen while the tab is in the background.
+  document.addEventListener('visibilitychange', () => { if (document.hidden) secretHiders.forEach(hide => hide()); });
+
+  load();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

@@ -9,6 +9,29 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 `SRT Ingest:`, `General Tool Admin:`) so entries can be filtered per tool.
 
 ---
+## [4.12.1] - 2026-10-06
+
+### Added
+- ADHOC Manager: new single-file HTML tool and `/api/adhoc` blueprint for
+  Dataminer resources prefixed with `ADC_CH` (read-only Dataminer data).
+- ADHOC Manager: shows Listener/Pull type, addresses (Listener PRI/SEC built
+  from `ADC_LIST_URL_PRI` / `ADC_LIST_URL_SEC`; Pull main/backup as assigned)
+  and a passphrase masked by default with a Show/Hide button.
+- ADHOC Manager: `adhocs.json` store for competition, provider, start date,
+  end date and Jira ticket link (opens in a new tab).
+- ADHOC Manager: availability inferred from the end date, with filters for
+  availability, type, free text and date range.
+- ADHOC Manager: multi-select bulk assignment of competition, provider, dates
+  and Jira link, plus a "Clear assignments" action.
+- ADHOC Manager: optional `ADC_NAME_PREFIX` and `ADC_PROP_*` environment
+  variables to adapt to Dataminer property names.
+
+### Security
+- ADHOC Manager: passphrases are excluded from channel listings; revealing one
+  requires the admin or engineer role, is audited to `adhoc_audit.jsonl`
+  (reveal is denied if the audit write fails) and is never cached.
+- ADHOC Manager: secrets embedded in Pull URLs are masked, and Jira links are
+  restricted to http(s).
 
 ## [4.11.1] - 2026-10-01
 
