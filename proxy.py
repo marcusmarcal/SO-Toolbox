@@ -42,6 +42,9 @@ app.register_blueprint(env_bp)
 from routes_mtr_remote import mtr_remote_bp
 app.register_blueprint(mtr_remote_bp)
 
+from routes_adhoc import adhoc_bp
+app.register_blueprint(adhoc_bp)
+
 app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024 * 1024  # 2 GB upload limit
 CORS(app)
 
