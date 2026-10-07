@@ -7,6 +7,7 @@ import json
 import uuid
 import datetime
 import io
+import zipfile
 from typing import Optional
 
 from flask import Blueprint, request, jsonify, send_file
@@ -4480,6 +4481,28 @@ def rota_datafiles_download(key):
                      download_name=os.path.basename(path),
                      mimetype='application/json')
 
+@rota_bp.route('/rota/admin/datafiles/download-all', methods=['GET'])
+@require_auth
+def rota_datafiles_download_all():
+    err = _require_management()
+    if err:
+        return err
+
+    buf = io.BytesIO()
+
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
+        for key, path in MANAGED_FILES.items():
+            if os.path.exists(path):
+                z.write(path, arcname=os.path.basename(path))
+
+    buf.seek(0)
+
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name='rota_json_files.zip',
+        mimetype='application/zip'
+    )
 
 @rota_bp.route('/rota/admin/datafiles/<key>/backup/<backup_filename>/download', methods=['GET'])
 @require_auth

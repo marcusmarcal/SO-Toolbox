@@ -1431,8 +1431,18 @@
     <div class="admin-card" id="admin-card-datafiles">
       <div class="admin-card-header">
         <span class="admin-card-title">🗄 Data Files</span>
-        <button class="btn" id="btn-datafiles-refresh" style="font-size:0.65rem;padding:4px 10px;">⟳ Refresh</button>
-      </div>
+
+        <div style="display:flex;gap:8px;">
+          <button class="btn" id="btn-datafiles-download-all"
+                  style="font-size:0.65rem;padding:4px 10px;">
+            ⬇ Download All
+          </button>
+
+          <button class="btn" id="btn-datafiles-refresh"
+                  style="font-size:0.65rem;padding:4px 10px;">
+            ⟳ Refresh
+          </button>
+ 
       <div style="font-family:var(--mono);font-size:0.65rem;color:var(--muted);margin-bottom:14px;line-height:1.6;">
         Download any live data file for inspection or off-server backup. Upload a replacement to overwrite — the current file is always snapshotted first. Restore a backup to roll back; the live file at restore time is itself snapshotted before being overwritten.
       </div>
@@ -7062,7 +7072,15 @@ const DATAFILE_READONLY = new Set(['directory_audit_log', 'draft_lock']);
   function _setupDatafilesCard() {
     document.getElementById('btn-datafiles-refresh').addEventListener('click', loadDatafiles);
   
-    const restoreModal  = document.getElementById('restore-modal');
+    document.getElementById('btn-datafiles-download-all')
+    .addEventListener('click', () => {
+    window.open(
+    `${PROXY}/rota/admin/datafiles/download-all`,
+    '_blank'
+    );
+    });
+    
+    const restoreModal = document.getElementById('restore-modal');
     const restoreCancel = document.getElementById('restore-modal-cancel');
     const restoreOk     = document.getElementById('restore-modal-confirm');
   
