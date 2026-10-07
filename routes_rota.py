@@ -2845,6 +2845,34 @@ def _compute_al_used_hours(name: str, year: int,
             pending_min += day_min + night_min
     return round(confirmed_min / 60, 2), round(pending_min / 60, 2)
 
+def _compute_al_distribution_days(name: str, year: int, leave_list: list):
+    counts = [0] * 12
+
+    for r in leave_list:
+        if r.get('name') != name:
+            continue
+
+        if r.get('leave_type') != 'Annual Leave':
+            continue
+
+        if r.get('status') not in AL_APPROVED_STATUSES:
+            continue
+
+        try:
+            ds = date.fromisoformat(r['date_start'])
+            de = date.fromisoformat(r['date_end'])
+        except (KeyError, ValueError):
+            continue
+
+        d = ds
+        while d <= de:
+            if d.year == year and _base_shift(name, d) != 'OFF':
+                counts[d.month - 1] += 1
+
+            d += timedelta(days=1)
+
+    return counts
+
 def _compute_al_balance(al: dict, name: str, year: int,
                         leave_list: list, leave_map: dict) -> dict:
     entry = _evaluate_member_year(al, name, year)
@@ -3805,7 +3833,25 @@ def rota_al_allowance_get():
     else:
         return jsonify({'ok': False, 'error': 'Not authorised'}), 403
 
-    balances = {n: _compute_al_balance(al, n, year, leave_list, leave_map) for n in names}
+    balances = {}
+
+    for n in names:
+        balance = _compute_al_balance(
+            al,
+            n,
+            year,
+            leave_list,
+            leave_map
+        )
+
+        balance['al_distribution_days'] = _compute_al_distribution_days(
+            n,
+            year,
+            leave_list
+        )
+
+        balances[n] = balance
+
     _save_al_file(al)  # persist any evaluation defaults just computed
 
     return jsonify({

@@ -5923,23 +5923,13 @@ function _removeCellFromBoxes(ri, ci) {
     </div>`;
   }
 
-  function _computeAlDistribution(name, year) {
-    const counts = new Array(12).fill(0);
-    _ovLeaveList
-      .filter(e => e.name === name && e.leave_type === 'Annual Leave' && e.status === 'Confirmed')
-      .forEach(e => {
-        let d = new Date(e.date_start + 'T00:00:00');
-        const end = new Date(e.date_end + 'T00:00:00');
-        while (d <= end) {
-          if (d.getFullYear() === year) counts[d.getMonth()]++;
-          d.setDate(d.getDate() + 1);
-        }
-      });
-    return counts;
+  function _computeAlDistribution(name) {
+    const b = _overviewData?.balances?.[name];
+    return b?.al_distribution_days || new Array(12).fill(0);
   }
 
   function _renderAlDistributionCard(name, year) {
-    const counts = _computeAlDistribution(name, year);
+    const counts = _computeAlDistribution(name);
     const max = Math.max(1, ...counts);
     const months = ['J','F','M','A','M','J','J','A','S','O','N','D'];
     const bars = counts.map((c, i) => `
