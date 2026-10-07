@@ -2984,9 +2984,14 @@
         const label = e.status === 'Withdrawal Pending' ? '✕ Cancel Withdrawal' : '✕ Cancel Request';
         actionBtn = `<button class="btn cancel-req" onclick="event.stopPropagation();cancelRequest('${e.id}','${e.status}')">${label}</button>`;
       }
+      
       if (e.status === 'Confirmed') {
         actionBtn = `<button class="btn warn" style="font-size:0.7rem;padding:3px 10px;"
-                       onclick="event.stopPropagation();withdrawLeave('${e.id}')">↩ Withdraw</button>`;
+                      onclick="event.stopPropagation();withdrawLeave('${e.id}')">↩ Withdraw</button>`;
+      }
+      else if (e.status === 'Withdrawal Rejected') {
+        actionBtn = `<button class="btn warn" style="font-size:0.7rem;padding:3px 10px;"
+                      onclick="event.stopPropagation();withdrawLeave('${e.id}')">↩ Re-request Withdrawal</button>`;
       }
 
       const rowId      = 'hist-' + e.id;
