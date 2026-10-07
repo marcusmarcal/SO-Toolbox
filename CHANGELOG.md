@@ -9,6 +9,22 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 `SRT Ingest:`, `General Tool Admin:`) so entries can be filtered per tool.
 
 ---
+## [4.13.1] - 2026-10-06
+
+### Added
+- SRT Ingest: every job now records who launched it (operator resolved from
+  /so-proxy/me) and when; shown in the Active Jobs Monitor and Bitrate Monitor
+  job selector.
+- SRT Ingest: "Encoder settings" dialog for transcode jobs — coding algorithm
+  (H.264/HEVC), profile, level, entropy coding, CBR/VBR, resolution, frame
+  rate, scan type, chroma subsampling, bit depth, pixel format, colour gamut,
+  GOP size, B-frames and audio coding, pre-filled with the current profile.
+- SRT Ingest: GET /encode-options endpoint publishing encoder defaults,
+  choices and per-protocol rules.
+### Changed
+- SRT Ingest: transcode command builder is now driven by validated encoder
+  settings; defaults are unchanged (libx264 High, 1080p25, GOP 50, CBR, AAC).
+
 ## [4.12.1] - 2026-10-06
 
 ### Added
