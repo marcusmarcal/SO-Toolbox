@@ -4542,7 +4542,14 @@ def rota_datafiles_upload(key):
         return jsonify({'ok': False, 'error': f'{key} is read-only and cannot be replaced via upload'}), 403
 
     session  = request.session
-    raw_body = request.get_data(limit=20 * 1024 * 1024)  # 20 MB hard cap
+    raw_body = request.get_data()
+
+    if len(raw_body) > 20 * 1024 * 1024:  # 20 MB hard cap
+        return jsonify({
+            "ok": False,
+            "error": "File exceeds 20 MB limit" 
+        }), 413
+        
     if not raw_body:
         return jsonify({'ok': False, 'error': 'Empty request body'}), 400
 
