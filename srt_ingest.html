@@ -265,6 +265,73 @@
     }
     .cpu-warning.show { display: block; }
 
+    /* ── Operator ──────────────────────────────────────────────── */
+    .operator-pill {
+      font-family: var(--mono); font-size: 10px; padding: 4px 10px; border-radius: 20px;
+      border: 1px solid var(--border); color: var(--text); letter-spacing: .06em; white-space: nowrap;
+    }
+    .operator-pill b { color: var(--green); font-weight: 700; }
+    .job-tag.operator { background: rgba(74,90,110,.25); color: var(--text); text-transform: none; }
+    .job-tag.enc { background: rgba(255,209,102,.1); color: var(--yellow); text-transform: none; cursor: help; }
+
+    /* ── Encoder settings ──────────────────────────────────────── */
+    .enc-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .btn-enc {
+      width: auto; margin: 0; padding: 6px 12px; font-size: 10px;
+      background: transparent; border: 1px solid var(--yellow); color: var(--yellow); border-radius: 3px;
+    }
+    .btn-enc:hover { background: rgba(255,209,102,.12); }
+    .enc-summary { font-family: var(--mono); font-size: 10px; color: var(--muted); word-break: break-word; flex: 1 1 200px; }
+    .enc-summary.custom { color: var(--yellow); }
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,.72); z-index: 500;
+      align-items: center; justify-content: center; padding: 20px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface); border: 1px solid var(--border); border-top: 2px solid var(--yellow);
+      border-radius: 4px; width: min(920px, 100%); max-height: 92vh; overflow-y: auto; padding: 22px 24px;
+      animation: slide-in .2s ease;
+    }
+    .modal-title {
+      display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 11px;
+      letter-spacing: .15em; text-transform: uppercase; color: var(--yellow); margin-bottom: 16px;
+    }
+    .modal-title .card-ref { color: var(--muted); letter-spacing: .06em; }
+    .modal-close {
+      width: auto; margin: 0 0 0 auto; padding: 4px 10px; font-size: 12px; background: transparent;
+      border: 1px solid var(--border); color: var(--muted); border-radius: 3px;
+    }
+    .modal-close:hover { border-color: var(--red); color: var(--red); }
+    .enc-group { margin-bottom: 14px; }
+    .enc-group-title {
+      font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
+      color: var(--muted); border-bottom: 1px solid var(--border); padding-bottom: 4px; margin-bottom: 10px;
+    }
+    .enc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px 14px; }
+    .enc-grid select {
+      width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+      font-family: var(--mono); font-size: 12px; padding: 8px 10px; border-radius: 3px; outline: none;
+    }
+    .enc-grid select:focus { border-color: var(--yellow); }
+    .enc-grid select:disabled { opacity: .45; }
+    .enc-grid .field { margin-bottom: 0; }
+    .enc-grid .field-hint { min-height: 12px; }
+    .enc-note {
+      margin-top: 8px; padding: 8px 10px; border-radius: 3px; background: rgba(255,209,102,.06);
+      border: 1px solid rgba(255,209,102,.25); font-family: var(--mono); font-size: 10px; color: var(--text); line-height: 1.6;
+    }
+    .enc-error {
+      display: none; margin-top: 8px; padding: 8px 10px; border-radius: 3px; background: rgba(255,59,92,.08);
+      border: 1px solid rgba(255,59,92,.3); font-family: var(--mono); font-size: 10px; color: var(--red);
+    }
+    .enc-error.show { display: block; }
+    .modal-actions { display: flex; gap: 10px; margin-top: 16px; }
+    .modal-actions button { margin: 0; flex: 1; }
+    .btn-enc-reset { background: transparent; border: 1px solid var(--muted); color: var(--muted); }
+    .btn-enc-reset:hover { color: var(--text); }
+    .btn-enc-apply { background: var(--yellow); color: var(--bg); }
+
     .no-jobs { text-align:center; color:var(--muted); font-family:var(--mono); font-size:12px; padding:30px 0; }
     .stats-bar { display:flex; gap:24px; margin-bottom:16px; font-family:var(--mono); font-size:11px; color:var(--muted); }
     .stat-val { color:var(--text); font-size:18px; font-weight:700; display:block; }
@@ -330,9 +397,10 @@
   <div class="logo-icon">VID</div>
   <div>
     <h1>Video Ingest</h1>
-    <p>ffmpeg · SRT / RTMP / WHIP · passthrough by default · libx264 CBR transcode on demand · 1080p25 · closed-GOP</p>
+    <p>ffmpeg · SRT / RTMP / WHIP · passthrough by default · configurable transcode (H.264/HEVC) on demand · operator-tracked jobs</p>
   </div>
-  <div class="pill">● LIVE</div>
+  <div class="operator-pill" id="operator-pill" title="Logged-in operator (from /so-proxy/me)">operator: <b>—</b></div>
+  <div class="pill" style="margin-left:12px">● LIVE</div>
 </header>
 
 <div class="layout">
@@ -401,6 +469,13 @@
       <div class="row">
         <div class="field" id="s-key-row"><label>Stream Key</label><input type="password" id="s-key" placeholder="stream key (appended to the URL)" autocomplete="off" /></div>
         <div class="field" id="s-token-row" style="display:none"><label>Bearer Token <span style="color:var(--muted);font-size:9px">(optional)</span></label><input type="password" id="s-token" placeholder="WHIP authorization token" autocomplete="off" /></div>
+      </div>
+    </div>
+    <div class="field" id="s-enc-row" style="display:none">
+      <label>Encoder Settings</label>
+      <div class="enc-row">
+        <button type="button" class="btn-enc" onclick="openEncModal('s')">⚙ Encoder settings</button>
+        <span class="enc-summary" id="s-enc-summary"></span>
       </div>
     </div>
     <div class="field" id="s-bitrate-row" style="display:none"><label>Target Bitrate (Mbps)</label><input type="number" id="s-bitrate" value="8" min="1" max="50" step="0.5" /></div>
@@ -490,6 +565,13 @@
       <div class="field"><label id="m-range-start-label">Port Start</label><input type="number" id="m-range-start" placeholder="4001" min="1" max="65535" /></div>
       <div class="field"><label id="m-range-end-label">Port End</label><input type="number" id="m-range-end" placeholder="4010" min="1" max="65535" /></div>
     </div>
+    <div class="field" id="m-enc-row" style="display:none">
+      <label>Encoder Settings</label>
+      <div class="enc-row">
+        <button type="button" class="btn-enc" onclick="openEncModal('m')">⚙ Encoder settings</button>
+        <span class="enc-summary" id="m-enc-summary"></span>
+      </div>
+    </div>
     <div class="field" id="m-bitrate-row" style="display:none"><label>Target Bitrate (Mbps)</label><input type="number" id="m-bitrate" value="8" min="1" max="50" step="0.5" /></div>
     <div class="preview-label">Destinations Preview</div>
     <div class="ffmpeg-preview" id="m-preview">Fill the fields above to preview destinations.</div>
@@ -561,6 +643,24 @@
 
 <!-- Tags known to the Video Analyzer (from /sources), shared by both source pickers -->
 <datalist id="source-tag-datalist"></datalist>
+
+<!-- Encoder settings dialog (transcode mode). Dropdowns are populated from
+     GET /encode-options so they can never drift from the backend validation. -->
+<div class="modal-overlay" id="enc-modal" onmousedown="if (event.target === this) closeEncModal()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="enc-modal-title">
+    <div class="modal-title" id="enc-modal-title">
+      Encoder Settings <span class="card-ref" id="enc-modal-card"></span>
+      <button type="button" class="modal-close" onclick="closeEncModal()" title="Close">✕</button>
+    </div>
+    <div id="enc-fields"></div>
+    <div class="enc-note" id="enc-note"></div>
+    <div class="enc-error" id="enc-error"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn-enc-reset" onclick="resetEncDraft()">↺ Reset to defaults</button>
+      <button type="button" class="btn-enc-apply" onclick="applyEncModal()">✓ Apply</button>
+    </div>
+  </div>
+</div>
 
 <div class="toast-container" id="toasts"></div>
 
@@ -967,6 +1067,11 @@ function onProtocolChange(prefix) {
       p === 'rtmp' ? 'Every stream key below becomes its own output to this URL — all pushed by one shared ffmpeg process (stream copy).' :
       `Use ${INDEX_PLACEHOLDER} in the URL — it is replaced by each index in the range (e.g. …/whip/live-${INDEX_PLACEHOLDER} → live-1, live-2 …).`;
   }
+  // Encoder settings that the new protocol cannot carry (e.g. HEVC → RTMP,
+  // AAC → WHIP) are coerced to the first allowed value.
+  if (encodeSettings[prefix] && coerceEncToProtocol(encodeSettings[prefix], p)) {
+    toast('Encoder settings adjusted to the selected protocol', 'info');
+  }
   if (prefix === 's') updateSinglePreview(); else updateMultiPreview();
 }
 
@@ -1051,7 +1156,7 @@ const previewState = {
 };
 const PREVIEW_DEBOUNCE_MS = 200;
 // Options that start a new visual line in the rendered argv.
-const CMD_BREAK_BEFORE = new Set(['-i', '-map', '-c', '-c:v', '-c:a', '-b:v', '-vf', '-filter:v', '-f', '-x264-params', '-r', '-stream_loop', '-authorization']);
+const CMD_BREAK_BEFORE = new Set(['-i', '-map', '-c', '-c:v', '-c:a', '-b:v', '-vf', '-filter:v', '-f', '-x264-params', '-x265-params', '-pix_fmt', '-color_primaries', '-r', '-stream_loop', '-authorization']);
 const URL_RE = /^(srt|rtmps?|https?):\/\//i;
 
 function shellQuote(tok) {
@@ -1069,7 +1174,7 @@ function renderArgv(argv) {
     else if (URL_RE.test(tok)) cls = 'hl2';
     else if (tok === 'copy' && /^-c(:[va])?$/.test(prev)) cls = 'hl2';
     else if (tok === '-copy_unknown') cls = 'hl2';
-    else if (/^(libx264|aac|libopus)$/.test(tok) && /^-c:[va]$/.test(prev)) cls = 'hlg';
+    else if (/^(libx264|libx265|aac|libopus|mp2|ac3)$/.test(tok) && /^-c:[va]$/.test(prev)) cls = 'hlg';
     else if (/^-(b:v|minrate|maxrate|bufsize)$/.test(prev)) cls = 'hlg';
     let sep = html ? ' ' : '';
     if (html && (CMD_BREAK_BEFORE.has(tok) || URL_RE.test(tok))) {
@@ -1195,17 +1300,20 @@ function syncSourceType(prefix) {
     document.getElementById(`${prefix}-transcode`).checked = false;
     trRow.style.display = 'none';
     brRow.style.display = 'none';
+    syncEncRow(prefix, false);
     return;
   }
   if (m.shared) {
     // Shared mode is always stream copy: transcode/bitrate don't apply.
     trRow.style.display = 'none';
     brRow.style.display = 'none';
+    syncEncRow(prefix, false);
     return;
   }
   trRow.style.display = m.copyEligible ? '' : 'none';
   if (!m.copyEligible) document.getElementById(`${prefix}-transcode`).checked = false;
   brRow.style.display = m.transcode ? '' : 'none';
+  syncEncRow(prefix, m.transcode);
 }
 
 function updateSinglePreview() {
@@ -1227,6 +1335,7 @@ function updateSinglePreview() {
     source_mode: m.isBarsTone ? 'bars_tone' : 'file',
     bitrate_mbps: m.isBarsTone ? 1 : bitrate,
     passthrough: m.passthrough,
+    encode: encodePayload('s', m),
   }, 's-preview');
 }
 
@@ -1276,7 +1385,7 @@ function updateMultiPreview() {
     input_file: m.value,
     source_mode: m.isBarsTone ? 'bars_tone' : 'file',
   };
-  const body = m.shared ? base : { ...base, bitrate_mbps: m.isBarsTone ? 1 : br, passthrough: m.passthrough };
+  const body = m.shared ? base : { ...base, bitrate_mbps: m.isBarsTone ? 1 : br, passthrough: m.passthrough, encode: encodePayload('m', m) };
   schedulePreview('m', body, 'm-preview-cmd');
 }
 
@@ -1297,6 +1406,8 @@ async function startSingle() {
     source_mode:  m.isBarsTone ? 'bars_tone' : 'file',
     bitrate_mbps: m.isBarsTone ? 1 : (parseFloat(document.getElementById('s-bitrate').value) || 8),
     passthrough:  m.passthrough,
+    encode:       encodePayload('s', m),
+    operator:     currentOperator || undefined,
   };
   try {
     const r = await fetch(`${BASE}/ingest/single`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
@@ -1325,6 +1436,7 @@ async function startMulti() {
     ...dest,
     input_file:   m.value,
     source_mode:  m.isBarsTone ? 'bars_tone' : 'file',
+    operator:     currentOperator || undefined,
   };
 
   const endpoint = shared ? '/ingest/multi-shared' : '/ingest/multi';
@@ -1332,6 +1444,7 @@ async function startMulti() {
     ...base,
     bitrate_mbps: m.isBarsTone ? 1 : (parseFloat(document.getElementById('m-bitrate').value) || 8),
     passthrough:  m.passthrough,
+    encode:       encodePayload('m', m),
   };
   try {
     const r = await fetch(`${BASE}${endpoint}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
@@ -1428,7 +1541,8 @@ function renderJobs(jobs) {
     o.dataset.target = j.bitrate_mbps;
     o.dataset.passthrough = j.passthrough ? 'true' : 'false';
     o.dataset.cmd = j.cmd || '';
-    o.textContent = `#${j.id} ${(j.protocol || 'srt').toUpperCase()} ${jobLabel(j)} [${j.mode||j.status}]`;
+    const who = j.operator && j.operator.display_name ? ` · ${j.operator.display_name}` : '';
+    o.textContent = `#${j.id} ${(j.protocol || 'srt').toUpperCase()} ${jobLabel(j)} [${j.mode||j.status}]${who}`;
     if (j.status !== 'running') o.style.color = 'var(--muted)';
     sel.appendChild(o);
   });
@@ -1456,11 +1570,20 @@ function renderJobs(jobs) {
     const modeTag = j.type === 'shared'
       ? `<span class="job-tag shared">shared·1proc</span>`
       : `<span class="job-tag ${j.mode === 'passthrough' ? 'passthrough' : j.mode === 'bars-tone' ? 'barstone' : 'transcode'}">${esc(j.mode || 'transcode')}</span>`;
+    // Who launched the job (from /so-proxy/me at launch time) and the
+    // encoder profile of a transcode job.
+    const op = j.operator || {};
+    const opTag = op.display_name || op.username
+      ? `<span class="job-tag operator" title="${esc(op.username || '')}${j.started_at ? ' · started ' + esc(j.started_at) : ''}">by ${esc(op.display_name || op.username)}</span>`
+      : `<span class="job-tag operator" title="Operator unknown">by —</span>`;
+    const encTag = j.encode_summary
+      ? `<span class="job-tag enc" title="${esc(j.encode_summary)}">⚙ ${esc(j.encode_summary.split(' · ').slice(0, 2).join(' · '))}</span>`
+      : '';
     const destText = `<b>${esc(jobLabel(j))}</b> <span style="color:var(--muted);font-size:10px">pid:${j.pid ?? '—'}</span>`;
     return `
       <div class="job-item">
         <span class="job-id">#${j.id}</span>
-        <span class="job-dest">${destText} ${protoTag}${modeTag}${br}</span>
+        <span class="job-dest">${destText} ${protoTag}${modeTag}${encTag}${opTag}${br}</span>
         <span class="job-status status-${j.status}">${statusLabel}</span>
         <div class="job-actions">${actions}</div>
         ${errorLine}
@@ -1479,6 +1602,267 @@ function toast(msg, type='info') {
 }
 
 
+
+// ── Operator identity — /so-proxy/me ─────────────────────────────────────────
+// The portal identifies the logged-in operator. Only the display name and
+// username are kept and sent with every ingest request so each job records
+// who launched it (shown in the jobs monitor and the job selector).
+let currentOperator = null;
+async function loadMe() {
+  const pill = document.getElementById('operator-pill');
+  try {
+    const r = await fetch('/so-proxy/me');
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    if (d.ok === false || (!d.display_name && !d.username)) throw new Error('no identity');
+    currentOperator = { display_name: d.display_name || d.username, username: d.username || '' };
+    pill.innerHTML = `operator: <b>${esc(currentOperator.display_name)}</b>`;
+    pill.title = `${currentOperator.username}${d.role ? ' · ' + esc(d.role) : ''}${d.team ? ' · ' + esc(d.team) : ''}`;
+  } catch (e) {
+    console.warn('Could not resolve operator from /so-proxy/me:', e);
+    currentOperator = null;
+    pill.innerHTML = 'operator: <b style="color:var(--red)">unknown</b>';
+    pill.title = 'Jobs will be recorded without an operator name';
+  }
+}
+
+// ── Encoder settings (transcode mode) ────────────────────────────────────────
+// Dropdown choices, defaults and per-protocol rules come from
+// GET /encode-options (the same tables the ingest routes validate against).
+// encodeSettings[prefix] is null until the operator customises a card; the
+// effective settings (customised or defaults) are sent as `encode` with every
+// transcode preview / ingest request.
+let encodeOptions = null;
+const encodeSettings = { s: null, m: null };
+let encModalPrefix = null;
+let encDraft = null;
+
+const PIX_FMT_KEY = 'pix_fmt';  // derived from chroma + bit_depth (UI only)
+const ENC_FIELD_GROUPS = [
+  { title: 'Video coding', fields: [
+    { key: 'codec',        label: 'Coding algorithm' },
+    { key: 'profile',      label: 'Profile' },
+    { key: 'level',        label: 'Level' },
+    { key: 'entropy',      label: 'Entropy coding', hint: 'H.264 only — HEVC is always CABAC' },
+    { key: 'rate_control', label: 'Rate control',   hint: 'bitrate taken from Target Bitrate (VBR peak = 1.5×)' },
+  ]},
+  { title: 'Picture', fields: [
+    { key: 'resolution', label: 'Resolution' },
+    { key: 'frame_rate', label: 'Frame rate' },
+    { key: 'scan',       label: 'Scan type' },
+    { key: 'chroma',     label: 'Chroma subsampling' },
+    { key: 'bit_depth',  label: 'Bit depth' },
+    { key: PIX_FMT_KEY,  label: 'Pixel format', hint: 'follows chroma + bit depth (and vice versa)' },
+    { key: 'colour',     label: 'Colour gamut / transfer', hint: 'VUI signalling only — no colour conversion' },
+  ]},
+  { title: 'GOP structure', fields: [
+    { key: 'gop_size', label: 'GOP size (keyframe interval)' },
+    { key: 'bframes',  label: 'B-frames' },
+  ]},
+  { title: 'Audio', fields: [
+    { key: 'audio_codec',   label: 'Audio coding' },
+    { key: 'audio_bitrate', label: 'Audio bitrate' },
+  ]},
+];
+const PIX_FMT_BASE = { '420': 'yuv420p', '422': 'yuv422p', '444': 'yuv444p' };
+
+function pixFmtOf(enc) { return PIX_FMT_BASE[enc.chroma] + (String(enc.bit_depth) === '10' ? '10le' : ''); }
+
+async function loadEncodeOptions() {
+  try {
+    const r = await fetch(`${BASE}/encode-options`);
+    if (!r.ok) return;
+    encodeOptions = await r.json();
+  } catch (e) { console.warn('Could not load encoder options:', e); return; }
+  updateSinglePreview();
+  updateMultiPreview();
+}
+
+function encChoices(key, codec) {
+  if (!encodeOptions) return [];
+  if (key === 'profile') return encodeOptions.choices.profile[codec] || [];
+  return encodeOptions.choices[key] || [];
+}
+
+// Server defaults adjusted to what the protocol allows.
+function encDefaults(prefix) {
+  const enc = { ...encodeOptions.defaults };
+  coerceEncToProtocol(enc, getProtocol(prefix));
+  return enc;
+}
+
+// Mutates `enc` so every value is allowed for `protocol` (first allowed value
+// wins). Also keeps profile/entropy coherent with the codec. Returns true
+// when anything changed.
+function coerceEncToProtocol(enc, protocol) {
+  if (!encodeOptions) return false;
+  let changed = false;
+  const rules = encodeOptions.protocol_rules[protocol] || {};
+  Object.entries(rules).forEach(([key, allowed]) => {
+    if (!allowed.map(String).includes(String(enc[key]))) { enc[key] = allowed[0]; changed = true; }
+  });
+  const profile = compatibleProfile(enc.codec, enc);
+  if (profile !== enc.profile) { enc.profile = profile; changed = true; }
+  if (enc.codec !== 'h264' && enc.entropy !== 'cabac') { enc.entropy = 'cabac'; changed = true; }
+  return changed;
+}
+
+// Profile to use for `codec` when the current one is unknown to it or cannot
+// carry the chosen chroma / bit depth: the codec's default when compatible,
+// otherwise the first profile that is.
+function compatibleProfile(codec, enc) {
+  const table = encodeOptions.profile_formats[codec] || {};
+  const fits = p => table[p] && table[p].chroma.includes(enc.chroma) && table[p].bit_depth.map(String).includes(String(enc.bit_depth));
+  if (fits(enc.profile)) return enc.profile;
+  const def = codec === 'h264' ? 'high' : 'main';
+  if (fits(def)) return def;
+  const first = encChoices('profile', codec).map(c => c.value).find(fits);
+  return first || def;
+}
+
+function encIsDefault(enc, prefix) {
+  const def = encDefaults(prefix);
+  return Object.keys(def).every(k => String(def[k]) === String(enc[k]));
+}
+
+// Terse one-line summary of a settings object (values, not labels).
+function encodeSummary(enc) {
+  const fps = (encChoices('frame_rate').find(c => c.value === enc.frame_rate) || {}).label || enc.frame_rate;
+  const scan = enc.scan === 'progressive' ? 'p' : `i(${enc.scan})`;
+  const level = enc.level === 'auto' ? '' : `@L${enc.level}`;
+  return `${enc.codec === 'h264' ? 'H.264' : 'HEVC'} ${enc.profile}${level} · ${enc.resolution}${scan} ${fps} · GOP ${enc.gop_size} · B ${enc.bframes} · ${pixFmtOf(enc)} · ${enc.colour} · ${String(enc.rate_control).toUpperCase()} · ${enc.audio_codec} ${enc.audio_bitrate}`;
+}
+
+// `encode` field of a request body: effective settings for a transcode of a
+// file source, otherwise undefined (passthrough / B&T / shared ignore it).
+function encodePayload(prefix, m) {
+  if (!encodeOptions || !m.transcode || m.isBarsTone || m.shared) return undefined;
+  return encodeSettings[prefix] || encDefaults(prefix);
+}
+
+// Shows the "Encoder settings" row of a card and its summary line.
+function syncEncRow(prefix, visible) {
+  const row = document.getElementById(`${prefix}-enc-row`);
+  const sum = document.getElementById(`${prefix}-enc-summary`);
+  if (!visible || !encodeOptions) { row.style.display = 'none'; return; }
+  row.style.display = '';
+  const enc = encodeSettings[prefix] || encDefaults(prefix);
+  const custom = !!encodeSettings[prefix] && !encIsDefault(enc, prefix);
+  sum.textContent = (custom ? '' : 'default · ') + encodeSummary(enc);
+  sum.classList.toggle('custom', custom);
+}
+
+// Client-side mirror of the backend compatibility checks, for immediate
+// feedback in the dialog (the backend remains authoritative).
+function encValidationError(enc, protocol) {
+  const fmts = ((encodeOptions.profile_formats[enc.codec] || {})[enc.profile]);
+  if (!fmts) return `Profile ${enc.profile} is not valid for ${enc.codec}.`;
+  if (!fmts.chroma.includes(enc.chroma) || !fmts.bit_depth.map(String).includes(String(enc.bit_depth))) {
+    return `Profile ${enc.profile} cannot carry 4:${enc.chroma[1]}:${enc.chroma[2]} ${enc.bit_depth}-bit (${pixFmtOf(enc)}) — pick a higher profile or change the picture format.`;
+  }
+  if (enc.codec === 'h264' && enc.profile === 'baseline') {
+    if (String(enc.bframes) !== '0') return 'H.264 Baseline profile has no B-frames (set B-frames to 0).';
+    if (enc.entropy !== 'cavlc') return 'H.264 Baseline profile requires CAVLC entropy coding.';
+  }
+  const rules = encodeOptions.protocol_rules[protocol] || {};
+  for (const [key, allowed] of Object.entries(rules)) {
+    if (!allowed.map(String).includes(String(enc[key]))) return `${protocol.toUpperCase()} does not allow ${key} = ${enc[key]}.`;
+  }
+  return '';
+}
+
+function openEncModal(prefix) {
+  if (!encodeOptions) { toast('Encoder options not loaded yet', 'err'); return; }
+  encModalPrefix = prefix;
+  encDraft = { ...(encodeSettings[prefix] || encDefaults(prefix)) };
+  document.getElementById('enc-modal-card').textContent =
+    `— ${prefix === 's' ? 'Single' : 'Multi'} destination · ${getProtocol(prefix).toUpperCase()}`;
+  renderEncFields();
+  document.getElementById('enc-modal').classList.add('open');
+}
+
+function closeEncModal() {
+  document.getElementById('enc-modal').classList.remove('open');
+  encModalPrefix = null; encDraft = null;
+}
+
+function resetEncDraft() {
+  if (!encModalPrefix) return;
+  encDraft = encDefaults(encModalPrefix);
+  renderEncFields();
+}
+
+function applyEncModal() {
+  if (!encModalPrefix || !encDraft) return;
+  const err = encValidationError(encDraft, getProtocol(encModalPrefix));
+  const box = document.getElementById('enc-error');
+  if (err) { box.textContent = '⚠ ' + err; box.classList.add('show'); return; }
+  const prefix = encModalPrefix;
+  encodeSettings[prefix] = encIsDefault(encDraft, prefix) ? null : { ...encDraft };
+  closeEncModal();
+  if (prefix === 's') updateSinglePreview(); else updateMultiPreview();
+  toast(`Encoder settings applied to the ${prefix === 's' ? 'single' : 'multi'} card`, 'ok');
+}
+
+function onEncFieldChange(key, value) {
+  if (key === PIX_FMT_KEY) {
+    const [chroma, depth] = value.split(':');
+    encDraft.chroma = chroma; encDraft.bit_depth = parseInt(depth);
+  } else if (key === 'gop_size' || key === 'bframes' || key === 'bit_depth') {
+    encDraft[key] = parseInt(value);
+  } else {
+    encDraft[key] = value;
+  }
+  if (key === 'codec') {
+    // Profile list depends on the codec; entropy only exists for H.264.
+    encDraft.profile = compatibleProfile(encDraft.codec, encDraft);
+    if (encDraft.codec !== 'h264') encDraft.entropy = 'cabac';
+  }
+  renderEncFields();
+}
+
+function renderEncFields() {
+  const protocol = getProtocol(encModalPrefix);
+  const rules = encodeOptions.protocol_rules[protocol] || {};
+  const box = document.getElementById('enc-fields');
+  let html = '';
+  ENC_FIELD_GROUPS.forEach(g => {
+    html += `<div class="enc-group"><div class="enc-group-title">${esc(g.title)}</div><div class="enc-grid">`;
+    g.fields.forEach(f => {
+      let options, current, disabled = false, hint = f.hint || '';
+      if (f.key === PIX_FMT_KEY) {
+        options = [];
+        encChoices('chroma').forEach(c => encChoices('bit_depth').forEach(b =>
+          options.push({ value: `${c.value}:${b.value}`, label: pixFmtOf({ chroma: c.value, bit_depth: b.value }) + ` (${c.label} ${b.label})` })));
+        current = `${encDraft.chroma}:${encDraft.bit_depth}`;
+      } else {
+        options = encChoices(f.key, encDraft.codec);
+        current = String(encDraft[f.key]);
+        if (f.key === 'entropy' && encDraft.codec !== 'h264') disabled = true;
+        if (rules[f.key] && rules[f.key].length === 1) { disabled = true; hint = `fixed by ${protocol.toUpperCase()}`; }
+        if (f.key === 'profile') {
+          const fm = (encodeOptions.profile_formats[encDraft.codec] || {})[encDraft.profile];
+          if (fm) hint = `allows 4:${fm.chroma.map(c => c[1] + ':' + c[2]).join(' / 4:')} · ${fm.bit_depth.join('/')}-bit`;
+        }
+      }
+      const allowed = rules[f.key] ? rules[f.key].map(String) : null;
+      html += `<div class="field"><label>${esc(f.label)}</label>` +
+        `<select data-key="${f.key}" ${disabled ? 'disabled' : ''} onchange="onEncFieldChange(this.dataset.key, this.value)">` +
+        options.map(o => `<option value="${esc(String(o.value))}" ${String(o.value) === current ? 'selected' : ''} ${allowed && !allowed.includes(String(o.value)) ? 'disabled' : ''}>${esc(o.label)}</option>`).join('') +
+        `</select><div class="field-hint">${esc(hint)}</div></div>`;
+    });
+    html += '</div></div>';
+  });
+  box.innerHTML = html;
+  document.getElementById('enc-note').textContent =
+    `Preview: ${encodeSummary(encDraft)}. Settings apply to transcode jobs of this card only; passthrough and Bars & Tone are unaffected.`;
+  const err = encValidationError(encDraft, protocol);
+  const errBox = document.getElementById('enc-error');
+  errBox.textContent = err ? '⚠ ' + err : '';
+  errBox.classList.toggle('show', !!err);
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && encModalPrefix) closeEncModal(); });
 
 // ── Source picker — Video Analyser + Recordings .ts files ────────────────────
 // Maps a source file's exact value (e.g. full .ts path or "test.mp4") to its
@@ -1795,6 +2179,8 @@ function onIndependentChange() {
 ['s', 'm'].forEach(initSourcePicker);
 ['s', 'm'].forEach(onProtocolChange);
 loadCapabilities();
+loadEncodeOptions();
+loadMe();
 loadSources();
 setInterval(loadSources, SOURCE_REFRESH_MS);
 

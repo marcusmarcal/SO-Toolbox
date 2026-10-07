@@ -17,6 +17,12 @@ Output protocols
         uses libx264 (bf=0, yuv420p, zerolatency) + libopus. Optional Bearer
         token is passed with -authorization.
 
+Transcode jobs carry operator-adjustable encoder settings (codec, profile,
+level, GOP, B-frames, picture format, colour signalling, rate control, frame
+rate, audio coding — see TRANSCODE_DEFAULTS / GET /encode-options). Every job
+also records who launched it (operator identity relayed by the UI from the
+portal's /so-proxy/me route) and when.
+
 Jobs are persistent: unless the user explicitly stops a job, the reader
 thread keeps relaunching ffmpeg after a short delay whenever the process
 exits (connection refused, network drop, etc). Each job can also be
@@ -662,6 +668,236 @@ def _next_job_id() -> int:
 
 
 # ---------------------------------------------------------------------------
+# Transcode encoder settings
+# ---------------------------------------------------------------------------
+# Operator-adjustable encoding parameters for the transcode mode (file sources
+# only — passthrough copies streams and B&T has a fixed compliance profile).
+# The defaults reproduce the historical fixed profile: H.264 High, 1920x1080
+# progressive 25 fps, GOP 50 closed, no B-frames, 4:2:0 8-bit, BT.709,
+# strict CBR, AAC 128 kb/s 48 kHz stereo.
+#
+# GET /encode-options publishes the defaults, the choice lists and the
+# per-protocol rules so the UI dropdowns are populated from this module and
+# can never drift from what _normalise_encode() accepts.
+
+TRANSCODE_DEFAULTS = {
+    "codec": "h264",            # coding algorithm
+    "profile": "high",          # codec profile (choices depend on codec)
+    "level": "auto",            # codec level
+    "entropy": "cabac",         # H.264 entropy coding (HEVC is always CABAC)
+    "resolution": "1920x1080",  # output picture size ("source" = no scaling)
+    "frame_rate": "25",         # output frame rate (ffmpeg rational accepted)
+    "scan": "progressive",      # progressive | tff | bff
+    "chroma": "420",            # chroma subsampling
+    "bit_depth": 8,             # 8 | 10
+    "colour": "bt709",          # colour gamut / transfer signalling (VUI tags)
+    "gop_size": 50,             # keyframe interval in frames (closed GOP)
+    "bframes": 0,               # consecutive B-frames
+    "rate_control": "cbr",      # cbr | vbr
+    "audio_codec": "aac",       # aac | mp2 | ac3 | libopus
+    "audio_bitrate": "128k",
+}
+
+# (value, label) pairs in UI display order. "profile" is keyed by codec.
+TRANSCODE_CHOICES = {
+    "codec": [("h264", "H.264 / AVC (libx264)"), ("hevc", "H.265 / HEVC (libx265)")],
+    "profile": {
+        "h264": [("baseline", "Baseline"), ("main", "Main"), ("high", "High"),
+                 ("high10", "High 10"), ("high422", "High 4:2:2"), ("high444", "High 4:4:4 Predictive")],
+        "hevc": [("main", "Main"), ("main10", "Main 10"), ("main422-10", "Main 4:2:2 10"),
+                 ("main444-8", "Main 4:4:4"), ("main444-10", "Main 4:4:4 10")],
+    },
+    "level": [("auto", "Auto"), ("3.0", "3.0"), ("3.1", "3.1"), ("3.2", "3.2"), ("4.0", "4.0"),
+              ("4.1", "4.1"), ("4.2", "4.2"), ("5.0", "5.0"), ("5.1", "5.1"), ("5.2", "5.2"),
+              ("6.0", "6.0"), ("6.1", "6.1")],
+    "entropy": [("cabac", "CABAC"), ("cavlc", "CAVLC")],
+    "resolution": [("source", "Source (no scaling)"), ("3840x2160", "3840×2160 (UHD)"),
+                   ("1920x1080", "1920×1080 (FHD)"), ("1280x720", "1280×720 (HD)"),
+                   ("960x540", "960×540 (qHD)"), ("720x576", "720×576 (SD PAL)"),
+                   ("720x480", "720×480 (SD NTSC)"), ("640x360", "640×360")],
+    "frame_rate": [("24000/1001", "23.976 fps"), ("24", "24 fps"), ("25", "25 fps"),
+                   ("30000/1001", "29.97 fps"), ("30", "30 fps"), ("50", "50 fps"),
+                   ("60000/1001", "59.94 fps"), ("60", "60 fps")],
+    "scan": [("progressive", "Progressive"), ("tff", "Interlaced — top field first"),
+             ("bff", "Interlaced — bottom field first")],
+    "chroma": [("420", "4:2:0"), ("422", "4:2:2"), ("444", "4:4:4")],
+    "bit_depth": [(8, "8-bit"), (10, "10-bit")],
+    "colour": [("bt709", "BT.709 (HD SDR)"), ("bt601", "BT.601 / SMPTE 170M (SD)"),
+               ("bt2020", "BT.2020 SDR"), ("bt2020_hlg", "BT.2020 HLG (HDR)"),
+               ("bt2020_pq", "BT.2020 PQ / HDR10")],
+    "gop_size": [(12, "12 frames"), (15, "15 frames"), (24, "24 frames"), (25, "25 frames"),
+                 (30, "30 frames"), (48, "48 frames"), (50, "50 frames"), (60, "60 frames"),
+                 (100, "100 frames"), (120, "120 frames"), (150, "150 frames"), (250, "250 frames")],
+    "bframes": [(0, "0 (no B-frames)"), (1, "1"), (2, "2"), (3, "3"), (4, "4")],
+    "rate_control": [("cbr", "CBR (constant)"), ("vbr", "VBR (constrained)")],
+    "audio_codec": [("aac", "AAC-LC"), ("mp2", "MPEG-1 Layer II"), ("ac3", "Dolby Digital (AC-3)"),
+                    ("libopus", "Opus")],
+    "audio_bitrate": [("64k", "64 kb/s"), ("96k", "96 kb/s"), ("128k", "128 kb/s"), ("192k", "192 kb/s"),
+                      ("256k", "256 kb/s"), ("320k", "320 kb/s"), ("384k", "384 kb/s")],
+}
+
+# Hard constraints imposed by the output container / transport. Values not
+# listed are rejected with a 400 (the UI disables them up front).
+TRANSCODE_PROTOCOL_RULES = {
+    "srt": {},
+    "rtmp": {"codec": ["h264"], "audio_codec": ["aac"]},
+    "whip": {"codec": ["h264"], "audio_codec": ["libopus"], "bframes": [0]},
+}
+
+# Picture formats each profile can carry: (chroma set, bit-depth set).
+_PROFILE_FORMATS = {
+    "h264": {
+        "baseline": ({"420"}, {8}), "main": ({"420"}, {8}), "high": ({"420"}, {8}),
+        "high10": ({"420"}, {8, 10}), "high422": ({"420", "422"}, {8, 10}),
+        "high444": ({"420", "422", "444"}, {8, 10}),
+    },
+    "hevc": {
+        "main": ({"420"}, {8}), "main10": ({"420"}, {8, 10}), "main422-10": ({"420", "422"}, {8, 10}),
+        "main444-8": ({"420", "422", "444"}, {8}), "main444-10": ({"420", "422", "444"}, {8, 10}),
+    },
+}
+
+# colour -> (-color_primaries, -color_trc, -colorspace). Signalling only
+# (VUI metadata): no colour conversion is performed on the picture.
+_COLOUR_TAGS = {
+    "bt709": ("bt709", "bt709", "bt709"),
+    "bt601": ("smpte170m", "smpte170m", "smpte170m"),
+    "bt2020": ("bt2020", "bt2020-10", "bt2020nc"),
+    "bt2020_hlg": ("bt2020", "arib-std-b67", "bt2020nc"),
+    "bt2020_pq": ("bt2020", "smpte2084", "bt2020nc"),
+}
+
+# VBR: the UI bitrate is the average; the peak is capped at this multiple.
+VBR_MAXRATE_FACTOR = 1.5
+
+_INT_ENCODE_FIELDS = ("gop_size", "bframes", "bit_depth")
+
+
+def _choice_values(key: str, codec: Optional[str] = None) -> list:
+    choices = TRANSCODE_CHOICES["profile"][codec] if key == "profile" else TRANSCODE_CHOICES[key]
+    return [v for v, _ in choices]
+
+
+def _pix_fmt(enc: dict) -> str:
+    base = {"420": "yuv420p", "422": "yuv422p", "444": "yuv444p"}[enc["chroma"]]
+    return base + ("10le" if enc["bit_depth"] == 10 else "")
+
+
+def _normalise_encode(raw, protocol: str) -> dict:
+    """Merge an `encode` request object over TRANSCODE_DEFAULTS and validate
+    every field against the choice lists, the protocol rules and the
+    profile/picture-format compatibility table. Raises ValueError with a
+    user-facing message."""
+    if raw is None:
+        raw = {}
+    if not isinstance(raw, dict):
+        raise ValueError("encode must be an object")
+    enc = dict(TRANSCODE_DEFAULTS)
+    for key in TRANSCODE_DEFAULTS:
+        val = raw.get(key)
+        if val in (None, ""):
+            continue
+        if key in _INT_ENCODE_FIELDS:
+            try:
+                val = int(val)
+            except (TypeError, ValueError):
+                raise ValueError(f"Invalid encode.{key}: {val!r}")
+        else:
+            val = str(val).strip().lower()
+        enc[key] = val
+
+    # Fields left out follow the codec / protocol rather than the flat default.
+    if raw.get("profile") in (None, ""):
+        enc["profile"] = "high" if enc["codec"] == "h264" else "main"
+    if raw.get("audio_codec") in (None, "") and protocol == "whip":
+        enc["audio_codec"] = "libopus"  # WebRTC mandates Opus
+
+    if enc["codec"] not in _choice_values("codec"):
+        raise ValueError(f"Invalid encode.codec: {enc['codec']}")
+    for key in TRANSCODE_DEFAULTS:
+        if enc[key] not in _choice_values(key, enc["codec"]):
+            raise ValueError(f"Invalid encode.{key}: {enc[key]} (not valid for {enc['codec']})"
+                             if key == "profile" else f"Invalid encode.{key}: {enc[key]}")
+
+    rules = TRANSCODE_PROTOCOL_RULES.get(protocol, {})
+    for key, allowed in rules.items():
+        if enc[key] not in allowed:
+            raise ValueError(
+                f"{protocol.upper()} transcode does not allow encode.{key}={enc[key]} "
+                f"(allowed: {', '.join(str(a) for a in allowed)})"
+            )
+
+    chromas, depths = _PROFILE_FORMATS[enc["codec"]][enc["profile"]]
+    if enc["chroma"] not in chromas or enc["bit_depth"] not in depths:
+        raise ValueError(
+            f"Profile {enc['profile']} cannot carry 4:{enc['chroma'][1]}:{enc['chroma'][2]} "
+            f"{enc['bit_depth']}-bit ({_pix_fmt(enc)}) — pick a higher profile or change the picture format"
+        )
+    if enc["codec"] == "h264" and enc["profile"] == "baseline":
+        if enc["bframes"]:
+            raise ValueError("H.264 Baseline profile has no B-frames (set B-frames to 0)")
+        if enc["entropy"] != "cavlc":
+            raise ValueError("H.264 Baseline profile requires CAVLC entropy coding")
+    return enc
+
+
+def _encode_summary(enc: dict) -> str:
+    """Compact one-line description of an encoder profile for the UI / logs."""
+    res = enc["resolution"] if enc["resolution"] != "source" else "source res"
+    scan = "p" if enc["scan"] == "progressive" else f"i({enc['scan']})"
+    level = "" if enc["level"] == "auto" else f"@L{enc['level']}"
+    fps = dict(TRANSCODE_CHOICES["frame_rate"]).get(enc["frame_rate"], enc["frame_rate"])
+    return (
+        f"{'H.264' if enc['codec'] == 'h264' else 'HEVC'} {enc['profile']}{level} · {res}{scan} {fps} · "
+        f"GOP {enc['gop_size']} · B {enc['bframes']} · {_pix_fmt(enc)} · {enc['colour']} · "
+        f"{enc['rate_control'].upper()} · {enc['audio_codec']} {enc['audio_bitrate']}"
+    )
+
+
+def _encode_options_payload() -> dict:
+    """Body of GET /encode-options (JSON-friendly copy of the tables above)."""
+    def pairs(lst):
+        return [{"value": v, "label": l} for v, l in lst]
+    choices = {k: (({c: pairs(v) for c, v in val.items()}) if k == "profile" else pairs(val))
+               for k, val in TRANSCODE_CHOICES.items()}
+    return {
+        "defaults": dict(TRANSCODE_DEFAULTS),
+        "choices": choices,
+        "protocol_rules": TRANSCODE_PROTOCOL_RULES,
+        "profile_formats": {
+            codec: {p: {"chroma": sorted(c), "bit_depth": sorted(d)} for p, (c, d) in table.items()}
+            for codec, table in _PROFILE_FORMATS.items()
+        },
+        "default_summary": _encode_summary(TRANSCODE_DEFAULTS),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Operator identity
+# ---------------------------------------------------------------------------
+# The UI resolves the logged-in operator from the portal's /so-proxy/me route
+# and sends it with every ingest request so the job list shows who launched
+# each job. Only the display name and username are kept (data minimisation),
+# in memory with the job record — nothing is persisted. NOTE: the identity is
+# relayed by the browser, not asserted by this backend; it is attribution for
+# operators, not an authorisation control.
+OPERATOR_FIELDS = ("display_name", "username")
+OPERATOR_FIELD_MAX_LEN = 128
+
+
+def _read_operator(data: dict) -> Optional[dict]:
+    raw = data.get("operator")
+    if not isinstance(raw, dict):
+        return None
+    op = {}
+    for key in OPERATOR_FIELDS:
+        val = str(raw.get(key) or "").strip()[:OPERATOR_FIELD_MAX_LEN]
+        if val:
+            op[key] = val
+    return op or None
+
+
+# ---------------------------------------------------------------------------
 # ffmpeg command builders
 # ---------------------------------------------------------------------------
 # Every command is "<input options> -i <source> <output block>+" where each
@@ -690,9 +926,11 @@ def _container_args(protocol: str, secret: str) -> list:
     return args
 
 
-def _audio_encode_args(protocol: str, audio_bitrate: Optional[str] = None) -> list:
-    """Audio encoder for a protocol: Opus for WHIP (WebRTC), AAC otherwise."""
-    codec = "libopus" if protocol == "whip" else "aac"
+def _audio_encode_args(protocol: str, audio_bitrate: Optional[str] = None,
+                       codec: Optional[str] = None) -> list:
+    """Audio encoder for a protocol: Opus for WHIP (WebRTC), AAC otherwise,
+    unless an explicit (already validated) codec is given."""
+    codec = codec or ("libopus" if protocol == "whip" else "aac")
     args = ["-c:a", codec]
     if audio_bitrate:
         args += ["-b:a", audio_bitrate]
@@ -723,35 +961,78 @@ def _copy_output_args(dest: dict, secret: str) -> list:
     return args + _container_args(protocol, secret) + [_dest_output_url(dest, secret)]
 
 
-def _transcode_output_args(dest: dict, secret: str, bitrate_mbps: float) -> list:
-    """Strict-CBR libx264 transcode output block (1080p25, closed GOP, no
-    B-frames) + AAC/Opus audio, for one destination."""
+def _transcode_output_args(dest: dict, secret: str, bitrate_mbps: float,
+                           enc: Optional[dict] = None) -> list:
+    """Transcode output block for one destination, driven by a validated
+    encoder-settings dict (see _normalise_encode; None = TRANSCODE_DEFAULTS).
+
+    Defaults reproduce the historical profile: libx264 High, 1080p25 closed
+    GOP 50, no B-frames, strict CBR, AAC 48 kHz stereo. The settings only
+    change *what* is encoded — the output block layout (map / video / audio /
+    filter / container / URL) is identical for every protocol.
+    """
     protocol = dest["protocol"]
-    vbr = f"{bitrate_mbps}M"
-    bufsize = f"{bitrate_mbps * CBR_BUFSIZE_FACTOR}M"
-    args = [
-        "-map", "0:v:0",
-        "-map", "0:a:0",
-        # Video — strict CBR
-        "-c:v", "libx264",
-        "-x264-params", "force-cfr=1:pic-struct=1",
-        "-bf", "0",
-        "-flags", "+cgop",
-        "-r", "25",
-        "-g", "50",
-        "-keyint_min", "50",
-        "-sc_threshold", "0",
-        "-b:v", vbr,
-        "-minrate", vbr,
-        "-maxrate", vbr,
-        "-bufsize", bufsize,
+    enc = enc or _normalise_encode(None, protocol)
+    interlaced = enc["scan"] != "progressive"
+    gop = str(enc["gop_size"])
+    bf = str(enc["bframes"])
+    vbr = f"{bitrate_mbps:g}M"
+
+    args = ["-map", "0:v:0", "-map", "0:a:0"]
+
+    # Video codec ---------------------------------------------------------
+    if enc["codec"] == "h264":
+        x264 = ["force-cfr=1", "pic-struct=1"]
+        if interlaced:
+            x264.append(f"{enc['scan']}=1")
+        if enc["entropy"] == "cavlc":
+            x264.append("cabac=0")
+        args += ["-c:v", "libx264", "-profile:v", enc["profile"],
+                 "-x264-params", ":".join(x264)]
+        if enc["level"] != "auto":
+            args += ["-level", enc["level"]]
+        args += ["-sc_threshold", "0"]
+    else:
+        x265 = ["open-gop=0", "scenecut=0"]
+        if interlaced:
+            x265.append(f"interlace={enc['scan']}")
+        if enc["level"] != "auto":
+            x265.append(f"level-idc={enc['level']}")
+        args += ["-c:v", "libx265", "-profile:v", enc["profile"],
+                 "-x265-params", ":".join(x265)]
+
+    # Picture / GOP -------------------------------------------------------
+    flags = "+cgop" + ("+ildct+ilme" if interlaced else "")
+    args += [
+        "-pix_fmt", _pix_fmt(enc),
+        "-bf", bf,
+        "-flags", flags,
+        "-r", enc["frame_rate"],
+        "-g", gop,
+        "-keyint_min", gop,
     ]
+    prim, trc, space = _COLOUR_TAGS[enc["colour"]]
+    args += ["-color_primaries", prim, "-color_trc", trc, "-colorspace", space, "-color_range", "tv"]
+
+    # Rate control --------------------------------------------------------
+    if enc["rate_control"] == "cbr":
+        args += ["-b:v", vbr, "-minrate", vbr, "-maxrate", vbr,
+                 "-bufsize", f"{bitrate_mbps * CBR_BUFSIZE_FACTOR:g}M"]
+    else:
+        maxrate = bitrate_mbps * VBR_MAXRATE_FACTOR
+        args += ["-b:v", vbr, "-maxrate", f"{maxrate:g}M",
+                 "-bufsize", f"{maxrate * CBR_BUFSIZE_FACTOR:g}M"]
+
     if protocol == "whip":
-        # WebRTC receivers expect 4:2:0 H.264 and benefit from low-latency
-        # encoder settings (no lookahead / frame threading delay).
-        args += ["-pix_fmt", "yuv420p", "-tune", "zerolatency"]
-    args += _audio_encode_args(protocol)
-    args += ["-vf", "scale=1920:1080"]
+        # WebRTC receivers benefit from low-latency encoder settings (no
+        # lookahead / frame threading delay).
+        args += ["-tune", "zerolatency"]
+
+    args += _audio_encode_args(protocol, enc["audio_bitrate"], enc["audio_codec"])
+
+    if enc["resolution"] != "source":
+        w, h = enc["resolution"].split("x")
+        args += ["-vf", f"scale={w}:{h}" + (":interl=1" if interlaced else "")]
     return args + _container_args(protocol, secret) + [_dest_output_url(dest, secret)]
 
 
@@ -809,11 +1090,13 @@ def _build_ffmpeg_cmd(
     passthrough: bool = False,
     source_mode: str = "file",
     resolve_loop: bool = True,
+    encode: Optional[dict] = None,
 ) -> list:
     """Build the ffmpeg command for ONE destination (any protocol).
 
     passthrough=True: copy streams without video re-encoding (for .ts sources).
-    passthrough=False: full CBR transcode with libx264 + aac/libopus.
+    passthrough=False: transcode driven by `encode` (validated encoder
+    settings, see _normalise_encode; None = defaults).
     resolve_loop=False: keep the original input path in "-i" instead of
     generating/looking up the cached pre-trimmed loop copy (used by the
     /ingest/preview route, which must never touch the filesystem).
@@ -827,7 +1110,7 @@ def _build_ffmpeg_cmd(
         return ([ffmpeg, "-stream_loop", "-1", "-fflags", "+genpts", "-re", "-i", loop_input]
                 + _copy_output_args(dest, secret))
     return ([ffmpeg, "-stream_loop", "-1", "-re", "-fflags", "+genpts", "-i", loop_input]
-            + _transcode_output_args(dest, secret, bitrate_mbps))
+            + _transcode_output_args(dest, secret, bitrate_mbps, encode))
 
 
 def _build_ffmpeg_cmd_shared(
@@ -892,6 +1175,7 @@ def _launch_process(job: dict) -> None:
         cmd = _build_ffmpeg_cmd(
             job["input_file"], job["dest"], job["secret"],
             job["bitrate_mbps"], job["passthrough"], job.get("source_mode", "file"),
+            encode=job.get("encode"),
         )
     process = subprocess.Popen(
         cmd,
@@ -997,6 +1281,11 @@ def _new_job_record(job_id: int, **fields) -> dict:
         "last_error": None,
         "stop_requested": False,
         "retry_count": 0,
+        # Who launched the job (display_name/username from /so-proxy/me) and when.
+        "operator": None,
+        "started_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        # Validated encoder settings (transcode of a file source only).
+        "encode": None,
     }
     job.update(fields)
     return job
@@ -1023,6 +1312,8 @@ def _launch_job(
     bitrate_mbps: float = CBR_DEFAULT_MBPS,
     passthrough: bool = False,
     source_mode: str = "file",
+    encode: Optional[dict] = None,
+    operator: Optional[dict] = None,
 ) -> dict:
     """Create a single-destination job record and launch it."""
     job = _new_job_record(
@@ -1036,12 +1327,15 @@ def _launch_job(
         bitrate_mbps=bitrate_mbps,
         passthrough=passthrough,
         source_mode=source_mode,
+        encode=encode,
+        operator=operator,
         mode="bars-tone" if source_mode == "bars_tone" else ("passthrough" if passthrough else "transcode"),
     )
     return _start_job(job)
 
 
-def _launch_shared_job(input_file: str, destinations: list, secret: str) -> dict:
+def _launch_shared_job(input_file: str, destinations: list, secret: str,
+                      operator: Optional[dict] = None) -> dict:
     """Create and launch a SHARED job: one ffmpeg process, one decode, fanning
     out an unmodified copy to every destination in `destinations`. Reuses the
     same reader-thread/reconnect/stop/restart machinery as a single job.
@@ -1057,6 +1351,7 @@ def _launch_shared_job(input_file: str, destinations: list, secret: str) -> dict
         bitrate_mbps=None,
         passthrough=True,
         source_mode="file",
+        operator=operator,
         mode="passthrough-shared",
     )
     return _start_job(job)
@@ -1087,6 +1382,10 @@ def _job_info(job: dict) -> dict:
         "last_error": job.get("last_error"),
         "error_detail": list(job.get("error_log", []))[-12:],
         "cmd": job.get("cmd", ""),
+        "operator": job.get("operator"),
+        "started_at": job.get("started_at"),
+        "encode": job.get("encode"),
+        "encode_summary": _encode_summary(job["encode"]) if job.get("encode") else None,
         "destinations": [
             {k: d.get(k) for k in ("protocol", "host", "port", "index", "label")} for d in dests
         ],
@@ -1111,6 +1410,14 @@ def _read_common_ingest_fields(data: dict) -> tuple:
         bitrate_mbps = 1.0
         passthrough = False
     return input_file, bitrate_mbps, passthrough, source_mode
+
+
+def _read_encode(data: dict, protocol: str, passthrough: bool, source_mode: str) -> Optional[dict]:
+    """Validated encoder settings for a request, or None when they don't
+    apply (passthrough / B&T). Raises ValueError."""
+    if passthrough or source_mode != "file":
+        return None
+    return _normalise_encode(data.get("encode"), protocol)
 
 
 def _protocol_notes(protocol: str, passthrough: bool, source_mode: str) -> list:
@@ -1147,19 +1454,23 @@ def ingest_single():
     """
     Start a single-destination ingest (SRT, RTMP or WHIP).
     Body JSON: { protocol?, host, port, passphrase? | url, stream_key? | url,
-                 token?, input_file?, bitrate_mbps?, passthrough?, source_mode? }
+                 token?, input_file?, bitrate_mbps?, passthrough?, source_mode?,
+                 encode? (transcode settings, see TRANSCODE_DEFAULTS),
+                 operator? ({display_name, username} from /so-proxy/me) }
     The job keeps retrying to connect automatically until stopped.
     """
     data = request.get_json(force=True) or {}
     try:
         input_file, bitrate_mbps, passthrough, source_mode = _read_common_ingest_fields(data)
         protocol, dests, secret = _parse_destinations(data, multi=False)
+        encode = _read_encode(data, protocol, passthrough, source_mode)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     if source_mode != "bars_tone" and not os.path.isfile(input_file):
         return jsonify({"error": f"Input file not found: {input_file}"}), 400
 
-    job = _launch_job(input_file, dests[0], secret, bitrate_mbps, passthrough, source_mode=source_mode)
+    job = _launch_job(input_file, dests[0], secret, bitrate_mbps, passthrough,
+                      source_mode=source_mode, encode=encode, operator=_read_operator(data))
     return jsonify({"message": "Ingest started", "job": _job_info(job)}), 201
 
 
@@ -1179,6 +1490,7 @@ def ingest_multi():
     try:
         input_file, bitrate_mbps, passthrough, source_mode = _read_common_ingest_fields(data)
         protocol, dests, secret = _parse_destinations(data, multi=True)
+        encode = _read_encode(data, protocol, passthrough, source_mode)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     if len(dests) > MULTI_INDEPENDENT_MAX_DESTINATIONS:
@@ -1192,9 +1504,11 @@ def ingest_multi():
     if source_mode != "bars_tone" and not os.path.isfile(input_file):
         return jsonify({"error": f"Input file not found: {input_file}"}), 400
 
+    operator = _read_operator(data)
     jobs = []
     for dest in dests:
-        job = _launch_job(input_file, dest, secret, bitrate_mbps, passthrough, source_mode=source_mode)
+        job = _launch_job(input_file, dest, secret, bitrate_mbps, passthrough,
+                          source_mode=source_mode, encode=encode, operator=operator)
         jobs.append(_job_info(job))
 
     return jsonify({
@@ -1227,7 +1541,7 @@ def ingest_multi_shared():
     if not os.path.isfile(input_file):
         return jsonify({"error": f"Input file not found: {input_file}"}), 400
 
-    job = _launch_shared_job(input_file, dests, secret)
+    job = _launch_shared_job(input_file, dests, secret, operator=_read_operator(data))
     return jsonify({
         "message": f"Shared ingest started to {len(dests)} destinations (1 ffmpeg process)",
         "job": _job_info(job),
@@ -1259,6 +1573,7 @@ def ingest_preview():
     try:
         input_file, bitrate_mbps, passthrough, source_mode = _read_common_ingest_fields(data)
         protocol, dests, secret = _parse_destinations(data, multi=(mode != "single"))
+        encode = None if mode == "multi-shared" else _read_encode(data, protocol, passthrough, source_mode)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
@@ -1269,7 +1584,7 @@ def ingest_preview():
     cmds = []
     if mode == "single":
         cmd = _build_ffmpeg_cmd(input_file, dests[0], secret, bitrate_mbps,
-                                passthrough, source_mode, resolve_loop=False)
+                                passthrough, source_mode, resolve_loop=False, encode=encode)
         cmds.append({"label": dests[0]["label"], "argv": _mask_cmd(cmd)})
         count = 1
     elif mode == "multi-shared":
@@ -1289,7 +1604,7 @@ def ingest_preview():
             )
         for dest in dests[:MULTI_INDEPENDENT_MAX_DESTINATIONS]:
             cmd = _build_ffmpeg_cmd(input_file, dest, secret, bitrate_mbps,
-                                    passthrough, source_mode, resolve_loop=False)
+                                    passthrough, source_mode, resolve_loop=False, encode=encode)
             cmds.append({"label": dest["label"], "argv": _mask_cmd(cmd)})
         count = len(dests)
 
@@ -1297,6 +1612,9 @@ def ingest_preview():
         c["text"] = " ".join(c["argv"])
 
     notes = _protocol_notes(protocol, passthrough or mode == "multi-shared", source_mode)
+    if encode is not None:
+        notes.append(f"Encoder: {_encode_summary(encode)}. Colour values are VUI signalling only "
+                     "(no colour conversion is applied).")
     if source_mode == "file":
         notes.append(
             f"At launch, -i is replaced by the cached loop copy of this file "
@@ -1306,9 +1624,19 @@ def ingest_preview():
     return jsonify({
         "mode": mode, "protocol": protocol, "count": count, "cmds": cmds,
         "warnings": warnings, "notes": notes,
+        "encode": encode,
+        "encode_summary": _encode_summary(encode) if encode else None,
         # Backward compatibility with the previous single-note response shape.
         "note": " ".join(notes) if notes else None,
     })
+
+
+@srt_bp.route("/encode-options", methods=["GET"])
+def encode_options():
+    """Defaults, dropdown choices and per-protocol rules for the transcode
+    encoder settings dialog. Served from TRANSCODE_* so the UI never drifts
+    from what the ingest routes validate."""
+    return jsonify(_encode_options_payload())
 
 
 @srt_bp.route("/capabilities", methods=["GET"])
