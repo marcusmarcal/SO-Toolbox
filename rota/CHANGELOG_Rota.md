@@ -2,7 +2,43 @@
 
 # Rota Changelog
 
-## [Unreleased]
+
+## 2026-10-08
+
+### Fixed
+- Dropdown inconsistency: "Request Leave (On behalf)", "Leave Approvals – Leave History",
+  and the Draft Mode popover "covering for" selector were populated from `state.allUsers`
+  (all accounts in users.json with a valid role), which included accounts with no rota
+  entry such as observer admins.
+- All three dropdowns now source from `state.roster` (person_directory.json active entries),
+  matching the behaviour of the AL Allowance and Misc Entries member selectors.
+
+### Changed
+- Print Month: non-management users can now export any past month back to January 2026,
+  not just the current month. Next month is still unlocked only in the final 10 days of
+  the current month. Enforced in `_print_month_allowed_for_staff()` (backend) and mirrored
+  in the month picker min/max and the pre-submit check (frontend).
+
+### Files
+- routes_rota.py
+- index.html
+
+### Fixed
+- `/rota/next-shift`: today's shift is only returned if its start time is still
+  in the future; once started or finished, the next working shift is shown.
+  Affects the "Next Shift" card (My Overview > AL Allowance) and All Members tiles.
+### Changed
+- All backend "today" checks now use `_today_local()` (Europe/Lisbon via zoneinfo)
+  instead of `date.today()`, so behaviour no longer depends on the server
+  timezone (prod = UTC).
+- If tz data fails to load, a warning is logged at import and server local time
+  is used, instead of failing the shared toolbox.
+- Frontend date defaults/limits use local-date formatting (`_localISODate`)
+  instead of UTC `toISOString()`.
+### Added
+- `ROTA_TZ_NAME`, `_now_local()`, `_today_local()`, `_shift_start_is_upcoming()` helpers.
+
+
 
 ### Added 24-09-2026
 - **In-app notification system**: staff receive a popup notification when

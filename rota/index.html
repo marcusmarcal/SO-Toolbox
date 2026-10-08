@@ -4479,14 +4479,17 @@ function _removeCellFromBoxes(ri, ci) {
       notCovChk.checked = false;
       const covSel = document.getElementById('popover-coverage-person');
       covSel.innerHTML = '<option value="">— covering for… —</option>';
-      Object.entries(state.allUsers)
-        .sort((a, b) => a[1].name.localeCompare(b[1].name))
-        .forEach(([email, u]) => {
-          if (u.name === first.person) return;
-          const opt = document.createElement('option');
-          opt.value = u.name; opt.textContent = u.name;
-          covSel.appendChild(opt);
-        });
+      const rosterNames = [
+        ...(state.roster.management  || []),
+        ...(state.roster.engineering || []),
+        ...(state.roster.specialists || []),
+      ].sort((a, b) => a.localeCompare(b));
+      rosterNames.forEach(name => {
+        if (name === first.person) return;
+        const opt = document.createElement('option');
+        opt.value = name; opt.textContent = name;
+        covSel.appendChild(opt);
+      });
       covSel.style.display = '';
       document.getElementById('popover-coverage-row').style.display = '';
       notCovChk.onchange = () => { covSel.style.display = notCovChk.checked ? 'none' : ''; _updateNoteRequired(); _validateApply(); };
@@ -5399,17 +5402,30 @@ function _removeCellFromBoxes(ri, ci) {
   //  HELPERS
   // ════════════════════════════════════════════════════════════════
   function _populateUserDropdown(sel) {
-    Object.entries(state.allUsers)
-      .sort((a, b) => a[1].name.localeCompare(b[1].name))
-      .forEach(([email, u]) => {
-        const opt = document.createElement('option');
-        opt.value = email;
-        opt.textContent = `${u.name} (${u.team})`;
-        sel.appendChild(opt);
-      });
+    const rosterNames = [
+      ...(state.roster.management  || []),
+      ...(state.roster.engineering || []),
+      ...(state.roster.specialists || []),
+    ];
+    // Build a reverse map: rota_label → email, from state.allUsers
+    const labelToEmail = {};
+    Object.entries(state.allUsers).forEach(([email, u]) => {
+      if (u.name) labelToEmail[u.name] = email;
+    });
+    const teamOf = name => state.roster.management.includes(name)  ? 'Management'
+                         : state.roster.engineering.includes(name) ? 'Engineering'
+                         : 'Specialists';
+    rosterNames.sort((a, b) => a.localeCompare(b)).forEach(name => {
+      const email = labelToEmail[name];
+      if (!email) return; // in roster but no login account — skip
+      const opt = document.createElement('option');
+      opt.value = email;
+      opt.textContent = `${name} (${teamOf(name)})`;
+      sel.appendChild(opt);
+    });
   }
 
-    function _localISODate(d) {
+  function _localISODate(d) {
     d = d || new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
