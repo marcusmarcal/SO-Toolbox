@@ -9,6 +9,40 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 `SRT Ingest:`, `General Tool Admin:`) so entries can be filtered per tool.
 
 ---
+
+## [4.15.1] - 2026-10-08
+
+### Added
+- ADHOC Manager: "Copy for Outlook / Jira" action for selected channels,
+  producing formatted HTML and plain text with the main and backup SRT
+  addresses and passphrase (`POST /api/adhoc/channels/share`).
+- ADHOC Manager: per-row Edit dialog and a Last edit column showing the user
+  and UTC time of the last change.
+- ADHOC Manager: confirmation popup listing old and new values before every
+  change, single or bulk.
+
+### Changed
+- ADHOC Manager: the channel table is now read-only; assignments are edited
+  only through the Edit dialog or the selected-channels bar.
+- ADHOC Manager: addresses are read from the Dataminer "Input Main" and
+  "Input Backup" values; Listener addresses are completed with
+  `ADC_LIST_URL_PRI` (main) and `ADC_LIST_URL_SEC` (backup) plus the
+  Dataminer port. `ADC_PROP_MODE`, `ADC_PROP_PORT` and `ADC_PROP_PORT_BACKUP`
+  are no longer used.
+- ADHOC Manager: restyled with the SO-Toolbox colour palette.
+
+### Removed
+- ADHOC Manager: Type column and Type filter.
+
+### Security
+- ADHOC Manager: every edit is written to the audit log (user, channel, old
+  and new values) before it is applied; the change is abandoned if the audit
+  entry cannot be written.
+- ADHOC Manager: the share endpoint is restricted to admin/engineer roles,
+  audited before any secret is returned and served with `Cache-Control: no-store`.
+- ADHOC Manager: passphrases embedded in Dataminer input URLs are masked in
+  lists and in the Details dialog.
+
 ## [4.14.1] - 2026-10-08
 
 ### Changed

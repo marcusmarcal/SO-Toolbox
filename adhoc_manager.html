@@ -6,236 +6,210 @@
 <title>ADHOC Manager</title>
 <style>
   :root {
-    --bg-deep: #12061f;
-    --bg-mid: #1b0a33;
-    --panel: rgba(36, 15, 66, 0.78);
-    --panel-solid: #24103f;
-    --row-alt: rgba(255, 255, 255, 0.025);
-    --line: rgba(196, 170, 255, 0.16);
-    --line-strong: rgba(196, 170, 255, 0.32);
-    --text: #f0eafc;
-    --muted: #a99bcb;
-    --accent: #b794ff;
-    --accent-strong: #8b5cf6;
-    --ok: #5ee0a0;
-    --warn: #ffc857;
-    --bad: #ff7a8a;
-    --info: #7cc4ff;
+    /* SO-Toolbox palette */
+    --bg: #1a1a1a;
+    --surface: #222222;
+    --card: #2e2e2e;
+    --border: #444444;
+    --accent: #a18bf5;
+    --accent2: #faa51a;
+    --accent3: #3f1568;
+    --text: #f2f2f2;
+    --muted: #9b9b9b;
+    --danger: #ff4e6a;
+    --mono: "Space Mono", Consolas, "DejaVu Sans Mono", monospace;
+    --display: "Syne", Calibri, "Segoe UI", sans-serif;
+    --res-ok: #3fb950;
+    --res-warn: #faa51a;
+    --res-error: #ff4e6a;
+
+    --body: Calibri, Carlito, "Segoe UI", Arial, sans-serif;
     --radius: 8px;
-    --font: Calibri, Carlito, "Segoe UI", Candara, Arial, sans-serif;
-    --mono: Consolas, "Cascadia Mono", "DejaVu Sans Mono", monospace;
   }
 
   * { box-sizing: border-box; }
-
   html { color-scheme: dark; }
 
   body {
     margin: 0;
     min-height: 100vh;
-    font-family: var(--font);
+    font-family: var(--body);
     font-size: 15px;
     line-height: 1.4;
     color: var(--text);
-    background:
-      radial-gradient(1100px 560px at 10% -8%, rgba(124, 58, 237, 0.38), transparent 62%),
-      radial-gradient(900px 520px at 100% 0%, rgba(168, 85, 247, 0.16), transparent 58%),
-      linear-gradient(180deg, var(--bg-mid), var(--bg-deep) 70%);
-    background-attachment: fixed;
+    background: var(--bg);
   }
 
-  /* Fine grain gives the dark purple background its textured feel. */
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    opacity: 0.07;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .55 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-  }
-
-  .page { position: relative; max-width: 1560px; margin: 0 auto; padding: 22px 24px 48px; }
+  .page { max-width: 1600px; margin: 0 auto; padding: 22px 24px 48px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
   /* ---- Header ---- */
-  .masthead { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+  .masthead {
+    display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    margin-bottom: 18px; padding-bottom: 16px; border-bottom: 2px solid var(--accent3);
+  }
   .brand { display: flex; align-items: center; gap: 16px; }
   .brand-logo { height: 34px; width: auto; display: none; }
   .brand-logo.has-src { display: block; }
-  h1 { margin: 0; font-size: 34px; font-weight: 700; letter-spacing: -0.01em; }
-  .tagline { margin: 2px 0 0; color: var(--muted); font-size: 15px; }
+  h1 { margin: 0; font-family: var(--display); font-size: 32px; font-weight: 700; letter-spacing: -0.01em; }
+  .tagline { margin: 2px 0 0; color: var(--muted); }
   .meta { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 14px; }
-  .meta .stale { color: var(--warn); }
+  .meta .stale { color: var(--res-warn); }
 
   /* ---- Buttons & inputs ---- */
   button { font: inherit; color: inherit; cursor: pointer; }
   button:disabled { cursor: not-allowed; opacity: 0.5; }
 
   .btn {
-    border: 1px solid var(--line-strong);
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 6px;
-    padding: 6px 12px;
+    border: 1px solid var(--border); background: var(--card);
+    border-radius: 6px; padding: 6px 12px;
     transition: background 0.15s, border-color 0.15s;
   }
-  .btn:hover:not(:disabled) { background: rgba(183, 148, 255, 0.18); border-color: var(--accent); }
-  .btn.primary { background: var(--accent-strong); border-color: var(--accent-strong); font-weight: 600; }
-  .btn.primary:hover:not(:disabled) { background: #9d74f7; border-color: #9d74f7; }
-  .btn.danger:hover:not(:disabled) { background: rgba(255, 122, 138, 0.18); border-color: var(--bad); }
+  .btn:hover:not(:disabled) { border-color: var(--accent); background: var(--accent3); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #1a1a1a; font-weight: 700; }
+  .btn.primary:hover:not(:disabled) { background: #b5a3f8; border-color: #b5a3f8; }
+  .btn.danger { color: var(--danger); }
+  .btn.danger:hover:not(:disabled) { border-color: var(--danger); background: rgba(255, 78, 106, 0.14); }
   .btn.tiny { padding: 1px 8px; font-size: 13px; border-radius: 5px; }
 
   input[type="text"], input[type="search"], input[type="date"], select {
-    font: inherit;
-    color: var(--text);
-    background: rgba(8, 2, 18, 0.55);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 5px 8px;
-    min-width: 0;
+    font: inherit; color: var(--text);
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 9px; min-width: 0;
   }
-  input::placeholder { color: rgba(169, 155, 203, 0.6); }
-  input:hover, select:hover { border-color: var(--line-strong); }
-
-  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-
+  input::placeholder { color: rgba(155, 155, 155, 0.65); }
+  input:hover, select:hover { border-color: #5c5c5c; }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-
-  input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent-strong); cursor: pointer; }
+  input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
 
   /* ---- Banners ---- */
-  .banner { border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 12px; background: var(--panel); }
-  .banner.warn { border-color: rgba(255, 200, 87, 0.55); }
-  .banner.error { border-color: rgba(255, 122, 138, 0.6); }
+  .banner { border: 1px solid var(--border); border-left-width: 4px; border-radius: var(--radius); padding: 10px 14px; margin-bottom: 12px; background: var(--surface); }
+  .banner.warn { border-left-color: var(--res-warn); }
+  .banner.error { border-left-color: var(--res-error); }
   .banner ul { margin: 0; padding-left: 18px; }
 
   /* ---- Filters ---- */
   .filters {
-    display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px 22px;
+    display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px 24px;
     padding: 14px 16px; margin-bottom: 12px;
-    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
-    backdrop-filter: blur(6px);
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
   }
   .field { display: flex; flex-direction: column; gap: 4px; }
   .field > label, .field > .label { font-size: 13px; color: var(--muted); }
-  .field input[type="search"] { width: 260px; }
+  .field input[type="search"] { width: 280px; }
 
-  .segmented { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 6px; overflow: hidden; }
-  .segmented button { border: 0; background: transparent; padding: 6px 14px; border-right: 1px solid var(--line); }
+  .segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .segmented button { border: 0; background: var(--card); padding: 6px 14px; border-right: 1px solid var(--border); }
   .segmented button:last-child { border-right: 0; }
-  .segmented button:hover { background: rgba(183, 148, 255, 0.14); }
-  .segmented button[aria-pressed="true"] { background: var(--accent-strong); font-weight: 600; }
+  .segmented button:hover { background: var(--accent3); }
+  .segmented button[aria-pressed="true"] { background: var(--accent); color: #1a1a1a; font-weight: 700; }
   .segmented .count { margin-left: 6px; opacity: 0.8; font-size: 13px; }
 
   .date-range { display: flex; align-items: center; gap: 8px; }
   .result-note { margin-left: auto; color: var(--muted); align-self: center; }
 
-  /* ---- Bulk bar ---- */
+  /* ---- Selection bar ---- */
   .bulk {
     position: sticky; top: 8px; z-index: 5;
     margin-bottom: 12px; padding: 12px 16px;
-    background: var(--panel-solid); border: 1px solid var(--accent); border-radius: var(--radius);
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+    background: var(--card); border: 1px solid var(--accent); border-radius: var(--radius);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
   }
   .bulk[hidden] { display: none; }
-  .bulk-head { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
-  .bulk-head strong { font-size: 17px; }
+  .bulk-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; margin-bottom: 10px; }
+  .bulk-head strong { font-family: var(--display); font-size: 17px; }
   .bulk-fields { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; }
   .bulk-field { display: flex; flex-direction: column; gap: 4px; }
   .bulk-field .apply { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; }
   .bulk-field input[type="text"] { width: 190px; }
   .bulk-field input[type="date"] { width: 150px; }
   .bulk-field.jira input[type="text"] { width: 260px; }
-  .bulk-actions { display: flex; gap: 8px; margin-left: auto; }
+  .bulk-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
 
-  /* ---- Table ---- */
-  .table-wrap {
-    overflow-x: auto;
-    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
-    backdrop-filter: blur(6px);
-  }
-  table { width: 100%; min-width: 1480px; border-collapse: collapse; }
+  /* ---- Table (read-only) ---- */
+  .table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+  table { width: 100%; min-width: 1500px; border-collapse: collapse; }
   thead th {
-    position: sticky; top: 0;
-    text-align: left; font-weight: 600; font-size: 14px; color: var(--muted);
-    padding: 11px 10px; background: rgba(24, 8, 44, 0.96);
-    border-bottom: 1px solid var(--line-strong); white-space: nowrap;
+    position: sticky; top: 0; text-align: left; font-weight: 700; font-size: 14px; color: var(--muted);
+    padding: 11px 10px; background: var(--card); border-bottom: 1px solid var(--border); white-space: nowrap;
   }
   thead th.sortable { cursor: pointer; user-select: none; }
   thead th.sortable:hover { color: var(--text); }
   thead th .arrow { margin-left: 4px; color: var(--accent); }
-  tbody td { padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
-  tbody tr:nth-child(even) { background: var(--row-alt); }
-  tbody tr:hover { background: rgba(183, 148, 255, 0.07); }
-  tbody tr.selected { background: rgba(139, 92, 246, 0.2); }
+  tbody td { padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tbody tr:hover { background: var(--card); }
+  tbody tr.selected { background: rgba(63, 21, 104, 0.55); }
   td.check, th.check { width: 38px; text-align: center; }
 
-  .name { font-weight: 700; font-size: 16px; }
+  .name { font-family: var(--display); font-weight: 700; font-size: 16px; }
   .sub { color: var(--muted); font-size: 13px; }
+  .muted { color: var(--muted); }
 
   .badge {
     display: inline-block; padding: 2px 10px; border-radius: 999px;
-    font-size: 13px; font-weight: 600; border: 1px solid transparent; white-space: nowrap;
+    font-size: 13px; font-weight: 700; border: 1px solid transparent; white-space: nowrap;
   }
-  .badge.listener { color: #d8c5ff; background: rgba(139, 92, 246, 0.25); border-color: rgba(183, 148, 255, 0.5); }
-  .badge.pull { color: #bfe3ff; background: rgba(124, 196, 255, 0.16); border-color: rgba(124, 196, 255, 0.45); }
-  .badge.unknown { color: var(--warn); background: rgba(255, 200, 87, 0.1); border-color: rgba(255, 200, 87, 0.45); }
-  .badge.available { color: var(--ok); background: rgba(94, 224, 160, 0.12); border-color: rgba(94, 224, 160, 0.45); }
-  .badge.in_use { color: #ffb4c0; background: rgba(255, 122, 138, 0.13); border-color: rgba(255, 122, 138, 0.45); }
+  .badge.available { color: var(--res-ok); background: rgba(63, 185, 80, 0.12); border-color: rgba(63, 185, 80, 0.5); }
+  .badge.in_use { color: var(--accent2); background: rgba(250, 165, 26, 0.12); border-color: rgba(250, 165, 26, 0.5); }
   .status-note { display: block; margin-top: 3px; color: var(--muted); font-size: 13px; }
 
-  .addr-wrap { display: flex; flex-direction: column; gap: 4px; }
-  .addr { display: flex; align-items: center; gap: 6px; }
-  .addr-label { flex: 0 0 48px; color: var(--muted); font-size: 13px; }
-  .addr-value { font-family: var(--mono); font-size: 13px; word-break: break-all; }
-  .muted { color: var(--muted); }
+  .addr-wrap { display: flex; flex-direction: column; gap: 5px; }
+  .addr { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .addr-label { flex: 0 0 52px; color: var(--muted); font-size: 13px; }
+  .addr-value { font-family: var(--mono); font-size: 12.5px; word-break: break-all; }
+  .addr-state { font-size: 12px; color: var(--muted); }
 
   .pp { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-  .pp-value { font-family: var(--mono); font-size: 13px; letter-spacing: 0.04em; white-space: pre-line; word-break: break-all; }
-  .pp-value.revealed { color: var(--warn); letter-spacing: 0; }
+  .pp-value { font-family: var(--mono); font-size: 12.5px; white-space: pre-line; word-break: break-all; }
+  .pp-value.revealed { color: var(--accent2); }
 
-  td input[type="text"], td input[type="date"] { width: 100%; }
-  td.competition { min-width: 170px; }
-  td.provider { min-width: 150px; }
-  td.date { min-width: 140px; }
-  td.jira { min-width: 190px; }
-  td input.saved { border-color: var(--ok); box-shadow: 0 0 0 2px rgba(94, 224, 160, 0.25); }
-  td input.saving { opacity: 0.6; }
-
-  .jira-link { display: inline-flex; align-items: center; gap: 8px; }
-  .jira-link a { color: var(--info); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
-  .jira-link a:hover { color: #b5deff; }
+  .jira-link a { color: var(--accent); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+  .jira-link a:hover { color: #c3b5fb; }
+  .cell-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+  .cell-text { word-break: break-word; }
 
   .empty { padding: 48px 16px; text-align: center; color: var(--muted); }
 
-  /* ---- Dialog & toast ---- */
+  /* ---- Dialogs & toast ---- */
   dialog {
-    width: min(760px, 92vw); max-height: 84vh; padding: 0;
-    color: var(--text); background: var(--panel-solid);
+    width: min(760px, 92vw); max-height: 86vh; padding: 0;
+    color: var(--text); background: var(--surface);
     border: 1px solid var(--accent); border-radius: 10px;
   }
-  dialog::backdrop { background: rgba(8, 2, 18, 0.7); }
-  .dlg-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--line); }
-  .dlg-head h2 { margin: 0; font-size: 20px; }
-  .dlg-body { padding: 14px 18px 18px; overflow: auto; max-height: calc(84vh - 60px); }
-  .dlg-body h3 { margin: 16px 0 6px; font-size: 15px; color: var(--accent); }
+  dialog::backdrop { background: rgba(0, 0, 0, 0.72); }
+  .dlg-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--border); background: var(--accent3); border-radius: 10px 10px 0 0; }
+  .dlg-head h2 { margin: 0; font-family: var(--display); font-size: 20px; }
+  .dlg-body { padding: 14px 18px 18px; overflow: auto; max-height: calc(86vh - 60px); }
+  .dlg-body h3 { margin: 16px 0 6px; font-family: var(--display); font-size: 15px; color: var(--accent); }
   .dlg-body table { min-width: 0; }
   .dlg-body td { padding: 5px 8px; font-size: 14px; word-break: break-word; }
   .dlg-body td:first-child { color: var(--muted); width: 38%; }
+  .dlg-actions { display: flex; gap: 8px; margin-top: 18px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+  .form-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  .form-grid label.wide { grid-column: 1 / -1; }
+  .form-grid input { width: 100%; color: var(--text); font-size: 15px; }
+  ul.diff { margin: 0 0 10px; padding-left: 20px; }
+  ul.diff li { margin: 4px 0; word-break: break-word; }
+  .old { color: var(--muted); text-decoration: line-through; }
+  .new { color: var(--accent2); }
 
-  .toasts { position: fixed; right: 18px; bottom: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 20; }
+  .toasts { position: fixed; right: 18px; bottom: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 40; }
   .toast {
-    max-width: 420px; padding: 10px 14px; border-radius: 8px;
-    background: var(--panel-solid); border: 1px solid var(--line-strong);
-    box-shadow: 0 8px 26px rgba(0, 0, 0, 0.5);
+    max-width: 440px; padding: 10px 14px; border-radius: 8px; white-space: pre-line;
+    background: var(--card); border: 1px solid var(--border); border-left-width: 4px;
+    box-shadow: 0 8px 26px rgba(0, 0, 0, 0.55);
   }
-  .toast.ok { border-color: var(--ok); }
-  .toast.error { border-color: var(--bad); }
-  .toast.warn { border-color: var(--warn); }
+  .toast.ok { border-left-color: var(--res-ok); }
+  .toast.error { border-left-color: var(--res-error); }
+  .toast.warn { border-left-color: var(--res-warn); }
 
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
   @media (max-width: 760px) {
     .field input[type="search"] { width: 100%; }
     .result-note { margin-left: 0; }
-    h1 { font-size: 28px; }
+    .form-grid { grid-template-columns: 1fr; }
+    h1 { font-size: 26px; }
   }
 </style>
 </head>
@@ -273,15 +247,6 @@
       </div>
     </div>
     <div class="field">
-      <label for="fKind">Type</label>
-      <select id="fKind">
-        <option value="all">All types</option>
-        <option value="listener">Listener</option>
-        <option value="pull">Pull</option>
-        <option value="unknown">Unknown</option>
-      </select>
-    </div>
-    <div class="field">
       <span class="label">Assigned between</span>
       <div class="date-range">
         <input id="fFrom" type="date" aria-label="From date">
@@ -294,10 +259,10 @@
     <div class="result-note" id="resultNote" aria-live="polite"></div>
   </section>
 
-  <section class="bulk" id="bulkBar" hidden aria-label="Bulk assignment">
+  <section class="bulk" id="bulkBar" hidden aria-label="Selected channels">
     <div class="bulk-head">
       <strong id="bulkCount">0 selected</strong>
-      <span class="muted">Tick a field to include it. A ticked empty field clears that value on every selected channel.</span>
+      <span class="muted">To change the assignment, tick the fields to include. A ticked empty field clears that value on every selected channel.</span>
     </div>
     <div class="bulk-fields">
       <div class="bulk-field">
@@ -321,7 +286,8 @@
         <input type="text" data-bulk="jira_url" maxlength="500" placeholder="https://...">
       </div>
       <div class="bulk-actions">
-        <button class="btn primary" id="bulkApply" type="button">Apply to selected</button>
+        <button class="btn primary" id="bulkCopy" type="button" title="Copies addresses and passphrases as formatted text for Outlook or Jira">Copy for Outlook / Jira</button>
+        <button class="btn" id="bulkApply" type="button">Apply to selected</button>
         <button class="btn danger" id="bulkFree" type="button">Clear assignments</button>
         <button class="btn" id="bulkDeselect" type="button">Deselect all</button>
       </div>
@@ -334,7 +300,6 @@
         <tr>
           <th class="check"><input type="checkbox" id="selectAll" aria-label="Select all visible channels"></th>
           <th class="sortable" data-sort="name">Channel</th>
-          <th class="sortable" data-sort="kind">Type</th>
           <th class="sortable" data-sort="status">Availability</th>
           <th>Address</th>
           <th>Passphrase</th>
@@ -343,7 +308,8 @@
           <th class="sortable" data-sort="start_date">Start date</th>
           <th class="sortable" data-sort="end_date">End date</th>
           <th>Jira ticket</th>
-          <th><span class="sr-only">Details</span></th>
+          <th class="sortable" data-sort="updated_at">Last edit</th>
+          <th><span class="sr-only">Actions</span></th>
         </tr>
       </thead>
       <tbody id="rows"></tbody>
@@ -351,6 +317,40 @@
     <div class="empty" id="emptyState" hidden></div>
   </div>
 </div>
+
+<!-- Edit one channel -->
+<dialog id="editDialog" aria-labelledby="editTitle">
+  <div class="dlg-head">
+    <h2 id="editTitle">Edit channel</h2>
+    <button class="btn tiny" id="editClose" type="button">Close</button>
+  </div>
+  <div class="dlg-body">
+    <div class="form-grid">
+      <label>Competition <input type="text" data-edit="competition" maxlength="200"></label>
+      <label>Provider <input type="text" data-edit="provider" maxlength="200"></label>
+      <label>Start date <input type="date" data-edit="start_date"></label>
+      <label>End date <input type="date" data-edit="end_date"></label>
+      <label class="wide">Jira ticket <input type="text" data-edit="jira_url" maxlength="500" placeholder="https://..."></label>
+    </div>
+    <div class="dlg-actions">
+      <button class="btn primary" id="editReview" type="button">Review changes</button>
+      <button class="btn" id="editCancel" type="button">Cancel</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- Confirmation for every change -->
+<dialog id="confirmDialog" aria-labelledby="confirmTitle">
+  <div class="dlg-head"><h2 id="confirmTitle">Confirm changes</h2></div>
+  <div class="dlg-body">
+    <div id="confirmBody"></div>
+    <p class="muted" id="confirmNote"></p>
+    <div class="dlg-actions">
+      <button class="btn primary" id="confirmOk" type="button">Confirm</button>
+      <button class="btn" id="confirmCancel" type="button">Cancel</button>
+    </div>
+  </div>
+</dialog>
 
 <dialog id="details" aria-labelledby="detailsTitle">
   <div class="dlg-head">
@@ -367,18 +367,21 @@
 
 /* ==========================================================================
    ADHOC Manager — single-file front end.
-   Reads ADC_CH channels from /api/adhoc/channels (Dataminer data is read-only)
-   and stores competition / provider / dates / Jira link in adhocs.json through
-   the same blueprint. All rendering uses textContent / DOM nodes — never
-   innerHTML with server data.
+   Reads ADC_CH channels from /api/adhoc/channels (Dataminer data is read-only).
+   The table is read-only: assignments (competition, provider, dates, Jira) are
+   changed only through the Edit dialog or the selection bar, and every change
+   goes through a confirmation popup and is audited with the user name.
+   All rendering uses textContent / DOM nodes — never innerHTML with server data.
    ========================================================================== */
 
-const API_BASE = '/so-proxy/api/adhoc';
+const API_BASE = '/api/adhoc';
 const LOGO_URL = '';                 // Optional: URL of the Stats Perform logo.
 const REVEAL_MS = 30000;             // A revealed passphrase hides itself after 30 s.
 const MASK = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
 const FIELDS = ['competition', 'provider', 'start_date', 'end_date', 'jira_url'];
-const KIND_LABEL = { listener: 'Listener', pull: 'Pull', unknown: 'Unknown' };
+const FIELD_LABEL = { competition: 'Competition', provider: 'Provider', start_date: 'Start date',
+  end_date: 'End date', jira_url: 'Jira ticket' };
+const SHARE_LABEL = { listener: 'SRT Listener EPs', pull: 'Pull Address' };
 
 /** Adapt this if the toolbox authenticates API calls with a header instead of a session cookie. */
 function authHeaders() { return {}; }
@@ -387,14 +390,16 @@ const state = {
   channels: [],
   counts: { total: 0, available: 0, in_use: 0 },
   today: '',
+  me: '',
   selected: new Set(),
   visible: [],
   lastIndex: null,
-  filters: { q: '', status: 'all', kind: 'all', from: '', to: '' },
+  filters: { q: '', status: 'all', from: '', to: '' },
   sort: { key: 'name', dir: 1 },
 };
-const rowRefs = new Map();          // channel id -> DOM references of its row
+const rowRefs = new Map();          // channel id -> { row, checkbox }
 const secretHiders = new Set();     // callbacks that re-mask revealed passphrases
+let editing = null;                 // channel currently open in the edit dialog
 
 /* ---------- helpers ---------- */
 
@@ -440,7 +445,7 @@ async function api(path, { method = 'GET', body } = {}) {
 function toast(message, kind = 'ok') {
   const node = el('div', { class: `toast ${kind}`, text: message });
   $('#toasts').append(node);
-  setTimeout(() => node.remove(), kind === 'error' ? 7000 : 3500);
+  setTimeout(() => node.remove(), kind === 'ok' ? 3500 : 8000);
 }
 
 function isHttpUrl(value) {
@@ -456,6 +461,10 @@ function jiraLabel(value) {
   try { return new URL(value).hostname; } catch (_) { return value; }
 }
 
+function fmtTime(iso) {
+  return iso ? `${iso.slice(0, 16).replace('T', ' ')} UTC` : '';
+}
+
 async function copyText(text, what) {
   try {
     await navigator.clipboard.writeText(text);
@@ -463,11 +472,6 @@ async function copyText(text, what) {
   } catch (_) {
     toast('Copy is not available in this browser context', 'error');
   }
-}
-
-function copyButton(text, what) {
-  return el('button', { class: 'btn tiny', type: 'button', title: `Copy ${what}`, 'aria-label': `Copy ${what}`,
-    text: 'Copy', onclick: () => copyText(text, what) });
 }
 
 function relativeAge(seconds) {
@@ -484,6 +488,7 @@ async function load() {
   $('#reloadBtn').disabled = true;
   try {
     const data = await api('/channels');
+    state.me = data.me || '';
     renderBanners(data);
     if (!data.available) {
       state.channels = [];
@@ -497,16 +502,15 @@ async function load() {
       const ids = new Set(state.channels.map(c => c.id));
       state.selected = new Set([...state.selected].filter(id => ids.has(id)));
     }
-    render();
   } catch (err) {
     state.channels = [];
     renderBanners({ error: err.status === 403
       ? 'Permission denied — the admin or engineer role is required to use ADHOC Manager.'
       : err.message });
-    render();
   } finally {
     $('#reloadBtn').disabled = false;
   }
+  render();
 }
 
 function renderBanners(data) {
@@ -532,20 +536,19 @@ function renderSnapshot(snapshot) {
 
 const SORT_VALUE = {
   name: c => c.name || '',
-  kind: c => c.kind,
   status: c => c.status,
   competition: c => c.adhoc.competition.toLowerCase(),
   provider: c => c.adhoc.provider.toLowerCase(),
   start_date: c => c.adhoc.start_date,
   end_date: c => c.adhoc.end_date,
+  updated_at: c => c.adhoc.updated_at || '',
 };
 
 function visibleChannels() {
-  const { q, status, kind, from, to } = state.filters;
+  const { q, status, from, to } = state.filters;
   const needle = q.trim().toLowerCase();
   const list = state.channels.filter(ch => {
     if (status !== 'all' && ch.status !== status) return false;
-    if (kind !== 'all' && ch.kind !== kind) return false;
     if (needle) {
       const hay = [ch.name, ch.supplier, ch.adhoc.competition, ch.adhoc.provider, ch.adhoc.jira_url]
         .join(' ').toLowerCase();
@@ -602,15 +605,8 @@ function render() {
     if (active) th.append(el('span', { class: 'arrow', text: state.sort.dir === 1 ? '\u25B2' : '\u25BC' }));
     th.setAttribute('aria-sort', active ? (state.sort.dir === 1 ? 'ascending' : 'descending') : 'none');
   });
-  updateCounts();
+  recount();
   updateSelectionUI();
-}
-
-function updateCounts() {
-  document.querySelectorAll('[data-count]').forEach(node => {
-    const n = state.channels.length ? state.counts[node.dataset.count] : '';
-    node.textContent = n === '' ? '' : String(n);
-  });
 }
 
 function recount() {
@@ -619,94 +615,74 @@ function recount() {
     available: state.channels.filter(c => c.status === 'available').length,
     in_use: state.channels.filter(c => c.status === 'in_use').length,
   };
-  updateCounts();
+  document.querySelectorAll('[data-count]').forEach(node => {
+    node.textContent = state.channels.length ? String(state.counts[node.dataset.count]) : '';
+  });
+}
+
+function textCell(value, cls) {
+  return el('td', {}, value ? el('span', { class: 'cell-text', text: value }) : el('span', { class: 'muted', text: '\u2014' }));
 }
 
 function buildRow(ch, index) {
-  const refs = {};
   const checkbox = el('input', { type: 'checkbox', 'aria-label': `Select ${ch.name}`,
     onclick: ev => onRowCheck(ev, ch, index) });
-  refs.checkbox = checkbox;
 
-  refs.status = el('td');
-  refs.jira = el('td', { class: 'jira' });
+  const status = el('td', {}, el('span', { class: `badge ${ch.status}`, text: ch.status === 'in_use' ? 'In use' : 'Available' }));
+  if (ch.status === 'in_use') {
+    const d = ch.days_left;
+    status.append(el('span', { class: 'status-note', text: d === 0 ? 'Ends today' : `${d} day${d === 1 ? '' : 's'} left` }));
+  }
 
-  const field = (name, type, placeholder) => {
-    const input = el('input', { type, placeholder, maxlength: type === 'text' ? 200 : null,
-      'aria-label': `${name.replace('_', ' ')} for ${ch.name}` });
-    input.value = ch.adhoc[name] || '';
-    input.addEventListener('change', () => saveField(ch, name, input));
-    input.addEventListener('keydown', ev => { if (ev.key === 'Enter') input.blur(); });
-    refs[name] = input;
-    return input;
-  };
+  const jira = el('td');
+  const link = ch.adhoc.jira_url;
+  if (link && isHttpUrl(link)) {
+    jira.append(el('span', { class: 'jira-link' },
+      el('a', { href: link, target: '_blank', rel: 'noopener noreferrer', text: jiraLabel(link), title: link })));
+  } else {
+    jira.append(el('span', { class: 'muted', text: '\u2014' }));
+  }
+
+  const lastEdit = el('td');
+  if (ch.adhoc.updated_at) {
+    lastEdit.append(el('div', { class: 'cell-text', text: ch.adhoc.updated_by || 'unknown' }),
+      el('div', { class: 'sub', text: fmtTime(ch.adhoc.updated_at) }));
+  } else {
+    lastEdit.append(el('span', { class: 'muted', text: '\u2014' }));
+  }
 
   const row = el('tr', {},
     el('td', { class: 'check' }, checkbox),
     el('td', {}, el('div', { class: 'name', text: ch.name }),
       el('div', { class: 'sub', text: [ch.supplier, ch.edge].filter(Boolean).join(' \u2022 ') })),
-    el('td', {}, el('span', { class: `badge ${ch.kind}`, text: KIND_LABEL[ch.kind] || ch.kind,
-      title: ch.kind === 'unknown' ? 'Connection mode could not be determined from the Dataminer properties — open Details' : null })),
-    refs.status,
+    status,
     el('td', {}, addressCell(ch)),
     el('td', {}, passphraseCell(ch)),
-    el('td', { class: 'competition' }, field('competition', 'text', 'Competition')),
-    el('td', { class: 'provider' }, field('provider', 'text', 'Provider')),
-    el('td', { class: 'date' }, field('start_date', 'date')),
-    el('td', { class: 'date' }, field('end_date', 'date')),
-    refs.jira,
-    el('td', {}, el('button', { class: 'btn tiny', type: 'button', text: 'Details',
-      'aria-label': `Details for ${ch.name}`, onclick: () => showDetails(ch) })),
+    textCell(ch.adhoc.competition),
+    textCell(ch.adhoc.provider),
+    textCell(ch.adhoc.start_date),
+    textCell(ch.adhoc.end_date),
+    jira,
+    lastEdit,
+    el('td', {}, el('div', { class: 'cell-actions' },
+      el('button', { class: 'btn tiny', type: 'button', text: 'Edit', 'aria-label': `Edit ${ch.name}`, onclick: () => openEdit(ch) }),
+      el('button', { class: 'btn tiny', type: 'button', text: 'Details', 'aria-label': `Details for ${ch.name}`, onclick: () => showDetails(ch) }))),
   );
-  refs.row = row;
-  rowRefs.set(ch.id, refs);
-  paintStatus(ch);
-  paintJira(ch);
+  rowRefs.set(ch.id, { row, checkbox });
   checkbox.checked = state.selected.has(ch.id);
   row.classList.toggle('selected', checkbox.checked);
   return row;
 }
 
-function paintStatus(ch) {
-  const cell = rowRefs.get(ch.id).status;
-  cell.replaceChildren(el('span', { class: `badge ${ch.status}`, text: ch.status === 'in_use' ? 'In use' : 'Available' }));
-  if (ch.status === 'in_use') {
-    const d = ch.days_left;
-    cell.append(el('span', { class: 'status-note',
-      text: d === 0 ? 'Ends today' : `${d} day${d === 1 ? '' : 's'} left` }));
-  }
-}
-
-function paintJira(ch) {
-  const cell = rowRefs.get(ch.id).jira;
-  const value = ch.adhoc.jira_url || '';
-  cell.replaceChildren();
-  if (value && isHttpUrl(value)) {
-    const link = el('a', { href: value, target: '_blank', rel: 'noopener noreferrer', text: jiraLabel(value), title: value });
-    const edit = el('button', { class: 'btn tiny', type: 'button', text: 'Edit', 'aria-label': `Edit Jira link for ${ch.name}`,
-      onclick: () => { cell.replaceChildren(jiraInput(ch, value)); cell.querySelector('input').focus(); } });
-    cell.append(el('span', { class: 'jira-link' }, link, edit));
-  } else {
-    cell.append(jiraInput(ch, value));
-  }
-}
-
-function jiraInput(ch, value) {
-  const input = el('input', { type: 'text', maxlength: 500, placeholder: 'Paste Jira URL', 'aria-label': `Jira ticket URL for ${ch.name}` });
-  input.value = value;
-  input.addEventListener('change', () => saveJira(ch, input));
-  input.addEventListener('paste', () => setTimeout(() => input.blur(), 0));
-  input.addEventListener('keydown', ev => { if (ev.key === 'Enter') input.blur(); });
-  return input;
-}
-
 function addressCell(ch) {
-  const labels = ch.kind === 'listener' ? ['PRI', 'SEC'] : ['Main', 'Backup'];
-  const line = (label, addr) => el('div', { class: 'addr' },
+  const line = (label, addr, st) => el('div', { class: 'addr' },
     el('span', { class: 'addr-label', text: label }),
     addr ? el('code', { class: 'addr-value', text: addr }) : el('span', { class: 'muted', text: 'Not available' }),
-    addr ? copyButton(addr, `${label} address`) : null);
-  return el('div', { class: 'addr-wrap' }, line(labels[0], ch.address_main), line(labels[1], ch.address_backup));
+    st ? el('span', { class: 'addr-state', text: st }) : null,
+    addr ? el('button', { class: 'btn tiny', type: 'button', text: 'Copy', 'aria-label': `Copy ${label} address of ${ch.name}`,
+      onclick: () => copyText(addr, `${label} address`) }) : null);
+  return el('div', { class: 'addr-wrap' },
+    line('Main', ch.address_main, ch.state_main), line('Backup', ch.address_backup, ch.state_backup));
 }
 
 function passphraseCell(ch) {
@@ -755,7 +731,21 @@ function passphraseCell(ch) {
   return wrap;
 }
 
-/* ---------- saving ---------- */
+/* ---------- confirmation popup ---------- */
+
+const show = v => (v === '' || v === null || v === undefined ? '(empty)' : v);
+
+function confirmChanges(title, lines) {
+  return new Promise(resolve => {
+    const dlg = $('#confirmDialog');
+    $('#confirmTitle').textContent = title;
+    $('#confirmBody').replaceChildren(el('ul', { class: 'diff' }, lines.map(line => el('li', {}, line))));
+    $('#confirmNote').textContent = `This change is recorded in the audit log as ${state.me || 'your user'}.`;
+    dlg.returnValue = '';
+    dlg.addEventListener('close', () => resolve(dlg.returnValue === 'ok'), { once: true });
+    dlg.showModal();
+  });
+}
 
 function applyUpdate(ch, update) {
   ch.adhoc = update.adhoc;
@@ -763,50 +753,52 @@ function applyUpdate(ch, update) {
   ch.days_left = update.days_left;
 }
 
-function syncRow(ch) {
-  const refs = rowRefs.get(ch.id);
-  if (!refs) return;
-  for (const name of ['competition', 'provider', 'start_date', 'end_date']) {
-    refs[name].value = ch.adhoc[name] || '';
-  }
-  paintStatus(ch);
-  paintJira(ch);
+/** Client-side checks that mirror the server (the server remains authoritative). */
+function validateFields(fields, current) {
+  if (fields.jira_url && !isHttpUrl(fields.jira_url)) return 'The Jira ticket must be a full http(s) URL';
+  const start = 'start_date' in fields ? fields.start_date : current && current.start_date;
+  const end = 'end_date' in fields ? fields.end_date : current && current.end_date;
+  if (start && end && end < start) return 'The end date cannot be earlier than the start date';
+  return null;
 }
 
-async function saveField(ch, name, input) {
-  const value = input.value.trim();
-  if (value === (ch.adhoc[name] || '')) return;
-  input.classList.add('saving');
+/* ---------- edit one channel ---------- */
+
+function openEdit(ch) {
+  editing = ch;
+  $('#editTitle').textContent = `Edit ${ch.name}`;
+  document.querySelectorAll('[data-edit]').forEach(input => { input.value = ch.adhoc[input.dataset.edit] || ''; });
+  $('#editDialog').showModal();
+}
+
+async function reviewEdit() {
+  const ch = editing;
+  if (!ch) return;
+  const fields = {};
+  document.querySelectorAll('[data-edit]').forEach(input => {
+    const value = input.value.trim();
+    if (value !== (ch.adhoc[input.dataset.edit] || '')) fields[input.dataset.edit] = value;
+  });
+  if (!Object.keys(fields).length) { toast('No changes to save', 'warn'); return; }
+  const problem = validateFields(fields, ch.adhoc);
+  if (problem) { toast(problem, 'error'); return; }
+
+  const lines = Object.entries(fields).map(([name, value]) => el('span', {},
+    el('b', { text: `${FIELD_LABEL[name]}: ` }),
+    el('span', { class: 'old', text: show(ch.adhoc[name]) }), ' \u2192 ', el('span', { class: 'new', text: show(value) })));
+  if (!(await confirmChanges(`Save changes to ${ch.name}?`, lines))) return;
+
+  $('#editReview').disabled = true;
   try {
-    const update = await api(`/channels/${encodeURIComponent(ch.id)}`, { method: 'PATCH', body: { [name]: value } });
+    const update = await api(`/channels/${encodeURIComponent(ch.id)}`, { method: 'PATCH', body: fields });
     applyUpdate(ch, update);
-    syncRow(ch);
-    recount();
-    input.classList.add('saved');
-    setTimeout(() => input.classList.remove('saved'), 1200);
+    $('#editDialog').close();
+    toast(`${ch.name} updated`);
+    render();
   } catch (err) {
-    input.value = ch.adhoc[name] || '';
-    toast(`${ch.name}: ${err.message}`, 'error');
+    toast(`${ch.name}: ${err.message}`, 'error');   // nothing was changed
   } finally {
-    input.classList.remove('saving');
-  }
-}
-
-async function saveJira(ch, input) {
-  const value = input.value.trim();
-  if (value === (ch.adhoc.jira_url || '')) { paintJira(ch); return; }
-  if (value && !isHttpUrl(value)) {
-    toast('The Jira ticket must be a full http(s) URL', 'error');
-    input.value = ch.adhoc.jira_url || '';
-    return;
-  }
-  try {
-    const update = await api(`/channels/${encodeURIComponent(ch.id)}`, { method: 'PATCH', body: { jira_url: value } });
-    applyUpdate(ch, update);
-    paintJira(ch);
-  } catch (err) {
-    input.value = ch.adhoc.jira_url || '';
-    toast(`${ch.name}: ${err.message}`, 'error');
+    $('#editReview').disabled = false;
   }
 }
 
@@ -846,25 +838,38 @@ function updateSelectionUI() {
   $('#bulkCount').textContent = `${n} channel${n === 1 ? '' : 's'} selected`;
 }
 
-async function sendBulk(fields, confirmMessage) {
-  const ids = [...state.selected];
-  if (!ids.length) return;
-  if (!window.confirm(confirmMessage)) return;
-  if ('jira_url' in fields && fields.jira_url && !isHttpUrl(fields.jira_url)) {
-    toast('The Jira ticket must be a full http(s) URL', 'error');
-    return;
-  }
+function selectedChannels() {
+  return state.channels.filter(c => state.selected.has(c.id));
+}
+
+function channelSummary(channels) {
+  const names = channels.map(c => c.name);
+  const shown = names.slice(0, 8).join(', ');
+  return el('span', {}, el('b', { text: `Channels (${names.length}): ` }),
+    names.length > 8 ? `${shown} and ${names.length - 8} more` : shown);
+}
+
+async function sendBulk(fields, title) {
+  const channels = selectedChannels();
+  if (!channels.length) return;
+  const problem = validateFields(fields, null);
+  if (problem) { toast(problem, 'error'); return; }
+
+  const lines = [channelSummary(channels), ...Object.entries(fields).map(([name, value]) => el('span', {},
+    el('b', { text: `${FIELD_LABEL[name]} \u2192 ` }),
+    value === '' ? el('span', { class: 'new', text: '(cleared)' }) : el('span', { class: 'new', text: value })))];
+  if (!(await confirmChanges(title, lines))) return;
+
   const buttons = [$('#bulkApply'), $('#bulkFree')];
   buttons.forEach(b => { b.disabled = true; });
   try {
-    const res = await api('/channels/bulk', { method: 'POST', body: { ids, fields } });
+    const res = await api('/channels/bulk', { method: 'POST', body: { ids: channels.map(c => c.id), fields } });
     const byId = new Map(state.channels.map(c => [c.id, c]));
     for (const [id, update] of Object.entries(res.channels)) {
       const ch = byId.get(id);
       if (ch) applyUpdate(ch, update);
     }
-    recount();
-    toast(`Updated ${res.updated} channel${res.updated === 1 ? '' : 's'}`);
+    toast(res.changed ? `Updated ${res.changed} channel${res.changed === 1 ? '' : 's'}` : 'Nothing to change', res.changed ? 'ok' : 'warn');
     render();
   } catch (err) {
     toast(err.message, 'error');   // all-or-nothing: nothing was changed
@@ -878,19 +883,94 @@ function applyBulk() {
   document.querySelectorAll('[data-apply]').forEach(box => {
     if (box.checked) fields[box.dataset.apply] = $(`[data-bulk="${box.dataset.apply}"]`).value.trim();
   });
-  const names = Object.keys(fields);
-  if (!names.length) { toast('Tick at least one field to apply', 'warn'); return; }
+  if (!Object.keys(fields).length) { toast('Tick at least one field to apply', 'warn'); return; }
   const n = state.selected.size;
-  const clearing = names.filter(f => fields[f] === '');
-  let message = `Apply ${names.length} field${names.length === 1 ? '' : 's'} to ${n} channel${n === 1 ? '' : 's'}?`;
-  if (clearing.length) message += `\n\nThese fields will be CLEARED: ${clearing.join(', ').replace(/_/g, ' ')}.`;
-  sendBulk(fields, message);
+  sendBulk(fields, `Apply changes to ${n} channel${n === 1 ? '' : 's'}?`);
 }
 
 function clearAssignments() {
-  const fields = Object.fromEntries(FIELDS.map(f => [f, '']));
   const n = state.selected.size;
-  sendBulk(fields, `Clear competition, provider, dates and Jira link on ${n} channel${n === 1 ? '' : 's'}?\nThey will become available.`);
+  sendBulk(Object.fromEntries(FIELDS.map(f => [f, ''])), `Clear all assignments on ${n} channel${n === 1 ? '' : 's'}? They will become available.`);
+}
+
+/* ---------- copy for Outlook / Jira ---------- */
+
+function withPassphrase(url, passphrase) {
+  if (!passphrase) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}passphrase=${encodeURIComponent(passphrase)}`;
+}
+
+/** Builds the formatted block (DOM node, HTML string and plain-text fallback) for the clipboard. */
+function buildShare(channels) {
+  const root = el('div');
+  const blocks = [];
+  channels.forEach((c, index) => {
+    const secrets = [c.main, c.backup].filter(Boolean).map(a => a.passphrase).filter(Boolean);
+    const common = secrets.length && secrets.every(s => s === secrets[0]) ? secrets[0] : '';
+    const tail = ` - ${SHARE_LABEL[c.kind] || 'SRT Addresses'}${common ? ` - Passphrase: ${common}` : ''}`;
+    const lines = [`${c.name}${tail}`];
+    root.append(el('p', { style: 'margin:0 0 2px 0' }, el('b', { text: c.name }), tail));
+    [['Main', c.main], ['Backup', c.backup]].forEach(([label, addr]) => {
+      if (!addr) return;
+      const line = `${label} - ${withPassphrase(addr.url, addr.passphrase)}`;
+      lines.push(line);
+      root.append(el('p', { style: 'margin:0' }, line));
+    });
+    if (!c.main && !c.backup) {
+      lines.push('No address available');
+      root.append(el('p', { style: 'margin:0' }, 'No address available'));
+    }
+    if (index < channels.length - 1) {
+      lines.push('');
+      root.append(el('p', { style: 'margin:0' }, '\u00A0'));
+    }
+    blocks.push(lines.join('\n'));
+  });
+  return { node: root, html: root.outerHTML, text: blocks.join('\n') };
+}
+
+function fallbackCopy(node) {
+  const holder = el('div', { 'aria-hidden': 'true', style: 'position:fixed;left:-9999px;top:0;opacity:0' }, node);
+  document.body.append(holder);
+  const range = document.createRange();
+  range.selectNodeContents(holder);
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
+  const ok = document.execCommand('copy');
+  selection.removeAllRanges();
+  holder.remove();
+  if (!ok) throw new Error('This browser blocked the copy');
+}
+
+async function copyShare() {
+  const ids = selectedChannels().map(c => c.id);
+  if (!ids.length) return;
+  const button = $('#bulkCopy');
+  button.disabled = true;
+  try {
+    const built = api('/channels/share', { method: 'POST', body: { ids } }).then(res => ({
+      ...buildShare(res.channels),
+      warnings: res.channels.flatMap(c => (c.warnings || []).map(w => `${c.name} \u2013 ${w}`)),
+    }));
+    built.catch(() => {});   // the awaited promise below reports the failure
+    if (navigator.clipboard && window.ClipboardItem) {
+      // Promises keep the copy inside the click gesture while the data is fetched (required by Safari).
+      await navigator.clipboard.write([new ClipboardItem({
+        'text/html': built.then(b => new Blob([b.html], { type: 'text/html' })),
+        'text/plain': built.then(b => new Blob([b.text], { type: 'text/plain' })),
+      })]);
+    } else {
+      fallbackCopy((await built).node);
+    }
+    const result = await built;
+    toast(`Copied ${ids.length} channel${ids.length === 1 ? '' : 's'} \u2014 paste into Outlook or Jira`);
+    if (result.warnings.length) toast(result.warnings.join('\n'), 'warn');
+  } catch (err) {
+    toast(`Copy failed: ${err.message}`, 'error');
+  } finally {
+    button.disabled = false;
+  }
 }
 
 /* ---------- details dialog ---------- */
@@ -904,16 +984,16 @@ function kvTable(obj) {
 
 function showDetails(ch) {
   $('#detailsTitle').textContent = ch.name;
-  const body = $('#detailsBody');
-  body.replaceChildren(
+  const modeText = m => (m ? m.charAt(0).toUpperCase() + m.slice(1) : '\u2014');
+  $('#detailsBody').replaceChildren(
     kvTable({
-      'Detected type': KIND_LABEL[ch.kind] || ch.kind,
+      'Main input': `${modeText(ch.mode_main)}${ch.port_main ? `, port ${ch.port_main}` : ''}`,
+      'Backup input': `${modeText(ch.mode_backup)}${ch.port_backup ? `, port ${ch.port_backup}` : ''}`,
       'Dataminer mode': ch.dm_mode || '',
       'Supplier': ch.supplier,
       'TXEdge': ch.edge || '',
-      'Port': ch.port || '',
       'Resource id': ch.id,
-      'Last edited': ch.adhoc.updated_at ? `${ch.adhoc.updated_at} by ${ch.adhoc.updated_by || 'unknown'}` : 'Never',
+      'Last edited': ch.adhoc.updated_at ? `${fmtTime(ch.adhoc.updated_at)} by ${ch.adhoc.updated_by || 'unknown'}` : 'Never',
     }),
     el('h3', { text: 'Dataminer properties (read-only, secrets masked)' }), kvTable(ch.properties),
     el('h3', { text: 'Dataminer capabilities' }), kvTable(ch.capabilities),
@@ -942,7 +1022,6 @@ function init() {
     searchTimer = setTimeout(() => { state.filters.q = ev.target.value; render(); }, 150);
   });
   document.querySelectorAll('#fStatus button').forEach(b => b.addEventListener('click', () => setStatusFilter(b.dataset.value)));
-  $('#fKind').addEventListener('change', ev => { state.filters.kind = ev.target.value; render(); });
   $('#fFrom').addEventListener('change', ev => { state.filters.from = ev.target.value; render(); });
   $('#fTo').addEventListener('change', ev => { state.filters.to = ev.target.value; render(); });
   $('#fToday').addEventListener('click', () => {
@@ -967,6 +1046,7 @@ function init() {
     state.visible.forEach(ch => setSelected(ch.id, ev.target.checked));
     updateSelectionUI();
   });
+  $('#bulkCopy').addEventListener('click', copyShare);
   $('#bulkApply').addEventListener('click', applyBulk);
   $('#bulkFree').addEventListener('click', clearAssignments);
   $('#bulkDeselect').addEventListener('click', () => { state.selected.clear(); updateSelectionUI(); });
@@ -975,6 +1055,12 @@ function init() {
     input.addEventListener('input', tick);
     input.addEventListener('change', tick);
   });
+
+  $('#editReview').addEventListener('click', reviewEdit);
+  $('#editCancel').addEventListener('click', () => $('#editDialog').close());
+  $('#editClose').addEventListener('click', () => $('#editDialog').close());
+  $('#confirmOk').addEventListener('click', () => $('#confirmDialog').close('ok'));
+  $('#confirmCancel').addEventListener('click', () => $('#confirmDialog').close('cancel'));
 
   $('#reloadBtn').addEventListener('click', load);
   $('#detailsClose').addEventListener('click', () => $('#details').close());

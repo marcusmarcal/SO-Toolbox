@@ -24,31 +24,43 @@ It combines two data sources:
           }
         }
 
+Dataminer inputs
+    Each channel carries two properties, "Input Main" and "Input Backup", whose
+    value is  "<srt url>|<Listener|Pull>|<state>", for example:
+
+        Input Main    srt://1.1.1.1:1111|Pull|Resumed
+        Input Backup  srt://:3842|Listener|Resumed
+
+    * Pull:     the URL is used as assigned in Dataminer.
+    * Listener: the host is empty in Dataminer; the address is completed with
+                ADC_LIST_URL_PRI (main) / ADC_LIST_URL_SEC (backup) plus the
+                port found in the Dataminer value.
+
 Availability rule (inferred, never stored): a channel is "in use" while its
 end date is today (UTC) or later; otherwise (past end date, or no end date)
 it is "available".
 
 Environment variables (.env):
-    ADC_LIST_URL_PRI   Base SRT URL for the PRIMARY listener endpoint,
+    ADC_LIST_URL_PRI   Listener host/base URL for the MAIN input,
                        e.g. srt://adhoc-pri.example.com
-    ADC_LIST_URL_SEC   Base SRT URL for the SECONDARY listener endpoint.
+    ADC_LIST_URL_SEC   Listener host/base URL for the BACKUP input.
                        Both accept an optional "{port}" placeholder; without
                        it, ":<port>" is appended. A missing scheme means srt://.
     ADC_NAME_PREFIX    Resource name prefix (default "ADC_CH").
-    ADC_PROP_MODE / ADC_PROP_PORT / ADC_PROP_PORT_BACKUP /
     ADC_PROP_ADDR_MAIN / ADC_PROP_ADDR_BACKUP
-                       Optional comma-separated lists of Dataminer property
-                       names (case/punctuation-insensitive) that override the
-                       built-in guesses used to read the connection mode,
-                       port and pull addresses from each resource.
+                       Optional comma-separated Dataminer property names that
+                       override "Input Main" / "Input Backup".
 
 Security notes
-    * Passphrases are NEVER part of the channel list. They are only returned
-      by POST /channels/<id>/passphrase (admin/engineer), with Cache-Control:
-      no-store, and every reveal is written to the audit file first (fail
-      closed: no audit entry, no reveal).
+    * Passphrases are NEVER part of the channel list. They are only returned by
+      POST /channels/<id>/passphrase (single reveal) and POST /channels/share
+      (copy for Outlook/Jira). Both require admin/engineer, send
+      Cache-Control: no-store and are written to the audit file first
+      (fail closed: no audit entry, no secret).
+    * Every edit is audited with the username and the old/new values; the audit
+      entry is written before the change is applied (fail closed).
     * Passphrase-like query parameters / credentials embedded in pull URLs are
-      masked in every response.
+      masked in every list/detail response.
     * Jira URLs are limited to http(s) so they are safe to render as links.
     * Write endpoints require a JSON content type (simple CSRF mitigation).
     * Audit entries store usernames (personal data under GDPR) for security
@@ -63,7 +75,7 @@ import re
 import threading
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from flask import Blueprint, jsonify, request
 
@@ -99,7 +111,7 @@ _CTRL_RE = re.compile(r'[\x00-\x1f\x7f]')
 
 
 def _norm(key):
-    """Lower-case and strip punctuation so 'SRT Mode' == 'srt_mode'."""
+    """Lower-case and strip punctuation so 'Input Main' == 'input_main'."""
     return re.sub(r'[^a-z0-9]', '', str(key).lower())
 
 
@@ -109,15 +121,14 @@ def _candidates(env_name, defaults):
     return [n for n in (_norm(x) for x in names) if n]
 
 
-# Best-effort guesses for the Dataminer property names. Confirm them against
-# the "Info" panel of a real ADC_CH channel and override through .env if needed.
-PROP_MODE = _candidates('ADC_PROP_MODE', ['SRT Mode', 'Mode', 'Connection Mode', 'SRT Connection Mode'])
-PROP_PORT = _candidates('ADC_PROP_PORT', ['Port', 'SRT Port', 'Listener Port', 'Main Port'])
-PROP_PORT_BACKUP = _candidates('ADC_PROP_PORT_BACKUP', ['Backup Port', 'Secondary Port', 'Port Backup'])
-PROP_ADDR_MAIN = _candidates('ADC_PROP_ADDR_MAIN', ['Main Address', 'Main URL', 'Primary Address',
-                                                    'Primary URL', 'Main Source', 'Address', 'URL', 'Source URL'])
-PROP_ADDR_BACKUP = _candidates('ADC_PROP_ADDR_BACKUP', ['Backup Address', 'Backup URL', 'Secondary Address',
-                                                        'Secondary URL', 'Backup Source'])
+PROP_ADDR_MAIN = _candidates('ADC_PROP_ADDR_MAIN', ['Input Main'])
+PROP_ADDR_BACKUP = _candidates('ADC_PROP_ADDR_BACKUP', ['Input Backup'])
+
+# (name, Dataminer property candidates, listener base URL, env variable name)
+_INPUTS = (
+    ('main', PROP_ADDR_MAIN, lambda: LIST_URL_PRI, 'ADC_LIST_URL_PRI'),
+    ('backup', PROP_ADDR_BACKUP, lambda: LIST_URL_SEC, 'ADC_LIST_URL_SEC'),
+)
 
 # ---------------------------------------------------------------------------
 # adhocs.json storage (file lock + atomic replace)
@@ -186,7 +197,7 @@ def _audit(event, username, **fields):
     except OSError:
         log.exception('ADHOC Manager: failed to write the audit entry (%s)', event)
         return False
-    log.info('ADHOC Manager audit: %s', entry)
+    log.info('ADHOC Manager audit: %s', event)
     return True
 
 
@@ -225,19 +236,31 @@ def _first(flat, candidates):
     return ''
 
 
-def _passphrases(flat):
-    """[(original key, value)] for every non-empty passphrase-like property."""
-    return sorted((orig, _text(val)) for norm, (orig, val) in flat.items()
-                  if 'passphrase' in norm and _text(val))
-
-
-def _classify(mode_value):
-    value = (mode_value or '').lower()
+def _classify(mode_text):
+    value = (mode_text or '').lower()
     if 'listen' in value:
         return 'listener'
     if 'pull' in value or 'caller' in value:
         return 'pull'
     return 'unknown'  # flagged, never guessed
+
+
+def _parse_input(value):
+    """'srt://host:port|Listener|Resumed' -> {url, port, mode, state}."""
+    parts = [p.strip() for p in _text(value).split('|')]
+    url = parts[0] if parts else ''
+    port = ''
+    try:
+        parsed_port = urlsplit(url).port
+        port = str(parsed_port) if parsed_port else ''
+    except ValueError:
+        pass
+    return {
+        'url': url,
+        'port': port,
+        'mode': _classify(parts[1]) if len(parts) > 1 else 'unknown',
+        'state': parts[2] if len(parts) > 2 else '',
+    }
 
 
 def _listener_url(template, port):
@@ -251,13 +274,55 @@ def _listener_url(template, port):
     return f'{url.rstrip("/")}:{port}'
 
 
-_URL_SECRET_RE = re.compile(r'((?:passphrase|password|secret|token|api[-_]?key)=)[^&\s]+', re.IGNORECASE)
+def _split_url_passphrase(url):
+    """Remove an embedded ?passphrase=... from a URL -> (clean url, passphrase)."""
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return url, ''
+    pairs = parse_qsl(parts.query, keep_blank_values=True)
+    embedded = next((v for k, v in pairs if k.lower() == 'passphrase'), '')
+    if not embedded:
+        return url, ''
+    rest = [(k, v) for k, v in pairs if k.lower() != 'passphrase']
+    return urlunsplit(parts._replace(query=urlencode(rest, safe=':/,'))), embedded
+
+
+_URL_SECRET_RE = re.compile(r'((?:passphrase|password|secret|token|api[-_]?key)=)[^&|\s]+', re.IGNORECASE)
 _URL_USERINFO_RE = re.compile(r'(://[^/:@\s]+:)[^@/\s]+@')
 
 
-def _mask_url_secrets(url):
-    url = _URL_SECRET_RE.sub(lambda m: m.group(1) + bte.REDACTED, url or '')
-    return _URL_USERINFO_RE.sub(lambda m: m.group(1) + bte.REDACTED + '@', url)
+def _mask_url_secrets(text):
+    text = _URL_SECRET_RE.sub(lambda m: m.group(1) + bte.REDACTED, text or '')
+    return _URL_USERINFO_RE.sub(lambda m: m.group(1) + bte.REDACTED + '@', text)
+
+
+def _mask_block(block):
+    """Mask secrets embedded in string values (key-based redaction is done by routes_bte)."""
+    if not isinstance(block, dict):
+        return {}
+    return {k: _mask_url_secrets(v) if isinstance(v, str) else v for k, v in block.items()}
+
+
+def _secret_entries(flat):
+    """[(label, passphrase)] from passphrase properties and from ?passphrase= in the input URLs."""
+    entries = sorted((orig, _text(val)) for norm, (orig, val) in flat.items()
+                     if 'passphrase' in norm and _text(val))
+    for label, cands in (('Input Main URL', PROP_ADDR_MAIN), ('Input Backup URL', PROP_ADDR_BACKUP)):
+        _, embedded = _split_url_passphrase(_parse_input(_first(flat, cands))['url'])
+        if embedded:
+            entries.append((label, embedded))
+    return entries
+
+
+def _passphrase_for(entries, which):
+    """Passphrase for 'main' or 'backup'. None when it cannot be decided safely."""
+    values = {v for _, v in entries}
+    if len(values) == 1:
+        return next(iter(values))
+    hints = {'main': ('main', 'primary', 'pri'), 'backup': ('backup', 'secondary', 'sec')}[which]
+    matches = {v for k, v in entries if any(h in _norm(k) for h in hints)}
+    return next(iter(matches)) if len(matches) == 1 else None
 
 
 def _adc_items(snapshot):
@@ -296,14 +361,19 @@ def _adhoc_view(meta, today):
 
 def _build_channel(item, meta, today):
     flat = _flat_props(item)
-    kind = _classify(_first(flat, PROP_MODE))
-    port = _first(flat, PROP_PORT)
-    if kind == 'listener':
-        main = _listener_url(LIST_URL_PRI, port)
-        backup = _listener_url(LIST_URL_SEC, _first(flat, PROP_PORT_BACKUP) or port)
-    else:
-        main = _mask_url_secrets(_first(flat, PROP_ADDR_MAIN))
-        backup = _mask_url_secrets(_first(flat, PROP_ADDR_BACKUP))
+    parsed, addresses = {}, {}
+    for which, cands, template, _env_name in _INPUTS:
+        p = _parse_input(_first(flat, cands))
+        parsed[which] = p
+        if not p['url']:
+            addresses[which] = ''
+        elif p['mode'] == 'listener':
+            addresses[which] = _listener_url(template(), p['port'])
+        else:
+            addresses[which] = _mask_url_secrets(p['url'])
+
+    modes = {p['mode'] for p in parsed.values() if p['url']}
+    kind = next(iter(modes)) if len(modes) == 1 else ('mixed' if modes else 'unknown')
 
     redacted = bte._redact_item(item)
     channel = {
@@ -313,19 +383,54 @@ def _build_channel(item, meta, today):
         'supplier': bte._item_type(item),
         'edge': bte._item_edge(item),
         'dm_mode': item.get('mode'),
-        'port': port or None,
-        'address_main': main or None,
-        'address_backup': backup or None,
-        'passphrase_count': len(_passphrases(flat)),
-        'properties': redacted.get('properties') or {},
-        'capabilities': redacted.get('capabilities') or {},
+        'mode_main': parsed['main']['url'] and parsed['main']['mode'],
+        'mode_backup': parsed['backup']['url'] and parsed['backup']['mode'],
+        'port_main': parsed['main']['port'] or None,
+        'port_backup': parsed['backup']['port'] or None,
+        'state_main': parsed['main']['state'] or None,
+        'state_backup': parsed['backup']['state'] or None,
+        'address_main': addresses['main'] or None,
+        'address_backup': addresses['backup'] or None,
+        'passphrase_count': len({v for _, v in _secret_entries(flat)}),
+        'properties': _mask_block(redacted.get('properties')),
+        'capabilities': _mask_block(redacted.get('capabilities')),
     }
     channel.update(_adhoc_view(meta, today))
     return channel
 
 
+def _share_entry(item):
+    """Unmasked data for the 'copy for Outlook/Jira' feature of one channel."""
+    flat = _flat_props(item)
+    entries = _secret_entries(flat)
+    out = {'id': item.get('id'), 'name': item.get('name'), 'main': None, 'backup': None, 'warnings': []}
+    kinds = set()
+    for which, cands, template, env_name in _INPUTS:
+        p = _parse_input(_first(flat, cands))
+        if not p['url']:
+            continue
+        kinds.add(p['mode'])
+        embedded = ''
+        if p['mode'] == 'listener':
+            url = _listener_url(template(), p['port'])
+            if not url:
+                out['warnings'].append(f'{which}: listener address unavailable ({env_name} or port missing)')
+                continue
+        else:
+            url, embedded = _split_url_passphrase(p['url'])
+        secret = ''
+        if entries:
+            secret = _passphrase_for(entries, which)
+            if secret is None:
+                out['warnings'].append(f'{which}: more than one passphrase found, none could be matched — left out')
+                secret = ''
+        out[which] = {'url': url, 'passphrase': secret or embedded}
+    out['kind'] = next(iter(kinds)) if len(kinds) == 1 else ('mixed' if kinds else 'unknown')
+    return out
+
+
 # ---------------------------------------------------------------------------
-# Validation
+# Validation and updates
 # ---------------------------------------------------------------------------
 
 def _json_body():
@@ -352,10 +457,13 @@ def _clean_fields(raw):
         if key in DATE_FIELDS and value and _parse_date(value) is None:
             return None, f'"{key}" must be a valid date (YYYY-MM-DD)'
         if key == 'jira_url' and value:
-            parsed = urlparse(value)
+            try:
+                parts = urlsplit(value)
+            except ValueError:
+                return None, '"jira_url" is not a valid URL'
             if len(value) > MAX_URL:
                 return None, f'"jira_url" is longer than {MAX_URL} characters'
-            if parsed.scheme.lower() not in ('http', 'https') or not parsed.netloc:
+            if parts.scheme.lower() not in ('http', 'https') or not parts.netloc:
                 return None, '"jira_url" must be a full http(s) URL'
         clean[key] = value
     return clean, None
@@ -368,32 +476,57 @@ def _range_error(meta):
     return None
 
 
-def _apply_update(items_by_id, clean, username):
-    """Merge ``clean`` into every record in one locked, all-or-nothing write.
-    Returns (staged records, error)."""
+def _apply_update(items_by_id, clean, username, event):
+    """Merge ``clean`` into every record: one locked, all-or-nothing operation.
+
+    The audit entry (who, what, old -> new) is written BEFORE the file, and the
+    change is abandoned if it cannot be recorded. Returns (records, changes, error).
+    """
     with _locked():
         store = _read_store()
         records = store['adhocs']
         now = bte._now_iso()
-        staged = {}
+        views, staged, changes = {}, {}, {}
         for rid, item in items_by_id.items():
-            record = dict(records.get(rid) or {})
+            old = records.get(rid) or {}
+            record = dict(old)
             record.update(clean)
             problem = _range_error(record)
             if problem:
-                return None, f"{item.get('name')}: {problem}"
-            record['name'] = item.get('name')
-            record['updated_at'] = now
-            record['updated_by'] = username
-            staged[rid] = record
-        records.update(staged)
-        store['updated_at'] = now
-        _write_store(store)
-    return staged, None
+                return None, None, f"{item.get('name')}: {problem}"
+            diff = {f: [old.get(f, ''), record[f]] for f in clean if old.get(f, '') != record[f]}
+            if diff:
+                record.update({'name': item.get('name'), 'updated_at': now, 'updated_by': username})
+                staged[rid] = record
+                changes[rid] = {'name': item.get('name'), 'fields': diff}
+            views[rid] = record
+        if staged:
+            if not _audit(event, username, changes=changes):
+                return None, None, 'Audit log unavailable — nothing was changed'
+            records.update(staged)
+            store['updated_at'] = now
+            _write_store(store)
+    return views, changes, None
 
 
 def _items_by_id():
     return {i.get('id'): i for i in _adc_items(bte._current_snapshot())}
+
+
+def _ids_from_body(data):
+    """Validated, de-duplicated id list -> (ids, error response)."""
+    ids = data.get('ids')
+    if not isinstance(ids, list) or not ids:
+        return None, (jsonify({'error': '"ids" must be a non-empty list'}), 400)
+    ids = list(dict.fromkeys(str(i) for i in ids))
+    if len(ids) > MAX_BULK:
+        return None, (jsonify({'error': f'At most {MAX_BULK} channels per request'}), 400)
+    return ids, None
+
+
+def _no_store(response):
+    response.headers['Cache-Control'] = 'no-store'
+    return response
 
 
 # ---------------------------------------------------------------------------
@@ -403,11 +536,12 @@ def _items_by_id():
 @adhoc_bp.route('/channels', methods=['GET'])
 def channels_list():
     """ADHOC channels from the Dataminer snapshot merged with adhocs.json."""
-    if bte._get_role() not in bte.ALLOWED_ROLES:
+    username, role = bte._get_user_and_role()
+    if role not in bte.ALLOWED_ROLES:
         return bte._forbidden()
     snapshot = bte._current_snapshot()
     if not snapshot or not (snapshot.get('pools') or {}).get('resources'):
-        return jsonify({'available': False, 'channels': [], 'counts': {}, 'warnings': [],
+        return jsonify({'available': False, 'channels': [], 'counts': {}, 'warnings': [], 'me': username,
                         'hint': 'No Dataminer snapshot yet — refresh it from BTE or wait for the hourly refresh'})
     try:
         store = _read_store()
@@ -419,22 +553,23 @@ def channels_list():
     channels.sort(key=lambda c: str(c['name'] or '').lower())
 
     warnings = []
-    listeners = [c for c in channels if c['kind'] == 'listener']
-    if listeners and not LIST_URL_PRI:
-        warnings.append('ADC_LIST_URL_PRI is not set — primary listener addresses cannot be built.')
-    if listeners and not LIST_URL_SEC:
-        warnings.append('ADC_LIST_URL_SEC is not set — secondary listener addresses cannot be built.')
-    no_port = sum(1 for c in listeners if not c['port'])
-    if no_port:
-        warnings.append(f'{no_port} listener channel(s) have no usable port in Dataminer.')
-    unknown = sum(1 for c in channels if c['kind'] == 'unknown')
-    if unknown:
-        warnings.append(f'{unknown} channel(s) have an undetermined connection mode. Check their Info panel '
-                        'and set ADC_PROP_MODE in .env if the Dataminer property name differs.')
+    if any(c['mode_main'] == 'listener' for c in channels) and not LIST_URL_PRI:
+        warnings.append('ADC_LIST_URL_PRI is not set — main listener addresses cannot be built.')
+    if any(c['mode_backup'] == 'listener' for c in channels) and not LIST_URL_SEC:
+        warnings.append('ADC_LIST_URL_SEC is not set — backup listener addresses cannot be built.')
+    no_input = sum(1 for c in channels if not c['mode_main'] and not c['mode_backup'])
+    if no_input:
+        warnings.append(f'{no_input} channel(s) have no "Input Main" / "Input Backup" value — check their Details '
+                        'and set ADC_PROP_ADDR_MAIN / ADC_PROP_ADDR_BACKUP if the property names differ.')
+    undetermined = sum(1 for c in channels if c['kind'] in ('unknown', 'mixed') and (c['mode_main'] or c['mode_backup']))
+    if undetermined:
+        warnings.append(f'{undetermined} channel(s) have an input whose mode is not Listener/Pull, or inputs with '
+                        'different modes — their addresses are shown as assigned in Dataminer.')
 
     meta = bte._snapshot_meta(snapshot)
     return jsonify({
         'available': True,
+        'me': username,
         'prefix': NAME_PREFIX,
         'today': today.isoformat(),
         'snapshot': {'fetched_at': meta.get('fetched_at'), 'age_seconds': meta.get('age_seconds'),
@@ -465,14 +600,15 @@ def channel_update(resource_id):
     if error:
         return jsonify({'error': error}), 400
     try:
-        staged, error = _apply_update({resource_id: items[resource_id]}, clean, username)
+        views, changes, error = _apply_update({resource_id: items[resource_id]}, clean, username, 'meta_updated')
     except (StoreError, OSError) as exc:
         log.exception('ADHOC Manager: update failed')
         return jsonify({'error': str(exc)}), 500
     if error:
         return jsonify({'error': error}), 400
-    _audit('meta_updated', username, resource_ids=[resource_id], fields=sorted(clean))
-    return jsonify(_adhoc_view(staged[resource_id], _today()))
+    result = _adhoc_view(views[resource_id], _today())
+    result['changed'] = len(changes)
+    return jsonify(result)
 
 
 @adhoc_bp.route('/channels/bulk', methods=['POST'])
@@ -488,29 +624,25 @@ def channels_bulk():
     data = _json_body()
     if data is None:
         return jsonify({'error': 'A JSON object body is required'}), 400
-    ids = data.get('ids')
-    if not isinstance(ids, list) or not ids:
-        return jsonify({'error': '"ids" must be a non-empty list'}), 400
-    ids = list(dict.fromkeys(str(i) for i in ids))
-    if len(ids) > MAX_BULK:
-        return jsonify({'error': f'At most {MAX_BULK} channels per request'}), 400
+    ids, error_response = _ids_from_body(data)
+    if error_response:
+        return error_response
     items = _items_by_id()
-    unknown = [i for i in ids if i not in items]
-    if unknown:
-        return jsonify({'error': f'{len(unknown)} channel(s) not found in the ADHOC list'}), 404
+    if any(i not in items for i in ids):
+        return jsonify({'error': 'One or more channels were not found in the ADHOC list'}), 404
     clean, error = _clean_fields(data.get('fields'))
     if error:
         return jsonify({'error': error}), 400
     try:
-        staged, error = _apply_update({i: items[i] for i in ids}, clean, username)
+        views, changes, error = _apply_update({i: items[i] for i in ids}, clean, username, 'meta_bulk_updated')
     except (StoreError, OSError) as exc:
         log.exception('ADHOC Manager: bulk update failed')
         return jsonify({'error': str(exc)}), 500
     if error:
         return jsonify({'error': error}), 400
-    _audit('meta_bulk_updated', username, resource_ids=ids, fields=sorted(clean))
     today = _today()
-    return jsonify({'updated': len(staged), 'channels': {rid: _adhoc_view(rec, today) for rid, rec in staged.items()}})
+    return jsonify({'updated': len(views), 'changed': len(changes),
+                    'channels': {rid: _adhoc_view(rec, today) for rid, rec in views.items()}})
 
 
 @adhoc_bp.route('/channels/<resource_id>/passphrase', methods=['POST'])
@@ -525,11 +657,39 @@ def channel_passphrase(resource_id):
     if _json_body() is None:
         return jsonify({'error': 'A JSON object body is required'}), 400
     item = items[resource_id]
-    entries = _passphrases(_flat_props(item))
-    if not entries:
+    seen, passphrases = set(), []
+    for label, value in _secret_entries(_flat_props(item)):
+        if value not in seen:
+            seen.add(value)
+            passphrases.append({'label': label, 'value': value})
+    if not passphrases:
         return jsonify({'error': 'This channel has no passphrase'}), 404
     if not _audit('passphrase_revealed', username, resource_id=resource_id, resource_name=item.get('name')):
         return jsonify({'error': 'Audit log unavailable — passphrase not revealed'}), 500
-    response = jsonify({'passphrases': [{'label': k, 'value': v} for k, v in entries]})
-    response.headers['Cache-Control'] = 'no-store'
-    return response
+    return _no_store(jsonify({'passphrases': passphrases}))
+
+
+@adhoc_bp.route('/channels/share', methods=['POST'])
+def channels_share():
+    """Complete addresses and passphrases of the selected channels, for the
+    'copy for Outlook/Jira' button. Audited; fails closed like the single reveal.
+
+    Body: {"ids": ["..."]}
+    """
+    username, role = bte._get_user_and_role()
+    if role not in bte.ALLOWED_ROLES:
+        return bte._forbidden()
+    data = _json_body()
+    if data is None:
+        return jsonify({'error': 'A JSON object body is required'}), 400
+    ids, error_response = _ids_from_body(data)
+    if error_response:
+        return error_response
+    items = _items_by_id()
+    if any(i not in items for i in ids):
+        return jsonify({'error': 'One or more channels were not found in the ADHOC list'}), 404
+    entries = [_share_entry(items[i]) for i in ids]
+    names = [items[i].get('name') for i in ids]
+    if not _audit('share_copied', username, resource_ids=ids, resource_names=names):
+        return jsonify({'error': 'Audit log unavailable — nothing was copied'}), 500
+    return _no_store(jsonify({'channels': entries}))
