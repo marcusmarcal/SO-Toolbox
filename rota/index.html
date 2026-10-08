@@ -101,21 +101,6 @@
       flex-shrink: 0;
     }
 
-    /* OLD SIDEBAR HEADER STYLES (Disabled):
-    #sidebar-header {
-      display: flex; align-items: center; gap: 10px;
-      padding: 16px 18px; border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-    .logo-mark {
-      width: 40px; height: 40px; flex-shrink: 0;
-      border-radius: 6px; object-fit: contain;
-      background: var(--card); border: 0px solid var(--border);
-    }
-    #sidebar-app-name { font-family: var(--font-title); font-size: 0.92rem; font-weight: 800; letter-spacing: 0.04em; color: var(--text); }
-    #sidebar-app-name span { color: var(--accent); }
-    */
-
     /* NEW SIDEBAR HEADER BANNER STYLES: */
     #sidebar-header {
       padding: 0;
@@ -1046,12 +1031,6 @@
 
   <!-- ── SIDEBAR ── -->
   <aside id="sidebar">
-  <!-- OLD SIDEBAR HEADER (Disabled):
-    <div id="sidebar-header">
-      <img class="logo-mark" src="/rota/assets/SPlogo.png" alt="" />
-      <span id="sidebar-app-name">Streaming Ops <span>Rota</span></span>
-    </div>
-    -->
 
     <!-- NEW SIDEBAR HEADER BANNER: -->
     <div id="sidebar-header">
@@ -1164,28 +1143,6 @@
     <div id="rota-wrap">
       <div class="loading-row"><div class="spinner"></div> Loading rota…</div>
     </div>
-    <!-- Legend hidden per request — users already know the color scheme
-         from the existing Excel-format rota, and it was costing vertical
-         space. Uncomment to restore; swatches are kept in sync with
-         SHIFT_COLORS above so this won't be stale if re-enabled later.
-    <div id="legend">
-      <div class="legend-item"><div class="legend-swatch" style="background:#49B1E8;"></div>0700-1800</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#8474E3;"></div>0900-2000</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#04BA9C;"></div>1300-0000</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#E8B159;"></div>1500-0200</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#5C5C5C;"></div>2100-0700</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#95D6FC;"></div>0900-1800</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#4A91BA;"></div>1000-2000</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#ABD1AD;"></div>Management</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#FFEB3B;"></div>Confirmed AL</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#F48FB1;"></div>Pending AL</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#71efde;"></div>Parental</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#ffffff;border:1px solid #71efde;background-image:radial-gradient(circle, rgba(0,0,0,0.16) 1px, transparent 1px);background-size:7px 7px;"></div>Marital</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#FF5722;"></div>Public Holiday</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#ececec;background-image:repeating-linear-gradient(45deg,rgba(148,148,148,0.55) 0px,rgba(148,148,148,0.55) 2px,transparent 2px,transparent 6px);"></div>Absent</div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#ececec;position:relative;"><span style="position:absolute;top:0;right:0;width:0;height:0;border-style:solid;border-width:0 8px 8px 0;border-color:transparent #E2725B transparent transparent;"></span></div>Has note</div>
-    </div>
-    -->
   </div>
 
   <!-- ══ TAB: REQUEST LEAVE ══ -->
@@ -2256,7 +2213,7 @@
     if (state.me && state.me.rota_role !== 'management') {
       const maxDate = new Date();
       maxDate.setDate(maxDate.getDate() + 35);
-      document.getElementById('date-to').setAttribute('max', maxDate.toISOString().split('T')[0]);
+      document.getElementById('date-to').setAttribute('max', _localISODate(maxDate));
     }
 
     document.querySelectorAll('#team-toggles .team-toggle').forEach(btn => {
@@ -2282,7 +2239,7 @@
     const today  = new Date();
     const monday = new Date(today);
     monday.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1));
-    const fmt        = d => d.toISOString().split('T')[0];
+    const fmt        = d => _localISODate(d);
     const rota_start = '2026-01-01';
 
     
@@ -2789,7 +2746,7 @@
   //  LEAVE FORM
   // ════════════════════════════════════════════════════════════════
   function setupLeaveForm() {
-    const today = new Date().toISOString().split('T')[0];
+    const today = _localISODate();
     document.getElementById('leave-from').value = today;
     document.getElementById('leave-to').value   = today;
 
@@ -5451,6 +5408,11 @@ function _removeCellFromBoxes(ri, ci) {
       });
   }
 
+    function _localISODate(d) {
+    d = d || new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
   function _userName(email) {
     if (!email) return '—';
     if (state.allUsers[email]) return state.allUsers[email].name;
@@ -5907,7 +5869,7 @@ function _removeCellFromBoxes(ri, ci) {
   }
 
   function _ovNextLeaveFor(name) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = _localISODate();
     const mine = _ovLeaveList.filter(e =>
       e.name === name && e.status === 'Confirmed' && e.date_start >= today);
     if (!mine.length) return null;
@@ -6716,9 +6678,9 @@ function _removeCellFromBoxes(ri, ci) {
     // Set tomorrow as default effective-from
     const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
     document.getElementById('shift-edit-effective-from').value =
-      tomorrow.toISOString().split('T')[0];
+      _localISODate(tomorrow);
     document.getElementById('shift-edit-effective-from').min =
-      tomorrow.toISOString().split('T')[0];
+      _localISODate(tomorrow);
 
     document.getElementById('btn-shift-edit-preview').addEventListener('click', _shiftEditShowDiff);
     document.getElementById('btn-shift-edit-back').addEventListener('click', () => {
@@ -6816,7 +6778,7 @@ function _removeCellFromBoxes(ri, ci) {
     document.getElementById('shift-edit-fg').value    = entry.fg_color || '#000000';
     document.getElementById('shift-edit-new-code').value = '';
     document.getElementById('shift-edit-effective-from').value =
-      new Date(Date.now() + 86400000).toISOString().split('T')[0];
+      _localISODate(new Date(Date.now() + 86400000));
     document.getElementById('shift-edit-inherit-color').checked = true;
     document.getElementById('shift-edit-effective-group').style.display = 'none';
     document.getElementById('shift-edit-inherit-group').style.display   = 'none';
@@ -7363,7 +7325,7 @@ const DATAFILE_READONLY = new Set(['directory_audit_log', 'draft_lock']);
     // If before 06:00, treat as "next day" (add 1440) for overnight context
     if (nowMin < TIMELINE_START) nowMin += 1440;
     const nowInRange = nowMin >= TIMELINE_START && nowMin <= TIMELINE_END;
-    const nowMarker = (nowInRange && dateStr === new Date().toISOString().split('T')[0])
+    const nowMarker = (nowInRange && dateStr === _localISODate())
       ? `<div style="position:absolute;left:${pct(nowMin)};top:0;bottom:0;
                      border-left:2px solid #e6a850;pointer-events:none;z-index:2;">
            <span style="position:absolute;top:2px;left:3px;font-family:var(--mono);

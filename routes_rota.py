@@ -252,6 +252,39 @@ PUBLIC_HOLIDAYS = {
     date(2026,12,1), date(2026,12,8), date(2026,12,25),
 }
 
+# ── Timezone: everything "today"-related is Lisbon time ───────────────────
+# Server clock is UTC; tzdata is guaranteed on prod, so ZoneInfo does the
+# conversion. If it ever fails to load, log loudly and fall back to server
+# time rather than crash the shared toolbox at import.
+ROTA_TZ_NAME = 'Europe/Lisbon'
+try:
+    from zoneinfo import ZoneInfo          # stdlib since 3.9
+    ROTA_TZ = ZoneInfo(ROTA_TZ_NAME)
+except Exception as _tz_err:
+    ROTA_TZ = None
+    print(f"[ROTA WARNING] timezone '{ROTA_TZ_NAME}' unavailable ({_tz_err}); "
+          f"using server local time. 'Today' may be off by an hour.")
+
+def _now_local() -> datetime.datetime:
+    """Naive datetime in Lisbon time, regardless of server timezone."""
+    if ROTA_TZ is not None:
+        return datetime.datetime.now(ROTA_TZ).replace(tzinfo=None)
+    return datetime.datetime.now()
+
+def _today_local() -> date:
+    return _now_local().date()
+
+def _shift_start_is_upcoming(shift_code: str, now_dt: datetime.datetime) -> bool:
+    """True if the shift's start time on now_dt's date is still in the future.
+    Unparseable codes return True (show rather than silently hide)."""
+    m = re.match(r'^(\d{2})(\d{2})-\d{4}$', shift_code or '')
+    if not m:
+        return True
+    h, mi = int(m.group(1)), int(m.group(2))
+    if h > 23 or mi > 59:
+        return True
+    return now_dt.time() < datetime.time(h, mi)
+
 PARENTAL_LEAVE_TYPES     = {"Parental Leave"}
 MARITAL_LEAVE_TYPES      = {"Marital Leave"}
 AL_APPROVED_STATUSES     = {'Confirmed', 'Withdrawal Pending', 'Withdrawal Rejected'}
@@ -412,7 +445,7 @@ def _find_leave_overlap(leave_list: list, name: str, username: str,
 def _build_schedule(date_from: date, date_to: date,
                     leave_map: dict, override_map: dict,
                     note_map: dict) -> list:
-    today = date.today()
+    today = _today_local()
     days  = []
     d     = date_from
     while d <= date_to:
@@ -736,7 +769,7 @@ def rota_roster():
 @rota_bp.route('/rota/next-shift', methods=['GET'])
 @require_auth
 def rota_next_shift():
-    """Next working shift (skips OFF/PARENTAL/MARITAL/AL/ABSENT) per person.
+    """Next working shift not yet started (skips OFF/PARENTAL/MARITAL/AL/ABSENT) per person.
     No 'person' param: bulk mode — self only for staff, full active roster
     for management. 'person=<rota_label>': single-person mode, management
     only unless it's the caller's own name."""
@@ -771,8 +804,9 @@ def rota_next_shift():
     override_map = _build_override_map(published_overrides)
 
     MAX_LOOKAHEAD_DAYS = 180
-    today  = date.today()
-    result = {}
+    now_local = _now_local()
+    today     = now_local.date()
+    result    = {}
 
     for name in names:
         found = None
@@ -786,6 +820,10 @@ def rota_next_shift():
             elif clean and (clean.startswith('AL_') or clean.startswith('ABSENT')):
                 clean = None
             if clean not in ('OFF', 'PARENTAL', 'MARITAL', None):
+                # Today's shift only counts if it hasn't started yet.
+                if d == today and not _shift_start_is_upcoming(clean, now_local):
+                    d += timedelta(days=1)
+                    continue
                 found = {'date': d.isoformat(), 'weekday': d.strftime('%A'), 'shift': clean}
                 break
             d += timedelta(days=1)
@@ -1181,7 +1219,7 @@ def rota_shifts_put(code):
         except ValueError:
             return jsonify({'ok': False,
                             'error': 'effective_from must be YYYY-MM-DD'}), 400
-        if eff_date <= date.today():
+        if eff_date <= _today_local():
             return jsonify({'ok': False,
                             'error': 'effective_from must be a future date'}), 400
 
@@ -1270,9 +1308,9 @@ def rota_shifts_alias_delete(code, alias_id):
     try:
         eff = date.fromisoformat(target['effective_from'])
     except ValueError:
-        eff = date.today()
+        eff = _today_local()
 
-    if eff <= date.today():
+    if eff <= _today_local():
         return jsonify({
             'ok':    False,
             'error': f'Alias effective from {eff} is already live and cannot be deleted. '
@@ -1330,15 +1368,15 @@ def rota_schedule():
     rota_role = _get_rota_role(request.session)
     try:
         date_from = date.fromisoformat(
-            request.args.get('from', date.today().isoformat()))
+            request.args.get('from', _today_local().isoformat()))
         date_to   = date.fromisoformat(
-            request.args.get('to', (date.today() + timedelta(weeks=5)).isoformat()))
+            request.args.get('to', (_today_local() + timedelta(weeks=5)).isoformat()))
     except ValueError:
         return jsonify({'ok': False,
                         'error': 'Invalid date format, use YYYY-MM-DD'}), 400
 
     if rota_role != 'management':
-        max_to = date.today() + timedelta(weeks=5)
+        max_to = _today_local() + timedelta(weeks=5)
         if date_to > max_to:
             date_to = max_to
 
@@ -1363,7 +1401,7 @@ def rota_schedule():
 def _print_month_allowed_for_staff(year: int, month: int) -> bool:
     """Staff/non-management may only export the current calendar month,
     or next month once within the final 10 days of the current month."""
-    today = date.today()
+    today = _today_local()
     if (year, month) == (today.year, today.month):
         return True
     if today.month == 12:
@@ -1462,7 +1500,7 @@ def rota_leave_post():
     bypass = bool(data.get('bypass_blocker', False))
     if not bypass:
         cfg       = _load_config()
-        today     = date.today()
+        today     = _today_local()
         next_year = today.year + 1
         try:
             mm, dd    = cfg['next_year_open_from'].split('-')
@@ -1827,9 +1865,9 @@ def rota_draft_get():
 
     try:
         date_from = date.fromisoformat(
-            request.args.get('from', date.today().isoformat()))
+            request.args.get('from', _today_local().isoformat()))
         date_to   = date.fromisoformat(
-            request.args.get('to', (date.today() + timedelta(weeks=8)).isoformat()))
+            request.args.get('to', (_today_local() + timedelta(weeks=8)).isoformat()))
     except ValueError:
         return jsonify({'ok': False,
                         'error': 'Invalid date format, use YYYY-MM-DD'}), 400
@@ -1987,7 +2025,7 @@ def rota_draft_publish():
     shift_applied = 0
     warnings      = []
     now           = _now_iso()
-    today         = date.today()
+    today         = _today_local()
     five_week_end = today + timedelta(weeks=5)
 
     # ── Separate al_toggle overrides by person ────────────────────────────
@@ -3072,9 +3110,9 @@ def rota_hours_get():
 
     try:
         date_from = date.fromisoformat(
-            request.args.get('from', date.today().replace(day=1).isoformat()))
+            request.args.get('from', _today_local().replace(day=1).isoformat()))
         date_to   = date.fromisoformat(
-            request.args.get('to', date.today().isoformat()))
+            request.args.get('to', _today_local().isoformat()))
     except ValueError:
         return jsonify({'ok': False, 'error': 'Invalid date format, use YYYY-MM-DD'}), 400
 
@@ -3811,7 +3849,7 @@ def rota_al_allowance_get():
     session   = request.session
     rota_role = _get_rota_role(session)
     try:
-        year = int(request.args.get('year', date.today().year))
+        year = int(request.args.get('year', _today_local().year))
     except ValueError:
         return jsonify({'ok': False, 'error': 'year must be an integer'}), 400
 
@@ -4150,7 +4188,7 @@ def rota_soe_weekends():
     if rota_role != 'management' and user_role != 'engineer':
         return jsonify({'ok': False, 'error': 'Not authorised'}), 403
 
-    today        = date.today()
+    today        = _today_local()
     current_year = today.year
 
     # Load shared state once

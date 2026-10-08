@@ -9,6 +9,22 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 `SRT Ingest:`, `General Tool Admin:`) so entries can be filtered per tool.
 
 ---
+### Fixed - 2026-10-08
+- `/rota/next-shift`: today's shift is only returned if its start time is still
+  in the future; once started or finished, the next working shift is shown.
+  Affects the "Next Shift" card (My Overview > AL Allowance) and All Members tiles.
+### Changed
+- All backend "today" checks now use `_today_local()` (Europe/Lisbon via zoneinfo)
+  instead of `date.today()`, so behaviour no longer depends on the server
+  timezone (prod = UTC).
+- If tz data fails to load, a warning is logged at import and server local time
+  is used, instead of failing the shared toolbox.
+- Frontend date defaults/limits use local-date formatting (`_localISODate`)
+  instead of UTC `toISOString()`.
+### Added
+- `ROTA_TZ_NAME`, `_now_local()`, `_today_local()`, `_shift_start_is_upcoming()` helpers.
+
+
 ## [4.13.1] - 2026-10-06
 
 ### Added
