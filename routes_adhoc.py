@@ -98,7 +98,7 @@ import routes_bte as bte
 
 log = logging.getLogger('so-toolbox.adhoc')
 
-adhoc_bp = Blueprint('adhoc', __name__, url_prefix='/api/adhoc')
+adhoc_bp = Blueprint('adhoc', __name__, url_prefix='/so-proxy/adhoc')
 
 # ---------------------------------------------------------------------------
 # Configuration
