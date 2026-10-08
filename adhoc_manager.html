@@ -367,14 +367,15 @@
 
 /* ==========================================================================
    ADHOC Manager — single-file front end.
-   Reads ADC_CH channels from /api/adhoc/channels (Dataminer data is read-only).
+   Reads ADC_CH channels from /so-proxy/adhoc/channels (Dataminer data is read-only).
    The table is read-only: assignments (competition, provider, dates, Jira) are
    changed only through the Edit dialog or the selection bar, and every change
    goes through a confirmation popup and is audited with the user name.
    All rendering uses textContent / DOM nodes — never innerHTML with server data.
    ========================================================================== */
 
-const API_BASE = '/api/adhoc';
+// The toolbox exposes its APIs through the proxy: /so-proxy/<blueprint>/... (not /api/...).
+const API_BASE = '/so-proxy/adhoc';
 const LOGO_URL = '';                 // Optional: URL of the Stats Perform logo.
 const REVEAL_MS = 30000;             // A revealed passphrase hides itself after 30 s.
 const MASK = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
