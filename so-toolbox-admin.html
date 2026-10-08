@@ -322,16 +322,11 @@
       }
 
       /* ── ADD/EDIT FORM ── */
-      #form-panel,
       .env-form-panel {
         background: var(--surface);
         border: 1px solid var(--border);
         border-radius: 12px;
         padding: 24px;
-      }
-      #form-panel.editing {
-        border-color: rgba(250, 165, 26, 0.35);
-        background: rgba(250, 165, 26, 0.03);
       }
       .form-title {
         font-family: var(--mono);
@@ -398,6 +393,75 @@
         display: flex;
         gap: 10px;
         justify-content: flex-end;
+      }
+
+      /* ── ADD/EDIT USER MODAL ── */
+      #user-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.65);
+        z-index: 450;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      #user-modal.open {
+        display: flex;
+      }
+      .user-modal-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        width: 640px;
+        max-width: 100%;
+        max-height: calc(100vh - 40px);
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+      }
+      .user-modal-card.editing {
+        border-color: rgba(250, 165, 26, 0.35);
+      }
+      .user-modal-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 18px 24px;
+        border-bottom: 1px solid var(--border);
+      }
+      .user-modal-head .form-title {
+        margin-bottom: 0;
+      }
+      .user-modal-close {
+        background: none;
+        border: none;
+        color: var(--muted);
+        font-size: 1rem;
+        line-height: 1;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 6px;
+      }
+      .user-modal-close:hover {
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.06);
+      }
+      .user-modal-body {
+        padding: 24px;
+        overflow-y: auto;
+      }
+      .user-modal-body .form-grid {
+        margin-bottom: 0;
+      }
+      .user-modal-foot {
+        padding: 16px 24px;
+        border-top: 1px solid var(--border);
+      }
+      @media (max-width: 560px) {
+        .user-modal-body .form-grid {
+          grid-template-columns: 1fr;
+        }
       }
 
       /* ── TABS ── */
@@ -1297,112 +1361,6 @@
             <div class="empty-state">Loading users…</div>
           </div>
         </div>
-
-        <!-- ── Add / Edit Form ── -->
-        <div class="section-header">
-          <div class="section-title" id="form-section-label">Add User</div>
-          <div class="section-line"></div>
-        </div>
-
-        <div id="form-panel">
-          <div class="form-title" id="form-title">＋ New User</div>
-          <div class="form-grid">
-            <div class="form-group">
-              <label for="f-username">Username</label>
-              <input
-                type="text"
-                id="f-username"
-                placeholder="jsmith"
-                autocomplete="off"
-              />
-            </div>
-            <div class="form-group">
-              <label for="f-role">Role</label>
-              <select id="f-role">
-                <option value="user">user</option>
-                <option value="specialist">specialist</option>
-                <option value="analyst">analyst</option>
-                <option value="engineer">engineer</option>
-                <option value="admin">admin</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="f-rota-status">Rota Status</label>
-              <select id="f-rota-status">
-                <option value="observer">observer</option>
-                <option value="active">active</option>
-                <option value="inactive">inactive</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="f-team">Team</label>
-              <select id="f-team">
-                <option value="na">NA</option>
-                <option value="soe">SOE</option>
-                <option value="sos">SOS</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="f-display-name">Display Name</label>
-              <input
-                type="text"
-                id="f-display-name"
-                placeholder="Display name"
-                maxlength="14"
-                autocomplete="off"
-              />
-              <span class="form-hint">Max. 14 characters</span>
-            </div>
-            <div class="form-group">
-              <label for="f-employee-id">Employee ID</label>
-              <input
-                type="text"
-                id="f-employee-id"
-                placeholder="15892"
-                maxlength="6"
-                inputmode="numeric"
-                pattern="[0-9]*"
-                autocomplete="off"
-                oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6)"
-              />
-              <span class="form-hint">Numbers only, max. 6 digits</span>
-            </div>
-            <div class="form-group">
-              <label for="f-password">Password</label>
-              <input
-                type="password"
-                id="f-password"
-                placeholder="New password"
-                autocomplete="new-password"
-              />
-              <span class="form-hint" id="f-pass-hint"
-                >Required for new users</span
-              >
-            </div>
-            <div class="form-group">
-              <label for="f-password2">Confirm Password</label>
-              <input
-                type="password"
-                id="f-password2"
-                placeholder="Repeat password"
-                autocomplete="new-password"
-              />
-            </div>
-          </div>
-          <div class="form-actions">
-            <button
-              class="btn"
-              id="btn-cancel"
-              onclick="cancelEdit()"
-              style="display: none"
-            >
-              Cancel
-            </button>
-            <button class="btn primary" id="btn-submit" onclick="submitUser()">
-              ＋ Create User
-            </button>
-          </div>
-        </div>
         </div>
         <!-- /tab-users -->
 
@@ -1612,6 +1570,119 @@
     </div>
     <!-- /page -->
 
+    <!-- ── Add / Edit User Modal ── -->
+    <div id="user-modal" role="dialog" aria-modal="true" aria-labelledby="form-title">
+      <div class="user-modal-card" id="user-modal-card">
+        <div class="user-modal-head">
+          <div class="form-title" id="form-title">＋ New User</div>
+          <button
+            type="button"
+            class="user-modal-close"
+            onclick="closeUserModal()"
+            aria-label="Close"
+            title="Close (Esc)"
+          >
+            ✕
+          </button>
+        </div>
+        <div class="user-modal-body">
+              <div class="form-grid">
+                <div class="form-group">
+                  <label for="f-username">Username</label>
+                  <input
+                    type="text"
+                    id="f-username"
+                    placeholder="jsmith"
+                    autocomplete="off"
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="f-role">Role</label>
+                  <select id="f-role">
+                    <option value="user">user</option>
+                    <option value="specialist">specialist</option>
+                    <option value="analyst">analyst</option>
+                    <option value="engineer">engineer</option>
+                    <option value="admin">admin</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="f-rota-status">Rota Status</label>
+                  <select id="f-rota-status">
+                    <option value="observer">observer</option>
+                    <option value="active">active</option>
+                    <option value="inactive">inactive</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="f-team">Team</label>
+                  <select id="f-team">
+                    <option value="na">NA</option>
+                    <option value="soe">SOE</option>
+                    <option value="sos">SOS</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="f-display-name">Display Name</label>
+                  <input
+                    type="text"
+                    id="f-display-name"
+                    placeholder="Display name"
+                    maxlength="14"
+                    autocomplete="off"
+                  />
+                  <span class="form-hint">Max. 14 characters</span>
+                </div>
+                <div class="form-group">
+                  <label for="f-employee-id">Employee ID</label>
+                  <input
+                    type="text"
+                    id="f-employee-id"
+                    placeholder="15892"
+                    maxlength="6"
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    autocomplete="off"
+                    oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6)"
+                  />
+                  <span class="form-hint">Numbers only, max. 6 digits</span>
+                </div>
+                <div class="form-group">
+                  <label for="f-password">Password</label>
+                  <input
+                    type="password"
+                    id="f-password"
+                    placeholder="New password"
+                    autocomplete="new-password"
+                  />
+                  <span class="form-hint" id="f-pass-hint"
+                    >Required for new users</span
+                  >
+                </div>
+                <div class="form-group">
+                  <label for="f-password2">Confirm Password</label>
+                  <input
+                    type="password"
+                    id="f-password2"
+                    placeholder="Repeat password"
+                    autocomplete="new-password"
+                  />
+                </div>
+              </div>
+        </div>
+        <div class="user-modal-foot">
+          <div class="form-actions">
+            <button class="btn" id="btn-cancel" onclick="closeUserModal()">
+              Cancel
+            </button>
+            <button class="btn primary" id="btn-submit" onclick="submitUser()">
+              ＋ Create User
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ── Confirm Modal ── -->
     <div id="confirm-modal">
       <div class="confirm-card">
@@ -1809,6 +1880,7 @@
       document.addEventListener("keydown", (e) => {
         const tag = (e.target.tagName || "").toLowerCase();
         const typing = tag === "input" || tag === "select" || tag === "textarea";
+        if (document.getElementById("user-modal").classList.contains("open")) return;
         if (((e.ctrlKey || e.metaKey) && e.key === "k") || (e.key === "/" && !typing)) {
           e.preventDefault();
           showTab("users");
@@ -1831,7 +1903,7 @@
         if (!users.length) {
           el.innerHTML = filtered
             ? '<div class="empty-state">No users match the current filters</div>'
-            : '<div class="empty-state">No users yet — create one below</div>';
+            : '<div class="empty-state">No users yet — click “New User” to create one</div>';
           return;
         }
 
@@ -1895,8 +1967,19 @@
         el.innerHTML = html;
       }
 
-      // ── Create / Edit ───────────────────────────────────────────────
-      function newUser() {
+      // ── Create / Edit (popup modal) ─────────────────────────────────
+      function openUserModal() {
+        document.getElementById("user-modal").classList.add("open");
+        document.body.style.overflow = "hidden";
+      }
+
+      function closeUserModal() {
+        document.getElementById("user-modal").classList.remove("open");
+        document.body.style.overflow = "";
+        editingUser = null;
+      }
+
+      function resetUserForm() {
         editingUser = null;
         document.getElementById("f-username").value = "";
         document.getElementById("f-password").value = "";
@@ -1911,18 +1994,19 @@
           "Required for new users";
         document.getElementById("form-title").textContent = "＋ New User";
         document.getElementById("form-title").classList.remove("edit");
-        document.getElementById("form-panel").classList.remove("editing");
+        document.getElementById("user-modal-card").classList.remove("editing");
         document.getElementById("btn-submit").textContent = "＋ Create User";
-        document.getElementById("btn-cancel").style.display = "none";
-        document.getElementById("form-section-label").textContent = "Add User";
+      }
+
+      function newUser() {
+        resetUserForm();
+        openUserModal();
         document.getElementById("f-username").focus();
-        document
-          .getElementById("form-panel")
-          .scrollIntoView({ behavior: "smooth", block: "center" });
       }
 
       function editUser(jsonStr) {
         const u = JSON.parse(jsonStr);
+        resetUserForm();
         editingUser = u.username;
         document.getElementById("f-username").value = u.username;
         document.getElementById("f-username").disabled = true; // username is immutable
@@ -1934,26 +2018,16 @@
           u.display_name || "";
         document.getElementById("f-employee-id").value =
           u.employee_id || "";
-        document.getElementById("f-password").value = "";
-        document.getElementById("f-password2").value = "";
         document.getElementById("f-pass-hint").textContent =
           "Leave blank to keep current password";
         document.getElementById(
           "form-title"
         ).textContent = `✎ Edit — ${u.username}`;
         document.getElementById("form-title").classList.add("edit");
-        document.getElementById("form-panel").classList.add("editing");
+        document.getElementById("user-modal-card").classList.add("editing");
         document.getElementById("btn-submit").textContent = "✔ Save Changes";
-        document.getElementById("btn-cancel").style.display = "";
-        document.getElementById("form-section-label").textContent = "Edit User";
+        openUserModal();
         document.getElementById("f-password").focus();
-        document
-          .getElementById("form-panel")
-          .scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-
-      function cancelEdit() {
-        newUser();
       }
 
       function submitUser() {
@@ -2006,6 +2080,7 @@
         if (!editingUser) body.username = username;
         if (password) body.password = password;
 
+        const wasEditing = editingUser;
         const method = editingUser ? "PUT" : "POST";
         const url = editingUser
           ? `${PROXY}/users/${encodeURIComponent(editingUser)}`
@@ -2021,13 +2096,14 @@
           .then((data) => {
             if (data.ok) {
               toast(
-                editingUser
-                  ? `User "${editingUser}" updated`
+                wasEditing
+                  ? `User "${wasEditing}" updated`
                   : `User "${username}" created`,
                 "ok"
               );
               loadUsers();
-              newUser();
+              closeUserModal();
+              resetUserForm();
             } else {
               toast(data.error || "Error saving user", "err");
             }
@@ -3297,7 +3373,7 @@
         });
       }
 
-      // Esc closes the wide modals (confirm modal takes priority when open)
+      // Esc closes the wide modals and the user popup (confirm modal takes priority when open)
       document.addEventListener("keydown", (e) => {
         if (e.key !== "Escape") return;
         if (document.getElementById("confirm-modal").classList.contains("open")) {
@@ -3306,6 +3382,7 @@
         }
         if (document.getElementById("raw-modal").classList.contains("open")) closeRawEditor();
         if (document.getElementById("bk-modal").classList.contains("open")) closeBackups();
+        if (document.getElementById("user-modal").classList.contains("open")) closeUserModal();
       });
 
       // ── Helpers ─────────────────────────────────────────────────────
@@ -3343,6 +3420,23 @@
         );
         setTimeout(() => el.classList.remove("err"), 1500);
       }
+
+      // User modal: close on backdrop click (only if the press started on the
+      // backdrop, so dragging a text selection out of the card does not close it)
+      (function () {
+        const modal = document.getElementById("user-modal");
+        let downOnBackdrop = false;
+        modal.addEventListener("mousedown", (e) => {
+          downOnBackdrop = e.target === modal;
+        });
+        modal.addEventListener("click", (e) => {
+          if (e.target === modal && downOnBackdrop) closeUserModal();
+        });
+        // Enter submits from any text/password input
+        modal.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" && e.target.tagName === "INPUT") submitUser();
+        });
+      })();
 
       // Close confirm on backdrop click
       document

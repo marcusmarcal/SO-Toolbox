@@ -9,6 +9,11 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 `SRT Ingest:`, `General Tool Admin:`) so entries can be filtered per tool.
 
 ---
+## [4.14.1] - 2026-10-08
+
+### Changed
+- **SO Toolbox Admin (Users tab)**: "New User" and "Edit" now open the form in a popup modal instead of a panel at the bottom of the page. The modal closes on save, Cancel, ✕, Esc or backdrop click, supports Enter to submit, and uses a single-column layout on small screens. The search shortcuts (`Ctrl/Cmd+K`, `/`) are ignored while the modal is open.
+
 ## [4.13.1] - 2026-10-06
 
 ### Added
