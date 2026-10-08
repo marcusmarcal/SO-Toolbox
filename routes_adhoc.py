@@ -19,6 +19,7 @@ It combines two data sources:
               "competition": "...", "provider": "...",
               "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD",
               "jira_url": "https://...",
+              "contacts": "free text, may be multi-line",
               "updated_at": "<UTC ISO>", "updated_by": "<username>"
             }
           }
@@ -50,21 +51,35 @@ Environment variables (.env):
     ADC_PROP_ADDR_MAIN / ADC_PROP_ADDR_BACKUP
                        Optional comma-separated Dataminer property names that
                        override "Input Main" / "Input Backup".
+    ADC_PROP_PBKEYLEN  Optional comma-separated Dataminer property names that hold
+                       the SRT encryption key length (16/24/32 bytes, or 128/192/256
+                       bits). Used for "pbkeylen" in the copied URLs.
+    ADC_DEFAULT_PBKEYLEN
+                       Optional fallback key length when the channel has none.
+
+Copy for Outlook / Jira
+    POST /channels/share returns, per channel, the Main/Backup URLs without
+    parameters plus passphrase and pbkeylen. The page formats them as:
+
+        ADC_CH01
+        Main - srt://<host>:<port>?passphrase=<passphrase>&pbkeylen=<key length>
+        Backup - srt://<host>:<port>?passphrase=<passphrase>&pbkeylen=<key length>
 
 Security notes
-    * Passphrases are NEVER part of the channel list. They are only returned by
-      POST /channels/<id>/passphrase (single reveal) and POST /channels/share
-      (copy for Outlook/Jira). Both require admin/engineer, send
-      Cache-Control: no-store and are written to the audit file first
-      (fail closed: no audit entry, no secret).
+    * Passphrases are NEVER part of the channel list or the details. They are only
+      returned by POST /channels/share (copy for Outlook/Jira), which requires
+      admin/engineer, sends Cache-Control: no-store and is written to the audit
+      file first (fail closed: no audit entry, no secret).
     * Every edit is audited with the username and the old/new values; the audit
-      entry is written before the change is applied (fail closed).
+      entry is written before the change is applied (fail closed). The values of
+      the "contacts" field (personal data) are NOT written to the audit file.
     * Passphrase-like query parameters / credentials embedded in pull URLs are
       masked in every list/detail response.
     * Jira URLs are limited to http(s) so they are safe to render as links.
     * Write endpoints require a JSON content type (simple CSRF mitigation).
-    * Audit entries store usernames (personal data under GDPR) for security
-      accountability only; do not reuse them for other purposes.
+    * adhocs.json (contacts, usernames) and the audit file contain personal data
+      under GDPR: define their retention and use them only for operations and
+      security accountability.
 """
 
 import fcntl
@@ -83,7 +98,7 @@ import routes_bte as bte
 
 log = logging.getLogger('so-toolbox.adhoc')
 
-adhoc_bp = Blueprint('adhoc', __name__, url_prefix='/adhoc')
+adhoc_bp = Blueprint('adhoc', __name__, url_prefix='/api/adhoc')
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -98,16 +113,20 @@ ADHOC_LOCK_FILE = ADHOC_FILE + '.lock'
 AUDIT_FILE = os.path.join(bte.DATA_DIR, 'adhoc_audit.jsonl')
 
 TEXT_FIELDS = ('competition', 'provider')
+MULTILINE_FIELDS = ('contacts',)
 DATE_FIELDS = ('start_date', 'end_date')
-FIELDS = TEXT_FIELDS + DATE_FIELDS + ('jira_url',)
+FIELDS = TEXT_FIELDS + DATE_FIELDS + ('jira_url',) + MULTILINE_FIELDS
+AUDIT_MASKED_FIELDS = ('contacts',)   # personal data: the audit records that it changed, not the value
 
 MAX_TEXT = 200
+MAX_MULTILINE = 1000
 MAX_URL = 500
 MAX_BULK = 500
 
 _ID_RE = re.compile(r'[0-9a-fA-F-]{8,64}')
 _DATE_RE = re.compile(r'\d{4}-\d{2}-\d{2}')
 _CTRL_RE = re.compile(r'[\x00-\x1f\x7f]')
+_CTRL_KEEP_NL_RE = re.compile(r'[\x00-\x09\x0b-\x1f\x7f]')
 
 
 def _norm(key):
@@ -123,6 +142,9 @@ def _candidates(env_name, defaults):
 
 PROP_ADDR_MAIN = _candidates('ADC_PROP_ADDR_MAIN', ['Input Main'])
 PROP_ADDR_BACKUP = _candidates('ADC_PROP_ADDR_BACKUP', ['Input Backup'])
+# Best-effort guesses: confirm against a real channel (Details dialog) and override in .env.
+PROP_PBKEYLEN = _candidates('ADC_PROP_PBKEYLEN', ['PB Key Len', 'PBKeyLen', 'Key Length', 'Key Size',
+                                                  'Encryption Key Length', 'Encryption'])
 
 # (name, Dataminer property candidates, listener base URL, env variable name)
 _INPUTS = (
@@ -274,18 +296,36 @@ def _listener_url(template, port):
     return f'{url.rstrip("/")}:{port}'
 
 
-def _split_url_passphrase(url):
-    """Remove an embedded ?passphrase=... from a URL -> (clean url, passphrase)."""
+def _normalise_keylen(value):
+    """SRT pbkeylen in bytes ('16', '24' or '32') from '16', '256' or 'AES-128'; '' if unknown."""
+    match = re.search(r'\d+', _text(value))
+    if not match:
+        return ''
+    number = int(match.group())
+    if number in (16, 24, 32):
+        return str(number)
+    if number in (128, 192, 256):
+        return str(number // 8)
+    return ''
+
+
+DEFAULT_PBKEYLEN = _normalise_keylen(bte._env('ADC_DEFAULT_PBKEYLEN'))
+
+
+def _split_url_params(url):
+    """Remove embedded ?passphrase= / pbkeylen= from a URL -> (clean url, passphrase, pbkeylen)."""
     try:
         parts = urlsplit(url)
     except ValueError:
-        return url, ''
+        return url, '', ''
     pairs = parse_qsl(parts.query, keep_blank_values=True)
-    embedded = next((v for k, v in pairs if k.lower() == 'passphrase'), '')
-    if not embedded:
-        return url, ''
-    rest = [(k, v) for k, v in pairs if k.lower() != 'passphrase']
-    return urlunsplit(parts._replace(query=urlencode(rest, safe=':/,'))), embedded
+    passphrase = next((v for k, v in pairs if k.lower() == 'passphrase'), '')
+    keylen = next((v for k, v in pairs if k.lower() == 'pbkeylen'), '')
+    if not passphrase and not keylen:
+        return url, '', ''
+    rest = [(k, v) for k, v in pairs if k.lower() not in ('passphrase', 'pbkeylen')]
+    clean = urlunsplit(parts._replace(query=urlencode(rest, safe=':/,')))
+    return clean, passphrase, _normalise_keylen(keylen)
 
 
 _URL_SECRET_RE = re.compile(r'((?:passphrase|password|secret|token|api[-_]?key)=)[^&|\s]+', re.IGNORECASE)
@@ -309,7 +349,7 @@ def _secret_entries(flat):
     entries = sorted((orig, _text(val)) for norm, (orig, val) in flat.items()
                      if 'passphrase' in norm and _text(val))
     for label, cands in (('Input Main URL', PROP_ADDR_MAIN), ('Input Backup URL', PROP_ADDR_BACKUP)):
-        _, embedded = _split_url_passphrase(_parse_input(_first(flat, cands))['url'])
+        _, embedded, _ = _split_url_params(_parse_input(_first(flat, cands))['url'])
         if embedded:
             entries.append((label, embedded))
     return entries
@@ -391,7 +431,6 @@ def _build_channel(item, meta, today):
         'state_backup': parsed['backup']['state'] or None,
         'address_main': addresses['main'] or None,
         'address_backup': addresses['backup'] or None,
-        'passphrase_count': len({v for _, v in _secret_entries(flat)}),
         'properties': _mask_block(redacted.get('properties')),
         'capabilities': _mask_block(redacted.get('capabilities')),
     }
@@ -403,29 +442,31 @@ def _share_entry(item):
     """Unmasked data for the 'copy for Outlook/Jira' feature of one channel."""
     flat = _flat_props(item)
     entries = _secret_entries(flat)
+    keylen_prop = _normalise_keylen(_first(flat, PROP_PBKEYLEN))
     out = {'id': item.get('id'), 'name': item.get('name'), 'main': None, 'backup': None, 'warnings': []}
-    kinds = set()
     for which, cands, template, env_name in _INPUTS:
         p = _parse_input(_first(flat, cands))
         if not p['url']:
             continue
-        kinds.add(p['mode'])
-        embedded = ''
+        embedded_pass = embedded_len = ''
         if p['mode'] == 'listener':
             url = _listener_url(template(), p['port'])
             if not url:
                 out['warnings'].append(f'{which}: listener address unavailable ({env_name} or port missing)')
                 continue
         else:
-            url, embedded = _split_url_passphrase(p['url'])
+            url, embedded_pass, embedded_len = _split_url_params(p['url'])
         secret = ''
         if entries:
             secret = _passphrase_for(entries, which)
             if secret is None:
                 out['warnings'].append(f'{which}: more than one passphrase found, none could be matched — left out')
                 secret = ''
-        out[which] = {'url': url, 'passphrase': secret or embedded}
-    out['kind'] = next(iter(kinds)) if len(kinds) == 1 else ('mixed' if kinds else 'unknown')
+        passphrase = secret or embedded_pass
+        keylen = keylen_prop or embedded_len or DEFAULT_PBKEYLEN
+        if passphrase and not keylen:
+            out['warnings'].append(f'{which}: encryption key length (pbkeylen) not found — left out of the URL')
+        out[which] = {'url': url, 'passphrase': passphrase, 'pbkeylen': keylen if passphrase else ''}
     return out
 
 
@@ -451,7 +492,12 @@ def _clean_fields(raw):
             value = ''
         if not isinstance(value, str):
             return None, f'"{key}" must be a string'
-        value = _CTRL_RE.sub('', value).strip()
+        if key in MULTILINE_FIELDS:
+            value = _CTRL_KEEP_NL_RE.sub('', value.replace('\r\n', '\n').replace('\r', '\n')).strip()
+            if len(value) > MAX_MULTILINE:
+                return None, f'"{key}" is longer than {MAX_MULTILINE} characters'
+        else:
+            value = _CTRL_RE.sub('', value).strip()
         if key in TEXT_FIELDS and len(value) > MAX_TEXT:
             return None, f'"{key}" is longer than {MAX_TEXT} characters'
         if key in DATE_FIELDS and value and _parse_date(value) is None:
@@ -496,6 +542,8 @@ def _apply_update(items_by_id, clean, username, event):
                 return None, None, f"{item.get('name')}: {problem}"
             diff = {f: [old.get(f, ''), record[f]] for f in clean if old.get(f, '') != record[f]}
             if diff:
+                diff = {f: (['[not logged]', '[not logged]'] if f in AUDIT_MASKED_FIELDS else v)
+                        for f, v in diff.items()}
                 record.update({'name': item.get('name'), 'updated_at': now, 'updated_by': username})
                 staged[rid] = record
                 changes[rid] = {'name': item.get('name'), 'fields': diff}
@@ -643,30 +691,6 @@ def channels_bulk():
     today = _today()
     return jsonify({'updated': len(views), 'changed': len(changes),
                     'channels': {rid: _adhoc_view(rec, today) for rid, rec in views.items()}})
-
-
-@adhoc_bp.route('/channels/<resource_id>/passphrase', methods=['POST'])
-def channel_passphrase(resource_id):
-    """Reveal the passphrase(s) of one channel. Audited; fails closed if the audit write fails."""
-    username, role = bte._get_user_and_role()
-    if role not in bte.ALLOWED_ROLES:
-        return bte._forbidden()
-    items = _items_by_id()
-    if not _ID_RE.fullmatch(resource_id) or resource_id not in items:
-        return jsonify({'error': 'ADHOC channel not found'}), 404
-    if _json_body() is None:
-        return jsonify({'error': 'A JSON object body is required'}), 400
-    item = items[resource_id]
-    seen, passphrases = set(), []
-    for label, value in _secret_entries(_flat_props(item)):
-        if value not in seen:
-            seen.add(value)
-            passphrases.append({'label': label, 'value': value})
-    if not passphrases:
-        return jsonify({'error': 'This channel has no passphrase'}), 404
-    if not _audit('passphrase_revealed', username, resource_id=resource_id, resource_name=item.get('name')):
-        return jsonify({'error': 'Audit log unavailable — passphrase not revealed'}), 500
-    return _no_store(jsonify({'passphrases': passphrases}))
 
 
 @adhoc_bp.route('/channels/share', methods=['POST'])

@@ -72,12 +72,14 @@
   .btn.danger:hover:not(:disabled) { border-color: var(--danger); background: rgba(255, 78, 106, 0.14); }
   .btn.tiny { padding: 1px 8px; font-size: 13px; border-radius: 5px; }
 
-  input[type="text"], input[type="search"], input[type="date"], select {
+  input[type="text"], input[type="search"], input[type="date"], select, textarea {
     font: inherit; color: var(--text);
     background: var(--bg); border: 1px solid var(--border);
     border-radius: 6px; padding: 6px 9px; min-width: 0;
   }
-  input::placeholder { color: rgba(155, 155, 155, 0.65); }
+  textarea { font: inherit; resize: vertical; width: 100%; }
+  .bulk-field textarea { width: 260px; }
+  input::placeholder, textarea::placeholder { color: rgba(155, 155, 155, 0.65); }
   input:hover, select:hover { border-color: #5c5c5c; }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
@@ -128,7 +130,7 @@
 
   /* ---- Table (read-only) ---- */
   .table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
-  table { width: 100%; min-width: 1500px; border-collapse: collapse; }
+  table { width: 100%; min-width: 1280px; border-collapse: collapse; }
   thead th {
     position: sticky; top: 0; text-align: left; font-weight: 700; font-size: 14px; color: var(--muted);
     padding: 11px 10px; background: var(--card); border-bottom: 1px solid var(--border); white-space: nowrap;
@@ -157,16 +159,11 @@
   .addr { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
   .addr-label { flex: 0 0 52px; color: var(--muted); font-size: 13px; }
   .addr-value { font-family: var(--mono); font-size: 12.5px; word-break: break-all; }
-  .addr-state { font-size: 12px; color: var(--muted); }
-
-  .pp { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-  .pp-value { font-family: var(--mono); font-size: 12.5px; white-space: pre-line; word-break: break-all; }
-  .pp-value.revealed { color: var(--accent2); }
-
   .jira-link a { color: var(--accent); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
   .jira-link a:hover { color: #c3b5fb; }
   .cell-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
   .cell-text { word-break: break-word; }
+  .cell-text.multiline { white-space: pre-line; display: block; max-width: 260px; }
 
   .empty { padding: 48px 16px; text-align: center; color: var(--muted); }
 
@@ -188,11 +185,11 @@
   .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
   .form-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
   .form-grid label.wide { grid-column: 1 / -1; }
-  .form-grid input { width: 100%; color: var(--text); font-size: 15px; }
+  .form-grid input, .form-grid textarea { width: 100%; color: var(--text); font-size: 15px; }
   ul.diff { margin: 0 0 10px; padding-left: 20px; }
   ul.diff li { margin: 4px 0; word-break: break-word; }
-  .old { color: var(--muted); text-decoration: line-through; }
-  .new { color: var(--accent2); }
+  .old { color: var(--muted); text-decoration: line-through; white-space: pre-line; }
+  .new { color: var(--accent2); white-space: pre-line; }
 
   .toasts { position: fixed; right: 18px; bottom: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 40; }
   .toast {
@@ -285,6 +282,10 @@
         <label class="apply"><input type="checkbox" data-apply="jira_url"> Jira ticket</label>
         <input type="text" data-bulk="jira_url" maxlength="500" placeholder="https://...">
       </div>
+      <div class="bulk-field">
+        <label class="apply"><input type="checkbox" data-apply="contacts"> Contacts</label>
+        <textarea data-bulk="contacts" maxlength="1000" rows="2"></textarea>
+      </div>
       <div class="bulk-actions">
         <button class="btn primary" id="bulkCopy" type="button" title="Copies addresses and passphrases as formatted text for Outlook or Jira">Copy for Outlook / Jira</button>
         <button class="btn" id="bulkApply" type="button">Apply to selected</button>
@@ -302,13 +303,12 @@
           <th class="sortable" data-sort="name">Channel</th>
           <th class="sortable" data-sort="status">Availability</th>
           <th>Address</th>
-          <th>Passphrase</th>
           <th class="sortable" data-sort="competition">Competition</th>
           <th class="sortable" data-sort="provider">Provider</th>
           <th class="sortable" data-sort="start_date">Start date</th>
           <th class="sortable" data-sort="end_date">End date</th>
           <th>Jira ticket</th>
-          <th class="sortable" data-sort="updated_at">Last edit</th>
+          <th>Contacts</th>
           <th><span class="sr-only">Actions</span></th>
         </tr>
       </thead>
@@ -331,6 +331,7 @@
       <label>Start date <input type="date" data-edit="start_date"></label>
       <label>End date <input type="date" data-edit="end_date"></label>
       <label class="wide">Jira ticket <input type="text" data-edit="jira_url" maxlength="500" placeholder="https://..."></label>
+      <label class="wide">Contacts <textarea data-edit="contacts" maxlength="1000" rows="3" placeholder="Names, e-mails, phone numbers"></textarea></label>
     </div>
     <div class="dlg-actions">
       <button class="btn primary" id="editReview" type="button">Review changes</button>
@@ -377,12 +378,9 @@
 // The toolbox exposes its APIs through the proxy: /so-proxy/<blueprint>/... (not /api/...).
 const API_BASE = '/so-proxy/adhoc';
 const LOGO_URL = '';                 // Optional: URL of the Stats Perform logo.
-const REVEAL_MS = 30000;             // A revealed passphrase hides itself after 30 s.
-const MASK = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
-const FIELDS = ['competition', 'provider', 'start_date', 'end_date', 'jira_url'];
+const FIELDS = ['competition', 'provider', 'start_date', 'end_date', 'jira_url', 'contacts'];
 const FIELD_LABEL = { competition: 'Competition', provider: 'Provider', start_date: 'Start date',
-  end_date: 'End date', jira_url: 'Jira ticket' };
-const SHARE_LABEL = { listener: 'SRT Listener EPs', pull: 'Pull Address' };
+  end_date: 'End date', jira_url: 'Jira ticket', contacts: 'Contacts' };
 
 /** Adapt this if the toolbox authenticates API calls with a header instead of a session cookie. */
 function authHeaders() { return {}; }
@@ -399,7 +397,6 @@ const state = {
   sort: { key: 'name', dir: 1 },
 };
 const rowRefs = new Map();          // channel id -> { row, checkbox }
-const secretHiders = new Set();     // callbacks that re-mask revealed passphrases
 let editing = null;                 // channel currently open in the edit dialog
 
 /* ---------- helpers ---------- */
@@ -542,7 +539,6 @@ const SORT_VALUE = {
   provider: c => c.adhoc.provider.toLowerCase(),
   start_date: c => c.adhoc.start_date,
   end_date: c => c.adhoc.end_date,
-  updated_at: c => c.adhoc.updated_at || '',
 };
 
 function visibleChannels() {
@@ -551,7 +547,7 @@ function visibleChannels() {
   const list = state.channels.filter(ch => {
     if (status !== 'all' && ch.status !== status) return false;
     if (needle) {
-      const hay = [ch.name, ch.supplier, ch.adhoc.competition, ch.adhoc.provider, ch.adhoc.jira_url]
+      const hay = [ch.name, ch.adhoc.competition, ch.adhoc.provider, ch.adhoc.jira_url, ch.adhoc.contacts]
         .join(' ').toLowerCase();
       if (!hay.includes(needle)) return false;
     }
@@ -581,7 +577,6 @@ function visibleChannels() {
 /* ---------- rendering ---------- */
 
 function render() {
-  secretHiders.clear();
   rowRefs.clear();
   state.visible = visibleChannels();
   state.lastIndex = null;
@@ -622,7 +617,7 @@ function recount() {
 }
 
 function textCell(value, cls) {
-  return el('td', {}, value ? el('span', { class: 'cell-text', text: value }) : el('span', { class: 'muted', text: '\u2014' }));
+  return el('td', {}, value ? el('span', { class: `cell-text ${cls || ''}`.trim(), text: value }) : el('span', { class: 'muted', text: '\u2014' }));
 }
 
 function buildRow(ch, index) {
@@ -644,27 +639,17 @@ function buildRow(ch, index) {
     jira.append(el('span', { class: 'muted', text: '\u2014' }));
   }
 
-  const lastEdit = el('td');
-  if (ch.adhoc.updated_at) {
-    lastEdit.append(el('div', { class: 'cell-text', text: ch.adhoc.updated_by || 'unknown' }),
-      el('div', { class: 'sub', text: fmtTime(ch.adhoc.updated_at) }));
-  } else {
-    lastEdit.append(el('span', { class: 'muted', text: '\u2014' }));
-  }
-
   const row = el('tr', {},
     el('td', { class: 'check' }, checkbox),
-    el('td', {}, el('div', { class: 'name', text: ch.name }),
-      el('div', { class: 'sub', text: [ch.supplier, ch.edge].filter(Boolean).join(' \u2022 ') })),
+    el('td', {}, el('div', { class: 'name', text: ch.name })),
     status,
     el('td', {}, addressCell(ch)),
-    el('td', {}, passphraseCell(ch)),
     textCell(ch.adhoc.competition),
     textCell(ch.adhoc.provider),
     textCell(ch.adhoc.start_date),
     textCell(ch.adhoc.end_date),
     jira,
-    lastEdit,
+    textCell(ch.adhoc.contacts, 'multiline'),
     el('td', {}, el('div', { class: 'cell-actions' },
       el('button', { class: 'btn tiny', type: 'button', text: 'Edit', 'aria-label': `Edit ${ch.name}`, onclick: () => openEdit(ch) }),
       el('button', { class: 'btn tiny', type: 'button', text: 'Details', 'aria-label': `Details for ${ch.name}`, onclick: () => showDetails(ch) }))),
@@ -676,60 +661,10 @@ function buildRow(ch, index) {
 }
 
 function addressCell(ch) {
-  const line = (label, addr, st) => el('div', { class: 'addr' },
+  const line = (label, addr) => el('div', { class: 'addr' },
     el('span', { class: 'addr-label', text: label }),
-    addr ? el('code', { class: 'addr-value', text: addr }) : el('span', { class: 'muted', text: 'Not available' }),
-    st ? el('span', { class: 'addr-state', text: st }) : null,
-    addr ? el('button', { class: 'btn tiny', type: 'button', text: 'Copy', 'aria-label': `Copy ${label} address of ${ch.name}`,
-      onclick: () => copyText(addr, `${label} address`) }) : null);
-  return el('div', { class: 'addr-wrap' },
-    line('Main', ch.address_main, ch.state_main), line('Backup', ch.address_backup, ch.state_backup));
-}
-
-function passphraseCell(ch) {
-  const wrap = el('div', { class: 'pp' });
-  if (!ch.passphrase_count) {
-    wrap.append(el('span', { class: 'muted', text: 'None' }));
-    return wrap;
-  }
-  const value = el('span', { class: 'pp-value', text: MASK });
-  const toggle = el('button', { class: 'btn tiny', type: 'button', text: 'Show', 'aria-label': `Show passphrase for ${ch.name}` });
-  const copy = el('button', { class: 'btn tiny', type: 'button', text: 'Copy', hidden: true });
-  let secret = null;
-  let timer = null;
-
-  const hide = () => {
-    secret = null;
-    clearTimeout(timer);
-    value.textContent = MASK;
-    value.classList.remove('revealed');
-    toggle.textContent = 'Show';
-    copy.hidden = true;
-  };
-  secretHiders.add(hide);
-
-  toggle.addEventListener('click', async () => {
-    if (secret) { hide(); return; }
-    toggle.disabled = true;
-    try {
-      const res = await api(`/channels/${encodeURIComponent(ch.id)}/passphrase`, { method: 'POST', body: {} });
-      secret = res.passphrases;
-      value.textContent = secret.length === 1 ? secret[0].value
-        : secret.map(p => `${p.label}: ${p.value}`).join('\n');
-      value.classList.add('revealed');
-      toggle.textContent = 'Hide';
-      copy.hidden = secret.length !== 1;
-      timer = setTimeout(hide, REVEAL_MS);
-    } catch (err) {
-      toast(err.message, 'error');
-    } finally {
-      toggle.disabled = false;
-    }
-  });
-  copy.addEventListener('click', () => { if (secret && secret.length === 1) copyText(secret[0].value, 'Passphrase'); });
-
-  wrap.append(value, toggle, copy);
-  return wrap;
+    addr ? el('code', { class: 'addr-value', text: addr }) : el('span', { class: 'muted', text: 'Not available' }));
+  return el('div', { class: 'addr-wrap' }, line('Main', ch.address_main), line('Backup', ch.address_backup));
 }
 
 /* ---------- confirmation popup ---------- */
@@ -896,24 +831,29 @@ function clearAssignments() {
 
 /* ---------- copy for Outlook / Jira ---------- */
 
-function withPassphrase(url, passphrase) {
+function withParams(url, passphrase, pbkeylen) {
   if (!passphrase) return url;
-  return `${url}${url.includes('?') ? '&' : '?'}passphrase=${encodeURIComponent(passphrase)}`;
+  const params = [`passphrase=${encodeURIComponent(passphrase)}`];
+  if (pbkeylen) params.push(`pbkeylen=${encodeURIComponent(pbkeylen)}`);
+  return `${url}${url.includes('?') ? '&' : '?'}${params.join('&')}`;
 }
 
-/** Builds the formatted block (DOM node, HTML string and plain-text fallback) for the clipboard. */
+/**
+ * Builds the clipboard block (DOM node, HTML string and plain-text fallback):
+ *   ADC_CH01
+ *   Main - srt://host:port?passphrase=...&pbkeylen=...
+ *   Backup - srt://host:port?passphrase=...&pbkeylen=...
+ * with a blank line between channels.
+ */
 function buildShare(channels) {
   const root = el('div');
   const blocks = [];
   channels.forEach((c, index) => {
-    const secrets = [c.main, c.backup].filter(Boolean).map(a => a.passphrase).filter(Boolean);
-    const common = secrets.length && secrets.every(s => s === secrets[0]) ? secrets[0] : '';
-    const tail = ` - ${SHARE_LABEL[c.kind] || 'SRT Addresses'}${common ? ` - Passphrase: ${common}` : ''}`;
-    const lines = [`${c.name}${tail}`];
-    root.append(el('p', { style: 'margin:0 0 2px 0' }, el('b', { text: c.name }), tail));
+    const lines = [c.name];
+    root.append(el('p', { style: 'margin:0' }, c.name));
     [['Main', c.main], ['Backup', c.backup]].forEach(([label, addr]) => {
       if (!addr) return;
-      const line = `${label} - ${withPassphrase(addr.url, addr.passphrase)}`;
+      const line = `${label} - ${withParams(addr.url, addr.passphrase, addr.pbkeylen)}`;
       lines.push(line);
       root.append(el('p', { style: 'margin:0' }, line));
     });
@@ -988,8 +928,8 @@ function showDetails(ch) {
   const modeText = m => (m ? m.charAt(0).toUpperCase() + m.slice(1) : '\u2014');
   $('#detailsBody').replaceChildren(
     kvTable({
-      'Main input': `${modeText(ch.mode_main)}${ch.port_main ? `, port ${ch.port_main}` : ''}`,
-      'Backup input': `${modeText(ch.mode_backup)}${ch.port_backup ? `, port ${ch.port_backup}` : ''}`,
+      'Main input': [modeText(ch.mode_main), ch.port_main && `port ${ch.port_main}`, ch.state_main].filter(Boolean).join(', ') || '\u2014',
+      'Backup input': [modeText(ch.mode_backup), ch.port_backup && `port ${ch.port_backup}`, ch.state_backup].filter(Boolean).join(', ') || '\u2014',
       'Dataminer mode': ch.dm_mode || '',
       'Supplier': ch.supplier,
       'TXEdge': ch.edge || '',
@@ -1066,9 +1006,6 @@ function init() {
   $('#reloadBtn').addEventListener('click', load);
   $('#detailsClose').addEventListener('click', () => $('#details').close());
   $('#details').addEventListener('click', ev => { if (ev.target === $('#details')) $('#details').close(); });
-
-  // Never leave a revealed passphrase on screen while the tab is in the background.
-  document.addEventListener('visibilitychange', () => { if (document.hidden) secretHiders.forEach(hide => hide()); });
 
   load();
 }
