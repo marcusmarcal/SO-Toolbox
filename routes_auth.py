@@ -195,6 +195,20 @@ def _invalidate_session(token):
     if _sessions.pop(token, None) is not None:
         _save_sessions()
 
+def _sync_sessions_for_user(username, fields):
+    """Propagate updated user fields (role, team, rota_status, display_name,
+    employee_id) into every active session for that user, so /me and
+    role-gated endpoints reflect the change without a re-login."""
+    if not fields:
+        return
+    changed = False
+    for s in _sessions.values():
+        if s.get('username') == username:
+            s.update(fields)
+            changed = True
+    if changed:
+        _save_sessions()
+
 
 def _token_from_request():
     auth = request.headers.get('Authorization', '')
@@ -496,6 +510,13 @@ def update_user(username):
         users[username]['password_hash'] = _hash_password(password)
 
     _save_users(users)
+
+    # Instantly reflect the change in any live session for this user
+    session_fields = dict(profile_fields)
+    if role:
+        session_fields['role'] = role
+    _sync_sessions_for_user(username, session_fields)
+
     return jsonify({'ok': True, 'username': username})
 
 
