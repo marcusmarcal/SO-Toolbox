@@ -16,7 +16,7 @@ It combines two data sources:
           "adhocs": {
             "<resource id>": {
               "name": "ADC_CH01",
-              "competition": "...", "provider": "...",
+              "competition": "free text, may be multi-line", "provider": "...",
               "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD",
               "jira_url": "https://...",
               "contacts": "free text, may be multi-line",
@@ -112,8 +112,8 @@ ADHOC_FILE = os.path.join(bte.DATA_DIR, 'adhocs.json')
 ADHOC_LOCK_FILE = ADHOC_FILE + '.lock'
 AUDIT_FILE = os.path.join(bte.DATA_DIR, 'adhoc_audit.jsonl')
 
-TEXT_FIELDS = ('competition', 'provider')
-MULTILINE_FIELDS = ('contacts',)
+TEXT_FIELDS = ('provider',)
+MULTILINE_FIELDS = ('competition', 'contacts')
 DATE_FIELDS = ('start_date', 'end_date')
 FIELDS = TEXT_FIELDS + DATE_FIELDS + ('jira_url',) + MULTILINE_FIELDS
 AUDIT_MASKED_FIELDS = ('contacts',)   # personal data: the audit records that it changed, not the value

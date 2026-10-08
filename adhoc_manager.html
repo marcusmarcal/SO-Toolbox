@@ -159,11 +159,13 @@
   .addr { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
   .addr-label { flex: 0 0 52px; color: var(--muted); font-size: 13px; }
   .addr-value { font-family: var(--mono); font-size: 12.5px; word-break: break-all; }
+  .jira-link { white-space: nowrap; }
   .jira-link a { color: var(--accent); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
   .jira-link a:hover { color: #c3b5fb; }
   .cell-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
   .cell-text { word-break: break-word; }
   .cell-text.multiline { white-space: pre-line; display: block; max-width: 260px; }
+  .cell-text.nowrap { white-space: nowrap; word-break: normal; }
 
   .empty { padding: 48px 16px; text-align: center; color: var(--muted); }
 
@@ -264,7 +266,7 @@
     <div class="bulk-fields">
       <div class="bulk-field">
         <label class="apply"><input type="checkbox" data-apply="competition"> Competition</label>
-        <input type="text" data-bulk="competition" maxlength="200">
+        <textarea data-bulk="competition" maxlength="1000" rows="2"></textarea>
       </div>
       <div class="bulk-field">
         <label class="apply"><input type="checkbox" data-apply="provider"> Provider</label>
@@ -287,8 +289,8 @@
         <textarea data-bulk="contacts" maxlength="1000" rows="2"></textarea>
       </div>
       <div class="bulk-actions">
-        <button class="btn primary" id="bulkCopy" type="button" title="Copies addresses and passphrases as formatted text for Outlook or Jira">Copy for Outlook / Jira</button>
-        <button class="btn" id="bulkApply" type="button">Apply to selected</button>
+        <button class="btn primary" id="bulkApply" type="button">Apply to selected</button>
+        <button class="btn" id="bulkCopy" type="button" title="Copies addresses and passphrases as formatted text for Outlook or Jira">Copy for Outlook / Jira</button>
         <button class="btn danger" id="bulkFree" type="button">Clear assignments</button>
         <button class="btn" id="bulkDeselect" type="button">Deselect all</button>
       </div>
@@ -326,7 +328,7 @@
   </div>
   <div class="dlg-body">
     <div class="form-grid">
-      <label>Competition <input type="text" data-edit="competition" maxlength="200"></label>
+      <label>Competition <textarea data-edit="competition" maxlength="1000" rows="2"></textarea></label>
       <label>Provider <input type="text" data-edit="provider" maxlength="200"></label>
       <label>Start date <input type="date" data-edit="start_date"></label>
       <label>End date <input type="date" data-edit="end_date"></label>
@@ -644,10 +646,10 @@ function buildRow(ch, index) {
     el('td', {}, el('div', { class: 'name', text: ch.name })),
     status,
     el('td', {}, addressCell(ch)),
-    textCell(ch.adhoc.competition),
+    textCell(ch.adhoc.competition, 'multiline'),
     textCell(ch.adhoc.provider),
-    textCell(ch.adhoc.start_date),
-    textCell(ch.adhoc.end_date),
+    textCell(ch.adhoc.start_date, 'nowrap'),
+    textCell(ch.adhoc.end_date, 'nowrap'),
     jira,
     textCell(ch.adhoc.contacts, 'multiline'),
     el('td', {}, el('div', { class: 'cell-actions' },
