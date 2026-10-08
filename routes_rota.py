@@ -1398,11 +1398,18 @@ def rota_schedule():
     return jsonify({'ok': True, 'days': days})
 
 
+# Earliest month staff may export. Matches rota_start in index.html
+# (getDateRange) and the 2026-only PUBLIC_HOLIDAYS table.
+PRINT_EARLIEST_MONTH = (2026, 1)
+
 def _print_month_allowed_for_staff(year: int, month: int) -> bool:
-    """Staff/non-management may only export the current calendar month,
-    or next month once within the final 10 days of the current month."""
-    today = _today_local()
-    if (year, month) == (today.year, today.month):
+    """Staff/non-management may export any month from PRINT_EARLIEST_MONTH
+    up to the current calendar month, or next month once within the final
+    10 days of the current month."""
+    today = date.today()
+    if (year, month) < PRINT_EARLIEST_MONTH:
+        return False
+    if (year, month) <= (today.year, today.month):
         return True
     if today.month == 12:
         next_year, next_month = today.year + 1, 1

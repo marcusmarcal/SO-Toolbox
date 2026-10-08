@@ -5206,14 +5206,15 @@ function _removeCellFromBoxes(ri, ci) {
   // ════════════════════════════════════════════════════════════════
   //  PRINT / EXPORT MONTH (management only)
   // ════════════════════════════════════════════════════════════════
-  // Mirrors the backend's _print_month_allowed_for_staff() — used only to
-  // steer the UI (disable invalid picks, set min/max). The server is the
-  // actual authority; do not treat this as the security boundary.
+  // Mirrors PRINT_EARLIEST_MONTH in routes_rota.py. UI steering only —
+  // the server is the actual authority.
+  const PRINT_EARLIEST_YM = '2026-01';
+
   function _staffAllowedMonths() {
     const today = new Date();
     const y = today.getFullYear(), m = today.getMonth() + 1;
     const currentYm = `${y}-${String(m).padStart(2, '0')}`;
-    const lastDayCurrent = new Date(y, m, 0); // day 0 of next month = last day of this month
+    const lastDayCurrent = new Date(y, m, 0);
     const daysToEnd = Math.round((lastDayCurrent - today) / 86400000);
     let nextYm = null;
     if (daysToEnd <= 10) {
@@ -5221,7 +5222,7 @@ function _removeCellFromBoxes(ri, ci) {
       const nm = m === 12 ? 1 : m + 1;
       nextYm = `${ny}-${String(nm).padStart(2, '0')}`;
     }
-    return { currentYm, nextYm };
+    return { earliestYm: PRINT_EARLIEST_YM, currentYm, nextYm };
   }
 
   function setupPrintExport() {
@@ -5243,8 +5244,8 @@ function _removeCellFromBoxes(ri, ci) {
         const nm  = now.getMonth() === 11 ? 1 : now.getMonth() + 2; // +1 for 0-index, +1 for next month
         input.value = `${ny}-${String(nm).padStart(2, '0')}`;
       } else {
-        const { currentYm, nextYm } = _staffAllowedMonths();
-        input.min = currentYm;
+        const { earliestYm, currentYm, nextYm } = _staffAllowedMonths();
+        input.min = earliestYm;
         input.max = nextYm || currentYm;
         // Default to next month only once it's actually unlocked; otherwise
         // pre-selecting it would fail on submit against the backend's own check.
@@ -5305,8 +5306,8 @@ function _removeCellFromBoxes(ri, ci) {
     const [y, m] = val.split('-').map(Number);
 
     if (state.me.rota_role !== 'management') {
-      const { currentYm, nextYm } = _staffAllowedMonths();
-      if (val !== currentYm && val !== nextYm) {
+      const { earliestYm, currentYm, nextYm } = _staffAllowedMonths();
+      if (val < earliestYm || val > (nextYm || currentYm)) {
         toast('That month is not available for export yet', 'err');
         return;
       }
