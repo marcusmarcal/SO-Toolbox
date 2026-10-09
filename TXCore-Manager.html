@@ -4674,7 +4674,7 @@
               (st.objects || []).forEach(function (o, i) {
                 html += '<tr class="plan-step"><td>' + st.seq + "." + (i + 1) + "</td><td>" + escapeHtml(o.kind) + (o.relay ? ' <span class="pill relay">ID3AS relay</span>' : "") +
                   (o.mezz ? ' <span class="pill relay">Mezz</span>' : "") +
-                  (o.body && o.body.active === false ? ' <span class="pill">paused</span>' : "") + "</td><td>" + escapeHtml(o.name) +
+                  (o.body && (o.body.active === false || o.body.paused === true) ? ' <span class="pill">paused</span>' : "") + "</td><td>" + escapeHtml(o.name) +
                   '</td><td><pre class="plan-body">' + escapeHtml(JSON.stringify(o.body)) + "</pre></td></tr>";
               });
             });

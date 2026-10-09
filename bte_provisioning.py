@@ -778,7 +778,9 @@ def mezz_destination_copy(base, dc_key, dc, dest, mezz_sid):
     obj = destination_object(base, dc_key, dc, dest, mezz_sid)
     if obj is None:
         return None
-    obj['body']['active'] = False
+    # Outputs are paused with the boolean "paused" (TXCore API reference); "active" only exists on sources.
+    obj['body'].pop('active', None)
+    obj['body']['paused'] = True
     return {'kind': 'output', 'name': obj['name'], 'body': obj['body'], 'mezz': 'dest_copy',
             'mezz_destination_id': dest.get('id'), 'mezz_destination_name': dest.get('name')}
 
