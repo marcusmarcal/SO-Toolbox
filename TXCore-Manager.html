@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TXCore Management — SO-Toolbox</title>
-    <!-- TXCore Manager frontend v1.13.5 — STB (multicast) + MAIN (SRT) clusters + BTE (timed TXEdge resource provisioning, channel reuse guard, destination outputs, legacy TXEdge support, partial creation kept, ID3AS relay badges, destination picker closes after adding, self-dismissing info notices, per-TXEdge target toggles for regional-only creation, persistent failure history, TXEdge placement per stream, no dry run, ID3AS destination filters, TXEdge inferred from the supplier, absolute end time in UTC, per-destination removal, name-inferred ID3AS filters, removal time beyond the stream end extends the stream, adjust end time, larger destination controls, other destinations keep the original stream end, active channels show only an "already active" message, discreet "List destinations" link, collapsible one-line errors, page renamed TXCore Management, optional collapsed TXEdge filter, no mode dropdown, input type shown instead of GVN, collapsible BTE active streams block) -->
+    <!-- TXCore Manager frontend v1.14.0 — STB (multicast) + MAIN (SRT) clusters + BTE (timed TXEdge resource provisioning, channel reuse guard, destination outputs, legacy TXEdge support, partial creation kept, ID3AS relay badges, destination picker closes after adding, self-dismissing info notices, per-TXEdge target toggles for regional-only creation, persistent failure history, TXEdge placement per stream, no dry run, ID3AS destination filters, TXEdge inferred from the supplier, absolute end time in UTC, per-destination removal, name-inferred ID3AS filters, removal time beyond the stream end extends the stream, adjust end time, larger destination controls, other destinations keep the original stream end, active channels show only an "already active" message, discreet "List destinations" link, collapsible one-line errors, page renamed TXCore Management, optional collapsed TXEdge filter, no mode dropdown, input type shown instead of GVN, collapsible BTE active streams block, Mezz toggle to route a stream through the transcoding platform) -->
     <style>
       :root {
         --bg: #0f1216;
@@ -2001,6 +2001,23 @@
                 </div>
                 <div class="hint" id="bte-prov-edges-hint"></div>
               </div>
+              <div class="edge-targets" id="bte-prov-mezz" style="margin-top: 12px">
+                <div class="et-caption">Mezz
+                  <span style="color: var(--text-faint)">(force the stream through the transcoding platform)</span></div>
+                <div class="edge-toggles">
+                  <div class="edge-toggle">
+                    <label class="switch safe"><input type="checkbox" id="bte-prov-mezz-on" /><span class="track"></span></label>
+                    <label class="et-name" for="bte-prov-mezz-on">Mezz</label>
+                  </div>
+                </div>
+                <div id="bte-prov-mezz-body" style="display: none; margin-top: 8px">
+                  <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap">
+                    <select id="bte-prov-mezz-select" style="max-width: 360px"></select>
+                    <span class="pill relay" id="bte-prov-mezz-type" style="display: none"></span>
+                  </div>
+                </div>
+                <div class="hint" id="bte-prov-mezz-hint"></div>
+              </div>
               <div class="hint" id="bte-prov-hint" style="margin-top: 8px"></div>
             </div>
 
@@ -3042,6 +3059,8 @@
           edgeAuto: false, // the TXEdge dropdown was inferred from the selected supplier
           edgeManual: false, // the user picked the TXEdge by hand
           supplierEdges: [], // TXEdges used by the selected supplier
+          mezz: [], // Mezz pool items (transcoding platform channels)
+          mezzMeta: null,
         };
 
         function activeResourceIds() {
@@ -3418,6 +3437,7 @@
           if (r) {
             bte.pendingDestinations = [];
             renderPendingDestinations();
+            resetMezz();
             resetEdgeTargets(r);
             resetEndTime();
             renderProvHint();
@@ -3548,6 +3568,7 @@
               return (e.duration_minutes ? minutesToLabel(e.duration_minutes) : "") +
                 (e.dc_edge ? " · " + e.dc_edge : "") +
                 (e.targets && e.targets.length && e.targets.length < 4 ? " · targets " + e.targets.join(", ") : "") +
+                (e.mezz ? " · Mezz " + e.mezz : "") +
                 (e.source_snapshot ? " · ⚠ backup " + e.source_snapshot : "") +
                 (e.destinations && e.destinations.length
                   ? " · destinations: " + e.destinations.map(function (d) { return d.name; }).join(", ")
@@ -3687,12 +3708,16 @@
           Promise.all([
             bteFetch("/backups/" + encodeURIComponent(date) + "/resources"),
             bteFetch("/backups/" + encodeURIComponent(date) + "/destinations"),
+            // Backups taken before the Mezz pool existed have none: not an error.
+            bteFetch("/backups/" + encodeURIComponent(date) + "/mezz").catch(function () { return { items: [] }; }),
           ])
             .then(function (results) {
               bte.resources = results[0].items || [];
               bte.resourcesMeta = results[0];
               bte.destinations = results[1].items || [];
               bte.destinationsMeta = results[1];
+              bte.mezz = results[2].items || [];
+              bte.mezzMeta = results[2];
               backupView.active = true;
               backupView.date = date;
               bte.selectedId = null;
@@ -3751,7 +3776,7 @@
 
         // Plan warnings that are purely informational (not problems): the ID3AS relay summary.
         function isInfoWarning(text) {
-          return /ID3AS relay on /.test(String(text));
+          return /ID3AS relay on |^Mezz route /.test(String(text));
         }
 
         // Failures are shown up front once (dismissible) and always kept in the log.
@@ -3927,6 +3952,104 @@
           }).join("");
           $("bte-prov-dest-count").textContent = bte.pendingDestinations.length;
         }
+        // ---- Mezz route (force the stream through the transcoding platform) ---
+        function mezzType(m) {
+          return String((m && m.capabilities && m.capabilities["Mezz Type"]) || "").trim();
+        }
+
+        // Mezz channels attached to a running stream (concurrency 1): lease_id by Mezz id.
+        function activeMezzIds() {
+          var set = {};
+          prov.leases.forEach(function (l) {
+            if (!isFinal(l) && l.mezz && l.mezz.id) set[l.mezz.id] = l.lease_id;
+          });
+          return set;
+        }
+
+        function mezzEnabled() {
+          return !!$("bte-prov-mezz-on").checked;
+        }
+
+        function mezzSelectedId() {
+          return $("bte-prov-mezz-select").value || "";
+        }
+
+        // The toggle is on but no channel is picked yet: nothing can be planned or created.
+        function mezzIncomplete() {
+          return mezzEnabled() && !mezzSelectedId();
+        }
+
+        // "" when the channel can be selected, otherwise the reason it cannot.
+        function mezzUnavailableReason(m, used) {
+          if (String(m.mode || "").toLowerCase() !== "available") return "unavailable";
+          if (m.in_use || used[m.id]) return "in use";
+          return "";
+        }
+
+        function renderMezzHint() {
+          var hint = $("bte-prov-mezz-hint");
+          var text = "", color = "";
+          if (mezzEnabled()) {
+            var used = activeMezzIds();
+            var free = bte.mezz.filter(function (m) { return !mezzUnavailableReason(m, used); });
+            var chosen = bte.mezz.filter(function (m) { return m.id === mezzSelectedId(); })[0];
+            if (!bte.mezz.length) {
+              text = "No Mezz channels in the snapshot — refresh the snapshot.";
+              color = "var(--error)";
+            } else if (!free.length) {
+              text = "No Mezz channel is available right now.";
+              color = "var(--error)";
+            } else if (!chosen) {
+              text = "Select a Mezz channel (or turn Mezz off).";
+              color = "var(--warn)";
+            } else {
+              var p = chosen.properties || {};
+              text = "UDP in " + (p["Mezz In Input Main"] || "?") + " · SRT out " + (p["Mezz Out Input"] || "?") +
+                " → listener on that port + 1000. Destinations are also created paused on the Mezz stream; " +
+                "AVE / LMK / YER pull the Mezz output, the original source stays paused.";
+              if (!edgeToggle("DC").checked) {
+                text += " Regional only: the Mezz stream on the DC edge must already exist.";
+                color = "var(--warn)";
+              }
+            }
+          }
+          hint.textContent = text;
+          hint.style.color = color;
+        }
+
+        function renderMezzPicker() {
+          var on = mezzEnabled();
+          var sel = $("bte-prov-mezz-select");
+          $("bte-prov-mezz-body").style.display = on ? "" : "none";
+          var used = activeMezzIds();
+          var html = '<option value="">— select a Mezz channel —</option>' + bte.mezz.map(function (m) {
+            var why = mezzUnavailableReason(m, used);
+            var p = m.properties || {};
+            return '<option value="' + escapeHtml(m.id) + '"' + (why ? " disabled" : "") + ">" +
+              escapeHtml(m.name + " · " + (mezzType(m) || "?") + (p.TXEdge ? " · " + p.TXEdge : "") + (why ? " (" + why + ")" : "")) +
+              "</option>";
+          }).join("");
+          // Rebuild only when the list changed, so an open dropdown is not closed by the polling.
+          if (sel.getAttribute("data-sig") !== html) {
+            var keep = sel.value;
+            sel.innerHTML = html;
+            sel.setAttribute("data-sig", html);
+            sel.value = keep;
+          }
+          var chosen = bte.mezz.filter(function (m) { return m.id === sel.value && !mezzUnavailableReason(m, used); })[0];
+          if (!chosen) sel.value = "";
+          var pill = $("bte-prov-mezz-type");
+          pill.style.display = on && chosen ? "" : "none";
+          pill.textContent = chosen ? "Mezz type: " + (mezzType(chosen) || "?") : "";
+          renderMezzHint();
+        }
+
+        function resetMezz() {
+          $("bte-prov-mezz-on").checked = false;
+          $("bte-prov-mezz-select").value = "";
+          renderMezzPicker();
+        }
+
         // ---- target TXEdges (DC / AVE / LMK / YER toggles) -------------------
         var EDGE_SITES = ["DC", "AVE", "LMK", "YER"];
 
@@ -3971,8 +4094,10 @@
           $("bte-prov-dest-field").classList.toggle("dim", !dcOn);
           $("bte-btn-add-dest").disabled = !dcOn || !!activeLeaseId;
           var liveOff = !!(prov.status && !prov.status.live_writes_allowed);
-          $("bte-btn-plan").disabled = !count || !!activeLeaseId;
-          $("bte-btn-create").disabled = !count || !!activeLeaseId || liveOff;
+          var mezzMissing = mezzIncomplete();
+          $("bte-btn-plan").disabled = !count || !!activeLeaseId || mezzMissing;
+          $("bte-btn-create").disabled = !count || !!activeLeaseId || liveOff || mezzMissing;
+          renderMezzHint();
           var hint = $("bte-prov-edges-hint");
           if (!count) {
             hint.textContent = "Select at least one TXEdge.";
@@ -4108,6 +4233,7 @@
         }
 
         function renderLeases() {
+          if ($("bte-prov-mezz-select")) renderMezzPicker(); // a Mezz channel may have just been taken / freed
           var container = $("bte-lease-container");
           var leases = prov.leases;
           var active = leases.filter(function (l) { return !isFinal(l); });
@@ -4143,7 +4269,7 @@
               return (
                 '<tr data-lease="' + escapeHtml(l.lease_id) + '" data-expires="' + escapeHtml(l.expires_at || "") + '">' +
                 '<td><div class="lease-name">' + escapeHtml(l.resource_name || "?") + "</div>" +
-                '<div class="lease-sub">' + escapeHtml(l.supplier || "") + " · by " + escapeHtml(l.created_by || "?") + " · " + escapeHtml(fmtTime(l.created_at)) +
+                '<div class="lease-sub">' + escapeHtml(l.supplier || "") + (l.mezz ? " · Mezz " + escapeHtml(l.mezz.name) + " (" + escapeHtml(l.mezz.type) + ")" : "") + " · by " + escapeHtml(l.created_by || "?") + " · " + escapeHtml(fmtTime(l.created_at)) +
                 (l.extensions && l.extensions.length ? " · end adjusted " + (function (m) { return (m < 0 ? "−" : "+") + Math.abs(m) + " min"; })(l.extensions.reduce(function (a, e) { return a + (e.minutes || 0); }, 0)) : "") +
                 (l.source_snapshot ? ' · <span style="color: var(--warn)">⚠ backup ' + escapeHtml(l.source_snapshot) + "</span>" : "") + "</div>" +
                 leaseErrHtml(l.lease_id, errs) +
@@ -4220,6 +4346,7 @@
               return o.destination_id === destMgr.destId && o.kind === "output" && !o.relay && alive(o);
             })[0] || null,
             relay: objs.filter(function (o) { return o.relay && o.relay_destination_id === destMgr.destId && alive(o); }),
+            mezzCopy: objs.filter(function (o) { return o.mezz_destination_id === destMgr.destId && alive(o); })[0] || null,
           };
         }
 
@@ -4314,6 +4441,10 @@
             row("ID3AS relay", escapeHtml(r.edge) + " ⇄ " + escapeHtml(destEndpoint(r)) + " · " + escapeHtml(r.status),
               r.status === "created" ? "ok" : "warn");
           });
+          if (data.mezzCopy) {
+            row("Mezz copy", escapeHtml(data.mezzCopy.edge) + " · paused · " + escapeHtml(destEndpoint(data.mezzCopy)) + " · " + escapeHtml(data.mezzCopy.status),
+              data.mezzCopy.status === "created" ? "ok" : "warn");
+          }
           row("Removal", o.expires_at ? (o.expires_reason ? "kept at the " + escapeHtml(o.expires_reason) + " — " : "own removal time — ") + escapeHtml(hhmmUtc(o.expires_at)) : "follows the stream",
             o.expires_at ? "warn" : "");
           if (o.error) row("Error", escapeHtml(o.error), "bad");
@@ -4380,7 +4511,7 @@
           if (!data || !data.out) return;
           var name = data.out.destination_name || data.out.name;
           var ok = confirm(
-            "Remove destination " + name + " now?\n\nOnly its output" + (data.relay.length ? " and its ID3AS relay" : "") +
+            "Remove destination " + name + " now?\n\nOnly its output" + (data.relay.length ? " and its ID3AS relay" : "") + (data.mezzCopy ? " and its paused Mezz copy" : "") +
             " are deleted from TXCore — the stream " + (data.lease.resource_name || "") + " stays active."
           );
           if (!ok) return;
@@ -4523,6 +4654,7 @@
               escapeHtml(s.objects + " objects on " + s.edges + " edge" + (s.edges === 1 ? "" : "s") + " (" + (s.dc_enabled === false ? "regional only: " : s.dc_edge + " + ") + s.sites + " regional site" + (s.sites === 1 ? "" : "s") + ")" +
                 " · input " + (s.input || "?") + " · DC output port " + s.output_port +
                 (s.id3as_relays ? " · ID3AS relay" + (s.id3as_relays === 1 ? "" : "s") + " " + s.id3as_relays : "") +
+                (s.mezz ? " · Mezz " + s.mezz.name + " (" + s.mezz.type + ")" : "") +
                 " · encryption " + (s.encryption ? s.encryption + " (passphrase: " + s.passphrase_status + ")" : "none") +
                 " · " + (plan.live_writes_allowed ? "LIVE — will be sent to TXCore MAIN" : "provisioning is disabled on the server — creation will be refused") +
                 (plan.source_snapshot && plan.source_snapshot !== "live" ? " · ⚠ snapshot: BACKUP " + plan.source_snapshot : " · snapshot: live")) +
@@ -4531,14 +4663,18 @@
             html += '<div class="table-wrap"><table><thead><tr><th>#</th><th>Kind</th><th>Name</th><th>Object</th></tr></thead><tbody>';
             plan.steps.forEach(function (st) {
               var relayObj = (st.objects || []).filter(function (o) { return o.relay; })[0];
+              var mezzStream = (st.objects || []).filter(function (o) { return o.mezz === "stream"; })[0];
               html += '<tr><td colspan="4" class="plan-edge">' + escapeHtml(st.edge) +
                 (st.location ? " — " + escapeHtml(st.location) : "") +
                 (relayObj ? " — ID3AS relay" + (relayObj.relay_destination_name ? " (" + escapeHtml(relayObj.relay_destination_name) + ")" : "") : "") +
+                (mezzStream ? " — Mezz stream" : "") +
                 (st.legacy
                   ? " — legacy TXEdge: one POST per object " + escapeHtml(edgePath.replace("{edge}", st.edge_id)) + "/{stream|source|output}"
                   : " — POST " + escapeHtml(edgePath.replace("{edge}", st.edge_id))) + "</td></tr>";
               (st.objects || []).forEach(function (o, i) {
-                html += '<tr class="plan-step"><td>' + st.seq + "." + (i + 1) + "</td><td>" + escapeHtml(o.kind) + (o.relay ? ' <span class="pill relay">ID3AS relay</span>' : "") + "</td><td>" + escapeHtml(o.name) +
+                html += '<tr class="plan-step"><td>' + st.seq + "." + (i + 1) + "</td><td>" + escapeHtml(o.kind) + (o.relay ? ' <span class="pill relay">ID3AS relay</span>' : "") +
+                  (o.mezz ? ' <span class="pill relay">Mezz</span>' : "") +
+                  (o.body && o.body.active === false ? ' <span class="pill">paused</span>' : "") + "</td><td>" + escapeHtml(o.name) +
                   '</td><td><pre class="plan-body">' + escapeHtml(JSON.stringify(o.body)) + "</pre></td></tr>";
               });
             });
@@ -4557,6 +4693,7 @@
               : [],
             targets: selectedTargets(),
           };
+          if (mezzEnabled() && mezzSelectedId()) payload.mezz_id = mezzSelectedId();
           if (backupView.active) payload.backup_date = backupView.date;
           return payload;
         }
@@ -4593,7 +4730,9 @@
           var payload = provPayload();
           var ok = confirm(
             "Create the [BTE] resources for " + (r ? r.name : bte.selectedId) +
-            " on TXCore MAIN (" + targetsLabel() + ")" + (payload.end_at ? " until " + endTimeSummary() : " for the default duration") +
+            " on TXCore MAIN (" + targetsLabel() + ")" +
+            (payload.mezz_id ? " via Mezz " + (bte.mezz.filter(function (m) { return m.id === payload.mezz_id; })[0] || {}).name : "") +
+            (payload.end_at ? " until " + endTimeSummary() : " for the default duration") +
             (payload.backup_date ? "\n\n⚠ Using DM Snapshot BACKUP from " + payload.backup_date + " — NOT the live snapshot." : "") +
             "?\n\nThey are deleted automatically when the lease ends unless you extend it."
           );
@@ -4793,6 +4932,15 @@
             applyEdgeTargets();
             renderProvHint();
           });
+          // Mezz toggle / channel picker (a channel is required while the toggle is on).
+          $("bte-prov-mezz-on").addEventListener("change", function () {
+            renderMezzPicker();
+            applyEdgeTargets();
+          });
+          $("bte-prov-mezz-select").addEventListener("change", function () {
+            renderMezzPicker();
+            applyEdgeTargets();
+          });
           $("bte-dest-picker-close").addEventListener("click", closeDestPicker);
           $("bte-dest-picker-filter").addEventListener("input", renderDestPicker);
           $("bte-dest-picker-container").addEventListener("click", function (ev) {
@@ -4912,7 +5060,14 @@
               bte.destinationsMeta = { hint: err.message };
             });
 
-          Promise.all([statusReq, resReq, destReq, loadProvStatus(), loadLeases(), loadAudit()]).then(function () {
+          var mezzReq = bteFetch("/mezz")
+            .then(function (data) { bte.mezz = data.items || []; bte.mezzMeta = data; })
+            .catch(function (err) {
+              bte.mezz = [];
+              bte.mezzMeta = { hint: err.message };
+            });
+
+          Promise.all([statusReq, resReq, destReq, mezzReq, loadProvStatus(), loadLeases(), loadAudit()]).then(function () {
             bte.loading = false;
             bte.loaded = true;
             renderBteAll();

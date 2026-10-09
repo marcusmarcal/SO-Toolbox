@@ -30,6 +30,20 @@ TXCore call per edge: POST /api/mwedge/<edge id> with {streams, sources, outputs
         output  SRT listener on port BTE_ID3AS_SRT_PORT_BASE + <nn> (4001..4099),
                       passphrase/encryption from the .env (one for every channel)
 
+Mezz route (optional, one Mezz pool channel per stream): forces the stream through the
+transcoding platform. Everything above is unchanged except:
+
+    DC edge, supplier stream
+        + output UDP  to the Mezz "Mezz In Input Main" address   OUT_MEZZ_IN_<ch>_UDP_<edge>
+    DC edge, extra stream  MEZZ_OUT_<ch>_<type>_<edge>_[BTE]
+        source  SRT listener on the port of "Mezz Out Input" (internal passphrase, 100 ms)
+        output  SRT listener on source port + 1000            (internal passphrase, 100 ms)
+        outputs for every selected destination, created PAUSED (the active ones stay on
+        the supplier stream)
+    AVE / LMK / YER edges
+        + source SRT caller  <DC edge pub=SRT ip>:<Mezz output port>  — the ACTIVE (primary) source
+        the original supplier source stays on the stream, PAUSED
+
 Target TXEdges: a request may restrict creation to a subset of the targets
 DC (the DC edge), AVE, LMK and YER ("targets" field, default: all). Regional
 streams can be created on their own: the DC stream is then expected to exist
@@ -188,6 +202,12 @@ ID3AS_ENCRYPTION = (_env('BTE_ID3AS_SRT_ENCRYPTION') or 'AES-128').upper()
 ID3AS_RELAY_EDGE = (_env('BTE_ID3AS_RELAY_EDGE') or 'INX03').upper()
 ID3AS_PORT_BASE = _env_int('BTE_ID3AS_SRT_PORT_BASE', 4000, minimum=1)
 ID3AS_CHANNEL_MIN, ID3AS_CHANNEL_MAX = 1, 99          # -> ports base+1 .. base+99
+
+# Mezz route (transcoding platform). The SRT latency of the Mezz source/output is
+# fixed on purpose: the optional "Latency" property of a Mezz pool item is ignored.
+MEZZ_SRT_LATENCY_MS = 100
+MEZZ_ENCRYPTION = 'AES-256'
+_MEZZ_PREFIX_RE = re.compile(r'^mezz[_\s-]+', re.IGNORECASE)
 
 
 def _compile_id3as_pattern(raw):
@@ -398,6 +418,12 @@ def config_status():
             'encryption': ID3AS_ENCRYPTION,
             'passphrase_set': bool(ID3AS_PASSPHRASE),
             'name_pattern': ID3AS_NAME_RE.pattern,
+        },
+        'mezz': {
+            'srt_latency_ms': MEZZ_SRT_LATENCY_MS,
+            'encryption': MEZZ_ENCRYPTION,
+            'port_offset': OUTPUT_PORT_OFFSET,
+            'passphrase_set': bool(INTERNAL_PASSPHRASE),
         },
         'edge_path': EDGE_PATH,
         'object_path': OBJECT_PATH,
@@ -652,6 +678,110 @@ def id3as_relay_objects(base, relay_edge, dest, channel, latency=None):
     ]
 
 
+def mezz_label(item):
+    """'Mezz_CH08' -> 'CH08': the channel token used in every Mezz object name."""
+    name = str(item.get('name') or '').strip()
+    return _slug(_MEZZ_PREFIX_RE.sub('', name) or name).upper()
+
+
+def mezz_type(item):
+    """capabilities["Mezz Type"] (Id3as / Lite), '' when missing."""
+    return str((item.get('capabilities') or {}).get('Mezz Type') or '').strip()
+
+
+def mezz_is_available(item):
+    return str(item.get('mode') or '').strip().lower() == 'available'
+
+
+def mezz_check(item):
+    """Validate a Mezz pool item. Returns (spec, errors); spec is None when errors exist.
+
+    Fail closed: a Mezz channel that cannot be fully built fails the plan instead of
+    silently creating a stream that bypasses the transcoding platform.
+    """
+    props = item.get('properties') or {}
+    name = item.get('name') or item.get('id') or 'Mezz'
+    errors = []
+    mtype = mezz_type(item)
+    if not mtype:
+        errors.append(f'Mezz {name}: capability "Mezz Type" is missing')
+    if not mezz_is_available(item):
+        errors.append(f'Mezz {name}: channel is not available (mode {item.get("mode")!r})')
+    raw_in = props.get('Mezz In Input Main')
+    udp = parse_input(raw_in)
+    if not udp or udp['protocol'] != 'udp' or not udp['host']:
+        errors.append(f'Mezz {name}: "Mezz In Input Main" must be udp://<ip>:<port> (got {raw_in!r})')
+    raw_out = props.get('Mezz Out Input')
+    srt = parse_input(raw_out)
+    if not srt or srt['protocol'] != 'srt' or srt['mode'] != 'listener':
+        errors.append(f'Mezz {name}: "Mezz Out Input" must be srt://:<port>|Listener (got {raw_out!r})')
+    src_port = srt['port'] if srt else None
+    out_port = src_port + OUTPUT_PORT_OFFSET if src_port else None
+    if out_port and not 1 <= out_port <= 65535:
+        errors.append(f'Mezz {name}: output port {out_port} (source port + {OUTPUT_PORT_OFFSET}) is out of range')
+    if errors:
+        return None, errors
+    label = mezz_label(item)
+    type_tag = _slug(mtype).upper()
+    return {
+        'id': item.get('id'),
+        'name': name,
+        'label': label,
+        'type': mtype,
+        'type_tag': type_tag,
+        'base': f'MEZZ_OUT_{label}_{type_tag}',     # MEZZ_OUT_CH08_LITE
+        'txedge': str(props.get('TXEdge') or '').strip().upper() or None,
+        'udp_host': udp['host'],
+        'udp_port': udp['port'],
+        'src_port': src_port,
+        'out_port': out_port,
+    }, []
+
+
+def mezz_in_object(spec, dc_key, dc, sid):
+    """UDP output on the SUPPLIER stream (DC edge) that feeds the Mezz platform."""
+    name = f'OUT_MEZZ_IN_{spec["label"]}_UDP_{dc_key}'      # OUT_MEZZ_IN_CH08_UDP_INX02
+    interface = dc['out'].get('UDP') or dc['out'].get('SRT')
+    return {'kind': 'output', 'name': name, 'mezz': 'in_output',
+            'body': _endpoint_obj(sid, name, 'UDP', _udp_options(spec['udp_host'], spec['udp_port'], interface))}
+
+
+def mezz_route_objects(spec, dc_key, dc):
+    """Mezz stream + SRT listener source + SRT listener output on the DC edge.
+
+    Returns (stream id, objects). Named MEZZ_OUT_<ch>_<type>_<edge>_[BTE]; only the
+    stream carries the tag (sources/outputs are tied to it by their "stream" id).
+    """
+    base = spec['base']
+    sid = _stream_id(base, dc_key)
+    n_stream, n_src, n_out = stream_name(base, dc_key), source_name(base, dc_key, 'SRT'), output_name(base, dc_key, 'SRT')
+    src_opts = _srt_options('listener', None, spec['src_port'], MEZZ_SRT_LATENCY_MS,
+                            INTERNAL_PASSPHRASE, MEZZ_ENCRYPTION, dc['in'].get('SRT'))
+    out_opts = _srt_options('listener', None, spec['out_port'], MEZZ_SRT_LATENCY_MS,
+                            INTERNAL_PASSPHRASE, MEZZ_ENCRYPTION, dc['out'].get('SRT'),
+                            srt_type=SRT_OUTPUT_TYPE['listen'])
+    return sid, [
+        {'kind': 'stream', 'name': n_stream, 'mezz': 'stream', 'body': _stream_obj(sid, n_stream, 'none')},
+        {'kind': 'source', 'name': n_src, 'mezz': 'source', 'body': _endpoint_obj(sid, n_src, 'SRT', src_opts)},
+        {'kind': 'output', 'name': n_out, 'mezz': 'output', 'body': _endpoint_obj(sid, n_out, 'SRT', out_opts)},
+    ]
+
+
+def mezz_destination_copy(base, dc_key, dc, dest, mezz_sid):
+    """PAUSED copy of a destination output on the Mezz stream (same DC edge).
+
+    Uses mezz_destination_* instead of destination_* on purpose: destination_id marks the
+    real (active) output, and the UI / "in use" bookkeeping count one entry per destination.
+    Returns None when the destination cannot be parsed.
+    """
+    obj = destination_object(base, dc_key, dc, dest, mezz_sid)
+    if obj is None:
+        return None
+    obj['body']['active'] = False
+    return {'kind': 'output', 'name': obj['name'], 'body': obj['body'], 'mezz': 'dest_copy',
+            'mezz_destination_id': dest.get('id'), 'mezz_destination_name': dest.get('name')}
+
+
 def _own_stream_ids(lease):
     """TXCore ids of the tagged streams of a lease (server-assigned on legacy edges)."""
     return {o['id'] for o in lease['objects']
@@ -725,11 +855,11 @@ def _stream_obj(stream_id, name, failover):
     return {'id': stream_id, 'name': name, 'options': {'failoverMode': failover}}
 
 
-def _endpoint_obj(stream_id, name, protocol, options):
-    return {'stream': stream_id, 'name': name, 'tags': 'bte', 'protocol': protocol, 'active': True, 'options': options}
+def _endpoint_obj(stream_id, name, protocol, options, active=True):
+    return {'stream': stream_id, 'name': name, 'tags': 'bte', 'protocol': protocol, 'active': active, 'options': options}
 
 
-def build_plan(item, edges=None, passphrase_override=None, destinations=None, targets=None):
+def build_plan(item, edges=None, passphrase_override=None, destinations=None, targets=None, mezz=None):
     """Return {'ok', 'steps', 'warnings', 'errors', 'summary'} for a snapshot item.
 
     One step per edge = one POST /mwedge/<edge id>. Each step lists the objects
@@ -739,6 +869,10 @@ def build_plan(item, edges=None, passphrase_override=None, destinations=None, ta
     ``destinations`` is an optional list of Destination pool items: each
     becomes an extra output on the DC edge only, alongside the primary output.
     ``targets`` restricts the plan to a subset of DC / AVE / LMK / YER (None = all).
+    ``mezz`` is an optional Mezz pool item: the stream is then routed through the
+    transcoding platform (see the module docstring). Regional sites get the Mezz source
+    as primary and keep the original one paused, so ``mezz`` also applies to regional-only
+    plans; the DC-edge Mezz objects are only planned with the DC target.
     Without the DC target no DC objects are planned (destinations are then refused),
     but the DC edge must still be configured: regional sources pull from its public SRT address.
     """
@@ -798,6 +932,20 @@ def build_plan(item, edges=None, passphrase_override=None, destinations=None, ta
         elif channel is not None and dest.get('id'):
             id3as[dest['id']] = channel
 
+    # Mezz route: an item that cannot be fully built fails the whole plan (fail closed).
+    mezz_spec = None
+    if mezz is not None:
+        mezz_spec, mezz_errors = mezz_check(mezz)
+        errors.extend(mezz_errors)
+        if mezz_spec:
+            if mezz_spec['txedge'] and dc_key and mezz_spec['txedge'] != dc_key:
+                warnings.append(f'Mezz {mezz_spec["name"]}: its TXEdge is {mezz_spec["txedge"]} but the supplier DC edge is {dc_key}')
+            if use_dc and out_port and mezz_spec['out_port'] == out_port:
+                errors.append(f'Mezz {mezz_spec["name"]}: output port {out_port} is also the supplier output port on {dc_key}')
+            if (use_dc and main_in and main_in['protocol'] == 'srt' and main_in['mode'] == 'listener'
+                    and main_in['port'] == mezz_spec['src_port']):
+                errors.append(f'Mezz {mezz_spec["name"]}: source port {mezz_spec["src_port"]} is also the supplier SRT listener port on {dc_key}')
+
     if errors:
         return {'ok': False, 'steps': [], 'warnings': warnings, 'errors': errors, 'summary': {}}
 
@@ -849,6 +997,10 @@ def build_plan(item, edges=None, passphrase_override=None, destinations=None, ta
             {'kind': 'output', 'name': n_out, 'body': _endpoint_obj(sid, n_out, 'SRT', _srt_options(
                 'listener', None, out_port, latency, INTERNAL_PASSPHRASE, 'AES-256', dc['out'].get('SRT'), srt_type=SRT_OUTPUT_TYPE['listen']))},
         ]
+        mezz_sid, mezz_objects = None, []
+        if mezz_spec:
+            dc_objects.append(mezz_in_object(mezz_spec, dc_key, dc, sid))
+            mezz_sid, mezz_objects = mezz_route_objects(mezz_spec, dc_key, dc)
         seen_dest_ids = set()
         for dest in (destinations or []):
             dest_id = dest.get('id')
@@ -862,7 +1014,14 @@ def build_plan(item, edges=None, passphrase_override=None, destinations=None, ta
                 continue
             seen_dest_ids.add(dest_id)
             dc_objects.append(obj)
+            if mezz_spec:
+                # Same output, PAUSED, on the Mezz stream (same DC edge).
+                copy_obj = mezz_destination_copy(mezz_spec['base'], dc_key, dc, dest, mezz_sid)
+                if copy_obj is not None:
+                    mezz_objects.append(copy_obj)
         step(dc, dc_objects)
+        if mezz_spec:
+            step(dc, mezz_objects)      # own step: a separate stream on the same edge
 
     # ---- ID3AS / AWS relays (relay edge, one stream per destination) -----
     relays = 0
@@ -893,13 +1052,21 @@ def build_plan(item, edges=None, passphrase_override=None, destinations=None, ta
         key = edge['key']
         sid = _stream_id(base, key)
         n_stream, n_src, n_out = stream_name(base, key), source_name(base, key, 'SRT'), output_name(base, key, 'UDP')
-        step(edge, [
-            {'kind': 'stream', 'name': n_stream, 'body': _stream_obj(sid, n_stream, 'none')},
-            {'kind': 'source', 'name': n_src, 'body': _endpoint_obj(sid, n_src, 'SRT', _srt_options(
-                'caller', dc['pub']['SRT'], out_port, latency, INTERNAL_PASSPHRASE, 'AES-256', edge['in'].get('SRT')))},
-            {'kind': 'output', 'name': n_out, 'body': _endpoint_obj(sid, n_out, 'UDP', _udp_options(
-                mcast['host'], mcast['port'], edge['out'].get('UDP')))},
-        ])
+        objects = [{'kind': 'stream', 'name': n_stream, 'body': _stream_obj(sid, n_stream, 'none')}]
+        if mezz_spec:
+            # The Mezz source is the primary (active, listed first); the original supplier
+            # source stays on the stream, paused.
+            n_mezz = f'SRC_{_slug(base)}_MEZZ_{mezz_spec["label"]}_SRT_{key}'
+            objects.append({'kind': 'source', 'name': n_mezz, 'mezz': 'regional_source',
+                            'body': _endpoint_obj(sid, n_mezz, 'SRT', _srt_options(
+                                'caller', dc['pub']['SRT'], mezz_spec['out_port'], latency, INTERNAL_PASSPHRASE,
+                                MEZZ_ENCRYPTION, edge['in'].get('SRT')))})
+        objects.append({'kind': 'source', 'name': n_src, 'body': _endpoint_obj(sid, n_src, 'SRT', _srt_options(
+            'caller', dc['pub']['SRT'], out_port, latency, INTERNAL_PASSPHRASE, 'AES-256', edge['in'].get('SRT')),
+            active=not mezz_spec)})
+        objects.append({'kind': 'output', 'name': n_out, 'body': _endpoint_obj(sid, n_out, 'UDP', _udp_options(
+            mcast['host'], mcast['port'], edge['out'].get('UDP')))})
+        step(edge, objects)
 
     if sites == 0 and any(s in targets for s, _ in REGIONAL_SITES):
         warnings.append('No regional site will be provisioned (no multicast address / edge available)')
@@ -908,6 +1075,11 @@ def build_plan(item, edges=None, passphrase_override=None, destinations=None, ta
         return {'ok': False, 'steps': [], 'warnings': warnings, 'summary': {},
                 'errors': ['Nothing to provision for the selected TXEdges '
                            '(no multicast address / edge available for the selected sites)']}
+
+    if mezz_spec:
+        warnings.append(f'Mezz route {mezz_spec["name"]} ({mezz_spec["type"]}): UDP in {mezz_spec["udp_host"]}:{mezz_spec["udp_port"]}'
+                        f' → SRT listener {mezz_spec["src_port"]} → SRT listener {mezz_spec["out_port"]}'
+                        f' ({MEZZ_SRT_LATENCY_MS} ms, {MEZZ_ENCRYPTION}); regional sources: Mezz primary, original paused')
 
     return {
         'ok': True,
@@ -924,10 +1096,11 @@ def build_plan(item, edges=None, passphrase_override=None, destinations=None, ta
             'encryption': encryption if encrypted else None,
             'passphrase_status': passphrase_status,
             'sites': sites,
-            'edges': len(steps),
+            'edges': len({st['edge'] for st in steps}),
             'objects': sum(len(s['objects']) for s in steps),
             'destinations': len(seen_dest_ids),
             'id3as_relays': relays,
+            'mezz': mezz_spec,
         },
     }
 
@@ -1329,6 +1502,15 @@ def used_destination_ids(exclude_lease=None):
     return used
 
 
+def used_mezz_ids(exclude_lease=None):
+    """Mezz pool ids attached to any non-final lease (a Mezz channel has concurrency 1)."""
+    with _Locked(LEASES_LOCK_FILE):
+        leases = _read_registry()['leases']
+    return {l['mezz']['id'] for lid, l in leases.items()
+            if l['status'] not in FINAL_STATUSES and (l.get('mezz') or {}).get('id')
+            and not (exclude_lease and lid == exclude_lease)}
+
+
 def get_lease(lease_id):
     with _Locked(LEASES_LOCK_FILE):
         return _read_registry()['leases'].get(lease_id)
@@ -1412,6 +1594,7 @@ def create_lease(item, plan, duration_minutes, username, source_snapshot=None, e
         'sites': plan['summary'].get('sites'),
         'dc_created': plan['summary'].get('dc_enabled', True),   # False: regional-only lease
         'targets': plan['summary'].get('targets'),
+        'mezz': plan['summary'].get('mezz'),        # None, or the Mezz route spec (id, name, type, ports, base)
         'source_snapshot': source_snapshot,
         'created_at': _iso(now),
         'created_by': username,
@@ -1433,7 +1616,9 @@ def create_lease(item, plan, duration_minutes, username, source_snapshot=None, e
              'name': o['name'], 'body': o['body'], 'id': None, 'status': 'pending', 'error': None,
              'destination_id': o.get('destination_id'), 'destination_name': o.get('destination_name'),
              'relay': o.get('relay'), 'relay_destination_id': o.get('relay_destination_id'),
-             'relay_destination_name': o.get('relay_destination_name'), 'legacy': bool(s.get('legacy'))}
+             'relay_destination_name': o.get('relay_destination_name'),
+             'mezz': o.get('mezz'), 'mezz_destination_id': o.get('mezz_destination_id'),
+             'mezz_destination_name': o.get('mezz_destination_name'), 'legacy': bool(s.get('legacy'))}
             for s in plan['steps'] for o in s['objects']
         ],
         'partial': False,
@@ -1460,6 +1645,7 @@ def create_lease(item, plan, duration_minutes, username, source_snapshot=None, e
         'resource_name': lease['resource_name'],
         'dc_edge': lease['dc_edge'],
         'targets': lease.get('targets'),
+        'mezz': (lease.get('mezz') or {}).get('name'),
         'user': username,
         'duration_minutes': lease['duration_minutes'],
         'expires_at': lease['expires_at'],
@@ -1846,7 +2032,8 @@ def add_destination(lease_id, destination_item, username, client=None):
     edge = EDGES.get(dc_key)
     if edge is None:
         return lease, f'Edge {dc_key} is not configured on the server'
-    stream_obj = next((o for o in lease['objects'] if o['kind'] == 'stream' and o['edge'] == dc_key), None)
+    stream_obj = next((o for o in lease['objects']
+                       if o['kind'] == 'stream' and o['edge'] == dc_key and not o.get('mezz')), None)
     if stream_obj is None:
         return lease, 'DC edge stream not found on this lease'
     sid = stream_obj.get('id') or (stream_obj.get('body') or {}).get('id')
@@ -1865,19 +2052,38 @@ def add_destination(lease_id, destination_item, username, client=None):
         return lease, relay_error
     relay_edge = EDGES.get(ID3AS_RELAY_EDGE) if channel is not None else None
 
+    # Mezz route: the same destination also goes PAUSED on the Mezz stream. When the Mezz
+    # stream was never created the destination is still added (the copy is skipped).
+    mezz_copy = None
+    mezz_info = lease.get('mezz')
+    if mezz_info:
+        mezz_stream = next((o for o in lease['objects']
+                            if o.get('mezz') == 'stream' and o.get('id') and o['status'] not in _GONE), None)
+        if mezz_stream is None:
+            log.warning('BTE lease %s: Mezz stream not available — destination %s added without its paused Mezz copy',
+                        lease_id, destination_item.get('name') or dest_id)
+        else:
+            mezz_sid = mezz_stream.get('id') or (mezz_stream.get('body') or {}).get('id')
+            mezz_copy = mezz_destination_copy(mezz_info['base'], dc_key, edge, destination_item, mezz_sid)
+
     def _entry(seq, on_edge, o):
         return {'seq': seq, 'edge': on_edge['key'], 'edge_id': on_edge['id'], 'kind': o['kind'], 'name': o['name'],
                 'body': o['body'], 'id': None, 'status': 'pending', 'error': None,
                 'destination_id': o.get('destination_id'), 'destination_name': o.get('destination_name'),
                 'relay': o.get('relay'), 'relay_destination_id': o.get('relay_destination_id'),
-                'relay_destination_name': o.get('relay_destination_name'), 'legacy': bool(on_edge.get('legacy'))}
+                'relay_destination_name': o.get('relay_destination_name'),
+                'mezz': o.get('mezz'), 'mezz_destination_id': o.get('mezz_destination_id'),
+                'mezz_destination_name': o.get('mezz_destination_name'),
+                'legacy': bool(on_edge.get('legacy'))}
 
-    # One group per TXCore call: [DC output], then [relay stream + source + output].
+    # One group per TXCore call: [DC output], [paused Mezz copy], then [relay stream + source + output].
     next_seq = max((o['seq'] for o in lease['objects']), default=0) + 1
     groups = [(edge, [_entry(next_seq, edge, obj)])]
+    if mezz_copy is not None:
+        groups.append((edge, [_entry(next_seq + len(groups), edge, mezz_copy)]))
     if relay_edge is not None:
         relay_objs = id3as_relay_objects(base, relay_edge, destination_item, channel)
-        groups.append((relay_edge, [_entry(next_seq + 1, relay_edge, o) for o in relay_objs]))
+        groups.append((relay_edge, [_entry(next_seq + len(groups), relay_edge, o) for o in relay_objs]))
     new_objs = [o for _, objs in groups for o in objs]
 
     def _append(l):
@@ -1895,6 +2101,7 @@ def add_destination(lease_id, destination_item, username, client=None):
             'destination_id': obj['destination_id'],
             'destination_name': obj['destination_name'],
             'id3as_relay': relay_edge['key'] if relay_edge is not None else None,
+            'mezz_copy': mezz_copy is not None,
             'error': _scrub(error) if error else None,
         })
 
@@ -1946,13 +2153,15 @@ def remove_destination(lease_id, destination_id, reason, username, client=None):
         return lease, f"Lease is {lease['status']} — a destination can only be removed from an active lease"
 
     def belongs(o):
-        return o.get('destination_id') == destination_id or o.get('relay_destination_id') == destination_id
+        return (o.get('destination_id') == destination_id or o.get('relay_destination_id') == destination_id
+                or o.get('mezz_destination_id') == destination_id)
 
     members = [o for o in lease['objects'] if belongs(o) and o['status'] not in _GONE]
     if not members:
         return lease, 'This destination is not attached to this stream'
-    out = next((o for o in members if o['kind'] == 'output' and not o.get('relay')), members[0])
-    dest_name = out.get('destination_name') or out.get('relay_destination_name')
+    out = next((o for o in members if o['kind'] == 'output' and not o.get('relay') and not o.get('mezz')), members[0])
+    dest_name = (out.get('destination_name') or out.get('relay_destination_name')
+                 or out.get('mezz_destination_name'))
     relay_edge = next((o['edge'] for o in members if o.get('relay')), None)
 
     unconfirmed = [o for o in members if not o.get('id')]

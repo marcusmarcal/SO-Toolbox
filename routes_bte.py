@@ -15,7 +15,8 @@ Snapshot file: /opt/web/data/dataminer.resources.json
       "duration_ms":     1234,
       "pools": {
         "resources":    {"pool": "Supplier Dynamic", "count": N, "fetched_at": "...", "items": [...]},
-        "destinations": {"pool": "Destination",      "count": M, "fetched_at": "...", "items": [...]}
+        "destinations": {"pool": "Destination",      "count": M, "fetched_at": "...", "items": [...]},
+        "mezz":         {"pool": "Mezz",             "count": K, "fetched_at": "...", "items": [...]}
       },
       "errors": {"<pool key>": "<error message>"}   # only for pools that failed this run
     }
@@ -136,6 +137,7 @@ RESOURCES_PATH = '/api/custom/resources'
 POOLS = {
     'resources': None,
     'destinations': 'Destination',
+    'mezz': 'Mezz',
 }
 DEFAULT_POOL_LABEL = 'Supplier Dynamic'
 
@@ -558,6 +560,30 @@ def _resolve_destinations(data, snapshot=None):
     return items, None
 
 
+def _resolve_mezz(data, snapshot=None):
+    """Resolve the optional ``mezz_id`` to a raw Mezz pool item. Returns (item, error).
+
+    No id -> (None, None): the stream is provisioned without the Mezz route. A Mezz
+    channel that is unknown, not "Available" in Dataminer, or already attached to another
+    non-final lease (concurrency 1) is refused.
+    """
+    raw = data.get('mezz_id')
+    if raw is None or str(raw).strip() == '':
+        return None, None
+    mezz_id = str(raw).strip()
+    if not _RESOURCE_ID_RE.fullmatch(mezz_id):
+        return None, 'Invalid mezz_id'
+    item = _find_pool_item('mezz', mezz_id, snapshot=snapshot)
+    if item is None:
+        return None, 'Mezz channel not found in the snapshot'
+    name = item.get('name') or mezz_id
+    if not prov.mezz_is_available(item):
+        return None, f'Mezz channel {name} is not available (mode {item.get("mode")!r})'
+    if mezz_id in prov.used_mezz_ids():
+        return None, f'Mezz channel {name} is already in use by another BTE stream'
+    return item, None
+
+
 def _forbidden():
     return jsonify({'error': 'Permission denied — your role is not allowed to use BTE'}), 403
 
@@ -567,13 +593,15 @@ EDGE_GROUP_INX0123 = ('INX01', 'INX02', 'INX03')
 
 
 def _item_type(item):
+    # Supplier Dynamic: "Type" (supplier name); Mezz pool: "Mezz Type" (Id3as / Lite).
     caps = item.get('capabilities') or {}
-    return str(caps.get('Type') or '').strip() or NO_TYPE
+    return str(caps.get('Type') or caps.get('Mezz Type') or '').strip() or NO_TYPE
 
 
 def _item_edge(item):
+    # Supplier Dynamic: "DC MWEdge"; Mezz pool: "TXEdge".
     props = item.get('properties') or {}
-    return str(props.get('DC MWEdge') or '').strip()
+    return str(props.get('DC MWEdge') or props.get('TXEdge') or '').strip()
 
 
 def _edge_matches(item, edge):
@@ -824,6 +852,24 @@ def list_destinations():
     return jsonify(payload)
 
 
+@bte_bp.route('/mezz', methods=['GET'])
+def list_mezz():
+    """Mezz pool resources (transcoding platform channels) from the snapshot. Filters: ?q=, ?mode=, ?type=, ?edge=.
+
+    Each item is annotated with ``in_use`` — attached to some non-final BTE lease already
+    (a Mezz channel has concurrency 1), so it cannot be selected again until freed.
+    """
+    denied = _access_denied()
+    if denied:
+        return denied
+    payload = _pool_response('mezz').get_json()
+    if isinstance(payload, dict) and isinstance(payload.get('items'), list):
+        used = prov.used_mezz_ids()
+        for item in payload['items']:
+            item['in_use'] = item.get('id') in used
+    return jsonify(payload)
+
+
 # ---------------------------------------------------------------------------
 # Provisioning — leases over TXCore MWEdge objects (see bte_provisioning.py)
 # ---------------------------------------------------------------------------
@@ -869,10 +915,13 @@ def provision_plan():
     destinations, error = _resolve_destinations(data, snapshot=snapshot)
     if error:
         return jsonify({'error': error}), 400
+    mezz, error = _resolve_mezz(data, snapshot=snapshot)
+    if error:
+        return jsonify({'error': error}), 400
     targets, target_error = prov.normalize_targets(data.get('targets'))
     if target_error:
         return jsonify({'error': target_error}), 400
-    plan = prov.redact_plan(prov.build_plan(item, destinations=destinations, targets=targets))
+    plan = prov.redact_plan(prov.build_plan(item, destinations=destinations, targets=targets, mezz=mezz))
     plan['resource_id'] = resource_id
     plan['resource_name'] = item.get('name')
     plan['source_snapshot'] = backup_date or 'live'
@@ -894,6 +943,8 @@ def provision_create():
     end of the lease; without it ``duration_minutes`` / the default duration applies.
     ``targets`` (list of DC / AVE / LMK / YER, default all) restricts which TXEdges get
     objects — regional-only creation is allowed; destinations require the DC target.
+    ``mezz_id`` (optional, Mezz pool item id) routes the stream through the transcoding
+    platform (see bte_provisioning.py).
     """
     username, _role = _get_user_and_role()
     denied = _access_denied()
@@ -921,10 +972,15 @@ def provision_create():
         prov.record_refused(item, username, [error], source_snapshot=backup_date)
         return jsonify({'error': error}), 400
 
+    mezz, error = _resolve_mezz(data, snapshot=snapshot)
+    if error:
+        prov.record_refused(item, username, [error], source_snapshot=backup_date)
+        return jsonify({'error': error}), 400
+
     targets, target_error = prov.normalize_targets(data.get('targets'))
     if target_error:
         return jsonify({'error': target_error}), 400
-    plan = prov.build_plan(item, destinations=destinations, targets=targets)
+    plan = prov.build_plan(item, destinations=destinations, targets=targets, mezz=mezz)
     if not plan['ok']:
         prov.record_refused(item, username, plan['errors'], targets=targets, source_snapshot=backup_date)
         return jsonify({'error': 'Cannot build a plan for this resource', 'errors': plan['errors'],
@@ -1228,7 +1284,7 @@ def _pool_response_from_snapshot(snapshot, key):
 
 @bte_bp.route('/backups/<date>/<pool_key>', methods=['GET'])
 def get_backup_pool(date, pool_key):
-    """One pool ('resources' or 'destinations') from a daily backup — same shape and
+    """One pool ('resources', 'destinations' or 'mezz') from a daily backup — same shape and
     filters (?q=, ?mode=, ?type=, ?edge=) as /resources and /destinations, read-only.
     The live snapshot stays the default for provisioning; this is for browsing only.
     """
@@ -1244,6 +1300,10 @@ def get_backup_pool(date, pool_key):
     payload['backup_date'] = date
     if pool_key == 'destinations':
         used = prov.used_destination_ids()
+        for item in payload['items']:
+            item['in_use'] = item.get('id') in used
+    elif pool_key == 'mezz':
+        used = prov.used_mezz_ids()
         for item in payload['items']:
             item['in_use'] = item.get('id') in used
     return jsonify(payload)

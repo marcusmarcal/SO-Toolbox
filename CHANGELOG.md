@@ -10,6 +10,19 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 ---
 
+## [4.16.9] - 2026-10-09
+
+### Added
+- TXCore Provisioning: "Mezz" toggle at stream creation to force the stream through the transcoding platform, with a picker of available Mezz channels and the selected Mezz type.
+- TXCore Provisioning: Mezz route on the supplier DC edge (UDP output to the Mezz input and a dedicated `MEZZ_OUT_<ch>_<type>_<edge>_[BTE]` stream with SRT listener source and output, 100 ms latency, internal passphrase).
+- TXCore Provisioning: selected destinations are also created paused on the Mezz stream, and removed together with the original ones.
+- TXCore Provisioning: Mezz pool in the Dataminer snapshot and daily backups, and a `GET /mezz` endpoint with in-use annotation.
+- TXCore Provisioning: Mezz and paused badges in the plan preview, active streams list and destination manager.
+
+### Changed
+- TXCore Provisioning: with Mezz enabled, regional edges pull the Mezz output as the primary source and keep the original source paused.
+- TXCore Provisioning: the plan summary now counts distinct edges instead of steps.
+
 ## [4.16.8] - 2026-10-09
 
 ### Changed
