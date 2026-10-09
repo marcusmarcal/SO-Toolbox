@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TXCore Management — SO-Toolbox</title>
-    <!-- TXCore Manager frontend v1.13.3 — STB (multicast) + MAIN (SRT) clusters + BTE (timed TXEdge resource provisioning, channel reuse guard, destination outputs, legacy TXEdge support, partial creation kept, ID3AS relay badges, destination picker closes after adding, self-dismissing info notices, per-TXEdge target toggles for regional-only creation, persistent failure history, TXEdge placement per stream, no dry run, ID3AS destination filters, TXEdge inferred from the supplier, absolute end time in UTC, per-destination removal, name-inferred ID3AS filters, removal time beyond the stream end extends the stream, adjust end time, larger destination controls, other destinations keep the original stream end, active channels show only an "already active" message, discreet "List destinations" link, collapsible one-line errors, page renamed TXCore Management) -->
+    <!-- TXCore Manager frontend v1.13.4 — STB (multicast) + MAIN (SRT) clusters + BTE (timed TXEdge resource provisioning, channel reuse guard, destination outputs, legacy TXEdge support, partial creation kept, ID3AS relay badges, destination picker closes after adding, self-dismissing info notices, per-TXEdge target toggles for regional-only creation, persistent failure history, TXEdge placement per stream, no dry run, ID3AS destination filters, TXEdge inferred from the supplier, absolute end time in UTC, per-destination removal, name-inferred ID3AS filters, removal time beyond the stream end extends the stream, adjust end time, larger destination controls, other destinations keep the original stream end, active channels show only an "already active" message, discreet "List destinations" link, collapsible one-line errors, page renamed TXCore Management, optional collapsed TXEdge filter, no mode dropdown, input type shown instead of GVN) -->
     <style>
       :root {
         --bg: #0f1216;
@@ -1087,6 +1087,31 @@
         white-space: normal;
         word-break: break-word;
       }
+      details.edge-filter {
+        margin-top: 8px;
+      }
+      details.edge-filter > summary {
+        cursor: pointer;
+        list-style: none;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--text-faint);
+      }
+      details.edge-filter > summary::-webkit-details-marker {
+        display: none;
+      }
+      details.edge-filter > summary::before {
+        content: "▸ ";
+      }
+      details.edge-filter[open] > summary::before {
+        content: "▾ ";
+      }
+      details.edge-filter > summary:hover {
+        color: var(--text-dim);
+      }
+      details.edge-filter .ef-state {
+        color: var(--text-dim);
+      }
       input.inline-min {
         width: 58px;
         padding: 3px 6px;
@@ -1806,8 +1831,10 @@
                   <option value="">— loading… —</option>
                 </select>
               </div>
-              <div class="field" style="flex: 0 0 168px">
-                <label for="bte-edge-filter">TXEdge</label>
+            </div>
+            <details class="edge-filter" id="bte-edge-details">
+              <summary>TXEdge filter <span class="ef-state" id="bte-edge-state">· all edges</span></summary>
+              <div class="field" style="margin: 8px 0 0; max-width: 220px">
                 <select id="bte-edge-filter">
                   <option value="">all edges</option>
                   <option value="INX01">INX01</option>
@@ -1815,7 +1842,7 @@
                   <option value="INX03">INX03</option>
                 </select>
               </div>
-            </div>
+            </details>
             <div class="list-count" id="bte-supplier-count"></div>
           </fieldset>
 
@@ -1829,13 +1856,6 @@
                   placeholder="filter — name, GVN, multicast, input…"
                   autocomplete="off"
                 />
-              </div>
-              <div class="field" style="flex: 0 0 130px">
-                <select id="bte-mode-filter">
-                  <option value="">any mode</option>
-                  <option value="available">Available</option>
-                  <option value="unavailable">Unavailable</option>
-                </select>
               </div>
             </div>
             <div class="chan-list" id="bte-channel-list">
@@ -2062,7 +2082,7 @@
       </div>
       <div class="dialog-body">
         <div class="field">
-          <input type="text" id="bte-edge-filter" placeholder="filter objects — name, protocol, port, stream id…" autocomplete="off" />
+          <input type="text" id="bte-edge-doc-filter" placeholder="filter objects — name, protocol, port, stream id…" autocomplete="off" />
         </div>
         <div class="hint" style="margin-bottom: 8px">
           Live document from TXCore MAIN (secrets masked). Use it to confirm how an SRT listener / encryption is stored.
@@ -3208,8 +3228,17 @@
           }
         }
 
+        // The filter stays closed: its summary tells which TXEdge is applied (picked or inferred).
+        function renderEdgeFilterState() {
+          var v = $("bte-edge-filter").value;
+          $("bte-edge-state").textContent = v
+            ? "· " + (v === "inx0123" ? "INX01–03" : v) + (bte.edgeAuto ? " (inferred from the supplier)" : "")
+            : "· all edges";
+        }
+
         function renderBteSuppliers() {
           var select = $("bte-supplier-select");
+          renderEdgeFilterState();
           // An inferred edge must not hide the other suppliers: it only filters when set by hand.
           var edge = bte.edgeAuto ? "" : $("bte-edge-filter").value;
           var counts = {};
@@ -3248,12 +3277,10 @@
         function bteChannels() {
           if (!bte.supplier) return [];
           var q = $("bte-channel-filter").value.trim().toLowerCase();
-          var mode = $("bte-mode-filter").value;
           var edge = $("bte-edge-filter").value;
           return bte.resources.filter(function (r) {
             if (itemType(r) !== bte.supplier) return false;
             if (!edgeMatches(r, edge)) return false;
-            if (mode && String(r.mode || "").toLowerCase() !== mode) return false;
             if (!q) return true;
             if (String(r.name || "").toLowerCase().indexOf(q) !== -1) return true;
             var props = r.properties || {};
@@ -3261,6 +3288,16 @@
               return String(props[k]).toLowerCase().indexOf(q) !== -1;
             });
           });
+        }
+
+        // "SRT · pull" / "RTP · listener" / "UDP" from the primary input ("srt://host:port|Pull").
+        function inputKind(r) {
+          var p = r.properties || {};
+          var raw = String(p["Input Main"] || p["Input"] || "").trim();
+          var m = raw.match(/^([a-z]+):\/\/[^:|\/]*:\d+(?:\|([^|]*))?/i);
+          if (!m) return "";
+          var mode = (m[2] || "").trim().toLowerCase();
+          return m[1].toUpperCase() + (mode ? " · " + mode : "");
         }
 
         function renderBteChannels() {
@@ -3291,7 +3328,7 @@
               '" data-id="' + escapeHtml(r.id) + '" title="' + (active[r.id] ? "Already has an active BTE stream" : "") + '">' +
               '<span class="chan-name">' + escapeHtml(r.name) + "</span>" +
               '<span class="chan-meta">' +
-              (p["GVN Channel"] ? "GVN " + escapeHtml(p["GVN Channel"]) + " · " : "") +
+              (inputKind(r) ? escapeHtml(inputKind(r)) + " · " : "") +
               escapeHtml(itemEdge(r) || "—") + "</span>" +
               modePill(r.mode) +
               "</div>"
@@ -4689,7 +4726,7 @@
           var dlg = $("bte-edge-dialog");
           $("bte-edge-tag").textContent = key;
           $("bte-edge-doc").textContent = "loading…";
-          $("bte-edge-filter").value = "";
+          $("bte-edge-doc-filter").value = "";
           if (typeof dlg.showModal === "function") dlg.showModal();
           else dlg.setAttribute("open", "");
           bteFetch("/txcore/edges/" + encodeURIComponent(key))
@@ -4706,7 +4743,7 @@
         function renderEdgeDoc() {
           var doc = prov.edgeDoc;
           if (!doc) return;
-          var q = $("bte-edge-filter").value.trim().toLowerCase();
+          var q = $("bte-edge-doc-filter").value.trim().toLowerCase();
           if (q && typeof doc === "object") {
             var narrowed = {};
             Object.keys(doc).forEach(function (k) {
@@ -4751,7 +4788,7 @@
             this.value = "";
           });
           $("bte-edge-close").addEventListener("click", function () { $("bte-edge-dialog").close(); });
-          $("bte-edge-filter").addEventListener("input", renderEdgeDoc);
+          $("bte-edge-doc-filter").addEventListener("input", renderEdgeDoc);
           $("bte-btn-plan").addEventListener("click", previewPlan);
           $("bte-btn-create").addEventListener("click", createResources);
           $("bte-plan-create").addEventListener("click", createResources);
@@ -4879,7 +4916,6 @@
             renderBteDetail();
           });
           $("bte-channel-filter").addEventListener("input", renderBteChannels);
-          $("bte-mode-filter").addEventListener("change", renderBteChannels);
           $("bte-channel-list").addEventListener("click", function (ev) {
             var row = ev.target.closest ? ev.target.closest(".chan-row") : null;
             if (row) selectBteChannel(row.getAttribute("data-id"));
