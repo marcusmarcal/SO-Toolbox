@@ -10,6 +10,15 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 ---
 
+## [4.16.7] - 2026-10-09
+
+### Changed
+- TXCore Provisioning: selecting a channel that already has an active stream
+  shows only an "already active" message (with its TXEdges and end time)
+  instead of the Create resources form.
+- TXCore Provisioning: the "Destinations…" button under Channels is now a
+  discreet "List destinations" link.
+
 ## [4.16.6] - 2026-10-09
 
 ### Changed

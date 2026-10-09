@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TXCore Provisioning — SO-Toolbox</title>
-    <!-- TXCore Manager frontend v1.13.1 — STB (multicast) + MAIN (SRT) clusters + BTE (timed TXEdge resource provisioning, channel reuse guard, destination outputs, legacy TXEdge support, partial creation kept, ID3AS relay badges, destination picker closes after adding, self-dismissing info notices, per-TXEdge target toggles for regional-only creation, persistent failure history, TXEdge placement per stream, no dry run, ID3AS destination filters, TXEdge inferred from the supplier, absolute end time in UTC, per-destination removal, name-inferred ID3AS filters, removal time beyond the stream end extends the stream, adjust end time, larger destination controls, other destinations keep the original stream end) -->
+    <!-- TXCore Manager frontend v1.13.2 — STB (multicast) + MAIN (SRT) clusters + BTE (timed TXEdge resource provisioning, channel reuse guard, destination outputs, legacy TXEdge support, partial creation kept, ID3AS relay badges, destination picker closes after adding, self-dismissing info notices, per-TXEdge target toggles for regional-only creation, persistent failure history, TXEdge placement per stream, no dry run, ID3AS destination filters, TXEdge inferred from the supplier, absolute end time in UTC, per-destination removal, name-inferred ID3AS filters, removal time beyond the stream end extends the stream, adjust end time, larger destination controls, other destinations keep the original stream end, active channels show only an "already active" message, discreet "List destinations" link) -->
     <style>
       :root {
         --bg: #0f1216;
@@ -1028,6 +1028,20 @@
         padding: 3px 6px;
         font-size: 11px;
       }
+      button.subtle,
+      button.subtle:hover {
+        background: none;
+        border: none;
+        padding: 2px 0;
+        font-size: 11px;
+        font-weight: 400;
+        color: var(--text-faint);
+        text-decoration: underline dotted;
+        text-underline-offset: 3px;
+      }
+      button.subtle:hover {
+        color: var(--text-dim);
+      }
       input.inline-min {
         width: 58px;
         padding: 3px 6px;
@@ -1786,7 +1800,7 @@
           </fieldset>
 
           <div class="btn-row">
-            <button id="bte-btn-destinations">Destinations…</button>
+            <button id="bte-btn-destinations" class="subtle">List destinations</button>
           </div>
 
           <div class="snap-line">
@@ -1860,6 +1874,7 @@
             <div id="bte-prov-empty" class="empty-state">
               Pick a supplier, then a channel on the left.
             </div>
+            <div class="notice" id="bte-prov-active" style="display: none; margin-bottom: 0"></div>
             <div class="prov-box" id="bte-prov-box" style="display: none; margin-top: 0">
               <div class="res-head" id="bte-prov-head"></div>
               <div class="prov-row" style="margin-top: 10px; align-items: flex-start">
@@ -3274,12 +3289,33 @@
           }).join("");
         }
 
+        // "Create resources" is only offered for a channel without an active stream; when it
+        // already has one, this section shows a short "already active" message and nothing else.
+        function renderProvVisibility() {
+          var r = bte.selectedId ? bteFindResource(bte.selectedId) : null;
+          var lease = r ? prov.leases.filter(function (l) { return l.resource_id === r.id && !isFinal(l); })[0] : null;
+          var msg = $("bte-prov-active");
+          $("bte-prov-empty").style.display = r ? "none" : "";
+          $("bte-prov-box").style.display = r && !lease ? "" : "none";
+          msg.style.display = lease ? "" : "none";
+          if (!lease) {
+            msg.textContent = "";
+            return;
+          }
+          var edges = [];
+          (lease.steps || []).forEach(function (st) {
+            if (edges.indexOf(st.edge) === -1) edges.push(st.edge);
+          });
+          msg.innerHTML = "<strong>" + escapeHtml(r.name) + "</strong> is already active" +
+            (edges.length ? " on " + escapeHtml(edges.join(" · ")) : "") +
+            " — ends " + escapeHtml(hhmmUtc(lease.expires_at)) + ". Manage it in BTE active streams above.";
+        }
+
         function renderBteDetail() {
           var container = $("bte-resource-detail");
           var r = bte.selectedId ? bteFindResource(bte.selectedId) : null;
           $("bte-detail-tag").textContent = r ? r.name : "—";
-          $("bte-prov-box").style.display = r ? "" : "none";
-          $("bte-prov-empty").style.display = r ? "none" : "";
+          renderProvVisibility();
           if (r) {
             bte.pendingDestinations = [];
             renderPendingDestinations();
@@ -4335,7 +4371,10 @@
               trackLeaseTransitions();
               if ($("bte-destmgr-dialog").open) renderDestMgr();
               if (bte.supplier) renderBteChannels();
-              if (bte.selectedId) renderProvHint();
+              if (bte.selectedId) {
+                renderProvVisibility();
+                renderProvHint();
+              }
             })
             .catch(function (err) {
               $("bte-lease-container").innerHTML = '<div class="empty-state">Could not load BTE streams — ' + escapeHtml(err.message) + "</div>";
