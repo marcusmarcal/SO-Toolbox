@@ -96,7 +96,7 @@ Environment variables (.env):
 
 Audit log: /opt/web/data/bte_audit.jsonl (append-only, mode 0600, one UTC-timestamped
 JSON event per line: created, create_failed, create_partial, create_refused, deleted, extended,
-destination_added). Failures (create_*, incomplete deletes, failed destination
+destination_added, destination_removed, destination_expiry). Failures (create_*, incomplete deletes, failed destination
 adds) carry the error text so they stay available after a restart or a page
 reload. Independent of the
 lease registry above so history survives lease history trimming (HISTORY_KEEP).
@@ -1324,7 +1324,7 @@ def used_destination_ids(exclude_lease=None):
         if lease['status'] in FINAL_STATUSES:
             continue
         for obj in lease.get('objects', []):
-            if obj.get('destination_id') and obj.get('status') not in ('refused', 'error'):
+            if obj.get('destination_id') and obj.get('status') not in ('refused', 'error', 'deleted', 'gone'):
                 used.add(obj['destination_id'])
     return used
 
@@ -1632,12 +1632,16 @@ def _mark_step(lease, seq, status, error=None):
         _mark_step_objects_uncreated(lease, seq)
 
 
-def _mark_step_objects_uncreated(lease, seq, error='not created'):
-    """What never got an id was not created: flag it so the UI counts it as a problem."""
+def _mark_step_objects_uncreated(lease, seq, error=None):
+    """What never got an id from TXCore is flagged so the UI counts it as a problem.
+
+    The API never confirmed it, so we cannot claim it does not exist (a timeout or a
+    5xx may still have created it): the wording says "couldn't be confirmed".
+    """
     for obj in lease['objects']:
         if obj['seq'] == seq and obj.get('id') is None and obj['status'] == 'pending':
             obj['status'] = 'error'
-            obj['error'] = error
+            obj['error'] = error or f"{obj['kind']} creation couldn't be confirmed"
 
 
 def _record_created(lease, seq, created):
@@ -1661,7 +1665,7 @@ def _record_created(lease, seq, created):
                 body['stream'] = stream_obj['id']
 
 
-def _delete_objects(lease_id, client):
+def _delete_objects(lease_id, client, only=None):
     """Delete a lease's objects: outputs, then sources, then streams; last edge first.
 
     Returns (deleted, refused, failed)."""
@@ -1669,7 +1673,8 @@ def _delete_objects(lease_id, client):
     own_streams = _own_stream_ids(lease)
     deleted = refused = failed = 0
     order = {k: i for i, k in enumerate(DELETE_ORDER)}
-    objs = sorted((o for o in lease['objects'] if o.get('id') and o['status'] not in ('deleted', 'gone')),
+    objs = sorted((o for o in lease['objects']
+                   if o.get('id') and o['status'] not in ('deleted', 'gone') and (only is None or only(o))),
                   key=lambda o: (-o['seq'], order.get(o['kind'], 9)))
     for obj in objs:
         # Guard 1: the registry itself must say this is a BTE object.
@@ -1833,7 +1838,8 @@ def add_destination(lease_id, destination_item, username, client=None):
         return lease, 'Destination has no id'
     if dest_id in used_destination_ids(exclude_lease=lease_id):
         return lease, 'This destination is already attached to another BTE stream'
-    if any(o.get('destination_id') == dest_id and o['status'] not in ('refused', 'error') for o in lease['objects']):
+    if any(o.get('destination_id') == dest_id and o['status'] not in ('refused', 'error', 'deleted', 'gone')
+           for o in lease['objects']):
         return lease, 'This destination is already attached to this stream'
 
     dc_key = lease['dc_edge']
@@ -1903,9 +1909,9 @@ def add_destination(lease_id, destination_item, username, client=None):
             # Whatever TXCore did create stays tracked (deletable); the rest is marked.
             partial = getattr(exc, 'created', [])
             failures.append(f"{on_edge['key']}: {exc}")
-            def _fail(l, s=seq, c=partial, e=str(exc)):
+            def _fail(l, s=seq, c=partial):
                 _record_created(l, s, c)
-                _mark_step_objects_uncreated(l, s, e)
+                _mark_step_objects_uncreated(l, s)
             lease = _update_lease(lease_id, _fail)
             continue
         lease = _update_lease(lease_id, lambda l, s=seq, c=created: _record_created(l, s, c))
@@ -1918,6 +1924,120 @@ def add_destination(lease_id, destination_item, username, client=None):
     log.info('BTE lease %s: added destination %s%s (%s)', lease_id, obj['destination_name'] or dest_id,
              f' + ID3AS relay on {relay_edge["key"]}' if relay_edge is not None else '', username)
     return lease, None
+
+
+_GONE = ('deleted', 'gone')
+
+
+def remove_destination(lease_id, destination_id, reason, username, client=None):
+    """Remove ONE destination from a running stream and keep the stream active.
+
+    Deletes the destination's DC-edge output and, for an ID3AS destination, its relay
+    stream/source/output, through the same two tag guards as every other delete.
+    Objects whose creation was never confirmed (no TXCore id) are only dismissed from
+    the lease. ``reason`` is 'manual' (a user) or 'expired' (the reaper). Returns
+    (lease, error); ``error`` set means something was not removed — what remains stays
+    visible on the lease and the removal can be retried.
+    """
+    lease = get_lease(lease_id)
+    if lease is None:
+        return None, 'Lease not found'
+    if lease['status'] != 'active':
+        return lease, f"Lease is {lease['status']} — a destination can only be removed from an active lease"
+
+    def belongs(o):
+        return o.get('destination_id') == destination_id or o.get('relay_destination_id') == destination_id
+
+    members = [o for o in lease['objects'] if belongs(o) and o['status'] not in _GONE]
+    if not members:
+        return lease, 'This destination is not attached to this stream'
+    out = next((o for o in members if o['kind'] == 'output' and not o.get('relay')), members[0])
+    dest_name = out.get('destination_name') or out.get('relay_destination_name')
+    relay_edge = next((o['edge'] for o in members if o.get('relay')), None)
+
+    unconfirmed = [o for o in members if not o.get('id')]
+    if unconfirmed:
+        def _dismiss(l):
+            for ref in unconfirmed:
+                _mark_obj(l, ref, 'gone', 'dismissed: creation was never confirmed')
+        _update_lease(lease_id, _dismiss)
+
+    deleted = refused = failed = 0
+    if any(o.get('id') for o in members):
+        deleted, refused, failed = _delete_objects(lease_id, client or TXCoreClient(), only=belongs)
+
+    lease = get_lease(lease_id)
+    error = None
+    if refused or failed:
+        problems = [f"{o['edge']} {o['kind']}: {o.get('error')}" for o in lease['objects']
+                    if belongs(o) and o.get('status') in ('delete_error', 'refused') and o.get('error')]
+        error = f'{deleted} removed, {refused} refused (tag check), {failed} failed'
+        if problems:
+            error += ': ' + '; '.join(problems[:3])
+    _append_audit({
+        'event': 'destination_removed',
+        'lease_id': lease_id,
+        'resource_id': lease.get('resource_id'),
+        'resource_name': lease.get('resource_name'),
+        'user': username,
+        'auto': reason == 'expired',
+        'reason': reason,
+        'destination_id': destination_id,
+        'destination_name': dest_name,
+        'id3as_relay': relay_edge,
+        'removed': deleted,
+        'dismissed': len(unconfirmed),
+        'error': _scrub(error) if error else None,
+    })
+    log.info('BTE lease %s: destination %s removed (%s, %s): %d deleted, %d refused, %d failed',
+             lease_id, dest_name or destination_id, reason, username, deleted, refused, failed)
+    return lease, error
+
+
+def set_destination_expiry(lease_id, destination_id, end_at, username):
+    """Schedule (``end_at``, a UTC datetime) or clear (None) the automatic removal of ONE destination.
+
+    The destination is then removed by the reaper at that moment while the stream keeps
+    running. The time must be before the stream's own end. Returns (lease, error).
+    """
+    outcome = {'error': None, 'name': None, 'expires_at': None}
+
+    def _apply(l):
+        if l['status'] != 'active':
+            outcome['error'] = f"Lease is {l['status']} — only an active lease can be changed"
+            return
+        out = next((o for o in l['objects'] if o.get('destination_id') == destination_id
+                    and o['kind'] == 'output' and not o.get('relay') and o['status'] not in _GONE), None)
+        if out is None:
+            outcome['error'] = 'This destination is not attached to this stream'
+            return
+        outcome['name'] = out.get('destination_name')
+        if end_at is None:
+            out.pop('expires_at', None)
+            return
+        lease_end = _parse_iso(l['expires_at'])
+        if lease_end and end_at >= lease_end:
+            outcome['error'] = ('The removal time must be before the stream ends '
+                                f"({lease_end.astimezone(timezone.utc).strftime('%H:%M')} UTC)")
+            return
+        out['expires_at'] = _iso(end_at)
+        outcome['expires_at'] = out['expires_at']
+
+    lease = _update_lease(lease_id, _apply)
+    if lease is None:
+        return None, 'Lease not found'
+    if outcome['error'] is None:
+        _append_audit({
+            'event': 'destination_expiry',
+            'lease_id': lease_id,
+            'resource_id': lease.get('resource_id'),
+            'resource_name': lease.get('resource_name'),
+            'user': username,
+            'destination_id': destination_id,
+            'destination_name': outcome['name'],
+            'expires_at': outcome['expires_at'],
+        })
+    return lease, outcome['error']
 
 
 def delete_all_leases(reason, username, client=None):
@@ -1947,13 +2067,30 @@ def reap_expired(client=None):
     try:
         now = _now()
         with _Locked(LEASES_LOCK_FILE):
-            due = [l['lease_id'] for l in _read_registry()['leases'].values()
-                   if l['status'] in ('active', 'delete_failed')
-                   and (_parse_iso(l['expires_at']) or now) <= now]
-        if not due:
+            leases = copy.deepcopy(list(_read_registry()['leases'].values()))
+        due = [l['lease_id'] for l in leases
+               if l['status'] in ('active', 'delete_failed')
+               and (_parse_iso(l['expires_at']) or now) <= now]
+        # Destinations with their own removal time: removed alone, the stream keeps running.
+        dest_due = []
+        for l in leases:
+            if l['status'] != 'active' or l['lease_id'] in due:
+                continue
+            seen = set()
+            for o in l['objects']:
+                dest_id = o.get('destination_id')
+                if (dest_id and dest_id not in seen and o.get('expires_at') and o['status'] not in _GONE
+                        and (_parse_iso(o['expires_at']) or now) <= now):
+                    seen.add(dest_id)
+                    dest_due.append((l['lease_id'], dest_id))
+        if not due and not dest_due:
             return []
         client = client or (TXCoreClient() if configured() else None)
         results = []
+        for lease_id, dest_id in dest_due:
+            _lease, error = remove_destination(lease_id, dest_id, 'expired', 'bte-reaper', client=client)
+            results.append({'lease_id': lease_id, 'destination_id': dest_id, 'status': 'error' if error else 'removed'})
+            log.info('BTE reaper: destination %s of lease %s expired → %s', dest_id, lease_id, error or 'removed')
         for lease_id in due:
             lease = delete_lease(lease_id, 'expired', 'bte-reaper', client=client)
             results.append({'lease_id': lease_id, 'status': lease['status']})

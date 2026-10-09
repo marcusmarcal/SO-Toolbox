@@ -1052,6 +1052,54 @@ def lease_add_destination(lease_id):
                     'objects': len(lease['objects'])}), 201
 
 
+@bte_bp.route('/leases/<lease_id>/destinations/<destination_id>', methods=['DELETE'])
+def lease_remove_destination(lease_id, destination_id):
+    """Remove ONE destination (its DC-edge output, plus the ID3AS relay stream if any).
+
+    The stream itself stays active. Runs synchronously (a handful of TXCore calls).
+    """
+    username, _role = _get_user_and_role()
+    denied = _access_denied()
+    if denied:
+        return denied
+    if not _LEASE_ID_RE.fullmatch(lease_id) or not _RESOURCE_ID_RE.fullmatch(destination_id):
+        return jsonify({'error': 'Lease not found'}), 404
+    lease, error = prov.remove_destination(lease_id, destination_id, 'manual', username)
+    if lease is None:
+        return jsonify({'error': error}), 404
+    if error:
+        return jsonify({'error': error, 'lease_id': lease_id}), 409
+    return jsonify({'lease_id': lease_id, 'destination_id': destination_id, 'status': 'removed'})
+
+
+@bte_bp.route('/leases/<lease_id>/destinations/<destination_id>/expiry', methods=['POST'])
+def lease_destination_expiry(lease_id, destination_id):
+    """Give ONE destination its own removal time. Body: {"end_at": "<ISO 8601>"}, or
+    {"end_at": null} to make it follow the stream again. The time must be in the future
+    and before the stream's own end; the reaper removes the destination at that moment.
+    """
+    username, _role = _get_user_and_role()
+    denied = _access_denied()
+    if denied:
+        return denied
+    if not _LEASE_ID_RE.fullmatch(lease_id) or not _RESOURCE_ID_RE.fullmatch(destination_id):
+        return jsonify({'error': 'Lease not found'}), 404
+    data = request.get_json(force=True, silent=True) or {}
+    raw = data.get('end_at')
+    end_at = None
+    if raw not in (None, ''):
+        end_at, end_error = prov.resolve_end_at(raw)
+        if end_error:
+            return jsonify({'error': end_error}), 400
+    lease, error = prov.set_destination_expiry(lease_id, destination_id, end_at, username)
+    if lease is None:
+        return jsonify({'error': error}), 404
+    if error:
+        return jsonify({'error': error, 'lease_id': lease_id}), 409
+    return jsonify({'lease_id': lease_id, 'destination_id': destination_id,
+                    'expires_at': end_at.isoformat() if end_at else None})
+
+
 @bte_bp.route('/leases/<lease_id>', methods=['DELETE'])
 def lease_delete(lease_id):
     """Delete everything one lease created. Runs synchronously (a handful of calls)."""
@@ -1091,7 +1139,7 @@ def leases_delete_all():
 @bte_bp.route('/audit', methods=['GET'])
 def audit_log():
     """Persistent audit trail: created / create_failed / create_partial / create_refused / deleted /
-    extended / destination_added events (failures carry their error text),
+    extended / destination_added / destination_removed / destination_expiry events (failures carry their error text),
     UTC timestamps. Optional ?lease_id=, ?resource_id=, ?limit= (default 200, max 1000)."""
     denied = _access_denied()
     if denied:

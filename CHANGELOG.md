@@ -10,6 +10,30 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 ---
 
+## [4.16.4] - 2026-10-09
+
+### Added
+- TXCore Provisioning: destination popup on the active streams list to remove
+  only a destination (output and ID3AS relay) while the stream stays active.
+- TXCore Provisioning: optional removal time (UTC) per destination, different
+  from the stream end; expired destinations are removed automatically.
+- TXCore Provisioning: audit events destination_removed and destination_expiry.
+- TXCore Provisioning: "ID3AS DC" and "ID3AS AWS" badges inferred from the name.
+
+### Changed
+- TXCore Provisioning: the end time is entered and shown in UTC; the preview also
+  shows the local time.
+- TXCore Provisioning: objects not confirmed by TXCore report "<kind> creation
+  couldn't be confirmed" instead of "not created".
+- TXCore Provisioning: the ID3AS destination filters are now "ID3AS DC"
+  (ID3AS_CHxx) and "ID3AS AWS" (ID3AS_AWS_CHxx) instead of a generic "ID3AS".
+- TXCore Provisioning: a removed destination can be attached again and is
+  excluded from the stream object totals.
+
+### Fixed
+- TXCore Provisioning: the end time input was rendered white and ignored the
+  dark theme.
+
 ## [4.16.3] - 2026-10-09
 
 ### Added

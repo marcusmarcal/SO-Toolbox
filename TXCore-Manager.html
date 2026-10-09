@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TXCore Provisioning — SO-Toolbox</title>
-    <!-- TXCore Manager frontend v1.11.0 — STB (multicast) + MAIN (SRT) clusters + BTE (timed TXEdge resource provisioning, channel reuse guard, destination outputs, legacy TXEdge support, partial creation kept, ID3AS relay badges, destination picker closes after adding, self-dismissing info notices, per-TXEdge target toggles for regional-only creation, persistent failure history, TXEdge placement per stream, no dry run, ID3AS destination filters, TXEdge inferred from the supplier, absolute end time) -->
+    <!-- TXCore Manager frontend v1.12.0 — STB (multicast) + MAIN (SRT) clusters + BTE (timed TXEdge resource provisioning, channel reuse guard, destination outputs, legacy TXEdge support, partial creation kept, ID3AS relay badges, destination picker closes after adding, self-dismissing info notices, per-TXEdge target toggles for regional-only creation, persistent failure history, TXEdge placement per stream, no dry run, ID3AS destination filters, TXEdge inferred from the supplier, absolute end time in UTC, per-destination removal, name-inferred ID3AS filters) -->
     <style>
       :root {
         --bg: #0f1216;
@@ -256,6 +256,7 @@
       input[type="text"],
       input[type="number"],
       input[type="password"],
+      input[type="time"],
       select {
         width: 100%;
         background: var(--panel);
@@ -996,6 +997,16 @@
         color: var(--bte);
         background: rgba(255, 209, 102, 0.08);
       }
+      input[type="time"] {
+        color-scheme: dark;
+      }
+      .pill.clickable {
+        cursor: pointer;
+      }
+      .pill.clickable:hover {
+        border-color: var(--bte);
+        color: var(--bte);
+      }
       input.inline-min {
         width: 58px;
         padding: 3px 6px;
@@ -1145,7 +1156,8 @@
       dialog#bte-edge-dialog,
       dialog#bte-dest-picker-dialog,
       dialog#bte-backup-dialog,
-      dialog#bte-history-dialog {
+      dialog#bte-history-dialog,
+      dialog#bte-destmgr-dialog {
         background: var(--bg);
         color: var(--text);
         border: 1px solid var(--border);
@@ -1161,8 +1173,12 @@
       dialog#bte-edge-dialog::backdrop,
       dialog#bte-dest-picker-dialog::backdrop,
       dialog#bte-backup-dialog::backdrop,
-      dialog#bte-history-dialog::backdrop {
+      dialog#bte-history-dialog::backdrop,
+      dialog#bte-destmgr-dialog::backdrop {
         background: rgba(0, 0, 0, 0.65);
+      }
+      dialog#bte-destmgr-dialog {
+        width: min(620px, 94vw);
       }
       .dialog-head {
         display: flex;
@@ -1827,7 +1843,7 @@
               <div class="res-head" id="bte-prov-head"></div>
               <div class="prov-row" style="margin-top: 10px; align-items: flex-start">
                 <div class="field short" style="flex: 0 0 230px">
-                  <label for="bte-prov-endtime">End time <span style="color: var(--text-faint)">(local, always in the future)</span></label>
+                  <label for="bte-prov-endtime">End time <span style="color: var(--text-faint)">(UTC, always in the future)</span></label>
                   <input type="time" id="bte-prov-endtime" step="60" />
                   <div class="hint" id="bte-prov-endtime-preview"></div>
                 </div>
@@ -1926,8 +1942,8 @@
           />
         </div>
         <div class="chip-row">
-          <button class="chip" data-chip="id3as" title="Destinations whose name contains ID3AS">ID3AS</button>
-          <button class="chip" data-chip="id3as_aws" title="Destinations whose name contains ID3AS_AWS">ID3AS AWS</button>
+          <button class="chip" data-chip="id3as_dc" title="DC destinations — name ID3AS_CHxx">ID3AS DC</button>
+          <button class="chip" data-chip="id3as_aws" title="AWS destinations — name ID3AS_AWS_CHxx">ID3AS AWS</button>
         </div>
         <div id="bte-dest-container">
           <div class="empty-state">No destinations loaded yet.</div>
@@ -1946,8 +1962,8 @@
           <input type="text" id="bte-dest-picker-filter" placeholder="filter destinations — name, IP / host, port…" autocomplete="off" />
         </div>
         <div class="chip-row">
-          <button class="chip" data-chip="id3as" title="Destinations whose name contains ID3AS">ID3AS</button>
-          <button class="chip" data-chip="id3as_aws" title="Destinations whose name contains ID3AS_AWS">ID3AS AWS</button>
+          <button class="chip" data-chip="id3as_dc" title="DC destinations — name ID3AS_CHxx">ID3AS DC</button>
+          <button class="chip" data-chip="id3as_aws" title="AWS destinations — name ID3AS_AWS_CHxx">ID3AS AWS</button>
         </div>
         <div class="hint" style="margin-bottom: 8px" id="bte-dest-picker-hint">
           Additional outputs created only on the DC edge. A destination can be attached to one stream at a time — used ones are greyed out.
@@ -2005,6 +2021,38 @@
         </div>
         <div id="bte-backup-container">
           <div class="empty-state">Loading…</div>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="bte-destmgr-dialog">
+      <div class="dialog-head">
+        <h2>Destination <span class="h2-tag" id="bte-destmgr-tag">—</span></h2>
+        <button id="bte-destmgr-close">Close</button>
+      </div>
+      <div class="dialog-body">
+        <div class="meta-grid" id="bte-destmgr-info"></div>
+        <div class="notice bad" id="bte-destmgr-msg" style="display: none; margin-top: 12px"></div>
+        <div class="dest-block">
+          <div class="dest-head">Removal time <span class="dest-count">UTC</span></div>
+          <div class="hint" style="margin: 0 0 8px">
+            Remove only this destination at a different time than the stream. It must be earlier than the stream end.
+          </div>
+          <div class="field-row" style="align-items: flex-start">
+            <div class="field" style="flex: 0 0 230px; margin: 0">
+              <label for="bte-destmgr-endtime">Remove at <span style="color: var(--text-faint)">(UTC, always in the future)</span></label>
+              <input type="time" id="bte-destmgr-endtime" step="60" />
+              <div class="hint" id="bte-destmgr-endtime-preview"></div>
+            </div>
+            <div class="btn-row" style="padding-top: 19px">
+              <button id="bte-destmgr-set" class="small bte">Set removal time</button>
+              <button id="bte-destmgr-clear" class="small" style="display: none">Follow the stream</button>
+            </div>
+          </div>
+        </div>
+        <div class="btn-row" style="margin-top: 14px; justify-content: space-between; align-items: center">
+          <span class="hint" style="margin: 0">Removing the destination keeps the stream active.</span>
+          <button id="bte-destmgr-remove" class="danger">Remove destination now</button>
         </div>
       </div>
     </dialog>
@@ -3243,23 +3291,6 @@
         }
 
         // ---- destinations (separate window) ---------------------------------
-        // Quick filters on the destination name (shared by the destinations list and the picker).
-        var DEST_CHIPS = { id3as: /id3as/i, id3as_aws: /id3as[\s_-]*aws/i };
-        var destChip = "";
-
-        function destChipMatch(d) {
-          return !destChip || DEST_CHIPS[destChip].test(String(d.name || ""));
-        }
-
-        function setDestChip(value) {
-          destChip = value || "";
-          document.querySelectorAll(".chip-row button[data-chip]").forEach(function (b) {
-            b.classList.toggle("active", b.getAttribute("data-chip") === destChip);
-          });
-          if ($("bte-dest-dialog").open) renderBteDestinations();
-          if ($("bte-dest-picker-dialog").open) renderDestPicker();
-        }
-
         function destRows(list) {
           var STD = ["Protocol", "IP", "Port", "Type", "Output Port"];
           return list.map(function (d) {
@@ -3267,7 +3298,7 @@
             var extra = Object.keys(p).filter(function (k) { return STD.indexOf(k) === -1; }).sort()
               .map(function (k) { return escapeHtml(k) + "=" + escapeHtml(p[k]); }).join(" ");
             return (
-              "<tr><td>" + escapeHtml(d.name) +
+              "<tr><td>" + escapeHtml(d.name) + destKindPill(d) +
               "</td><td>" + modePill(d.mode) +
               "</td><td>" + escapeHtml(p.Protocol || "") + (p.Type ? " " + escapeHtml(p.Type) : "") +
               "</td><td>" + escapeHtml(p.IP || "") +
@@ -3344,6 +3375,8 @@
             case "create_failed": return "Create FAILED";
             case "create_partial": return "Create PARTIAL";
             case "create_refused": return "Create REFUSED";
+            case "destination_removed": return (e.error ? "Destination remove FAILED" : "Destination removed") + (e.auto ? " (auto)" : "");
+            case "destination_expiry": return e.expires_at ? "Destination removal time set" : "Destination removal time cleared";
             case "destination_added": return (e.error ? "Destination FAILED" : "Destination added") + (e.at_creation ? " (at start)" : "");
             default: return e.event || "?";
           }
@@ -3368,6 +3401,14 @@
                 (e.expires_at ? " · new end " + fmtUtcFull(e.expires_at) : "");
             case "destination_added":
               return (e.destination_name || e.destination_id || "") + (e.error ? " — " + e.error : "");
+            case "destination_removed":
+              return (e.destination_name || e.destination_id || "") + (e.reason ? " · " + e.reason : "") +
+                (e.id3as_relay ? " · relay " + e.id3as_relay : "") +
+                (e.dismissed ? " · " + e.dismissed + " unconfirmed object(s) dismissed" : "") +
+                (e.error ? " — " + e.error : "");
+            case "destination_expiry":
+              return (e.destination_name || e.destination_id || "") +
+                (e.expires_at ? " → " + fmtUtcFull(e.expires_at) : " → follows the stream");
             case "create_failed":
             case "create_partial":
             case "create_refused":
@@ -3605,38 +3646,41 @@
           return (n < 10 ? "0" : "") + n;
         }
 
-        // Next local occurrence of HH:MM strictly after "now": always in the future and at most
-        // 24 h ahead (it is 17:00 and you type 02:00 -> tomorrow 02:00). Returns a Date or null.
+        // Next occurrence of HH:MM UTC strictly after "now": always in the future and at most 24 h
+        // ahead (it is 17:00 UTC and you type 02:00 -> tomorrow 02:00 UTC). Returns a Date or null.
         function resolveEndTime(raw, now) {
           var m = String(raw == null ? "" : raw).trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
           if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) return null;
           now = now || new Date();
-          var end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), Number(m[1]), Number(m[2]), 0, 0);
-          if (end <= now) end.setDate(end.getDate() + 1);
+          var end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), Number(m[1]), Number(m[2]), 0, 0));
+          if (end <= now) end = new Date(end.getTime() + 86400000);
           return end;
         }
 
-        // {end, minutes, capped} for the typed end time, or null (empty -> server default / invalid).
-        function endTimeInfo() {
+        // {end, minutes, capped} for an HH:MM UTC string, or null when it is empty / invalid.
+        function endInfoFor(raw, maxMinutes) {
           var now = new Date();
-          var end = resolveEndTime($("bte-prov-endtime").value, now);
+          var end = resolveEndTime(raw, now);
           if (!end) return null;
           var minutes = Math.max(1, Math.ceil((end - now) / 60000));
-          var max = prov.status && prov.status.max_duration_minutes;
-          var capped = !!(max && minutes > max);
+          var capped = !!(maxMinutes && minutes > maxMinutes);
           if (capped) {
-            minutes = max;
-            end = new Date(now.getTime() + max * 60000);
+            minutes = maxMinutes;
+            end = new Date(now.getTime() + maxMinutes * 60000);
           }
           return { end: end, minutes: minutes, capped: capped };
         }
 
+        function endTimeInfo() {
+          return endInfoFor($("bte-prov-endtime").value, prov.status && prov.status.max_duration_minutes);
+        }
+
         function describeEnd(info) {
           var e = info.end;
-          var sameDay = e.toDateString() === new Date().toDateString();
-          return (sameDay ? "today " : "tomorrow ") + pad2(e.getHours()) + ":" + pad2(e.getMinutes()) +
+          var sameDay = e.toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10);
+          return (sameDay ? "today " : "tomorrow ") + pad2(e.getUTCHours()) + ":" + pad2(e.getUTCMinutes()) + " UTC" +
             " · in " + minutesToLabel(info.minutes) +
-            " · " + pad2(e.getUTCHours()) + ":" + pad2(e.getUTCMinutes()) + " UTC";
+            " · " + pad2(e.getHours()) + ":" + pad2(e.getMinutes()) + " local";
         }
 
         function endTimeSummary() {
@@ -3672,11 +3716,11 @@
           if (el.style.color !== color) el.style.color = color;
         }
 
-        // Prefill with "now + default duration" (rounded up to the minute) whenever a channel is selected.
+        // Prefill with "now + default duration" (UTC, rounded up to the minute) whenever a channel is selected.
         function resetEndTime() {
           var mins = (prov.status && prov.status.default_duration_minutes) || 60;
           var d = new Date(Math.ceil((Date.now() + mins * 60000) / 60000) * 60000);
-          $("bte-prov-endtime").value = pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+          $("bte-prov-endtime").value = pad2(d.getUTCHours()) + ":" + pad2(d.getUTCMinutes());
           updateEndTimePreview();
         }
 
@@ -3791,7 +3835,7 @@
           var p = d.properties || {};
           var meta = [p.Protocol, p.IP, p.Port].filter(Boolean).join(" · ");
           return '<div class="dest-pick-row' + (used ? " used" : "") + '" data-id="' + escapeHtml(d.id) + '">' +
-            '<span class="dp-name">' + escapeHtml(d.name) + '<div class="dp-meta">' + escapeHtml(meta) + "</div></span>" +
+            '<span class="dp-name">' + escapeHtml(d.name) + destKindPill(d) + '<div class="dp-meta">' + escapeHtml(meta) + "</div></span>" +
             (used
               ? '<span class="pill">in use</span>'
               : '<button class="small" data-act="add">Add</button>') +
@@ -3823,7 +3867,7 @@
           prov.leases.forEach(function (l) {
             if (isFinal(l)) return;
             (l.objects || []).forEach(function (o) {
-              if (o.destination_id && o.status !== "refused" && o.status !== "error") used[o.destination_id] = true;
+              if (isLiveDest(o)) used[o.destination_id] = true;
             });
           });
           return used;
@@ -3913,7 +3957,7 @@
           var leases = prov.leases;
           var active = leases.filter(function (l) { return !isFinal(l); });
           var totalDest = active.reduce(function (n, l) {
-            return n + (l.objects || []).filter(function (o) { return o.destination_id && o.status !== "refused" && o.status !== "error"; }).length;
+            return n + (l.objects || []).filter(isLiveDest).length;
           }, 0);
           $("bte-lease-tag").textContent = active.length + " active" + (totalDest ? " · " + totalDest + " destination" + (totalDest === 1 ? "" : "s") : "");
           $("bte-lease-count").textContent = leases.length
@@ -3935,9 +3979,12 @@
             leases.map(function (l) {
               var objs = l.objects || [];
               var created = objs.filter(function (o) { return o.status === "created"; }).length;
+              var liveTotal = objs.filter(function (o) { return o.status !== "deleted" && o.status !== "gone"; }).length;
               var problems = objs.filter(function (o) { return o.status === "error" || o.status === "refused" || o.status === "delete_error"; }).length;
               var final = isFinal(l);
-              var errs = (l.errors || []).concat(objs.filter(function (o) { return o.error; }).map(function (o) { return o.edge + " " + o.kind + ": " + o.error; }));
+              var errs = (l.errors || []).concat(objs.filter(function (o) { return o.error; }).map(function (o) {
+                return o.error.indexOf(o.kind + " ") === 0 ? o.edge + ": " + o.error : o.edge + " " + o.kind + ": " + o.error;
+              }));
               return (
                 '<tr data-lease="' + escapeHtml(l.lease_id) + '" data-expires="' + escapeHtml(l.expires_at || "") + '">' +
                 '<td><div class="lease-name">' + escapeHtml(l.resource_name || "?") + "</div>" +
@@ -3950,7 +3997,7 @@
                 "<td>" + leaseStatusPill(l) + "</td>" +
                 '<td class="remain"><span class="remain-val">' + escapeHtml(fmtRemain(l.remaining_seconds)) + '</span>' +
                   '<div class="lease-sub">ends ' + escapeHtml(fmtUtcClock(l.expires_at)) + "</div></td>" +
-                "<td>" + (l.dry_run ? objs.length + " planned" : created + " / " + objs.length) + (problems ? ' <span style="color: var(--error)">' + problems + " ⚠</span>" : "") + "</td>" +
+                "<td>" + (l.dry_run ? objs.length + " planned" : created + " / " + liveTotal) + (problems ? ' <span style="color: var(--error)">' + problems + " ⚠</span>" : "") + "</td>" +
                 '<td class="dest-col">' + destBadges(objs) + "</td>" +
                 '<td><div class="actions">' +
                   (l.status === "active" && l.dc_created !== false ? '<button class="small dest" data-act="add-dest">+ Destination</button>' : "") +
@@ -3983,18 +4030,216 @@
             '<div class="lease-sub"' + (regionalOnly ? ' style="color: var(--warn)"' : "") + ">" + scope + "</div>";
         }
 
+        // ---- destination manager (popup): remove only the output, or give it its own removal time ----
+        var destMgr = { leaseId: null, destId: null };
+
+        // A destination that is (still) part of a stream and counts as "in use".
+        function isLiveDest(o) {
+          return !!o.destination_id && ["refused", "error", "deleted", "gone"].indexOf(o.status) === -1;
+        }
+
+        function hhmmUtc(iso) {
+          var d = new Date(iso);
+          return isNaN(d) ? "?" : pad2(d.getUTCHours()) + ":" + pad2(d.getUTCMinutes()) + " UTC";
+        }
+
+        function destMgrData() {
+          var lease = prov.leases.filter(function (l) { return l.lease_id === destMgr.leaseId; })[0];
+          if (!lease) return null;
+          var alive = function (o) { return o.status !== "deleted" && o.status !== "gone"; };
+          var objs = lease.objects || [];
+          return {
+            lease: lease,
+            out: objs.filter(function (o) {
+              return o.destination_id === destMgr.destId && o.kind === "output" && !o.relay && alive(o);
+            })[0] || null,
+            relay: objs.filter(function (o) { return o.relay && o.relay_destination_id === destMgr.destId && alive(o); }),
+          };
+        }
+
+        function destEndpoint(o) {
+          var b = (o && o.body) || {};
+          var opt = b.options || {};
+          var target = opt.address ? opt.address + (opt.port ? ":" + opt.port : "") : opt.port ? "port " + opt.port : "";
+          return ((b.protocol || "") + (target ? " " + target : "")).trim() || "—";
+        }
+
+        function destMgrMsg(text, cls) {
+          var el = $("bte-destmgr-msg");
+          el.style.display = text ? "" : "none";
+          el.className = "notice" + (cls ? " " + cls : "");
+          el.textContent = text || "";
+        }
+
+        function destMgrInfo() {
+          var data = destMgrData();
+          var raw = $("bte-destmgr-endtime").value.trim();
+          var info = endInfoFor(raw, null);
+          var leaseEnd = data && data.lease.expires_at ? new Date(data.lease.expires_at) : null;
+          var problem = "";
+          if (!raw) problem = "Pick a removal time (UTC).";
+          else if (!info) problem = "Not understood — use HH:MM";
+          else if (leaseEnd && info.end >= leaseEnd) problem = "Must be earlier than the stream end (" + hhmmUtc(data.lease.expires_at) + ").";
+          return { info: info, problem: problem };
+        }
+
+        function updateDestMgrPreview() {
+          var r = destMgrInfo();
+          var el = $("bte-destmgr-endtime-preview");
+          var data = destMgrData();
+          el.textContent = r.problem || describeEnd(r.info);
+          el.style.color = r.problem ? "var(--error)" : "";
+          $("bte-destmgr-set").disabled = !!r.problem || !(data && data.out);
+        }
+
+        function renderDestMgr() {
+          var data = destMgrData();
+          var info = $("bte-destmgr-info");
+          var gone = !data || !data.out;
+          ["bte-destmgr-clear", "bte-destmgr-remove", "bte-destmgr-endtime"].forEach(function (id) { $(id).disabled = gone; });
+          if (gone) {
+            $("bte-destmgr-tag").textContent = "—";
+            $("bte-destmgr-set").disabled = true;
+            info.innerHTML = '<span class="k">Status</span><span class="v warn">No longer attached to the stream.</span>';
+            return;
+          }
+          var o = data.out, l = data.lease;
+          var rows = [];
+          function row(k, v, cls) {
+            rows.push('<span class="k">' + escapeHtml(k) + '</span><span class="v ' + (cls || "") + '">' + v + "</span>");
+          }
+          $("bte-destmgr-tag").textContent = o.destination_name || o.name;
+          row("Destination", escapeHtml(o.destination_name || o.name));
+          row("Stream", escapeHtml(l.resource_name || "?") + " · ends " + escapeHtml(hhmmUtc(l.expires_at)));
+          row("Output", escapeHtml(o.edge) + " · " + escapeHtml(destEndpoint(o)) + " · " + escapeHtml(o.status),
+            o.status === "created" ? "ok" : "warn");
+          data.relay.filter(function (r) { return r.kind === "output"; }).forEach(function (r) {
+            row("ID3AS relay", escapeHtml(r.edge) + " ⇄ " + escapeHtml(destEndpoint(r)) + " · " + escapeHtml(r.status),
+              r.status === "created" ? "ok" : "warn");
+          });
+          row("Removal", o.expires_at ? "own removal time — " + escapeHtml(hhmmUtc(o.expires_at)) : "follows the stream",
+            o.expires_at ? "warn" : "");
+          if (o.error) row("Error", escapeHtml(o.error), "bad");
+          info.innerHTML = rows.join("");
+          $("bte-destmgr-clear").style.display = o.expires_at ? "" : "none";
+          updateDestMgrPreview();
+        }
+
+        function openDestMgr(leaseId, destId) {
+          destMgr.leaseId = leaseId;
+          destMgr.destId = destId;
+          destMgrMsg("");
+          var data = destMgrData();
+          if (data && data.out) {
+            var leaseEnd = new Date(data.lease.expires_at).getTime();
+            var def = data.out.expires_at
+              ? new Date(data.out.expires_at)
+              : new Date(Math.min(Math.ceil((Date.now() + 30 * 60000) / 60000) * 60000, leaseEnd - 60000));
+            $("bte-destmgr-endtime").value = pad2(def.getUTCHours()) + ":" + pad2(def.getUTCMinutes());
+          }
+          renderDestMgr();
+          var dlg = $("bte-destmgr-dialog");
+          if (typeof dlg.showModal === "function") dlg.showModal();
+          else dlg.setAttribute("open", "");
+        }
+
+        function destMgrCall(method, suffix, body, okText, closeAfter) {
+          var url = "/leases/" + encodeURIComponent(destMgr.leaseId) + "/destinations/" + encodeURIComponent(destMgr.destId) + suffix;
+          var opts = { method: method };
+          if (body) opts.body = JSON.stringify(body);
+          destMgrMsg("");
+          return bteFetch(url, opts)
+            .then(function () {
+              provLog(okText, "log-ok");
+              if (closeAfter) $("bte-destmgr-dialog").close();
+            })
+            .catch(function (err) {
+              destMgrMsg(err.message, "bad");
+              provLog("Destination change failed: " + err.message, "log-err");
+            })
+            .then(function () {
+              if (audit.loaded) loadAudit();
+              return loadLeases();
+            });
+        }
+
+        function destMgrSetExpiry() {
+          var r = destMgrInfo();
+          if (r.problem) return;
+          var data = destMgrData();
+          destMgrCall("POST", "/expiry", { end_at: r.info.end.toISOString() },
+            "Removal time set — " + ((data && data.out && data.out.destination_name) || "destination") + " · " + describeEnd(r.info), false);
+        }
+
+        function destMgrClearExpiry() {
+          destMgrCall("POST", "/expiry", { end_at: null }, "Removal time cleared — the destination follows the stream again", false);
+        }
+
+        function destMgrRemove() {
+          var data = destMgrData();
+          if (!data || !data.out) return;
+          var name = data.out.destination_name || data.out.name;
+          var ok = confirm(
+            "Remove destination " + name + " now?\n\nOnly its output" + (data.relay.length ? " and its ID3AS relay" : "") +
+            " are deleted from TXCore — the stream " + (data.lease.resource_name || "") + " stays active."
+          );
+          if (!ok) return;
+          destMgrCall("DELETE", "", undefined, "Destination " + name + " removed — the stream stays active", true);
+        }
+
+        // Quick filters inferred from the destination name: DC = ID3AS_CHxx, AWS = ID3AS_AWS_CHxx.
+        var DEST_KIND_DC = /^ID3AS_CH\d{1,2}$/i;
+        var destChip = "";
+
+        function id3asAwsRegex() {
+          var raw = prov.status && prov.status.id3as_relay && prov.status.id3as_relay.name_pattern;
+          if (raw) {
+            try { return new RegExp(raw, "i"); } catch (e) { /* fall back to the default */ }
+          }
+          return /^ID3AS_AWS_CH(\d{1,2})$/i;
+        }
+
+        function destKind(d) {
+          var name = String(d.name || "").trim();
+          if (id3asAwsRegex().test(name)) return "id3as_aws";
+          if (DEST_KIND_DC.test(name)) return "id3as_dc";
+          return "";
+        }
+
+        function destKindPill(d) {
+          var kind = destKind(d);
+          return kind ? ' <span class="pill relay">' + (kind === "id3as_aws" ? "ID3AS AWS" : "ID3AS DC") + "</span>" : "";
+        }
+
+        function destChipMatch(d) {
+          return !destChip || destKind(d) === destChip;
+        }
+
+        function setDestChip(value) {
+          destChip = value || "";
+          document.querySelectorAll(".chip-row button[data-chip]").forEach(function (b) {
+            b.classList.toggle("active", b.getAttribute("data-chip") === destChip);
+          });
+          if ($("bte-dest-dialog").open) renderBteDestinations();
+          if ($("bte-dest-picker-dialog").open) renderDestPicker();
+        }
+
         function destBadges(objs) {
-          var dests = objs.filter(function (o) { return o.destination_id; });
+          var dests = objs.filter(function (o) { return o.destination_id && o.status !== "deleted" && o.status !== "gone"; });
           if (!dests.length) return '<span style="color: var(--text-faint)">—</span>';
           // Relay objects (ID3AS) are not destinations themselves: they only mark the
           // destination they relay, so each destination is listed once.
           var relays = {};
-          objs.forEach(function (o) { if (o.relay && o.relay_destination_id) relays[o.relay_destination_id] = o.edge; });
+          objs.forEach(function (o) {
+            if (o.relay && o.relay_destination_id && o.status !== "deleted" && o.status !== "gone") relays[o.relay_destination_id] = o.edge;
+          });
           return '<div class="dest-badges">' + dests.map(function (o) {
             var cls = o.status === "created" || o.status === "skipped" ? "" : o.status === "error" || o.status === "refused" ? "bad" : "warn";
             var relayEdge = relays[o.destination_id];
-            return '<span class="pill ' + cls + '" title="' + escapeHtml(o.status + (relayEdge ? " · ID3AS relay on " + relayEdge : "")) + '">' +
-              escapeHtml(o.destination_name || o.name) + (relayEdge ? " · ID3AS" : "") + "</span>";
+            return '<span class="pill clickable ' + cls + '" data-act="dest-open" data-dest="' + escapeHtml(o.destination_id) +
+              '" title="' + escapeHtml(o.status + (relayEdge ? " · ID3AS relay on " + relayEdge : "") + " · click to manage") + '">' +
+              escapeHtml(o.destination_name || o.name) + (relayEdge ? " · ID3AS" : "") +
+              (o.expires_at ? " · until " + escapeHtml(hhmmUtc(o.expires_at)) : "") + "</span>";
           }).join("") + "</div>";
         }
 
@@ -4010,6 +4255,7 @@
 
         function tickLeases() {
           if (activeCluster === "bte" && bte.selectedId) updateEndTimePreview();
+          if ($("bte-destmgr-dialog").open) updateDestMgrPreview();
           var now = Date.now();
           var rows = $("bte-lease-container").querySelectorAll("tr[data-lease]");
           for (var i = 0; i < rows.length; i++) {
@@ -4033,6 +4279,7 @@
               prov.loadedAt = Date.now();
               renderLeases();
               trackLeaseTransitions();
+              if ($("bte-destmgr-dialog").open) renderDestMgr();
               if (bte.supplier) renderBteChannels();
               if (bte.selectedId) renderProvHint();
             })
@@ -4293,12 +4540,14 @@
           $("bte-btn-leases-reload").addEventListener("click", loadLeases);
           $("bte-btn-delete-all").addEventListener("click", deleteAllLeases);
           $("bte-lease-container").addEventListener("click", function (ev) {
-            var btn = ev.target.closest ? ev.target.closest("button[data-act]") : null;
+            var btn = ev.target.closest ? ev.target.closest("[data-act]") : null;
             if (!btn) return;
             var row = btn.closest("tr[data-lease]");
             var id = row.getAttribute("data-lease");
             var lease = prov.leases.filter(function (l) { return l.lease_id === id; })[0] || {};
-            if (btn.getAttribute("data-act") === "add-dest") {
+            if (btn.getAttribute("data-act") === "dest-open") {
+              openDestMgr(id, btn.getAttribute("data-dest"));
+            } else if (btn.getAttribute("data-act") === "add-dest") {
               openDestPicker(id);
             } else if (btn.getAttribute("data-act") === "extend") {
               var raw = row.querySelector('input[data-act="min"]').value;
@@ -4316,6 +4565,12 @@
             }
           });
           $("bte-history-close").addEventListener("click", function () { $("bte-history-dialog").close(); });
+          $("bte-destmgr-close").addEventListener("click", function () { $("bte-destmgr-dialog").close(); });
+          $("bte-destmgr-endtime").addEventListener("input", updateDestMgrPreview);
+          $("bte-destmgr-endtime").addEventListener("change", updateDestMgrPreview);
+          $("bte-destmgr-set").addEventListener("click", destMgrSetExpiry);
+          $("bte-destmgr-clear").addEventListener("click", destMgrClearExpiry);
+          $("bte-destmgr-remove").addEventListener("click", destMgrRemove);
 
           $("bte-audit-fold").addEventListener("toggle", function () {
             if (this.open && !audit.loaded) loadAudit();
