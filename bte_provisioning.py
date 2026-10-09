@@ -16,7 +16,7 @@ TXCore call per edge: POST /api/mwedge/<edge id> with {streams, sources, outputs
         source  SRT   from properties["Input Main"] (or "Input") — primary only, no backup
         output  SRT listener on properties["Output"]  (internal passphrase)
 
-    AVE / LMK / YER edges (always, one per site with a multicast address)
+    AVE / LMK / YER edges (one per selected site with a multicast address)
         stream
         source  SRT caller  <DC edge pub=SRT ip>:<Output port> (internal passphrase)
         output  UDP multicast from properties["<Site> Multicast"]
@@ -29,6 +29,13 @@ TXCore call per edge: POST /api/mwedge/<edge id> with {streams, sources, outputs
                       destination output sends to)
         output  SRT listener on port BTE_ID3AS_SRT_PORT_BASE + <nn> (4001..4099),
                       passphrase/encryption from the .env (one for every channel)
+
+Target TXEdges: a request may restrict creation to a subset of the targets
+DC (the DC edge), AVE, LMK and YER ("targets" field, default: all). Regional
+streams can be created on their own: the DC stream is then expected to exist
+already, the regional sources simply pull SRT from the DC edge public address.
+Destinations (and therefore ID3AS relays) are DC-edge objects and require the
+DC target.
 
 Naming (mirrors the existing TXCore conventions):
     stream  <channel>_<edge>_[BTE]          e.g. VET_CH01_INX01_[BTE]
@@ -240,6 +247,34 @@ REGIONAL_SITES = (
 )
 _EDGE_KEY_RE = re.compile(r'BTE_EDGE_([A-Za-z0-9]+)')
 _HOST_LIST_RE = re.compile(r'\s*([A-Za-z]+)@([^,;\s]+)')
+
+# Edge targets selectable per request: the DC edge ("DC", shown as INX in the UI)
+# and the regional sites. A missing "targets" field means every target.
+TARGET_DC = 'DC'
+ALL_TARGETS = (TARGET_DC,) + tuple(s for s, _ in REGIONAL_SITES)
+_TARGET_ALIASES = {'INX': TARGET_DC}
+
+
+def normalize_targets(value):
+    """Parse the "targets" request field. Returns (frozenset | None, error).
+
+    None (field absent) means every target. A non-list, an unknown name or an
+    empty list is an error: nothing is provisioned on a guess.
+    """
+    if value is None:
+        return None, None
+    if not isinstance(value, (list, tuple, set, frozenset)):
+        return None, '"targets" must be a list'
+    targets = set()
+    for raw in value:
+        token = str(raw).strip().upper()
+        token = _TARGET_ALIASES.get(token, token)
+        if token not in ALL_TARGETS:
+            return None, f'Unknown target {raw!r} (allowed: {", ".join(ALL_TARGETS)})'
+        targets.add(token)
+    if not targets:
+        return None, 'Select at least one TXEdge target'
+    return frozenset(targets), None
 
 
 def _version_tuple(value):
@@ -691,7 +726,7 @@ def _endpoint_obj(stream_id, name, protocol, options):
     return {'stream': stream_id, 'name': name, 'tags': 'bte', 'protocol': protocol, 'active': True, 'options': options}
 
 
-def build_plan(item, edges=None, passphrase_override=None, destinations=None):
+def build_plan(item, edges=None, passphrase_override=None, destinations=None, targets=None):
     """Return {'ok', 'steps', 'warnings', 'errors', 'summary'} for a snapshot item.
 
     One step per edge = one POST /mwedge/<edge id>. Each step lists the objects
@@ -700,11 +735,22 @@ def build_plan(item, edges=None, passphrase_override=None, destinations=None):
     (used while the Dataminer API does not expose the real value).
     ``destinations`` is an optional list of Destination pool items: each
     becomes an extra output on the DC edge only, alongside the primary output.
+    ``targets`` restricts the plan to a subset of DC / AVE / LMK / YER (None = all).
+    Without the DC target no DC objects are planned (destinations are then refused),
+    but the DC edge must still be configured: regional sources pull from its public SRT address.
     """
     edges = EDGES if edges is None else edges
     props = item.get('properties') or {}
     base = str(item.get('name') or '').strip()
     warnings, errors, steps = [], [], []
+
+    if targets is None:
+        targets = frozenset(ALL_TARGETS)
+    else:
+        targets, target_error = normalize_targets(list(targets))
+        if target_error:
+            return {'ok': False, 'steps': [], 'warnings': [], 'errors': [target_error], 'summary': {}}
+    use_dc = TARGET_DC in targets
 
     if not base:
         errors.append('Resource has no name')
@@ -724,7 +770,7 @@ def build_plan(item, edges=None, passphrase_override=None, destinations=None):
     # edge only, so backup inputs are ignored by design.
     raw_input = _prop(props, 'Input Main', 'Input')
     main_in = parse_input(raw_input)
-    if not main_in:
+    if not main_in and use_dc:
         errors.append(f'"Input Main" / "Input" is missing or unparsable: {raw_input!r}')
     out_port = _int_or_none(props.get('Output'))
     if _blank(props.get('Output')) and main_in:
@@ -735,6 +781,9 @@ def build_plan(item, edges=None, passphrase_override=None, destinations=None):
         errors.append(f'"Output" port is missing or invalid: {props.get("Output")!r}')
     if not INTERNAL_PASSPHRASE:
         errors.append('INTERNALSRTPASSPHRASE is not set on the server (needed for the edge-to-edge SRT hops)')
+
+    if destinations and not use_dc:
+        errors.append('Destinations are created on the DC edge only — enable the DC target or remove the destinations')
 
     # ID3AS/AWS destinations need a relay stream on the relay edge: a relay that
     # cannot be built fails the whole plan (fail closed) instead of being skipped.
@@ -765,10 +814,10 @@ def build_plan(item, edges=None, passphrase_override=None, destinations=None):
         passphrase, passphrase_status = None, 'redacted'
     else:
         passphrase, passphrase_status = raw_pass, ('resource' if raw_pass else 'missing')
-    if encrypted and not passphrase:
+    if use_dc and encrypted and not passphrase:
         warnings.append(f'Encryption {encryption} requested but the resource passphrase is {passphrase_status} — '
                         f'the {dc_key} source will be created WITHOUT encryption (use the passphrase override)')
-    elif not encrypted and passphrase:
+    elif use_dc and not encrypted and passphrase:
         warnings.append('A passphrase is present but Encryption is None — the source is created without encryption')
         passphrase = None
 
@@ -778,37 +827,39 @@ def build_plan(item, edges=None, passphrase_override=None, destinations=None):
                       'objects': objects})
 
     # ---- DC edge ----------------------------------------------------------
-    sid = _stream_id(base, dc_key)
-    proto = main_in['protocol'].upper()
-    n_stream = stream_name(base, dc_key)
-    n_src = source_name(base, dc_key, proto)
-    n_out = output_name(base, dc_key, 'SRT')
-    if proto == 'SRT':
-        mode = 'listener' if main_in['mode'] == 'listener' else 'caller'
-        src_opts = _srt_options(mode, main_in['host'], main_in['port'], latency,
-                                passphrase if encrypted else None, encryption, dc['in'].get('SRT'))
-    else:
-        src_opts = _udp_options(main_in['host'], main_in['port'], dc['in'].get(proto) or dc['in'].get('UDP'))
-    dc_objects = [
-        {'kind': 'stream', 'name': n_stream, 'body': _stream_obj(sid, n_stream, 'none')},
-        {'kind': 'source', 'name': n_src, 'body': _endpoint_obj(sid, n_src, proto, src_opts)},
-        {'kind': 'output', 'name': n_out, 'body': _endpoint_obj(sid, n_out, 'SRT', _srt_options(
-            'listener', None, out_port, latency, INTERNAL_PASSPHRASE, 'AES-256', dc['out'].get('SRT'), srt_type=SRT_OUTPUT_TYPE['listen']))},
-    ]
     seen_dest_ids = set()
-    for dest in (destinations or []):
-        dest_id = dest.get('id')
-        label = dest.get('name') or dest_id or 'destination'
-        if dest_id and dest_id in seen_dest_ids:
-            warnings.append(f'Destination {label}: selected twice — added only once')
-            continue
-        obj = destination_object(base, dc_key, dc, dest, sid)
-        if obj is None:
-            warnings.append(f'Destination {label}: could not parse Protocol/IP/Port — skipped')
-            continue
-        seen_dest_ids.add(dest_id)
-        dc_objects.append(obj)
-    step(dc, dc_objects)
+    if use_dc:
+        sid = _stream_id(base, dc_key)
+        proto = main_in['protocol'].upper()
+        n_stream = stream_name(base, dc_key)
+        n_src = source_name(base, dc_key, proto)
+        n_out = output_name(base, dc_key, 'SRT')
+        if proto == 'SRT':
+            mode = 'listener' if main_in['mode'] == 'listener' else 'caller'
+            src_opts = _srt_options(mode, main_in['host'], main_in['port'], latency,
+                                    passphrase if encrypted else None, encryption, dc['in'].get('SRT'))
+        else:
+            src_opts = _udp_options(main_in['host'], main_in['port'], dc['in'].get(proto) or dc['in'].get('UDP'))
+        dc_objects = [
+            {'kind': 'stream', 'name': n_stream, 'body': _stream_obj(sid, n_stream, 'none')},
+            {'kind': 'source', 'name': n_src, 'body': _endpoint_obj(sid, n_src, proto, src_opts)},
+            {'kind': 'output', 'name': n_out, 'body': _endpoint_obj(sid, n_out, 'SRT', _srt_options(
+                'listener', None, out_port, latency, INTERNAL_PASSPHRASE, 'AES-256', dc['out'].get('SRT'), srt_type=SRT_OUTPUT_TYPE['listen']))},
+        ]
+        seen_dest_ids = set()
+        for dest in (destinations or []):
+            dest_id = dest.get('id')
+            label = dest.get('name') or dest_id or 'destination'
+            if dest_id and dest_id in seen_dest_ids:
+                warnings.append(f'Destination {label}: selected twice — added only once')
+                continue
+            obj = destination_object(base, dc_key, dc, dest, sid)
+            if obj is None:
+                warnings.append(f'Destination {label}: could not parse Protocol/IP/Port — skipped')
+                continue
+            seen_dest_ids.add(dest_id)
+            dc_objects.append(obj)
+        step(dc, dc_objects)
 
     # ---- ID3AS / AWS relays (relay edge, one stream per destination) -----
     relays = 0
@@ -825,6 +876,8 @@ def build_plan(item, edges=None, passphrase_override=None, destinations=None):
     # ---- regional edges ---------------------------------------------------
     sites = 0
     for site, prop in REGIONAL_SITES:
+        if site not in targets:
+            continue
         mcast = parse_multicast(props.get(prop))
         edge = site_edge(site, edges)
         if not mcast:
@@ -845,8 +898,13 @@ def build_plan(item, edges=None, passphrase_override=None, destinations=None):
                 mcast['host'], mcast['port'], edge['out'].get('UDP')))},
         ])
 
-    if sites == 0:
+    if sites == 0 and any(s in targets for s, _ in REGIONAL_SITES):
         warnings.append('No regional site will be provisioned (no multicast address / edge available)')
+
+    if not steps:
+        return {'ok': False, 'steps': [], 'warnings': warnings, 'summary': {},
+                'errors': ['Nothing to provision for the selected TXEdges '
+                           '(no multicast address / edge available for the selected sites)']}
 
     return {
         'ok': True,
@@ -856,6 +914,8 @@ def build_plan(item, edges=None, passphrase_override=None, destinations=None):
         'summary': {
             'resource': base,
             'dc_edge': dc_key,
+            'dc_enabled': use_dc,
+            'targets': sorted(targets),
             'input': raw_input,
             'output_port': out_port,
             'encryption': encryption if encrypted else None,
@@ -1317,6 +1377,8 @@ def create_lease(item, plan, duration_minutes, username, dry_run, source_snapsho
         'supplier': ((item.get('capabilities') or {}).get('Type') or '').strip() or None,
         'dc_edge': plan['summary'].get('dc_edge'),
         'sites': plan['summary'].get('sites'),
+        'dc_created': plan['summary'].get('dc_enabled', True),   # False: regional-only lease
+        'targets': plan['summary'].get('targets'),
         'source_snapshot': source_snapshot,
         'created_at': _iso(now),
         'created_by': username,
@@ -1365,6 +1427,7 @@ def create_lease(item, plan, duration_minutes, username, dry_run, source_snapsho
         'resource_id': lease['resource_id'],
         'resource_name': lease['resource_name'],
         'dc_edge': lease['dc_edge'],
+        'targets': lease.get('targets'),
         'user': username,
         'dry_run': lease['dry_run'],
         'duration_minutes': lease['duration_minutes'],
@@ -1651,6 +1714,9 @@ def add_destination(lease_id, destination_item, username, client=None):
         return None, 'Lease not found'
     if lease['status'] != 'active':
         return lease, f"Lease is {lease['status']} — destinations can only be added to an active lease"
+
+    if lease.get('dc_created') is False:
+        return lease, 'This stream was created without the DC edge — destinations can only be attached to the DC edge'
 
     dest_id = destination_item.get('id')
     if not dest_id:

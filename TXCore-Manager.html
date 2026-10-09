@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TXCore Provisioning — SO-Toolbox</title>
-    <!-- TXCore Manager frontend v1.8.0 — STB (multicast) + MAIN (SRT) clusters + BTE (timed TXEdge resource provisioning, channel reuse guard, destination outputs, legacy TXEdge support, partial creation kept, ID3AS relay badges, destination picker closes after adding, self-dismissing info notices) -->
+    <!-- TXCore Manager frontend v1.9.0 — STB (multicast) + MAIN (SRT) clusters + BTE (timed TXEdge resource provisioning, channel reuse guard, destination outputs, legacy TXEdge support, partial creation kept, ID3AS relay badges, destination picker closes after adding, self-dismissing info notices, per-TXEdge target toggles for regional-only creation) -->
     <style>
       :root {
         --bg: #0f1216;
@@ -942,6 +942,36 @@
         padding: 4px 9px;
         font-weight: 500;
       }
+      .edge-targets .et-caption {
+        font-size: 12px;
+        color: var(--text-dim);
+        margin-bottom: 6px;
+      }
+      .edge-toggles {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .edge-toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--panel-alt);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 5px 10px;
+        font-family: var(--font-mono);
+        font-size: 12px;
+      }
+      .edge-toggle label.et-name {
+        margin: 0;
+        color: var(--text);
+        cursor: pointer;
+      }
+      .field.dim {
+        opacity: 0.4;
+        pointer-events: none;
+      }
       input.inline-min {
         width: 58px;
         padding: 3px 6px;
@@ -1784,7 +1814,7 @@
                     <span class="track"></span>
                   </label>
                 </div>
-                <div class="field" style="flex: 1 1 220px; margin: 0">
+                <div class="field" id="bte-prov-dest-field" style="flex: 1 1 220px; margin: 0">
                   <label>Destinations <span class="dest-count" id="bte-prov-dest-count">0</span>
                     <span style="color: var(--text-faint)">(DC edge only)</span></label>
                   <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center">
@@ -1796,6 +1826,29 @@
                   <button id="bte-btn-plan">Preview plan</button>
                   <button id="bte-btn-create" class="bte">Create resources</button>
                 </div>
+              </div>
+              <div class="edge-targets" style="margin-top: 12px">
+                <div class="et-caption">Create on TXEdges
+                  <span style="color: var(--text-faint)">(INX = DC edge: primary output + destinations)</span></div>
+                <div class="edge-toggles" id="bte-prov-edge-toggles">
+                  <div class="edge-toggle">
+                    <label class="switch safe"><input type="checkbox" id="bte-prov-edge-DC" data-site="DC" checked /><span class="track"></span></label>
+                    <label class="et-name" for="bte-prov-edge-DC" id="bte-prov-edge-DC-name">INX</label>
+                  </div>
+                  <div class="edge-toggle">
+                    <label class="switch safe"><input type="checkbox" id="bte-prov-edge-AVE" data-site="AVE" checked /><span class="track"></span></label>
+                    <label class="et-name" for="bte-prov-edge-AVE" id="bte-prov-edge-AVE-name">AVE02</label>
+                  </div>
+                  <div class="edge-toggle">
+                    <label class="switch safe"><input type="checkbox" id="bte-prov-edge-LMK" data-site="LMK" checked /><span class="track"></span></label>
+                    <label class="et-name" for="bte-prov-edge-LMK" id="bte-prov-edge-LMK-name">LMK01</label>
+                  </div>
+                  <div class="edge-toggle">
+                    <label class="switch safe"><input type="checkbox" id="bte-prov-edge-YER" data-site="YER" checked /><span class="track"></span></label>
+                    <label class="et-name" for="bte-prov-edge-YER" id="bte-prov-edge-YER-name">YER01</label>
+                  </div>
+                </div>
+                <div class="hint" id="bte-prov-edges-hint"></div>
               </div>
               <div class="hint" id="bte-prov-hint" style="margin-top: 8px"></div>
             </div>
@@ -3091,6 +3144,7 @@
           if (r) {
             bte.pendingDestinations = [];
             renderPendingDestinations();
+            resetEdgeTargets(r);
             renderProvHint();
           }
           if (!r) {
@@ -3208,6 +3262,7 @@
             case "created":
               return (e.duration_minutes ? minutesToLabel(e.duration_minutes) : "") +
                 (e.dc_edge ? " · " + e.dc_edge : "") +
+                (e.targets && e.targets.length && e.targets.length < 4 ? " · targets " + e.targets.join(", ") : "") +
                 (e.source_snapshot ? " · ⚠ backup " + e.source_snapshot : "") +
                 (e.destinations && e.destinations.length
                   ? " · destinations: " + e.destinations.map(function (d) { return d.name; }).join(", ")
@@ -3463,7 +3518,7 @@
             ? "⚠ Using DM Snapshot BACKUP from " + backupView.date + " (not live) — "
             : "";
           var activeLeaseId = activeResourceIds()[bte.selectedId];
-          ["bte-btn-plan", "bte-btn-create", "bte-btn-add-dest"].forEach(function (id) { $(id).disabled = !!activeLeaseId; });
+          applyEdgeTargets();
           if (activeLeaseId) {
             hint.textContent = backupPrefix + "This channel already has an active BTE stream — manage it from \"BTE active streams\" above.";
             return;
@@ -3497,7 +3552,7 @@
             dry.disabled = false;
             hint.textContent = backupPrefix + (dry.checked
               ? "Dry run: the lease is tracked but nothing is sent to TXCore."
-              : "Live: creates the DC + AVE / LMK / YER objects on TXCore MAIN, tagged " + (st.tag || "[BTE]") + ", removed automatically when the lease ends.");
+              : "Live: creates the " + targetsLabel() + " objects on TXCore MAIN, tagged " + (st.tag || "[BTE]") + ", removed automatically when the lease ends.");
           }
         }
 
@@ -3513,6 +3568,65 @@
           }).join("");
           $("bte-prov-dest-count").textContent = bte.pendingDestinations.length;
         }
+        // ---- target TXEdges (DC / AVE / LMK / YER toggles) -------------------
+        var EDGE_SITES = ["DC", "AVE", "LMK", "YER"];
+
+        function edgeToggle(site) {
+          return $("bte-prov-edge-" + site);
+        }
+
+        function selectedTargets() {
+          return EDGE_SITES.filter(function (s) { return edgeToggle(s).checked; });
+        }
+
+        // DC shows the TXEdge of the selected channel (INX01…); regional sites show
+        // the configured edge key (AVE02, LMK01, YER01) when the server reports it.
+        function edgeLabelFor(site, resource) {
+          if (site === "DC") return (resource && itemEdge(resource)) || "INX";
+          var edges = (prov.status && prov.status.edges) || {};
+          var keys = Object.keys(edges).filter(function (k) {
+            return edges[k].site === site && !edges[k].dc;
+          }).sort();
+          return keys[0] || site;
+        }
+
+        function targetsLabel() {
+          var r = bte.selectedId ? bteFindResource(bte.selectedId) : null;
+          return selectedTargets().map(function (s) { return edgeLabelFor(s, r); }).join(" + ");
+        }
+
+        // A new channel always starts with every TXEdge selected (no stale partial selection).
+        function resetEdgeTargets(resource) {
+          EDGE_SITES.forEach(function (s) {
+            edgeToggle(s).checked = true;
+            $("bte-prov-edge-" + s + "-name").textContent = edgeLabelFor(s, resource);
+          });
+          applyEdgeTargets();
+        }
+
+        // Destinations are DC-edge objects: grey them out when the DC target is off.
+        function applyEdgeTargets() {
+          var dcOn = edgeToggle("DC").checked;
+          var count = selectedTargets().length;
+          var activeLeaseId = activeResourceIds()[bte.selectedId];
+          $("bte-prov-dest-field").classList.toggle("dim", !dcOn);
+          $("bte-btn-add-dest").disabled = !dcOn || !!activeLeaseId;
+          ["bte-btn-plan", "bte-btn-create"].forEach(function (id) {
+            $(id).disabled = !count || !!activeLeaseId;
+          });
+          var hint = $("bte-prov-edges-hint");
+          if (!count) {
+            hint.textContent = "Select at least one TXEdge.";
+            hint.style.color = "var(--error)";
+          } else if (!dcOn) {
+            hint.textContent = "Regional only: no DC stream is created — it must already exist, the regional sources pull SRT from the DC edge public address. Destinations are disabled.";
+            hint.style.color = "var(--warn)";
+          } else {
+            hint.textContent = "";
+            hint.style.color = "";
+          }
+        }
+
         function destPickRow(d, used) {
           var p = d.properties || {};
           var meta = [p.Protocol, p.IP, p.Port].filter(Boolean).join(" · ");
@@ -3670,14 +3784,14 @@
                 (l.source_snapshot ? ' · <span style="color: var(--warn)">⚠ backup ' + escapeHtml(l.source_snapshot) + "</span>" : "") + "</div>" +
                 (errs.length ? '<div class="lease-sub" style="color: var(--error)" title="' + escapeHtml(errs.join("\n")) + '">' + escapeHtml(errs[0]) + (errs.length > 1 ? " (+" + (errs.length - 1) + ")" : "") + "</div>" : "") +
                 "</td>" +
-                "<td>" + escapeHtml(l.dc_edge || "?") + '<div class="lease-sub">' + (l.sites || 0) + " site" + (l.sites === 1 ? "" : "s") + "</div></td>" +
+                "<td>" + (l.dc_created === false ? '<span style="color: var(--text-faint)">regional only</span>' : escapeHtml(l.dc_edge || "?")) + '<div class="lease-sub">' + (l.sites || 0) + " site" + (l.sites === 1 ? "" : "s") + "</div></td>" +
                 "<td>" + leaseStatusPill(l) + "</td>" +
                 '<td class="remain"><span class="remain-val">' + escapeHtml(fmtRemain(l.remaining_seconds)) + '</span>' +
                   '<div class="lease-sub">ends ' + escapeHtml(fmtUtcClock(l.expires_at)) + "</div></td>" +
                 "<td>" + (l.dry_run ? objs.length + " planned" : created + " / " + objs.length) + (problems ? ' <span style="color: var(--error)">' + problems + " ⚠</span>" : "") + "</td>" +
                 '<td class="dest-col">' + destBadges(objs) + "</td>" +
                 '<td><div class="actions">' +
-                  (l.status === "active" ? '<button class="small dest" data-act="add-dest">+ Destination</button>' : "") +
+                  (l.status === "active" && l.dc_created !== false ? '<button class="small dest" data-act="add-dest">+ Destination</button>' : "") +
                   '<input class="inline-min" type="text" value="' + extendDefault + '" title="minutes to add — e.g. 30, 1h, 1h30m" data-act="min" />' +
                   '<button class="small" data-act="extend">Extend</button>' +
                   '<button class="small" data-act="history">History</button>' +
@@ -3773,7 +3887,7 @@
           if (plan.ok) {
             var s = plan.summary || {};
             html += '<div class="notice' + (plan.source_snapshot && plan.source_snapshot !== "live" ? " warn" : "") + '">' +
-              escapeHtml(s.objects + " objects on " + s.edges + " edge" + (s.edges === 1 ? "" : "s") + " (" + s.dc_edge + " + " + s.sites + " regional site" + (s.sites === 1 ? "" : "s") + ")" +
+              escapeHtml(s.objects + " objects on " + s.edges + " edge" + (s.edges === 1 ? "" : "s") + " (" + (s.dc_enabled === false ? "regional only: " : s.dc_edge + " + ") + s.sites + " regional site" + (s.sites === 1 ? "" : "s") + ")" +
                 " · input " + (s.input || "?") + " · DC output port " + s.output_port +
                 (s.id3as_relays ? " · ID3AS relay" + (s.id3as_relays === 1 ? "" : "s") + " " + s.id3as_relays : "") +
                 " · encryption " + (s.encryption ? s.encryption + " (passphrase: " + s.passphrase_status + ")" : "none") +
@@ -3806,7 +3920,11 @@
             resource_id: bte.selectedId,
             duration_minutes: isFinite(mins) && mins > 0 ? mins : undefined,
             dry_run: $("bte-prov-dry-run").checked,
-            destination_ids: bte.pendingDestinations.map(function (d) { return d.id; }),
+            // Destinations live on the DC edge: never sent when the DC target is off.
+            destination_ids: edgeToggle("DC").checked
+              ? bte.pendingDestinations.map(function (d) { return d.id; })
+              : [],
+            targets: selectedTargets(),
           };
           if (backupView.active) payload.backup_date = backupView.date;
           return payload;
@@ -3851,7 +3969,7 @@
           if (!payload.dry_run) {
             var ok = confirm(
               "Create the [BTE] resources for " + (r ? r.name : bte.selectedId) +
-              " on TXCore MAIN (DC edge + AVE / LMK / YER) for " +
+              " on TXCore MAIN (" + targetsLabel() + ") for " +
               (payload.duration_minutes ? minutesToLabel(payload.duration_minutes) : "the default") +
               (payload.backup_date ? "\n\n⚠ Using DM Snapshot BACKUP from " + payload.backup_date + " — NOT the live snapshot." : "") +
               "?\n\nThey are deleted automatically when the lease ends unless you extend it."
@@ -3965,6 +4083,10 @@
             renderPendingDestinations();
           });
           $("bte-btn-add-dest").addEventListener("click", function () { openDestPicker(null); });
+          $("bte-prov-edge-toggles").addEventListener("change", function () {
+            applyEdgeTargets();
+            renderProvHint();
+          });
           $("bte-dest-picker-close").addEventListener("click", closeDestPicker);
           $("bte-dest-picker-filter").addEventListener("input", renderDestPicker);
           $("bte-dest-picker-container").addEventListener("click", function (ev) {

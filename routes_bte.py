@@ -89,8 +89,6 @@ log = logging.getLogger('so-toolbox.bte')
 
 bte_bp = Blueprint('bte', __name__, url_prefix='/api/bte')
 
-ALLOWED_ROLES = ('admin', 'engineer')
-
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
@@ -126,6 +124,10 @@ DATAMINER_VERIFY_SSL = _env_bool('DATAMINER_VERIFY_SSL', True)
 DATAMINER_CA_BUNDLE = _env('DATAMINER_CA_BUNDLE')
 SNAPSHOT_INTERVAL = _env_int('DATAMINER_SNAPSHOT_INTERVAL', 3600)
 SNAPSHOT_DISABLED = _env_bool('DATAMINER_SNAPSHOT_DISABLED', False)
+
+# Roles allowed to use BTE. Empty (default) = any authenticated user, whatever
+# the role. Set BTE_ALLOWED_ROLES=admin,engineer to restrict access again.
+ALLOWED_ROLES = tuple(r.strip().lower() for r in (_env('BTE_ALLOWED_ROLES') or '').split(',') if r.strip())
 
 RESOURCES_PATH = '/api/custom/resources'
 
@@ -470,9 +472,18 @@ prov.start_reaper()
 # Helpers for the HTTP layer
 # ---------------------------------------------------------------------------
 
-def _get_role():
+def _access_denied():
+    """None when the caller may use BTE, otherwise the (response, status) to return.
+
+    A valid session is always required (401 without one). Role restrictions only
+    apply when BTE_ALLOWED_ROLES is set.
+    """
     session = _get_session(_token_from_request())
-    return session.get('role') if session else None
+    if not session:
+        return jsonify({'error': 'Authentication required'}), 401
+    if ALLOWED_ROLES and str(session.get('role') or '').strip().lower() not in ALLOWED_ROLES:
+        return _forbidden()
+    return None
 
 
 def _get_user_and_role():
@@ -548,7 +559,7 @@ def _resolve_destinations(data, snapshot=None):
 
 
 def _forbidden():
-    return jsonify({'error': 'Permission denied — admin or engineer role required'}), 403
+    return jsonify({'error': 'Permission denied — your role is not allowed to use BTE'}), 403
 
 
 NO_TYPE = '(no type)'
@@ -672,8 +683,9 @@ def _snapshot_meta(snapshot):
 @bte_bp.route('/status', methods=['GET'])
 def get_status():
     """Configuration + snapshot health. Never returns secret values."""
-    if _get_role() not in ALLOWED_ROLES:
-        return _forbidden()
+    denied = _access_denied()
+    if denied:
+        return denied
     with _STATE_LOCK:
         refreshing = _state['refreshing']
         last_attempt = _state['last_attempt']
@@ -699,8 +711,9 @@ def get_status():
 @bte_bp.route('/refresh', methods=['POST'])
 def post_refresh():
     """Force a snapshot refresh now (runs synchronously; ~seconds)."""
-    if _get_role() not in ALLOWED_ROLES:
-        return _forbidden()
+    denied = _access_denied()
+    if denied:
+        return denied
     if not _configured():
         missing = [n for n, v in (('DATAMINER_API_URL', DATAMINER_URL),
                                   ('DATAMINER_BEARER_TOKEN', DATAMINER_TOKEN)) if not v]
@@ -729,8 +742,9 @@ def list_resources():
     Filters: ?q= (text), ?mode= (Available/Unavailable), ?type= (supplier,
     i.e. capabilities.Type), ?edge= (TXEdge name or 'inx0123' for INX01-03).
     """
-    if _get_role() not in ALLOWED_ROLES:
-        return _forbidden()
+    denied = _access_denied()
+    if denied:
+        return denied
     return _pool_response('resources')
 
 
@@ -741,8 +755,9 @@ def list_suppliers():
     Returns per supplier: channel count, count per TXEdge and per mode.
     Optional ?edge= narrows the counts to that TXEdge (or 'inx0123').
     """
-    if _get_role() not in ALLOWED_ROLES:
-        return _forbidden()
+    denied = _access_denied()
+    if denied:
+        return denied
     snapshot = _current_snapshot() or {}
     pool = (snapshot.get('pools') or {}).get('resources')
     if not pool:
@@ -774,8 +789,9 @@ def list_suppliers():
 
 @bte_bp.route('/resources/<resource_id>', methods=['GET'])
 def get_resource(resource_id):
-    if _get_role() not in ALLOWED_ROLES:
-        return _forbidden()
+    denied = _access_denied()
+    if denied:
+        return denied
     if not re.fullmatch(r'[0-9a-fA-F-]{8,64}', resource_id):
         return jsonify({'error': 'Resource not found'}), 404
     snapshot = _current_snapshot() or {}
@@ -796,8 +812,9 @@ def list_destinations():
     Each item is annotated with ``in_use`` — attached to some non-final BTE
     lease already, so it cannot be selected again until freed.
     """
-    if _get_role() not in ALLOWED_ROLES:
-        return _forbidden()
+    denied = _access_denied()
+    if denied:
+        return denied
     resp = _pool_response('destinations')
     payload = resp.get_json()
     if isinstance(payload, dict) and isinstance(payload.get('items'), list):
@@ -823,8 +840,9 @@ def _dry_run_forced(requested):
 @bte_bp.route('/provisioning/status', methods=['GET'])
 def provisioning_status():
     """Configuration of the write side. Never returns secret values."""
-    if _get_role() not in ALLOWED_ROLES:
-        return _forbidden()
+    denied = _access_denied()
+    if denied:
+        return denied
     status = prov.config_status()
     leases = prov.list_leases()
     status['active_leases'] = sum(1 for l in leases if l['status'] in prov.ACTIVE_STATUSES)
@@ -839,8 +857,9 @@ def provision_plan():
     backup instead of the live snapshot — used for emergency provisioning when
     Dataminer itself is unreachable and the live snapshot is stale/unavailable.
     """
-    if _get_role() not in ALLOWED_ROLES:
-        return _forbidden()
+    denied = _access_denied()
+    if denied:
+        return denied
     data = request.get_json(force=True, silent=True) or {}
     resource_id = str(data.get('resource_id') or '').strip()
     if not _RESOURCE_ID_RE.fullmatch(resource_id):
@@ -855,7 +874,10 @@ def provision_plan():
     destinations, error = _resolve_destinations(data, snapshot=snapshot)
     if error:
         return jsonify({'error': error}), 400
-    plan = prov.redact_plan(prov.build_plan(item, destinations=destinations))
+    targets, target_error = prov.normalize_targets(data.get('targets'))
+    if target_error:
+        return jsonify({'error': target_error}), 400
+    plan = prov.redact_plan(prov.build_plan(item, destinations=destinations, targets=targets))
     plan['resource_id'] = resource_id
     plan['resource_name'] = item.get('name')
     plan['source_snapshot'] = backup_date or 'live'
@@ -874,10 +896,13 @@ def provision_create():
     Body may include ``backup_date`` to provision from a DM Snapshot backup instead
     of the live snapshot (see ``provision_plan``); the lease then remembers that
     origin (``source_snapshot``) for the audit trail and later actions on it.
+    ``targets`` (list of DC / AVE / LMK / YER, default all) restricts which TXEdges get
+    objects — regional-only creation is allowed; destinations require the DC target.
     """
-    username, role = _get_user_and_role()
-    if role not in ALLOWED_ROLES:
-        return _forbidden()
+    username, _role = _get_user_and_role()
+    denied = _access_denied()
+    if denied:
+        return denied
     data = request.get_json(force=True, silent=True) or {}
     resource_id = str(data.get('resource_id') or '').strip()
     if not _RESOURCE_ID_RE.fullmatch(resource_id):
@@ -899,7 +924,10 @@ def provision_create():
     if error:
         return jsonify({'error': error}), 400
 
-    plan = prov.build_plan(item, destinations=destinations)
+    targets, target_error = prov.normalize_targets(data.get('targets'))
+    if target_error:
+        return jsonify({'error': target_error}), 400
+    plan = prov.build_plan(item, destinations=destinations, targets=targets)
     if not plan['ok']:
         return jsonify({'error': 'Cannot build a plan for this resource', 'errors': plan['errors'],
                         'warnings': plan['warnings']}), 422
@@ -926,8 +954,9 @@ def provision_create():
 @bte_bp.route('/leases', methods=['GET'])
 def leases_list():
     """All leases (active first) with remaining time; bodies are redacted."""
-    if _get_role() not in ALLOWED_ROLES:
-        return _forbidden()
+    denied = _access_denied()
+    if denied:
+        return denied
     leases = prov.list_leases()
     return jsonify({
         'count': len(leases),
@@ -941,8 +970,9 @@ def leases_list():
 
 @bte_bp.route('/leases/<lease_id>', methods=['GET'])
 def lease_get(lease_id):
-    if _get_role() not in ALLOWED_ROLES:
-        return _forbidden()
+    denied = _access_denied()
+    if denied:
+        return denied
     if not _LEASE_ID_RE.fullmatch(lease_id):
         return jsonify({'error': 'Lease not found'}), 404
     for lease in prov.list_leases():
@@ -954,9 +984,10 @@ def lease_get(lease_id):
 @bte_bp.route('/leases/<lease_id>/extend', methods=['POST'])
 def lease_extend(lease_id):
     """Extend a lease. Body: {"minutes": 30} (default BTE_DEFAULT_EXTEND_MINUTES)."""
-    username, role = _get_user_and_role()
-    if role not in ALLOWED_ROLES:
-        return _forbidden()
+    username, _role = _get_user_and_role()
+    denied = _access_denied()
+    if denied:
+        return denied
     if not _LEASE_ID_RE.fullmatch(lease_id):
         return jsonify({'error': 'Lease not found'}), 404
     data = request.get_json(force=True, silent=True) or {}
@@ -979,9 +1010,10 @@ def lease_add_destination(lease_id):
     be attached to more than one BTE stream at a time. Looked up in whichever
     snapshot (live, or a backup date) the lease itself was created from.
     """
-    username, role = _get_user_and_role()
-    if role not in ALLOWED_ROLES:
-        return _forbidden()
+    username, _role = _get_user_and_role()
+    denied = _access_denied()
+    if denied:
+        return denied
     if not _LEASE_ID_RE.fullmatch(lease_id):
         return jsonify({'error': 'Lease not found'}), 404
     data = request.get_json(force=True, silent=True) or {}
@@ -1012,9 +1044,10 @@ def lease_add_destination(lease_id):
 @bte_bp.route('/leases/<lease_id>', methods=['DELETE'])
 def lease_delete(lease_id):
     """Delete everything one lease created. Runs synchronously (a handful of calls)."""
-    username, role = _get_user_and_role()
-    if role not in ALLOWED_ROLES:
-        return _forbidden()
+    username, _role = _get_user_and_role()
+    denied = _access_denied()
+    if denied:
+        return denied
     if not _LEASE_ID_RE.fullmatch(lease_id):
         return jsonify({'error': 'Lease not found'}), 404
     if prov.get_lease(lease_id) is None:
@@ -1029,9 +1062,10 @@ def lease_delete(lease_id):
 @bte_bp.route('/leases', methods=['DELETE'])
 def leases_delete_all():
     """Delete every active BTE lease. Requires ?confirm=BTE (or {"confirm": "BTE"})."""
-    username, role = _get_user_and_role()
-    if role not in ALLOWED_ROLES:
-        return _forbidden()
+    username, _role = _get_user_and_role()
+    denied = _access_denied()
+    if denied:
+        return denied
     data = request.get_json(force=True, silent=True) or {}
     if (request.args.get('confirm') or data.get('confirm')) != 'BTE':
         return jsonify({'error': 'Confirmation required: send confirm=BTE'}), 400
@@ -1047,8 +1081,9 @@ def leases_delete_all():
 def audit_log():
     """Persistent audit trail: created / deleted / extended / destination_added events,
     UTC timestamps. Optional ?lease_id=, ?resource_id=, ?limit= (default 200, max 1000)."""
-    if _get_role() not in ALLOWED_ROLES:
-        return _forbidden()
+    denied = _access_denied()
+    if denied:
+        return denied
     try:
         limit = int(request.args.get('limit', 200) or 200)
     except ValueError:
@@ -1063,8 +1098,9 @@ def audit_log():
 @bte_bp.route('/backups', methods=['GET'])
 def list_backups():
     """Daily DM Snapshot backups available for browsing (newest first)."""
-    if _get_role() not in ALLOWED_ROLES:
-        return _forbidden()
+    denied = _access_denied()
+    if denied:
+        return denied
     return jsonify({'backups': _list_backups(), 'retention_days': BACKUP_RETENTION_DAYS})
 
 
@@ -1106,8 +1142,9 @@ def get_backup_pool(date, pool_key):
     filters (?q=, ?mode=, ?type=, ?edge=) as /resources and /destinations, read-only.
     The live snapshot stays the default for provisioning; this is for browsing only.
     """
-    if _get_role() not in ALLOWED_ROLES:
-        return _forbidden()
+    denied = _access_denied()
+    if denied:
+        return denied
     if pool_key not in POOLS:
         return jsonify({'error': f"Unknown pool '{pool_key}'"}), 404
     snapshot = _load_backup(date)
@@ -1132,8 +1169,9 @@ def txcore_edge_inspect(edge_key):
     Used to confirm option field names (e.g. how an SRT listener is stored)
     against real objects on the edge.
     """
-    if _get_role() not in ALLOWED_ROLES:
-        return _forbidden()
+    denied = _access_denied()
+    if denied:
+        return denied
     if not _EDGE_KEY_RE.fullmatch(edge_key):
         return jsonify({'error': 'Edge not found'}), 404
     edge = prov.EDGES.get(edge_key.upper())

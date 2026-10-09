@@ -9,6 +9,38 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 `SRT Ingest:`, `General Tool Admin:`) so entries can be filtered per tool.
 
 ---
+## [4.16.1] - 2026-10-09
+
+### Added
+- TXCore Provisioning: optional BTE_ALLOWED_ROLES environment variable
+  (comma-separated). When set, BTE access is limited to those roles.
+
+### Changed
+- TXCore Provisioning: BTE is no longer limited to the admin and engineer
+  roles; any authenticated user can use it by default.
+- TXCore Provisioning: BTE endpoints return HTTP 401 "Authentication required"
+  when there is no valid session (previously a generic 403).
+- TXCore Provisioning: the 403 message no longer mentions specific roles.
+
+### Security
+- TXCore Provisioning: a valid session is still mandatory on every BTE
+  endpoint, including create and delete operations.
+
+### Added
+- TXCore Provisioning: per-TXEdge toggles (INX, AVE02, LMK01, YER01) in the BTE
+  "Create resources" box. Streams can now be created on the regional TXEdges only.
+- TXCore Provisioning: optional "targets" field on /api/bte/provision/plan and
+  /api/bte/provision (DC, AVE, LMK, YER; default: all).
+- TXCore Provisioning: leases and audit events record the selected targets
+  ("targets", "dc_created").
+
+### Changed
+- TXCore Provisioning: destinations are greyed out and not sent while the INX
+  (DC) toggle is off; the server refuses destinations without the DC target.
+- TXCore Provisioning: the "Edges" column shows "regional only" for leases
+  created without the DC edge, and "+ Destination" is hidden for them.
+- TXCore Provisioning: the "Create resources" and plan texts reflect the
+  selected TXEdges.
 
 ## [4.15.1] - 2026-10-08
 
