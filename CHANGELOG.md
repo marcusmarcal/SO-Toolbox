@@ -10,6 +10,15 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 ---
 
+## [4.16.6] - 2026-10-09
+
+### Changed
+- TXCore Provisioning: when a destination removal time extends the stream end,
+  the other destinations keep the original stream end and are still removed at
+  that time. The destination list and popup show "until HH:MM UTC" and why.
+- TXCore Provisioning: the end_adjusted audit event lists the destinations kept
+  at the original stream end.
+
 ## [4.16.5] - 2026-10-09
 
 ### Added

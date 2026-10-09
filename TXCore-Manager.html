@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TXCore Provisioning — SO-Toolbox</title>
-    <!-- TXCore Manager frontend v1.13.0 — STB (multicast) + MAIN (SRT) clusters + BTE (timed TXEdge resource provisioning, channel reuse guard, destination outputs, legacy TXEdge support, partial creation kept, ID3AS relay badges, destination picker closes after adding, self-dismissing info notices, per-TXEdge target toggles for regional-only creation, persistent failure history, TXEdge placement per stream, no dry run, ID3AS destination filters, TXEdge inferred from the supplier, absolute end time in UTC, per-destination removal, name-inferred ID3AS filters, removal time beyond the stream end extends the stream, adjust end time, larger destination controls) -->
+    <!-- TXCore Manager frontend v1.13.1 — STB (multicast) + MAIN (SRT) clusters + BTE (timed TXEdge resource provisioning, channel reuse guard, destination outputs, legacy TXEdge support, partial creation kept, ID3AS relay badges, destination picker closes after adding, self-dismissing info notices, per-TXEdge target toggles for regional-only creation, persistent failure history, TXEdge placement per stream, no dry run, ID3AS destination filters, TXEdge inferred from the supplier, absolute end time in UTC, per-destination removal, name-inferred ID3AS filters, removal time beyond the stream end extends the stream, adjust end time, larger destination controls, other destinations keep the original stream end) -->
     <style>
       :root {
         --bg: #0f1216;
@@ -3435,7 +3435,8 @@
                 (e.minutes !== undefined ? " (" + (e.minutes < 0 ? "−" : "+") + minutesToLabel(Math.abs(e.minutes)) + ")" : "") +
                 (e.reason ? " · " + e.reason : "") + (e.destination_name ? " " + e.destination_name : "") +
                 (e.note ? " · " + e.note : "") +
-                (e.cleared_destinations && e.cleared_destinations.length ? " · removal time cleared for " + e.cleared_destinations.join(", ") : "");
+                (e.cleared_destinations && e.cleared_destinations.length ? " · removal time cleared for " + e.cleared_destinations.join(", ") : "") +
+                (e.pinned_destinations && e.pinned_destinations.length ? " · other destinations kept until " + fmtUtcFull(e.pinned_until) + ": " + e.pinned_destinations.join(", ") : "");
             case "destination_expiry":
               return (e.destination_name || e.destination_id || "") +
                 (e.expires_at ? " → " + fmtUtcFull(e.expires_at) : " → follows the stream");
@@ -4107,6 +4108,16 @@
           return res;
         }
 
+        // Other live destinations without a removal time of their own: they follow the stream end.
+        function destMgrFollowers() {
+          var data = destMgrData();
+          if (!data) return 0;
+          return (data.lease.objects || []).filter(function (o) {
+            return o.destination_id && o.destination_id !== destMgr.destId && o.kind === "output" && !o.relay &&
+              ["refused", "error", "deleted", "gone"].indexOf(o.status) === -1 && !o.expires_at;
+          }).length;
+        }
+
         function updateDestMgrPreview() {
           var r = destMgrInfo();
           var el = $("bte-destmgr-endtime-preview");
@@ -4118,7 +4129,11 @@
             note.style.display = "";
             note.textContent = "This removal time is after the stream end (" + hhmmUtc(r.leaseEnd) +
               "). Saving will overwrite the end time of the whole stream and move it to " + hhmmUtc(r.info.end) +
-              " so it covers the destination.";
+              " so it covers the destination." +
+              (function (n) {
+                return n ? " The other " + n + " destination" + (n === 1 ? "" : "s") +
+                  " keep the original stream end and will still be removed at " + hhmmUtc(r.leaseEnd) + "." : "";
+              })(destMgrFollowers());
           } else {
             note.style.display = "none";
             note.textContent = "";
@@ -4152,7 +4167,7 @@
             row("ID3AS relay", escapeHtml(r.edge) + " ⇄ " + escapeHtml(destEndpoint(r)) + " · " + escapeHtml(r.status),
               r.status === "created" ? "ok" : "warn");
           });
-          row("Removal", o.expires_at ? "own removal time — " + escapeHtml(hhmmUtc(o.expires_at)) : "follows the stream",
+          row("Removal", o.expires_at ? (o.expires_reason ? "kept at the " + escapeHtml(o.expires_reason) + " — " : "own removal time — ") + escapeHtml(hhmmUtc(o.expires_at)) : "follows the stream",
             o.expires_at ? "warn" : "");
           if (o.error) row("Error", escapeHtml(o.error), "bad");
           info.innerHTML = rows.join("");
@@ -4275,7 +4290,7 @@
             var cls = o.status === "created" || o.status === "skipped" ? "" : o.status === "error" || o.status === "refused" ? "bad" : "warn";
             var relayEdge = relays[o.destination_id];
             return '<span class="pill clickable ' + cls + '" data-act="dest-open" data-dest="' + escapeHtml(o.destination_id) +
-              '" title="' + escapeHtml(o.status + (relayEdge ? " · ID3AS relay on " + relayEdge : "") + " · click to manage") + '">' +
+              '" title="' + escapeHtml(o.status + (relayEdge ? " · ID3AS relay on " + relayEdge : "") + (o.expires_reason ? " · kept until the " + o.expires_reason : "") + " · click to manage") + '">' +
               escapeHtml(o.destination_name || o.name) + (relayEdge ? " · ID3AS" : "") +
               (o.expires_at ? " · until " + escapeHtml(hhmmUtc(o.expires_at)) : "") + "</span>";
           }).join("") + "</div>";

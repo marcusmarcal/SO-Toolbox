@@ -2040,6 +2040,7 @@ def set_lease_end(lease_id, end_at, username):
             exp = _parse_iso(o.get('expires_at'))
             if exp and exp >= new_end and o['status'] not in _GONE:
                 o['expires_at'] = None
+                o.pop('expires_reason', None)
                 outcome['cleared'].append(o.get('destination_name') or o['name'])
         outcome['old'], outcome['delta'] = _move_lease_end(l, new_end, username, 'adjust')
 
@@ -2070,9 +2071,11 @@ def set_destination_expiry(lease_id, destination_id, end_at, username, extend_st
     The destination is then removed by the reaper at that moment while the stream keeps
     running. A time after the stream end is refused unless ``extend_stream`` is set: the
     end of the whole stream is then overwritten to cover it (capped at the maximum lease
-    length). Returns (lease, error).
+    length). The OTHER destinations of that stream keep the original stream end: each one
+    that has no removal time of its own gets it pinned to the old end (``expires_reason``
+    "original stream end"), so the reaper still removes them then. Returns (lease, error).
     """
-    outcome = {'error': None, 'name': None, 'expires_at': None, 'moved': None}
+    outcome = {'error': None, 'name': None, 'expires_at': None, 'moved': None, 'pinned': []}
 
     def _apply(l):
         if l['status'] != 'active':
@@ -2086,6 +2089,7 @@ def set_destination_expiry(lease_id, destination_id, end_at, username, extend_st
         outcome['name'] = out.get('destination_name')
         if end_at is None:
             out.pop('expires_at', None)
+            out.pop('expires_reason', None)
             return
         lease_end = _parse_iso(l['expires_at'])
         if lease_end and end_at > lease_end:
@@ -2099,8 +2103,17 @@ def set_destination_expiry(lease_id, destination_id, end_at, username, extend_st
                 outcome['error'] = ('The removal time is beyond the maximum stream length '
                                     f'({MAX_DURATION_MIN} min, until {_hhmm(cap)} UTC)')
                 return
-            outcome['moved'] = _move_lease_end(l, end_at, username, 'destination removal time')
+            old_end, delta = _move_lease_end(l, end_at, username, 'destination removal time')
+            outcome['moved'] = (old_end, delta)
+            # Only this destination outlives the original end: pin every other one to it.
+            for o in l['objects']:
+                if (o is not out and o.get('destination_id') and o['kind'] == 'output' and not o.get('relay')
+                        and o['status'] not in ('refused', 'error') + _GONE and not o.get('expires_at')):
+                    o['expires_at'] = _iso(old_end)
+                    o['expires_reason'] = 'original stream end'
+                    outcome['pinned'].append(o.get('destination_name') or o['name'])
         out['expires_at'] = _iso(end_at)
+        out.pop('expires_reason', None)
         outcome['expires_at'] = out['expires_at']
 
     lease = _update_lease(lease_id, _apply)
@@ -2120,6 +2133,8 @@ def set_destination_expiry(lease_id, destination_id, end_at, username, extend_st
                 'minutes': delta,
                 'reason': 'destination removal time',
                 'destination_name': outcome['name'],
+                'pinned_destinations': outcome['pinned'],
+                'pinned_until': _iso(old),
             })
         _append_audit({
             'event': 'destination_expiry',
