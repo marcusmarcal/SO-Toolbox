@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TXCore Management — SO-Toolbox</title>
-    <!-- TXCore Manager frontend v1.13.4 — STB (multicast) + MAIN (SRT) clusters + BTE (timed TXEdge resource provisioning, channel reuse guard, destination outputs, legacy TXEdge support, partial creation kept, ID3AS relay badges, destination picker closes after adding, self-dismissing info notices, per-TXEdge target toggles for regional-only creation, persistent failure history, TXEdge placement per stream, no dry run, ID3AS destination filters, TXEdge inferred from the supplier, absolute end time in UTC, per-destination removal, name-inferred ID3AS filters, removal time beyond the stream end extends the stream, adjust end time, larger destination controls, other destinations keep the original stream end, active channels show only an "already active" message, discreet "List destinations" link, collapsible one-line errors, page renamed TXCore Management, optional collapsed TXEdge filter, no mode dropdown, input type shown instead of GVN) -->
+    <!-- TXCore Manager frontend v1.13.5 — STB (multicast) + MAIN (SRT) clusters + BTE (timed TXEdge resource provisioning, channel reuse guard, destination outputs, legacy TXEdge support, partial creation kept, ID3AS relay badges, destination picker closes after adding, self-dismissing info notices, per-TXEdge target toggles for regional-only creation, persistent failure history, TXEdge placement per stream, no dry run, ID3AS destination filters, TXEdge inferred from the supplier, absolute end time in UTC, per-destination removal, name-inferred ID3AS filters, removal time beyond the stream end extends the stream, adjust end time, larger destination controls, other destinations keep the original stream end, active channels show only an "already active" message, discreet "List destinations" link, collapsible one-line errors, page renamed TXCore Management, optional collapsed TXEdge filter, no mode dropdown, input type shown instead of GVN, collapsible BTE active streams block) -->
     <style>
       :root {
         --bg: #0f1216;
@@ -1112,6 +1112,21 @@
       details.edge-filter .ef-state {
         color: var(--text-dim);
       }
+      .panel h2.collapsible {
+        cursor: pointer;
+        user-select: none;
+      }
+      .panel h2.collapsible::before {
+        content: "▾";
+        font-size: 10px;
+        color: var(--text-faint);
+      }
+      .panel h2.collapsible.closed::before {
+        content: "▸";
+      }
+      .panel h2.collapsible:hover {
+        color: var(--text);
+      }
       input.inline-min {
         width: 58px;
         padding: 3px 6px;
@@ -1917,20 +1932,22 @@
 
         <div id="results-bte" class="results-panel" style="display: none">
           <div>
-            <h2>
+            <h2 class="collapsible" id="bte-streams-toggle" role="button" tabindex="0" aria-expanded="true" aria-controls="bte-streams-body" title="Click to collapse / expand">
               BTE active streams
               <span class="h2-tag" id="bte-lease-tag">0 active</span>
             </h2>
             <div class="bte-notice-stack" id="bte-notices"></div>
-            <div id="bte-lease-container">
-              <div class="empty-state">No streams created by BTE yet.</div>
-            </div>
-            <div class="btn-row" style="margin-top: 10px; justify-content: space-between">
-              <span class="list-count" id="bte-lease-count" style="margin: 0; align-self: center"></span>
-              <span style="display: flex; gap: 8px">
-                <button id="bte-btn-leases-reload" class="small">Reload</button>
-                <button id="bte-btn-delete-all" class="small danger">Delete all BTE resources</button>
-              </span>
+            <div id="bte-streams-body">
+              <div id="bte-lease-container">
+                <div class="empty-state">No streams created by BTE yet.</div>
+              </div>
+              <div class="btn-row" style="margin-top: 10px; justify-content: space-between">
+                <span class="list-count" id="bte-lease-count" style="margin: 0; align-self: center"></span>
+                <span style="display: flex; gap: 8px">
+                  <button id="bte-btn-leases-reload" class="small">Reload</button>
+                  <button id="bte-btn-delete-all" class="small danger">Delete all BTE resources</button>
+                </span>
+              </div>
             </div>
           </div>
 
@@ -4795,6 +4812,20 @@
           $("bte-plan-close").addEventListener("click", function () { $("bte-plan-dialog").close(); });
           $("bte-prov-endtime").addEventListener("input", updateEndTimePreview);
           $("bte-prov-endtime").addEventListener("change", updateEndTimePreview);
+          // BTE active streams: collapsible, open by default (the count in the title stays visible).
+          function toggleStreams() {
+            var head = $("bte-streams-toggle");
+            var closed = head.classList.toggle("closed");
+            head.setAttribute("aria-expanded", closed ? "false" : "true");
+            $("bte-streams-body").style.display = closed ? "none" : "";
+          }
+          $("bte-streams-toggle").addEventListener("click", toggleStreams);
+          $("bte-streams-toggle").addEventListener("keydown", function (ev) {
+            if (ev.key === "Enter" || ev.key === " ") {
+              ev.preventDefault();
+              toggleStreams();
+            }
+          });
           $("bte-btn-leases-reload").addEventListener("click", loadLeases);
           $("bte-btn-delete-all").addEventListener("click", deleteAllLeases);
           ["input", "change"].forEach(function (type) {
