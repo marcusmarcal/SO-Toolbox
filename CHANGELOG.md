@@ -10,6 +10,14 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 ---
 
+## [4.16.8] - 2026-10-09
+
+### Changed
+- TXCore Provisioning: stream errors and notices in BTE active streams are
+  collapsed to a single line; clicking expands all the information.
+- TXCore Provisioning: the page header and browser title are now "TXCore
+  Management".
+
 ## [4.16.7] - 2026-10-09
 
 ### Changed

@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TXCore Provisioning — SO-Toolbox</title>
-    <!-- TXCore Manager frontend v1.13.2 — STB (multicast) + MAIN (SRT) clusters + BTE (timed TXEdge resource provisioning, channel reuse guard, destination outputs, legacy TXEdge support, partial creation kept, ID3AS relay badges, destination picker closes after adding, self-dismissing info notices, per-TXEdge target toggles for regional-only creation, persistent failure history, TXEdge placement per stream, no dry run, ID3AS destination filters, TXEdge inferred from the supplier, absolute end time in UTC, per-destination removal, name-inferred ID3AS filters, removal time beyond the stream end extends the stream, adjust end time, larger destination controls, other destinations keep the original stream end, active channels show only an "already active" message, discreet "List destinations" link) -->
+    <title>TXCore Management — SO-Toolbox</title>
+    <!-- TXCore Manager frontend v1.13.3 — STB (multicast) + MAIN (SRT) clusters + BTE (timed TXEdge resource provisioning, channel reuse guard, destination outputs, legacy TXEdge support, partial creation kept, ID3AS relay badges, destination picker closes after adding, self-dismissing info notices, per-TXEdge target toggles for regional-only creation, persistent failure history, TXEdge placement per stream, no dry run, ID3AS destination filters, TXEdge inferred from the supplier, absolute end time in UTC, per-destination removal, name-inferred ID3AS filters, removal time beyond the stream end extends the stream, adjust end time, larger destination controls, other destinations keep the original stream end, active channels show only an "already active" message, discreet "List destinations" link, collapsible one-line errors, page renamed TXCore Management) -->
     <style>
       :root {
         --bg: #0f1216;
@@ -1042,6 +1042,51 @@
       button.subtle:hover {
         color: var(--text-dim);
       }
+      .lease-err {
+        color: var(--error);
+        font-size: 11px;
+        cursor: pointer;
+        max-width: 440px;
+        margin-top: 2px;
+      }
+      .lease-err .err-short {
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .lease-err .err-short::before {
+        content: "▸ ";
+      }
+      .lease-err .err-all {
+        display: none;
+        white-space: normal;
+        word-break: break-word;
+      }
+      .lease-err .err-all .err-head::before {
+        content: "▾ ";
+      }
+      .lease-err .err-all > div + div {
+        margin-top: 3px;
+      }
+      .lease-err.open .err-short {
+        display: none;
+      }
+      .lease-err.open .err-all {
+        display: block;
+      }
+      .bte-notice-stack .notice .notice-text {
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: pointer;
+      }
+      .bte-notice-stack .notice .notice-text.open {
+        white-space: normal;
+        word-break: break-word;
+      }
       input.inline-min {
         width: 58px;
         padding: 3px 6px;
@@ -1266,7 +1311,7 @@
           </svg>
         </div>
         <div>
-          <h1>TXCore Provisioning</h1>
+          <h1>TXCore Management</h1>
           <div class="subtitle" id="header-subtitle">
             Bulk category &amp; channel creation
           </div>
@@ -3411,6 +3456,7 @@
           leases: [],
           leasesMeta: null,
           endDraft: {}, // lease_id -> end time typed in the list but not applied yet
+          errOpen: {}, // lease_id -> error list expanded
           plan: null,
           pollTimer: null,
           tickTimer: null,
@@ -3661,7 +3707,8 @@
           var stack = $("bte-notices");
           var el = document.createElement("div");
           el.className = "notice" + (cls === "info" ? "" : " " + cls);
-          el.innerHTML = "<span>" + escapeHtml(text) + '</span><button class="small">Dismiss</button>';
+          el.innerHTML = '<span class="notice-text" title="Click to expand / collapse">' + escapeHtml(text) + '</span><button class="small">Dismiss</button>';
+          el.querySelector(".notice-text").addEventListener("click", function () { this.classList.toggle("open"); });
           el.querySelector("button").addEventListener("click", function () { el.remove(); });
           stack.appendChild(el);
           if (cls === "info") setTimeout(function () { el.remove(); }, NOTICE_AUTO_DISMISS_MS);
@@ -4045,7 +4092,7 @@
                 '<div class="lease-sub">' + escapeHtml(l.supplier || "") + " · by " + escapeHtml(l.created_by || "?") + " · " + escapeHtml(fmtTime(l.created_at)) +
                 (l.extensions && l.extensions.length ? " · end adjusted " + (function (m) { return (m < 0 ? "−" : "+") + Math.abs(m) + " min"; })(l.extensions.reduce(function (a, e) { return a + (e.minutes || 0); }, 0)) : "") +
                 (l.source_snapshot ? ' · <span style="color: var(--warn)">⚠ backup ' + escapeHtml(l.source_snapshot) + "</span>" : "") + "</div>" +
-                (errs.length ? '<div class="lease-sub" style="color: var(--error)" title="' + escapeHtml(errs.join("\n")) + '">' + escapeHtml(errs[0]) + (errs.length > 1 ? " (+" + (errs.length - 1) + ")" : "") + "</div>" : "") +
+                leaseErrHtml(l.lease_id, errs) +
                 "</td>" +
                 "<td>" + leaseEdgesHtml(l) + "</td>" +
                 "<td>" + leaseStatusPill(l) + "</td>" +
@@ -4064,6 +4111,16 @@
             }).join("") +
             "</tbody></table></div>";
           container.querySelectorAll("tr[data-lease]").forEach(rowAdjustPreview);
+        }
+
+        // Errors of a stream: one line (first message + count) until the user clicks it.
+        function leaseErrHtml(leaseId, errs) {
+          if (!errs.length) return "";
+          var open = !!prov.errOpen[leaseId];
+          return '<div class="lease-err' + (open ? " open" : "") + '" data-act="err-toggle" title="Click to show / hide all ' + errs.length + ' message' + (errs.length === 1 ? "" : "s") + '">' +
+            '<span class="err-short">' + escapeHtml(errs[0]) + (errs.length > 1 ? " (+" + (errs.length - 1) + ")" : "") + "</span>" +
+            '<div class="err-all"><div class="err-head">' + errs.length + " message" + (errs.length === 1 ? "" : "s") + "</div>" +
+            errs.map(function (m) { return "<div>" + escapeHtml(m) + "</div>"; }).join("") + "</div></div>";
         }
 
         // Every TXEdge a stream was planned on (not only the DC one); a failed edge is red.
@@ -4718,7 +4775,9 @@
             var row = btn.closest("tr[data-lease]");
             var id = row.getAttribute("data-lease");
             var lease = prov.leases.filter(function (l) { return l.lease_id === id; })[0] || {};
-            if (btn.getAttribute("data-act") === "dest-open") {
+            if (btn.getAttribute("data-act") === "err-toggle") {
+              prov.errOpen[id] = btn.classList.toggle("open");
+            } else if (btn.getAttribute("data-act") === "dest-open") {
               openDestMgr(id, btn.getAttribute("data-dest"));
             } else if (btn.getAttribute("data-act") === "add-dest") {
               openDestPicker(id);
