@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TXCore Provisioning — SO-Toolbox</title>
-    <!-- TXCore Manager frontend v1.10.0 — STB (multicast) + MAIN (SRT) clusters + BTE (timed TXEdge resource provisioning, channel reuse guard, destination outputs, legacy TXEdge support, partial creation kept, ID3AS relay badges, destination picker closes after adding, self-dismissing info notices, per-TXEdge target toggles for regional-only creation, persistent failure history, TXEdge placement per stream, no dry run) -->
+    <!-- TXCore Manager frontend v1.11.0 — STB (multicast) + MAIN (SRT) clusters + BTE (timed TXEdge resource provisioning, channel reuse guard, destination outputs, legacy TXEdge support, partial creation kept, ID3AS relay badges, destination picker closes after adding, self-dismissing info notices, per-TXEdge target toggles for regional-only creation, persistent failure history, TXEdge placement per stream, no dry run, ID3AS destination filters, TXEdge inferred from the supplier, absolute end time) -->
     <style>
       :root {
         --bg: #0f1216;
@@ -979,6 +979,23 @@
         word-break: break-word;
         max-width: 520px;
       }
+      .chip-row {
+        display: flex;
+        gap: 6px;
+        margin: 0 0 10px;
+      }
+      button.chip {
+        font-size: 11px;
+        font-weight: 500;
+        padding: 3px 11px;
+        border-radius: 999px;
+        color: var(--text-dim);
+      }
+      button.chip.active {
+        border-color: var(--bte);
+        color: var(--bte);
+        background: rgba(255, 209, 102, 0.08);
+      }
       input.inline-min {
         width: 58px;
         padding: 3px 6px;
@@ -1809,10 +1826,10 @@
             <div class="prov-box" id="bte-prov-box" style="display: none; margin-top: 0">
               <div class="res-head" id="bte-prov-head"></div>
               <div class="prov-row" style="margin-top: 10px; align-items: flex-start">
-                <div class="field short">
-                  <label for="bte-prov-duration">Duration <span style="color: var(--text-faint)">(min or 1h30m)</span></label>
-                  <input type="text" id="bte-prov-duration" placeholder="60 or 1h30m" value="60" autocomplete="off" />
-                  <div class="hint" id="bte-prov-duration-preview"></div>
+                <div class="field short" style="flex: 0 0 230px">
+                  <label for="bte-prov-endtime">End time <span style="color: var(--text-faint)">(local, always in the future)</span></label>
+                  <input type="time" id="bte-prov-endtime" step="60" />
+                  <div class="hint" id="bte-prov-endtime-preview"></div>
                 </div>
                 <div class="field" id="bte-prov-dest-field" style="flex: 1 1 220px; margin: 0">
                   <label>Destinations <span class="dest-count" id="bte-prov-dest-count">0</span>
@@ -1908,6 +1925,10 @@
             autocomplete="off"
           />
         </div>
+        <div class="chip-row">
+          <button class="chip" data-chip="id3as" title="Destinations whose name contains ID3AS">ID3AS</button>
+          <button class="chip" data-chip="id3as_aws" title="Destinations whose name contains ID3AS_AWS">ID3AS AWS</button>
+        </div>
         <div id="bte-dest-container">
           <div class="empty-state">No destinations loaded yet.</div>
         </div>
@@ -1923,6 +1944,10 @@
       <div class="dialog-body">
         <div class="field">
           <input type="text" id="bte-dest-picker-filter" placeholder="filter destinations — name, IP / host, port…" autocomplete="off" />
+        </div>
+        <div class="chip-row">
+          <button class="chip" data-chip="id3as" title="Destinations whose name contains ID3AS">ID3AS</button>
+          <button class="chip" data-chip="id3as_aws" title="Destinations whose name contains ID3AS_AWS">ID3AS AWS</button>
         </div>
         <div class="hint" style="margin-bottom: 8px" id="bte-dest-picker-hint">
           Additional outputs created only on the DC edge. A destination can be attached to one stream at a time — used ones are greyed out.
@@ -2847,6 +2872,9 @@
           supplier: null, // selected capabilities.Type
           selectedId: null, // selected resource id
           pendingDestinations: [], // [{id, name}] chosen before "Create resources"
+          edgeAuto: false, // the TXEdge dropdown was inferred from the selected supplier
+          edgeManual: false, // the user picked the TXEdge by hand
+          supplierEdges: [], // TXEdges used by the selected supplier
         };
 
         function activeResourceIds() {
@@ -3016,9 +3044,44 @@
         }
 
         // ---- suppliers ------------------------------------------------------
+        // Each supplier lives on its own TXEdge: pick it in the dropdown automatically.
+        // Several edges (or none) -> "all edges", nothing is guessed.
+        function inferEdgeForSupplier() {
+          var sel = $("bte-edge-filter");
+          bte.supplierEdges = [];
+          if (!bte.supplier) {
+            if (bte.edgeAuto) sel.value = "";
+            bte.edgeAuto = false;
+            return;
+          }
+          var seen = {};
+          bte.resources.forEach(function (r) {
+            var e = itemEdge(r).toUpperCase();
+            if (itemType(r) === bte.supplier && e) seen[e] = true;
+          });
+          var keys = Object.keys(seen).sort();
+          bte.supplierEdges = keys;
+          if (keys.length === 1) {
+            var key = keys[0];
+            var known = Array.prototype.some.call(sel.options, function (o) { return o.value === key; });
+            if (!known) {
+              var opt = document.createElement("option");
+              opt.value = key;
+              opt.textContent = key;
+              sel.appendChild(opt);
+            }
+            sel.value = key;
+            bte.edgeAuto = true;
+          } else {
+            sel.value = "";
+            bte.edgeAuto = false;
+          }
+        }
+
         function renderBteSuppliers() {
           var select = $("bte-supplier-select");
-          var edge = $("bte-edge-filter").value;
+          // An inferred edge must not hide the other suppliers: it only filters when set by hand.
+          var edge = bte.edgeAuto ? "" : $("bte-edge-filter").value;
           var counts = {};
           bte.resources.forEach(function (r) {
             if (!edgeMatches(r, edge)) return;
@@ -3045,7 +3108,10 @@
           select.value = counts[bte.supplier] ? bte.supplier : "";
           if (!select.value) bte.supplier = null;
           $("bte-supplier-count").textContent =
-            types.length + " suppliers" + (edge ? " on " + (edge === "inx0123" ? "INX01–03" : edge) : "");
+            types.length + " suppliers" + (edge ? " on " + (edge === "inx0123" ? "INX01–03" : edge) : "") +
+            (bte.edgeAuto ? " · TXEdge " + $("bte-edge-filter").value + " inferred from the supplier" : "") +
+            (bte.supplier && !bte.edgeAuto && bte.supplierEdges.length > 1
+              ? " · this supplier spans " + bte.supplierEdges.join(", ") + " — pick one" : "");
         }
 
         // ---- channels -------------------------------------------------------
@@ -3148,6 +3214,7 @@
             bte.pendingDestinations = [];
             renderPendingDestinations();
             resetEdgeTargets(r);
+            resetEndTime();
             renderProvHint();
           }
           if (!r) {
@@ -3176,6 +3243,23 @@
         }
 
         // ---- destinations (separate window) ---------------------------------
+        // Quick filters on the destination name (shared by the destinations list and the picker).
+        var DEST_CHIPS = { id3as: /id3as/i, id3as_aws: /id3as[\s_-]*aws/i };
+        var destChip = "";
+
+        function destChipMatch(d) {
+          return !destChip || DEST_CHIPS[destChip].test(String(d.name || ""));
+        }
+
+        function setDestChip(value) {
+          destChip = value || "";
+          document.querySelectorAll(".chip-row button[data-chip]").forEach(function (b) {
+            b.classList.toggle("active", b.getAttribute("data-chip") === destChip);
+          });
+          if ($("bte-dest-dialog").open) renderBteDestinations();
+          if ($("bte-dest-picker-dialog").open) renderDestPicker();
+        }
+
         function destRows(list) {
           var STD = ["Protocol", "IP", "Port", "Type", "Output Port"];
           return list.map(function (d) {
@@ -3198,6 +3282,7 @@
           var container = $("bte-dest-container");
           var q = $("bte-dest-filter").value.trim().toLowerCase();
           var list = bte.destinations.filter(function (d) {
+            if (!destChipMatch(d)) return false;
             if (!q) return true;
             if (String(d.name || "").toLowerCase().indexOf(q) !== -1) return true;
             var p = d.properties || {};
@@ -3222,6 +3307,7 @@
 
         function openDestinations() {
           var dlg = $("bte-dest-dialog");
+          setDestChip("");
           renderBteDestinations();
           if (typeof dlg.showModal === "function") dlg.showModal();
           else dlg.setAttribute("open", "");
@@ -3515,23 +3601,83 @@
           if (h) return h + "h";
           return m + "m";
         }
-        function updateDurationPreview() {
-          var raw = $("bte-prov-duration").value;
-          var el = $("bte-prov-duration-preview");
-          var mins = parseDurationMinutes(raw);
-          if (!raw.trim()) { el.textContent = ""; el.style.color = ""; return; }
-          if (!isFinite(mins) || mins <= 0) {
-            el.textContent = 'Not understood — use minutes, "1h30m" or "H:MM"';
-            el.style.color = "var(--error)";
-            return;
-          }
+        function pad2(n) {
+          return (n < 10 ? "0" : "") + n;
+        }
+
+        // Next local occurrence of HH:MM strictly after "now": always in the future and at most
+        // 24 h ahead (it is 17:00 and you type 02:00 -> tomorrow 02:00). Returns a Date or null.
+        function resolveEndTime(raw, now) {
+          var m = String(raw == null ? "" : raw).trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+          if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) return null;
+          now = now || new Date();
+          var end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), Number(m[1]), Number(m[2]), 0, 0);
+          if (end <= now) end.setDate(end.getDate() + 1);
+          return end;
+        }
+
+        // {end, minutes, capped} for the typed end time, or null (empty -> server default / invalid).
+        function endTimeInfo() {
+          var now = new Date();
+          var end = resolveEndTime($("bte-prov-endtime").value, now);
+          if (!end) return null;
+          var minutes = Math.max(1, Math.ceil((end - now) / 60000));
           var max = prov.status && prov.status.max_duration_minutes;
-          var capped = max && mins > max;
-          var effective = capped ? max : mins;
-          var end = new Date(Date.now() + effective * 60000);
-          el.textContent = (capped ? "capped to " + minutesToLabel(max) + " — " : "") +
-            minutesToLabel(mins) + " → ends ~" + end.toISOString().slice(11, 16) + " UTC";
-          el.style.color = capped ? "var(--warn)" : "";
+          var capped = !!(max && minutes > max);
+          if (capped) {
+            minutes = max;
+            end = new Date(now.getTime() + max * 60000);
+          }
+          return { end: end, minutes: minutes, capped: capped };
+        }
+
+        function describeEnd(info) {
+          var e = info.end;
+          var sameDay = e.toDateString() === new Date().toDateString();
+          return (sameDay ? "today " : "tomorrow ") + pad2(e.getHours()) + ":" + pad2(e.getMinutes()) +
+            " · in " + minutesToLabel(info.minutes) +
+            " · " + pad2(e.getUTCHours()) + ":" + pad2(e.getUTCMinutes()) + " UTC";
+        }
+
+        function endTimeSummary() {
+          var info = endTimeInfo();
+          return info ? describeEnd(info) : "";
+        }
+
+        function endAtIso() {
+          var info = endTimeInfo();
+          return info ? info.end.toISOString() : undefined;
+        }
+
+        function endTimeValid() {
+          var raw = $("bte-prov-endtime").value.trim();
+          return !raw || resolveEndTime(raw) !== null; // empty falls back to the server default
+        }
+
+        function updateEndTimePreview() {
+          var raw = $("bte-prov-endtime").value.trim();
+          var el = $("bte-prov-endtime-preview");
+          var text = "", color = "";
+          if (raw) {
+            var info = endTimeInfo();
+            if (!info) {
+              text = "Not understood — use HH:MM";
+              color = "var(--error)";
+            } else {
+              text = (info.capped ? "capped to " + minutesToLabel(info.minutes) + " — " : "") + describeEnd(info);
+              color = info.capped ? "var(--warn)" : "";
+            }
+          }
+          if (el.textContent !== text) el.textContent = text;
+          if (el.style.color !== color) el.style.color = color;
+        }
+
+        // Prefill with "now + default duration" (rounded up to the minute) whenever a channel is selected.
+        function resetEndTime() {
+          var mins = (prov.status && prov.status.default_duration_minutes) || 60;
+          var d = new Date(Math.ceil((Date.now() + mins * 60000) / 60000) * 60000);
+          $("bte-prov-endtime").value = pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+          updateEndTimePreview();
         }
 
         function renderProvHint() {
@@ -3550,10 +3696,7 @@
             hint.textContent = backupPrefix + "Provisioning status not loaded yet.";
             return;
           }
-          if (st.default_duration_minutes && !$("bte-prov-duration").dataset.touched) {
-            $("bte-prov-duration").value = minutesToLabel(st.default_duration_minutes);
-          }
-          updateDurationPreview();
+          updateEndTimePreview();
           var sel = $("bte-inspect-edge");
           if (sel.options.length <= 1 && st.edges) {
             Object.keys(st.edges).forEach(function (k) {
@@ -3661,6 +3804,7 @@
           var pendingIds = bte.pendingDestinations.map(function (d) { return d.id; });
           var list = destPicker.items.filter(function (d) {
             if (pendingIds.indexOf(d.id) !== -1) return false; // already picked, hide from the list
+            if (!destChipMatch(d)) return false;
             if (!q) return true;
             return (d.name || "").toLowerCase().indexOf(q) !== -1 ||
               JSON.stringify(d.properties || {}).toLowerCase().indexOf(q) !== -1;
@@ -3690,6 +3834,7 @@
           var dlg = $("bte-dest-picker-dialog");
           $("bte-dest-picker-tag").textContent = leaseId ? "attach now" : "before creating";
           $("bte-dest-picker-filter").value = "";
+          setDestChip("");
           // Reuse whichever destinations pool is currently loaded (live, or the
           // DM Snapshot backup in use) instead of a fresh live-only fetch — this
           // keeps the picker consistent with the snapshot BTE is provisioning from.
@@ -3864,6 +4009,7 @@
         }
 
         function tickLeases() {
+          if (activeCluster === "bte" && bte.selectedId) updateEndTimePreview();
           var now = Date.now();
           var rows = $("bte-lease-container").querySelectorAll("tr[data-lease]");
           for (var i = 0; i < rows.length; i++) {
@@ -3951,10 +4097,9 @@
         }
 
         function provPayload() {
-          var mins = parseDurationMinutes($("bte-prov-duration").value);
           var payload = {
             resource_id: bte.selectedId,
-            duration_minutes: isFinite(mins) && mins > 0 ? mins : undefined,
+            end_at: endAtIso(),
             // Destinations live on the DC edge: never sent when the DC target is off.
             destination_ids: edgeToggle("DC").checked
               ? bte.pendingDestinations.map(function (d) { return d.id; })
@@ -3965,16 +4110,10 @@
           return payload;
         }
 
-        function durationValid() {
-          var raw = $("bte-prov-duration").value.trim();
-          if (!raw) return true; // falls back to the server default
-          var mins = parseDurationMinutes(raw);
-          return isFinite(mins) && mins > 0;
-        }
 
         function previewPlan() {
           if (!bte.selectedId) return;
-          if (!durationValid()) { alert('Duration not understood — use minutes, "1h30m", or "H:MM".'); return; }
+          if (!endTimeValid()) { alert("End time not understood — use HH:MM."); return; }
           var btn = $("bte-btn-plan");
           btn.disabled = true;
           fetch(BTE_API_BASE + "/provision/plan", {
@@ -3998,13 +4137,12 @@
 
         function createResources() {
           if (!bte.selectedId) return;
-          if (!durationValid()) { alert('Duration not understood — use minutes, "1h30m", or "H:MM".'); return; }
+          if (!endTimeValid()) { alert("End time not understood — use HH:MM."); return; }
           var r = bteFindResource(bte.selectedId);
           var payload = provPayload();
           var ok = confirm(
             "Create the [BTE] resources for " + (r ? r.name : bte.selectedId) +
-            " on TXCore MAIN (" + targetsLabel() + ") for " +
-            (payload.duration_minutes ? minutesToLabel(payload.duration_minutes) : "the default") +
+            " on TXCore MAIN (" + targetsLabel() + ")" + (payload.end_at ? " until " + endTimeSummary() : " for the default duration") +
             (payload.backup_date ? "\n\n⚠ Using DM Snapshot BACKUP from " + payload.backup_date + " — NOT the live snapshot." : "") +
             "?\n\nThey are deleted automatically when the lease ends unless you extend it."
           );
@@ -4121,6 +4259,14 @@
             renderPendingDestinations();
           });
           $("bte-btn-add-dest").addEventListener("click", function () { openDestPicker(null); });
+          document.querySelectorAll(".chip-row").forEach(function (row) {
+            row.addEventListener("click", function (ev) {
+              var btn = ev.target.closest ? ev.target.closest("button[data-chip]") : null;
+              if (!btn) return;
+              var chip = btn.getAttribute("data-chip");
+              setDestChip(destChip === chip ? "" : chip);
+            });
+          });
           $("bte-prov-edge-toggles").addEventListener("change", function () {
             applyEdgeTargets();
             renderProvHint();
@@ -4142,7 +4288,8 @@
           $("bte-btn-create").addEventListener("click", createResources);
           $("bte-plan-create").addEventListener("click", createResources);
           $("bte-plan-close").addEventListener("click", function () { $("bte-plan-dialog").close(); });
-          $("bte-prov-duration").addEventListener("input", function () { this.dataset.touched = "1"; updateDurationPreview(); });
+          $("bte-prov-endtime").addEventListener("input", updateEndTimePreview);
+          $("bte-prov-endtime").addEventListener("change", updateEndTimePreview);
           $("bte-btn-leases-reload").addEventListener("click", loadLeases);
           $("bte-btn-delete-all").addEventListener("click", deleteAllLeases);
           $("bte-lease-container").addEventListener("click", function (ev) {
@@ -4184,6 +4331,7 @@
         function renderBteAll() {
           renderBteStatus();
           renderStatusBadge();
+          if (!bte.edgeManual) inferEdgeForSupplier();
           renderBteSuppliers();
           renderBteChannels();
           renderBteDetail();
@@ -4236,10 +4384,15 @@
               else localStorage.removeItem(BTE_SUPPLIER_KEY);
             } catch (e) {}
             bte.selectedId = null;
+            bte.edgeManual = false;
+            inferEdgeForSupplier();
+            renderBteSuppliers();
             renderBteChannels();
             renderBteDetail();
           });
           $("bte-edge-filter").addEventListener("change", function () {
+            bte.edgeAuto = false;
+            bte.edgeManual = true;
             renderBteSuppliers();
             renderBteChannels();
             renderBteDetail();

@@ -890,6 +890,8 @@ def provision_create():
     Body may include ``backup_date`` to provision from a DM Snapshot backup instead
     of the live snapshot (see ``provision_plan``); the lease then remembers that
     origin (``source_snapshot``) for the audit trail and later actions on it.
+    ``end_at`` (ISO 8601, must be in the future, capped at BTE_MAX_DURATION_MINUTES) sets the exact
+    end of the lease; without it ``duration_minutes`` / the default duration applies.
     ``targets`` (list of DC / AVE / LMK / YER, default all) restricts which TXEdges get
     objects — regional-only creation is allowed; destinations require the DC target.
     """
@@ -940,8 +942,14 @@ def provision_create():
         prov.record_refused(item, username, [blocked], targets=targets, source_snapshot=backup_date)
         return jsonify({'error': blocked}), 503
 
+    # Absolute end time (preferred by the UI); "duration_minutes" is still accepted.
+    end_at, end_error = prov.resolve_end_at(data.get('end_at'))
+    if end_error:
+        prov.record_refused(item, username, [end_error], targets=targets, source_snapshot=backup_date)
+        return jsonify({'error': end_error}), 400
+
     lease = prov.create_lease(item, plan, data.get('duration_minutes'), username,
-                              source_snapshot=backup_date)
+                              source_snapshot=backup_date, end_at=end_at)
     threading.Thread(target=prov.run_lease_safe, args=(lease['lease_id'],),
                      name=f"bte-lease-{lease['lease_id'][:8]}", daemon=True).start()
     return jsonify({

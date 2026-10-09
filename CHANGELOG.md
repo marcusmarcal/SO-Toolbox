@@ -9,6 +9,25 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 `SRT Ingest:`, `General Tool Admin:`) so entries can be filtered per tool.
 
 ---
+
+## [4.16.3] - 2026-10-09
+
+### Added
+- TXCore Provisioning: "ID3AS" and "ID3AS AWS" quick filters for destinations
+  (destinations list and "+ Destination" picker).
+- TXCore Provisioning: the TXEdge dropdown is selected automatically from the
+  chosen supplier; suppliers spanning several edges keep "all edges" and show
+  a hint.
+- TXCore Provisioning: optional "end_at" (ISO 8601) on /api/bte/provision to
+  end a lease at an exact moment.
+
+### Changed
+- TXCore Provisioning: the lease "Duration" input is replaced by an absolute
+  "End time" (HH:MM). The next future occurrence is used (at most 24 h ahead)
+  and the remaining time and UTC time are shown.
+- TXCore Provisioning: an end_at in the past is refused; one beyond
+  BTE_MAX_DURATION_MINUTES is capped to the maximum.
+
 ## [4.16.2] - 2026-10-09
 
 ### Added

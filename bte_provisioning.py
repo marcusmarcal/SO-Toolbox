@@ -1366,16 +1366,43 @@ def _clamp_minutes(minutes, default):
 # Lease lifecycle
 # ---------------------------------------------------------------------------
 
-def create_lease(item, plan, duration_minutes, username, source_snapshot=None):
+def resolve_end_at(value):
+    """Parse an absolute end time (ISO 8601). Returns (datetime in UTC | None, error).
+
+    None / '' -> (None, None): the caller falls back to a duration. A time that is not
+    in the future is refused; one beyond MAX_DURATION_MIN from now is clamped to it.
+    """
+    if value is None or str(value).strip() == '':
+        return None, None
+    dt = _parse_iso(str(value).strip().replace('Z', '+00:00'))
+    if dt is None:
+        return None, '"end_at" is not a valid ISO 8601 timestamp'
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    dt = dt.astimezone(timezone.utc)
+    now = _now()
+    if dt <= now:
+        return None, '"end_at" must be in the future'
+    return min(dt, now + timedelta(minutes=MAX_DURATION_MIN)), None
+
+
+def create_lease(item, plan, duration_minutes, username, source_snapshot=None, end_at=None):
     """Persist a new lease (status 'creating') and return it. Run with run_lease().
 
     ``source_snapshot`` is None for the live DM Snapshot, or a 'YYYY-MM-DD' backup
     date when the lease was built from an old snapshot (emergency provisioning —
     see routes_bte._resolve_snapshot). Recorded on the lease so later actions on
     it (extend, add destination, inspect) know which snapshot it came from.
+    ``end_at`` (UTC datetime from resolve_end_at) makes the lease end at that exact
+    moment; ``duration_minutes`` is then only derived (rounded up) for display.
     """
-    duration = _clamp_minutes(duration_minutes, DEFAULT_DURATION_MIN)
     now = _now()
+    if end_at is not None:
+        expires = end_at
+        duration = max(1, min(MAX_DURATION_MIN, int(-(-(end_at - now).total_seconds() // 60))))
+    else:
+        duration = _clamp_minutes(duration_minutes, DEFAULT_DURATION_MIN)
+        expires = now + timedelta(minutes=duration)
     lease = {
         'lease_id': uuid.uuid4().hex,
         'resource_id': item.get('id'),
@@ -1389,7 +1416,7 @@ def create_lease(item, plan, duration_minutes, username, source_snapshot=None):
         'created_at': _iso(now),
         'created_by': username,
         'duration_minutes': duration,
-        'expires_at': _iso(now + timedelta(minutes=duration)),
+        'expires_at': _iso(expires),
         'extensions': [],
         'status': 'creating',
         'warnings': list(plan.get('warnings') or []),
