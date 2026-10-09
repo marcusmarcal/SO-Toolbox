@@ -832,11 +832,6 @@ _RESOURCE_ID_RE = re.compile(r'[0-9a-fA-F-]{8,64}')
 _LEASE_ID_RE = re.compile(r'[0-9a-f]{32}')
 
 
-def _dry_run_forced(requested):
-    """Live writes need BTE_PROVISIONING_ENABLED and a configured TXCore MAIN API."""
-    return bool(requested) or not prov.PROVISIONING_ENABLED or not prov.configured()
-
-
 @bte_bp.route('/provisioning/status', methods=['GET'])
 def provisioning_status():
     """Configuration of the write side. Never returns secret values."""
@@ -881,7 +876,6 @@ def provision_plan():
     plan['resource_id'] = resource_id
     plan['resource_name'] = item.get('name')
     plan['source_snapshot'] = backup_date or 'live'
-    plan['dry_run'] = _dry_run_forced(data.get('dry_run', True))
     plan['live_writes_allowed'] = prov.PROVISIONING_ENABLED and prov.configured()
     existing = prov.active_lease_for_resource(resource_id)
     if existing:
@@ -922,6 +916,7 @@ def provision_create():
 
     destinations, error = _resolve_destinations(data, snapshot=snapshot)
     if error:
+        prov.record_refused(item, username, [error], source_snapshot=backup_date)
         return jsonify({'error': error}), 400
 
     targets, target_error = prov.normalize_targets(data.get('targets'))
@@ -929,21 +924,29 @@ def provision_create():
         return jsonify({'error': target_error}), 400
     plan = prov.build_plan(item, destinations=destinations, targets=targets)
     if not plan['ok']:
+        prov.record_refused(item, username, plan['errors'], targets=targets, source_snapshot=backup_date)
         return jsonify({'error': 'Cannot build a plan for this resource', 'errors': plan['errors'],
                         'warnings': plan['warnings']}), 422
 
-    dry_run = _dry_run_forced(data.get('dry_run', True))
-    if not dry_run and prov.EDGES.get(plan['summary']['dc_edge']) is None:
-        return jsonify({'error': f"Edge {plan['summary']['dc_edge']} is not configured"}), 422
+    # Nothing is ever simulated: when live writes are not possible the request is refused.
+    blocked = None
+    if not prov.PROVISIONING_ENABLED:
+        blocked = 'Provisioning is disabled on the server (BTE_PROVISIONING_ENABLED is not "true")'
+    elif not prov.configured():
+        blocked = 'TXCore MAIN API is not configured on the server (APIURLMAIN / BEARER_TOKEN_MAIN)'
+    elif prov.EDGES.get(plan['summary']['dc_edge']) is None:
+        blocked = f"Edge {plan['summary']['dc_edge']} is not configured"
+    if blocked:
+        prov.record_refused(item, username, [blocked], targets=targets, source_snapshot=backup_date)
+        return jsonify({'error': blocked}), 503
 
-    lease = prov.create_lease(item, plan, data.get('duration_minutes'), username, dry_run,
+    lease = prov.create_lease(item, plan, data.get('duration_minutes'), username,
                               source_snapshot=backup_date)
-    threading.Thread(target=prov.run_lease, args=(lease['lease_id'],),
+    threading.Thread(target=prov.run_lease_safe, args=(lease['lease_id'],),
                      name=f"bte-lease-{lease['lease_id'][:8]}", daemon=True).start()
     return jsonify({
         'lease_id': lease['lease_id'],
         'status': lease['status'],
-        'dry_run': dry_run,
         'source_snapshot': lease.get('source_snapshot'),
         'expires_at': lease['expires_at'],
         'objects': len(lease['objects']),
@@ -1079,7 +1082,8 @@ def leases_delete_all():
 
 @bte_bp.route('/audit', methods=['GET'])
 def audit_log():
-    """Persistent audit trail: created / deleted / extended / destination_added events,
+    """Persistent audit trail: created / create_failed / create_partial / create_refused / deleted /
+    extended / destination_added events (failures carry their error text),
     UTC timestamps. Optional ?lease_id=, ?resource_id=, ?limit= (default 200, max 1000)."""
     denied = _access_denied()
     if denied:

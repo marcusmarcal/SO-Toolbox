@@ -9,6 +9,36 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 `SRT Ingest:`, `General Tool Admin:`) so entries can be filtered per tool.
 
 ---
+## [4.16.2] - 2026-10-09
+
+### Added
+- TXCore Provisioning: persistent history of failed provisioning in the audit
+  log (create_failed, create_partial, create_refused), including error details,
+  failed edges and how many objects were created.
+- TXCore Provisioning: the active streams list shows every TXEdge each stream
+  was created on, marks failed edges and flags "regional only" streams.
+- TXCore Provisioning: the History (audit log) loads automatically, highlights
+  failures and shows a failure count.
+
+### Changed
+- TXCore Provisioning: creation requests are refused with HTTP 503 and an
+  explicit message when BTE_PROVISIONING_ENABLED is not "true" or the TXCore
+  MAIN API is not configured (previously forced to dry run).
+- TXCore Provisioning: the in-memory "Provisioning log" is now the "Session log".
+- TXCore Provisioning: failed create requests show the detailed error list
+  returned by the API.
+
+### Removed
+- TXCore Provisioning: the BTE "Dry run" toggle and the dry-run code path.
+
+### Fixed
+- TXCore Provisioning: an unexpected error while creating can no longer leave a
+  lease stuck in "creating"; already created objects stay tracked and deletable.
+
+### Security
+- TXCore Provisioning: error messages and audit details are scrubbed of
+  passphrase/password/secret/token values.
+
 ## [4.16.1] - 2026-10-09
 
 ### Added

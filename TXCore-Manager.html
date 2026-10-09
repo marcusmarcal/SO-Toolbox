@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TXCore Provisioning — SO-Toolbox</title>
-    <!-- TXCore Manager frontend v1.9.0 — STB (multicast) + MAIN (SRT) clusters + BTE (timed TXEdge resource provisioning, channel reuse guard, destination outputs, legacy TXEdge support, partial creation kept, ID3AS relay badges, destination picker closes after adding, self-dismissing info notices, per-TXEdge target toggles for regional-only creation) -->
+    <!-- TXCore Manager frontend v1.10.0 — STB (multicast) + MAIN (SRT) clusters + BTE (timed TXEdge resource provisioning, channel reuse guard, destination outputs, legacy TXEdge support, partial creation kept, ID3AS relay badges, destination picker closes after adding, self-dismissing info notices, per-TXEdge target toggles for regional-only creation, persistent failure history, TXEdge placement per stream, no dry run) -->
     <style>
       :root {
         --bg: #0f1216;
@@ -972,6 +972,13 @@
         opacity: 0.4;
         pointer-events: none;
       }
+      .audit-bad td {
+        color: var(--error);
+      }
+      td.audit-detail {
+        word-break: break-word;
+        max-width: 520px;
+      }
       input.inline-min {
         width: 58px;
         padding: 3px 6px;
@@ -1807,13 +1814,6 @@
                   <input type="text" id="bte-prov-duration" placeholder="60 or 1h30m" value="60" autocomplete="off" />
                   <div class="hint" id="bte-prov-duration-preview"></div>
                 </div>
-                <div class="field-toggle" style="flex: 0 0 90px">
-                  <label for="bte-prov-dry-run">Dry run</label>
-                  <label class="switch">
-                    <input type="checkbox" id="bte-prov-dry-run" checked />
-                    <span class="track"></span>
-                  </label>
-                </div>
                 <div class="field" id="bte-prov-dest-field" style="flex: 1 1 220px; margin: 0">
                   <label>Destinations <span class="dest-count" id="bte-prov-dest-count">0</span>
                     <span style="color: var(--text-faint)">(DC edge only)</span></label>
@@ -1862,7 +1862,7 @@
           </div>
 
           <details class="bte-fold" id="bte-audit-fold">
-            <summary>Audit log <span class="h2-tag" id="bte-audit-tag">—</span></summary>
+            <summary>History (audit log) <span class="h2-tag" id="bte-audit-tag">—</span></summary>
             <div class="fold-body">
               <div class="field-row" style="margin-bottom: 8px; align-items: flex-end">
                 <div class="field" style="margin: 0">
@@ -1880,7 +1880,7 @@
           </details>
 
           <details class="bte-fold" id="bte-log-fold">
-            <summary>Provisioning log <span class="h2-tag" id="bte-log-tag">empty</span></summary>
+            <summary>Session log <span class="h2-tag" id="bte-log-tag">empty</span></summary>
             <div class="fold-body">
               <div class="btn-row" style="justify-content: flex-end; margin-bottom: 8px">
                 <select id="bte-inspect-edge" style="width: auto; padding: 3px 6px; font-size: 11px">
@@ -2325,10 +2325,13 @@
             )
           ).then(function (resp) {
             return resp.json().then(function (data) {
-              if (!resp.ok)
-                throw new Error(
+              if (!resp.ok) {
+                var apiErr = new Error(
                   data.error || "Request failed (" + resp.status + ")"
                 );
+                apiErr.data = data;
+                throw apiErr;
+              }
               return data;
             });
           });
@@ -3250,9 +3253,12 @@
         function auditEventLabel(e) {
           switch (e.event) {
             case "created": return "Created" + (e.dry_run ? " (dry run)" : "");
-            case "deleted": return "Deleted" + (e.auto ? " (auto)" : "");
+            case "deleted": return (e.status === "delete_failed" ? "Delete INCOMPLETE" : "Deleted") + (e.auto ? " (auto)" : "");
             case "extended": return "Extended";
-            case "destination_added": return "Destination added" + (e.at_creation ? " (at start)" : "");
+            case "create_failed": return "Create FAILED";
+            case "create_partial": return "Create PARTIAL";
+            case "create_refused": return "Create REFUSED";
+            case "destination_added": return (e.error ? "Destination FAILED" : "Destination added") + (e.at_creation ? " (at start)" : "");
             default: return e.event || "?";
           }
         }
@@ -3268,23 +3274,37 @@
                   ? " · destinations: " + e.destinations.map(function (d) { return d.name; }).join(", ")
                   : "");
             case "deleted":
-              return (e.reason || "") + (e.status ? " → " + e.status : "");
+              return (e.reason || "") + (e.status ? " → " + e.status : "") + (e.errors && e.errors.length ? " — " + e.errors.join(" | ") : "");
             case "extended":
               return "+" + (e.minutes_requested !== undefined ? minutesToLabel(e.minutes_requested) : "") + " requested" +
                 (e.minutes_granted !== undefined && e.minutes_granted !== null ? " · " + minutesToLabel(e.minutes_granted) + " granted" : "") +
                 (e.note ? " · " + e.note : "") +
                 (e.expires_at ? " · new end " + fmtUtcFull(e.expires_at) : "");
             case "destination_added":
-              return e.destination_name || e.destination_id || "";
+              return (e.destination_name || e.destination_id || "") + (e.error ? " — " + e.error : "");
+            case "create_failed":
+            case "create_partial":
+            case "create_refused":
+              return (e.edges_failed && e.edges_failed.length ? "edges: " + e.edges_failed.join(", ") + " · " : "") +
+                (e.created !== undefined ? e.created + " of " + e.planned + " objects created · " : "") +
+                (e.targets && e.targets.length ? "targets " + e.targets.join(", ") + " · " : "") +
+                (e.errors || []).join(" | ");
             default:
               return "";
           }
         }
 
+        function auditIsFailure(e) {
+          return e.event === "create_failed" || e.event === "create_partial" || e.event === "create_refused" ||
+            !!e.error || (e.event === "deleted" && e.status === "delete_failed");
+        }
+
         function auditRowHtml(e, withChannel) {
-          return "<tr><td>" + escapeHtml(fmtUtcFull(e.ts)) + "</td><td>" + escapeHtml(auditEventLabel(e)) + "</td>" +
+          var detail = auditEventDetail(e);
+          var shown = detail.length > 500 ? detail.slice(0, 500) + "…" : detail;
+          return '<tr class="' + (auditIsFailure(e) ? "audit-bad" : "") + '"><td>' + escapeHtml(fmtUtcFull(e.ts)) + "</td><td>" + escapeHtml(auditEventLabel(e)) + "</td>" +
             (withChannel ? "<td>" + escapeHtml(e.resource_name || "") + "</td>" : "") +
-            "<td>" + escapeHtml(e.user || "") + "</td><td>" + escapeHtml(auditEventDetail(e)) + "</td></tr>";
+            "<td>" + escapeHtml(e.user || "") + '</td><td class="audit-detail" title="' + escapeHtml(detail) + '">' + escapeHtml(shown) + "</td></tr>";
         }
 
         function renderAudit() {
@@ -3293,7 +3313,8 @@
             if (!q) return true;
             return [e.resource_name, e.lease_id, e.user, e.event, auditEventDetail(e)].join(" ").toLowerCase().indexOf(q) !== -1;
           });
-          $("bte-audit-tag").textContent = rows.length + " of " + audit.events.length;
+          var failures = audit.events.filter(auditIsFailure).length;
+          $("bte-audit-tag").textContent = rows.length + " of " + audit.events.length + (failures ? " · " + failures + " failed" : "");
           var body = $("bte-audit-body");
           if (!rows.length) {
             body.innerHTML = '<tr><td colspan="5" class="empty-state">' +
@@ -3454,10 +3475,12 @@
         }
 
         function trackLeaseTransitions() {
+          var changed = false;
           prov.leases.forEach(function (l) {
             var prev = prov.seen[l.lease_id];
             if (prev === l.status) return;
             prov.seen[l.lease_id] = l.status;
+            changed = true;
             if (prev === undefined && (l.status === "deleted" || l.status === "failed")) return; // history
             var label = l.resource_name + " (" + l.dc_edge + ")";
             var detail = (l.errors || []).slice(-1)[0] || "";
@@ -3466,9 +3489,10 @@
             else if (l.status === "active" && prev === "creating" && l.partial)
               provNotice("Partially created — " + label + ": " + ((l.errors || []).join(" | ") || "some objects failed") +
                 ". What was created is kept in BTE active streams (delete it from there).", "bad");
-            else if (l.status === "active" && prev === "creating") provLog("Active — " + label + (l.dry_run ? " (dry run)" : ""), "log-ok");
+            else if (l.status === "active" && prev === "creating") provLog("Active — " + label, "log-ok");
             else if (l.status === "deleted") provLog("Deleted — " + label + (l.delete_reason ? " (" + l.delete_reason + ")" : ""), "log-dim");
           });
+          if (changed && audit.loaded) loadAudit();
         }
 
         // Accepts plain minutes ("90"), "H:MM", or "1h30m" / "1h" / "45m".
@@ -3513,7 +3537,6 @@
         function renderProvHint() {
           var st = prov.status;
           var hint = $("bte-prov-hint");
-          var dry = $("bte-prov-dry-run");
           var backupPrefix = backupView.active
             ? "⚠ Using DM Snapshot BACKUP from " + backupView.date + " (not live) — "
             : "";
@@ -3542,17 +3565,11 @@
           }
           var missing = provStatusMissing(st);
           if (!st.live_writes_allowed) {
-            dry.checked = true;
-            dry.disabled = true;
-            hint.textContent = backupPrefix + "Live writes are disabled on the server (BTE_PROVISIONING_ENABLED) — every run is a dry run.";
+            hint.textContent = backupPrefix + "Provisioning is disabled on the server (BTE_PROVISIONING_ENABLED) — creation is refused. You can still preview the plan.";
           } else if (missing.length) {
-            dry.disabled = false;
-            hint.textContent = backupPrefix + "Server configuration incomplete: " + missing.join(", ") + ". Live runs may fail for the affected edges.";
+            hint.textContent = backupPrefix + "Server configuration incomplete: " + missing.join(", ") + ". Creation may fail for the affected edges.";
           } else {
-            dry.disabled = false;
-            hint.textContent = backupPrefix + (dry.checked
-              ? "Dry run: the lease is tracked but nothing is sent to TXCore."
-              : "Live: creates the " + targetsLabel() + " objects on TXCore MAIN, tagged " + (st.tag || "[BTE]") + ", removed automatically when the lease ends.");
+            hint.textContent = backupPrefix + "Creates the " + targetsLabel() + " objects on TXCore MAIN, tagged " + (st.tag || "[BTE]") + ", removed automatically when the lease ends.";
           }
         }
 
@@ -3611,9 +3628,9 @@
           var activeLeaseId = activeResourceIds()[bte.selectedId];
           $("bte-prov-dest-field").classList.toggle("dim", !dcOn);
           $("bte-btn-add-dest").disabled = !dcOn || !!activeLeaseId;
-          ["bte-btn-plan", "bte-btn-create"].forEach(function (id) {
-            $(id).disabled = !count || !!activeLeaseId;
-          });
+          var liveOff = !!(prov.status && !prov.status.live_writes_allowed);
+          $("bte-btn-plan").disabled = !count || !!activeLeaseId;
+          $("bte-btn-create").disabled = !count || !!activeLeaseId || liveOff;
           var hint = $("bte-prov-edges-hint");
           if (!count) {
             hint.textContent = "Select at least one TXEdge.";
@@ -3755,12 +3772,12 @@
           }, 0);
           $("bte-lease-tag").textContent = active.length + " active" + (totalDest ? " · " + totalDest + " destination" + (totalDest === 1 ? "" : "s") : "");
           $("bte-lease-count").textContent = leases.length
-            ? active.length + " active · " + (leases.length - active.length) + " finished — see the provisioning log"
+            ? active.length + " active · " + (leases.length - active.length) + " finished — see History (audit log)"
             : "";
           $("bte-btn-delete-all").disabled = !active.length;
           if (!active.length) {
             container.innerHTML = '<div class="empty-state">' +
-              (leases.length ? "No active BTE streams — finished ones are kept in the provisioning log." : 'No streams created by BTE yet — pick a channel and use "Create resources".') +
+              (leases.length ? "No active BTE streams — finished and failed ones are kept in History (audit log) below." : 'No streams created by BTE yet — pick a channel and use "Create resources".') +
               "</div>";
             return;
           }
@@ -3784,7 +3801,7 @@
                 (l.source_snapshot ? ' · <span style="color: var(--warn)">⚠ backup ' + escapeHtml(l.source_snapshot) + "</span>" : "") + "</div>" +
                 (errs.length ? '<div class="lease-sub" style="color: var(--error)" title="' + escapeHtml(errs.join("\n")) + '">' + escapeHtml(errs[0]) + (errs.length > 1 ? " (+" + (errs.length - 1) + ")" : "") + "</div>" : "") +
                 "</td>" +
-                "<td>" + (l.dc_created === false ? '<span style="color: var(--text-faint)">regional only</span>' : escapeHtml(l.dc_edge || "?")) + '<div class="lease-sub">' + (l.sites || 0) + " site" + (l.sites === 1 ? "" : "s") + "</div></td>" +
+                "<td>" + leaseEdgesHtml(l) + "</td>" +
                 "<td>" + leaseStatusPill(l) + "</td>" +
                 '<td class="remain"><span class="remain-val">' + escapeHtml(fmtRemain(l.remaining_seconds)) + '</span>' +
                   '<div class="lease-sub">ends ' + escapeHtml(fmtUtcClock(l.expires_at)) + "</div></td>" +
@@ -3800,6 +3817,25 @@
               );
             }).join("") +
             "</tbody></table></div>";
+        }
+
+        // Every TXEdge a stream was planned on (not only the DC one); a failed edge is red.
+        function leaseEdgesHtml(l) {
+          var seen = {}, pills = [];
+          (l.steps || []).forEach(function (st) {
+            if (seen[st.edge]) return;
+            seen[st.edge] = true;
+            var relay = (l.objects || []).some(function (o) { return o.edge === st.edge && o.relay; });
+            var tip = st.edge + (st.location ? " — " + st.location : "") + (relay ? " · ID3AS relay" : "") +
+              " · " + st.status + (st.error ? " · " + st.error : "");
+            pills.push('<span class="pill ' + (st.status === "error" ? "failed" : "") + '" title="' + escapeHtml(tip) + '">' +
+              escapeHtml(st.edge) + (relay ? " ⇄" : "") + "</span>");
+          });
+          if (!pills.length) pills.push('<span class="pill">' + escapeHtml(l.dc_edge || "?") + "</span>");
+          var regionalOnly = l.dc_created === false;
+          var scope = regionalOnly ? "regional only" : (l.sites || 0) + " regional site" + (l.sites === 1 ? "" : "s");
+          return '<div class="dest-badges" style="margin-top: 0">' + pills.join("") + "</div>" +
+            '<div class="lease-sub"' + (regionalOnly ? ' style="color: var(--warn)"' : "") + ">" + scope + "</div>";
         }
 
         function destBadges(objs) {
@@ -3871,7 +3907,7 @@
         function renderPlan(plan) {
           var container = $("bte-plan-container");
           $("bte-plan-tag").textContent = plan.resource_name || "—";
-          $("bte-plan-create").disabled = !plan.ok;
+          $("bte-plan-create").disabled = !plan.ok || !plan.live_writes_allowed;
           var html = "";
           if (plan.errors && plan.errors.length) {
             html += '<div class="notice bad">' + plan.errors.map(escapeHtml).join("<br>") + "</div>";
@@ -3891,7 +3927,7 @@
                 " · input " + (s.input || "?") + " · DC output port " + s.output_port +
                 (s.id3as_relays ? " · ID3AS relay" + (s.id3as_relays === 1 ? "" : "s") + " " + s.id3as_relays : "") +
                 " · encryption " + (s.encryption ? s.encryption + " (passphrase: " + s.passphrase_status + ")" : "none") +
-                " · " + (plan.dry_run ? "dry run — nothing is sent" : "LIVE — will be sent to TXCore MAIN") +
+                " · " + (plan.live_writes_allowed ? "LIVE — will be sent to TXCore MAIN" : "provisioning is disabled on the server — creation will be refused") +
                 (plan.source_snapshot && plan.source_snapshot !== "live" ? " · ⚠ snapshot: BACKUP " + plan.source_snapshot : " · snapshot: live")) +
               "</div>";
             var edgePath = (prov.status && prov.status.edge_path) || "/mwedge/{edge}";
@@ -3919,7 +3955,6 @@
           var payload = {
             resource_id: bte.selectedId,
             duration_minutes: isFinite(mins) && mins > 0 ? mins : undefined,
-            dry_run: $("bte-prov-dry-run").checked,
             // Destinations live on the DC edge: never sent when the DC target is off.
             destination_ids: edgeToggle("DC").checked
               ? bte.pendingDestinations.map(function (d) { return d.id; })
@@ -3966,29 +4001,32 @@
           if (!durationValid()) { alert('Duration not understood — use minutes, "1h30m", or "H:MM".'); return; }
           var r = bteFindResource(bte.selectedId);
           var payload = provPayload();
-          if (!payload.dry_run) {
-            var ok = confirm(
-              "Create the [BTE] resources for " + (r ? r.name : bte.selectedId) +
-              " on TXCore MAIN (" + targetsLabel() + ") for " +
-              (payload.duration_minutes ? minutesToLabel(payload.duration_minutes) : "the default") +
-              (payload.backup_date ? "\n\n⚠ Using DM Snapshot BACKUP from " + payload.backup_date + " — NOT the live snapshot." : "") +
-              "?\n\nThey are deleted automatically when the lease ends unless you extend it."
-            );
-            if (!ok) return;
-          }
+          var ok = confirm(
+            "Create the [BTE] resources for " + (r ? r.name : bte.selectedId) +
+            " on TXCore MAIN (" + targetsLabel() + ") for " +
+            (payload.duration_minutes ? minutesToLabel(payload.duration_minutes) : "the default") +
+            (payload.backup_date ? "\n\n⚠ Using DM Snapshot BACKUP from " + payload.backup_date + " — NOT the live snapshot." : "") +
+            "?\n\nThey are deleted automatically when the lease ends unless you extend it."
+          );
+          if (!ok) return;
           ["bte-btn-create", "bte-plan-create"].forEach(function (id) { $(id).disabled = true; });
           bteFetch("/provision", { method: "POST", body: JSON.stringify(payload) })
             .then(function (res) {
               if ($("bte-plan-dialog").open) $("bte-plan-dialog").close();
-              provLog("Create requested — " + (r ? r.name : bte.selectedId) + (res.dry_run ? " (dry run)" : "") + ", " + res.objects + " objects", "log-dim");
+              provLog("Create requested — " + (r ? r.name : bte.selectedId) + ", " + res.objects + " objects", "log-dim");
               (res.warnings || []).forEach(function (w) { provNotice(w, isInfoWarning(w) ? "info" : "warn"); });
               bte.pendingDestinations = [];
               renderPendingDestinations();
               return loadLeases();
             })
-            .catch(function (err) { provNotice("Create resources failed: " + err.message, "bad"); })
+            .catch(function (err) {
+              provNotice("Create resources failed: " + err.message +
+                (err.data && err.data.errors && err.data.errors.length ? " — " + err.data.errors.join(" | ") : ""), "bad");
+              if (audit.loaded) loadAudit();
+            })
             .finally(function () {
-              ["bte-btn-create", "bte-plan-create"].forEach(function (id) { $(id).disabled = false; });
+              applyEdgeTargets();
+              $("bte-plan-create").disabled = !(prov.plan && prov.plan.ok && prov.plan.live_writes_allowed);
             });
         }
 
@@ -4104,7 +4142,6 @@
           $("bte-btn-create").addEventListener("click", createResources);
           $("bte-plan-create").addEventListener("click", createResources);
           $("bte-plan-close").addEventListener("click", function () { $("bte-plan-dialog").close(); });
-          $("bte-prov-dry-run").addEventListener("change", renderProvHint);
           $("bte-prov-duration").addEventListener("input", function () { this.dataset.touched = "1"; updateDurationPreview(); });
           $("bte-btn-leases-reload").addEventListener("click", loadLeases);
           $("bte-btn-delete-all").addEventListener("click", deleteAllLeases);
@@ -4178,7 +4215,7 @@
               bte.destinationsMeta = { hint: err.message };
             });
 
-          Promise.all([statusReq, resReq, destReq, loadProvStatus(), loadLeases()]).then(function () {
+          Promise.all([statusReq, resReq, destReq, loadProvStatus(), loadLeases(), loadAudit()]).then(function () {
             bte.loading = false;
             bte.loaded = true;
             renderBteAll();

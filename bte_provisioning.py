@@ -53,8 +53,8 @@ fcntl lock shared by all gunicorn workers).
 Environment variables (.env):
     APIURLMAIN / BEARER_TOKEN_MAIN      TXCore MAIN API (shared with routes_txcore)
     INTERNALSRTPASSPHRASE               Passphrase for edge-to-edge / edge-to-core SRT hops
-    BTE_PROVISIONING_ENABLED            "true" to allow live TXCore writes (default false:
-                                        every request is forced to dry-run)
+    BTE_PROVISIONING_ENABLED            "true" to allow TXCore writes (default false: every
+                                        create request is refused with an explicit error)
     BTE_EDGE_<KEY>                      One entry per TXEdge, ``;``-separated key=value fields:
         id=<txcore edge id>;location=<label>;dc=yes|no;
         in=SRT@<ip>;out=SRT@<ip>,UDP@<ip>;pub=SRT@<public ip>
@@ -95,7 +95,10 @@ Environment variables (.env):
     BTE_AUDIT_MAX_LINES                 Audit log is trimmed to this many most-recent lines (50000)
 
 Audit log: /opt/web/data/bte_audit.jsonl (append-only, mode 0600, one UTC-timestamped
-JSON event per line: created, deleted, extended, destination_added). Independent of the
+JSON event per line: created, create_failed, create_partial, create_refused, deleted, extended,
+destination_added). Failures (create_*, incomplete deletes, failed destination
+adds) carry the error text so they stay available after a restart or a page
+reload. Independent of the
 lease registry above so history survives lease history trimming (HISTORY_KEEP).
 
 !! Confirmed against the TXCore API reference: POST /mwedge/<id> with
@@ -960,7 +963,10 @@ def redact_plan(plan):
 # ---------------------------------------------------------------------------
 
 class TXCoreError(Exception):
-    pass
+    """TXCore call failure. The message is scrubbed of secret-looking values."""
+
+    def __init__(self, message=''):
+        super().__init__(_scrub(message))
 
 
 def _legacy_body(kind, body):
@@ -1360,7 +1366,7 @@ def _clamp_minutes(minutes, default):
 # Lease lifecycle
 # ---------------------------------------------------------------------------
 
-def create_lease(item, plan, duration_minutes, username, dry_run, source_snapshot=None):
+def create_lease(item, plan, duration_minutes, username, source_snapshot=None):
     """Persist a new lease (status 'creating') and return it. Run with run_lease().
 
     ``source_snapshot`` is None for the live DM Snapshot, or a 'YYYY-MM-DD' backup
@@ -1385,7 +1391,6 @@ def create_lease(item, plan, duration_minutes, username, dry_run, source_snapsho
         'duration_minutes': duration,
         'expires_at': _iso(now + timedelta(minutes=duration)),
         'extensions': [],
-        'dry_run': bool(dry_run),
         'status': 'creating',
         'warnings': list(plan.get('warnings') or []),
         'errors': [],
@@ -1429,7 +1434,6 @@ def create_lease(item, plan, duration_minutes, username, dry_run, source_snapsho
         'dc_edge': lease['dc_edge'],
         'targets': lease.get('targets'),
         'user': username,
-        'dry_run': lease['dry_run'],
         'duration_minutes': lease['duration_minutes'],
         'expires_at': lease['expires_at'],
         'destinations': dests,
@@ -1459,15 +1463,6 @@ def run_lease(lease_id, client=None):
     lease = get_lease(lease_id)
     if lease is None:
         return None
-    if lease['dry_run']:
-        def _skip(l):
-            for obj in l['objects']:
-                obj['status'] = 'skipped'
-            for st in l['steps']:
-                st['status'] = 'skipped'
-            l['status'] = 'active'
-        return _update_lease(lease_id, _skip)
-
     client = client or TXCoreClient()
     for step in lease['steps']:
         seq = step['seq']
@@ -1512,7 +1507,92 @@ def run_lease(lease_id, client=None):
     result = _update_lease(lease_id, _finish)
     log.info('BTE lease %s %s%s: %s (%d edges)', lease_id, result['status'],
              ' (partial)' if result.get('partial') else '', lease['resource_name'], len(lease['steps']))
+    _audit_creation_outcome(result)
     return result
+
+
+_SECRET_TEXT_RE = re.compile(
+    r'(["\']?(?:passphrase|password|secret|token)["\']?\s*[:=]\s*)("[^"]*"|\'[^\']*\'|[^\s,}\]]+)', re.IGNORECASE)
+
+
+def _scrub(text):
+    """Mask secret-looking key/value pairs inside free text (error messages, audit details)."""
+    return _SECRET_TEXT_RE.sub(lambda m: m.group(1) + '"' + REDACTED + '"', str(text))
+
+
+def _audit_creation_outcome(lease):
+    """Persist a creation run that did not fully succeed (nothing created / partially created)."""
+    if lease['status'] == 'failed':
+        event = 'create_failed'
+    elif lease.get('partial'):
+        event = 'create_partial'
+    else:
+        return
+    objs = lease.get('objects') or []
+    _append_audit({
+        'event': event,
+        'lease_id': lease['lease_id'],
+        'resource_id': lease.get('resource_id'),
+        'resource_name': lease.get('resource_name'),
+        'dc_edge': lease.get('dc_edge'),
+        'targets': lease.get('targets'),
+        'user': lease.get('created_by'),
+        'source_snapshot': lease.get('source_snapshot'),
+        'created': sum(1 for o in objs if o.get('id')),
+        'planned': len(objs),
+        'edges_failed': [st['edge'] for st in lease.get('steps') or [] if st.get('status') == 'error'],
+        'errors': [_scrub(e) for e in (lease.get('errors') or [])],
+    })
+
+
+def record_refused(item, username, errors, targets=None, source_snapshot=None):
+    """Audit a create request that was refused before anything was sent to TXCore
+    (plan could not be built, destination in use, provisioning disabled, ...)."""
+    _append_audit({
+        'event': 'create_refused',
+        'resource_id': (item or {}).get('id'),
+        'resource_name': (item or {}).get('name'),
+        'user': username,
+        'targets': sorted(targets) if targets else None,
+        'source_snapshot': source_snapshot,
+        'errors': [_scrub(e) for e in (errors or [])],
+    })
+
+
+def run_lease_safe(lease_id):
+    """Thread entry point: run_lease() that can never leave a lease stuck in 'creating'.
+
+    On an unexpected error, objects that already got an id stay tracked (lease
+    'active' + partial, so they remain visible, deletable and reaped); only a lease
+    with nothing created becomes 'failed'. Either way the failure is audited.
+    """
+    try:
+        run_lease(lease_id)
+    except Exception as exc:  # noqa: BLE001 — must never leave the lease in limbo
+        log.exception('BTE lease %s: unexpected error while creating', lease_id)
+
+        def _fail(l):
+            if l['status'] != 'creating':
+                return
+            made = any(o.get('id') for o in l['objects'])
+            l['status'] = 'active' if made else 'failed'
+            l['partial'] = made
+            if not made:
+                l['finished_at'] = _iso(_now())
+            l['errors'].append(f'unexpected error: {exc}')
+        try:
+            result = _update_lease(lease_id, _fail)
+            if result:
+                _audit_creation_outcome(result)
+        except Exception:  # noqa: BLE001
+            log.exception('BTE lease %s: could not record the failure', lease_id)
+
+
+def _delete_problems(lease):
+    """Per-object delete problems of a lease, for the audit trail."""
+    return [_scrub(f"{o['edge']} {o['kind']} {o['name']}: {o.get('error')}")
+            for o in lease.get('objects') or []
+            if o.get('status') in ('delete_error', 'refused') and o.get('error')][:20]
 
 
 def _mark_step(lease, seq, status, error=None):
@@ -1621,7 +1701,7 @@ def delete_lease(lease_id, reason, username, client=None):
         l['deleted_by'] = username
     _update_lease(lease_id, _start)
 
-    if lease['dry_run'] or not any(o.get('id') for o in lease['objects']):
+    if not any(o.get('id') for o in lease['objects']):
         def _finish_dry(l):
             l['status'] = 'deleted'
             l['finished_at'] = _iso(_now())
@@ -1650,6 +1730,7 @@ def delete_lease(lease_id, reason, username, client=None):
         'auto': reason == 'expired',
         'reason': reason,
         'status': result['status'],
+        'errors': _delete_problems(result),
     })
     return result
 
@@ -1704,10 +1785,10 @@ def add_destination(lease_id, destination_item, username, client=None):
     """Attach one Destination pool item as an extra output on a lease's DC edge.
 
     Reuses the DC edge's already-created stream id, so this is a single
-    outputs-only POST — no new stream. Works for an already-active lease
-    (the "already live" case) or a dry-run lease (marked skipped, like the
-    rest of that lease's objects). Returns (lease, error); on error nothing
-    is created and no object is added.
+    outputs-only POST — no new stream. Works on an already-active lease only
+    and needs the DC edge stream (refused for regional-only leases). Returns
+    (lease, error); a failure is recorded in the audit log, and what TXCore did
+    create stays tracked.
     """
     lease = get_lease(lease_id)
     if lease is None:
@@ -1715,6 +1796,8 @@ def add_destination(lease_id, destination_item, username, client=None):
     if lease['status'] != 'active':
         return lease, f"Lease is {lease['status']} — destinations can only be added to an active lease"
 
+    if lease.get('dry_run'):
+        return lease, 'Legacy dry-run lease: nothing exists in TXCore for it — delete it'
     if lease.get('dc_created') is False:
         return lease, 'This stream was created without the DC edge — destinations can only be attached to the DC edge'
 
@@ -1768,7 +1851,7 @@ def add_destination(lease_id, destination_item, username, client=None):
         l['objects'].extend(dict(o) for o in new_objs)
     lease = _update_lease(lease_id, _append)
 
-    def _audit_added(dry_run, error=None):
+    def _audit_added(error=None):
         _append_audit({
             'event': 'destination_added',
             'lease_id': lease_id,
@@ -1779,17 +1862,8 @@ def add_destination(lease_id, destination_item, username, client=None):
             'destination_id': obj['destination_id'],
             'destination_name': obj['destination_name'],
             'id3as_relay': relay_edge['key'] if relay_edge is not None else None,
-            'dry_run': dry_run,
-            'error': error,
+            'error': _scrub(error) if error else None,
         })
-
-    if lease['dry_run']:
-        def _skip(l):
-            for o in new_objs:
-                _mark_obj(l, o, 'skipped')
-        lease = _update_lease(lease_id, _skip)
-        _audit_added(True)
-        return lease, None
 
     client = client or TXCoreClient()
     failures = []
@@ -1811,9 +1885,9 @@ def add_destination(lease_id, destination_item, username, client=None):
 
     if failures:
         error = '; '.join(failures)
-        _audit_added(False, error=error)
+        _audit_added(error=error)
         return lease, error
-    _audit_added(False)
+    _audit_added()
     log.info('BTE lease %s: added destination %s%s (%s)', lease_id, obj['destination_name'] or dest_id,
              f' + ID3AS relay on {relay_edge["key"]}' if relay_edge is not None else '', username)
     return lease, None
