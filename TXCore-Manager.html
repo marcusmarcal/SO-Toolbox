@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TXCore Provisioning — SO-Toolbox</title>
-    <!-- TXCore Manager frontend v1.12.0 — STB (multicast) + MAIN (SRT) clusters + BTE (timed TXEdge resource provisioning, channel reuse guard, destination outputs, legacy TXEdge support, partial creation kept, ID3AS relay badges, destination picker closes after adding, self-dismissing info notices, per-TXEdge target toggles for regional-only creation, persistent failure history, TXEdge placement per stream, no dry run, ID3AS destination filters, TXEdge inferred from the supplier, absolute end time in UTC, per-destination removal, name-inferred ID3AS filters) -->
+    <!-- TXCore Manager frontend v1.13.0 — STB (multicast) + MAIN (SRT) clusters + BTE (timed TXEdge resource provisioning, channel reuse guard, destination outputs, legacy TXEdge support, partial creation kept, ID3AS relay badges, destination picker closes after adding, self-dismissing info notices, per-TXEdge target toggles for regional-only creation, persistent failure history, TXEdge placement per stream, no dry run, ID3AS destination filters, TXEdge inferred from the supplier, absolute end time in UTC, per-destination removal, name-inferred ID3AS filters, removal time beyond the stream end extends the stream, adjust end time, larger destination controls) -->
     <style>
       :root {
         --bg: #0f1216;
@@ -1007,6 +1007,27 @@
         border-color: var(--bte);
         color: var(--bte);
       }
+      button.big {
+        font-size: 14px;
+        padding: 10px 20px;
+      }
+      .dest-pill {
+        font-size: 13px;
+        padding: 6px 8px 6px 14px;
+      }
+      .dest-pill button {
+        font-size: 18px;
+        padding: 0 6px;
+      }
+      table.leases .dest-badges .pill {
+        font-size: 12px;
+        padding: 3px 11px;
+      }
+      table.leases input.inline-time {
+        width: 104px;
+        padding: 3px 6px;
+        font-size: 11px;
+      }
       input.inline-min {
         width: 58px;
         padding: 3px 6px;
@@ -1852,7 +1873,7 @@
                     <span style="color: var(--text-faint)">(DC edge only)</span></label>
                   <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center">
                     <div id="bte-prov-dest-list" style="display: flex; gap: 6px; flex-wrap: wrap"></div>
-                    <button id="bte-btn-add-dest" class="small dest">+ Destination</button>
+                    <button id="bte-btn-add-dest" class="dest big">+ Destination</button>
                   </div>
                 </div>
                 <div class="btn-row" style="margin-left: auto">
@@ -2036,7 +2057,7 @@
         <div class="dest-block">
           <div class="dest-head">Removal time <span class="dest-count">UTC</span></div>
           <div class="hint" style="margin: 0 0 8px">
-            Remove only this destination at a different time than the stream. It must be earlier than the stream end.
+            Remove only this destination at a different time than the stream. If it is after the stream end, the stream end is moved to cover it.
           </div>
           <div class="field-row" style="align-items: flex-start">
             <div class="field" style="flex: 0 0 230px; margin: 0">
@@ -2049,6 +2070,7 @@
               <button id="bte-destmgr-clear" class="small" style="display: none">Follow the stream</button>
             </div>
           </div>
+          <div class="notice warn" id="bte-destmgr-extend-note" style="display: none; margin: 10px 0 0"></div>
         </div>
         <div class="btn-row" style="margin-top: 14px; justify-content: space-between; align-items: center">
           <span class="hint" style="margin: 0">Removing the destination keeps the stream active.</span>
@@ -3352,6 +3374,7 @@
           seen: {}, // lease_id -> last status observed (to log transitions once)
           leases: [],
           leasesMeta: null,
+          endDraft: {}, // lease_id -> end time typed in the list but not applied yet
           plan: null,
           pollTimer: null,
           tickTimer: null,
@@ -3377,6 +3400,7 @@
             case "create_refused": return "Create REFUSED";
             case "destination_removed": return (e.error ? "Destination remove FAILED" : "Destination removed") + (e.auto ? " (auto)" : "");
             case "destination_expiry": return e.expires_at ? "Destination removal time set" : "Destination removal time cleared";
+            case "end_adjusted": return "Stream end adjusted";
             case "destination_added": return (e.error ? "Destination FAILED" : "Destination added") + (e.at_creation ? " (at start)" : "");
             default: return e.event || "?";
           }
@@ -3406,6 +3430,12 @@
                 (e.id3as_relay ? " · relay " + e.id3as_relay : "") +
                 (e.dismissed ? " · " + e.dismissed + " unconfirmed object(s) dismissed" : "") +
                 (e.error ? " — " + e.error : "");
+            case "end_adjusted":
+              return (e.old_end ? fmtUtcFull(e.old_end) + " → " : "") + fmtUtcFull(e.new_end) +
+                (e.minutes !== undefined ? " (" + (e.minutes < 0 ? "−" : "+") + minutesToLabel(Math.abs(e.minutes)) + ")" : "") +
+                (e.reason ? " · " + e.reason : "") + (e.destination_name ? " " + e.destination_name : "") +
+                (e.note ? " · " + e.note : "") +
+                (e.cleared_destinations && e.cleared_destinations.length ? " · removal time cleared for " + e.cleared_destinations.join(", ") : "");
             case "destination_expiry":
               return (e.destination_name || e.destination_id || "") +
                 (e.expires_at ? " → " + fmtUtcFull(e.expires_at) : " → follows the stream");
@@ -3622,19 +3652,6 @@
           if (changed && audit.loaded) loadAudit();
         }
 
-        // Accepts plain minutes ("90"), "H:MM", or "1h30m" / "1h" / "45m".
-        function parseDurationMinutes(raw) {
-          raw = String(raw == null ? "" : raw).trim().toLowerCase();
-          if (!raw) return NaN;
-          var m = raw.match(/^(\d+):([0-5]?\d)$/);
-          if (m) return Number(m[1]) * 60 + Number(m[2]);
-          m = raw.match(/^(?:(\d+(?:\.\d+)?)\s*h)?\s*(?:(\d+(?:\.\d+)?)\s*m(?:in)?)?$/);
-          if (m && (m[1] !== undefined || m[2] !== undefined)) {
-            return Math.round(Number(m[1] || 0) * 60 + Number(m[2] || 0));
-          }
-          if (/^\d+(\.\d+)?$/.test(raw)) return Math.round(Number(raw));
-          return NaN;
-        }
         function minutesToLabel(min) {
           min = Math.round(min);
           var h = Math.floor(min / 60), m = min % 60;
@@ -3971,7 +3988,6 @@
             return;
           }
           leases = active;
-          var extendDefault = (prov.leasesMeta && prov.leasesMeta.default_extend_minutes) || 30;
           container.innerHTML =
             '<div class="table-wrap"><table class="leases"><thead><tr>' +
             "<th>Stream</th><th>Edges</th><th>Status</th><th>Time left</th><th>Objects</th><th>Destinations</th><th></th>" +
@@ -3982,6 +3998,7 @@
               var liveTotal = objs.filter(function (o) { return o.status !== "deleted" && o.status !== "gone"; }).length;
               var problems = objs.filter(function (o) { return o.status === "error" || o.status === "refused" || o.status === "delete_error"; }).length;
               var final = isFinal(l);
+              var endVal = prov.endDraft[l.lease_id] !== undefined ? prov.endDraft[l.lease_id] : leaseEndHhmm(l);
               var errs = (l.errors || []).concat(objs.filter(function (o) { return o.error; }).map(function (o) {
                 return o.error.indexOf(o.kind + " ") === 0 ? o.edge + ": " + o.error : o.edge + " " + o.kind + ": " + o.error;
               }));
@@ -3989,7 +4006,7 @@
                 '<tr data-lease="' + escapeHtml(l.lease_id) + '" data-expires="' + escapeHtml(l.expires_at || "") + '">' +
                 '<td><div class="lease-name">' + escapeHtml(l.resource_name || "?") + "</div>" +
                 '<div class="lease-sub">' + escapeHtml(l.supplier || "") + " · by " + escapeHtml(l.created_by || "?") + " · " + escapeHtml(fmtTime(l.created_at)) +
-                (l.extensions && l.extensions.length ? " · +" + l.extensions.reduce(function (a, e) { return a + (e.minutes || 0); }, 0) + " min" : "") +
+                (l.extensions && l.extensions.length ? " · end adjusted " + (function (m) { return (m < 0 ? "−" : "+") + Math.abs(m) + " min"; })(l.extensions.reduce(function (a, e) { return a + (e.minutes || 0); }, 0)) : "") +
                 (l.source_snapshot ? ' · <span style="color: var(--warn)">⚠ backup ' + escapeHtml(l.source_snapshot) + "</span>" : "") + "</div>" +
                 (errs.length ? '<div class="lease-sub" style="color: var(--error)" title="' + escapeHtml(errs.join("\n")) + '">' + escapeHtml(errs[0]) + (errs.length > 1 ? " (+" + (errs.length - 1) + ")" : "") + "</div>" : "") +
                 "</td>" +
@@ -4001,14 +4018,15 @@
                 '<td class="dest-col">' + destBadges(objs) + "</td>" +
                 '<td><div class="actions">' +
                   (l.status === "active" && l.dc_created !== false ? '<button class="small dest" data-act="add-dest">+ Destination</button>' : "") +
-                  '<input class="inline-min" type="text" value="' + extendDefault + '" title="minutes to add — e.g. 30, 1h, 1h30m" data-act="min" />' +
-                  '<button class="small" data-act="extend">Extend</button>' +
+                  '<input class="inline-time" type="time" step="60" value="' + escapeHtml(endVal) + '" data-act="endtime" title="New end time (UTC) — the next future occurrence is used" />' +
+                  '<button class="small" data-act="adjust">Adjust end time</button>' +
                   '<button class="small" data-act="history">History</button>' +
                   '<button class="small danger" data-act="delete">Delete</button>' +
-                "</div></td></tr>"
+                '</div><div class="lease-sub endadj-preview" style="text-align: right"></div></td></tr>'
               );
             }).join("") +
             "</tbody></table></div>";
+          container.querySelectorAll("tr[data-lease]").forEach(rowAdjustPreview);
         }
 
         // Every TXEdge a stream was planned on (not only the DC one); a failed edge is red.
@@ -4076,19 +4094,36 @@
           var raw = $("bte-destmgr-endtime").value.trim();
           var info = endInfoFor(raw, null);
           var leaseEnd = data && data.lease.expires_at ? new Date(data.lease.expires_at) : null;
-          var problem = "";
-          if (!raw) problem = "Pick a removal time (UTC).";
-          else if (!info) problem = "Not understood — use HH:MM";
-          else if (leaseEnd && info.end >= leaseEnd) problem = "Must be earlier than the stream end (" + hhmmUtc(data.lease.expires_at) + ").";
-          return { info: info, problem: problem };
+          var res = { info: info, problem: "", extend: false, leaseEnd: leaseEnd };
+          if (!raw) res.problem = "Pick a removal time (UTC).";
+          else if (!info) res.problem = "Not understood — use HH:MM";
+          else if (leaseEnd && info.end > leaseEnd) {
+            var max = prov.status && prov.status.max_duration_minutes;
+            var created = data && data.lease.created_at ? new Date(data.lease.created_at) : null;
+            var capEnd = max && created ? new Date(created.getTime() + max * 60000) : null;
+            if (capEnd && info.end > capEnd) res.problem = "Beyond the maximum stream length (" + hhmmUtc(capEnd) + ").";
+            else res.extend = true; // accepted: the whole stream end is overwritten to cover it
+          }
+          return res;
         }
 
         function updateDestMgrPreview() {
           var r = destMgrInfo();
           var el = $("bte-destmgr-endtime-preview");
+          var note = $("bte-destmgr-extend-note");
           var data = destMgrData();
           el.textContent = r.problem || describeEnd(r.info);
           el.style.color = r.problem ? "var(--error)" : "";
+          if (r.extend) {
+            note.style.display = "";
+            note.textContent = "This removal time is after the stream end (" + hhmmUtc(r.leaseEnd) +
+              "). Saving will overwrite the end time of the whole stream and move it to " + hhmmUtc(r.info.end) +
+              " so it covers the destination.";
+          } else {
+            note.style.display = "none";
+            note.textContent = "";
+          }
+          $("bte-destmgr-set").textContent = r.extend ? "Set & extend stream end" : "Set removal time";
           $("bte-destmgr-set").disabled = !!r.problem || !(data && data.out);
         }
 
@@ -4167,8 +4202,11 @@
           var r = destMgrInfo();
           if (r.problem) return;
           var data = destMgrData();
-          destMgrCall("POST", "/expiry", { end_at: r.info.end.toISOString() },
-            "Removal time set — " + ((data && data.out && data.out.destination_name) || "destination") + " · " + describeEnd(r.info), false);
+          var body = { end_at: r.info.end.toISOString() };
+          if (r.extend) body.extend_stream = true;
+          destMgrCall("POST", "/expiry", body,
+            "Removal time set — " + ((data && data.out && data.out.destination_name) || "destination") + " · " + describeEnd(r.info) +
+            (r.extend ? " · stream end moved to " + hhmmUtc(r.info.end) : ""), false);
         }
 
         function destMgrClearExpiry() {
@@ -4260,6 +4298,7 @@
           var rows = $("bte-lease-container").querySelectorAll("tr[data-lease]");
           for (var i = 0; i < rows.length; i++) {
             var row = rows[i];
+            if (prov.endDraft[row.getAttribute("data-lease")] !== undefined) rowAdjustPreview(row);
             if (row.classList.contains("final")) continue;
             var exp = new Date(row.getAttribute("data-expires")).getTime();
             if (isNaN(exp)) continue;
@@ -4277,7 +4316,7 @@
               prov.leases = data.leases || [];
               prov.leasesMeta = data;
               prov.loadedAt = Date.now();
-              renderLeases();
+              if (!editingLeaseTime()) renderLeases();
               trackLeaseTransitions();
               if ($("bte-destmgr-dialog").open) renderDestMgr();
               if (bte.supplier) renderBteChannels();
@@ -4415,17 +4454,88 @@
             });
         }
 
-        function extendLease(leaseId, minutes) {
-          return bteFetch("/leases/" + encodeURIComponent(leaseId) + "/extend", {
+        // ---- adjust the end time of a running stream (UTC, same logic as at creation) ----
+        function leaseEndHhmm(l) {
+          var d = new Date(l.expires_at);
+          return isNaN(d) ? "" : pad2(d.getUTCHours()) + ":" + pad2(d.getUTCMinutes());
+        }
+
+        function adjustInfo(lease, raw) {
+          raw = String(raw || "").trim();
+          if (!raw) return { info: null, problem: "Pick an end time (UTC)." };
+          var info = endInfoFor(raw, null);
+          if (!info) return { info: null, problem: "Not understood — use HH:MM" };
+          var max = prov.status && prov.status.max_duration_minutes;
+          var created = lease.created_at ? new Date(lease.created_at).getTime() : NaN;
+          var capped = false;
+          if (max && isFinite(created) && info.end.getTime() > created + max * 60000) {
+            var capEnd = new Date(created + max * 60000);
+            info = { end: capEnd, minutes: Math.max(1, Math.ceil((capEnd - Date.now()) / 60000)), capped: true };
+            capped = true;
+          }
+          var cur = new Date(lease.expires_at);
+          if (Math.floor(info.end.getTime() / 60000) === Math.floor(cur.getTime() / 60000)) return { info: info, problem: "The stream already ends at that time." };
+          var cleared = (lease.objects || []).filter(function (o) {
+            return o.expires_at && o.status !== "deleted" && o.status !== "gone" && new Date(o.expires_at) >= info.end;
+          }).length;
+          return { info: info, problem: "", capped: capped, shortens: info.end < cur, cleared: cleared };
+        }
+
+        function rowAdjustPreview(row) {
+          var id = row.getAttribute("data-lease");
+          var el = row.querySelector(".endadj-preview");
+          var input = row.querySelector('input[data-act="endtime"]');
+          if (!el || !input) return;
+          var lease = prov.leases.filter(function (l) { return l.lease_id === id; })[0];
+          var text = "", color = "";
+          if (lease && prov.endDraft[id] !== undefined) {
+            var r = adjustInfo(lease, input.value);
+            if (r.problem) {
+              text = r.problem;
+              color = "var(--error)";
+            } else {
+              text = "→ " + describeEnd(r.info) + (r.capped ? " (capped to the maximum length)" : "") +
+                (r.shortens ? " · shortens the stream" : "") +
+                (r.cleared ? " · clears " + r.cleared + " destination removal time(s)" : "");
+              color = r.capped || r.shortens || r.cleared ? "var(--warn)" : "";
+            }
+          }
+          if (el.textContent !== text) el.textContent = text;
+          if (el.style.color !== color) el.style.color = color;
+        }
+
+        // The list is not redrawn while the user is typing in an end-time field.
+        function editingLeaseTime() {
+          var a = document.activeElement;
+          return !!(a && a.classList && a.classList.contains("inline-time"));
+        }
+
+        function adjustLeaseEnd(leaseId, raw) {
+          var lease = prov.leases.filter(function (l) { return l.lease_id === leaseId; })[0];
+          if (!lease) return Promise.resolve();
+          var r = adjustInfo(lease, raw);
+          if (r.problem) {
+            alert(r.problem);
+            return Promise.resolve();
+          }
+          var name = lease.resource_name || leaseId.slice(0, 8);
+          if (r.shortens && !confirm(
+            "Shorten " + name + " to end at " + hhmmUtc(r.info.end) + " (it currently ends at " + hhmmUtc(lease.expires_at) + ")?" +
+            (r.cleared ? "\n\n" + r.cleared + " destination removal time(s) after that moment will be cleared." : ""))) {
+            return Promise.resolve();
+          }
+          return bteFetch("/leases/" + encodeURIComponent(leaseId) + "/end", {
             method: "POST",
-            body: JSON.stringify({ minutes: minutes }),
+            body: JSON.stringify({ end_at: r.info.end.toISOString() }),
           })
             .then(function (res) {
+              delete prov.endDraft[leaseId];
               if (res.note) provNotice(res.note, "warn");
-              provLog("Extended lease " + leaseId.slice(0, 8) + " by " + minutes + " min", "log-dim");
+              provLog("End time of " + name + " set to " + hhmmUtc(res.expires_at), "log-ok");
+              if (audit.loaded) loadAudit();
               return loadLeases();
             })
-            .catch(function (err) { provNotice("Extend failed: " + err.message, "bad"); });
+            .catch(function (err) { provNotice("Adjust end time failed: " + err.message, "bad"); });
         }
 
         function deleteLease(leaseId, name) {
@@ -4539,6 +4649,15 @@
           $("bte-prov-endtime").addEventListener("change", updateEndTimePreview);
           $("bte-btn-leases-reload").addEventListener("click", loadLeases);
           $("bte-btn-delete-all").addEventListener("click", deleteAllLeases);
+          ["input", "change"].forEach(function (type) {
+            $("bte-lease-container").addEventListener(type, function (ev) {
+              var inp = ev.target;
+              if (!inp || !inp.getAttribute || inp.getAttribute("data-act") !== "endtime") return;
+              var row = inp.closest("tr[data-lease]");
+              prov.endDraft[row.getAttribute("data-lease")] = inp.value;
+              rowAdjustPreview(row);
+            });
+          });
           $("bte-lease-container").addEventListener("click", function (ev) {
             var btn = ev.target.closest ? ev.target.closest("[data-act]") : null;
             if (!btn) return;
@@ -4549,15 +4668,9 @@
               openDestMgr(id, btn.getAttribute("data-dest"));
             } else if (btn.getAttribute("data-act") === "add-dest") {
               openDestPicker(id);
-            } else if (btn.getAttribute("data-act") === "extend") {
-              var raw = row.querySelector('input[data-act="min"]').value;
-              var minutes = parseDurationMinutes(raw);
-              if (!isFinite(minutes) || minutes <= 0) {
-                alert('Duration not understood — use minutes, "1h30m", or "H:MM".');
-                return;
-              }
+            } else if (btn.getAttribute("data-act") === "adjust") {
               btn.disabled = true;
-              extendLease(id, minutes).then(function () { btn.disabled = false; });
+              adjustLeaseEnd(id, row.querySelector('input[data-act="endtime"]').value).then(function () { btn.disabled = false; });
             } else if (btn.getAttribute("data-act") === "delete") {
               deleteLease(id, lease.resource_name || id);
             } else if (btn.getAttribute("data-act") === "history") {

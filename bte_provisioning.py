@@ -96,7 +96,7 @@ Environment variables (.env):
 
 Audit log: /opt/web/data/bte_audit.jsonl (append-only, mode 0600, one UTC-timestamped
 JSON event per line: created, create_failed, create_partial, create_refused, deleted, extended,
-destination_added, destination_removed, destination_expiry). Failures (create_*, incomplete deletes, failed destination
+destination_added, destination_removed, destination_expiry, end_adjusted). Failures (create_*, incomplete deletes, failed destination
 adds) carry the error text so they stay available after a restart or a page
 reload. Independent of the
 lease registry above so history survives lease history trimming (HISTORY_KEEP).
@@ -1994,13 +1994,85 @@ def remove_destination(lease_id, destination_id, reason, username, client=None):
     return lease, error
 
 
-def set_destination_expiry(lease_id, destination_id, end_at, username):
+def _hhmm(dt):
+    return dt.astimezone(timezone.utc).strftime('%H:%M')
+
+
+def _move_lease_end(lease, new_end, username, reason=None):
+    """Overwrite a lease's end and record it in ``extensions`` (signed minutes).
+    Returns (old end, signed minutes)."""
+    old = _parse_iso(lease['expires_at']) or new_end
+    delta = int(round((new_end - old).total_seconds() / 60))
+    lease['expires_at'] = _iso(new_end)
+    lease['extensions'].append({'at': _iso(_now()), 'minutes': delta, 'requested': delta,
+                                'by': username, 'reason': reason})
+    return old, delta
+
+
+def set_lease_end(lease_id, end_at, username):
+    """Set the absolute end of a running lease (UTC datetime): later OR earlier than now.
+
+    Capped at the maximum lease length counted from creation. Shortening clears the
+    own removal time of destinations that would fall after the new end (they then
+    follow the stream). Returns (lease, error, info) — info carries 'note',
+    'cleared_destinations' and the old/new end when something changed.
+    """
+    outcome = {'error': None, 'note': None, 'old': None, 'delta': 0, 'cleared': []}
+
+    def _apply(l):
+        if l['status'] not in ACTIVE_STATUSES:
+            outcome['error'] = f'lease is {l["status"]} and cannot be adjusted'
+            return
+        now = _now()
+        created = _parse_iso(l['created_at']) or now
+        cap = created + timedelta(minutes=MAX_DURATION_MIN)
+        new_end = min(end_at, cap)
+        if new_end < end_at:
+            outcome['note'] = f'capped at the maximum lease length of {MAX_DURATION_MIN} min ({_hhmm(cap)} UTC)'
+        if new_end <= now:
+            outcome['error'] = 'The end time must be in the future'
+            return
+        old = _parse_iso(l['expires_at']) or now
+        if int(new_end.timestamp() // 60) == int(old.timestamp() // 60):   # same minute: nothing to change
+            outcome['error'] = 'The stream already ends at that time'
+            return
+        for o in l['objects']:
+            exp = _parse_iso(o.get('expires_at'))
+            if exp and exp >= new_end and o['status'] not in _GONE:
+                o['expires_at'] = None
+                outcome['cleared'].append(o.get('destination_name') or o['name'])
+        outcome['old'], outcome['delta'] = _move_lease_end(l, new_end, username, 'adjust')
+
+    lease = _update_lease(lease_id, _apply)
+    if lease is None:
+        return None, 'Lease not found', {}
+    info = {'note': outcome['note'], 'cleared_destinations': outcome['cleared']}
+    if outcome['error'] is None:
+        _append_audit({
+            'event': 'end_adjusted',
+            'lease_id': lease_id,
+            'resource_id': lease.get('resource_id'),
+            'resource_name': lease.get('resource_name'),
+            'user': username,
+            'old_end': _iso(outcome['old']),
+            'new_end': lease['expires_at'],
+            'minutes': outcome['delta'],
+            'reason': 'adjust',
+            'note': outcome['note'],
+            'cleared_destinations': outcome['cleared'],
+        })
+    return lease, outcome['error'], info
+
+
+def set_destination_expiry(lease_id, destination_id, end_at, username, extend_stream=False):
     """Schedule (``end_at``, a UTC datetime) or clear (None) the automatic removal of ONE destination.
 
     The destination is then removed by the reaper at that moment while the stream keeps
-    running. The time must be before the stream's own end. Returns (lease, error).
+    running. A time after the stream end is refused unless ``extend_stream`` is set: the
+    end of the whole stream is then overwritten to cover it (capped at the maximum lease
+    length). Returns (lease, error).
     """
-    outcome = {'error': None, 'name': None, 'expires_at': None}
+    outcome = {'error': None, 'name': None, 'expires_at': None, 'moved': None}
 
     def _apply(l):
         if l['status'] != 'active':
@@ -2016,10 +2088,18 @@ def set_destination_expiry(lease_id, destination_id, end_at, username):
             out.pop('expires_at', None)
             return
         lease_end = _parse_iso(l['expires_at'])
-        if lease_end and end_at >= lease_end:
-            outcome['error'] = ('The removal time must be before the stream ends '
-                                f"({lease_end.astimezone(timezone.utc).strftime('%H:%M')} UTC)")
-            return
+        if lease_end and end_at > lease_end:
+            if not extend_stream:
+                outcome['error'] = (f'The removal time is after the stream end ({_hhmm(lease_end)} UTC): '
+                                    'the stream end has to be extended as well (extend_stream=true)')
+                return
+            created = _parse_iso(l['created_at']) or lease_end
+            cap = created + timedelta(minutes=MAX_DURATION_MIN)
+            if end_at > cap:
+                outcome['error'] = ('The removal time is beyond the maximum stream length '
+                                    f'({MAX_DURATION_MIN} min, until {_hhmm(cap)} UTC)')
+                return
+            outcome['moved'] = _move_lease_end(l, end_at, username, 'destination removal time')
         out['expires_at'] = _iso(end_at)
         outcome['expires_at'] = out['expires_at']
 
@@ -2027,6 +2107,20 @@ def set_destination_expiry(lease_id, destination_id, end_at, username):
     if lease is None:
         return None, 'Lease not found'
     if outcome['error'] is None:
+        if outcome['moved']:
+            old, delta = outcome['moved']
+            _append_audit({
+                'event': 'end_adjusted',
+                'lease_id': lease_id,
+                'resource_id': lease.get('resource_id'),
+                'resource_name': lease.get('resource_name'),
+                'user': username,
+                'old_end': _iso(old),
+                'new_end': lease['expires_at'],
+                'minutes': delta,
+                'reason': 'destination removal time',
+                'destination_name': outcome['name'],
+            })
         _append_audit({
             'event': 'destination_expiry',
             'lease_id': lease_id,

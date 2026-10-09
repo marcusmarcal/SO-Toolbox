@@ -10,6 +10,28 @@ Each bullet starts with the name of the tool it affects (e.g. `Video Analyser:`,
 
 ---
 
+## [4.16.5] - 2026-10-09
+
+### Added
+- TXCore Provisioning: "Adjust end time" on running streams (UTC time field with
+  preview) that can extend or shorten the stream; shortening asks for
+  confirmation and clears destination removal times after the new end.
+- TXCore Provisioning: endpoint POST /api/bte/leases/<id>/end and audit event
+  end_adjusted.
+
+### Changed
+- TXCore Provisioning: a destination removal time after the stream end is
+  accepted; the popup warns that the whole stream end is overwritten to cover
+  it (the API requires extend_stream=true).
+- TXCore Provisioning: the stream "Extend" minutes field is replaced by "Adjust
+  end time".
+- TXCore Provisioning: larger "+ Destination" button, selected destinations and
+  destination pills in the active streams list.
+
+### Fixed
+- TXCore Provisioning: end times typed in the active streams list are no longer
+  lost when the list refreshes.
+
 ## [4.16.4] - 2026-10-09
 
 ### Added
