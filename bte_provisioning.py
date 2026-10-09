@@ -42,7 +42,8 @@ transcoding platform. Everything above is unchanged except:
         the supplier stream)
     AVE / LMK / YER edges
         + source SRT caller  <DC edge pub=SRT ip>:<Mezz output port>  — the ACTIVE (primary) source
-        the original supplier source stays on the stream, PAUSED
+        (named SRC_<ch>_A_SRT_<edge>, listed first); the original supplier source stays on
+        the stream as SRC_<ch>_B_SRT_<edge>, PAUSED
 
 Target TXEdges: a request may restrict creation to a subset of the targets
 DC (the DC edge), AVE, LMK and YER ("targets" field, default: all). Regional
@@ -519,8 +520,8 @@ def stream_name(base, edge_key):
     return f'{_slug(base)}_{edge_key}_{BTE_TAG}'          # VET_CH01_INX01_[BTE]
 
 
-def source_name(base, edge_key, protocol):
-    return f'SRC_{_slug(base)}_A_{protocol}_{edge_key}'  # SRC_VET_CH01_A_SRT_INX01
+def source_name(base, edge_key, protocol, slot='A'):
+    return f'SRC_{_slug(base)}_{slot}_{protocol}_{edge_key}'  # SRC_VET_CH01_A_SRT_INX01
 
 
 def output_name(base, edge_key, protocol):
@@ -1054,14 +1055,14 @@ def build_plan(item, edges=None, passphrase_override=None, destinations=None, ta
         n_stream, n_src, n_out = stream_name(base, key), source_name(base, key, 'SRT'), output_name(base, key, 'UDP')
         objects = [{'kind': 'stream', 'name': n_stream, 'body': _stream_obj(sid, n_stream, 'none')}]
         if mezz_spec:
-            # The Mezz source is the primary (active, listed first); the original supplier
-            # source stays on the stream, paused.
-            n_mezz = f'SRC_{_slug(base)}_MEZZ_{mezz_spec["label"]}_SRT_{key}'
-            objects.append({'kind': 'source', 'name': n_mezz, 'mezz': 'regional_source',
-                            'body': _endpoint_obj(sid, n_mezz, 'SRT', _srt_options(
+            # The Mezz source is slot "A" (active, listed first, regular short name); the
+            # original supplier source becomes slot "B", paused.
+            objects.append({'kind': 'source', 'name': n_src, 'mezz': 'regional_source',
+                            'body': _endpoint_obj(sid, n_src, 'SRT', _srt_options(
                                 'caller', dc['pub']['SRT'], mezz_spec['out_port'], latency, INTERNAL_PASSPHRASE,
                                 MEZZ_ENCRYPTION, edge['in'].get('SRT')))})
-        objects.append({'kind': 'source', 'name': n_src, 'body': _endpoint_obj(sid, n_src, 'SRT', _srt_options(
+        n_orig = source_name(base, key, 'SRT', slot='B') if mezz_spec else n_src
+        objects.append({'kind': 'source', 'name': n_orig, 'body': _endpoint_obj(sid, n_orig, 'SRT', _srt_options(
             'caller', dc['pub']['SRT'], out_port, latency, INTERNAL_PASSPHRASE, 'AES-256', edge['in'].get('SRT')),
             active=not mezz_spec)})
         objects.append({'kind': 'output', 'name': n_out, 'body': _endpoint_obj(sid, n_out, 'UDP', _udp_options(
