@@ -3,6 +3,18 @@
 # Rota Changelog
 
 
+## 2026-10-09
+
+### Fixed
+- Parental and Marital leave cells now display the underlying rotation
+  shift text over the background colour/dot pattern (grid, draft view,
+  print export). Cells on OFF days remain blank.
+### Technical
+- `/rota/schedule`, `/rota/draft`, `/rota/print-export`: each cell now
+  includes `display_base` (display-only; null unless shift is
+  PARENTAL/MARITAL). `shift` values and all hours/coverage logic are
+  unchanged.
+
 ## 2026-10-08
 
 ### Fixed

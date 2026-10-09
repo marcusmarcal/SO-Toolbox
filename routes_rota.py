@@ -463,10 +463,15 @@ def _build_schedule(date_from: date, date_to: date,
                     'Specialists')
             shift = _resolve_shift(name, d, leave_map, override_map)
             note  = note_map.get((name, d))
+            # Display-only: the underlying rotation shift hidden by
+            # Parental/Marital leave. Never used for hours/coverage logic.
+            display_base = (_base_shift(name, d)
+                            if shift in ('PARENTAL', 'MARITAL') else None)
             day['shifts'][name] = {
-                'team':  team,
-                'shift': shift,
-                'note':  note,
+                'team':         team,
+                'shift':        shift,
+                'note':         note,
+                'display_base': display_base,
             }
         days.append(day)
         d += timedelta(days=1)

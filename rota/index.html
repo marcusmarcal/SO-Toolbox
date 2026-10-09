@@ -2308,7 +2308,7 @@
     }
   }
 
-  function _computeCellDisplay(shift) {
+  function _computeCellDisplay(shift, baseShift) {
     let bg = '#2a2a2a', fg = '#555', text = shift, extra = '';
     if (shift.includes('|')) {
       const [code, orig] = shift.split('|');
@@ -2327,7 +2327,10 @@
         bg = c.bg; fg = c.fg;
         if (c.dotted) extra = ' dotted';
         if (c.absent) extra = ' absent-overlay';
-        if (['AL_APPROVED','AL_PENDING','PARENTAL','MARITAL'].includes(shift)) text = '';
+        if (['AL_APPROVED','AL_PENDING'].includes(shift)) text = '';
+        if (shift === 'PARENTAL' || shift === 'MARITAL') {
+          text = (baseShift && baseShift !== 'OFF') ? baseShift : '';
+        }
       } else if (/^\d{4}-\d{4}$/.test(shift)) {
         // Custom shift with no predefined color — try stored custom colors
         bg = '#7a7a7a'; fg = '#000';
@@ -2538,7 +2541,7 @@
           const shift = (day.shifts[name] || {}).shift || 'OFF';
           const note  = (day.shifts[name] || {}).note  || '';
           const sep   = mi === 0 ? ' team-sep' : '';
-          const { bg, fg, text, extra } = _computeCellDisplay(shift);
+          const { bg, fg, text, extra } = _computeCellDisplay(shift, (day.shifts[name] || {}).display_base);
 
           const noteCls = note ? ' has-note' : '';
           const safeNote = note.replace(/"/g, '&quot;');
@@ -2674,7 +2677,7 @@
       const displayShift = ov ? ov.shift : shift;
       const displayNote  = ov ? (ov.note || '') : note;
 
-      const { bg, fg, text, extra } = _computeCellDisplay(displayShift);
+      const { bg, fg, text, extra } = _computeCellDisplay(displayShift, (day.shifts[person] || {}).display_base);
       const noteCls  = displayNote ? ' has-note' : '';
       const safeNote = displayNote.replace(/"/g, '&quot;');
 
@@ -5370,7 +5373,7 @@ function _removeCellFromBoxes(ri, ci) {
             // colors entirely for OFF — light gray cell, darker gray text.
             tbody += `<td class="${sep}${noteCls} print-off-cell">OFF</td>`;
           } else {
-            const { bg, fg, text } = _computeCellDisplay(shift);
+            const { bg, fg, text } = _computeCellDisplay(shift, (day.shifts[name] || {}).display_base);
             tbody += `<td class="${sep}${noteCls}" style="background:${bg};color:${fg};">${text}</td>`;
           }
         });
